@@ -6,15 +6,15 @@ namespace Jint.WebApi;
 
 /// <summary>
 /// A copy of a script's <c>ReadableStream</c> into a host <see cref="Stream"/> in progress, handed back by
-/// <c>Engine.Advanced.StartReadableStreamCopy</c>. Requires .NET 8 or higher.
+/// <c>Engine.WebApi.StartReadableStreamCopy</c>. Requires .NET 8 or higher.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The engine makes progress on the copy only when it is given turns.</b> Every chunk comes out of the
 /// engine, so the copy advances on the event loop and nowhere else: a host with a thread it must not block —
-/// a game loop, a UI thread — drives it by calling <c>engine.Advanced.ProcessTasks()</c> and watching
+/// a game loop, a UI thread — drives it by calling <c>engine.Tasks.ProcessTasks()</c> and watching
 /// <see cref="IsCompleted"/>. A host that would rather await something has
-/// <c>Engine.Advanced.CopyReadableStreamAsync</c>, which drives the same operation while it waits. This is
+/// <c>Engine.WebApi.CopyReadableStreamAsync</c>, which drives the same operation while it waits. This is
 /// the contract <c>Engine.Modules.StartImport</c> and <c>ImportAsync</c> already have, and it is deliberately
 /// the same one.
 /// </para>
@@ -26,10 +26,10 @@ namespace Jint.WebApi;
 /// <example>
 /// <code>
 /// // once
-/// _copy = engine.Advanced.StartReadableStreamCopy(stream, File.Create(path));
+/// _copy = engine.WebApi.StartReadableStreamCopy(stream, File.Create(path));
 ///
 /// // every frame
-/// engine.Advanced.ProcessTasks();
+/// engine.Tasks.ProcessTasks();
 /// if (_copy.IsCompleted)
 /// {
 ///     var written = _copy.GetResult();   // throws PromiseRejectedException if the copy failed
@@ -139,7 +139,7 @@ public sealed class HostStreamCopyOperation
     {
         if (!IsCompleted)
         {
-            Throw.InvalidOperationException("The stream copy has not completed. Give the engine turns with engine.Advanced.ProcessTasks() until IsCompleted is true, or await Engine.Advanced.CopyReadableStreamAsync instead.");
+            Throw.InvalidOperationException("The stream copy has not completed. Give the engine turns with engine.Tasks.ProcessTasks() until IsCompleted is true, or await Engine.WebApi.CopyReadableStreamAsync instead.");
         }
 
         if (IsFaulted)

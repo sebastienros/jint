@@ -39,7 +39,7 @@ run(gate);";
     private static Engine CreateEngine(out ManualPromise gate)
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
-        gate = engine.Advanced.RegisterPromise();
+        gate = engine.Tasks.RegisterPromise();
         engine.SetValue("gate", gate.Promise);
         return engine;
     }

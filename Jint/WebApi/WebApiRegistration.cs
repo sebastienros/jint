@@ -14,7 +14,7 @@ namespace Jint.WebApi;
 /// <summary>
 /// Installs the globals for the web APIs an engine opted into. Invoked from <c>Options.Apply</c>, which is
 /// the sanctioned conditional-install site — the same one <c>Interop.Enabled</c> and
-/// <c>Modules.RegisterRequire</c> use — and from <c>Engine.Advanced.EnableWebApis</c>, which is the same
+/// <c>Modules.RegisterRequire</c> use — and from <c>Engine.WebApi.Enable</c>, which is the same
 /// work applied to an engine that already exists.
 /// </summary>
 /// <remarks>
@@ -56,8 +56,8 @@ internal static class WebApiRegistration
     {
         var features = ExpandFeatures(options.WebApi.Features);
 
-        // Recorded on the engine because two host APIs — Engine.Advanced.CreateMessagePortPair and
-        // Engine.Advanced.EnableWebApis — have to be able to ask what an engine already carries, and Options
+        // Recorded on the engine because two host APIs — Engine.WebApi.CreateMessagePortPair and
+        // Engine.WebApi.Enable — have to be able to ask what an engine already carries, and Options
         // is shareable so it cannot be asked later.
         engine._webApiFeatures = features;
 
@@ -66,7 +66,7 @@ internal static class WebApiRegistration
     }
 
     /// <summary>
-    /// The post-construction door: <c>Engine.Advanced.EnableWebApis</c>. Additive only, and deliberately the
+    /// The post-construction door: <c>Engine.WebApi.Enable</c>. Additive only, and deliberately the
     /// very same closure, state-creation and install code <see cref="Apply"/> runs — the only differences are
     /// that the state may have to be <i>extended</i> rather than created, and that the install lands on an
     /// engine whose inline caches may already hold a resolved binding for one of these names.
@@ -506,7 +506,7 @@ internal static class WebApiRegistration
     /// itself.
     /// </summary>
     /// <remarks>
-    /// Split out because the model has a second door: <c>Engine.Advanced.SetFetchHandler</c> routes an
+    /// Split out because the model has a second door: <c>Engine.WebApi.SetFetchHandler</c> routes an
     /// inbound request into script, which needs <c>Response</c> to answer with and is no reason at all to
     /// grant the script outbound network access. Both doors install the same three globals, the same way and
     /// with the same WebIDL attributes — an interface object is writable and configurable but not enumerable,
@@ -559,7 +559,7 @@ internal static class WebApiRegistration
         // fetch-handler hosting already demands (Events | Url | Files), reached through the feature that owns
         // the listener list. Pointedly not WebApiFeatures.Fetch: dispatching an inbound request into script is
         // a different grant from letting the script reach out to the network, the same split
-        // Engine.Advanced.SetFetchHandler makes when it installs the object model and not `fetch`.
+        // Engine.WebApi.SetFetchHandler makes when it installs the object model and not `fetch`.
         if ((features & WebApiFeatures.FetchEvents) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.GlobalEvents | WebApiFeatures.Url | WebApiFeatures.Files;
@@ -617,7 +617,7 @@ internal static class WebApiRegistration
     /// left to the closure that already brings <see cref="WebApiFeatures.Events"/> with it, because the reason
     /// it needs the state is its own — a target to fire at, not the time origin the events feature wants. The
     /// fetch events are named for the same reason once more removed: what
-    /// <c>Engine.Advanced.InvokeFetchHandler</c> reads is that very target plus the registered handler slot,
+    /// <c>Engine.WebApi.InvokeFetchHandler</c> reads is that very target plus the registered handler slot,
     /// both of which live here, and a closure is not a reason to depend on one.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =

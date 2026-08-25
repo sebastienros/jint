@@ -188,7 +188,7 @@ public class AtomicsWaiterRegistryTests
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (DateTime.UtcNow < deadline && engine.Evaluate("outcome").AsString() == "pending")
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 

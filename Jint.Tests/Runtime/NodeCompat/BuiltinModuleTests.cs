@@ -90,7 +90,7 @@ public class BuiltinModuleTests
         var engine = new Engine(options => options.UseNodeBuiltinModules(o => o.Platform = "linux"));
 
         engine.Execute("var result; import('node:path').then(m => { result = m.join('a', 'b'); });");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("result").AsString().Should().Be("a/b");
     }

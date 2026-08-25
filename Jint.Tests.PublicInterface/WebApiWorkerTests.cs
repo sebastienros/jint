@@ -247,7 +247,7 @@ public class WebApiWorkerTests
 
     /// <summary>
     /// One provider serving a pool of engines reaches per-request policy through
-    /// <c>request.Parent.Advanced.HostDefined</c>, which is per engine and which the engine never reads.
+    /// <c>request.Parent.HostDefined</c>, which is per engine and which the engine never reads.
     /// </summary>
     [Fact]
     public void TheProviderCanReachPerRequestStateThroughHostDefined()
@@ -255,15 +255,15 @@ public class WebApiWorkerTests
         var seen = new List<string>();
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string> { ["./worker.js"] = "" })
         {
-            Inspect = request => seen.Add((string) request.Parent.Advanced.HostDefined!),
+            Inspect = request => seen.Add((string) request.Parent.HostDefined!),
         };
 
         var shared = new Options().UseWebApis().UseWorkers(host);
 
         var tenantA = new Engine(shared);
-        tenantA.Advanced.HostDefined = "tenant-a";
+        tenantA.HostDefined = "tenant-a";
         var tenantB = new Engine(shared);
-        tenantB.Advanced.HostDefined = "tenant-b";
+        tenantB.HostDefined = "tenant-b";
 
         tenantA.Execute("new Worker('./worker.js', { type: 'module' });");
         tenantB.Execute("new Worker('./worker.js', { type: 'module' });");
@@ -295,7 +295,7 @@ public class WebApiWorkerTests
                 {
                     try
                     {
-                        connection.Worker.Advanced.ProcessTasks();
+                        connection.Worker.Tasks.ProcessTasks();
                     }
                     catch (Exception ex)
                     {
@@ -381,7 +381,7 @@ public class WebApiWorkerTests
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (DateTime.UtcNow < deadline && parent.Evaluate("got").IsNull())
         {
-            parent.Advanced.ProcessTasks();
+            parent.Tasks.ProcessTasks();
             host.Answered.Wait(TimeSpan.FromMilliseconds(50));
         }
 
@@ -570,10 +570,10 @@ public class WebApiWorkerTests
             {
                 foreach (var connection in Connections)
                 {
-                    connection.Worker.Advanced.ProcessTasks();
+                    connection.Worker.Tasks.ProcessTasks();
                 }
 
-                parent.Advanced.ProcessTasks();
+                parent.Tasks.ProcessTasks();
             }
         }
     }
@@ -611,7 +611,7 @@ public class WebApiWorkerTests
                 {
                     while (!connection.IsEnded)
                     {
-                        connection.Worker.Advanced.ProcessTasks();
+                        connection.Worker.Tasks.ProcessTasks();
                         connection.TerminationToken.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(5));
                     }
                 }

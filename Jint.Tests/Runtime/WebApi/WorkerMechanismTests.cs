@@ -244,7 +244,7 @@ public class WorkerMechanismTests
         {
             for (var i = 0; i < 200 && !evaluated.IsSet; i++)
             {
-                connection.Worker.Advanced.ProcessTasks();
+                connection.Worker.Tasks.ProcessTasks();
             }
         })
         {
@@ -562,7 +562,7 @@ public class WorkerMechanismTests
         {
             try
             {
-                connection.Worker.Advanced.ProcessTasks();
+                connection.Worker.Tasks.ProcessTasks();
             }
             catch (Exception ex)
             {
@@ -998,7 +998,7 @@ public class WorkerMechanismTests
         host.Log.Should().NotContain("finished");
 
         tripwire.Tripped = false;
-        parent.Advanced.ProcessTasks();
+        parent.Tasks.ProcessTasks();
         parent.Evaluate("seen.join(',')").AsString().Should().BeEmpty("the parent's script never learns of a budget");
     }
 
@@ -1215,7 +1215,7 @@ public class WorkerMechanismTests
             {
                 while (!connection.IsEnded)
                 {
-                    connection.Worker.Advanced.ProcessTasks();
+                    connection.Worker.Tasks.ProcessTasks();
                 }
             }
             catch (ExecutionCanceledException)
@@ -1378,7 +1378,7 @@ public class WorkerMechanismTests
         fired.Should().Be(0, "nothing has pumped the parent yet");
 
         parent.Advanced.RestoreGlobalSnapshot(snapshot);
-        parent.Advanced.ProcessTasks();
+        parent.Tasks.ProcessTasks();
 
         fired.Should().Be(0, "the job carries the generation of the cycle that queued it");
     }
@@ -1459,7 +1459,7 @@ public class WorkerMechanismTests
         host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.WorkerDisposed);
 
         parent.Execute("w.postMessage('after');");
-        parent.Advanced.ProcessTasks();
+        parent.Tasks.ProcessTasks();
         host.Log.Should().Be("before");
     }
 
@@ -1768,7 +1768,7 @@ public class WorkerMechanismTests
         for (var i = 0; i < rounds; i++)
         {
             PumpWorker(connection);
-            parent.Advanced.ProcessTasks();
+            parent.Tasks.ProcessTasks();
         }
     }
 
@@ -1784,7 +1784,7 @@ public class WorkerMechanismTests
     {
         try
         {
-            connection.Worker.Advanced.ProcessTasks();
+            connection.Worker.Tasks.ProcessTasks();
         }
         catch (ExecutionCanceledException)
         {

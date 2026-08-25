@@ -220,7 +220,7 @@ public class GlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("error,true,true,false");
         engine.Evaluate("seen instanceof ErrorEvent").AsBoolean().Should().BeTrue();
@@ -341,7 +341,7 @@ public class GlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The listener really did cancel — this is HTML's notHandled going false — and the host's channel is
         // told anyway. That is the locked divergence: a script may observe a failure, never hide one.
@@ -391,7 +391,7 @@ public class GlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<RecursionDepthOverflowException>(() => engine.Advanced.ProcessTasks());
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Tasks.ProcessTasks());
 
         Log(engine).Should().Be("");
         sink.Reports.Should().BeEmpty();
@@ -411,7 +411,7 @@ public class GlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks()).Message.Should().Be("boom");
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks()).Message.Should().Be("boom");
 
         Log(engine).Should().Be("");
     }
@@ -497,7 +497,7 @@ public class GlobalErrorEventTests
 
         engine.Execute("setTimeout(function () { throw new Error('boom'); }, 1);");
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
     }
@@ -543,7 +543,7 @@ public class GlobalErrorEventTests
 
         engine.Evaluate("typeof addEventListener").AsString().Should().Be("undefined");
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.GlobalEvents | WebApiFeatures.Reporting);
+        engine.WebApi.Enable(WebApiFeatures.GlobalEvents | WebApiFeatures.Reporting);
 
         // GlobalEvents implies Events, so the machinery it needs arrives with it.
         engine.Evaluate("typeof Event").AsString().Should().Be("function");

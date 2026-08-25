@@ -89,7 +89,7 @@ public class ModuleLoadPhaseTests
         loadPromise.State.Should().Be(PromiseState.Pending, "the load phase cannot finish while 'dep' is held back");
 
         loader.Release("dep");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         loadPromise.State.Should().Be(PromiseState.Fulfilled);
         loadPromise.Value.Should().Be(JsValue.Undefined, "https://tc39.es/ecma262/#sec-InnerModuleLoading step 5.c resolves with undefined");
@@ -108,7 +108,7 @@ public class ModuleLoadPhaseTests
 
         var loadPromise = (JsPromise) module.LoadRequestedModules();
         loader.Release("missing");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         loadPromise.State.Should().Be(PromiseState.Rejected);
         loadPromise.Value.Get("message").AsString().Should().Contain("Module not found: missing");
@@ -135,7 +135,7 @@ public class ModuleLoadPhaseTests
         module.Status.Should().Be(ModuleStatus.New, "'second' has not arrived, so the graph is not loaded");
 
         loader.Release("second");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         module.Status.Should().Be(ModuleStatus.Unlinked);
     }
@@ -251,13 +251,13 @@ public class ModuleLoadPhaseTests
         // abandonment rather than the delivery, which is what makes the fence observable to a host that only
         // has the operation to poll - the promise behind it stays pending forever.
         loader.Release("late");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         abandoned.IsFaulted.Should().BeTrue("a promise registered before a restore never settles into the engine afterwards");
         abandoned.Namespace.Should().BeNull();
 
         // A fresh import asks again rather than waiting on the abandoned load.
         var reimported = engine.Modules.StartImport("late");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         reimported.IsCompleted.Should().BeTrue();
         reimported.GetResult().Get("value").AsString().Should().Be("second-cycle");

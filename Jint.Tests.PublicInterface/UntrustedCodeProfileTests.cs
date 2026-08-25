@@ -213,7 +213,7 @@ public class UntrustedCodeProfileTests
         var engine = new Engine(options).SetValue("host", new PrivateHost());
 
         engine.Evaluate("host.Secret").IsUndefined().Should().BeTrue();
-        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
 
     [Fact]
@@ -469,7 +469,7 @@ public class UntrustedCodeProfileTests
         using (limits.BeginOperation(engine, cancellation.Token))
         {
             var value = engine.Evaluate("({ answer: 42 })");
-            engine.Advanced.ConvertResult(value).Should().NotBeNull();
+            engine.ConvertResult(value).Should().NotBeNull();
             new JsonSerializer(engine).Serialize(value).AsString().Should().Be("""{"answer":42}""");
 
             var exception = Invoking(() => engine.Evaluate("throw new Error('safe')"))
@@ -501,12 +501,12 @@ public class UntrustedCodeProfileTests
     {
         var cleanOptions = new Options().ForUntrustedCode(CreateLimits());
         cleanOptions.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
-        new Engine(cleanOptions).Advanced.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
+        new Engine(cleanOptions).Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
 
         var callbackOptions = new Options();
         callbackOptions.Configure(static _ => { });
         callbackOptions.ForUntrustedCode(CreateLimits());
-        var report = new Engine(callbackOptions).Advanced.ValidateSecurityConfiguration();
+        var report = new Engine(callbackOptions).Diagnostics.ValidateSecurityConfiguration();
 
         report.Diagnostics.Select(static diagnostic => diagnostic.Code)
             .Should().Equal(SecurityDiagnosticCodes.EngineConstructionCallback);
@@ -537,7 +537,7 @@ public class UntrustedCodeProfileTests
         Invoking(() => engine.Evaluate($"'{new string('1', 31)}'"))
             .Should().Throw<ParsingLimitException>();
         var value = engine.Evaluate("({ a: 1, b: 2 })");
-        Invoking(() => engine.Advanced.ConvertResult(value))
+        Invoking(() => engine.ConvertResult(value))
             .Should().Throw<ResultLimitExceededException>();
     }
 
@@ -574,7 +574,7 @@ public class UntrustedCodeProfileTests
         var limits = CreateLimits();
         var options = new Options().ForUntrustedCode(limits);
         var engine = new Engine(options);
-        var report = engine.Advanced.ValidateSecurityConfiguration();
+        var report = engine.Diagnostics.ValidateSecurityConfiguration();
         return (new WeakReference(limits), new WeakReference(options), new WeakReference(engine), report);
     }
 

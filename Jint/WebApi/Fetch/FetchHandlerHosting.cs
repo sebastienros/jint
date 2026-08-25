@@ -51,7 +51,7 @@ internal static class FetchHandlerHosting
     /// divergence from the Service Worker Standard: <i>Handle Fetch</i> creates a <c>FetchEvent</c>'s request
     /// "given request, a new <c>Headers</c> object's guard which is <c>immutable</c>"
     /// (https://w3c.github.io/ServiceWorker/#on-fetch-request-algorithm). One <c>Request</c> is built here for
-    /// <b>both</b> inbound routes, and the other route is <c>Engine.Advanced.SetFetchHandler</c>'s plain
+    /// <b>both</b> inbound routes, and the other route is <c>Engine.WebApi.SetFetchHandler</c>'s plain
     /// callback, which no algorithm governs and where the script <i>is</i> the endpoint rather than an
     /// interceptor observing a request the user agent is already making. Two inbound requests that disagreed
     /// about whether their headers can be edited would be worse than either answer, and nothing downstream

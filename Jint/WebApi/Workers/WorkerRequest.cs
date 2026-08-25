@@ -61,7 +61,7 @@ public sealed class WorkerRequest
     /// The engine that ran <c>new Worker(...)</c>. It is suspended mid-statement: read it, do not run it.
     /// </summary>
     /// <remarks>
-    /// <c>Parent.Advanced.HostDefined</c> is how a provider shared by a pool of engines reaches the state
+    /// <c>Parent.HostDefined</c> is how a provider shared by a pool of engines reaches the state
     /// belonging to <i>this</i> request — the tenant, the loader root, the remaining budget.
     /// </remarks>
     public Engine Parent { get; }
@@ -245,9 +245,9 @@ public sealed class WorkerRequest
         Options.CopySecurityPosture(parentOptions, options);
 
         // The engine's own closure rather than the options' set: what a worker inherits is what its parent
-        // actually carries, which a live Advanced.EnableWebApis call may have grown.
+        // actually carries, which a live WebApi.Enable call may have grown.
         options.WebApi.Features =
-            (Parent.Advanced.WebApiFeatures & ~NeverInheritedByAWorker)
+            (Parent.WebApi.Features & ~NeverInheritedByAWorker)
             | WebApiFeatures.Messaging
             | WebApiFeatures.GlobalEvents;
 

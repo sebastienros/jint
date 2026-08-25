@@ -180,7 +180,7 @@ public class WebApiEventSourceTests
         var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (DateTime.UtcNow < deadline)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (until())
             {
                 return;
@@ -196,7 +196,7 @@ public class WebApiEventSourceTests
     {
         for (var i = 0; i < 25; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
     }
@@ -437,13 +437,13 @@ public class WebApiEventSourceTests
             // Called on the engine thread, once per connection, so per-request host state is reachable.
             lock (seen)
             {
-                seen.Add(e.Advanced.HostDefined);
+                seen.Add(e.HostDefined);
             }
 
             return new HttpClient(byFactory);
         });
 
-        engine.Advanced.HostDefined = "tenant-a";
+        engine.HostDefined = "tenant-a";
         Start(engine, "es", StreamUrl);
         Pump(engine, () => Count(records) >= 2, "the open and message events");
 

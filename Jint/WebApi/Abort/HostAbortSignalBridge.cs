@@ -6,7 +6,7 @@ namespace Jint.WebApi.Abort;
 
 /// <summary>
 /// The link between a host <see cref="CancellationToken"/> and the <c>AbortSignal</c> handed to script by
-/// <see cref="Engine.AdvancedOperations.CreateAbortSignal"/>.
+/// <see cref="Engine.WebApiOperations.CreateAbortSignal"/>.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -108,7 +108,7 @@ public class SharedObjectShapeTests
         engineB.SetValue("proto", protoB);
         engineB.Evaluate("typeof proto.m").Should().Be("function");
         engineB.Evaluate("proto.acc").Should().Be("acc");
-        engineB.Advanced.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engineB.Diagnostics.GetObjectRepresentation(protoB).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
 
         // A third engine, instantiated after all that, is indistinguishable from the first.
         var engineC = new Engine();

@@ -34,7 +34,7 @@ public class EngineConcurrencyTests
     public async Task ConcurrentManualPromiseCompletionOnlyEnqueuesWork()
     {
         var engine = new Engine();
-        var promise = engine.Advanced.RegisterPromise();
+        var promise = engine.Tasks.RegisterPromise();
         engine.SetValue("hostPromise", promise.Promise);
         var continued = false;
         engine.SetValue("markContinued", new Action(() => Volatile.Write(ref continued, true)));
@@ -80,7 +80,7 @@ public class EngineConcurrencyTests
     public void ManualPromiseCompletionDrainsInlineAfterExclusiveThreadHandoff()
     {
         var engine = new Engine();
-        var promise = engine.Advanced.RegisterPromise();
+        var promise = engine.Tasks.RegisterPromise();
         engine.SetValue("hostPromise", promise.Promise);
         engine.Execute("globalThis.result = 0; hostPromise.then(value => { result = value; });");
 
@@ -98,7 +98,7 @@ public class EngineConcurrencyTests
     public void SameThreadManualPromiseCompletionDrainsInline()
     {
         var engine = new Engine();
-        var promise = engine.Advanced.RegisterPromise();
+        var promise = engine.Tasks.RegisterPromise();
         engine.SetValue("hostPromise", promise.Promise);
         engine.Execute("globalThis.result = 0; hostPromise.then(value => { result = value; });");
 

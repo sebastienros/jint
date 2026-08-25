@@ -95,11 +95,11 @@ public class WebApiTimerTests
 
         // No thread exists to notice time passing: the host's own pump is what runs a timer.
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("log.length").AsNumber().Should().Be(0);
 
         clock.Advance(15);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("log.join(',')").AsString().Should().Be("fired");
     }
 
@@ -194,7 +194,7 @@ public class WebApiTimerTests
         var deadline = Stopwatch.StartNew();
         while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
@@ -225,7 +225,7 @@ public class WebApiTimerTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         clock.Advance(1000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         ran.Should().BeFalse();
     }

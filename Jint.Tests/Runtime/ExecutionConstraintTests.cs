@@ -1206,7 +1206,7 @@ myarr[0](0);
         var calls = 0;
         engine.SetValue("work", new Action(() => { if (++calls == 3) { cts.Cancel(); } }));
 
-        var gate = engine.Advanced.RegisterPromise();
+        var gate = engine.Tasks.RegisterPromise();
         engine.SetValue("gate", gate.Promise);
         engine.Evaluate("(async () => { await gate; for (var i = 0; i < 40; i++) { work(); } })()");
         calls.Should().Be(0);
@@ -1332,7 +1332,7 @@ myarr[0](0);
         engine.SetValue("probe", probe);
         engine.SetValue("cancel", new Action(cts.Cancel));
 
-        var gate = engine.Advanced.RegisterPromise();
+        var gate = engine.Tasks.RegisterPromise();
         engine.SetValue("gate", gate.Promise);
         engine.Evaluate("(async () => { await gate; cancel(); })()");
 

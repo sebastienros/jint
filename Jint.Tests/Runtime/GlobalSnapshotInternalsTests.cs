@@ -239,7 +239,7 @@ public class GlobalSnapshotInternalsTests
         gate.SetResult(1);
         engine.EventLoop.IsEmpty.Should().BeFalse("the stale settle really did land on the drained loop");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.EventLoop.IsEmpty.Should().BeTrue();
         engine.Evaluate("typeof globalThis.cache").AsString().Should().Be("undefined");
@@ -254,7 +254,7 @@ public class GlobalSnapshotInternalsTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         engine.Evaluate("Promise.resolve().then(function () { globalThis.ran = true; });");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("globalThis.ran === true").AsBoolean().Should().BeTrue();
     }

@@ -274,7 +274,7 @@ public class WorkerTests
     public void TheDefaultOptionsSubtractNetworkStorageRoutingAndWorkers(WebApiFeatures granted)
     {
         var parent = new Engine(options => options.UseWebApis(WebApiFeatures.Default | granted));
-        (parent.Advanced.WebApiFeatures & granted).Should().Be(granted, "the parent really was granted it");
+        (parent.WebApi.Features & granted).Should().Be(granted, "the parent really was granted it");
 
         var features = Request(parent).CreateDefaultOptions().WebApi.Features;
 

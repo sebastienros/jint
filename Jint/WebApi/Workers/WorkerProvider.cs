@@ -30,9 +30,9 @@ namespace Jint.WebApi;
 /// <b>Pooled hosts: one provider per process, per-request policy from <c>HostDefined</c>.</b> The provider is
 /// normally the same object for every engine in a pool; everything that varies per request — tenant, loader
 /// root, budget — is read inside <see cref="CreateWorkerEngine"/> from
-/// <c>request.Parent.Advanced.HostDefined</c>, which is per engine, never read by the engine, and survives
+/// <c>request.Parent.HostDefined</c>, which is per engine, never read by the engine, and survives
 /// <c>RestoreGlobalSnapshot</c>. Do <b>not</b> set the provider through
-/// <c>engine.Advanced.EnableWebApis(…, w =&gt; w.Workers.Provider = …)</c> on a pooled host: that callback is
+/// <c>engine.WebApi.Enable(…, w =&gt; w.Workers.Provider = …)</c> on a pooled host: that callback is
 /// handed the engine's own <c>Options.WebApi</c> group, and a shared <see cref="Options"/> instance is shared
 /// there too — the write would reach every tenant.
 /// </para>

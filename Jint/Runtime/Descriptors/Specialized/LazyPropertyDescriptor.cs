@@ -42,7 +42,7 @@ internal sealed class LazyPropertyDescriptor<T> : PropertyDescriptor, IFieldBack
                 // re-run on every read. Substituting Undefined here rather than making each caller wrap its
                 // factory in a null-guarding lambda is what lets the registration APIs hand their own
                 // delegate straight to this constructor: a wrapper allocated per registration is one thing,
-                // but Engine.Advanced.AddLazyGlobal registers per engine, so a host installing globals on
+                // but Engine.AddLazyGlobal registers per engine, so a host installing globals on
                 // every request paid a closure pair for each of them.
                 _value = value = _resolver(_state) ?? JsValue.Undefined;
             }

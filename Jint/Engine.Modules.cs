@@ -146,7 +146,7 @@ public partial class Engine
 
         /// <summary>
         /// Module records this engine has loaded, for
-        /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Deliberately the module map and not the
+        /// <see cref="DiagnosticOperations.GetMemoryReport(int)"/>. Deliberately the module map and not the
         /// builder registrations: a registration that nothing imported has produced no module and retains
         /// only what the host handed it.
         /// </summary>
@@ -154,7 +154,7 @@ public partial class Engine
 
         /// <summary>
         /// Loads an asynchronous loader has started and not yet finished, for
-        /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>.
+        /// <see cref="DiagnosticOperations.GetMemoryReport(int)"/>.
         /// </summary>
         internal int PendingModuleLoadCount => _pendingLoads?.Count ?? 0;
 
@@ -965,7 +965,7 @@ public partial class Engine
         /// <summary>
         /// Starts an import and returns at once, without blocking and without needing a thread of its own. The
         /// engine only makes progress on it when it is given turns, so the host drives it by calling
-        /// <see cref="AdvancedOperations.ProcessTasks"/> — from a game loop or a UI message pump, say — until
+        /// <see cref="TaskOperations.ProcessTasks"/> — from a game loop or a UI message pump, say — until
         /// the returned operation reports <see cref="ModuleImportOperation.IsCompleted"/>.
         /// </summary>
         /// <remarks>

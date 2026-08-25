@@ -24,7 +24,7 @@ public partial class Engine
     /// <summary>
     /// The bridges between a WHATWG stream and a host <see cref="System.IO.Stream"/> this engine has open,
     /// or <see langword="null"/> — which is what every engine carries until the first
-    /// <c>Engine.Advanced.CreateReadableStream</c> and friends.
+    /// <c>Engine.WebApi.CreateReadableStream</c> and friends.
     /// </summary>
     /// <remarks>
     /// Deliberately its own field rather than a member of <see cref="WebApiEngineState"/>, which the streams
@@ -86,7 +86,7 @@ public partial class Engine
     /// <c>WebApiRegistration.Apply</c> for the features that keep state in it — the timers and the events, the
     /// latter for the time origin <c>Event.timeStamp</c> is measured against and for the queue
     /// <c>AbortSignal.timeout()</c> schedules on — or, for a feature enabled through
-    /// <see cref="AdvancedOperations.EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>, created
+    /// <see cref="WebApiOperations.Enable(WebApiFeatures, Action{Options.WebApiOptions})"/>, created
     /// or extended by that call.
     /// </summary>
     internal WebApiEngineState? _webApi;
@@ -95,10 +95,10 @@ public partial class Engine
     /// Which opt-in web APIs this engine carries, as <c>WebApiRegistration</c> recorded them after computing
     /// the feature closure, or <see cref="WebApiFeatures.None"/> for an engine that asked for nothing. Read by
     /// the host APIs that have to refuse an engine which never opted in —
-    /// <see cref="AdvancedOperations.CreateMessagePortPair"/>,
-    /// <see cref="AdvancedOperations.SetFetchHandler"/> and
-    /// <see cref="AdvancedOperations.CreateAbortSignal"/> — by
-    /// <see cref="AdvancedOperations.EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>, which
+    /// <see cref="WebApiOperations.CreateMessagePortPair"/>,
+    /// <see cref="WebApiOperations.SetFetchHandler"/> and
+    /// <see cref="WebApiOperations.CreateAbortSignal"/> — by
+    /// <see cref="WebApiOperations.Enable(WebApiFeatures, Action{Options.WebApiOptions})"/>, which
     /// adds to it, and by nothing on any hot path. It lives here rather than being read back from
     /// <c>Options</c> because an <c>Options</c> instance is shareable and mutable, so the set an engine
     /// actually has is only knowable from the engine.
@@ -140,7 +140,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// The quota a defaulted <see cref="InMemoryStorageProvider"/> is built with, captured when the engine
-    /// was — or, for an engine that enabled storage through <c>Engine.Advanced.EnableWebApis</c>, when that
+    /// was — or, for an engine that enabled storage through <c>Engine.WebApi.Enable</c>, when that
     /// call ran. Either way it is read once and never again, so mutating the options afterwards cannot change
     /// an engine that already has it.
     /// </summary>
@@ -246,11 +246,11 @@ internal sealed class WebApiEngineState
     }
 
     /// <summary>
-    /// The script function inbound requests are routed to by <c>Engine.Advanced.InvokeFetchHandler</c>, or
+    /// The script function inbound requests are routed to by <c>Engine.WebApi.InvokeFetchHandler</c>, or
     /// <see langword="null"/> when the host has registered none.
     /// </summary>
     /// <remarks>
-    /// Host state rather than evaluation state, so — like <c>Engine.Advanced.HostDefined</c> — it is
+    /// Host state rather than evaluation state, so — like <c>Engine.HostDefined</c> — it is
     /// deliberately not cleared by <see cref="ResetTransientState"/>: a pooled engine that restores its
     /// globals between requests keeps the handler it was given, and the host replaces it when it wants to.
     /// An invocation that was in flight at the restore is fenced off by its own generation instead.
@@ -318,7 +318,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// The host's fetch settings, or <see langword="null"/> when the feature is off. Read once — when the
-    /// engine is built, or when <c>Engine.Advanced.EnableWebApis</c> turned the feature on — so that no
+    /// engine is built, or when <c>Engine.WebApi.Enable</c> turned the feature on — so that no
     /// background thread ever reaches into <see cref="Options"/>.
     /// </summary>
     internal Options.FetchOptions? FetchOptions { get; private set; }
@@ -409,7 +409,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// Whether an idle callback is waiting for a pump. Read only by
-    /// <see cref="Engine.AdvancedOperations.TimeUntilNextScheduledWork"/>, which reports such a callback as
+    /// <see cref="Engine.TaskOperations.TimeUntilNextScheduledWork"/>, which reports such a callback as
     /// work available now.
     /// </summary>
     internal bool HasPendingIdleWork => IdleCallbacks is { HasPendingWork: true };
@@ -441,7 +441,7 @@ internal sealed class WebApiEngineState
     /// Defaulted on first use rather than at construction, so an engine that enabled the feature and never
     /// touched the global has still allocated nothing. Deliberately <b>not</b> touched by
     /// <see cref="ResetTransientState"/>: what a storage holds is host state, like the module registry and
-    /// like <c>Engine.Advanced.HostDefined</c>, and a restore reverts the global binding table rather than
+    /// like <c>Engine.HostDefined</c>, and a restore reverts the global binding table rather than
     /// the world behind it. A host that wants a pooled engine to forget the previous cycle's storage swaps
     /// the provider, or clears it, itself.
     /// </remarks>
@@ -527,7 +527,7 @@ internal sealed class WebApiEngineState
     /// engine has already been scheduling on is never replaced.
     /// </summary>
     /// <remarks>
-    /// The whole late-attachment family exists for <c>Engine.Advanced.EnableWebApis</c>: the state is created
+    /// The whole late-attachment family exists for <c>Engine.WebApi.Enable</c>: the state is created
     /// once, with exactly the queues the features named at that moment, so turning a feature on afterwards has
     /// to be able to add the one piece it brought with it. Each of these asserts the slot is empty rather than
     /// tolerating a second call, because a second call could only mean the caller lost track of which features
@@ -624,7 +624,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// Records a host <c>CancellationToken</c> bridged to an <c>AbortSignal</c> by
-    /// <see cref="Engine.AdvancedOperations.CreateAbortSignal"/>, so the token registration can be released
+    /// <see cref="Engine.WebApiOperations.CreateAbortSignal"/>, so the token registration can be released
     /// again when the cycle ends or the engine is disposed.
     /// </summary>
     internal void AddHostAbortBridge(HostAbortSignalBridge bridge) =>
@@ -676,7 +676,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// The same target, or <see langword="null"/> when nothing has built one yet. What
-    /// <c>Engine.Advanced.InvokeFetchHandler</c> asks, because a host invoking a handler must not be the thing
+    /// <c>Engine.WebApi.InvokeFetchHandler</c> asks, because a host invoking a handler must not be the thing
     /// that creates a listener list: an engine whose script never called <c>addEventListener</c> answers the
     /// question with one field read and allocates nothing.
     /// </summary>
@@ -787,7 +787,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// The sink's half of <c>HostPromiseRejectionTracker</c>. Additive to
-    /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/>, which has already been raised by the
+    /// <see cref="Engine.TaskOperations.PromiseRejectionTracker"/>, which has already been raised by the
     /// time this runs: a host with both channels wired sees the pre-existing event behave exactly as it did.
     /// </summary>
     /// <remarks>
@@ -812,7 +812,7 @@ internal sealed class WebApiEngineState
 
     /// <summary>
     /// Registered timers that have not fired and have not been cleared, for
-    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>.
+    /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// </summary>
     internal int PendingTimerCount => Timers?.Count ?? 0;
 

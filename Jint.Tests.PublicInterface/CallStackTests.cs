@@ -9,7 +9,7 @@ public class CallStackTests
     public void CanInjectTraceFunction()
     {
         var engine = new Engine();
-        engine.Advanced.StackTrace.Should().BeEmpty();
+        engine.Diagnostics.StackTrace.Should().BeEmpty();
 
         using var stringWriter = new StringWriter();
         engine.SetValue("console", new Console(engine, stringWriter));
@@ -46,7 +46,7 @@ Trace
 
         public void Trace()
         {
-            _output.WriteLine($"Trace{Environment.NewLine}{_engine.Advanced.StackTrace}");
+            _output.WriteLine($"Trace{Environment.NewLine}{_engine.Diagnostics.StackTrace}");
         }
     }
 

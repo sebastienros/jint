@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <remarks>
 /// Everything here is one engine talking to itself through an entangled pair, which is what
 /// <c>new MessageChannel()</c> gives. The cross-engine form of exactly the same pair is
-/// <c>Engine.Advanced.CreateMessagePortPair</c>, exercised from a third party's side in
+/// <c>Engine.WebApi.CreateMessagePortPair</c>, exercised from a third party's side in
 /// <c>Jint.Tests.PublicInterface.WebApiMessagingTests</c>.
 /// <para>
 /// The other half of every assertion is <i>when</i> delivery happens: a message is an event-loop task, and
@@ -307,7 +307,7 @@ public class MessagingTests
 
         Log(engine).Should().Be("m1");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("m1,m2");
     }
 
@@ -1013,7 +1013,7 @@ public class MessagingTests
         var host = MessagingEngine();
         var worker = MessagingEngine();
 
-        var pair = host.Advanced.CreateMessagePortPair(worker);
+        var pair = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port", pair.Local);
         worker.SetValue("port", pair.Remote);
 
@@ -1025,7 +1025,7 @@ public class MessagingTests
         // flight can never be bound. The restore is what has to end it: the fence stops delivery, it does not
         // stop the host from serializing into a queue forever.
         worker.Advanced.RestoreGlobalSnapshot(snapshot);
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         var remaining = (JsMessagePort) host.Evaluate("ch.port1");
         remaining.Endpoint!.Peer!.Closed.Should().BeTrue();
@@ -1141,7 +1141,7 @@ public class MessagingTests
 
         // The next message's job was armed before this one was dispatched, so the port is not stranded: the
         // rest of the queue arrives on the next pump.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("a,b");
     }
 

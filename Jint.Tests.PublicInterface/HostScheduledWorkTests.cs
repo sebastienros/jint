@@ -5,12 +5,12 @@ using Jint.Native;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.TimeUntilNextScheduledWork"/> — the answer a host driving its own loop
-/// needs before it decides whether to call <see cref="Engine.AdvancedOperations.ProcessTasks"/>.
+/// <see cref="Engine.TaskOperations.TimeUntilNextScheduledWork"/> — the answer a host driving its own loop
+/// needs before it decides whether to call <see cref="Engine.TaskOperations.ProcessTasks"/>.
 ///
 /// <para>
 /// This file is deliberately <b>not</b> gated on <c>NET8_0_OR_GREATER</c>: the property is part of the
-/// all-target-framework <c>Advanced</c> surface, and the source it reports on every target framework is a core
+/// all-target-framework <c>Tasks</c> surface, and the source it reports on every target framework is a core
 /// one — the deadline of an <c>Atomics.waitAsync</c>, whose settle is produced by a background delay rather
 /// than by anything the engine does, so nothing else can tell a host when to pump for it. The web-API sources
 /// (timers, delayed scheduler tasks, idle callbacks) are covered by
@@ -29,7 +29,7 @@ public class HostScheduledWorkTests
         using var engine = new Engine();
         engine.Execute("var x = 1 + 1;");
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public class HostScheduledWorkTests
             Atomics.waitAsync(ta, 0, 0, 3600000).value.then(v => { globalThis.settled = v; });
             """);
 
-        var untilDeadline = engine.Advanced.TimeUntilNextScheduledWork;
+        var untilDeadline = engine.Tasks.TimeUntilNextScheduledWork;
         untilDeadline.Should().NotBeNull();
         untilDeadline!.Value.Should().BeGreaterThan(TimeSpan.Zero);
         untilDeadline.Value.Should().BeLessThanOrEqualTo(TimeSpan.FromHours(1));
@@ -66,7 +66,7 @@ public class HostScheduledWorkTests
         engine.Execute("Atomics.notify(ta, 0);");
 
         engine.Evaluate("settled").Should().Be(new JsString("ok"));
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ public class HostScheduledWorkTests
             Atomics.waitAsync(ta, 0, 0).value.then(() => {});
             """);
 
-        engine.Advanced.TimeUntilNextScheduledWork.Should().BeNull();
+        engine.Tasks.TimeUntilNextScheduledWork.Should().BeNull();
 
         // Leave nothing waiting behind the test.
         engine.Execute("Atomics.notify(ta, 0);");

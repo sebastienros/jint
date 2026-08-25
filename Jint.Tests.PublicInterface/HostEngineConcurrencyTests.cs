@@ -731,7 +731,7 @@ public class HostEngineConcurrencyTests
         }));
         var operation = engine.Modules.StartImport("module");
         loader.Completion!.SetSource("block(); export const value = 42;");
-        var running = StartOwningThread(engine.Advanced.ProcessTasks);
+        var running = StartOwningThread(engine.Tasks.ProcessTasks);
 
         await WaitUntilOwned(entered, running);
         try

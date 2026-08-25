@@ -125,7 +125,7 @@ public class IdleCallbackTests
         // callback still waiting.
         Log(engine).Should().Be("first");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("first,second");
     }
 
@@ -148,7 +148,7 @@ public class IdleCallbackTests
 
         Log(engine).Should().Be("outer");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("outer,inner");
     }
 
@@ -189,7 +189,7 @@ public class IdleCallbackTests
         Log(engine).Should().Be("idle");
 
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("idle,timer");
     }
 
@@ -209,7 +209,7 @@ public class IdleCallbackTests
 
         Log(engine).Should().BeEmpty();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().BeEmpty();
     }
 
@@ -251,15 +251,15 @@ public class IdleCallbackTests
 
         // A host with no idle time runs nothing idle, however often it pumps.
         Log(engine).Should().BeEmpty();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().BeEmpty();
 
         clock.Advance(99);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().BeEmpty();
 
         clock.Advance(1);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("true,0");
     }
 
@@ -277,7 +277,7 @@ public class IdleCallbackTests
         Log(engine).Should().Be("ran:false");
 
         clock.Advance(1000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("ran:false");
     }
 
@@ -479,7 +479,7 @@ public class IdleCallbackTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         engine.Execute("globalThis.ranAfterRestore = false;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("ranAfterRestore").Should().Be(JsBoolean.False);
     }
@@ -502,7 +502,7 @@ public class IdleCallbackTests
 
         // The throw does not wedge the queue: the callback behind it still runs on the next pump, and the one
         // that threw does not run twice.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("after");
     }
 }

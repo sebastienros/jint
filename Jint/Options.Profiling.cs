@@ -9,18 +9,18 @@ public sealed partial class Options
     /// <see cref="ProfilingOptions.Enabled"/> is set, so a default engine is exactly the engine it was
     /// before this existed.
     /// </summary>
-    /// <seealso cref="Engine.AdvancedOperations.StartProfiling"/>
+    /// <seealso cref="Engine.DiagnosticOperations.StartProfiling"/>
     public ProfilingOptions Profiling => Materialize(ref _profiling, _readOnly);
 
     private ProfilingOptions? _profiling;
 
     /// <summary>
-    /// Configuration for <see cref="Engine.AdvancedOperations.StartProfiling"/>.
+    /// Configuration for <see cref="Engine.DiagnosticOperations.StartProfiling"/>.
     /// </summary>
     /// <remarks>
     /// Like every other <see cref="Options"/> group this may be shared by any number of engines, including
     /// concurrent ones: nothing on it is engine-affine, and both members are read once, on the thread that
-    /// calls <see cref="Engine.AdvancedOperations.StartProfiling"/>, into the session it starts.
+    /// calls <see cref="Engine.DiagnosticOperations.StartProfiling"/>, into the session it starts.
     /// </remarks>
     public sealed partial class ProfilingOptions
     {
@@ -32,15 +32,15 @@ public sealed partial class Options
         private int _maxEvents = DefaultMaxEvents;
 
         /// <summary>
-        /// Whether <see cref="Engine.AdvancedOperations.StartProfiling"/> is allowed on this engine,
+        /// Whether <see cref="Engine.DiagnosticOperations.StartProfiling"/> is allowed on this engine,
         /// defaults to <see langword="false"/>. When it is false that method throws and no profiler is
         /// ever attached, which is what makes the engine's cost of not profiling a single null field test
         /// per call-stack push and pop.
         /// </summary>
         /// <remarks>
         /// This is a capability gate, not a switch that starts recording: a host still has to call
-        /// <see cref="Engine.AdvancedOperations.StartProfiling"/> to open a session. Recording retains one
-        /// reference per distinct function seen (see <see cref="Engine.AdvancedOperations.StartProfiling"/>),
+        /// <see cref="Engine.DiagnosticOperations.StartProfiling"/> to open a session. Recording retains one
+        /// reference per distinct function seen (see <see cref="Engine.DiagnosticOperations.StartProfiling"/>),
         /// so an engine that runs untrusted script can refuse profiling outright by leaving this false.
         /// </remarks>
         public bool Enabled { get; set { ThrowIfReadOnly(); field = value; } }

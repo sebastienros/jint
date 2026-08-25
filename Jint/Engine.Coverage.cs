@@ -20,7 +20,7 @@ public partial class Engine
     /// </summary>
     internal readonly CoverageCollector? _coverage;
 
-    public sealed partial class AdvancedOperations
+    public sealed partial class DiagnosticOperations
     {
         /// <summary>
         /// A snapshot of what this engine has executed since it was created, or since the last
@@ -61,7 +61,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// The counters are cumulative and are deliberately not touched by
-        /// <see cref="RestoreGlobalSnapshot"/>: a restore reverts the global binding table, not the engine's
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/>: a restore reverts the global binding table, not the engine's
         /// diagnostics. Call <see cref="ResetCoverage"/> to start a fresh measurement.
         /// </para>
         /// </remarks>

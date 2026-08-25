@@ -426,7 +426,7 @@ public sealed partial class Engine : IDisposable
     /// <para>
     /// Opened by <em>every</em> drain, nested ones included: there is deliberately no guard on the scope
     /// that claimed the engine. What would justify one is a frame that <em>runs no script</em> - a park on
-    /// <see cref="AdvancedOperations.WaitForScheduledWork"/>, whose <c>InspectScheduledWork</c> executes
+    /// <see cref="TaskOperations.WaitForScheduledWork"/>, whose <c>InspectScheduledWork</c> executes
     /// nothing - because there an admitted callback would be the only script interleaved into somebody
     /// else's evaluation. A drain is the opposite case: <see cref="RunAvailableContinuations"/> runs
     /// arbitrary script on every iteration whether a callback is admitted or not, so refusing the callback
@@ -1142,7 +1142,7 @@ public sealed partial class Engine : IDisposable
         return built;
     }
 
-    // The handler-tree cache sizes, for Engine.Advanced.GetMemoryReport. Read-only views over the
+    // The handler-tree cache sizes, for Engine.Diagnostics.GetMemoryReport. Read-only views over the
     // collections above — nothing is recorded for them, so an engine that is never asked pays nothing.
     internal int FunctionDefinitionCacheCount => _functionDefinitions.Count;
 
@@ -1378,7 +1378,7 @@ public sealed partial class Engine : IDisposable
     internal RecentObjectWrapperCache? _recentObjectWrapperCache;
 
     // Diagnostic counters for the two mode-governed CLR-array conversions, surfaced through
-    // Engine.Advanced.GetInteropConversionDiagnostics. Bumped only inside DefaultObjectConverter, at the two
+    // Engine.Diagnostics.GetInteropConversionDiagnostics. Bumped only inside DefaultObjectConverter, at the two
     // points that have just decided to build a live wrapper view or an N-element snapshot copy — so the cost
     // is one increment on a path that is already allocating, and exactly nothing on every path that converts
     // no array. Plain longs, not Interlocked: an engine is single-threaded by contract, like every other
@@ -1431,7 +1431,6 @@ public sealed partial class Engine : IDisposable
 
     private Engine(Options? options, Action<Engine, Options>? configure)
     {
-        Advanced = new AdvancedOperations(this);
         Constraints = new ConstraintOperations(this);
         TypeConverter = new DefaultTypeConverter(this);
 
@@ -2482,11 +2481,14 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Called by the host when a promise rejection is tracked/untracked.
-    /// Raises the <see cref="AdvancedOperations.PromiseRejectionTracker"/> event.
+    /// Raises the <see cref="TaskOperations.PromiseRejectionTracker"/> event.
     /// </summary>
     internal void OnPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
     {
-        Advanced.RaisePromiseRejectionTracker(promise, operation);
+        // Through the backing field, not the property: a host that never reached for the facet cannot have
+        // subscribed to the event, so materializing it here would allocate on a path that has nothing to
+        // raise — and a rejection with no handler is exactly the path a host under load is already on.
+        _tasks?.RaisePromiseRejectionTracker(promise, operation);
 
 #if NET8_0_OR_GREATER
         // Additively, and strictly after the event above: a host that wired both channels must see the
@@ -3471,6 +3473,42 @@ public sealed partial class Engine : IDisposable
         var jsValue = GetValue(reference, returnReferenceToPool: false);
         _referencePool.Return(reference);
         return jsValue;
+    }
+
+    /// <summary>
+    /// Converts a script result to a detached CLR graph while enforcing depth, size, and output limits.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Arrays, typed arrays, array buffers, maps, sets, and enumerable own object properties are copied.
+    /// Cycles are rejected, as are functions and symbols that cannot form a detached data result. CLR
+    /// wrappers return their existing host-owned target without walking it. Property access may invoke
+    /// getters and proxy traps, so the conversion runs under the engine's execution constraints; those
+    /// constraints and an outer request deadline remain required for untrusted code.
+    /// </para>
+    /// <para>
+    /// This is the bounded way out of the engine, and it sits here rather than behind a facet for that
+    /// reason: the unbounded one, <see cref="JsValue.ToObject()"/>, is a method on every value a host
+    /// already holds, so a host that never finds this one takes the unbounded route by default. Pass
+    /// <paramref name="limits"/> to override <see cref="Options.ResultLimits"/> for one call.
+    /// </para>
+    /// </remarks>
+    public object? ConvertResult(JsValue value, ResultLimits? limits = null)
+    {
+        if (value is null)
+        {
+            Throw.ArgumentNullException(nameof(value));
+        }
+
+        if (value is ObjectInstance instance && !ReferenceEquals(instance.Engine, this))
+        {
+            Throw.ArgumentException("The value belongs to a different engine.", nameof(value));
+        }
+
+        var effectiveLimits = limits ?? Options.ResultLimits;
+        return ExecuteWithConstraints(
+            Options.Strict,
+            () => ResultConverter.Convert(this, value, effectiveLimits));
     }
 
     /// <summary>

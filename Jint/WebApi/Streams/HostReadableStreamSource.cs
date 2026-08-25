@@ -9,7 +9,7 @@ namespace Jint.WebApi.Streams;
 
 /// <summary>
 /// A <c>ReadableStream</c> whose underlying source is a host <see cref="Stream"/>: the engine's side of
-/// <c>Engine.Advanced.CreateReadableStream</c>.
+/// <c>Engine.WebApi.CreateReadableStream</c>.
 /// </summary>
 /// <remarks>
 /// <para>

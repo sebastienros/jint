@@ -5,7 +5,7 @@ using Jint.Native;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.HostDefined"/> —
+/// <see cref="Engine.HostDefined"/> —
 /// the slot that lets host code handed nothing but an <see cref="Engine"/> get back to the per-request state
 /// that engine was built for.
 ///
@@ -54,17 +54,17 @@ public class HostEngineStateTests
         var engine = new Engine();
         var scope = new RequestScope("alpha");
 
-        engine.Advanced.HostDefined = scope;
+        engine.HostDefined = scope;
 
-        engine.Advanced.HostDefined.Should().BeSameAs(scope, "the engine stores the reference verbatim");
-        (engine.Advanced.HostDefined as RequestScope)!.Tenant.Should().Be("alpha");
+        engine.HostDefined.Should().BeSameAs(scope, "the engine stores the reference verbatim");
+        (engine.HostDefined as RequestScope)!.Tenant.Should().Be("alpha");
     }
 
     [Fact]
     public void TheDefaultIsNull()
     {
-        new Engine().Advanced.HostDefined.Should().BeNull();
-        new Engine(options => options.Strict = true).Advanced.HostDefined.Should().BeNull();
+        new Engine().HostDefined.Should().BeNull();
+        new Engine(options => options.Strict = true).HostDefined.Should().BeNull();
     }
 
     [Fact]
@@ -72,18 +72,18 @@ public class HostEngineStateTests
     {
         var engine = new Engine();
 
-        engine.Advanced.HostDefined = new RequestScope("first");
-        (engine.Advanced.HostDefined as RequestScope)!.Tenant.Should().Be("first");
+        engine.HostDefined = new RequestScope("first");
+        (engine.HostDefined as RequestScope)!.Tenant.Should().Be("first");
 
-        engine.Advanced.HostDefined = new RequestScope("second");
-        (engine.Advanced.HostDefined as RequestScope)!.Tenant.Should().Be("second");
+        engine.HostDefined = new RequestScope("second");
+        (engine.HostDefined as RequestScope)!.Tenant.Should().Be("second");
 
         // Anything at all, including a value type — the engine never interprets it.
-        engine.Advanced.HostDefined = 42;
-        engine.Advanced.HostDefined.Should().Be(42);
+        engine.HostDefined = 42;
+        engine.HostDefined.Should().Be(42);
 
-        engine.Advanced.HostDefined = null;
-        engine.Advanced.HostDefined.Should().BeNull();
+        engine.HostDefined = null;
+        engine.HostDefined.Should().BeNull();
     }
 
     [Fact]
@@ -93,14 +93,14 @@ public class HostEngineStateTests
         var engineB = new Engine();
 
         var scopeA = new RequestScope("alpha");
-        engineA.Advanced.HostDefined = scopeA;
+        engineA.HostDefined = scopeA;
 
-        engineB.Advanced.HostDefined.Should().BeNull("attaching to one engine must not reach another");
+        engineB.HostDefined.Should().BeNull("attaching to one engine must not reach another");
 
-        engineB.Advanced.HostDefined = new RequestScope("beta");
+        engineB.HostDefined = new RequestScope("beta");
 
-        engineA.Advanced.HostDefined.Should().BeSameAs(scopeA);
-        (engineB.Advanced.HostDefined as RequestScope)!.Tenant.Should().Be("beta");
+        engineA.HostDefined.Should().BeSameAs(scopeA);
+        (engineB.HostDefined as RequestScope)!.Tenant.Should().Be("beta");
     }
 
     // ---- what does not clear it ----
@@ -112,7 +112,7 @@ public class HostEngineStateTests
         // restore reverts global bindings and nothing else, so the slot is the host's to manage.
         var engine = new Engine();
         var first = new RequestScope("first");
-        engine.Advanced.HostDefined = first;
+        engine.HostDefined = first;
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Execute("var leaked = 1;");
@@ -120,14 +120,14 @@ public class HostEngineStateTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         engine.Evaluate("typeof leaked").Should().Be("undefined", "the restore really happened");
-        engine.Advanced.HostDefined.Should().BeSameAs(first);
+        engine.HostDefined.Should().BeSameAs(first);
 
         // The other direction matters just as much for a pooled engine: a restore does not put back the state
         // the engine had at capture time either, so the host swaps it per request itself.
         var second = new RequestScope("second");
-        engine.Advanced.HostDefined = second;
+        engine.HostDefined = second;
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
-        engine.Advanced.HostDefined.Should().BeSameAs(second);
+        engine.HostDefined.Should().BeSameAs(second);
     }
 
     // ---- the case it exists for ----
@@ -139,7 +139,7 @@ public class HostEngineStateTests
         // the Options instance safe to share by every engine, on every tenant, on every thread.
         var options = new Options().AddLazyGlobal("tenant", static engine =>
         {
-            var scope = (RequestScope) engine.Advanced.HostDefined!;
+            var scope = (RequestScope) engine.HostDefined!;
             scope.Reads++;
             return new JsString(scope.Tenant);
         });
@@ -148,11 +148,11 @@ public class HostEngineStateTests
         // the first script read, which is necessarily after the constructor returned.
         var alpha = new Engine(options);
         var alphaScope = new RequestScope("alpha");
-        alpha.Advanced.HostDefined = alphaScope;
+        alpha.HostDefined = alphaScope;
 
         var beta = new Engine(options);
         var betaScope = new RequestScope("beta");
-        beta.Advanced.HostDefined = betaScope;
+        beta.HostDefined = betaScope;
 
         alphaScope.Reads.Should().Be(0);
         betaScope.Reads.Should().Be(0);
@@ -166,7 +166,7 @@ public class HostEngineStateTests
         // ...and an engine whose script never mentions the name never reaches the state at all.
         var unused = new Engine(options);
         var unusedScope = new RequestScope("gamma");
-        unused.Advanced.HostDefined = unusedScope;
+        unused.HostDefined = unusedScope;
         unused.Evaluate("1 + 1");
         unusedScope.Reads.Should().Be(0);
     }
@@ -177,8 +177,8 @@ public class HostEngineStateTests
         // The per-engine registration could have closed over the state directly; reading it back through the
         // engine is what lets the same static factory serve both registrations.
         var engine = new Engine();
-        engine.Advanced.HostDefined = new RequestScope("alpha");
-        engine.Advanced.AddLazyGlobal("tenant", static e => new JsString(((RequestScope) e.Advanced.HostDefined!).Tenant));
+        engine.HostDefined = new RequestScope("alpha");
+        engine.AddLazyGlobal("tenant", static e => new JsString(((RequestScope) e.HostDefined!).Tenant));
 
         engine.Evaluate("tenant").Should().Be("alpha");
     }
@@ -196,9 +196,9 @@ public class HostEngineStateTests
         // Host.InitializeShadowRealm.
         var engine = new Engine();
         var scope = new RequestScope("alpha");
-        engine.Advanced.HostDefined = scope;
+        engine.HostDefined = scope;
 
-        var readTenant = new Func<string>(() => (engine.Advanced.HostDefined as RequestScope)?.Tenant ?? "<none>");
+        var readTenant = new Func<string>(() => (engine.HostDefined as RequestScope)?.Tenant ?? "<none>");
 
         engine.SetValue("readTenant", readTenant);
         engine.SetValue("outerOnly", "outer");
@@ -220,7 +220,7 @@ public class HostEngineStateTests
         // Record, and the specification gives the host HostInitializeShadowRealm to populate it. Without
         // this test the documented escape hatch would be an assertion rather than a fact.
         var engine = new Engine(options => options.UseHostFactory(_ => new ShadowRealmMarkingHost()));
-        engine.Advanced.HostDefined = new RequestScope("principal");
+        engine.HostDefined = new RequestScope("principal");
 
         var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
         shadowRealm.SetValue("readOwnRealm", new Func<string>(() => ShadowRealmMarkingHost.LastInitialized ?? "<none>"));
@@ -228,7 +228,7 @@ public class HostEngineStateTests
         shadowRealm.Evaluate("readOwnRealm()").Should()
             .Be("shadow", "the host hook ran for the new realm and wrote its own slot");
 
-        (engine.Advanced.HostDefined as RequestScope)!.Tenant.Should()
+        (engine.HostDefined as RequestScope)!.Tenant.Should()
             .Be("principal", "furnishing the shadow realm's slot does not disturb the principal realm's");
     }
 

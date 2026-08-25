@@ -11,7 +11,7 @@ namespace Jint.WebApi.Streams;
 
 /// <summary>
 /// Reads a script's <c>ReadableStream</c> to its end and writes every chunk to a host <see cref="Stream"/>:
-/// the engine's side of <c>Engine.Advanced.StartReadableStreamCopy</c>.
+/// the engine's side of <c>Engine.WebApi.StartReadableStreamCopy</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,8 +19,8 @@ namespace Jint.WebApi.Streams;
 /// come out of the engine, so every read is an engine-thread act driven by the event loop, while every write
 /// leaves the engine entirely. The copy therefore never blocks and never pumps: it makes progress exactly
 /// when the engine is given a turn, and the host either gives it turns itself
-/// (<c>engine.Advanced.ProcessTasks()</c> plus <see cref="HostStreamCopyOperation.IsCompleted"/>) or lets
-/// <c>Engine.Advanced.CopyReadableStreamAsync</c> do it while it awaits. That is the same contract, and the
+/// (<c>engine.Tasks.ProcessTasks()</c> plus <see cref="HostStreamCopyOperation.IsCompleted"/>) or lets
+/// <c>Engine.WebApi.CopyReadableStreamAsync</c> do it while it awaits. That is the same contract, and the
 /// same pair of entry points, as <c>Engine.Modules.StartImport</c> and <c>ImportAsync</c>.
 /// </para>
 /// <para>

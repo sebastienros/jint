@@ -15,8 +15,8 @@ namespace Jint.Tests.PublicInterface;
 /// <remarks>
 /// <para>
 /// This project has no <c>InternalsVisibleTo</c>, so everything here is reachable by a third party: two
-/// engines connected with <c>Engine.Advanced.CreateMessagePortPair</c>, a stream named in a
-/// <c>postMessage</c> transfer list, and <c>Advanced.ProcessTasks()</c> on each in turn.
+/// engines connected with <c>Engine.WebApi.CreateMessagePortPair</c>, a stream named in a
+/// <c>postMessage</c> transfer list, and <c>Tasks.ProcessTasks()</c> on each in turn.
 /// </para>
 /// <para>
 /// <b>Both engines have to be pumped, and neither ever runs on the other's thread.</b> A transferred stream
@@ -37,7 +37,7 @@ public class WebApiTransferableStreamTests
         var host = TransferEngine();
         var worker = TransferEngine();
 
-        var pair = host.Advanced.CreateMessagePortPair(worker);
+        var pair = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port", pair.Local);
         worker.SetValue("port", pair.Remote);
 
@@ -79,8 +79,8 @@ public class WebApiTransferableStreamTests
     {
         for (var i = 0; i < rounds; i++)
         {
-            host.Advanced.ProcessTasks();
-            worker.Advanced.ProcessTasks();
+            host.Tasks.ProcessTasks();
+            worker.Tasks.ProcessTasks();
         }
     }
 
@@ -115,7 +115,7 @@ public class WebApiTransferableStreamTests
         worker.Execute("var arrived = null; var portCount = -1; port.onmessage = function (e) { arrived = e.data; portCount = e.ports.length; };");
         host.Execute("var rs = new ReadableStream(); port.postMessage(rs, [rs]);");
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         worker.Evaluate("arrived instanceof ReadableStream").AsBoolean().Should().BeTrue();
         worker.Evaluate("Object.getPrototypeOf(arrived) === ReadableStream.prototype").AsBoolean().Should().BeTrue();
@@ -141,7 +141,7 @@ public class WebApiTransferableStreamTests
         // observation has to be a non-pumping one, which is what LogLength is for.
         for (var i = 0; i < 5; i++)
         {
-            host.Advanced.ProcessTasks();
+            host.Tasks.ProcessTasks();
         }
 
         LogLength(worker).Should().Be(0);
@@ -203,13 +203,13 @@ public class WebApiTransferableStreamTests
             """);
 
         worker.Execute("var arrived = null; port.onmessage = function (e) { arrived = e.data; };");
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // Nobody has read yet, so the receiving side's high water mark of 0 has never asked for anything: the
         // sender is parked with at most a couple of chunks in hand.
         for (var i = 0; i < 20; i++)
         {
-            host.Advanced.ProcessTasks();
+            host.Tasks.ProcessTasks();
         }
 
         var parked = host.Evaluate("produced").AsNumber();
@@ -321,7 +321,7 @@ public class WebApiTransferableStreamTests
             port.postMessage(rs, [rs]);
             """);
 
-        worker.Advanced.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         // Two reads outstanding at once, so that the *chunk*'s own dispatch leaves a read request waiting and
         // ReadableStreamDefaultControllerEnqueue therefore pulls again on that very stack.
@@ -336,8 +336,8 @@ public class WebApiTransferableStreamTests
         // again. That is the interleaving a cross-engine transfer makes reachable and a same-engine one does
         // not, and it is what JsMessagePort.IsChannelExhausted's queue test exists for: asking only "has the
         // far side gone" here would throw the `close` away and error a stream that is about to finish.
-        host.Advanced.ProcessTasks();
-        worker.Advanced.ProcessTasks();
+        host.Tasks.ProcessTasks();
+        worker.Tasks.ProcessTasks();
 
         Log(worker).Should().Be("1:only,2:undefined:true");
     }
@@ -477,7 +477,7 @@ public class WebApiTransferableStreamTests
         var pullsAtTheEnd = host.Evaluate("pulls").AsNumber();
         for (var i = 0; i < 5; i++)
         {
-            host.Advanced.ProcessTasks();
+            host.Tasks.ProcessTasks();
         }
 
         host.Evaluate("pulls").AsNumber().Should().Be(pullsAtTheEnd);
@@ -488,7 +488,7 @@ public class WebApiTransferableStreamTests
     {
         var host = TransferEngine();
         var worker = TransferEngine();
-        var pair = host.Advanced.CreateMessagePortPair(worker);
+        var pair = host.WebApi.CreateMessagePortPair(worker);
         host.SetValue("port", pair.Local);
         worker.SetValue("port", pair.Remote);
 
@@ -504,9 +504,9 @@ public class WebApiTransferableStreamTests
             port.postMessage(rs, [rs]);
             """);
 
-        host.Advanced.ProcessTasks();
-        worker.Advanced.ProcessTasks();
-        host.Advanced.ProcessTasks();
+        host.Tasks.ProcessTasks();
+        worker.Tasks.ProcessTasks();
+        host.Tasks.ProcessTasks();
 
         worker.Dispose();
 

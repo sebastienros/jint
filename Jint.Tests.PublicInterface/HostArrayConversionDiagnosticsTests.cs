@@ -13,7 +13,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// Covers <see cref="Engine.AdvancedOperations.GetInteropConversionDiagnostics"/>, the answer to a question a
+/// Covers <see cref="Engine.DiagnosticOperations.GetInteropConversionDiagnostics"/>, the answer to a question a
 /// host cannot otherwise ask: did any CLR array cross into script during this run, and under which semantics?
 /// <para>
 /// <see cref="ArrayConversionMode.Copy"/> is the default and <see cref="ArrayConversionMode.LiveView"/> remains
@@ -45,7 +45,7 @@ public class HostArrayConversionDiagnosticsTests
     public void TheCountersAreReadableFromOutsideTheJintAssemblyAndStartAtZero()
     {
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee.
-        var diagnostics = new Engine().Advanced.GetInteropConversionDiagnostics();
+        var diagnostics = new Engine().Diagnostics.GetInteropConversionDiagnostics();
 
         diagnostics.ArrayLiveViewConversions.Should().Be(0);
         diagnostics.ArrayCopyConversions.Should().Be(0);
@@ -112,11 +112,11 @@ public class HostArrayConversionDiagnosticsTests
 
         Invoking(() => engine.SetValue("oversized", oversized))
             .Should().ThrowExactly<MemoryLimitExceededException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
 
         engine.SetValue("small", new[] { 1, 2, 3 });
         engine.Evaluate("small.join(',')").Should().Be("1,2,3");
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]
@@ -129,12 +129,12 @@ public class HostArrayConversionDiagnosticsTests
 
         Invoking(() => engine.SetValue("timedOut", new object[100_000]))
             .Should().ThrowExactly<TimeoutException>();
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
 
         deadline.End();
         engine.SetValue("retry", new[] { 1, 2, 3 });
         engine.Evaluate("retry.join(',')").Should().Be("1,2,3");
-        engine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class HostArrayConversionDiagnosticsTests
             }
             """);
 
-        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        var diagnostics = engine.Diagnostics.GetInteropConversionDiagnostics();
         diagnostics.ArrayLiveViewConversions.Should().Be(0);
         diagnostics.ArrayCopyConversions.Should().Be(0);
     }
@@ -173,7 +173,7 @@ public class HostArrayConversionDiagnosticsTests
         liveViewEngine.SetValue("host", new HostWithArrays());
         liveViewEngine.Evaluate("host.Values[0]").Should().Be(1);
 
-        var live = liveViewEngine.Advanced.GetInteropConversionDiagnostics();
+        var live = liveViewEngine.Diagnostics.GetInteropConversionDiagnostics();
         live.ArrayLiveViewConversions.Should().Be(1);
         live.ArrayCopyConversions.Should().Be(0);
 
@@ -181,7 +181,7 @@ public class HostArrayConversionDiagnosticsTests
         copyEngine.SetValue("host", new HostWithArrays());
         copyEngine.Evaluate("host.Values[0]").Should().Be(1);
 
-        var copy = copyEngine.Advanced.GetInteropConversionDiagnostics();
+        var copy = copyEngine.Diagnostics.GetInteropConversionDiagnostics();
         copy.ArrayLiveViewConversions.Should().Be(0);
         copy.ArrayCopyConversions.Should().Be(1);
     }
@@ -197,7 +197,7 @@ public class HostArrayConversionDiagnosticsTests
         liveViewEngine.Execute("host.Values[0] = 99;");
 
         host.Values[0].Should().Be(99);
-        liveViewEngine.Advanced.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(1);
+        liveViewEngine.Diagnostics.GetInteropConversionDiagnostics().ArrayLiveViewConversions.Should().Be(1);
 
         var copied = new HostWithArrays();
         var copyEngine = CreateEngine(ArrayConversionMode.Copy);
@@ -205,7 +205,7 @@ public class HostArrayConversionDiagnosticsTests
         copyEngine.Execute("host.Values[0] = 99;");
 
         copied.Values[0].Should().Be(1);
-        copyEngine.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        copyEngine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     // ---- what is and is not counted ----
@@ -221,7 +221,7 @@ public class HostArrayConversionDiagnosticsTests
 
         engine.Execute("for (var i = 0; i < 10; i++) { host.Values[0]; }");
 
-        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        var diagnostics = engine.Diagnostics.GetInteropConversionDiagnostics();
         diagnostics.ArrayLiveViewConversions.Should().Be(0);
         diagnostics.ArrayCopyConversions.Should().Be(1);
     }
@@ -234,7 +234,7 @@ public class HostArrayConversionDiagnosticsTests
 
         engine.Execute("host.Values[0]; host.Others[0];");
 
-        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        var diagnostics = engine.Diagnostics.GetInteropConversionDiagnostics();
         diagnostics.ArrayLiveViewConversions.Should().Be(0);
         diagnostics.ArrayCopyConversions.Should().Be(2);
     }
@@ -256,7 +256,7 @@ public class HostArrayConversionDiagnosticsTests
 
         engine.Evaluate("host.Values[0]").Should().Be(1);
 
-        var diagnostics = engine.Advanced.GetInteropConversionDiagnostics();
+        var diagnostics = engine.Diagnostics.GetInteropConversionDiagnostics();
         diagnostics.ArrayLiveViewConversions.Should().Be(0);
         diagnostics.ArrayCopyConversions.Should().Be(1);
     }
@@ -271,7 +271,7 @@ public class HostArrayConversionDiagnosticsTests
         liveViewEngine.SetValue("host", new HostWithArrays());
         liveViewEngine.Evaluate("host.Declared[0]").Should().Be(1);
 
-        var live = liveViewEngine.Advanced.GetInteropConversionDiagnostics();
+        var live = liveViewEngine.Diagnostics.GetInteropConversionDiagnostics();
         live.ArrayLiveViewConversions.Should().Be(0);
         live.ArrayCopyConversions.Should().Be(0);
 
@@ -279,7 +279,7 @@ public class HostArrayConversionDiagnosticsTests
         copyEngine.SetValue("host", new HostWithArrays());
         copyEngine.Evaluate("host.Declared[0]").Should().Be(1);
 
-        var copy = copyEngine.Advanced.GetInteropConversionDiagnostics();
+        var copy = copyEngine.Diagnostics.GetInteropConversionDiagnostics();
         copy.ArrayLiveViewConversions.Should().Be(0);
         copy.ArrayCopyConversions.Should().Be(1);
     }
@@ -296,8 +296,8 @@ public class HostArrayConversionDiagnosticsTests
         first.Execute("host.Values[0]; host.Others[0];");
         second.Execute("host.Values[0];");
 
-        first.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(2);
-        second.Advanced.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
+        first.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(2);
+        second.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
     [Fact]
@@ -307,12 +307,12 @@ public class HostArrayConversionDiagnosticsTests
         engine.SetValue("host", new HostWithArrays());
 
         engine.Execute("host.Values[0];");
-        var afterFirst = engine.Advanced.GetInteropConversionDiagnostics();
+        var afterFirst = engine.Diagnostics.GetInteropConversionDiagnostics();
 
         // A fresh array each time, so the identity caches cannot answer.
         engine.SetValue("host", new HostWithArrays());
         engine.Execute("host.Values[0];");
-        var afterSecond = engine.Advanced.GetInteropConversionDiagnostics();
+        var afterSecond = engine.Diagnostics.GetInteropConversionDiagnostics();
 
         afterFirst.ArrayCopyConversions.Should().Be(1);
         afterSecond.ArrayCopyConversions.Should().Be(2);
@@ -326,14 +326,14 @@ public class HostArrayConversionDiagnosticsTests
         var engine = CreateEngine();
         engine.SetValue("host", new HostWithArrays());
 
-        var before = engine.Advanced.GetInteropConversionDiagnostics();
+        var before = engine.Diagnostics.GetInteropConversionDiagnostics();
         engine.Execute("host.Values[0];");
-        var after = engine.Advanced.GetInteropConversionDiagnostics();
+        var after = engine.Diagnostics.GetInteropConversionDiagnostics();
 
         before.ArrayCopyConversions.Should().Be(0);
         after.ArrayCopyConversions.Should().Be(1);
         before.Should().NotBe(after);
-        engine.Advanced.GetInteropConversionDiagnostics().Should().Be(after);
+        engine.Diagnostics.GetInteropConversionDiagnostics().Should().Be(after);
     }
 
     /// <summary>

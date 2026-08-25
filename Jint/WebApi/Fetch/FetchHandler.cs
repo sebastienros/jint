@@ -7,7 +7,7 @@ namespace Jint.WebApi.Fetch;
 
 /// <summary>
 /// The script function an inbound request is routed to, plus the <c>this</c> it is called with — the resolved
-/// form of whatever a host handed <c>Engine.Advanced.SetFetchHandler</c>.
+/// form of whatever a host handed <c>Engine.WebApi.SetFetchHandler</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -49,7 +49,7 @@ internal sealed class FetchHandler
     /// <item>an object with a callable <c>fetch</c> property — the Workers convention, called with the object
     /// as <c>this</c>;</item>
     /// <item>an object with a <c>default</c> property matching either of the two above — a module namespace,
-    /// so <c>engine.Advanced.SetFetchHandler(engine.Modules.Import("./worker.js"))</c> works directly.</item>
+    /// so <c>engine.WebApi.SetFetchHandler(engine.Modules.Import("./worker.js"))</c> works directly.</item>
     /// </list>
     /// </summary>
     /// <exception cref="ArgumentException">The value matches none of the three shapes.</exception>

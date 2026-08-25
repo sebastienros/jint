@@ -134,11 +134,11 @@ public class WebApiSchedulerTests
         ran.Should().BeFalse();
 
         // The engine is pumped, but the host's clock has not moved.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         ran.Should().BeFalse();
 
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         ran.Should().BeTrue();
     }
 
@@ -162,7 +162,7 @@ public class WebApiSchedulerTests
         while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
         {
             // Nothing but the host's own pump: no engine thread, no background timer.
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
@@ -236,7 +236,7 @@ public class WebApiSchedulerTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         clock.Advance(1000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         ran.Should().BeFalse();
 
@@ -292,7 +292,7 @@ public class WebApiSchedulerTests
         engine.Execute("controller.abort();");
 
         clock.Advance(50);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         order.Should().Equal("plain", "rejected:AbortError");
     }

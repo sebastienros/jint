@@ -131,7 +131,7 @@ public class SecurityConfigurationTests
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
             .Should().Throw<InvalidOperationException>();
 
-        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.NonPublicClrMembersEnabled);
     }
 
@@ -289,7 +289,7 @@ public class SecurityConfigurationTests
         var options = CreateSafeOptions().SetTypeConverter(static _ => new PassThroughTypeConverter());
         var engine = new Engine(options);
 
-        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Select(static d => d.Code)
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Select(static d => d.Code)
             .Should().Contain(SecurityDiagnosticCodes.ClrCallbackConfigured);
     }
 
@@ -305,7 +305,7 @@ public class SecurityConfigurationTests
         });
 
         var engine = new Engine(options);
-        var report = engine.Advanced.ValidateSecurityConfiguration();
+        var report = engine.Diagnostics.ValidateSecurityConfiguration();
 
         callbackCount.Should().Be(1);
         report.Diagnostics.Should().ContainSingle(
@@ -321,7 +321,7 @@ public class SecurityConfigurationTests
         options.Debugger.Enabled = true;
         options.Configure(_ => options.Debugger.Enabled = false);
 
-        var report = new Engine(options).Advanced.ValidateSecurityConfiguration();
+        var report = new Engine(options).Diagnostics.ValidateSecurityConfiguration();
 
         report.Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.DebuggerEnabled);
@@ -344,7 +344,7 @@ public class SecurityConfigurationTests
             .Should().Throw<InvalidOperationException>();
         Invoking(() => options.Interop.AllowedAssemblies.Clear()).Should().Throw<InvalidOperationException>();
 
-        var report = engine.Advanced.ValidateSecurityConfiguration();
+        var report = engine.Diagnostics.ValidateSecurityConfiguration();
 
         report.Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrAccessEnabled);
@@ -364,7 +364,7 @@ public class SecurityConfigurationTests
         Invoking(() => options.Modules.ModuleLoader = new Options().Modules.ModuleLoader)
             .Should().Throw<InvalidOperationException>();
 
-        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ModuleLoadingEnabled);
     }
 
@@ -387,7 +387,7 @@ public class SecurityConfigurationTests
         Invoking(() => options.Constraints.MaxRecursionDepth = 64).Should().Throw<InvalidOperationException>();
         Invoking(() => options.Constraints.StackOverflowGuard = true).Should().Throw<InvalidOperationException>();
 
-        var codes = engine.Advanced.ValidateSecurityConfiguration().Diagnostics
+        var codes = engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics
             .Select(static diagnostic => diagnostic.Code);
         codes.Should().Contain(SecurityDiagnosticCodes.ParserSourceLengthUnlimited);
         codes.Should().Contain(SecurityDiagnosticCodes.ParserNodeCountUnlimited);
@@ -403,7 +403,7 @@ public class SecurityConfigurationTests
         var options = CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions));
         options.Configure(_ => options.Interop.ExtensionMethodTypes.Clear());
 
-        var report = new Engine(options).Advanced.ValidateSecurityConfiguration();
+        var report = new Engine(options).Diagnostics.ValidateSecurityConfiguration();
 
         report.Diagnostics.Should().ContainSingle(
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrExtensionMethodsConfigured);
@@ -436,7 +436,7 @@ public class SecurityConfigurationTests
         calls.Should().Be(0);
 
         var engine = new Engine(options);
-        engine.Advanced.ValidateSecurityConfiguration();
+        engine.Diagnostics.ValidateSecurityConfiguration();
         calls.Should().Be(1);
     }
 
@@ -449,7 +449,7 @@ public class SecurityConfigurationTests
         Parallel.For(0, reports.Length, index =>
         {
             var engine = new Engine(options);
-            reports[index] = string.Join(",", engine.Advanced.ValidateSecurityConfiguration()
+            reports[index] = string.Join(",", engine.Diagnostics.ValidateSecurityConfiguration()
                 .Diagnostics.Select(static diagnostic => diagnostic.Code));
         });
 
@@ -598,7 +598,7 @@ public class SecurityConfigurationTests
         var state = new SecretHostState();
         var options = CreateSafeOptions().Configure(_ => GC.KeepAlive(state));
         var engine = new Engine(options);
-        var report = engine.Advanced.ValidateSecurityConfiguration();
+        var report = engine.Diagnostics.ValidateSecurityConfiguration();
         return new CollectibleReport(
             new WeakReference(options),
             new WeakReference(engine),

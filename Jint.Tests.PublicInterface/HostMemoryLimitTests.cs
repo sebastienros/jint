@@ -228,7 +228,7 @@ public class HostMemoryLimitTests
             {
                 try
                 {
-                    engine.Advanced.ProcessTasks();
+                    engine.Tasks.ProcessTasks();
                 }
                 catch (Exception exception)
                 {
@@ -278,7 +278,7 @@ public class HostMemoryLimitTests
         engine.Execute("allocate(); setTimeout(() => allocate(), 5);");
         clock.Advance(5);
 
-        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+        Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public class HostMemoryLimitTests
         for (var i = 0; i < 10; i++)
         {
             clock.Advance(5);
-            Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+            Invoking(engine.Tasks.ProcessTasks).Should().NotThrow();
         }
 
         allocations.Should().HaveCount(10);
@@ -320,7 +320,7 @@ public class HostMemoryLimitTests
         engine.Execute("setTimeout(() => { allocate(); throw new Error('ordinary'); }, 5);");
         clock.Advance(5);
 
-        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+        Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class HostMemoryLimitTests
             webApi => webApi.Messaging.Broker = broker));
         sender.Execute("new BroadcastChannel('memory-room').postMessage('deliver');");
 
-        Invoking(listener.Advanced.ProcessTasks).Should().NotThrow();
+        Invoking(listener.Tasks.ProcessTasks).Should().NotThrow();
     }
 
     [Fact]
@@ -362,7 +362,7 @@ public class HostMemoryLimitTests
             requestIdleCallback(() => requestIdleCallback(() => allocate()));
             """);
 
-        Invoking(engine.Advanced.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
+        Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
     [Fact]
@@ -400,7 +400,7 @@ public class HostMemoryLimitTests
 
         loader.Complete("export const value = allocate();");
 
-        var failure = RunOnNewThread(engine.Advanced.ProcessTasks);
+        var failure = RunOnNewThread(engine.Tasks.ProcessTasks);
 
         failure.Should().BeOfType<MemoryLimitExceededException>();
     }
@@ -782,13 +782,13 @@ public class HostMemoryLimitTests
         var allocations = new List<byte[]>();
         var idlePromise = default(ManualPromise);
         var engine = new Engine(options => options.LimitMemory(budget));
-        idlePromise = engine.Advanced.RegisterPromise();
+        idlePromise = engine.Tasks.RegisterPromise();
         engine.SetValue("allocate", new Action<int>(size => allocations.Add(new byte[size])));
         engine.SetValue("drainOld", new Action(() =>
         {
             try
             {
-                engine.Advanced.ProcessTasks();
+                engine.Tasks.ProcessTasks();
             }
             catch (MemoryLimitExceededException)
             {
@@ -823,7 +823,7 @@ public class HostMemoryLimitTests
             Promise.resolve().then(() => mark());
             """)).Should().ThrowExactly<MemoryLimitExceededException>();
 
-        Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        Invoking(engine.Tasks.ProcessTasks).Should().NotThrow();
         callbackRan.Should().BeFalse();
     }
 
@@ -861,7 +861,7 @@ public class HostMemoryLimitTests
             .Should().ThrowExactly<MemoryLimitExceededException>();
 
         clock.Advance(5);
-        Invoking(engine.Advanced.ProcessTasks).Should().NotThrow();
+        Invoking(engine.Tasks.ProcessTasks).Should().NotThrow();
         fired.Should().BeFalse();
     }
 #endif

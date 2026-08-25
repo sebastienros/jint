@@ -73,7 +73,7 @@ public class HostModuleImportStateTests
         // The host loop StartImport documents: start, then give the engine turns. One turn takes the module
         // through link and into its body, where it suspends on the top-level await.
         var operation = engine.Modules.StartImport("m");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         operation.IsCompleted.Should().BeFalse();
 
         // Settled a good while later, so that nothing is queued when the blocking import starts and the

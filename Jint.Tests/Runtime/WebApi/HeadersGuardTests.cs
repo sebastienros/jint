@@ -346,15 +346,15 @@ public class HeadersGuardTests
                 }
             };
             """);
-        engine.Advanced.SetFetchHandler(engine.GetValue("handler"));
+        engine.WebApi.SetFetchHandler(engine.GetValue("handler"));
 
         var message = new HttpRequestMessage(HttpMethod.Get, "https://example.org/");
         message.Headers.Add("x-existing", "1");
 
-        var operation = engine.Advanced.InvokeFetchHandler(message);
+        var operation = engine.WebApi.InvokeFetchHandler(message);
         for (var i = 0; i < 100 && !operation.IsCompleted; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         using var response = operation.GetResult();

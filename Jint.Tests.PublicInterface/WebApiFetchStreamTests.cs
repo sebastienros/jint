@@ -166,13 +166,13 @@ public class WebApiFetchStreamTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("r.status").AsNumber().Should().Be(200);
 
         for (var i = 0; i < 10; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         // Deterministic against the shipped implementation rather than a race: with a high water mark of
@@ -194,15 +194,15 @@ public class WebApiFetchStreamTests
         var engine = WebEngine(handler);
 
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Execute("var reader = r.body.getReader(); reader.read();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("the read should have reached the transport");
 
         engine.Execute("reader.cancel();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("cancelling the body must cancel the read in flight, not merely close the stream");
     });
@@ -215,10 +215,10 @@ public class WebApiFetchStreamTests
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Execute("var reader = r.body.getReader(); reader.read();");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         handler.Body.ReadStarted.Wait(TransportSignalCeiling).Should().BeTrue("the read should have reached the transport");
 

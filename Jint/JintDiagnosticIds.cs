@@ -19,7 +19,7 @@ namespace Jint;
 /// </para>
 /// <code>
 /// #pragma warning disable JINT0001 // Jint diagnostic API, not part of the compatibility contract
-///     var report = engine.Advanced.GetMemoryReport();
+///     var report = engine.Diagnostics.GetMemoryReport();
 /// #pragma warning restore JINT0001
 /// </code>
 /// <para>

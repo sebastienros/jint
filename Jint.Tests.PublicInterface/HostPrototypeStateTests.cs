@@ -217,7 +217,7 @@ public class HostPrototypeStateTests
         engine.Evaluate("el.describe()").Should().Be("Node");
 
         engine.Evaluate("delete proto.ctorName").Should().Be(true);
-        engine.Advanced.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
+        engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.Specialized);
 
         engine.Evaluate("el.describe()").Should().Be("Node");
         (JsObjectShape.GetHostState(prototype) as NodeTypeInfo)!.InterfaceName.Should().Be("Node");

@@ -271,7 +271,7 @@ public class HostOptionsReadOnlyTests
 
 #if NET8_0_OR_GREATER
     /// <summary>
-    /// <c>Engine.Advanced.EnableWebApis</c> is the one door that writes to a frozen <see cref="Options"/>, and
+    /// <c>Engine.WebApi.Enable</c> is the one door that writes to a frozen <see cref="Options"/>, and
     /// the suspension it opens is scoped to the group it is configuring — not to web-API groups at large, and
     /// not to the registries.
     /// </summary>
@@ -285,7 +285,7 @@ public class HostOptionsReadOnlyTests
         var engine = new Engine(options);
         var ran = false;
 
-        engine.Advanced.EnableWebApis(WebApiFeatures.Timers, webApi =>
+        engine.WebApi.Enable(WebApiFeatures.Timers, webApi =>
         {
             ran = true;
 

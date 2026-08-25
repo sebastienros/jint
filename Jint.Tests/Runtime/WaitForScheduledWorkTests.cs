@@ -6,8 +6,8 @@ using Xunit.Sdk;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.WaitForScheduledWork"/> and its asynchronous sibling — the pump wait,
-/// which parks a host thread until there is something for <see cref="Engine.AdvancedOperations.ProcessTasks"/>
+/// <see cref="Engine.TaskOperations.WaitForScheduledWork"/> and its asynchronous sibling — the pump wait,
+/// which parks a host thread until there is something for <see cref="Engine.TaskOperations.ProcessTasks"/>
 /// to run.
 /// </summary>
 /// <remarks>
@@ -53,8 +53,8 @@ public class WaitForScheduledWorkTests
     {
         using var engine = new Engine();
 
-        engine.Advanced.WaitForScheduledWork(TimeSpan.Zero).Should().BeFalse();
-        engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50)).Should().BeFalse();
+        engine.Tasks.WaitForScheduledWork(TimeSpan.Zero).Should().BeFalse();
+        engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50)).Should().BeFalse();
 
         // The wait owned the engine and gave it back, both times.
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
@@ -71,10 +71,10 @@ public class WaitForScheduledWorkTests
         using var engine = new Engine();
         engine.AddToEventLoop(static () => { });
 
-        engine.Advanced.WaitForScheduledWork(TimeSpan.Zero).Should().BeTrue();
+        engine.Tasks.WaitForScheduledWork(TimeSpan.Zero).Should().BeTrue();
 
         var elapsed = Stopwatch.StartNew();
-        engine.Advanced.WaitForScheduledWork(Ceiling).Should().BeTrue();
+        engine.Tasks.WaitForScheduledWork(Ceiling).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
     }
 
@@ -97,7 +97,7 @@ public class WaitForScheduledWorkTests
 
         var elapsed = Stopwatch.StartNew();
         waiterAboutToPark.Set();
-        engine.Advanced.WaitForScheduledWork(Ceiling).Should().BeTrue();
+        engine.Tasks.WaitForScheduledWork(Ceiling).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
 
         await producer;
@@ -114,14 +114,14 @@ public class WaitForScheduledWorkTests
 
         using var alreadyCancelled = new CancellationTokenSource();
         alreadyCancelled.Cancel();
-        Invoking(() => engine.Advanced.WaitForScheduledWork(Ceiling, alreadyCancelled.Token))
+        Invoking(() => engine.Tasks.WaitForScheduledWork(Ceiling, alreadyCancelled.Token))
             .Should().Throw<OperationCanceledException>();
 
         using var cancelledWhileParked = new CancellationTokenSource();
         cancelledWhileParked.CancelAfter(SettleInterval);
 
         var elapsed = Stopwatch.StartNew();
-        Invoking(() => engine.Advanced.WaitForScheduledWork(Ceiling, cancelledWhileParked.Token))
+        Invoking(() => engine.Tasks.WaitForScheduledWork(Ceiling, cancelledWhileParked.Token))
             .Should().Throw<OperationCanceledException>();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
 
@@ -189,13 +189,13 @@ public class WaitForScheduledWorkTests
         WaitUntilOwned(entered, running);
         try
         {
-            Invoking(() => engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50)))
+            Invoking(() => engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50)))
                 .Should().Throw<InvalidOperationException>()
                 .WithMessage(ConcurrentUseMessage);
 
             // Not awaited: the reservation the asynchronous form takes is claimed synchronously, precisely so
             // that an engine already in use is refused before a Task exists.
-            Action concurrentAsync = () => _ = engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50));
+            Action concurrentAsync = () => _ = engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50));
             concurrentAsync.Should().Throw<InvalidOperationException>().WithMessage(ConcurrentUseMessage);
         }
         finally
@@ -215,8 +215,8 @@ public class WaitForScheduledWorkTests
     {
         using var engine = new Engine();
 
-        (await engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeFalse();
-        (await engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50))).Should().BeFalse();
+        (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeFalse();
+        (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.FromMilliseconds(50))).Should().BeFalse();
 
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
@@ -230,10 +230,10 @@ public class WaitForScheduledWorkTests
         using var engine = new Engine();
         engine.AddToEventLoop(static () => { });
 
-        (await engine.Advanced.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeTrue();
+        (await engine.Tasks.WaitForScheduledWorkAsync(TimeSpan.Zero)).Should().BeTrue();
 
         var elapsed = Stopwatch.StartNew();
-        (await engine.Advanced.WaitForScheduledWorkAsync(Ceiling)).Should().BeTrue();
+        (await engine.Tasks.WaitForScheduledWorkAsync(Ceiling)).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
     }
 
@@ -257,7 +257,7 @@ public class WaitForScheduledWorkTests
 
         var elapsed = Stopwatch.StartNew();
         waiterAboutToPark.Set();
-        (await engine.Advanced.WaitForScheduledWorkAsync(Ceiling)).Should().BeTrue();
+        (await engine.Tasks.WaitForScheduledWorkAsync(Ceiling)).Should().BeTrue();
         elapsed.Elapsed.Should().BeLessThan(EarlyReturnMargin);
 
         await producer;

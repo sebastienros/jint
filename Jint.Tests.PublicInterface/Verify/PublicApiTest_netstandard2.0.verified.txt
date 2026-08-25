@@ -30,13 +30,19 @@ namespace Jint
         public Jint.Engine.AdvancedOperations Advanced { get; }
         public Jint.Engine.ConstraintOperations Constraints { get; }
         public Jint.Runtime.Debugger.DebugHandler Debugger { get; }
+        public Jint.Engine.DiagnosticOperations Diagnostics { get; }
         public Jint.Native.Object.ObjectInstance Global { get; }
+        public object? HostDefined { get; set; }
         public Jint.Runtime.Intrinsics Intrinsics { get; }
         public Jint.Engine.ModuleOperations Modules { get; }
+        public Jint.Engine.TaskOperations Tasks { get; }
         public Jint.Runtime.Interop.ClrTypeConverter TypeConverter { get; }
+        public void AddLazyGlobal(string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
+        public void AddLazyGlobal<TState>(string name, TState state, System.Func<Jint.Engine, TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, params Jint.Native.JsValue[] arguments) { }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
         public Jint.Native.Object.ObjectInstance Construct(Jint.Native.JsValue constructor, params Jint.Native.JsValue[] arguments) { }
+        public object? ConvertResult(Jint.Native.JsValue value, Jint.ResultLimits? limits = null) { }
         public void Dispose() { }
         public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
         public Jint.Native.JsValue Evaluate(string code, string? source = null, Jint.ScriptParsingOptions? parsingOptions = null) { }
@@ -68,33 +74,13 @@ namespace Jint
         public static Jint.Prepared<Acornima.Ast.Script> PrepareScript(string code, string? source = null, bool strict = false, Jint.ScriptPreparationOptions? options = null) { }
         public sealed class AdvancedOperations
         {
-            public object? HostDefined { get; set; }
-            public bool IsProfiling { get; }
-            public string StackTrace { get; }
-            public System.TimeSpan? TimeUntilNextScheduledWork { get; }
-            public event System.EventHandler<Jint.PromiseRejectionTrackerEventArgs>? PromiseRejectionTracker;
-            public void AddLazyGlobal(string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
-            public void AddLazyGlobal<TState>(string name, TState state, System.Func<Jint.Engine, TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
             public Jint.GlobalSnapshot CaptureGlobalSnapshot() { }
-            public object? ConvertResult(Jint.Native.JsValue value, Jint.ResultLimits? limits = null) { }
             public Jint.Native.Object.ObjectInstance CreateProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
             public Jint.Runtime.Interop.RevocableProxy CreateRevocableProxy(Jint.Native.Object.ObjectInstance target, Jint.Runtime.Interop.ProxyHandler handler) { }
-            public Jint.Runtime.Coverage.CoverageReport GetCoverage() { }
-            public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
-            public Jint.Diagnostics.EngineMemoryReport GetMemoryReport(int objectCensusBound = 10000) { }
-            public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
             public Jint.Native.Object.PropertyAccessSemantics GetPropertyAccessSemantics(Jint.Native.Object.ObjectInstance value) { }
             public bool HasSharedShape(Jint.Native.Object.ObjectInstance value) { }
-            public void ProcessTasks() { }
-            public Jint.Native.Promise.ManualPromise RegisterPromise() { }
             public void ResetCallStack() { }
-            public void ResetCoverage() { }
             public void RestoreGlobalSnapshot(Jint.GlobalSnapshot snapshot) { }
-            public void StartProfiling() { }
-            public Jint.Profiling.ScriptProfile StopProfiling() { }
-            public Jint.SecurityConfigurationReport ValidateSecurityConfiguration(Jint.SecurityConfigurationPolicy policy = 0) { }
-            public bool WaitForScheduledWork(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
-            public System.Threading.Tasks.Task<bool> WaitForScheduledWorkAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
             public void WithRestoredGlobals(Jint.GlobalSnapshot snapshot, System.Action action) { }
         }
         public sealed class ConstraintOperations
@@ -103,6 +89,19 @@ namespace Jint
             public T? Find<T>()
                 where T : Jint.Constraint { }
             public void Reset() { }
+        }
+        public sealed class DiagnosticOperations
+        {
+            public bool IsProfiling { get; }
+            public string StackTrace { get; }
+            public Jint.Runtime.Coverage.CoverageReport GetCoverage() { }
+            public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
+            public Jint.Diagnostics.EngineMemoryReport GetMemoryReport(int objectCensusBound = 10000) { }
+            public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
+            public void ResetCoverage() { }
+            public void StartProfiling() { }
+            public Jint.Profiling.ScriptProfile StopProfiling() { }
+            public Jint.SecurityConfigurationReport ValidateSecurityConfiguration(Jint.SecurityConfigurationPolicy policy = 0) { }
         }
         public sealed class ModuleOperations
         {
@@ -114,6 +113,15 @@ namespace Jint
             public System.Threading.Tasks.Task<Jint.Native.Object.ObjectInstance> ImportAsync(string specifier, string? referencingModuleLocation, System.Threading.CancellationToken cancellationToken = default) { }
             public Jint.Runtime.Modules.ModuleImportOperation StartImport(string specifier) { }
             public Jint.Runtime.Modules.ModuleImportOperation StartImport(string specifier, string? referencingModuleLocation) { }
+        }
+        public sealed class TaskOperations
+        {
+            public System.TimeSpan? TimeUntilNextScheduledWork { get; }
+            public event System.EventHandler<Jint.PromiseRejectionTrackerEventArgs>? PromiseRejectionTracker;
+            public void ProcessTasks() { }
+            public Jint.Native.Promise.ManualPromise RegisterPromise() { }
+            public bool WaitForScheduledWork(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
+            public System.Threading.Tasks.Task<bool> WaitForScheduledWorkAsync(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }
         }
     }
     public enum EnumConversionMode

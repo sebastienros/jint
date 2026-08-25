@@ -90,7 +90,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("firedAt").AsNumber().Should().Be(-1);
 
         clock.Advance(200);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The whole point of the two features sharing Options.WebApi.Timers.TimeProvider: a host that fakes
         // the clock gets a deterministic answer from both, not a timer that fires against a reading that has

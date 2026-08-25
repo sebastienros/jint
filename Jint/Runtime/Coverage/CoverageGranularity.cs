@@ -7,7 +7,7 @@ namespace Jint.Runtime.Coverage;
 /// The granularity decides what ends up in the report, not how the engine executes. Coverage is collected
 /// through the same per-statement lane the debugger and the exact execution constraints use, so enabling it
 /// at either granularity disarms the interpreter's tight-loop lane for the whole engine — see
-/// <see cref="Engine.AdvancedOperations.GetCoverage"/> for what that means for measured code.
+/// <see cref="Engine.DiagnosticOperations.GetCoverage"/> for what that means for measured code.
 /// </remarks>
 public enum CoverageGranularity
 {

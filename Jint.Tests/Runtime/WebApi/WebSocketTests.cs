@@ -246,7 +246,7 @@ public class WebSocketTests
 
         while (true)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
 
             if (until())
             {
@@ -582,7 +582,7 @@ public class WebSocketTests
         socket.Sent.Should().BeEmpty("a socket that is CLOSING transmits nothing");
 
         // ... and it never comes down again, because nothing will ever write those bytes.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("ws.bufferedAmount").AsNumber().Should().Be(4);
     });
 
@@ -1014,7 +1014,7 @@ public class WebSocketTests
         socket.Deliver(WebSocketReceipt.Message(isText: true, "ignored"u8.ToArray()));
         for (var i = 0; i < 10; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         delivered.Should().BeFalse();

@@ -189,7 +189,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("https://user:token@internal.example/module.js");
 
         loader.Completion!.SetError(original);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
         import.Error.Get("message").AsString().Should().NotContain("internal.example").And.NotContain("/srv/private");
@@ -211,7 +211,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("https://user:token@internal.example/private/module.js");
 
         loader.Completion!.SetSource("export const = invalid;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
         import.Error.Get("stack").AsString().Should().NotContain("internal.example").And.NotContain("/private/");
@@ -241,7 +241,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("./module.js");
 
         loader.Completion!.SetError(original);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         decorated.Should().BeSameAs(original);
         decoratorCalls.Should().Be(1);
@@ -269,13 +269,13 @@ public class HostErrorDisclosureTests
         var canceled = new Engine(options => options.UseModules(new CanceledTaskLoader()));
 
         var canceledImport = canceled.Modules.StartImport("./module.js");
-        canceled.Advanced.ProcessTasks();
+        canceled.Tasks.ProcessTasks();
         canceledImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
 
         var faultedCancellation = new Engine(options =>
             options.UseModules(new FaultedTaskLoader(new OperationCanceledException(Secret))));
         var faultedImport = faultedCancellation.Modules.StartImport("./module.js");
-        faultedCancellation.Advanced.ProcessTasks();
+        faultedCancellation.Tasks.ProcessTasks();
         faultedImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
 
         var loader = new DeferredLoader();
@@ -283,7 +283,7 @@ public class HostErrorDisclosureTests
         var explicitImport = explicitCancellation.Modules.StartImport("./module.js");
         var transportCancellation = new OperationCanceledException(Secret);
         loader.Completion!.SetError(transportCancellation);
-        explicitCancellation.Advanced.ProcessTasks();
+        explicitCancellation.Tasks.ProcessTasks();
         explicitImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
         var rejection = Invoking(() => explicitImport.GetResult()).Should().Throw<PromiseRejectedException>().Which;
         JintException.TryGetClrException(rejection, out var original).Should().BeTrue();
@@ -313,7 +313,7 @@ public class HostErrorDisclosureTests
         });
 
         var operation = engine.Modules.StartImport("https://user:token@internal.example/module.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.Error!.Get("message").AsString().Should().Be("Could not load module.");
         var rejection = Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>().Which;
@@ -334,7 +334,7 @@ public class HostErrorDisclosureTests
         var engine = new Engine(options => options.UseModules(new ReimplementedModuleLoader()));
 
         var import = engine.Modules.StartImport("./module.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
         import.Error.Get("message").AsString().Should().NotContain(Secret);
@@ -368,7 +368,7 @@ public class HostErrorDisclosureTests
             options.UseModules(trustedLoader).ExposeDetailedErrors());
         var trustedImport = trusted.Modules.StartImport("./trusted.js");
         trustedLoader.Completion!.SetError(new HostFailure());
-        trusted.Advanced.ProcessTasks();
+        trusted.Tasks.ProcessTasks();
         trustedImport.Error!.Get("message").AsString().Should().Be(Secret);
 
         var safeDecoratorCalls = 0;
@@ -380,7 +380,7 @@ public class HostErrorDisclosureTests
         });
         var safeImport = safe.Modules.StartImport("./safe.js");
         safeLoader.Completion!.SetError(new JavaScriptException(trustedImport.Error));
-        safe.Advanced.ProcessTasks();
+        safe.Tasks.ProcessTasks();
 
         safeImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
         safeImport.Error.Get("message").AsString().Should().NotContain(Secret);
@@ -393,14 +393,14 @@ public class HostErrorDisclosureTests
         var detailed = new Engine(new Options().UseModules(detailedLoader).ExposeDetailedErrors());
         var detailedImport = detailed.Modules.StartImport("./detailed.js");
         detailedLoader.Completion!.SetError(new HostFailure());
-        detailed.Advanced.ProcessTasks();
+        detailed.Tasks.ProcessTasks();
         detailedImport.Error!.Get("message").AsString().Should().Be(Secret);
 
         var redactingLoader = new DeferredLoader();
         var redacting = new Engine(new Options().UseModules(redactingLoader));
         var redactedImport = redacting.Modules.StartImport("./redacted.js");
         redactingLoader.Completion!.SetError(new JavaScriptException(detailedImport.Error!));
-        redacting.Advanced.ProcessTasks();
+        redacting.Tasks.ProcessTasks();
 
         redactedImport.Error!.Get("message").AsString().Should().Be("Could not load module.");
         redactedImport.Error.Get("message").AsString().Should().NotContain(Secret);
@@ -421,7 +421,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("./module.js");
 
         loader.Completion!.SetSource("export const value = 1;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
         import.Error.Get("message").AsString().Should().NotContain(Secret);
@@ -440,7 +440,7 @@ public class HostErrorDisclosureTests
         });
 
         var import = engine.Modules.StartImport("./module.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be(Secret);
         decoratorCalls.Should().Be(1);
@@ -460,7 +460,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("./module.js");
 
         loader.Completion!.SetError(new JavaScriptException(engine.Intrinsics.TypeError, Secret));
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("name").AsString().Should().Be("TypeError");
         import.Error.Get("message").AsString().Should().Be(Secret);
@@ -492,7 +492,7 @@ public class HostErrorDisclosureTests
         var completion = loader.Completion!;
 
         completion.SetError(new OperationCanceledException("canceled"));
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         operation.IsCompleted.Should().BeTrue();
 
         return (completion, new WeakReference(operation));
@@ -506,7 +506,7 @@ public class HostErrorDisclosureTests
         var import = engine.Modules.StartImport("./module.js");
 
         loader.Completion!.SetError(new HostFailure());
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         import.Error!.Get("message").AsString().Should().Be(Secret);
     }

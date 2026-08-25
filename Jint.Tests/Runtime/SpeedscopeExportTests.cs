@@ -32,9 +32,9 @@ public class SpeedscopeExportTests
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
         setup?.Invoke(engine);
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute(code, source);
-        return engine.Advanced.StopProfiling();
+        return engine.Diagnostics.StopProfiling();
     }
 
     private static string ToJson(ScriptProfile profile)
@@ -171,8 +171,8 @@ public class SpeedscopeExportTests
     public void AnEmptyProfileIsStillAValidDocument()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
-        engine.Advanced.StartProfiling();
-        var profile = engine.Advanced.StopProfiling();
+        engine.Diagnostics.StartProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
 
         var document = ParseBack(ToJson(profile));
 
@@ -276,9 +276,9 @@ public class SpeedscopeExportTests
             options.Profiling.MaxEvents = 10;
         });
 
-        engine.Advanced.StartProfiling();
+        engine.Diagnostics.StartProfiling();
         engine.Execute("function down(n) { return n === 0 ? 0 : down(n - 1); } down(50);");
-        var profile = engine.Advanced.StopProfiling();
+        var profile = engine.Diagnostics.StopProfiling();
         profile.Truncated.Should().BeTrue();
 
         var events = At(ParseBack(ToJson(profile)).Get("profiles"), 0).Get("events");

@@ -38,7 +38,7 @@ public class AtomicsWaitAsyncPumpTests
 
         engine.EventLoop.IsEmpty.Should().BeTrue("only the pump may settle a timed-out wait, and nothing has pumped");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("outcome").AsString().Should().Be("timed-out");
     }
@@ -115,7 +115,7 @@ public class AtomicsWaitAsyncPumpTests
         // a later notify to find — and nothing that could settle the promise a second time.
         engine.Evaluate("Atomics.notify(i32a, 0)").AsNumber().Should().Be(0, "a timed-out wait is no longer a waiter");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("outcomes.join()").AsString().Should().Be("timed-out", "a promise settles exactly once");
     }
@@ -203,7 +203,7 @@ public class AtomicsWaitAsyncPumpTests
         promise.State.Should().Be(PromiseState.Pending);
 
         engine.Evaluate("Atomics.notify(i32a, 0)").AsNumber().Should().Be(1);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         promise.State.Should().Be(PromiseState.Fulfilled);
         promise.Value.AsString().Should().Be("ok");
@@ -220,7 +220,7 @@ public class AtomicsWaitAsyncPumpTests
         var elapsed = Stopwatch.StartNew();
         while (elapsed.Elapsed < TimeSpan.FromSeconds(30))
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (engine.Evaluate(condition).AsBoolean())
             {
                 return Environment.CurrentManagedThreadId;
@@ -241,7 +241,7 @@ public class AtomicsWaitAsyncPumpTests
         var elapsed = Stopwatch.StartNew();
         while (elapsed.ElapsedMilliseconds < milliseconds)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(1);
         }
     }

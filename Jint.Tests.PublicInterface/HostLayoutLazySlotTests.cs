@@ -105,7 +105,7 @@ public class HostLayoutLazySlotTests
 
         payload.BodyParses.Should().Be(0);
         payload.MetadataParses.Should().Be(0);
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
     [Fact]
@@ -142,11 +142,11 @@ public class HostLayoutLazySlotTests
     {
         var engine = EngineWithEnvelope(out _, out var envelope);
 
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
         engine.Evaluate("e.body");
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
         engine.Evaluate("e.metadata");
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
     // ---- the batch: one hidden class, one factory run per item ----
@@ -162,7 +162,7 @@ public class HostLayoutLazySlotTests
         for (var i = 0; i < count; i++)
         {
             var envelope = CreateEnvelope(engine, payloads[i]);
-            engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+            engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
             push.Call(envelope);
         }
 
@@ -274,7 +274,7 @@ public class HostLayoutLazySlotTests
         var engine = EngineWithEnvelope(out _, out _);
 
         var copy = engine.Evaluate("({ ...e })").Should().BeOfType<JsObject>().Which;
-        engine.Advanced.GetObjectRepresentation(copy).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(copy).Should().Be(ObjectRepresentation.HiddenClass);
         engine.Evaluate("Object.keys({ ...e }).join(',')").AsString()
             .Should().Be("id,type,stream,created,body,metadata");
     }
@@ -292,7 +292,7 @@ public class HostLayoutLazySlotTests
 
         payload.BodyParses.Should().Be(0);
         // A write keeps the object shaped; the untouched sibling is still lazy.
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
         payload.MetadataParses.Should().Be(0);
         engine.Evaluate("e.metadata.origin").AsString().Should().Be("test");
         payload.MetadataParses.Should().Be(1);
@@ -319,7 +319,7 @@ public class HostLayoutLazySlotTests
         var engine = EngineWithEnvelope(out var payload, out var envelope);
 
         engine.Evaluate("delete e.stream");
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
         payload.BodyParses.Should().Be(0);
         payload.MetadataParses.Should().Be(0);
 
@@ -339,7 +339,7 @@ public class HostLayoutLazySlotTests
         var engine = EngineWithEnvelope(out var payload, out var envelope);
 
         engine.Evaluate("Object.defineProperty(e, 'extra', { value: 7, enumerable: true })");
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
         payload.BodyParses.Should().Be(0);
 
         engine.Evaluate("e.extra").AsNumber().Should().Be(7);
@@ -403,7 +403,7 @@ public class HostLayoutLazySlotTests
         var engine = EngineWithEnvelope(out var payload, out var envelope);
 
         engine.Evaluate("Object.freeze(e)");
-        engine.Advanced.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.Dictionary);
         engine.Evaluate("Object.isFrozen(e)").AsBoolean().Should().BeTrue();
         payload.BodyParses.Should().Be(0);
         payload.MetadataParses.Should().Be(0);
@@ -523,8 +523,8 @@ public class HostLayoutLazySlotTests
         // Each engine interns its own hidden class from the shared, engine-agnostic layout.
         var firstObject = firstEngine.Evaluate("e").Should().BeOfType<JsObject>().Which;
         var secondObject = secondEngine.Evaluate("e").Should().BeOfType<JsObject>().Which;
-        firstEngine.Advanced.GetObjectRepresentation(firstObject).Should().Be(ObjectRepresentation.HiddenClass);
-        secondEngine.Advanced.GetObjectRepresentation(secondObject).Should().Be(ObjectRepresentation.HiddenClass);
+        firstEngine.Diagnostics.GetObjectRepresentation(firstObject).Should().Be(ObjectRepresentation.HiddenClass);
+        secondEngine.Diagnostics.GetObjectRepresentation(secondObject).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
     [Fact]
@@ -635,11 +635,11 @@ public class HostLayoutLazySlotTests
 
         var engine = new Engine();
         var obj = JsObject.Create(engine, layout, [JsNumber.Create(1), JsNumber.Create(2)]);
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
 
         // The same hidden class an equivalent literal reaches — a builder-built layout is nothing special.
         var literal = engine.Evaluate("({ x: 1, y: 2 })").Should().BeOfType<JsObject>().Which;
-        engine.Advanced.GetObjectRepresentation(literal).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(literal).Should().Be(ObjectRepresentation.HiddenClass);
         engine.SetValue("o", obj);
         engine.Evaluate("Object.keys(o).join(',')").AsString().Should().Be("x,y");
     }

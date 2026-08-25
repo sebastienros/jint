@@ -29,7 +29,7 @@ public class HostPromiseTimeoutTests
         var configured = TimeSpan.FromMilliseconds(200);
 
         using var engine = new Engine(options => options.Constraints.PromiseTimeout = configured);
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
 
         var elapsed = Stopwatch.StartNew();
         var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise());
@@ -50,7 +50,7 @@ public class HostPromiseTimeoutTests
     public void AnExplicitTimeoutStillWinsOverTheConfiguredOne()
     {
         using var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.FromMinutes(5));
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
 
         var requested = TimeSpan.FromMilliseconds(200);
 
@@ -70,7 +70,7 @@ public class HostPromiseTimeoutTests
     public void ASettledPromiseIsUnwrappedWithoutConsultingTheBudget()
     {
         using var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.Zero);
-        var manual = engine.Advanced.RegisterPromise();
+        var manual = engine.Tasks.RegisterPromise();
         manual.Resolve(42);
 
         manual.Promise.UnwrapIfPromise().AsNumber().Should().Be(42);

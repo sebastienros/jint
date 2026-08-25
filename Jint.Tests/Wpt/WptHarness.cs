@@ -115,7 +115,7 @@ internal sealed class WptDiagnosticsSink : DiagnosticsSink
 /// the rest of that corpus, which talks to a server, could not. Withholding the three interfaces would not
 /// test less of Jint, it would only turn a third of the url file into exclusions and leave the other 30
 /// files unrunnable.
-/// <c>WebApiRegistration.InstallFetchModel</c> is the same door <c>Engine.Advanced.SetFetchHandler</c>
+/// <c>WebApiRegistration.InstallFetchModel</c> is the same door <c>Engine.WebApi.SetFetchHandler</c>
 /// opens for a host that must build a <c>Response</c> without being granted the network, and no shipped
 /// feature flag names the model on its own — <see cref="WebApiFeatures.Fetch"/>,
 /// <see cref="WebApiFeatures.CacheApi"/> and <see cref="WebApiFeatures.FetchEvents"/> each bring it with
@@ -149,8 +149,8 @@ internal static class WptHarness
     /// will change the answer, because everything those files wait on is the engine's own clock or its own
     /// queue. A request in flight is neither: it is a completion on a thread pool thread that will
     /// <i>enqueue</i> when it lands, and until then there is no due time for
-    /// <c>Advanced.TimeUntilNextScheduledWork</c> to report — which is exactly the case
-    /// <c>Advanced.WaitForScheduledWork</c> documents as findable only by polling.
+    /// <c>Tasks.TimeUntilNextScheduledWork</c> to report — which is exactly the case
+    /// <c>Tasks.WaitForScheduledWork</c> documents as findable only by polling.
     /// </para>
     /// <para>
     /// So the server lane polls, and the idle timer is reset by <i>progress</i> — a test settling — rather
@@ -430,12 +430,12 @@ internal static class WptHarness
 
         while (true)
         {
-            parent.Advanced.ProcessTasks();
+            parent.Tasks.ProcessTasks();
 
             // A copy, because a worker that ends while being pumped removes itself from the live list.
             foreach (var connection in provider.Live.ToArray())
             {
-                connection.Worker.Advanced.ProcessTasks();
+                connection.Worker.Tasks.ProcessTasks();
             }
 
             worker ??= provider.Started.Count > 0 ? provider.Started[0].Worker : null;
@@ -477,7 +477,7 @@ internal static class WptHarness
     /// The soonest any of the engines has work, or <see langword="null"/> when none of them has any.
     /// </summary>
     /// <remarks>
-    /// <c>Advanced.TimeUntilNextScheduledWork</c> rather than the internal
+    /// <c>Tasks.TimeUntilNextScheduledWork</c> rather than the internal
     /// <c>TimeUntilNextPumpScheduledWork()</c>, and the difference is what makes a two-engine loop terminate
     /// for the right reason: the internal one answers about <i>clocks</i> alone — timers and
     /// <c>Atomics.waitAsync</c> deadlines — and deliberately says nothing about a queue, because the engine's
@@ -490,7 +490,7 @@ internal static class WptHarness
     /// </remarks>
     private static TimeSpan? NextDue(Engine parent, WptWorkerProvider? provider)
     {
-        var soonest = parent.Advanced.TimeUntilNextScheduledWork;
+        var soonest = parent.Tasks.TimeUntilNextScheduledWork;
 
         if (provider is null)
         {
@@ -499,7 +499,7 @@ internal static class WptHarness
 
         foreach (var connection in provider.Live.ToArray())
         {
-            if (connection.Worker.Advanced.TimeUntilNextScheduledWork is not { } due)
+            if (connection.Worker.Tasks.TimeUntilNextScheduledWork is not { } due)
             {
                 continue;
             }
@@ -749,7 +749,7 @@ internal static class WptHarness
 
         while (!IsComplete(outstanding))
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
 
             // The same cooperative rule the worker lane's loop uses, and for the same reason: a message
             // crossing between two engines only *enqueues* on the receiver, so a round that changed anything
@@ -759,7 +759,7 @@ internal static class WptHarness
             {
                 foreach (var connection in workers.Live.ToArray())
                 {
-                    connection.Worker.Advanced.ProcessTasks();
+                    connection.Worker.Tasks.ProcessTasks();
                 }
             }
 

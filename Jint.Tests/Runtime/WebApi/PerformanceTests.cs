@@ -146,7 +146,7 @@ public class PerformanceTests
         engine.Evaluate("firedAt").IsNull().Should().BeTrue();
 
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // One clock, so the timer's due time and the reading its callback takes agree exactly. Two clocks
         // would make this a tolerance at best, and on a fake provider it would not fire at all.

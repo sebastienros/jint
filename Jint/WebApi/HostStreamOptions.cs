@@ -4,7 +4,7 @@ using Jint.Runtime;
 namespace Jint.WebApi;
 
 /// <summary>
-/// How <c>Engine.Advanced.CreateReadableStream</c> reads a host <see cref="Stream"/>. Requires .NET 8 or
+/// How <c>Engine.WebApi.CreateReadableStream</c> reads a host <see cref="Stream"/>. Requires .NET 8 or
 /// higher.
 /// </summary>
 /// <remarks>
@@ -79,7 +79,7 @@ public sealed class HostReadableStreamOptions
 }
 
 /// <summary>
-/// How <c>Engine.Advanced.CreateWritableStream</c> writes to a host <see cref="Stream"/>. Requires .NET 8 or
+/// How <c>Engine.WebApi.CreateWritableStream</c> writes to a host <see cref="Stream"/>. Requires .NET 8 or
 /// higher.
 /// </summary>
 /// <remarks>
@@ -129,7 +129,7 @@ public sealed class HostWritableStreamOptions
 }
 
 /// <summary>
-/// How <c>Engine.Advanced.StartReadableStreamCopy</c> writes a script's <c>ReadableStream</c> to a host
+/// How <c>Engine.WebApi.StartReadableStreamCopy</c> writes a script's <c>ReadableStream</c> to a host
 /// <see cref="Stream"/>. Requires .NET 8 or higher.
 /// </summary>
 /// <remarks>

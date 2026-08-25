@@ -213,8 +213,8 @@ public class DiagnosticsTests
 
         // "invoke handler given arguments and "report"": the pump does not see the exception at all, and the
         // timer behind the failed one runs on its own checkpoint.
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("first,second");
 
@@ -236,7 +236,7 @@ public class DiagnosticsTests
         engine.Execute("setTimeout(() => { log.push('first'); throw new Error('boom'); }, 5);");
         clock.Advance(5);
 
-        Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks())
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())
             .Message.Should().Be("boom");
     }
 
@@ -250,7 +250,7 @@ public class DiagnosticsTests
         for (var i = 0; i < 3; i++)
         {
             clock.Advance(10);
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         Log(engine).Should().Be("tick,tick,tick");
@@ -288,7 +288,7 @@ public class DiagnosticsTests
 
         clock.Advance(5);
 
-        Assert.Throws<RecursionDepthOverflowException>(() => engine.Advanced.ProcessTasks());
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Tasks.ProcessTasks());
         sink.Reports.Should().BeEmpty();
     }
 
@@ -347,7 +347,7 @@ public class DiagnosticsTests
             """);
 
         clock.Advance(1);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("script,micro1,promise,micro2,timeout");
         Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
@@ -445,7 +445,7 @@ public class DiagnosticsTests
         engine.Execute("var log = []; requestIdleCallback(d => { log.push(d.didTimeout); throw new Error('boom'); }, { timeout: 10 });");
 
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("true");
 
@@ -614,7 +614,7 @@ public class DiagnosticsTests
         var (engine, sink, _) = Reporting();
 
         var tracked = new List<PromiseRejectionTrackerEventArgs>();
-        engine.Advanced.PromiseRejectionTracker += (_, args) => tracked.Add(args);
+        engine.Tasks.PromiseRejectionTracker += (_, args) => tracked.Add(args);
 
         engine.Execute("var p = Promise.reject(new Error('boom'));");
 
@@ -692,7 +692,7 @@ public class DiagnosticsTests
         // The whole channel is opt-in: an engine nobody configured is the engine it always was.
         var engine = new Engine();
         var tracked = 0;
-        engine.Advanced.PromiseRejectionTracker += (_, _) => tracked++;
+        engine.Tasks.PromiseRejectionTracker += (_, _) => tracked++;
 
         engine.Execute("Promise.reject('boom');");
         tracked.Should().Be(1);
@@ -714,8 +714,8 @@ public class DiagnosticsTests
         engine.Execute("var log = []; setTimeout(() => { throw new Error('boom'); }, 5); setTimeout(() => log.push('after'), 5);");
         clock.Advance(5);
 
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("after");
     }

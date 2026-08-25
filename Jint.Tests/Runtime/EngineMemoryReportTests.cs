@@ -9,7 +9,7 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// <c>Engine.Advanced.GetMemoryReport()</c> counts what one engine is holding. Two properties matter more
+/// <c>Engine.Diagnostics.GetMemoryReport()</c> counts what one engine is holding. Two properties matter more
 /// than any individual figure and are pinned first: the report is derived from state that already exists, so
 /// the engine carries no field for it; and reading it materializes nothing, so a host may take it as often as
 /// it likes without changing the very numbers it is watching.
@@ -22,8 +22,8 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Execute("var total = 0; function add(x) { total += x; } add(1); add(2);");
 
-        var first = engine.Advanced.GetMemoryReport();
-        var second = engine.Advanced.GetMemoryReport();
+        var first = engine.Diagnostics.GetMemoryReport();
+        var second = engine.Diagnostics.GetMemoryReport();
 
         // Record equality, so this compares every figure including the nested reports. Taking the report is
         // the only thing that happened between the two, which is exactly what makes it a proof that taking
@@ -39,11 +39,11 @@ public class EngineMemoryReportTests
         var reported = new Engine();
         var untouched = new Engine();
 
-        _ = reported.Advanced.GetMemoryReport();
+        _ = reported.Diagnostics.GetMemoryReport();
         reported.Execute(Script);
-        _ = reported.Advanced.GetMemoryReport();
+        _ = reported.Diagnostics.GetMemoryReport();
         reported.Execute(Script);
-        _ = reported.Advanced.GetMemoryReport();
+        _ = reported.Diagnostics.GetMemoryReport();
 
         untouched.Execute(Script);
         untouched.Execute(Script);
@@ -52,7 +52,7 @@ public class EngineMemoryReportTests
         // so an engine that was asked five times and one that was never asked are indistinguishable
         // afterwards. Anything the report recorded on the engine — a cached walk, a visited set, a counter —
         // would show up as a difference here.
-        reported.Advanced.GetMemoryReport().Should().Be(untouched.Advanced.GetMemoryReport());
+        reported.Diagnostics.GetMemoryReport().Should().Be(untouched.Diagnostics.GetMemoryReport());
     }
 
     [Fact]
@@ -60,10 +60,10 @@ public class EngineMemoryReportTests
     {
         var engine = new Engine();
 
-        var before = engine.Advanced.GetMemoryReport();
-        _ = engine.Advanced.GetMemoryReport();
-        _ = engine.Advanced.GetMemoryReport();
-        var after = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
+        _ = engine.Diagnostics.GetMemoryReport();
+        _ = engine.Diagnostics.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
 
         after.MaterializedGlobalPropertyCount.Should().Be(before.MaterializedGlobalPropertyCount);
 
@@ -76,13 +76,13 @@ public class EngineMemoryReportTests
     public void ReadingABuiltinMovesItToTheMaterializedSide()
     {
         var engine = new Engine();
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
 
         // Straight through the global object rather than through script: an evaluation would materialize
         // whatever else it needed and the delta would stop being one property.
         engine.Global.Get("Array");
 
-        var after = engine.Advanced.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
         after.MaterializedGlobalPropertyCount.Should().Be(before.MaterializedGlobalPropertyCount + 1);
         after.GlobalPropertyCount.Should().Be(before.GlobalPropertyCount);
     }
@@ -93,14 +93,14 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         var invocations = 0;
 
-        var before = engine.Advanced.GetMemoryReport();
-        engine.Advanced.AddLazyGlobal("lazy", _ =>
+        var before = engine.Diagnostics.GetMemoryReport();
+        engine.AddLazyGlobal("lazy", _ =>
         {
             invocations++;
             return new JsString("resolved");
         });
 
-        var installed = engine.Advanced.GetMemoryReport();
+        var installed = engine.Diagnostics.GetMemoryReport();
         invocations.Should().Be(0, "taking the report must not run a lazy global's factory");
         installed.GlobalPropertyCount.Should().Be(before.GlobalPropertyCount + 1);
         installed.MaterializedGlobalPropertyCount.Should().Be(before.MaterializedGlobalPropertyCount);
@@ -108,7 +108,7 @@ public class EngineMemoryReportTests
         engine.Global.Get("lazy");
         invocations.Should().Be(1);
 
-        var resolved = engine.Advanced.GetMemoryReport();
+        var resolved = engine.Diagnostics.GetMemoryReport();
         resolved.GlobalPropertyCount.Should().Be(installed.GlobalPropertyCount);
         resolved.MaterializedGlobalPropertyCount.Should().Be(installed.MaterializedGlobalPropertyCount + 1);
     }
@@ -117,32 +117,32 @@ public class EngineMemoryReportTests
     public void GlobalPropertyCountFollowsHostRegistrations()
     {
         var engine = new Engine();
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
 
         engine.SetValue("one", 1);
         engine.SetValue("two", 2);
         engine.SetValue("three", 3);
 
-        engine.Advanced.GetMemoryReport().GlobalPropertyCount.Should().Be(before.GlobalPropertyCount + 3);
+        engine.Diagnostics.GetMemoryReport().GlobalPropertyCount.Should().Be(before.GlobalPropertyCount + 3);
     }
 
     [Fact]
     public void LexicalDeclarationsCountApartFromGlobalProperties()
     {
         var engine = new Engine();
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
         before.LexicalGlobalBindingCount.Should().Be(0);
 
         engine.Execute("let a = 1; const b = 2; class C {}");
 
-        var after = engine.Advanced.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
 
         // let/const/class are bindings of the global environment record, not properties of the global object
         // — which is precisely why the report reports the two separately.
         after.LexicalGlobalBindingCount.Should().Be(3);
 
         engine.Execute("var d = 4;");
-        var withVar = engine.Advanced.GetMemoryReport();
+        var withVar = engine.Diagnostics.GetMemoryReport();
         withVar.LexicalGlobalBindingCount.Should().Be(3);
         withVar.GlobalPropertyCount.Should().Be(after.GlobalPropertyCount + 1);
     }
@@ -153,13 +153,13 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         var prepared = Engine.PrepareScript("function greet(name) { return 'hi ' + name; } greet('world');");
 
-        var fresh = engine.Advanced.GetMemoryReport();
+        var fresh = engine.Diagnostics.GetMemoryReport();
         fresh.HandlerTreeCaches.EvaluatedScripts.Should().Be(0);
         fresh.HandlerTreeCaches.ScriptStatementLists.Should().Be(0);
 
         engine.Execute(prepared);
 
-        var afterFirst = engine.Advanced.GetMemoryReport();
+        var afterFirst = engine.Diagnostics.GetMemoryReport();
         afterFirst.HandlerTreeCaches.EvaluatedScripts.Should().Be(1);
 
         // The first run of a script on an engine builds a tree and caches nothing: that is the
@@ -168,7 +168,7 @@ public class EngineMemoryReportTests
 
         engine.Execute(prepared);
 
-        var afterSecond = engine.Advanced.GetMemoryReport();
+        var afterSecond = engine.Diagnostics.GetMemoryReport();
         afterSecond.HandlerTreeCaches.EvaluatedScripts.Should().Be(1);
         afterSecond.HandlerTreeCaches.ScriptStatementLists.Should().Be(1);
 
@@ -183,13 +183,13 @@ public class EngineMemoryReportTests
     {
         var engine = new Engine();
 
-        engine.Advanced.GetMemoryReport().HandlerTreeCaches.PropertyKeyExpressions.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().HandlerTreeCaches.PropertyKeyExpressions.Should().Be(0);
 
         engine.Evaluate("({ ['k' + 1]: 1 })");
 
         // One evaluated computed key, one cached handler — the stable identity a suspension inside the key
         // relies on to find its replay state again, and a retention root like the other three counts here.
-        engine.Advanced.GetMemoryReport().HandlerTreeCaches.PropertyKeyExpressions.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().HandlerTreeCaches.PropertyKeyExpressions.Should().Be(1);
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class EngineMemoryReportTests
         engine.Execute(Engine.PrepareScript("2;"));
         engine.Execute(Engine.PrepareScript("3;"));
 
-        engine.Advanced.GetMemoryReport().HandlerTreeCaches.EvaluatedScripts.Should().Be(3);
+        engine.Diagnostics.GetMemoryReport().HandlerTreeCaches.EvaluatedScripts.Should().Be(3);
     }
 
     [Fact]
@@ -211,11 +211,11 @@ public class EngineMemoryReportTests
         engine.Modules.Add("lib", "export const answer = 42;");
 
         // A registration nobody imported has produced no module record.
-        engine.Advanced.GetMemoryReport().RegisteredModuleCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().RegisteredModuleCount.Should().Be(0);
 
         engine.Modules.Import("lib");
 
-        var after = engine.Advanced.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
         after.RegisteredModuleCount.Should().Be(1);
         after.PendingModuleLoadCount.Should().Be(0);
     }
@@ -224,23 +224,23 @@ public class EngineMemoryReportTests
     public void EventLoopQueueDepthSeesQueuedWorkAndItsDrain()
     {
         var engine = new Engine();
-        engine.Advanced.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
 
         engine.AddToEventLoop(static () => { });
         engine.AddToEventLoop(static () => { });
 
-        engine.Advanced.GetMemoryReport().EventLoopQueueDepth.Should().Be(2);
+        engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(2);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
-        engine.Advanced.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
     }
 
     [Fact]
     public void PendingAtomicsWaiterCountSeesAFiniteTimeoutWait()
     {
         var engine = new Engine();
-        engine.Advanced.GetMemoryReport().PendingAtomicsWaiterCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingAtomicsWaiterCount.Should().Be(0);
 
         // int.MaxValue milliseconds is where the engine clamps a wait's deadline, so this one cannot come due
         // while the test runs and the assertion is structural rather than a race against a clock.
@@ -251,31 +251,31 @@ public class EngineMemoryReportTests
             """);
 
         engine.Evaluate("wait.async").AsBoolean().Should().BeTrue();
-        engine.Advanced.GetMemoryReport().PendingAtomicsWaiterCount.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().PendingAtomicsWaiterCount.Should().Be(1);
     }
 
     [Fact]
     public void PoolCountsFollowARentAndReturn()
     {
         var engine = new Engine();
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
 
         var reference = engine._referencePool.Rent(JsValue.Undefined, JsString.Empty, strict: false, thisValue: null);
-        engine.Advanced.GetMemoryReport().Pools.PooledReferences.Should().Be(before.Pools.PooledReferences);
+        engine.Diagnostics.GetMemoryReport().Pools.PooledReferences.Should().Be(before.Pools.PooledReferences);
 
         engine._referencePool.Return(reference);
-        engine.Advanced.GetMemoryReport().Pools.PooledReferences.Should().Be(before.Pools.PooledReferences + 1);
+        engine.Diagnostics.GetMemoryReport().Pools.PooledReferences.Should().Be(before.Pools.PooledReferences + 1);
     }
 
     [Fact]
     public void PooledArraySlotsAreTheSumOfTheArrayLengths()
     {
         var engine = new Engine();
-        var before = engine.Advanced.GetMemoryReport().Pools;
+        var before = engine.Diagnostics.GetMemoryReport().Pools;
 
         engine._jsValueArrayPool.ReturnArray(new JsValue[3]);
 
-        var after = engine.Advanced.GetMemoryReport().Pools;
+        var after = engine.Diagnostics.GetMemoryReport().Pools;
         after.PooledJsValueArrays.Should().Be(before.PooledJsValueArrays + 1);
         after.PooledJsValueArraySlots.Should().Be(before.PooledJsValueArraySlots + 3);
     }
@@ -284,11 +284,11 @@ public class EngineMemoryReportTests
     public void InteropCachesCountThisEnginesTypeReferences()
     {
         var engine = new Engine(options => options.AllowClr(typeof(EngineMemoryReportTests).Assembly));
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
 
         engine.SetValue("probe", typeof(Probe));
 
-        engine.Advanced.GetMemoryReport().InteropCaches.TypeReferenceCount
+        engine.Diagnostics.GetMemoryReport().InteropCaches.TypeReferenceCount
             .Should().Be(before.InteropCaches.TypeReferenceCount + 1);
     }
 
@@ -299,11 +299,11 @@ public class EngineMemoryReportTests
 
         // Built before the baseline so that constructing it cannot be mistaken for what attaching it costs.
         var graph = engine.Evaluate("({ a: {}, b: {} })");
-        var before = engine.Advanced.GetMemoryReport();
+        var before = engine.Diagnostics.GetMemoryReport();
 
         engine.SetValue("graph", graph);
 
-        var after = engine.Advanced.GetMemoryReport();
+        var after = engine.Diagnostics.GetMemoryReport();
         after.ObjectCensus.ObjectCount.Should().Be(before.ObjectCensus.ObjectCount + 3);
         after.ObjectCensus.PlainObjects.Should().Be(before.ObjectCensus.PlainObjects + 3);
         after.ObjectCensus.BoundReached.Should().BeFalse();
@@ -316,18 +316,18 @@ public class EngineMemoryReportTests
         var array = engine.Evaluate("[1, 2, 3]");
         var callback = engine.Evaluate("(function () { return 1; })");
 
-        var before = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var before = engine.Diagnostics.GetMemoryReport().ObjectCensus;
 
         engine.SetValue("array", array);
-        var withArray = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var withArray = engine.Diagnostics.GetMemoryReport().ObjectCensus;
         withArray.Arrays.Should().Be(before.Arrays + 1);
 
         engine.SetValue("callback", callback);
-        var withCallback = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var withCallback = engine.Diagnostics.GetMemoryReport().ObjectCensus;
         withCallback.Functions.Should().Be(withArray.Functions + 1);
 
         engine.SetValue("host", new Probe());
-        var withHost = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var withHost = engine.Diagnostics.GetMemoryReport().ObjectCensus;
         withHost.HostWrappers.Should().Be(withCallback.HostWrappers + 1);
     }
 
@@ -337,18 +337,18 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Execute("var deep = { a: { b: { c: { d: {} } } } };");
 
-        var bounded = engine.Advanced.GetMemoryReport(objectCensusBound: 4).ObjectCensus;
+        var bounded = engine.Diagnostics.GetMemoryReport(objectCensusBound: 4).ObjectCensus;
         bounded.Bound.Should().Be(4);
         bounded.ObjectCount.Should().Be(4);
         bounded.BoundReached.Should().BeTrue();
 
-        var whole = engine.Advanced.GetMemoryReport(objectCensusBound: 1_000_000).ObjectCensus;
+        var whole = engine.Diagnostics.GetMemoryReport(objectCensusBound: 1_000_000).ObjectCensus;
         whole.BoundReached.Should().BeFalse();
         whole.ObjectCount.Should().BeGreaterThan(4);
 
         // The bound is the only thing that changed, and it changed nothing else: a census that had
         // materialized anything on the way would make these two disagree.
-        engine.Advanced.GetMemoryReport(objectCensusBound: 4).ObjectCensus.Should().Be(bounded);
+        engine.Diagnostics.GetMemoryReport(objectCensusBound: 4).ObjectCensus.Should().Be(bounded);
     }
 
     [Fact]
@@ -360,7 +360,7 @@ public class EngineMemoryReportTests
         // The array is walked element by element straight out of its backing store, and the bound ends the
         // walk in the middle of it — nothing collects the elements into a list first, which for a dense
         // array of ten million would be the largest allocation in the process.
-        var census = engine.Advanced.GetMemoryReport(objectCensusBound: 100).ObjectCensus;
+        var census = engine.Diagnostics.GetMemoryReport(objectCensusBound: 100).ObjectCensus;
 
         census.ObjectCount.Should().Be(100);
         census.BoundReached.Should().BeTrue();
@@ -372,14 +372,14 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Execute("var probe = { a: {} };");
 
-        var skipped = engine.Advanced.GetMemoryReport(objectCensusBound: 0).ObjectCensus;
+        var skipped = engine.Diagnostics.GetMemoryReport(objectCensusBound: 0).ObjectCensus;
         skipped.Bound.Should().Be(0);
         skipped.BoundReached.Should().BeFalse();
         skipped.ObjectCount.Should().Be(0);
 
         // The counts the census does not need are still there, so this really is "skip the walk" and not
         // "skip the report".
-        engine.Advanced.GetMemoryReport(objectCensusBound: -1).GlobalPropertyCount.Should().BeGreaterThan(0);
+        engine.Diagnostics.GetMemoryReport(objectCensusBound: -1).GlobalPropertyCount.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -390,7 +390,7 @@ public class EngineMemoryReportTests
 
         // Reading descriptor.Value instead of testing the descriptor's flags is all it would take to break
         // this, and it would surface as a JavaScriptException out of a diagnostic call.
-        var report = engine.Advanced.GetMemoryReport();
+        var report = engine.Diagnostics.GetMemoryReport();
 
         report.ObjectCensus.ObjectCount.Should().BeGreaterThan(0);
     }
@@ -410,7 +410,7 @@ public class EngineMemoryReportTests
 
         // That cached descriptor produces its value by invoking the CLR getter on every read, which is host
         // code — a diagnostic must not run it behind the host's back.
-        var report = engine.Advanced.GetMemoryReport();
+        var report = engine.Diagnostics.GetMemoryReport();
 
         probe.ReadCount.Should().Be(0);
         report.ObjectCensus.HostWrappers.Should().BeGreaterThan(0);
@@ -428,7 +428,7 @@ public class EngineMemoryReportTests
             });
             """);
 
-        var report = engine.Advanced.GetMemoryReport();
+        var report = engine.Diagnostics.GetMemoryReport();
 
         report.ObjectCensus.ObjectCount.Should().BeGreaterThan(0);
     }
@@ -439,7 +439,7 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Execute("var a = {}; var b = { a: a }; a.b = b; a.self = a;");
 
-        var census = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var census = engine.Diagnostics.GetMemoryReport().ObjectCensus;
 
         census.BoundReached.Should().BeFalse();
         census.ObjectCount.Should().BeGreaterThan(1);
@@ -450,11 +450,11 @@ public class EngineMemoryReportTests
     {
         var engine = new Engine();
         var array = engine.Evaluate("[{}, {}, {}]");
-        var before = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var before = engine.Diagnostics.GetMemoryReport().ObjectCensus;
 
         engine.SetValue("array", array);
 
-        var after = engine.Advanced.GetMemoryReport().ObjectCensus;
+        var after = engine.Diagnostics.GetMemoryReport().ObjectCensus;
         after.Arrays.Should().Be(before.Arrays + 1);
         after.PlainObjects.Should().Be(before.PlainObjects + 3);
     }
@@ -465,7 +465,7 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Execute("var x = 1;");
 
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
     /// <summary>

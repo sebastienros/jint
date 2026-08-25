@@ -18,7 +18,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// Most of these are about <i>order</i>: which of several pending tasks runs next, and where a task sits
 /// relative to the microtasks and the timers around it. <c>Engine.Execute</c> drains the event loop once the
 /// script has finished, so a task posted with no delay has already run by the time it returns; a delayed one
-/// needs the clock moved and an explicit <c>Advanced.ProcessTasks()</c>.
+/// needs the clock moved and an explicit <c>Tasks.ProcessTasks()</c>.
 /// </para>
 /// <para>
 /// The three ordering guarantees under test, all documented on <c>SchedulerQueue</c>: every microtask runs
@@ -472,7 +472,7 @@ public class SchedulerTests
         Log(engine).Should().Be("background");
 
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("background,delayed");
     }
@@ -491,7 +491,7 @@ public class SchedulerTests
             """);
 
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The consequence of "every runnable task runs before any due timer": the delay is itself a timer, and
         // a timer is promoted only when the job queue has run dry — which the drain job keeps non-empty while
@@ -535,7 +535,7 @@ public class SchedulerTests
         engine._webApi!.Timers!.Count.Should().Be(1);
 
         clock.Advance(50);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("rejected:AbortError,second");
     }
@@ -953,7 +953,7 @@ public class SchedulerTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         clock.Advance(1000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         ran.Should().BeFalse();
         engine._webApi!.Timers!.Count.Should().Be(0);
@@ -1018,7 +1018,7 @@ public class SchedulerTests
         while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
         {
             // Nothing but the host's own pump: no engine thread, no background timer.
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 

@@ -119,8 +119,8 @@ public class WebApiDiagnosticsTests
         clock.Advance(5);
 
         // Nothing erupts from the pump, and the timer behind the failed one still runs.
-        engine.Advanced.ProcessTasks();
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("ran").AsBoolean().Should().BeTrue();
 
@@ -139,7 +139,7 @@ public class WebApiDiagnosticsTests
         engine.Execute("setTimeout(() => { throw new Error('boom'); }, 5);");
         clock.Advance(5);
 
-        Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks())
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())
             .Message.Should().Be("boom");
     }
 
@@ -286,7 +286,7 @@ public class WebApiDiagnosticsTests
         engine.Execute("function recurse() { return recurse(); } setTimeout(recurse, 5);");
         clock.Advance(5);
 
-        Assert.Throws<RecursionDepthOverflowException>(() => engine.Advanced.ProcessTasks());
+        Assert.Throws<RecursionDepthOverflowException>(() => engine.Tasks.ProcessTasks());
         sink.Reports.Should().BeEmpty();
     }
 
@@ -297,7 +297,7 @@ public class WebApiDiagnosticsTests
         var engine = new Engine(options => options.UseDiagnostics(sink));
 
         var tracked = new List<PromiseRejectionTrackerEventArgs>();
-        engine.Advanced.PromiseRejectionTracker += (_, args) => tracked.Add(args);
+        engine.Tasks.PromiseRejectionTracker += (_, args) => tracked.Add(args);
 
         engine.Execute("var p = Promise.reject(new Error('boom'));");
 

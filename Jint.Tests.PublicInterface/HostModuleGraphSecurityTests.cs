@@ -505,7 +505,7 @@ public sealed class HostModuleGraphSecurityTests
 
         loader.Deliver("bytes", new byte[] { 1, 2, 3, 4 });
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().Throw<ModuleGraphLimitException>();
         operation.IsCompleted.Should().BeFalse();
     }
@@ -525,13 +525,13 @@ public sealed class HostModuleGraphSecurityTests
 
         var firstImport = engine.Modules.StartImport("first.js");
         loader.Deliver("first.js", first);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         firstImport.IsCompleted.Should().BeTrue();
 
         var secondImport = engine.Modules.StartImport("second.js");
         loader.Deliver("second.js", second);
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().Throw<ModuleGraphLimitException>();
         secondImport.IsCompleted.Should().BeFalse();
     }
@@ -691,10 +691,10 @@ public sealed class HostModuleGraphSecurityTests
 
         engine.Modules.StartImport("a.js");
         loader.Deliver("a.js", "import './b.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./b.js", "import './c.js';");
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().Throw<ModuleGraphLimitException>();
     }
 
@@ -723,7 +723,7 @@ public sealed class HostModuleGraphSecurityTests
             "root.js",
             "import defer * as deferred from './dep.js'; import './dep.js';");
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().Throw<ModuleGraphLimitException>();
         loader.LoadsFor("./dep.js").Should().Be(1);
     }
@@ -737,12 +737,12 @@ public sealed class HostModuleGraphSecurityTests
 
         engine.Modules.StartImport("a.js");
         loader.Deliver("a.js", "import './b.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./b.js", "import './c.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./c.js", "export default 1;");
 
-        Invoking(() => engine.Advanced.ProcessTasks())
+        Invoking(() => engine.Tasks.ProcessTasks())
             .Should().Throw<ModuleGraphLimitException>();
     }
 
@@ -755,13 +755,13 @@ public sealed class HostModuleGraphSecurityTests
 
         var operation = engine.Modules.StartImport("root.js");
         loader.Deliver("root.js", "import './left.js'; import './right.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./left.js", "import './shared.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./right.js", "import './shared.js';");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         loader.Deliver("./shared.js", "export default 1;");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsCompleted.Should().BeTrue();
         loader.LoadsFor("./shared.js").Should().Be(1);
@@ -859,7 +859,7 @@ public sealed class HostModuleGraphSecurityTests
             new ThrowingResolveLoader(new TimeoutException("transport timed out"))));
 
         var operation = engine.Modules.StartImport("timeout");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsCompleted.Should().BeTrue();
         Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>();
@@ -872,7 +872,7 @@ public sealed class HostModuleGraphSecurityTests
             new FaultingAsyncModuleLoader(new TimeoutException("transport timed out"))));
 
         var operation = engine.Modules.StartImport("timeout");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         operation.IsCompleted.Should().BeTrue();
         Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>();

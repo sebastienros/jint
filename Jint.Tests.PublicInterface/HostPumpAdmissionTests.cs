@@ -6,7 +6,7 @@ using Xunit.Sdk;
 namespace Jint.Tests.PublicInterface;
 
 /// <summary>
-/// Which callbacks a host parked on <see cref="Engine.AdvancedOperations.WaitForScheduledWork"/> — or on its
+/// Which callbacks a host parked on <see cref="Engine.TaskOperations.WaitForScheduledWork"/> — or on its
 /// asynchronous sibling — may be interrupted by, and which it may not. The pump is a callback-admission
 /// window: a host that parks its engine's own thread there has said "run scheduled work here", which is the
 /// undertaking to yield that lets an authorized cross-thread callback wait for its turn instead of being
@@ -110,7 +110,7 @@ public class HostPumpAdmissionTests
 
         // Its reservation is taken synchronously by the call above, so — unlike the synchronous form — the
         // detector's first probe cannot land before the park owns the engine.
-        var parked = engine.Advanced.WaitForScheduledWorkAsync(WedgeCeiling, releasePark.Token);
+        var parked = engine.Tasks.WaitForScheduledWorkAsync(WedgeCeiling, releasePark.Token);
         TopLevelPark.WaitUntilOwningTheEngine(engine, parked);
 
         dispatcher.Release();
@@ -242,7 +242,7 @@ public class HostPumpAdmissionTests
         {
             try
             {
-                return engine.Advanced.WaitForScheduledWork(WedgeCeiling, endPark.Token);
+                return engine.Tasks.WaitForScheduledWork(WedgeCeiling, endPark.Token);
             }
             catch (OperationCanceledException)
             {
@@ -264,7 +264,7 @@ public class HostPumpAdmissionTests
 
     /// <summary>
     /// An admitted callback is an ordinary engine turn, so work it queues wakes the park it was admitted into
-    /// and is reported as work for <see cref="Engine.AdvancedOperations.ProcessTasks"/> — which is the whole
+    /// and is reported as work for <see cref="Engine.TaskOperations.ProcessTasks"/> — which is the whole
     /// point of admitting it there.
     /// </summary>
     [Fact]
@@ -287,7 +287,7 @@ public class HostPumpAdmissionTests
         park.Reported.Should().BeTrue("the reaction the callback queued is work the pump can run");
 
         engine.Evaluate("ran").AsBoolean().Should().BeFalse("the wait does not pump");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("ran").AsBoolean().Should().BeTrue();
     }
 

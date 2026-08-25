@@ -171,7 +171,7 @@ public sealed class DiagnosticEvent
     /// <c>unhandledrejection</c> event to the end of a microtask checkpoint and skips any promise handled
     /// before then, so <c>Promise.reject(e).catch(f)</c> raises nothing at all in a browser. Jint reports the
     /// tracker's two operations as they happen — which is exactly what
-    /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> has always done, and what keeps the two
+    /// <see cref="Engine.TaskOperations.PromiseRejectionTracker"/> has always done, and what keeps the two
     /// channels telling one story — so the same code produces a report with this
     /// <see langword="false"/> followed by one with it <see langword="true"/>. A host that wants the browser's
     /// shape correlates the pair by <see cref="Promise"/> identity.
@@ -210,7 +210,7 @@ public sealed class DiagnosticEvent
 
     /// <summary>
     /// The two <c>HostPromiseRejectionTracker</c> operations, which are also what
-    /// <see cref="Engine.AdvancedOperations.PromiseRejectionTracker"/> raises.
+    /// <see cref="Engine.TaskOperations.PromiseRejectionTracker"/> raises.
     /// </summary>
     internal static DiagnosticEvent ForPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
         => new(

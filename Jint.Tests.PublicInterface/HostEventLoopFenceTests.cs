@@ -39,11 +39,11 @@ public class HostEventLoopFenceTests
         var stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < duration)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
     }
 
     private static bool PumpUntilSettled(Engine engine, TimeSpan timeout)
@@ -51,7 +51,7 @@ public class HostEventLoopFenceTests
         var stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < timeout)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             if (!engine.Evaluate("globalThis.settled").IsUndefined())
             {
                 return true;

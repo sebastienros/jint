@@ -296,7 +296,7 @@ public class FetchTests
 
         var engine = WebEngine(handler);
         engine.Execute("var h; fetch('https://example.org/').then(r => h = r.headers);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // getSetCookie keeps the values apart, which is the whole reason it exists.
         engine.Evaluate("h.getSetCookie().join('|')").AsString().Should().Be("a=1|b=2");
@@ -467,7 +467,7 @@ public class FetchTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("r.status").AsNumber().Should().Be(204);
         engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("");
@@ -487,7 +487,7 @@ public class FetchTests
 
         var engine = WebEngine(handler);
         engine.Execute("var r; fetch('https://example.org/').then(x => r = x);");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeFalse();
 

@@ -7,8 +7,8 @@ namespace Jint.Profiling;
 
 /// <summary>
 /// The result of one profiling session: every function enter and leave the engine recorded between
-/// <see cref="Engine.AdvancedOperations.StartProfiling"/> and
-/// <see cref="Engine.AdvancedOperations.StopProfiling"/>, and the functions they refer to.
+/// <see cref="Engine.DiagnosticOperations.StartProfiling"/> and
+/// <see cref="Engine.DiagnosticOperations.StopProfiling"/>, and the functions they refer to.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -64,8 +64,8 @@ public sealed class ScriptProfile
     public bool Truncated { get; }
 
     /// <summary>
-    /// Wall-clock time between <see cref="Engine.AdvancedOperations.StartProfiling"/> and
-    /// <see cref="Engine.AdvancedOperations.StopProfiling"/>, including whatever the host did in between
+    /// Wall-clock time between <see cref="Engine.DiagnosticOperations.StartProfiling"/> and
+    /// <see cref="Engine.DiagnosticOperations.StopProfiling"/>, including whatever the host did in between
     /// that was not script. Equal to the speedscope profile's <c>endValue</c>.
     /// </summary>
     public long DurationNanoseconds { get; }

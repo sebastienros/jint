@@ -146,7 +146,7 @@ public class LazyLayoutSlotInternalsTests
 
         HasLazyFlag(obj).Should().BeFalse();
         (obj._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     // ---- deopt ----
@@ -216,7 +216,7 @@ public class LazyLayoutSlotInternalsTests
         var obj = Create(engine, counter);
         engine.SetValue("o", obj);
 
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
         obj._properties!["b"].Should().BeOfType<LazySlotPropertyDescriptor>();
 
         // Behaviour-identical to the shaped arm, down to the factory not having run.

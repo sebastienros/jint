@@ -100,7 +100,7 @@ public class LazyDescriptorInternalsTests
     public void MaterializedDescriptorPassesTheCacheGates()
     {
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ => "built");
+        engine.AddLazyGlobal("value", _ => "built");
 
         var descriptor = engine.Global.GetOwnProperty("value");
 
@@ -122,7 +122,7 @@ public class LazyDescriptorInternalsTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ =>
+        engine.AddLazyGlobal("value", _ =>
         {
             calls++;
             return "built";
@@ -148,7 +148,7 @@ public class LazyDescriptorInternalsTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ =>
+        engine.AddLazyGlobal("value", _ =>
         {
             calls++;
             return "built";

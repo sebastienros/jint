@@ -37,7 +37,7 @@ public class AlgorithmJobBoundaryTests
         // change that leaves something queued behind it.
         for (var i = 0; i < 5; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         return engine.Evaluate("log.join(' ')").AsString();
@@ -112,7 +112,7 @@ public class AlgorithmJobBoundaryTests
 
         for (var i = 0; i < 5; i++)
         {
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         var expectedLast = arguments.Contains("x + 1", StringComparison.Ordinal) ? 20000 : 19999;

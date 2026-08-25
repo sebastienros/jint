@@ -9,7 +9,7 @@ using Jint.Runtime;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// <see cref="Engine.AdvancedOperations.GetObjectRepresentation"/> is a diagnostic, so its whole value is
+/// <see cref="Engine.DiagnosticOperations.GetObjectRepresentation"/> is a diagnostic, so its whole value is
 /// that it cannot disagree with reality. These tests cross-check every answer it gives against the internal
 /// state it claims to describe; the behavior a host can actually observe is covered in
 /// Jint.Tests.PublicInterface/ObjectRepresentationTests.cs.
@@ -31,13 +31,13 @@ public class ObjectRepresentationTests
         engine.SetValue("o", obj);
 
         (obj._type & InternalTypes.ShapeMode).Should().NotBe(InternalTypes.Empty);
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.HiddenClass);
 
         engine.Execute("o.extra = 1;");
 
         (obj._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
         obj._properties.Should().NotBeNull();
-        engine.Advanced.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class ObjectRepresentationTests
 
         var math = engine.Evaluate("Math").AsObject();
         (math._type & InternalTypes.BuiltinShapeMode).Should().NotBe(InternalTypes.Empty);
-        engine.Advanced.GetObjectRepresentation(math).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
+        engine.Diagnostics.GetObjectRepresentation(math).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class ObjectRepresentationTests
             new KeyValuePair<string, JsValue>("0", JsNumber.Create(2))
         ]);
         (indexLike._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
-        engine.Advanced.GetObjectRepresentation(indexLike).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(indexLike).Should().Be(ObjectRepresentation.Dictionary);
 
         // more properties than a hidden class can describe
         var entries = new KeyValuePair<string, JsValue>[Shape.MaxShapeProperties + 1];
@@ -74,7 +74,7 @@ public class ObjectRepresentationTests
 
         var tooWide = JsObject.CreateFromEntries(engine, entries);
         (tooWide._type & InternalTypes.ShapeMode).Should().Be(InternalTypes.Empty);
-        engine.Advanced.GetObjectRepresentation(tooWide).Should().Be(ObjectRepresentation.Dictionary);
+        engine.Diagnostics.GetObjectRepresentation(tooWide).Should().Be(ObjectRepresentation.Dictionary);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class ObjectRepresentationTests
         var shaped = 0;
         for (var i = 0; i < Shape.MaxFanout * 2; i++)
         {
-            var representation = engine.Advanced.GetObjectRepresentation(Build(i));
+            var representation = engine.Diagnostics.GetObjectRepresentation(Build(i));
             var expected = i < Shape.MaxFanout
                 ? ObjectRepresentation.HiddenClass
                 : ObjectRepresentation.Dictionary;
@@ -136,16 +136,16 @@ public class ObjectRepresentationTests
         {
             var layout = WideLayout("L" + iteration + "_");
             layouts.Add(layout);
-            engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, layout, values))
+            engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, layout, values))
                 .Should().Be(ObjectRepresentation.HiddenClass);
         }
 
         // Budget spent: a layout the engine has not seen before can no longer be interned.
-        engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, WideLayout("overflow_"), values))
+        engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, WideLayout("overflow_"), values))
             .Should().Be(ObjectRepresentation.Dictionary);
 
         // An already-resolved layout still hits its memo, which never consults the budget.
-        engine.Advanced.GetObjectRepresentation(JsObject.Create(engine, layouts[0], values))
+        engine.Diagnostics.GetObjectRepresentation(JsObject.Create(engine, layouts[0], values))
             .Should().Be(ObjectRepresentation.HiddenClass);
     }
 }

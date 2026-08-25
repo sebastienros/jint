@@ -8,7 +8,7 @@
 namespace Jint.Tests.Runtime.WebApi;
 
 /// <summary>
-/// The timer half of <c>Engine.Advanced.GetMemoryReport()</c>. A registered timer holds its callback — and
+/// The timer half of <c>Engine.Diagnostics.GetMemoryReport()</c>. A registered timer holds its callback — and
 /// through the callback's closure, whatever that closure captured — until it fires or is cleared, which makes
 /// "how many are registered" a retention question a pooling host asks. Everything here drives a manual clock,
 /// so nothing depends on how long the test takes to run.
@@ -44,17 +44,17 @@ public class MemoryReportTimerTests
         var (engine, clock) = TimerEngine();
 
         engine.Execute("var fired = 0; setTimeout(() => { fired++; }, 50); setTimeout(() => { fired++; }, 100);");
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(2);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(2);
 
         clock.Advance(50);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("fired").AsNumber().Should().Be(1);
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(1);
 
         clock.Advance(50);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("fired").AsNumber().Should().Be(2);
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
     [Fact]
@@ -63,10 +63,10 @@ public class MemoryReportTimerTests
         var (engine, _) = TimerEngine();
 
         engine.Execute("var id = setTimeout(() => {}, 1000);");
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(1);
 
         engine.Execute("clearTimeout(id);");
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
     [Fact]
@@ -79,14 +79,14 @@ public class MemoryReportTimerTests
         for (var i = 0; i < 5; i++)
         {
             clock.Advance(10);
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         engine.Evaluate("ticks").AsNumber().Should().Be(5);
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(1);
 
         engine.Execute("clearInterval(id);");
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
     [Fact]
@@ -96,13 +96,13 @@ public class MemoryReportTimerTests
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         engine.Execute("setTimeout(() => {}, 1000);");
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(1);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(1);
 
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         // The restore ends the evaluation cycle the timer belongs to, and the report is how a host can see
         // that the timer really went with it rather than merely being unable to fire.
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class MemoryReportTimerTests
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
         engine.Execute("var x = 1;");
 
-        engine.Advanced.GetMemoryReport().PendingTimerCount.Should().Be(0);
+        engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 }
 #endif

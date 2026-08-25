@@ -107,14 +107,14 @@ public partial class Engine
 
     /// <summary>
     /// Pending finite-timeout <c>Atomics.waitAsync</c> waits, for
-    /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Declared here beside the registry it reads,
+    /// <see cref="DiagnosticOperations.GetMemoryReport(int)"/>. Declared here beside the registry it reads,
     /// like every other pump hook, so the report needs no conditional compilation of its own.
     /// </summary>
     internal int PendingAtomicsWaiterCount => _atomicsWaiterDeadlines?.PendingCount ?? 0;
 
     /// <summary>
     /// Registered web-API timers that have not fired and have not been cleared, for
-    /// <see cref="AdvancedOperations.GetMemoryReport(int)"/>. Zero on every target framework below .NET 8,
+    /// <see cref="DiagnosticOperations.GetMemoryReport(int)"/>. Zero on every target framework below .NET 8,
     /// which has no timers to register, and on any engine that did not enable them.
     /// </summary>
     internal int PendingTimerCount
@@ -135,7 +135,7 @@ public partial class Engine
     /// moment a pump starts.
     /// </summary>
     /// <remarks>
-    /// The one home for that composition, so that <see cref="AdvancedOperations.TimeUntilNextScheduledWork"/>
+    /// The one home for that composition, so that <see cref="TaskOperations.TimeUntilNextScheduledWork"/>
     /// and <see cref="WaitForScheduledWork"/> can never disagree about what "work is available now" means. Like
     /// every other hook in this file it is declared on every target framework with the conditional compilation
     /// inside its body.
@@ -187,14 +187,14 @@ public partial class Engine
     private static readonly ScheduledWorkState NoScheduledWork = new(IsAvailable: false, UntilDue: null);
 
     /// <summary>
-    /// The pump wait's view of <see cref="AdvancedOperations.TimeUntilNextScheduledWork"/>, differing from it
+    /// The pump wait's view of <see cref="TaskOperations.TimeUntilNextScheduledWork"/>, differing from it
     /// in exactly one way: nested inside a running job nothing counts as available.
     /// </summary>
     /// <remarks>
     /// That carve-out is the rule <see cref="Runtime.EventLoop.WaitForWork"/> and
     /// <see cref="DrainEventLoopUntil"/> already apply, for the reason they document — the re-entrancy guard
     /// makes the queue unrunnable from inside a job, so reporting it as available would hand the caller a
-    /// <see langword="true"/> whose <see cref="AdvancedOperations.ProcessTasks"/> does nothing, and its loop
+    /// <see langword="true"/> whose <see cref="TaskOperations.ProcessTasks"/> does nothing, and its loop
     /// would spin hot for the whole of its ceiling. Reporting nothing instead lets the wait run its course and
     /// answer <see langword="false"/>, which costs one bounded idle and no CPU.
     /// </remarks>
@@ -312,7 +312,7 @@ public partial class Engine
     }
 
     /// <summary>
-    /// The body of <see cref="AdvancedOperations.WaitForScheduledWork"/>, which owns the engine for the whole
+    /// The body of <see cref="TaskOperations.WaitForScheduledWork"/>, which owns the engine for the whole
     /// of it — see that method's remarks for why.
     /// </summary>
     /// <remarks>
@@ -395,7 +395,7 @@ public partial class Engine
     }
 
     /// <summary>
-    /// The body of <see cref="AdvancedOperations.WaitForScheduledWorkAsync"/>. The reservation is taken by the
+    /// The body of <see cref="TaskOperations.WaitForScheduledWorkAsync"/>. The reservation is taken by the
     /// caller — synchronously, so an engine already in use refuses before a <see cref="Task"/> exists — and
     /// released here, because everything after the first <c>await</c> belongs to this method.
     /// </summary>
@@ -499,7 +499,7 @@ public partial class Engine
         }
     }
 
-    public sealed partial class AdvancedOperations
+    public sealed partial class TaskOperations
     {
         /// <summary>
         /// Gets how long this engine may be left alone before <see cref="ProcessTasks"/> has work to run, or
@@ -531,10 +531,10 @@ public partial class Engine
         /// <code>
         /// while (running)
         /// {
-        ///     var until = engine.Advanced.TimeUntilNextScheduledWork;
+        ///     var until = engine.Tasks.TimeUntilNextScheduledWork;
         ///     if (until is null || until &lt;= frameBudget)
         ///     {
-        ///         engine.Advanced.ProcessTasks();
+        ///         engine.Tasks.ProcessTasks();
         ///     }
         ///
         ///     RenderFrame();
@@ -567,12 +567,12 @@ public partial class Engine
         /// <summary>
         /// Blocks the calling thread until this engine has work worth pumping, or <paramref name="timeout"/>
         /// elapses. Returns <see langword="true"/> when there is (probably) work — call
-        /// <see cref="ProcessTasks"/> next — and <see langword="false"/> on timeout.
+        /// <see cref="TaskOperations.ProcessTasks"/> next — and <see langword="false"/> on timeout.
         /// </summary>
         /// <remarks>
         /// <para>
         /// <b>It does not pump.</b> The canonical loop is still
-        /// <see cref="TimeUntilNextScheduledWork"/>/<see cref="ProcessTasks"/> and there is deliberately no
+        /// <see cref="TimeUntilNextScheduledWork"/>/<see cref="TaskOperations.ProcessTasks"/> and there is deliberately no
         /// third method that drains for a budget; this answers only the question a sleep answered badly, which
         /// is <i>how long may this thread idle</i>. What a sleep cannot do is notice a job that arrived from
         /// <em>another</em> thread — a settled interop <see cref="Task"/>, a message posted into this engine,
@@ -605,7 +605,7 @@ public partial class Engine
         /// <para>
         /// <b>Treat <see langword="true"/> as a hint and re-check your own condition.</b> Spurious wakes are
         /// expected: work can be dropped at dequeue because it belongs to an evaluation cycle
-        /// <see cref="RestoreGlobalSnapshot"/> has ended, and a wake races anything else the host does. A
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> has ended, and a wake races anything else the host does. A
         /// <see langword="false"/> is equally not a promise that nothing arrived — it says only that nothing
         /// had arrived when the ceiling ran out.
         /// </para>
@@ -649,7 +649,7 @@ public partial class Engine
         /// is only safe together with a <paramref name="cancellationToken"/>.
         /// </param>
         /// <param name="cancellationToken">Ends the wait with an <see cref="OperationCanceledException"/>.</param>
-        /// <returns>Whether there is (probably) work for <see cref="ProcessTasks"/> to run.</returns>
+        /// <returns>Whether there is (probably) work for <see cref="TaskOperations.ProcessTasks"/> to run.</returns>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         /// <exception cref="ExecutionCanceledException">A registered cancellation constraint fired.</exception>
         /// <exception cref="InvalidOperationException">Another thread is using this engine.</exception>
@@ -658,11 +658,11 @@ public partial class Engine
         /// <code>
         /// while (!token.IsCancellationRequested)
         /// {
-        ///     engine.Advanced.ProcessTasks();
+        ///     engine.Tasks.ProcessTasks();
         ///
         ///     try
         ///     {
-        ///         engine.Advanced.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+        ///         engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
         ///     }
         ///     catch (OperationCanceledException)
         ///     {
@@ -693,7 +693,7 @@ public partial class Engine
         /// <em>synchronously</em>, so an engine already in use is refused with the admission
         /// <see cref="InvalidOperationException"/> before a <see cref="Task"/> exists, and it is held until the
         /// returned task completes. While it is held the engine refuses every unrelated guarded entry from
-        /// every thread, this one included — so <see cref="ProcessTasks"/> belongs after the <c>await</c>,
+        /// every thread, this one included — so <see cref="TaskOperations.ProcessTasks"/> belongs after the <c>await</c>,
         /// never beside it.
         /// The continuation resumes on whichever thread the runtime hands it, which is why the engine is
         /// re-claimed for each look at its schedule.
@@ -709,7 +709,7 @@ public partial class Engine
         /// <see cref="Timeout.InfiniteTimeSpan"/> waits indefinitely.
         /// </param>
         /// <param name="cancellationToken">Ends the wait with an <see cref="OperationCanceledException"/>.</param>
-        /// <returns>Whether there is (probably) work for <see cref="ProcessTasks"/> to run.</returns>
+        /// <returns>Whether there is (probably) work for <see cref="TaskOperations.ProcessTasks"/> to run.</returns>
         /// <exception cref="InvalidOperationException">This engine is already in use.</exception>
         public Task<bool> WaitForScheduledWorkAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
         {

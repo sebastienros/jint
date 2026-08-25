@@ -20,7 +20,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// The other half of every assertion here is <i>when</i> the callbacks run: a timer fires only while the
 /// engine is being pumped. <c>Engine.Execute</c> drains the event loop once it has finished the script, which
 /// is why a zero-delay timer has already run when <c>Execute</c> returns, and why a later one needs an
-/// explicit <c>Advanced.ProcessTasks()</c>.
+/// explicit <c>Tasks.ProcessTasks()</c>.
 /// </para>
 /// </remarks>
 public class TimerTests
@@ -103,7 +103,7 @@ public class TimerTests
         Log(engine).Should().BeEmpty();
 
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("a,b,c");
     }
@@ -120,7 +120,7 @@ public class TimerTests
             """);
 
         clock.Advance(20);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("early,middle,late");
     }
@@ -140,9 +140,9 @@ public class TimerTests
         // An interval hands them over on every firing, not only the first.
         engine.Execute("var id = setInterval(v => log.push('i' + v), 5, 42);");
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Execute("clearInterval(id);");
 
         Log(engine).Should().Be("x:7:undefined,none:0,i42,i42");
@@ -198,7 +198,7 @@ public class TimerTests
             """);
 
         clock.Advance(50);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().BeEmpty();
     }
@@ -235,9 +235,9 @@ public class TimerTests
             """);
 
         clock.Advance(5);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         // The interval stopped after its first firing, and the one-shot clearing its own already-removed id
         // was the no-op it should be rather than an error.
@@ -254,14 +254,14 @@ public class TimerTests
         for (var i = 0; i < 3; i++)
         {
             clock.Advance(10);
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
         }
 
         Log(engine).Should().Be("tick,tick,tick");
 
         engine.Execute("clearInterval(id);");
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("tick,tick,tick");
     }
@@ -279,7 +279,7 @@ public class TimerTests
 
             // The interval is re-armed before the callback runs, which is the whole reason a throw cannot
             // silently stop it.
-            var thrown = Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks());
+            var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks());
             thrown.Message.Should().Contain("boom");
         }
 
@@ -302,12 +302,12 @@ public class TimerTests
 
         clock.Advance(5);
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Advanced.ProcessTasks());
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks());
         thrown.Message.Should().Contain("boom");
         Log(engine).Should().BeEmpty();
 
         // The timer behind the failed one was never promoted, so the next pump runs it.
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("after");
     }
 
@@ -341,19 +341,19 @@ public class TimerTests
         // level 6, so it is 4ms away.
         engine.Evaluate("levels").AsNumber().Should().Be(6);
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("levels").AsNumber().Should().Be(6);
 
         clock.Advance(3);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("levels").AsNumber().Should().Be(6);
 
         clock.Advance(1);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("levels").AsNumber().Should().Be(7);
 
         clock.Advance(4);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         engine.Evaluate("levels").AsNumber().Should().Be(8);
     }
 
@@ -368,11 +368,11 @@ public class TimerTests
 
         Log(engine).Should().Be("t,t,t,t,t,t");
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("t,t,t,t,t,t");
 
         clock.Advance(4);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("t,t,t,t,t,t,t");
 
         engine.Execute("clearInterval(id);");
@@ -409,7 +409,7 @@ public class TimerTests
             """).AsBoolean().Should().BeTrue();
 
         clock.Advance(100);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().BeEmpty();
     }
 
@@ -435,12 +435,12 @@ public class TimerTests
 
         // A fired timeout frees its slot, so the engine is not stuck once the queue drains.
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("one,two");
 
         engine.Execute("setTimeout(() => log.push('three'), 10);");
         clock.Advance(10);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("one,two,three");
     }
 
@@ -509,7 +509,7 @@ public class TimerTests
         // Time passing is not enough: no thread exists to notice, which is exactly the contract.
         Log(engine).Should().BeEmpty();
 
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
         Log(engine).Should().Be("fired");
     }
 
@@ -526,7 +526,7 @@ public class TimerTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
         clock.Advance(1000);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         ran.Should().BeFalse();
         engine._webApi!.Timers!.Count.Should().Be(0);
@@ -570,7 +570,7 @@ public class TimerTests
         while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
         {
             // Nothing but the host's own pump: no engine thread, no background timer.
-            engine.Advanced.ProcessTasks();
+            engine.Tasks.ProcessTasks();
             Thread.Sleep(5);
         }
 

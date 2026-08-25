@@ -19,7 +19,7 @@ public class SecurityConfigurationInternalsTests
         var engine = new Engine(options);
 
         callbackCount.Should().Be(1);
-        engine.Advanced.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
 
     private static Options CreateSafeOptions()

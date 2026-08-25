@@ -227,7 +227,7 @@ public class LazyGlobalRegistrationTests
     }
 
     // ---------------------------------------------------------------------------------------------
-    // engine.Advanced.AddLazyGlobal — the same mechanism, installable after construction
+    // engine.AddLazyGlobal — the same mechanism, installable after construction
     // ---------------------------------------------------------------------------------------------
     //
     // Options.AddLazyGlobal is options-time only, so a host whose globals are computed from per-request
@@ -250,7 +250,7 @@ public class LazyGlobalRegistrationTests
             .Should().Throw<JavaScriptException>()
             .WithMessage("*x is not defined*");
 
-        engine.Advanced.AddLazyGlobal("x", _ => 42);
+        engine.AddLazyGlobal("x", _ => 42);
 
         engine.Evaluate(script).AsNumber().Should().Be(42);
     }
@@ -271,7 +271,7 @@ public class LazyGlobalRegistrationTests
             engine.Evaluate(memberRead).AsString().Should().Be("eager");
         }
 
-        engine.Advanced.AddLazyGlobal("y", _ => "lazy");
+        engine.AddLazyGlobal("y", _ => "lazy");
 
         engine.Evaluate(identifierRead).AsString().Should().Be("lazy");
         engine.Evaluate(memberRead).AsString().Should().Be("lazy");
@@ -292,7 +292,7 @@ public class LazyGlobalRegistrationTests
             engine.Evaluate(memberRead).IsCallable().Should().BeTrue();
         }
 
-        engine.Advanced.AddLazyGlobal("parseInt", _ => "shadowed");
+        engine.AddLazyGlobal("parseInt", _ => "shadowed");
 
         engine.Evaluate(identifierRead).AsString().Should().Be("shadowed");
         engine.Evaluate(memberRead).AsString().Should().Be("shadowed");
@@ -303,7 +303,7 @@ public class LazyGlobalRegistrationTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ =>
+        engine.AddLazyGlobal("value", _ =>
         {
             calls++;
             return "built";
@@ -325,7 +325,7 @@ public class LazyGlobalRegistrationTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ =>
+        engine.AddLazyGlobal("value", _ =>
         {
             calls++;
             return 42;
@@ -345,7 +345,7 @@ public class LazyGlobalRegistrationTests
     public void PostConstructionFlagsAreHonoured()
     {
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("hidden", _ => "value", PropertyFlag.NonEnumerable);
+        engine.AddLazyGlobal("hidden", _ => "value", PropertyFlag.NonEnumerable);
 
         engine.Evaluate("Object.keys(globalThis).indexOf('hidden') >= 0").AsBoolean().Should().BeFalse();
         engine.Evaluate("'hidden' in globalThis").AsBoolean().Should().BeTrue();
@@ -360,7 +360,7 @@ public class LazyGlobalRegistrationTests
 
         // The whole point of the per-engine overload: this closure holds a JsValue of THIS engine, which
         // an Options-registered factory must never do because an Options instance is shared.
-        engine.Advanced.AddLazyGlobal("context", _ => perRequest);
+        engine.AddLazyGlobal("context", _ => perRequest);
 
         engine.Evaluate("context.requestId").AsNumber().Should().Be(7);
         engine.Evaluate("context === globalThis.context").AsBoolean().Should().BeTrue();
@@ -371,7 +371,7 @@ public class LazyGlobalRegistrationTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("nothing", _ =>
+        engine.AddLazyGlobal("nothing", _ =>
         {
             calls++;
             return null!;
@@ -389,7 +389,7 @@ public class LazyGlobalRegistrationTests
         var engine = new Engine();
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
-        engine.Advanced.AddLazyGlobal("perRequest", _ =>
+        engine.AddLazyGlobal("perRequest", _ =>
         {
             calls++;
             return "value";
@@ -408,7 +408,7 @@ public class LazyGlobalRegistrationTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Advanced.AddLazyGlobal("value", _ =>
+        engine.AddLazyGlobal("value", _ =>
         {
             calls++;
             return "built";
@@ -430,9 +430,9 @@ public class LazyGlobalRegistrationTests
     public void PostConstructionNullArgumentsAreRejected()
     {
         var engine = new Engine();
-        Invoking(() => engine.Advanced.AddLazyGlobal(null!, _ => JsValue.Undefined))
+        Invoking(() => engine.AddLazyGlobal(null!, _ => JsValue.Undefined))
             .Should().Throw<System.ArgumentNullException>();
-        Invoking(() => engine.Advanced.AddLazyGlobal("name", null!))
+        Invoking(() => engine.AddLazyGlobal("name", null!))
             .Should().Throw<System.ArgumentNullException>();
     }
 
@@ -441,7 +441,7 @@ public class LazyGlobalRegistrationTests
     {
         var engine = new Engine();
 
-        engine.Advanced.AddLazyGlobal(
+        engine.AddLazyGlobal(
             "greeting",
             "world",
             static (e, s) => JsValue.FromObject(e, "hello " + s));
@@ -455,7 +455,7 @@ public class LazyGlobalRegistrationTests
         var box = new Box();
         var engine = new Engine();
 
-        engine.Advanced.AddLazyGlobal(
+        engine.AddLazyGlobal(
             "value",
             box,
             static (_, b) =>
@@ -479,7 +479,7 @@ public class LazyGlobalRegistrationTests
         var box = new Box();
         var engine = new Engine();
 
-        engine.Advanced.AddLazyGlobal(
+        engine.AddLazyGlobal(
             "nothing",
             box,
             static (_, b) =>
@@ -499,7 +499,7 @@ public class LazyGlobalRegistrationTests
         var engine = new Engine();
         engine.SetValue("name", "eager");
 
-        engine.Advanced.AddLazyGlobal("name", "lazy", static (e, s) => JsValue.FromObject(e, s));
+        engine.AddLazyGlobal("name", "lazy", static (e, s) => JsValue.FromObject(e, s));
 
         engine.Evaluate("name").AsString().Should().Be("lazy");
     }
@@ -508,9 +508,9 @@ public class LazyGlobalRegistrationTests
     public void StatefulNullArgumentsAreRejected()
     {
         var engine = new Engine();
-        Invoking(() => engine.Advanced.AddLazyGlobal(null!, 1, static (_, _) => JsValue.Undefined))
+        Invoking(() => engine.AddLazyGlobal(null!, 1, static (_, _) => JsValue.Undefined))
             .Should().Throw<System.ArgumentNullException>();
-        Invoking(() => engine.Advanced.AddLazyGlobal<int>("name", 1, null!))
+        Invoking(() => engine.AddLazyGlobal<int>("name", 1, null!))
             .Should().Throw<System.ArgumentNullException>();
     }
 

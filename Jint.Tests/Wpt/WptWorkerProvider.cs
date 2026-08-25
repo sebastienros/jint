@@ -18,7 +18,7 @@ namespace Jint.Tests.Wpt;
 /// thread-per-worker one: <see cref="OnWorkerStarted"/> starts nothing, and the driver's own pump loop calls
 /// <c>ProcessTasks</c> on the parent and on every live worker in turn. That keeps the whole run on one thread,
 /// so a suite's outcome cannot depend on how two schedulers happened to interleave — which is what a
-/// conformance corpus needs and what <c>Advanced.WaitForScheduledWork</c> would only obscure here, since
+/// conformance corpus needs and what <c>Tasks.WaitForScheduledWork</c> would only obscure here, since
 /// nothing in this driver blocks waiting for a worker.
 /// </para>
 /// <para>

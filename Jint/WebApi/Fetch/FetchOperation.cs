@@ -265,7 +265,7 @@ internal sealed class FetchOperation
     private static HttpClient ResolveClient(Engine engine, Realm realm, Options.FetchOptions options)
     {
         // Called on the engine thread, once per fetch, so a host factory may read per-request state through
-        // engine.Advanced.HostDefined.
+        // engine.HostDefined.
         var client = FetchTransport.ResolveClient(engine, options);
         if (client is null)
         {

@@ -12,8 +12,8 @@ namespace Jint.WebApi.Fetch;
 
 /// <summary>
 /// An inbound request being handled by script, handed back by
-/// <c>Engine.Advanced.InvokeFetchHandler</c>. The engine makes progress on it only when it is given turns, so
-/// a host drives it by calling <c>engine.Advanced.ProcessTasks()</c> and watching <see cref="IsCompleted"/>.
+/// <c>Engine.WebApi.InvokeFetchHandler</c>. The engine makes progress on it only when it is given turns, so
+/// a host drives it by calling <c>engine.Tasks.ProcessTasks()</c> and watching <see cref="IsCompleted"/>.
 /// Requires .NET 8 or higher.
 /// </summary>
 /// <remarks>
@@ -22,7 +22,7 @@ namespace Jint.WebApi.Fetch;
 /// thread it must not block — a game loop, a UI thread, a request pipeline that owns its own scheduling —
 /// needs every turn of the engine to run where it decided, not on whichever thread a continuation happened to
 /// resume on. A host that is content to <c>await</c> wants
-/// <c>Engine.Advanced.InvokeFetchHandlerAsync</c> instead.
+/// <c>Engine.WebApi.InvokeFetchHandlerAsync</c> instead.
 /// </para>
 /// <para>
 /// A handler that answers a <c>Response</c> synchronously produces an operation that is already
@@ -31,10 +31,10 @@ namespace Jint.WebApi.Fetch;
 /// </remarks>
 /// <example>
 /// <code>
-/// var operation = engine.Advanced.InvokeFetchHandler(request);
+/// var operation = engine.WebApi.InvokeFetchHandler(request);
 /// while (!operation.IsCompleted)
 /// {
-///     engine.Advanced.ProcessTasks();
+///     engine.Tasks.ProcessTasks();
 /// }
 ///
 /// // Throws whatever the handler failed with — the host decides what that means on the wire.
@@ -149,7 +149,7 @@ public sealed class FetchHandlerOperation
     {
         if (!IsCompleted)
         {
-            Throw.InvalidOperationException("The fetch handler has not completed. Give the engine turns with engine.Advanced.ProcessTasks() until IsCompleted is true, or await Engine.Advanced.InvokeFetchHandlerAsync instead.");
+            Throw.InvalidOperationException("The fetch handler has not completed. Give the engine turns with engine.Tasks.ProcessTasks() until IsCompleted is true, or await Engine.WebApi.InvokeFetchHandlerAsync instead.");
         }
 
         _failure?.Throw();

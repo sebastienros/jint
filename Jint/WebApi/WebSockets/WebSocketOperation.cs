@@ -20,7 +20,7 @@ namespace Jint.WebApi.WebSockets;
 /// <b>No JavaScript ever runs here.</b> Every one of the standard's "queue a task" steps is a
 /// generation-stamped event-loop job, so an <c>open</c>, <c>message</c>, <c>error</c> or <c>close</c> listener
 /// runs where every other continuation in Jint runs: inside a blocking <c>UnwrapIfPromise</c>, an
-/// <c>await</c> of <c>EvaluateAsync</c>, or the host's own <c>engine.Advanced.ProcessTasks()</c> loop. Jint
+/// <c>await</c> of <c>EvaluateAsync</c>, or the host's own <c>engine.Tasks.ProcessTasks()</c> loop. Jint
 /// never starts a thread to pump the engine, so an engine nobody pumps sees no events at all — while the
 /// socket itself goes on draining, which is what keeps a peer from being throttled by a script that has
 /// stopped listening.

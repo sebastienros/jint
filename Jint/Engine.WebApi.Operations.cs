@@ -18,8 +18,37 @@ namespace Jint;
 
 public partial class Engine
 {
-    public sealed partial class AdvancedOperations
+    private WebApiOperations? _webApiOperations;
+
+    /// <summary>
+    /// Gets the bridge between this engine's opt-in web platform APIs and the host; requires .NET 8 or
+    /// higher.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It turns those APIs on, invokes a script <c>fetch</c> handler, pairs a <c>MessagePort</c> with
+    /// another engine, wraps a <see cref="CancellationToken"/> as an <c>AbortSignal</c>, and adapts host
+    /// streams in both directions.
+    /// </para>
+    /// <para>
+    /// Nothing here runs on its own: a fetch handler, a timer and a message port all reach script through
+    /// <see cref="Tasks"/>. Created on first access, so an engine that bridges nothing never allocates one.
+    /// </para>
+    /// </remarks>
+    public WebApiOperations WebApi => _webApiOperations ??= new WebApiOperations(this);
+
+    /// <summary>
+    /// The bridge between an <see cref="Engine"/> instance's opt-in web platform APIs and the host.
+    /// </summary>
+    public sealed partial class WebApiOperations
     {
+        private readonly Engine _engine;
+
+        internal WebApiOperations(Engine engine)
+        {
+            _engine = engine;
+        }
+
         /// <summary>
         /// The opt-in web APIs this engine carries, after the feature closure has been expanded. Requires
         /// .NET 8 or higher.
@@ -33,13 +62,13 @@ public partial class Engine
         /// <c>Fetch</c> there.
         /// </para>
         /// <para>
-        /// Reading it is what makes <see cref="EnableWebApis(WebApiFeatures, Action{Options.WebApiOptions})"/>
+        /// Reading it is what makes <see cref="Enable(WebApiFeatures, Action{Options.WebApiOptions})"/>
         /// unnecessary to guard: that method is additive and a feature already present is a no-op, so a host
         /// only needs this to decide whether a call is <i>worth</i> making, or to assert what a pooled engine
         /// came back with.
         /// </para>
         /// </remarks>
-        public WebApiFeatures WebApiFeatures => _engine._webApiFeatures;
+        public WebApiFeatures Features => _engine._webApiFeatures;
 
         /// <summary>
         /// Turns on the web APIs a host normally wants — <see cref="WebApiFeatures.Default"/> — on an engine
@@ -47,7 +76,7 @@ public partial class Engine
         /// <see cref="WebApiOptionsExtensions.UseWebApis(Options)"/>. Requires .NET 8 or higher.
         /// </summary>
         /// <returns>The features this call added; see the main overload.</returns>
-        public WebApiFeatures EnableWebApis() => EnableWebApis(Jint.WebApiFeatures.Default, configure: null);
+        public WebApiFeatures Enable() => Enable(Jint.WebApiFeatures.Default, configure: null);
 
         /// <summary>
         /// Turns the named web APIs on for <em>this</em> engine, after it has been constructed. The per-engine
@@ -99,12 +128,12 @@ public partial class Engine
         /// therefore <em>now</em> rather than the engine's birth.
         /// </para>
         /// <para>
-        /// <b>Interaction with <see cref="CaptureGlobalSnapshot"/>.</b> A restore returns the global bindings
+        /// <b>Interaction with <see cref="AdvancedOperations.CaptureGlobalSnapshot"/>.</b> A restore returns the global bindings
         /// to their state at capture, so globals installed by a call made <em>after</em> a capture are gone
         /// after the restore — the same thing that happens to an
         /// <see cref="AddLazyGlobal(string, Func{Engine, JsValue}, Runtime.Descriptors.PropertyFlag)"/> global and to the ones
         /// <see cref="SetFetchHandler"/> installs. What a restore does not revert is the engine-side record:
-        /// <see cref="WebApiFeatures"/> still reports the feature, and the state behind it (the timer queue,
+        /// <see cref="Features"/> still reports the feature, and the state behind it (the timer queue,
         /// the cache provider) is still there, so the engine is left knowing about an API whose globals script
         /// can no longer name. <b>Enable after the restore, or enable on the options</b> so the globals are
         /// part of the engine's initial state and every snapshot carries them. Re-calling this method after a
@@ -133,12 +162,12 @@ public partial class Engine
         /// var engine = pool.Rent();                       // built with WebApiFeatures.Console only
         /// if (script.NeedsTimers)
         /// {
-        ///     engine.Advanced.EnableWebApis(WebApiFeatures.Timers | WebApiFeatures.Events);
+        ///     engine.WebApi.Enable(WebApiFeatures.Timers | WebApiFeatures.Events);
         /// }
         ///
         /// if (tenant.MayReachTheNetwork)
         /// {
-        ///     engine.Advanced.EnableWebApis(WebApiFeatures.Fetch, w =>
+        ///     engine.WebApi.Enable(WebApiFeatures.Fetch, w =>
         ///         w.Fetch.UrlFilter = uri => tenant.Allows(uri));
         /// }
         /// </code>
@@ -162,7 +191,7 @@ public partial class Engine
         /// <see cref="WebApiFeatures.None"/> when everything asked for was already present. A host granting
         /// network access can assert on it; a host that only wants the globals can ignore it.
         /// </returns>
-        public WebApiFeatures EnableWebApis(WebApiFeatures features, Action<Options.WebApiOptions>? configure = null)
+        public WebApiFeatures Enable(WebApiFeatures features, Action<Options.WebApiOptions>? configure = null)
             => WebApiRegistration.ApplyLive(_engine, features, configure);
 
         /// <summary>
@@ -177,7 +206,7 @@ public partial class Engine
         /// scripts talk to each other:
         /// </para>
         /// <code>
-        /// var pair = worker.Advanced.CreateMessagePortPair(host);
+        /// var pair = worker.WebApi.CreateMessagePortPair(host);
         /// worker.SetValue("hostPort", pair.Local);
         /// host.SetValue("workerPort", pair.Remote);
         /// </code>
@@ -210,7 +239,7 @@ public partial class Engine
         /// <b>The receiving engine must actually be pumped.</b> A message is delivered on the receiver's next
         /// event-loop drain — the end of an <c>Execute</c>/<c>Evaluate</c>, a blocking
         /// <c>UnwrapIfPromise</c>, an <c>await</c> of <c>EvaluateAsync</c>, or the host's own
-        /// <c>engine.Advanced.ProcessTasks()</c> loop. An engine nobody pumps never delivers a message, for
+        /// <c>engine.Tasks.ProcessTasks()</c> loop. An engine nobody pumps never delivers a message, for
         /// the same reason it never fires a timer: Jint does not start threads.
         /// </description></item>
         /// <item><description>
@@ -325,14 +354,14 @@ public partial class Engine
         /// <see cref="WebApiFeatures.Fetch"/> feature already put under those names. It deliberately does
         /// <b>not</b> install <c>fetch</c>: handling an inbound request is not a reason to grant the script
         /// outbound network access, which stays behind <c>options.UseFetch()</c>. Since the install happens
-        /// after construction, a <see cref="CaptureGlobalSnapshot"/> taken before this call does not carry
-        /// those globals and <see cref="RestoreGlobalSnapshot"/> removes them again — register the handler
+        /// after construction, a <see cref="AdvancedOperations.CaptureGlobalSnapshot"/> taken before this call does not carry
+        /// those globals and <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> removes them again — register the handler
         /// after the restore, or enable the feature on the options so the globals are part of the engine's
         /// initial state.
         /// </para>
         /// <para>
         /// <b>Lifetime.</b> The handler is host state, like <see cref="HostDefined"/>: it survives
-        /// <see cref="RestoreGlobalSnapshot"/> rather than being cleared by it, so a pooled engine that
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> rather than being cleared by it, so a pooled engine that
         /// restores its globals between requests keeps the handler and decides for itself when to replace it.
         /// An invocation that was already in flight is a different matter and is fenced off — see
         /// <see cref="FetchHandlerOperation.IsCompleted"/>. Registering again replaces the previous handler;
@@ -389,7 +418,7 @@ public partial class Engine
         /// <b>Nothing is pumped here.</b> A handler that answers a <c>Response</c> synchronously produces an
         /// operation that is already complete; one that answers a promise — every <c>async</c> handler, and
         /// any handler that awaits a timer or an outbound <c>fetch</c> — needs turns, which the host gives it
-        /// by calling <see cref="ProcessTasks"/> until
+        /// by calling <see cref="TaskOperations.ProcessTasks"/> until
         /// <see cref="FetchHandlerOperation.IsCompleted"/>. That is the whole point of the shape: every turn
         /// provably runs on the thread the host decided, which is what a game loop or a UI thread needs.
         /// <see cref="InvokeFetchHandlerAsync"/> is the <c>await</c>-shaped alternative.
@@ -462,7 +491,7 @@ public partial class Engine
         /// <c>DOMException</c>. A handler that ignores the abort and answers anyway is served, because the
         /// host that went on pumping is the one that decided to let it finish. Stopping an invocation
         /// outright is the host's own lever, not the script's: stop pumping, or end the cycle with
-        /// <see cref="RestoreGlobalSnapshot"/>.
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/>.
         /// </para>
         /// <para>
         /// <b>It is not an execution constraint.</b> A handler that never yields — <c>while (true) {}</c> —
@@ -473,7 +502,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// <b>Lifetime.</b> The registration is released when this operation completes, however it completes,
-        /// and again when <see cref="RestoreGlobalSnapshot"/> or <see cref="Engine.Dispose"/> releases every
+        /// and again when <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> or <see cref="Engine.Dispose"/> releases every
         /// host bridge — so a long-lived token accumulates nothing across the requests a pooled engine serves,
         /// and retains no finished engine. What it deliberately does not do is chase an abort already on the
         /// event loop: a token that fired before the handler answered still aborts the signal on the next
@@ -790,7 +819,7 @@ public partial class Engine
                 return new FetchRoute(null, listeners);
             }
 
-            Throw.InvalidOperationException("No fetch handler is registered on this engine, and no script listener is registered for the 'fetch' event. Register a handler with engine.Advanced.SetFetchHandler — a function, an object with a callable 'fetch' property, or the namespace of a module whose default export is one of those — or build the engine with WebApiFeatures.FetchEvents and let the script register one with addEventListener('fetch', event => event.respondWith(...)).");
+            Throw.InvalidOperationException("No fetch handler is registered on this engine, and no script listener is registered for the 'fetch' event. Register a handler with engine.WebApi.SetFetchHandler — a function, an object with a callable 'fetch' property, or the namespace of a module whose default export is one of those — or build the engine with WebApiFeatures.FetchEvents and let the script register one with addEventListener('fetch', event => event.respondWith(...)).");
             return default;
         }
 
@@ -828,7 +857,7 @@ public partial class Engine
         /// anything itself: it enqueues an event-loop job, and the abort happens when that job runs. That is
         /// the same contract <c>setTimeout</c> and <c>AbortSignal.timeout()</c> have, and it means a host that
         /// cancels a token and never pumps again has a signal that stays unaborted. Pump — through
-        /// <see cref="ProcessTasks"/>, a blocking <c>UnwrapIfPromise</c>, or an <c>EvaluateAsync</c> that is
+        /// <see cref="TaskOperations.ProcessTasks"/>, a blocking <c>UnwrapIfPromise</c>, or an <c>EvaluateAsync</c> that is
         /// still running — for the cancellation to land.
         /// </para>
         /// <para>
@@ -841,7 +870,7 @@ public partial class Engine
         /// </para>
         /// <para>
         /// <b>Lifetime.</b> The registration is released as soon as the abort lands, when
-        /// <see cref="RestoreGlobalSnapshot"/> ends the evaluation cycle the signal was created in, and when
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> ends the evaluation cycle the signal was created in, and when
         /// the engine is disposed — so a long-lived host token (a web request's, an application lifetime's)
         /// does not accumulate registrations, and does not retain a finished engine. A signal created before a
         /// restore therefore never aborts into the restored engine, exactly as a timer scheduled before one
@@ -857,7 +886,7 @@ public partial class Engine
         /// var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
         ///
         /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        /// engine.SetValue("hostSignal", engine.Advanced.CreateAbortSignal(cts.Token));
+        /// engine.SetValue("hostSignal", engine.WebApi.CreateAbortSignal(cts.Token));
         ///
         /// engine.Execute("hostSignal.addEventListener('abort', () => cleanUp())");
         /// </code>
@@ -878,12 +907,12 @@ public partial class Engine
             // The engine's own record rather than the options': Options is shareable and mutable, so the set
             // an engine was actually built with is only knowable from the engine — and it is the set AFTER the
             // feature closure, so an engine built with options.UseFetch() (which implies Events) and one that
-            // enabled Events through EnableWebApis are both recognized. The state is built for every feature
+            // enabled Events through WebApi.Enable are both recognized. The state is built for every feature
             // that keeps any, Events among them, so the null check is the belt to that brace.
             if (engine._webApi is null || (engine._webApiFeatures & WebApiFeatures.Events) == WebApiFeatures.None)
             {
                 Throw.InvalidOperationException(
-                    "Engine.Advanced.CreateAbortSignal requires the WebApiFeatures.Events web API, which this engine did not enable. Build the engine with options.UseWebApis(WebApiFeatures.Events) — or any feature set that includes it, such as WebApiFeatures.Default.");
+                    "Engine.WebApi.CreateAbortSignal requires the WebApiFeatures.Events web API, which this engine did not enable. Build the engine with options.UseWebApis(WebApiFeatures.Events) — or any feature set that includes it, such as WebApiFeatures.Default.");
             }
 
             // The bridge this hands back is nobody's to release here: a signal a host asked for by itself has
@@ -953,7 +982,7 @@ public partial class Engine
         /// the BCL's asynchronous I/O, on whichever thread that completes on, and each chunk is delivered to
         /// the engine as an event-loop job. <b>The engine must be given turns for the stream to make
         /// progress</b> — an <c>await</c> in script, <c>Engine.EvaluateAsync</c>, a blocking
-        /// <c>UnwrapIfPromise</c>, or the host's own <c>engine.Advanced.ProcessTasks()</c> loop. An engine
+        /// <c>UnwrapIfPromise</c>, or the host's own <c>engine.Tasks.ProcessTasks()</c> loop. An engine
         /// nobody pumps never reads a byte, which is the same contract the timers have.
         /// </para>
         /// <para>
@@ -1062,7 +1091,7 @@ public partial class Engine
         /// <remarks>
         /// <para>
         /// <b>The host pumps.</b> Every chunk comes out of the engine, so the copy advances only when the
-        /// engine is given turns: call <c>engine.Advanced.ProcessTasks()</c> and watch
+        /// engine is given turns: call <c>engine.Tasks.ProcessTasks()</c> and watch
         /// <see cref="HostStreamCopyOperation.IsCompleted"/>. This is the one entry point of the three where
         /// every turn provably runs where the host wants it, which is what a game loop or a UI thread needs;
         /// <see cref="CopyReadableStreamAsync"/> is the same operation with the pumping done inside an

@@ -147,7 +147,7 @@ public class ModuleTests
                 globalThis.result = ns.value;
             })();
         ");
-        _engine.Advanced.ProcessTasks();
+        _engine.Tasks.ProcessTasks();
 
         _engine.Evaluate("globalThis.result").AsString().Should().Be("exported value");
     }
@@ -502,7 +502,7 @@ export const count = globals.counter;
         engine.SetValue("log", logStatements.Add);
 
         engine.Execute(code, source: "file:///folder/main.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         logStatements.Should().SatisfyRespectively(
             s => s.Should().Be("myModuleConst"));
@@ -527,7 +527,7 @@ export const count = globals.counter;
 
         var script = Engine.PrepareScript(code, source: "file:///folder/main.js");
         engine.Execute(script);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         logStatements.Should().SatisfyRespectively(
             s => s.Should().Be("myModuleConst"));
@@ -551,7 +551,7 @@ export const count = globals.counter;
         engine.SetValue("log", logStatements.Add);
 
         engine.Evaluate(code, source: "file:///folder/main.js");
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         logStatements.Should().SatisfyRespectively(
             s => s.Should().Be("myModuleConst"));
@@ -576,7 +576,7 @@ export const count = globals.counter;
 
         var script = Engine.PrepareScript(code, source: "file:///folder/main.js");
         engine.Evaluate(script);
-        engine.Advanced.ProcessTasks();
+        engine.Tasks.ProcessTasks();
 
         logStatements.Should().SatisfyRespectively(
             s => s.Should().Be("myModuleConst"));
@@ -1154,7 +1154,7 @@ export const count = globals.counter;
             .Which.Message.Should().Be("boom");
 
         _engine.Evaluate("globalThis.outcome = null; import('main').then(() => { globalThis.outcome = 'resolved'; }, e => { globalThis.outcome = e.message; });");
-        _engine.Advanced.ProcessTasks();
+        _engine.Tasks.ProcessTasks();
 
         _engine.Evaluate("globalThis.outcome").AsString().Should().Be("boom");
     }

@@ -118,7 +118,7 @@ internal sealed class ObjectPool<T> where T : class
 
     /// <summary>
     /// How many instances the pool is holding right now, for
-    /// <see cref="Engine.AdvancedOperations.GetMemoryReport(int)"/>. Derived from the two storage fields, so
+    /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>. Derived from the two storage fields, so
     /// nothing is recorded on the pool's own hot paths for it.
     /// </summary>
     internal int PooledCount => (_firstItem is null ? 0 : 1) + _currentSlowPooledItems;
