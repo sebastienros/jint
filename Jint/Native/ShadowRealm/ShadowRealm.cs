@@ -50,8 +50,27 @@ public sealed class ShadowRealm : ObjectInstance
         return PerformShadowRealmEval(in preparedScript, callerRealm);
     }
 
+    /// <summary>
+    /// Imports one named export of a module into this shadow realm, returning a promise for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The module graph is loaded, linked and evaluated inside this realm. Only the named export crosses
+    /// back, through the same wrapping <see cref="Evaluate(string, ScriptParsingOptions)"/> applies: a
+    /// callable arrives as a wrapped function of the calling realm, and anything else is refused.
+    /// </para>
+    /// <para>
+    /// The returned promise is already settled for a module graph the engine could load synchronously.
+    /// With an <see cref="Runtime.Modules.IAsyncModuleLoader"/> it may still be pending, and the host is
+    /// what gives the engine the turns that settle it.
+    /// </para>
+    /// </remarks>
+    /// <param name="specifier">The module specifier, resolved by the engine's module loader.</param>
+    /// <param name="exportName">The name of the export to take from the module's namespace.</param>
+    /// <returns>A promise that settles with the wrapped export.</returns>
     public JsValue ImportValue(string specifier, string exportName)
     {
+        using var ownership = _engine.EnterHostCall();
         var callerRealm = _engine.Realm;
         var value = ShadowRealmImportValue(specifier, exportName, callerRealm);
         _engine.RunAvailableContinuations();
@@ -73,6 +92,7 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue(string name, Delegate value)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.RegisterDelegate(_engine, _shadowRealm.GlobalObject, name, value);
         return this;
     }
@@ -115,6 +135,7 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue(string name, JsValue value)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.Register(_shadowRealm.GlobalObject, name, value);
         return this;
     }
@@ -133,6 +154,7 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue(string name, object? obj)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.RegisterObject(_engine, _shadowRealm.GlobalObject, name, obj);
         return this;
     }
@@ -144,6 +166,7 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue(string name, [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.RegisterType(_engine, _shadowRealm.GlobalObject, name, type);
         return this;
     }
@@ -155,6 +178,7 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T? obj)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.RegisterTyped(_engine, _shadowRealm.GlobalObject, name, obj);
         return this;
     }
@@ -168,10 +192,34 @@ public sealed class ShadowRealm : ObjectInstance
     public ShadowRealm SetValue<[DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] T>(string name, T[]? obj)
     {
         using var ownership = _engine.EnterHostCall();
+        using var realmScope = EnterRealm();
         GlobalValueRegistration.RegisterArray(_engine, _shadowRealm.GlobalObject, name, obj);
         return this;
     }
 
+    /// <summary>
+    /// Makes this shadow realm the engine's running realm for the duration of the scope, so a value built
+    /// inside it belongs to this realm rather than to whichever realm the host called from.
+    /// </summary>
+    /// <remarks>
+    /// It is the execution context <see cref="ShadowRealmImportValue"/> already enters, used for the same
+    /// reason: <c>Engine.Realm</c> is the running context's realm, and every interop construction reads it
+    /// to pick a prototype — <see cref="JsValue.FromObject"/> through the <c>ObjectInstance</c> base
+    /// constructor, <see cref="TypeReference.CreateTypeReference(Engine, Type)"/> through
+    /// <c>TypeReferencePrototype</c>, and <c>DelegateWrapper</c> directly. Without it a wrapper installed on
+    /// this realm's global object carried the principal realm's <c>Object.prototype</c>, and
+    /// <c>instanceof Object</c> inside the realm answered false for it (sebastienros/jint#3325).
+    /// </remarks>
+    private RealmScope EnterRealm()
+    {
+        _engine.EnterExecutionContext(in _executionContext);
+        return new RealmScope(_engine);
+    }
+
+    private readonly struct RealmScope(Engine engine) : IDisposable
+    {
+        public void Dispose() => engine.LeaveExecutionContext();
+    }
 
     /// <summary>
     /// https://tc39.es/proposal-shadowrealm/#sec-performshadowrealmeval
