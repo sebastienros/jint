@@ -1,0 +1,32 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (5,20)-(5,26),
+      Message: Type 'Marker' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT031,
+        Title: [JsAccessible] type registers no member,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (10,20)-(10,31),
+      Message: Type 'OnlyStatics' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT031,
+        Title: [JsAccessible] type registers no member,
+        MessageFormat: Type '{0}' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+﻿{
+  Diagnostics: [
+    {
+      Location: : (11,15)-(11,28),
+      Message: Property 'PrivateSetter' on 'Model' is reached through reflection: its set accessor is not public, and generated code cannot call it,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT034,
+        Title: [JsAccessible] member declaration is outside the generated lane,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (12,15)-(12,28),
+      Message: Property 'PrivateGetter' on 'Model' is reached through reflection: its get accessor is not public, and generated code cannot call it,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT034,
+        Title: [JsAccessible] member declaration is outside the generated lane,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (13,15)-(13,23),
+      Message: Property 'InitOnly' on 'Model' is reached through reflection: its setter is 'init', which only an object initializer or reflection can call,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT034,
+        Title: [JsAccessible] member declaration is outside the generated lane,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    },
+    {
+      Location: : (14,19)-(14,23),
+      Message: Property 'Slot' on 'Model' is reached through reflection: it returns by reference,
+      Severity: Info,
+      WarningLevel: 1,
+      Descriptor: {
+        Id: JINT034,
+        Title: [JsAccessible] member declaration is outside the generated lane,
+        MessageFormat: {0} '{1}' on '{2}' is reached through reflection: {3},
+        Category: Jint.SourceGenerators,
+        DefaultSeverity: Info,
+        IsEnabledByDefault: true
+      }
+    }
+  ]
+}
