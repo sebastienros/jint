@@ -171,7 +171,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool Delete(JsValue property)
     {
-        if (!_engine.Options.Interop.AllowWrite || !Extensible)
+        if (!CanWrite || !Extensible)
         {
             if (property is JsString dictionaryKey
                 && _typeDescriptor.IsStringKeyedGenericDictionary
@@ -404,13 +404,27 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         return base.Set(property, value, receiver);
     }
 
-    protected virtual bool CanWrite => _engine.Options.Interop.AllowWrite;
+    /// <summary>
+    /// Whether an element of this view may be written at all: the engine must be configured for writes
+    /// and the target must not have declared itself read-only. Consulted by <see cref="Set"/>,
+    /// <see cref="Delete"/> and by <c>ArrayOperations</c>' array-like lane, so that a refusal is the
+    /// ordinary <c>[[Set]]</c>/<c>[[Delete]]</c> <see langword="false"/> — a <c>TypeError</c> in strict
+    /// mode, silent in sloppy — rather than a CLR exception from the collection.
+    /// </summary>
+    internal bool CanWrite => _engine.Options.Interop.AllowWrite && !IsReadOnly;
 
     /// <summary>
     /// Whether the underlying collection cannot change its length (CLR arrays). Enables the direct
     /// integral-index write lane in <see cref="Set"/>.
     /// </summary>
     protected virtual bool IsFixedSize => false;
+
+    /// <summary>
+    /// Whether the underlying collection refuses every mutation, elements included — what
+    /// <see cref="ICollection{T}.IsReadOnly"/> and <see cref="IList.IsReadOnly"/> declare. Strictly
+    /// stronger than <see cref="IsFixedSize"/>, which forbids only the length change.
+    /// </summary>
+    protected virtual bool IsReadOnly => false;
 
     /// <summary>
     /// The refusal every length-changing operation on a fixed-size target owes script: a
@@ -421,9 +435,37 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     [DoesNotReturn]
     protected void ThrowFixedSize() => Throw.TypeError(_engine.Realm, "Cannot resize a fixed-size CLR array");
 
+    /// <summary>
+    /// The backstop for a read-only target, and deliberately unreachable: <see cref="CanWrite"/> is false
+    /// for one, so every lane refuses before a mutator is called and script gets the ordinary
+    /// <c>[[Set]]</c>/<c>[[Delete]]</c> refusal a frozen JavaScript array gives. It exists so that a lane
+    /// added later cannot reach <c>Add</c>/<c>RemoveAt</c> and leak the collection's own
+    /// <see cref="NotSupportedException"/> past script the way three of them did until #3382.
+    /// </summary>
+    [DoesNotReturn]
+    protected void ThrowReadOnly() => Throw.TypeError(_engine.Realm, "Cannot modify a read-only CLR collection");
+
+    /// <summary>
+    /// Guard at the head of every length-changing operation of a wrapper that takes its two facts from
+    /// the target rather than from its type argument. Read-only is answered first because it is the
+    /// stronger claim: a collection can be both (<c>ArrayList.ReadOnly</c>), and only one message is right.
+    /// </summary>
+    protected void ThrowIfLengthCannotChange()
+    {
+        if (IsReadOnly)
+        {
+            ThrowReadOnly();
+        }
+
+        if (IsFixedSize)
+        {
+            ThrowFixedSize();
+        }
+    }
+
     public void SetAt(int index, JsValue value)
     {
-        if (_engine.Options.Interop.AllowWrite)
+        if (CanWrite)
         {
             EnsureCapacity(index + 1);
             DoSetAt(index, ConvertToItemType(value));
@@ -479,12 +521,14 @@ internal sealed class ListWrapper : ArrayLikeWrapper
 {
     private readonly IList? _list;
     private readonly bool _fixedSize;
+    private readonly bool _readOnly;
 
     internal ListWrapper(Engine engine, IList target, Type type)
         : base(engine, target, ElementTypeOf(target), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
     {
         _list = target;
         _fixedSize = target.IsFixedSize;
+        _readOnly = target.IsReadOnly;
     }
 
     /// <summary>
@@ -505,6 +549,14 @@ internal sealed class ListWrapper : ArrayLikeWrapper
     /// <see cref="NotSupportedException"/> past script instead of raising a catchable <c>TypeError</c>.
     /// </summary>
     protected override bool IsFixedSize => _fixedSize;
+
+    /// <summary>
+    /// Read from the target for the same reason as <see cref="IsFixedSize"/>, and separately from it
+    /// because the non-generic <see cref="IList"/> asks the two questions separately:
+    /// <c>ArrayList.FixedSize</c> is fixed-size and writable, <c>ArrayList.ReadOnly</c> is both, and an
+    /// embedder's own read-only <see cref="IList"/> may be neither fixed-size nor writable.
+    /// </summary>
+    protected override bool IsReadOnly => _readOnly;
 
     public override int Length => _list?.Count ?? 0;
 
@@ -528,41 +580,29 @@ internal sealed class ListWrapper : ArrayLikeWrapper
 
     public override void AddDefault()
     {
-        if (_fixedSize)
-        {
-            ThrowFixedSize();
-        }
-
+        ThrowIfLengthCannotChange();
         _list?.Add(null);
     }
 
     public override void Add(JsValue value)
     {
-        if (_fixedSize)
-        {
-            ThrowFixedSize();
-        }
-
+        ThrowIfLengthCannotChange();
         _list?.Add(ConvertToItemType(value));
     }
 
     public override void RemoveAt(int index)
     {
-        if (_fixedSize)
-        {
-            ThrowFixedSize();
-        }
-
+        ThrowIfLengthCannotChange();
         _list?.RemoveAt(index);
     }
 
     public override void EnsureCapacity(int capacity)
     {
-        if (_fixedSize)
+        if (_fixedSize || _readOnly)
         {
             if (capacity > Length)
             {
-                ThrowFixedSize();
+                ThrowIfLengthCannotChange();
             }
 
             return;
@@ -575,12 +615,36 @@ internal sealed class ListWrapper : ArrayLikeWrapper
 internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapper
 {
     private readonly IList<T> _list;
+    private readonly bool _fixedSize;
+    private readonly bool _readOnly;
 
     public GenericListWrapper(Engine engine, IList<T> target, Type? type)
         : base(engine, target, typeof(T), type, elementAccessMayRunHostCode: target is not (T[] or List<T>))
     {
         _list = target;
+        _fixedSize = IsFixedSizeArray(target);
+        _readOnly = !_fixedSize && target.IsReadOnly;
     }
+
+    /// <summary>
+    /// The two shapes whose <see cref="ICollection{T}.IsReadOnly"/> means <em>cannot grow</em> rather
+    /// than <em>cannot be written</em>, which is the one place the generic interface's single flag
+    /// disagrees with the non-generic <see cref="IList"/>'s two. Both accept element writes and refuse
+    /// every length change, so they are fixed-size here and not read-only. A <c>T[]</c> reaches this
+    /// wrapper when the exposed type is a declared <see cref="IList{T}"/> rather than the array type,
+    /// which <see cref="ObjectWrapper.Create(Engine, object, Type?)"/> and <c>clrHelper</c> both allow.
+    /// </summary>
+    private static bool IsFixedSizeArray(IList<T> target) => target is T[] or ArraySegment<T>;
+
+    protected override bool IsFixedSize => _fixedSize;
+
+    /// <summary>
+    /// Taken from the target's own <see cref="ICollection{T}.IsReadOnly"/>: a
+    /// <c>ReadOnlyCollection&lt;T&gt;</c>, an immutable collection and a host list that declares itself
+    /// read-only all raise <see cref="NotSupportedException"/> from <c>Add</c>/<c>RemoveAt</c> and from
+    /// the indexer setter, which script cannot catch (#3382).
+    /// </summary>
+    protected override bool IsReadOnly => _readOnly;
 
     public override int Length => _list.Count;
 
@@ -608,15 +672,34 @@ internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccesse
 
     protected override void DoSetAt(int index, object? value) => _list[index] = (T) value!;
 
-    public override void AddDefault() => _list.Add(default!);
+    public override void AddDefault()
+    {
+        ThrowIfLengthCannotChange();
+        _list.Add(default!);
+    }
 
     public override void Add(JsValue value)
     {
+        ThrowIfLengthCannotChange();
         var converted = ConvertToItemType(value);
         _list.Add((T) converted!);
     }
 
-    public override void RemoveAt(int index) => _list.RemoveAt(index);
+    public override void RemoveAt(int index)
+    {
+        ThrowIfLengthCannotChange();
+        _list.RemoveAt(index);
+    }
+
+    public override void EnsureCapacity(int capacity)
+    {
+        if (capacity > Length)
+        {
+            ThrowIfLengthCannotChange();
+        }
+
+        base.EnsureCapacity(capacity);
+    }
 }
 
 /// <summary>
@@ -724,15 +807,20 @@ internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(Dynamicall
         return Undefined;
     }
 
-    protected override bool CanWrite => false;
+    /// <summary>
+    /// An <see cref="IReadOnlyList{T}"/> exposes no write of any kind, so this view is read-only in the
+    /// full sense. It replaces the <c>CanWrite</c> override this class used to carry, which said the same
+    /// thing about element writes alone and left <c>Array.prototype</c>'s length-changing generics
+    /// reaching the mutators below — where they raised the CLR's own
+    /// <see cref="NotSupportedException"/> past script (#3382).
+    /// </summary>
+    protected override bool IsReadOnly => true;
 
-    public override void AddDefault() => Throw.NotSupportedException();
+    public override void AddDefault() => ThrowReadOnly();
 
-    protected override void DoSetAt(int index, object? value) => Throw.NotSupportedException();
+    protected override void DoSetAt(int index, object? value) => ThrowReadOnly();
 
-    public override void Add(JsValue value) => Throw.NotSupportedException();
+    public override void Add(JsValue value) => ThrowReadOnly();
 
-    public override void RemoveAt(int index) => Throw.NotSupportedException();
-
-    public override void EnsureCapacity(int capacity) => Throw.NotSupportedException();
+    public override void RemoveAt(int index) => ThrowReadOnly();
 }

@@ -1560,6 +1560,48 @@ might notice:
 - The result keeps its two operands alive until something reads its text. A host that concatenates a large
   string and holds only the result, expecting the operands to become collectable immediately, gets that back
   by reading the result once (`AsString()` is enough) — the node then drops both references.
+### 4.28 A read-only host collection refuses script with a JavaScript error ([#3382](https://github.com/sebastienros/jint/issues/3382))
+
+A wrapped collection that declares itself read-only — `ReadOnlyCollection<T>`, `ImmutableList<T>`,
+`ImmutableArray<T>`, `ArrayList.ReadOnly(…)`, a host `IList<T>` whose `IsReadOnly` is `true`, or anything
+reaching the engine as `IReadOnlyList<T>` — raised the CLR's own `NotSupportedException` out of
+`Engine.Evaluate` when script tried to change it. Not a `JavaScriptException`, so neither a script
+`try`/`catch` nor a host `catch (JavaScriptException)` could see it:
+
+```js
+// 4.16.x, for engine.SetValue("ro", new ReadOnlyCollection<int>([1, 2, 3]))
+//         with options.Interop.AllowWrite = true
+ro.push(4)        // NotSupportedException: Collection is read-only.
+ro.pop()          // NotSupportedException
+ro.length = 5     // NotSupportedException
+delete ro[0]      // NotSupportedException
+```
+
+Each of those now gets the answer the specification gives for the same operation on a frozen array-like,
+which is not the same answer for all of them. `push`, `pop`, `splice`, `sort` and `reverse` are specified in
+terms of `Set(O, k, v, true)` and `DeletePropertyOrThrow`, so they raise a `TypeError` in either mode; a bare
+assignment is an ordinary `[[Set]]` returning `false`, which is a `TypeError` only in strict mode:
+
+```js
+// 5.x
+ro.push(4)        // TypeError: Cannot assign to read only property '3' of object '#<Object>'
+ro.length = 5     // sloppy: silently ignored;  strict: TypeError
+ro[0] = 9         // sloppy: silently ignored;  strict: TypeError
+delete ro[0]      // sloppy: false;             strict: TypeError
+```
+
+The collection is left untouched in every case, which it was not before: `pop` and `splice` reached the
+target and mutated it part-way before the CLR refused.
+
+`ArraySegment<T>` moves in the same change and to a different place. It reports
+`ICollection<T>.IsReadOnly` as `true` to mean *cannot grow* — the same thing `T[]` reports through that
+interface — so it is treated as **fixed-size**: length changes are refused with the `TypeError` a `T[]` live
+view already gave, and element writes keep working.
+
+**What could break:** a `catch (NotSupportedException)` around `Evaluate` written to absorb this no longer
+fires. Script that relied on a length change silently succeeding never existed — it threw. Nothing changes
+for a growable collection, for `Options.Interop.AllowWrite = false` (which refused these writes already), or
+for a `T[]` exposed under `ArrayConversionMode.LiveView`.
 
 ## 5. New in v5
 
