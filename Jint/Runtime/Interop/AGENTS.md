@@ -78,7 +78,7 @@ rather than approximately like it, and it is why `GeneratedMemberAccessor` reads
 runs every case against both an annotated type and an un-annotated twin and compares the results, so a
 drift shows up as a failure naming the script that diverged.
 
-Six consequences worth knowing before touching any of it.
+Eight consequences worth knowing before touching any of it.
 
 - **Anything the two paths cannot agree on is not generated at all.** A method parameter not typed
   `JsValue` goes through a conversion chain steered by `Options.Interop.ValueCoercion` and the installed
@@ -147,7 +147,27 @@ Six consequences worth knowing before touching any of it.
   `InternalsVisibleTo` list that referenced *that* analyzer would fail to compile before reaching a line
   of its own code — which is exactly why nobody had noticed that the MVP's emitted code could not compile
   in a consumer assembly either. Do not move the `[JsAccessible]` generator into that project, and do not
-  give it post-initialization output.
+  give it post-initialization output. It is that assembly, and only that one, which `Jint.csproj` packs
+  into `analyzers/dotnet/cs`.
+- **The emitted code is compiled by the consumer's compiler, so it is bound by the consumer's language
+  version and by their SDK's Roslyn — two floors nothing inside this repository can observe.** The
+  language floor is **C# 7.3**, which is what the .NET SDK gives a plain `net472` or `netstandard2.0`
+  project, and which is the target that has the most to gain here since the run-time compiled lanes
+  decline there outright: a `#nullable enable`, a `?` annotation or a `!` in the emitted text is a build
+  error in somebody's project, not a style question. It shipped that way, and every snapshot passed.
+  `EmittedCodeCompilesAsCSharp7_3` is what notices now. The Roslyn floor is **4.8**, the .NET 8 SDK's own,
+  which is why `Jint.SourceGenerators.Interop` pins `Microsoft.CodeAnalysis.CSharp` *below* the
+  repository-wide version: a compiler refuses to load an analyzer built against a newer
+  `Microsoft.CodeAnalysis` than its own, reports `CS9057`, skips the generator, and the host's call to the
+  generated `RegisterAll()` then fails to compile. Raising either floor is a breaking change for
+  consumers with no signature to show for it.
+- **A project reference cannot verify any of that, which is what `tools/package-consumer` is for.** It
+  consumes the produced `.nupkg` through a `PackageReference`, compiles an annotated type on both shipped
+  extremes, and **runs** both — a package carrying no generator still compiles every line of Jint's own
+  API, so only the run tells them apart. Its empty `Directory.Build.props` is what keeps it
+  consumer-shaped, and its own `RestorePackagesPath` is not optional: a re-pack does not change the
+  version, so the machine's shared cache would go on serving whichever build of `5.0.0-beta-0` it
+  extracted first.
 
 ### Native AOT: what is measured, what is annotated, and what is still suppressed
 

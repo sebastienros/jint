@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A third party's project, as nearly as one can be inside this repository: it consumes Jint through a
+    PackageReference to the .nupkg the build just produced, not through a ProjectReference, because a
+    ProjectReference proves nothing about packaging. Jint.Tests.PublicInterface already covers the API
+    surface; what only this can cover is whether the source generator TRAVELS.
+
+    Both shipped extremes are built and run. net472 is the floor, and it is the interesting one: it is the
+    target where Jint's run-time compiled member lanes decline outright, so it is where a host has the most
+    to gain from the generated ones — and it is where a consumer's C# language version is oldest.
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net472;net10.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PackageConsumer</RootNamespace>
+    <AssemblyName>PackageConsumer</AssemblyName>
+
+    <!--
+      A global packages folder of this project's own, under artifacts/ so it is gitignored and disposable.
+      Jint's version does not change between two packs of the same commit, so the machine's shared cache
+      serves whichever build it extracted first and a re-pack becomes invisible: the first run of this
+      project against a FIXED generator reproduced the failure of the broken one, from cache. It is
+      RestorePackagesPath rather than nuget.config's globalPackagesFolder because a NUGET_PACKAGES
+      environment variable — which developer machines and some CI images set — outranks the latter.
+    -->
+    <RestorePackagesPath>$(MSBuildThisFileDirectory)..\..\artifacts\package-consumer\packages</RestorePackagesPath>
+    <!-- Deliberately no LangVersion and no ImplicitUsings: whatever the SDK gives a plain
+         `dotnet new console` on each target framework is what the generated code has to compile under.
+         On net472 that is C# 7.3, which is where `#nullable enable`, an `object?` and a `!` in emitted
+         code are build errors rather than style. -->
+  </PropertyGroup>
+
+  <!-- The other extreme, and the other way generated code breaks somebody's build: a modern project with
+       nullable reference types on and warnings as errors. Between the two legs the emitted files have to
+       be both old enough for C# 7.3 and clean under nullable analysis. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Floating, because the version carries a build-number suffix. The source mapping in nuget.config is
+         what makes this resolve to the package under test rather than to anything on nuget.org. -->
+    <PackageReference Include="Jint" Version="5.0.0-*" />
+  </ItemGroup>
+
+</Project>

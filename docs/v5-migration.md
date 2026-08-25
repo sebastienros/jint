@@ -1655,14 +1655,12 @@ indexer is probed before the member itself, and the generated accessors carry no
 type keeps the reflection path — which is what makes its names resolve in the order an un-annotated type's
 do.
 
-Consume the generator with an `Analyzer` project reference for now:
-
-```xml
-<ProjectReference Include="path\to\Jint.SourceGenerators.Interop.csproj"
-                  OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-```
-
-Shipping it inside the `Jint` NuGet package is its own follow-up.
+**Nothing to install.** The generator ships inside the `Jint` package, under `analyzers/dotnet/cs`, so the
+`PackageReference` you already have is the whole setup — annotate a type and `RegisterAll()` appears in your
+assembly's root namespace. It needs a compiler at least as new as the **.NET 8 SDK**; on anything older the
+compiler declines to load the analyzer (`CS9057`) and your call to `RegisterAll()` then fails to compile,
+which is at least a failure you can see. It does nothing to a project that annotates nothing, and
+`<PackageReference Include="Jint" ExcludeAssets="analyzers" />` keeps it out of your build entirely.
 
 ### 5.2 Changing one locale datum is one override ([#3335](https://github.com/sebastienros/jint/pull/3335))
 

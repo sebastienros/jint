@@ -1,0 +1,8 @@
+<!--
+  Empty on purpose. MSBuild walks up for the nearest Directory.Build.props, and finding the repository's
+  would give this project Jint's own TreatWarningsAsErrors, artifacts layout, SourceLink, version and
+  implicit usings — none of which a third party consuming the package from nuget.org has. The whole value
+  of this project is being shaped like somebody else's, so the walk stops here.
+-->
+<Project>
+</Project>

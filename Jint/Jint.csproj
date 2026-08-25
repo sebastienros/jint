@@ -89,7 +89,48 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint.SourceGenerators\Jint.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+
+    <!--
+      The [JsAccessible] generator ships inside this package, and this reference is here for build ordering
+      only: no OutputItemType="Analyzer", because Jint declares no [JsAccessible] type and running it over
+      Jint's own sources would buy nothing, and ReferenceOutputAssembly="false" plus PrivateAssets="all" so
+      that neither Jint's compilation nor the package's dependency groups learn it exists.
+
+      It is Jint.SourceGenerators.Interop that is packed, and NOT Jint.SourceGenerators, which must never be.
+      That project emits its attribute set through RegisterPostInitializationOutput unconditionally, and the
+      source it emits declares members typed Jint.Native.Function.FastCallGuard, which is internal — so any
+      consumer whose assembly is not on Jint's InternalsVisibleTo list would fail to compile before reaching
+      a line of their own code. tools/package-consumer asserts the separation against the produced .nupkg
+      rather than trusting this comment.
+    -->
+    <ProjectReference Include="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
   </ItemGroup>
+
+  <!--
+    Packs the generator as an analyzer. The path is asked of the project rather than spelled out, because
+    UseArtifactsOutput puts it somewhere no one would guess and a stale hard-coded path would pack a stale
+    generator without saying so. BeforeTargets="_GetPackageFiles" rather than a static item, because the
+    item has to be added in the outer (pack) evaluation, which the per-target-framework builds are not.
+  -->
+  <Target Name="_IncludeJsAccessibleGeneratorInPackage" BeforeTargets="_GetPackageFiles">
+
+    <MSBuild Projects="..\Jint.SourceGenerators.Interop\Jint.SourceGenerators.Interop.csproj"
+             Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="TargetFramework;RuntimeIdentifier">
+      <Output TaskParameter="TargetOutputs" ItemName="_JsAccessibleGeneratorAssembly" />
+    </MSBuild>
+
+    <Error Condition="'@(_JsAccessibleGeneratorAssembly)' == ''"
+           Text="Jint.SourceGenerators.Interop produced no assembly to pack. The package would ship without the [JsAccessible] generator, which no consumer could then obtain." />
+    <Error Condition="!Exists('%(_JsAccessibleGeneratorAssembly.FullPath)')"
+           Text="Jint.SourceGenerators.Interop was not built before pack: '%(_JsAccessibleGeneratorAssembly.FullPath)' does not exist." />
+
+    <ItemGroup>
+      <None Include="@(_JsAccessibleGeneratorAssembly)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+
+  </Target>
 
   <PropertyGroup>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>

@@ -113,3 +113,71 @@ jobs:
           echo
           echo "total: $(grep -hcE 'IL[0-9]{4}' aot-publish.log 2>/dev/null || echo 0)"
         } >> "$GITHUB_STEP_SUMMARY"
+
+  # The mirror of the PR workflow's "windows - packaged generator" job, and there for the same reason
+  # the Test step above is: a merge is not the commit CI ran on. It packs its own copy rather than
+  # reusing the one the build job publishes, so that this job says something even when that one is
+  # skipped or fails. Its own file carries the reasoning; the short version is that a ProjectReference
+  # proves nothing about whether the [JsAccessible] generator travels inside the package.
+  package-consumer:
+
+    runs-on: windows-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Pack
+      run: dotnet pack Jint/Jint.csproj --configuration Release
+
+    - name: The package carries the interop generator, and only that one
+      shell: pwsh
+      run: |
+        $nupkg = Get-ChildItem artifacts/package/release/Jint.*.nupkg | Select-Object -First 1
+        if (-not $nupkg) { throw 'dotnet pack produced no Jint package' }
+        Write-Host "inspecting $($nupkg.Name)"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkg.FullName)
+        $analyzers = @($zip.Entries | Where-Object { $_.FullName -like 'analyzers/*' } | ForEach-Object { $_.FullName })
+        $zip.Dispose()
+        $analyzers | ForEach-Object { Write-Host "  $_" }
+        if ($analyzers -notcontains 'analyzers/dotnet/cs/Jint.SourceGenerators.Interop.dll') {
+          throw 'the package carries no [JsAccessible] generator, so no consumer can obtain the feature'
+        }
+        if ($analyzers | Where-Object { $_ -like '*/Jint.SourceGenerators.dll' }) {
+          throw 'the package carries Jint.SourceGenerators.dll, whose post-initialization output does not compile outside Jint'
+        }
+
+    - name: Build the consumer against the package
+      run: dotnet build tools/package-consumer/PackageConsumer.csproj --configuration Release
+
+    - name: Run it on net10.0
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net10.0/PackageConsumer.exe | tee net10.log
+        grep -q '^ALL PROBES PASSED' net10.log
+
+    - name: Run it on net472
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net472/PackageConsumer.exe | tee net472.log
+        grep -q '^ALL PROBES PASSED' net472.log
+
+    - name: A promoted decline fails the consumer's build
+      shell: bash
+      run: |
+        printf '\n[*.cs]\ndotnet_diagnostic.JINT033.severity = error\n' >> tools/package-consumer/.editorconfig
+        if dotnet build tools/package-consumer/PackageConsumer.csproj --configuration Release -f net10.0 --no-incremental > promoted.log 2>&1; then
+          echo 'the build succeeded, so .editorconfig severity did not reach JINT033'
+          cat promoted.log
+          exit 1
+        fi
+        grep -q 'error JINT033' promoted.log
