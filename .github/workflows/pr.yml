@@ -179,3 +179,91 @@ jobs:
           cat aot-run.log 2>/dev/null || echo '(the binary produced no output)'
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
+
+  # Everything else in this workflow reaches the [JsAccessible] source generator through an Analyzer
+  # PROJECT reference, which says nothing about whether the .nupkg carries it — and until this job the
+  # feature was public API that no consumer outside the repository could obtain. So: pack, restore the
+  # package into a project shaped like a third party's, compile an annotated type, and run it. A build
+  # that merely succeeds is not the evidence; the run is, because a package with no generator in it
+  # would still compile every line of Jint's own API.
+  #
+  # Windows, because net472 is half the point and only Windows can run it. Both shipped extremes are
+  # built from one project: net472, whose C# language version is 7.3 and where the run-time compiled
+  # member lanes decline outright — so it has the most to gain and the oldest compiler — and net10.0
+  # with nullable reference types on and warnings as errors.
+  package-consumer:
+
+    name: 'windows - packaged generator'
+
+    runs-on: windows-latest
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Pack
+      run: dotnet pack Jint/Jint.csproj --configuration Release
+
+    # Two assertions on the artefact itself. The second is the load-bearing one: Jint.SourceGenerators
+    # emits its attribute set through RegisterPostInitializationOutput unconditionally, and that source
+    # declares members typed Jint.Native.Function.FastCallGuard, which is internal — so packing that
+    # analyzer would break every consumer's build before a line of their own code.
+    - name: The package carries the interop generator, and only that one
+      shell: pwsh
+      run: |
+        $nupkg = Get-ChildItem artifacts/package/release/Jint.*.nupkg | Select-Object -First 1
+        if (-not $nupkg) { throw 'dotnet pack produced no Jint package' }
+        Write-Host "inspecting $($nupkg.Name)"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($nupkg.FullName)
+        $analyzers = @($zip.Entries | Where-Object { $_.FullName -like 'analyzers/*' } | ForEach-Object { $_.FullName })
+        $zip.Dispose()
+        $analyzers | ForEach-Object { Write-Host "  $_" }
+        if ($analyzers -notcontains 'analyzers/dotnet/cs/Jint.SourceGenerators.Interop.dll') {
+          throw 'the package carries no [JsAccessible] generator, so no consumer can obtain the feature'
+        }
+        if ($analyzers | Where-Object { $_ -like '*/Jint.SourceGenerators.dll' }) {
+          throw 'the package carries Jint.SourceGenerators.dll, whose post-initialization output does not compile outside Jint'
+        }
+
+    # The consumer has an empty Directory.Build.props of its own and a RestorePackagesPath of its own,
+    # so it inherits nothing from this repository and cannot be served a cached Jint of the same
+    # version from an earlier build.
+    - name: Build the consumer against the package
+      run: dotnet build tools/package-consumer/PackageConsumer.csproj --configuration Release
+
+    - name: Run it on net10.0
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net10.0/PackageConsumer.exe | tee net10.log
+        grep -q '^ALL PROBES PASSED' net10.log
+
+    - name: Run it on net472
+      shell: bash
+      run: |
+        set -o pipefail
+        ./tools/package-consumer/bin/Release/net472/PackageConsumer.exe | tee net472.log
+        grep -q '^ALL PROBES PASSED' net472.log
+
+    # The other half of the contract: a host who insists that no member of theirs falls back to
+    # reflection says so in .editorconfig, with no attribute property and no MSBuild switch. That works
+    # only while the reported diagnostics carry a Location with a SourceTree — the compiler resolves
+    # dotnet_diagnostic severity per syntax tree — and it is invisible in every snapshot, so a real
+    # build against the shipped package is the only place it can be checked.
+    - name: A promoted decline fails the consumer's build
+      shell: bash
+      run: |
+        printf '\n[*.cs]\ndotnet_diagnostic.JINT033.severity = error\n' >> tools/package-consumer/.editorconfig
+        if dotnet build tools/package-consumer/PackageConsumer.csproj --configuration Release -f net10.0 --no-incremental > promoted.log 2>&1; then
+          echo 'the build succeeded, so .editorconfig severity did not reach JINT033'
+          cat promoted.log
+          exit 1
+        fi
+        grep -q 'error JINT033' promoted.log

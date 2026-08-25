@@ -1,0 +1,10 @@
+<!--
+  Stops the walk to the repository's Directory.Packages.props, and turns central package management off:
+  a consumer restoring Jint from nuget.org states the version on the PackageReference, and this project
+  has to resolve exactly the way theirs does.
+-->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

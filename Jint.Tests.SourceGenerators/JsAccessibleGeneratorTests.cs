@@ -1,3 +1,6 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
 using static Jint.Tests.SourceGenerators.VerifyHelper;
 
 namespace Jint.Tests.SourceGenerators;
@@ -279,6 +282,54 @@ public class JsAccessibleGeneratorTests
                 Does.Contain(diagnostic.Location.SourceTree),
                 $"{diagnostic.Id} points at a tree the compilation does not hold");
         }
+    }
+
+    /// <summary>
+    /// Generated code is parsed with the <em>consumer's</em> language version, and the .NET SDK gives a
+    /// plain <c>net472</c> or <c>netstandard2.0</c> project C# 7.3 — which is exactly the target where the
+    /// run-time compiled lanes decline outright and this feature is worth the most. A <c>#nullable
+    /// enable</c>, an <c>object?</c> or a <c>!</c> in the emitted text is therefore not a style question
+    /// but a build error in someone else's project, and nothing else in this suite would notice: every
+    /// snapshot here is produced with <c>LanguageVersion.Latest</c>.
+    /// </summary>
+    [Test]
+    public void EmittedCodeCompilesAsCSharp7_3()
+    {
+        // The source is deliberately C# 7.3 itself - block namespace, no target-typed new - so that any
+        // error the compilation reports came from the generated files and from nothing else.
+        var errors = VerifyHelper.CompileWithJsAccessibleGenerator(
+            """
+            using Jint;
+            using Jint.Native;
+
+            namespace Sample
+            {
+                [JsAccessible]
+                public sealed class Model
+                {
+                    public int Score { get; set; }
+                    public long Ticks { get; set; }
+                    public double Ratio { get; set; }
+                    public bool Active { get; set; }
+                    public string Name { get; set; }
+                    public JsValue Payload { get; set; }
+                    public JsString Tag { get; set; }
+                    public string[] Tags { get; set; }
+                    public int ReadOnlyScore { get { return 1; } }
+
+                    public JsValue Echo(JsValue value) { return value; }
+                    public void Touch(JsValue value) { }
+                    public int Count() { return 0; }
+                }
+            }
+            """,
+            LanguageVersion.CSharp7_3);
+
+        Assert.That(
+            errors,
+            Is.Empty,
+            "the emitted code must compile at the language version the .NET SDK gives a plain net472 project: "
+            + string.Join("; ", errors.Select(static e => e.ToString())));
     }
 
     [Test]

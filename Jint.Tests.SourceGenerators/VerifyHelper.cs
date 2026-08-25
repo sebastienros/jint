@@ -33,17 +33,41 @@ internal static class VerifyHelper
     public static (IReadOnlyList<Diagnostic> Diagnostics, Compilation Compilation) RunJsAccessibleGeneratorFor(string source)
     {
         var compilation = Compile([source], LanguageVersion.Latest);
-        var result = Drive(new Jint.SourceGenerators.Interop.JsAccessibleGenerator(), compilation).GetRunResult();
+        var result = CSharpGeneratorDriver
+            .Create(new Jint.SourceGenerators.Interop.JsAccessibleGenerator())
+            .RunGenerators(compilation)
+            .GetRunResult();
+
         return (result.Diagnostics, compilation);
+    }
+
+    /// <summary>
+    /// Compiles one source together with everything the <c>[JsAccessible]</c> generator emits for it, at a
+    /// given language version, and returns the errors. Generated trees inherit the compilation's parse
+    /// options, so this is the question a consumer's build asks — and it is not the question
+    /// <c>SyntaxTree.GetDiagnostics()</c> answers: <c>#nullable enable</c> under C# 7.3 <em>parses</em>
+    /// fine and fails in binding, as CS8370.
+    /// </summary>
+    public static IReadOnlyList<Diagnostic> CompileWithJsAccessibleGenerator(string source, LanguageVersion languageVersion)
+    {
+        var parseOptions = new CSharpParseOptions(languageVersion);
+
+        CSharpGeneratorDriver
+            .Create(
+                generators: [new Jint.SourceGenerators.Interop.JsAccessibleGenerator().AsSourceGenerator()],
+                additionalTexts: null,
+                parseOptions: parseOptions)
+            .RunGeneratorsAndUpdateCompilation(Compile([source], languageVersion), out var output, out _);
+
+        return [.. output.GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
     }
 
     private static Task Run(IIncrementalGenerator generator, string[] sources, string sourceFile)
         => Verifier
-            .Verify(Drive(generator, Compile(sources, LanguageVersion.Latest)), sourceFile: sourceFile)
+            .Verify(
+                CSharpGeneratorDriver.Create(generator).RunGenerators(Compile(sources, LanguageVersion.Latest)),
+                sourceFile: sourceFile)
             .UseDirectory("Snapshots");
-
-    private static GeneratorDriver Drive(IIncrementalGenerator generator, Compilation compilation)
-        => CSharpGeneratorDriver.Create(generator).RunGenerators(compilation);
 
     private static CSharpCompilation Compile(string[] sources, LanguageVersion languageVersion)
     {

@@ -23,8 +23,25 @@
     <NoWarn>$(NoWarn);RS1041</NoWarn>
   </PropertyGroup>
 
+  <!--
+    The Roslyn reference is pinned BELOW the repository-wide version, and unlike everywhere else that is a
+    statement about consumers rather than about this build. An analyzer is loaded by whatever compiler the
+    consumer's SDK carries, and a compiler refuses to load one built against a NEWER Microsoft.CodeAnalysis
+    than its own: it reports CS9057 and skips the generator, after which the host's call to the generated
+    RegisterAll() does not compile. Measured against the repository version (5.9.0) on the .NET 8 SDK,
+    whose Roslyn is 4.11 — exactly the SDK a net472 shop is most likely to be on, and exactly the target
+    where this feature is worth the most, since the run-time compiled lanes decline there outright.
+
+    4.8.0 is the .NET 8 SDK's own Roslyn, so it is the floor that makes the package usable on every
+    in-support SDK. Raising it is a breaking change for consumers even though no signature moves; the
+    generator uses nothing newer (ForAttributeWithMetadataName is 4.3, INamedTypeSymbol.IsRecord is 4.0),
+    so there is nothing to buy by doing so.
+
+    Jint.SourceGenerators is deliberately NOT pinned this way: it never leaves this repository, and this
+    repository's SDK floor is 10.0.100 (see the PolySharp note in Directory.Packages.props).
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="4.8.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 

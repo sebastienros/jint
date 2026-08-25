@@ -1,0 +1,10 @@
+# `root = true` so the repository's own .editorconfig does not reach this project. EditorConfig walks the
+# directory tree regardless of MSBuild, so without it the "third party" would silently inherit Jint's code
+# style and diagnostic severities — the very thing the empty Directory.Build.props beside it exists to
+# prevent.
+#
+# The packaging CI job appends a `dotnet_diagnostic.JINT033.severity = error` section here for one build
+# and expects that build to fail. That is the evidence for the claim that a [JsAccessible] decline is
+# promotable from .editorconfig alone, with no attribute property and no MSBuild switch — asserted against
+# the shipped package rather than against a project reference.
+root = true
