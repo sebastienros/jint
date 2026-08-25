@@ -412,6 +412,15 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// </summary>
     protected virtual bool IsFixedSize => false;
 
+    /// <summary>
+    /// The refusal every length-changing operation on a fixed-size target owes script: a
+    /// <c>TypeError</c> it can catch, never the CLR <see cref="NotSupportedException"/> the underlying
+    /// collection would raise. Shared by <see cref="ArrayWrapper{T}"/> and by <see cref="ListWrapper"/>,
+    /// which is what a <c>T[]</c> falls back to when the typed wrapper cannot be built (#3299).
+    /// </summary>
+    [DoesNotReturn]
+    protected void ThrowFixedSize() => Throw.TypeError(_engine.Realm, "Cannot resize a fixed-size CLR array");
+
     public void SetAt(int index, JsValue value)
     {
         if (_engine.Options.Interop.AllowWrite)
@@ -458,15 +467,44 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     }
 }
 
+/// <summary>
+/// The untyped view over anything that is an <see cref="IList"/>. It is the least specific of the
+/// array-like wrappers and also the one a <c>T[]</c> or an <c>IList&lt;T&gt;</c> degrades to when its typed
+/// factory cannot be instantiated — Native AOT has no code for
+/// <c>ArrayWrapperFactory&lt;int&gt;</c> and friends (#3299) — so it takes the two facts the typed wrapper
+/// carried in its type argument from the target instead: the element type, and whether the length can
+/// change.
+/// </summary>
 internal sealed class ListWrapper : ArrayLikeWrapper
 {
     private readonly IList? _list;
+    private readonly bool _fixedSize;
 
     internal ListWrapper(Engine engine, IList target, Type type)
-        : base(engine, target, typeof(object), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
+        : base(engine, target, ElementTypeOf(target), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
     {
         _list = target;
+        _fixedSize = target.IsFixedSize;
     }
+
+    /// <summary>
+    /// A <see cref="ListWrapper"/> over an array must coerce element writes to the array's element type,
+    /// exactly as <see cref="ArrayWrapper{T}"/> does from its type argument: <c>object</c> would hand
+    /// <c>IList.this[int]</c> the boxed <c>double</c> a JS number converts to and raise
+    /// <see cref="InvalidCastException"/> out of the assignment. Everything else keeps <c>object</c>,
+    /// which is all a non-generic <see cref="IList"/> promises.
+    /// </summary>
+    private static Type ElementTypeOf(IList target)
+        => target is Array array ? array.GetType().GetElementType() ?? typeof(object) : typeof(object);
+
+    /// <summary>
+    /// Read from the target rather than declared, because this wrapper serves both the growable case and
+    /// the fixed-size one: <c>System.Array</c> reaches it through <see cref="IList"/> whenever
+    /// <see cref="ArrayWrapper{T}"/> could not be built, and <c>ArrayList.FixedSize</c> reaches it always.
+    /// Without this every length-changing operation reached <c>IList.Add</c> and leaked that collection's
+    /// <see cref="NotSupportedException"/> past script instead of raising a catchable <c>TypeError</c>.
+    /// </summary>
+    protected override bool IsFixedSize => _fixedSize;
 
     public override int Length => _list?.Count ?? 0;
 
@@ -488,11 +526,50 @@ internal sealed class ListWrapper : ArrayLikeWrapper
         }
     }
 
-    public override void AddDefault() => _list?.Add(null);
+    public override void AddDefault()
+    {
+        if (_fixedSize)
+        {
+            ThrowFixedSize();
+        }
 
-    public override void Add(JsValue value) => _list?.Add(ConvertToItemType(value));
+        _list?.Add(null);
+    }
 
-    public override void RemoveAt(int index) => _list?.RemoveAt(index);
+    public override void Add(JsValue value)
+    {
+        if (_fixedSize)
+        {
+            ThrowFixedSize();
+        }
+
+        _list?.Add(ConvertToItemType(value));
+    }
+
+    public override void RemoveAt(int index)
+    {
+        if (_fixedSize)
+        {
+            ThrowFixedSize();
+        }
+
+        _list?.RemoveAt(index);
+    }
+
+    public override void EnsureCapacity(int capacity)
+    {
+        if (_fixedSize)
+        {
+            if (capacity > Length)
+            {
+                ThrowFixedSize();
+            }
+
+            return;
+        }
+
+        base.EnsureCapacity(capacity);
+    }
 }
 
 internal class GenericListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapper
@@ -611,9 +688,6 @@ internal sealed class ArrayWrapper<[DynamicallyAccessedMembers(DynamicallyAccess
             ThrowFixedSize();
         }
     }
-
-    [DoesNotReturn]
-    private void ThrowFixedSize() => Throw.TypeError(_engine.Realm, "Cannot resize a fixed-size CLR array");
 }
 
 internal sealed class ReadOnlyListWrapper<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] T> : ArrayLikeWrapper

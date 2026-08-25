@@ -1818,6 +1818,7 @@ the part that was never certain:
 | --- | --- |
 | properties, fields, indexers, methods on a host object | works |
 | `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `Dictionary<K,V>` | works |
+| a CLR array as a live view (`ArrayConversionMode.LiveView`) - reads, element writes, and the `TypeError` a resize attempt owes script | works |
 | delegates in both directions (`Func<int, int>` to and from script) | works |
 | extension methods, `TypeReference` construction from script | works |
 | generic host methods with a **reference-type** argument | works |
@@ -1826,25 +1827,55 @@ the part that was never certain:
 ### 6.2 The one thing that does not: a generic instantiation over a value type
 
 Native AOT shares one compiled body across every reference-type argument, so `Identity<string>` works.
-A value-type argument needs a specific instantiation the compiler had to have seen, and two places in
-Jint build one at run time:
+A value-type argument needs a specific instantiation the compiler had to have seen, and eight places in
+Jint build one at run time. Four have a non-generic answer to fall back on and take it; the other four
+throw `NotSupportedException`, because nothing non-generic satisfies what was asked for and a wrong
+answer is worse than a diagnosable throw:
 
-| shape | script that reaches it | what you get |
-| --- | --- | --- |
-| a JS function converted to `Func<double, Task<double>>` (any `Task<T>` / `ValueTask<T>` over a value type) | calling a host method that takes such a delegate | `NotSupportedException` |
-| a generic host method called with a number | `host.identity(7)` - `host.identity('hi')` is fine | `NotSupportedException` |
+| what throws | what to know |
+| --- | --- |
+| a host method taking `Func<double, Task<double>>` — any `Task<T>` / `ValueTask<T>` over a value type — called with a JS function | nothing but `Task.FromResult<double>` produces a `Task<double>` |
+| a generic host method called with a number: `host.identity(7)` | `host.identity('hi')` is fine; declining instead would report *no matching overload* for a method that plainly exists |
+| a host method taking `IEnumerable<long>`, `IList<short>`, `Collection<short>`, … called with a JS array | it works when the *closed* type appears in one of your own signatures, because that is what makes ILC compile it: a `List<int>` parameter is fine, an `IEnumerable<int>` parameter is not |
+| a closed generic type the **script** names: `importNamespace('MyApp').Box(System.Int16)` | the type resolves; the failure lands on construction |
 
-Both throw rather than degrade, deliberately: there is no non-generic way to produce a `Task<double>`,
-and declining the generic method would report *no matching overload* for a method that plainly exists.
-A wrong answer is worse than a diagnosable throw. If you need either shape under Native AOT, give the
-host method a non-generic overload, or take `Task<object>` and box.
+**Only you can close these, and you can close all four.** The type argument comes from your members and
+your scripts, so no signature in Jint predicts it, and rooting a guessed set of value types would cost
+every AOT consumer binary size for instantiations they never use. Make each instantiation reachable from
+code ILC compiles, and Jint's run-time lookup then finds it:
 
-Three shapes that used to throw here now degrade instead
-([#3299](https://github.com/sebastienros/jint/issues/3299)): `List<int>`, `IReadOnlyList<double>` and
-an `IEnumerable<int>` under `EnumerableConversionMode.Snapshot` fall back to an untyped wrapper and
-answer correctly. The only loss is that a collection reached through the last-resort fallback is not
-array-*like*: `IReadOnlyList<double>` keeps `ro[0]` but loses `ro.length` and the `Array.prototype`
-generics unless the type also implements `IList`.
+```csharp
+// Never called. It only has to be compiled, so put it in a method your program calls or - simpler -
+// anywhere in the assembly you already root with TrimmerRootAssembly (§6.4).
+internal static void RootAotInstantiations()
+{
+    _ = new MyHost().Identity(0d);   // one line per value type a script passes to a generic host method
+    _ = new List<long>();            // for an IEnumerable<long> / IList<long> / Collection<long> parameter
+    _ = new Box<short>(default);     // for a closed generic type a script names
+
+    // Task.FromResult<double>, for Func<double, Task<double>>. A plain `Task.FromResult(0d)` is NOT
+    // enough: it compiles the body, but Jint reaches the method through reflection and `Task` lives in an
+    // assembly you have not rooted, so there is nothing to invoke. Naming it the way Jint does works,
+    // because both tokens are constants and ILC folds the expression at compile time.
+    _ = typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(typeof(double));
+}
+```
+
+The asymmetry is the rule to carry away: for **your own** types a compiled reference is enough, because
+`TrimmerRootAssembly` keeps their metadata; for a **framework** type reached by reflection, root it the
+way it will be looked up. Or avoid the shape entirely — give the host method a non-generic overload, take
+`Task<object>` and box, or declare the parameter as the closed `List<T>` rather than as an interface
+over it.
+
+**Four shapes that used to throw here degrade instead**
+([#3299](https://github.com/sebastienros/jint/issues/3299)): `int[]` under
+`ArrayConversionMode.LiveView`, `List<int>`, `IReadOnlyList<double>` and an `IEnumerable<int>` under
+`EnumerableConversionMode.Snapshot` fall back to an untyped wrapper and answer correctly — element
+writes coerce to the element type, and a resize attempt on a fixed-size target raises the same
+`TypeError` the typed wrapper raises rather than the collection's own `NotSupportedException`. The only
+loss is that a collection reached through the last-resort fallback is not array-*like*:
+`IReadOnlyList<double>` keeps `ro[0]` but loses `ro.length` and the `Array.prototype` generics unless
+the type also implements `IList`.
 
 ### 6.3 APIs that now warn
 
@@ -1920,7 +1951,7 @@ your code changes; the overload is picked automatically.
 **Expect Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's compilation
 and reaches nothing downstream - ILC re-derives every diagnostic over the closed program - so an AOT
 publish reports the remaining trim-analysis warnings against Jint's files in *your* build. They are
-tracked in [#3299](https://github.com/sebastienros/jint/issues/3299); until they are paid down, set
+tracked in [#3305](https://github.com/sebastienros/jint/issues/3305); until they are paid down, set
 `<IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>` or `NoWarn` the codes, and treat the run
 as the evidence rather than the warning count.
 

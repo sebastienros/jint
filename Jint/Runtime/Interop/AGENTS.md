@@ -145,35 +145,62 @@ file, why it is not one change, and a suggested order; `Jint.csproj`'s own comme
 #### What the leg proves
 
 An engine with `AllowClr()` reading properties, fields, indexers and methods off a host object works
-natively, as do `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `Dictionary<,>`, delegates in
-both directions, extension methods, `TypeReference` construction, JSON, promises, and an
+natively, as do `T[]`, `List<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `Dictionary<,>`, a CLR array as a
+live view under `ArrayConversionMode.LiveView` (its element writes and its resize refusals included),
+delegates in both directions, extension methods, `TypeReference` construction, JSON, promises, and an
 `Interop.Enabled = false` engine. What it proves does *not* work is one shape — **a generic
 instantiation over a value type built at run time**. Reference-type arguments share canonical code and
 are fine; `int`, `double` and friends need a specific instantiation ILC never saw.
 
-Five sites had that shape ([#3299](https://github.com/sebastienros/jint/issues/3299)). Three now
-degrade; two still throw, and that is the interesting half:
+**Eight sites have that shape, not the five
+[#3299](https://github.com/sebastienros/jint/issues/3299) was filed with** — `MakeGenericType` and
+`MakeGenericMethod` are the whole inventory, and `grep` for those two names is how to re-derive it after
+this area moves again. Four degrade, four throw, and the split is the same question every time: *is
+there a non-generic value that satisfies what was asked for?*
 
 | site | shape | today |
 | --- | --- | --- |
-| `ObjectWrapper.TryBuildArrayLikeWrapper` | `GenericListWrapperFactory<int>` | degrades to `ListWrapper` |
+| `ObjectWrapper.ResolveArrayLikeWrapperFactoryType`, `T[]` branch | `ArrayWrapperFactory<int>` | degrades to `ListWrapper` |
+| same site, `IList<>` branch | `GenericListWrapperFactory<int>` | degrades to `ListWrapper` |
 | same site, `IReadOnlyList<>` branch | `ReadOnlyListWrapperFactory<double>` | degrades to a plain `ObjectWrapper` (loses array-likeness, keeps the indexer) |
 | `ObjectWrapper.ResolveEnumerableSnapshotFactory` | `EnumerableSnapshotFactory<int>` | degrades to `ObjectEnumerableSnapshotFactory` |
 | `DefaultTypeConverter.GetFromResultMethod` | `Task.FromResult<double>` | throws `NotSupportedException` |
 | `MethodInfoFunction.ResolveMethod` | `methodInfo.MakeGenericMethod(double)` | throws `NotSupportedException` |
+| `DefaultTypeConverter.TryConvertInternal`, ×2 | `List<long>` for an `IEnumerable<long>` parameter, and the inner list a `Collection<short>` takes | throws `NotSupportedException` |
+| `NamespaceReference.MakeGenericType` → `TypeReference` | a closed generic type the *script* named | throws `NotSupportedException`, on construction |
 
-The three that degrade do so through `ObjectWrapper.IsMissingGenericInstantiation`, which catches
+The four that degrade do so through `ObjectWrapper.IsMissingGenericInstantiation`, which catches
 `NotSupportedException` as well as the `MissingMethodException` the original `catch` named. **The
 original never fired**: Native AOT raises `NotSupportedException` from `Activator.CreateInstance`, so
 the fallback beside it was dead code exactly where it was needed. Do not add another such fallback
 without checking which exception the runtime actually throws.
 
-**The last two are not oversights, and must not be "fixed" by widening a `catch`.** Neither has a
-non-generic answer to degrade *to*: nothing produces a `Task<double>` without `Task.FromResult<double>`,
-and `ResolveMethod` returning `null` means *this candidate does not apply*, so swallowing the failure
-would report "no matching overload" for a method that plainly exists. Both would trade a diagnosable
-throw for a wrong answer, which is why `ResolveMethod`'s `catch (ArgumentException)` carries a comment
-saying it is deliberately not `NotSupportedException`.
+**A fallback only counts if it answers the way the wrapper it replaced does, and the `T[]` row is what
+proves that is a separate question from whether it throws.** `ArrayWrapper<T>` carries two facts in its
+type argument that `ListWrapper` used to take from nobody — the element type, and that the length is
+fixed — so the degradation read correctly while writing a boxed `double` into an `int[]`
+(`InvalidCastException`) and serving `push` through `IList.Add`, which raises the CLR's own *Collection
+was of a fixed size* past script where the typed wrapper raises a `TypeError`. `ListWrapper` now takes
+both from the target (`Array.GetType().GetElementType()`, `IList.IsFixedSize`), which also closes the
+same hole for a genuinely fixed-size `IList` under a JIT. **Probe the degraded path's writes and
+resizes, not only its reads.**
+
+**The four that throw are not oversights, and must not be "fixed" by widening a `catch`.** None has a
+non-generic answer to degrade *to*: nothing produces a `Task<double>` without `Task.FromResult<double>`;
+`ResolveMethod` returning `null` means *this candidate does not apply*, so swallowing the failure would
+report "no matching overload" for a method that plainly exists (which is why its `catch (ArgumentException)`
+carries a comment saying it is deliberately not `NotSupportedException`); and nothing but a `T`-typed
+value satisfies an `IEnumerable<T>` parameter or a `Box<short>` the script asked for. Nor may Jint root
+a guessed set of value types: every closed generic rooted costs binary size for every AOT consumer,
+including the ones that never touch that path, and no signature in Jint predicts which value types a
+host's members and a script's arguments will produce. **The embedder can close all four and Jint cannot**,
+which is what `docs/v5-migration.md` §6.2 now tells them — verified on a published binary, including the
+asymmetry that makes the recipe worth writing down: a compiled reference in the host's own
+`TrimmerRootAssembly` closes three of them, and does *not* close `Task.FromResult<double>`, because that
+one lives in an assembly the host has not rooted and Jint reaches it reflectively. Rooting it takes the
+same expression Jint evaluates —
+`typeof(Task).GetMethod(nameof(Task.FromResult)).MakeGenericMethod(typeof(double))` — which ILC folds
+because both tokens are constants.
 
 #### The rule for new work here
 

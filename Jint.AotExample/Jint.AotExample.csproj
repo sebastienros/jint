@@ -11,7 +11,7 @@
       Jint's own csproj suppresses eight IL warning codes (IL3050 and seven IL2xxx) so that Jint
       compiles clean. That NoWarn is a property of Jint's *compilation* and reaches nothing here: ILC
       re-derives the whole set when it compiles the closed program, and this project's publish is
-      where all 122 of them surface. Turning them into errors - which repository-wide
+      where all of them surface - the inventory #3305 tracks. Turning them into errors - which repository-wide
       TreatWarningsAsErrors would otherwise do, since IlcTreatWarningsAsErrors defaults to it - would
       make `dotnet publish` fail before it ever produced a binary, and the binary is the point: the
       warnings say what *might* break, the run says what *does*.
