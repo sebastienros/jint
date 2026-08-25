@@ -66,7 +66,7 @@ internal sealed record class AccessibleMethod(
 internal sealed record class AccessibleTypeResult(
     string MetadataPath,
     AccessibleTypeDefinition? Definition,
-    EquatableArray<DiagnosticInfo> DiagnosticInfos)
+    EquatableArray<AccessibleDiagnostic> DiagnosticInfos)
 {
     public IEnumerable<Diagnostic> Diagnostics
     {
@@ -90,13 +90,13 @@ internal sealed record class AccessibleTypeResult(
             ? declaration.Identifier.GetLocation()
             : context.TargetNode.GetLocation();
 
-        var diagnostics = new List<DiagnosticInfo>();
+        var diagnostics = new List<AccessibleDiagnostic>();
         var metadataPath = MetadataPathOf(type);
 
         var ineligible = IneligibleTypeReason(type);
         if (ineligible is not null)
         {
-            diagnostics.Add(new DiagnosticInfo(
+            diagnostics.Add(new AccessibleDiagnostic(
                 JsAccessibleDiagnosticDescriptors.TypeCannotBeRegistered,
                 typeLocation,
                 type.Name,
@@ -138,7 +138,7 @@ internal sealed record class AccessibleTypeResult(
 
         if (members.Count == 0 && methods.Count == 0)
         {
-            diagnostics.Add(new DiagnosticInfo(
+            diagnostics.Add(new AccessibleDiagnostic(
                 JsAccessibleDiagnosticDescriptors.TypeRegistersNothing,
                 typeLocation,
                 type.Name));
@@ -247,14 +247,14 @@ internal sealed record class AccessibleTypeResult(
         INamedTypeSymbol type,
         IPropertySymbol property,
         ImmutableArray<AccessibleMember>.Builder members,
-        List<DiagnosticInfo> diagnostics)
+        List<AccessibleDiagnostic> diagnostics)
     {
         // Reported on its own rule: an indexer is not merely a member the generator declines, it is probed
         // ahead of the declared members, so every name it answers for resolves through it whatever the
         // registry holds.
         if (property.IsIndexer)
         {
-            diagnostics.Add(new DiagnosticInfo(
+            diagnostics.Add(new AccessibleDiagnostic(
                 JsAccessibleDiagnosticDescriptors.IndexerIsProbedFirst,
                 LocationOf(property),
                 property.Parameters.Length == 1 ? property.Parameters[0].Type.ToDisplayString() : "…",
@@ -326,7 +326,7 @@ internal sealed record class AccessibleTypeResult(
         INamedTypeSymbol type,
         IFieldSymbol field,
         ImmutableArray<AccessibleMember>.Builder members,
-        List<DiagnosticInfo> diagnostics)
+        List<AccessibleDiagnostic> diagnostics)
     {
         // Three silent declines, and none of them is a difference a host could act on. A backing field is
         // not something they wrote. A static field - and a constant, which is static - is not reported by
@@ -358,7 +358,7 @@ internal sealed record class AccessibleTypeResult(
         INamedTypeSymbol type,
         IMethodSymbol method,
         ImmutableArray<AccessibleMethod>.Builder methods,
-        List<DiagnosticInfo> diagnostics)
+        List<AccessibleDiagnostic> diagnostics)
     {
         // Property accessors, constructors, operators, finalizers and event accessors. Reflection does
         // resolve `get_Score` by name, so declining these is a real difference — but nobody annotated a type
@@ -403,7 +403,7 @@ internal sealed record class AccessibleTypeResult(
         var ambiguity = NameAmbiguityReason(type, method);
         if (ambiguity is not null)
         {
-            diagnostics.Add(new DiagnosticInfo(
+            diagnostics.Add(new AccessibleDiagnostic(
                 JsAccessibleDiagnosticDescriptors.MethodNameIsNotUnique,
                 LocationOf(method),
                 method.Name,
@@ -421,7 +421,7 @@ internal sealed record class AccessibleTypeResult(
             var problem = ParameterProblem(parameter);
             if (problem is not null)
             {
-                diagnostics.Add(new DiagnosticInfo(
+                diagnostics.Add(new AccessibleDiagnostic(
                     JsAccessibleDiagnosticDescriptors.MethodSignatureNotGenerated,
                     parameter.Locations.FirstOrDefault() ?? LocationOf(method),
                     method.Name,
@@ -436,7 +436,7 @@ internal sealed record class AccessibleTypeResult(
             var reason = InexpressibleReason(method.ReturnType);
             if (reason is not null)
             {
-                diagnostics.Add(new DiagnosticInfo(
+                diagnostics.Add(new AccessibleDiagnostic(
                     JsAccessibleDiagnosticDescriptors.MemberTypeCannotBeNamed,
                     LocationOf(method),
                     "Method",
@@ -516,24 +516,24 @@ internal sealed record class AccessibleTypeResult(
 
     /// <summary>JINT032 and JINT033 name the method directly, so their arguments are (name, type, reason).</summary>
     private static void ReportMethod(
-        List<DiagnosticInfo> diagnostics,
+        List<AccessibleDiagnostic> diagnostics,
         DiagnosticDescriptor descriptor,
         IMethodSymbol method,
         INamedTypeSymbol type,
         string reason)
-        => diagnostics.Add(new DiagnosticInfo(descriptor, LocationOf(method), method.Name, type.Name, reason));
+        => diagnostics.Add(new AccessibleDiagnostic(descriptor, LocationOf(method), method.Name, type.Name, reason));
 
     /// <summary>JINT034 and JINT035 cover more than one member kind, so they lead with the kind word.</summary>
     private static void ReportMember(
-        List<DiagnosticInfo> diagnostics,
+        List<AccessibleDiagnostic> diagnostics,
         DiagnosticDescriptor descriptor,
         ISymbol member,
         INamedTypeSymbol type,
         string reason)
-        => diagnostics.Add(new DiagnosticInfo(descriptor, LocationOf(member), KindWordOf(member), member.Name, type.Name, reason));
+        => diagnostics.Add(new AccessibleDiagnostic(descriptor, LocationOf(member), KindWordOf(member), member.Name, type.Name, reason));
 
     private static void ReportInexpressible(
-        List<DiagnosticInfo> diagnostics,
+        List<AccessibleDiagnostic> diagnostics,
         ISymbol member,
         INamedTypeSymbol type,
         ITypeSymbol memberType,
@@ -545,7 +545,7 @@ internal sealed record class AccessibleTypeResult(
             return;
         }
 
-        diagnostics.Add(new DiagnosticInfo(
+        diagnostics.Add(new AccessibleDiagnostic(
             JsAccessibleDiagnosticDescriptors.MemberTypeCannotBeNamed,
             LocationOf(member),
             KindWordOf(member),

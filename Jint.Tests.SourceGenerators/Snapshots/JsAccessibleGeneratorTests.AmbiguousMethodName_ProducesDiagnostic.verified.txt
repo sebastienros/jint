@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (15,19)-(15,29),
+      Location: /*
+
+    public JsValue Overloaded(JsValue value) => value;
+                   ^^^^^^^^^^
+    public JsValue Overloaded(JsValue first, JsValue second) => first;
+*/
+ : (15,19)-(15,29),
       Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (16,19)-(16,29),
+      Location: /*
+    public JsValue Overloaded(JsValue value) => value;
+    public JsValue Overloaded(JsValue first, JsValue second) => first;
+                   ^^^^^^^^^^
+
+*/
+ : (16,19)-(16,29),
       Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (18,27)-(18,35),
+      Location: /*
+
+    public override string ToString() => "";
+                           ^^^^^^^^
+
+*/
+ : (18,27)-(18,35),
       Message: Method 'ToString' on 'Model' is reached through reflection: 'ToString' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
       Severity: Info,
       WarningLevel: 1,
@@ -43,7 +61,13 @@
       }
     },
     {
-      Location: : (20,19)-(20,27),
+      Location: /*
+
+    public JsValue Describe(JsValue prefix) => prefix;
+                   ^^^^^^^^
+}
+*/
+ : (20,19)-(20,27),
       Message: Method 'Describe' on 'Model' is reached through reflection: 'Sample.INamed' also declares 'Describe', which resolves by name to the same accessor,
       Severity: Info,
       WarningLevel: 1,

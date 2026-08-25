@@ -29,11 +29,11 @@
   </ItemGroup>
 
   <!-- Shared with the other generator rather than copied: the incremental pipeline's value equality
-       depends on these types behaving identically in both. DiagnosticInfo is the equatable stand-in for a
-       Diagnostic, which is not equatable and would defeat the pipeline's caching if a model held one. -->
+       depends on this type behaving identically in both. Its DiagnosticInfo is deliberately NOT shared;
+       see the remark on AccessibleDiagnostic for why a location that has no SourceTree cannot be
+       promoted from an .editorconfig. -->
   <ItemGroup>
     <Compile Include="..\Jint.SourceGenerators\EquatableArray.cs" Link="EquatableArray.cs" />
-    <Compile Include="..\Jint.SourceGenerators\DiagnosticInfo.cs" Link="DiagnosticInfo.cs" />
   </ItemGroup>
 
   <!-- Inherited usings from the root Directory.Build.props target Jint runtime types we don't reference. -->

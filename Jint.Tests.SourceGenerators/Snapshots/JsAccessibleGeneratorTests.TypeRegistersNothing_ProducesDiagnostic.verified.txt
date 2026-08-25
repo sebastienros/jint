@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (5,20)-(5,26),
+      Location: /*
+[JsAccessible]
+public sealed class Marker
+                    ^^^^^^
+{
+*/
+ : (5,20)-(5,26),
       Message: Type 'Marker' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (10,20)-(10,31),
+      Location: /*
+[JsAccessible]
+public sealed class OnlyStatics
+                    ^^^^^^^^^^^
+{
+*/
+ : (10,20)-(10,31),
       Message: Type 'OnlyStatics' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
       Severity: Info,
       WarningLevel: 1,

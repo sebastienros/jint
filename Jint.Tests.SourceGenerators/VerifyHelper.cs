@@ -26,28 +26,39 @@ internal static class VerifyHelper
     public static Task VerifyJsAccessibleGenerator(string[] sources, [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
         => Run(new Jint.SourceGenerators.Interop.JsAccessibleGenerator(), sources, sourceFile);
 
-    private static Task Run(IIncrementalGenerator generator, string[] sources, string sourceFile)
+    /// <summary>
+    /// The <c>[JsAccessible]</c> generator's diagnostics for one source, beside the compilation they were
+    /// reported against — which is the pair the tree-location invariant is about.
+    /// </summary>
+    public static (IReadOnlyList<Diagnostic> Diagnostics, Compilation Compilation) RunJsAccessibleGeneratorFor(string source)
     {
-        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+        var compilation = Compile([source], LanguageVersion.Latest);
+        var result = Drive(new Jint.SourceGenerators.Interop.JsAccessibleGenerator(), compilation).GetRunResult();
+        return (result.Diagnostics, compilation);
+    }
+
+    private static Task Run(IIncrementalGenerator generator, string[] sources, string sourceFile)
+        => Verifier
+            .Verify(Drive(generator, Compile(sources, LanguageVersion.Latest)), sourceFile: sourceFile)
+            .UseDirectory("Snapshots");
+
+    private static GeneratorDriver Drive(IIncrementalGenerator generator, Compilation compilation)
+        => CSharpGeneratorDriver.Create(generator).RunGenerators(compilation);
+
+    private static CSharpCompilation Compile(string[] sources, LanguageVersion languageVersion)
+    {
+        var parseOptions = new CSharpParseOptions(languageVersion);
         var syntaxTrees = new SyntaxTree[sources.Length];
         for (var i = 0; i < sources.Length; i++)
         {
             syntaxTrees[i] = CSharpSyntaxTree.ParseText(sources[i], parseOptions);
         }
 
-        var compilation = CSharpCompilation.Create(
+        return CSharpCompilation.Create(
             assemblyName: "JintSourceGenTests",
             syntaxTrees: syntaxTrees,
             references: _references,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-
-        var driver = CSharpGeneratorDriver
-            .Create(generator)
-            .RunGenerators(compilation);
-
-        return Verifier
-            .Verify(driver, sourceFile: sourceFile)
-            .UseDirectory("Snapshots");
     }
 
     private static ImmutableArray<MetadataReference> BuildReferences()

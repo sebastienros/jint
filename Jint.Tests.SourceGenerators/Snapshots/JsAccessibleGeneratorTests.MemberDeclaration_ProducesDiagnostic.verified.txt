@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (11,15)-(11,28),
+      Location: /*
+
+    public int PrivateSetter { get; private set; }
+               ^^^^^^^^^^^^^
+    public int PrivateGetter { private get; set; }
+*/
+ : (11,15)-(11,28),
       Message: Property 'PrivateSetter' on 'Model' is reached through reflection: its set accessor is not public, and generated code cannot call it,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (12,15)-(12,28),
+      Location: /*
+    public int PrivateSetter { get; private set; }
+    public int PrivateGetter { private get; set; }
+               ^^^^^^^^^^^^^
+    public int InitOnly { get; init; }
+*/
+ : (12,15)-(12,28),
       Message: Property 'PrivateGetter' on 'Model' is reached through reflection: its get accessor is not public, and generated code cannot call it,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (13,15)-(13,23),
+      Location: /*
+    public int PrivateGetter { private get; set; }
+    public int InitOnly { get; init; }
+               ^^^^^^^^
+    public ref int Slot => ref _slot;
+*/
+ : (13,15)-(13,23),
       Message: Property 'InitOnly' on 'Model' is reached through reflection: its setter is 'init', which only an object initializer or reflection can call,
       Severity: Info,
       WarningLevel: 1,
@@ -43,7 +61,13 @@
       }
     },
     {
-      Location: : (14,19)-(14,23),
+      Location: /*
+    public int InitOnly { get; init; }
+    public ref int Slot => ref _slot;
+                   ^^^^
+}
+*/
+ : (14,19)-(14,23),
       Message: Property 'Slot' on 'Model' is reached through reflection: it returns by reference,
       Severity: Info,
       WarningLevel: 1,

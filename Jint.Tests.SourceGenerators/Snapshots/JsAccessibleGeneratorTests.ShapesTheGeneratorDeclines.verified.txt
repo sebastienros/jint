@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (12,15)-(12,28),
+      Location: /*
+    // reflection writes a non-public accessor; generated code cannot
+    public int PrivateSetter { get; private set; }
+               ^^^^^^^^^^^^^
+    public int PrivateGetter { private get; set; }
+*/
+ : (12,15)-(12,28),
       Message: Property 'PrivateSetter' on 'Model' is reached through reflection: its set accessor is not public, and generated code cannot call it,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (13,15)-(13,28),
+      Location: /*
+    public int PrivateSetter { get; private set; }
+    public int PrivateGetter { private get; set; }
+               ^^^^^^^^^^^^^
+    public int InitOnly { get; init; }
+*/
+ : (13,15)-(13,28),
       Message: Property 'PrivateGetter' on 'Model' is reached through reflection: its get accessor is not public, and generated code cannot call it,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (14,15)-(14,23),
+      Location: /*
+    public int PrivateGetter { private get; set; }
+    public int InitOnly { get; init; }
+               ^^^^^^^^
+
+*/
+ : (14,15)-(14,23),
       Message: Property 'InitOnly' on 'Model' is reached through reflection: its setter is 'init', which only an object initializer or reflection can call,
       Severity: Info,
       WarningLevel: 1,
@@ -43,7 +61,13 @@
       }
     },
     {
-      Location: : (17,15)-(17,25),
+      Location: /*
+    // resolved by MethodInfoFunction's overload scoring
+    public int Overloaded(int value) => value;
+               ^^^^^^^^^^
+    public int Overloaded(int first, int second) => first + second;
+*/
+ : (17,15)-(17,25),
       Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
       Severity: Info,
       WarningLevel: 1,
@@ -57,7 +81,13 @@
       }
     },
     {
-      Location: : (18,15)-(18,25),
+      Location: /*
+    public int Overloaded(int value) => value;
+    public int Overloaded(int first, int second) => first + second;
+               ^^^^^^^^^^
+
+*/
+ : (18,15)-(18,25),
       Message: Method 'Overloaded' on 'Model' is reached through reflection: 'Overloaded' is declared more than once on the type or a base type, and choosing between the candidates is what the reflected path exists for,
       Severity: Info,
       WarningLevel: 1,
@@ -71,7 +101,13 @@
       }
     },
     {
-      Location: : (21,31)-(21,35),
+      Location: /*
+    // a parameter whose reflected binding is a conversion steered by engine options
+    public string Shout(string text) => text;
+                               ^^^^
+    public int Optional(JsValue value, JsValue other = null) => 0;
+*/
+ : (21,31)-(21,35),
       Message: Method 'Shout' on 'Model' is reached through reflection: parameter 'text' is typed 'string' rather than JsValue, so its reflected binding is a conversion chain steered by engine options,
       Severity: Info,
       WarningLevel: 1,
@@ -85,7 +121,13 @@
       }
     },
     {
-      Location: : (22,47)-(22,52),
+      Location: /*
+    public string Shout(string text) => text;
+    public int Optional(JsValue value, JsValue other = null) => 0;
+                                               ^^^^^
+    public int Params(params JsValue[] values) => 0;
+*/
+ : (22,47)-(22,52),
       Message: Method 'Optional' on 'Model' is reached through reflection: parameter 'other' is optional, and its default is applied by the reflected binder,
       Severity: Info,
       WarningLevel: 1,
@@ -99,7 +141,13 @@
       }
     },
     {
-      Location: : (23,39)-(23,45),
+      Location: /*
+    public int Optional(JsValue value, JsValue other = null) => 0;
+    public int Params(params JsValue[] values) => 0;
+                                       ^^^^^^
+    public T Generic<T>(JsValue value) => default;
+*/
+ : (23,39)-(23,45),
       Message: Method 'Params' on 'Model' is reached through reflection: parameter 'values' is a params parameter, whose reflected binding spreads the remaining arguments,
       Severity: Info,
       WarningLevel: 1,
@@ -113,7 +161,13 @@
       }
     },
     {
-      Location: : (24,13)-(24,20),
+      Location: /*
+    public int Params(params JsValue[] values) => 0;
+    public T Generic<T>(JsValue value) => default;
+             ^^^^^^^
+
+*/
+ : (24,13)-(24,20),
       Message: Method 'Generic' on 'Model' is reached through reflection: it is generic, and its type arguments are chosen per call,
       Severity: Info,
       WarningLevel: 1,
@@ -127,7 +181,13 @@
       }
     },
     {
-      Location: : (28,22)-(28,34),
+      Location: /*
+    public static int Static { get; set; }
+    public static int StaticMethod() => 0;
+                      ^^^^^^^^^^^^
+
+*/
+ : (28,22)-(28,34),
       Message: Method 'StaticMethod' on 'Model' is reached through reflection: it is static, and the generated read, write and invoke lanes are instance lanes,
       Severity: Info,
       WarningLevel: 1,
@@ -141,7 +201,13 @@
       }
     },
     {
-      Location: : (31,15)-(31,19),
+      Location: /*
+    // an indexer is served by IndexerAccessor
+    public int this[int index] => index;
+               ^^^^
+
+*/
+ : (31,15)-(31,19),
       Message: Indexer 'this[int]' on 'Model' is reached through reflection, and it is probed ahead of the declared members: every name the indexer answers for resolves through it, and the generated lane is not consulted for that name,
       Severity: Info,
       WarningLevel: 1,
