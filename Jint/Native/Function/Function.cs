@@ -685,6 +685,40 @@ public abstract partial class Function : ObjectInstance, ICallable
     }
 
     /// <summary>
+    /// The function's own <c>name</c> for a diagnostic rendering — the console's <c>[Function: foo]</c> tag —
+    /// or <see langword="null"/> when it cannot be read without running script.
+    /// <para>
+    /// This is <see cref="GetOwnFunctionName"/>'s pending-descriptor handling with
+    /// <see cref="GetOwnFunctionNameForMessage"/>'s refusal to coerce. The pending sentinel is answered from
+    /// the definition's cached <c>JsName</c>, exactly as materializing it would, so an ordinary
+    /// <c>function foo() {}</c> reports <c>foo</c> without its descriptor being allocated. Past that, a
+    /// script may have replaced <c>name</c> — it is configurable on every function — with an accessor or with
+    /// an object whose <c>toString</c> is observable, and a console that renders a function must never be a
+    /// way to run either. Both answer <see langword="null"/>, which the caller renders as anonymous.
+    /// </para>
+    /// </summary>
+    internal string? GetOwnFunctionNameForDisplay()
+    {
+        var descriptor = _nameDescriptor;
+        if (descriptor is null)
+        {
+            return string.Empty;
+        }
+
+        if (ReferenceEquals(descriptor, _pendingDescriptor))
+        {
+            return _functionDefinition?.JsName?.ToString() ?? string.Empty;
+        }
+
+        if (descriptor.IsAccessorDescriptor())
+        {
+            return null;
+        }
+
+        return descriptor.Value is JsString name ? name.ToString() : null;
+    }
+
+    /// <summary>
     /// The function's own <c>name</c> for an error message, rendered without ever running script.
     /// <para>
     /// <c>name</c> is configurable on every built-in, so a script can replace it with an object whose

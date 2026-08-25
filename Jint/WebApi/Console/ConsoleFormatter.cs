@@ -2,8 +2,12 @@
 using System.Globalization;
 using System.Text;
 using Jint.Native;
+using Jint.Native.Date;
 using Jint.Native.Error;
+using Jint.Native.Function;
 using Jint.Native.Object;
+using Jint.Native.Promise;
+using Jint.Native.TypedArray;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -25,6 +29,25 @@ namespace Jint.WebApi.Console;
 /// in exactly the embedding a bounded engine exists for.
 /// </para>
 /// <para>
+/// Three shapes are where that claim is won rather than assumed. A <b>proxy</b> is rendered as its target,
+/// because walking the proxy itself reaches the <c>ownKeys</c> and <c>getOwnPropertyDescriptor</c> traps and
+/// a trap is script. A <b>well-known exotic</b> — a promise, a map, a set, a date, a regular expression, a
+/// typed array, a boxed primitive — is read from its internal slots, never through the prototype accessor of
+/// the same name, because <c>source</c>, <c>flags</c>, <c>byteLength</c> and <c>toISOString</c> are all
+/// configurable and so may be a script's own function by the time a value is logged. And a <b>function</b> is
+/// named, not printed: <c>Function.prototype.toString</c> answers the whole source text once
+/// <c>Options.RetainFunctionSourceText</c> is on, and one record carrying a function body is exactly the
+/// unbounded output the caps exist to prevent.
+/// </para>
+/// <para>
+/// Where a rendering is implementation-defined — which is all of <c>%o</c>, <c>%O</c> and <c>console.dir</c>
+/// — it matches what Node and QuickJS emit, because the only thing "correct" can mean for a diagnostic is
+/// that a script author recognizes it. Two divergences are deliberate and follow from the bound above: an
+/// <c>ArrayBuffer</c> carries no <c>[Uint8Contents]</c> hex dump, whose length would be the buffer's length,
+/// and own extra properties on an exotic are not appended, so a <c>Map</c> renders its entries and nothing
+/// else.
+/// </para>
+/// <para>
 /// User code <i>is</i> reached where the specification requires it: <c>%s</c>, <c>%d</c>, <c>%i</c> and
 /// <c>%f</c> are defined in terms of <c>String()</c> and <c>Number()</c>, which coerce through
 /// <c>toString</c>/<c>valueOf</c>.
@@ -37,6 +60,9 @@ internal static class ConsoleFormatter
 
     /// <summary>How many array elements or object entries are rendered before the rest are summarized.</summary>
     private const int MaxEntries = 100;
+
+    /// <summary>How many proxies a chain may nest before the walk names it instead of descending further.</summary>
+    private const int MaxProxyHops = 8;
 
     /// <summary>
     /// Turns the arguments of a console method into the single string the printer emits.
@@ -123,7 +149,7 @@ internal static class ConsoleFormatter
     {
         // "if it can't be parsed as tabular": a primitive has no rows, and a function is an object whose own
         // properties (`length`, `name`) are not a table anybody wanted.
-        if (tabularData is not ObjectInstance data || data is Native.Function.Function)
+        if (tabularData is not ObjectInstance data || data is Function)
         {
             text = string.Empty;
             return false;
@@ -252,7 +278,7 @@ internal static class ConsoleFormatter
             return null;
         }
 
-        return descriptor.Value is ObjectInstance obj && obj is not Native.Function.Function ? obj : null;
+        return descriptor.Value is ObjectInstance obj && obj is not Function ? obj : null;
     }
 
     private static string Draw(
@@ -552,9 +578,31 @@ internal static class ConsoleFormatter
 
     private static void InspectObject(StringBuilder builder, ObjectInstance obj, int depth, List<ObjectInstance>? seen)
     {
-        if (obj is Native.Function.Function function)
+        // A proxy renders as whatever its target renders as, and it is unwrapped before anything else looks
+        // at it. Walking the proxy itself would reach the `ownKeys` and `getOwnPropertyDescriptor` traps,
+        // and a trap is script -- the one thing this class promises never to run.
+        if (obj is JsProxy proxy)
         {
-            builder.Append(function.ToString());
+            var target = ProxyTarget(proxy);
+            if (target is null)
+            {
+                builder.Append("<Revoked Proxy>");
+                return;
+            }
+
+            if (target is JsProxy)
+            {
+                // A chain longer than the walk follows. Naming it beats descending forever.
+                builder.Append("[Proxy]");
+                return;
+            }
+
+            obj = target;
+        }
+
+        if (obj is Function function)
+        {
+            AppendFunction(builder, function);
             return;
         }
 
@@ -564,11 +612,18 @@ internal static class ConsoleFormatter
             return;
         }
 
-        var array = obj as JsArray;
+        // The exotics that render whole: they carry no value a walk could descend into, so neither the depth
+        // cap nor the cycle list has anything to say about them.
+        if (TryAppendWholeValue(builder, obj))
+        {
+            return;
+        }
+
+        var kind = KindOf(obj);
 
         if (depth > MaxDepth)
         {
-            builder.Append(array is not null ? "[Array]" : "[Object]");
+            AppendCollapsed(builder, kind, obj);
             return;
         }
 
@@ -582,18 +637,351 @@ internal static class ConsoleFormatter
         seen.Add(obj);
         try
         {
-            if (array is not null)
+            switch (kind)
             {
-                InspectArray(builder, array, depth, seen);
-            }
-            else
-            {
-                InspectPlainObject(builder, obj, depth, seen);
+                case ObjectKind.Array:
+                    InspectArray(builder, (JsArray) obj, depth, seen);
+                    break;
+                case ObjectKind.TypedArray:
+                    InspectTypedArray(builder, (JsTypedArray) obj, depth, seen);
+                    break;
+                case ObjectKind.Map:
+                    InspectMap(builder, (JsMap) obj, depth, seen);
+                    break;
+                case ObjectKind.Set:
+                    InspectSet(builder, (JsSet) obj, depth, seen);
+                    break;
+                case ObjectKind.Promise:
+                    InspectPromise(builder, (JsPromise) obj, depth, seen);
+                    break;
+                case ObjectKind.DataView:
+                    InspectDataView(builder, (JsDataView) obj, depth, seen);
+                    break;
+                default:
+                    InspectPlainObject(builder, obj, kind, depth, seen);
+                    break;
             }
         }
         finally
         {
             seen.RemoveAt(seen.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// The kinds the walk descends into. Everything else is an ordinary object, or was rendered whole by
+    /// <see cref="TryAppendWholeValue"/> before this was asked.
+    /// </summary>
+    private enum ObjectKind
+    {
+        Object,
+        Arguments,
+        Array,
+        TypedArray,
+        Map,
+        Set,
+        Promise,
+        DataView,
+    }
+
+    private static ObjectKind KindOf(ObjectInstance obj) => obj switch
+    {
+        JsArray => ObjectKind.Array,
+        JsTypedArray => ObjectKind.TypedArray,
+        JsMap => ObjectKind.Map,
+        JsSet => ObjectKind.Set,
+        JsPromise => ObjectKind.Promise,
+        JsDataView => ObjectKind.DataView,
+        JsArguments => ObjectKind.Arguments,
+        _ => ObjectKind.Object,
+    };
+
+    private static void AppendCollapsed(StringBuilder builder, ObjectKind kind, ObjectInstance obj)
+    {
+        if (kind == ObjectKind.TypedArray)
+        {
+            builder.Append('[').Append(((JsTypedArray) obj)._arrayElementType.GetTypedArrayName()).Append(']');
+            return;
+        }
+
+        builder.Append(kind switch
+        {
+            ObjectKind.Arguments => "[Arguments]",
+            ObjectKind.Array => "[Array]",
+            ObjectKind.Map => "[Map]",
+            ObjectKind.Set => "[Set]",
+            ObjectKind.Promise => "[Promise]",
+            ObjectKind.DataView => "[DataView]",
+            _ => "[Object]",
+        });
+    }
+
+    /// <summary>
+    /// The non-proxy object a proxy stands for; <see langword="null"/> when the chain is revoked, and a
+    /// <see cref="JsProxy"/> again when it is longer than <see cref="MaxProxyHops"/>.
+    /// </summary>
+    private static ObjectInstance? ProxyTarget(JsProxy proxy)
+    {
+        // A revoked proxy has no target at all, and that is the one state a renderer has to tell apart:
+        // every trap on it throws, so there is nothing left to show but the fact of it.
+        ObjectInstance? current = proxy._target;
+        for (var hops = 1; hops < MaxProxyHops && current is JsProxy next; hops++)
+        {
+            current = next._target;
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// The exotics whose whole rendering is decided by their internal slots. Every read below is an
+    /// internal-slot read and not a property access: the corresponding prototype accessor -- <c>source</c>,
+    /// <c>flags</c>, <c>byteLength</c>, <c>toISOString</c> -- is configurable on every one of them, so by the
+    /// time a value is logged it may be a script's own function.
+    /// </summary>
+    private static bool TryAppendWholeValue(StringBuilder builder, ObjectInstance obj)
+    {
+        switch (obj)
+        {
+            case JsDate date:
+                // [[DateValue]] is NaN for exactly the values toISOString raises a RangeError for, and
+                // "Invalid Date" is what every implementation shows in its place.
+                builder.Append(double.IsNaN(date.DateValue) ? "Invalid Date" : DatePrototype.FormatIsoString(date));
+                return true;
+
+            case JsRegExp regExp:
+                builder.Append('/').Append(regExp.Source).Append('/').Append(regExp.Flags);
+                return true;
+
+            case JsSharedArrayBuffer shared:
+                AppendArrayBuffer(builder, shared, "SharedArrayBuffer");
+                return true;
+
+            case JsArrayBuffer buffer:
+                AppendArrayBuffer(builder, buffer, "ArrayBuffer");
+                return true;
+
+            // The weak collections are enumerable by nothing at all, and a WeakRef is deliberately not
+            // dereferenced: reaching its target is what WeakRef.prototype.deref exists to gate.
+            case JsWeakMap:
+                builder.Append("WeakMap { <items unknown> }");
+                return true;
+            case JsWeakSet:
+                builder.Append("WeakSet { <items unknown> }");
+                return true;
+            case JsWeakRef:
+                builder.Append("WeakRef { <target unknown> }");
+                return true;
+
+            case IJsPrimitive boxed:
+                AppendBoxedPrimitive(builder, boxed);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static void AppendArrayBuffer(StringBuilder builder, JsArrayBuffer buffer, string name)
+    {
+        // Node additionally dumps the bytes as [Uint8Contents]. This does not: the length of that dump is
+        // the buffer's length, and an unbounded record is the one thing this renderer will not emit.
+        builder.Append(name).Append(" { ");
+        if (buffer.IsDetachedBuffer)
+        {
+            builder.Append("(detached), ");
+        }
+
+        builder.Append("byteLength: ").Append(buffer.ArrayBufferByteLength.ToString(CultureInfo.InvariantCulture)).Append(" }");
+    }
+
+    private static void AppendBoxedPrimitive(StringBuilder builder, IJsPrimitive boxed)
+    {
+        var value = boxed.PrimitiveValue;
+        var name = value switch
+        {
+            JsString => "String",
+            JsNumber => "Number",
+            JsBoolean => "Boolean",
+            JsSymbol => "Symbol",
+            JsBigInt => "BigInt",
+            _ => "Object",
+        };
+
+        builder.Append('[').Append(name).Append(": ");
+        Inspect(builder, value, depth: 0, seen: null);
+        builder.Append(']');
+    }
+
+    /// <summary>
+    /// A function is named, never printed. <c>Function.prototype.toString</c> answers the whole source text
+    /// when <c>Options.RetainFunctionSourceText</c> is on, and a function body in one console record is
+    /// exactly the unbounded output the rest of this class is written to avoid.
+    /// </summary>
+    private static void AppendFunction(StringBuilder builder, Function function)
+    {
+        var name = function.GetOwnFunctionNameForDisplay();
+
+        if (function is ScriptFunction { _isClassConstructor: true })
+        {
+            builder.Append("[class").Append(string.IsNullOrEmpty(name) ? " (anonymous)" : " " + name).Append(']');
+            return;
+        }
+
+        builder.Append('[').Append(FunctionKindName(function));
+        builder.Append(string.IsNullOrEmpty(name) ? " (anonymous)" : ": " + name).Append(']');
+    }
+
+    private static string FunctionKindName(Function function)
+    {
+        var declaration = function.FunctionDeclaration;
+        if (declaration is null)
+        {
+            return "Function";
+        }
+
+        if (declaration.Async)
+        {
+            return declaration.Generator ? "AsyncGeneratorFunction" : "AsyncFunction";
+        }
+
+        return declaration.Generator ? "GeneratorFunction" : "Function";
+    }
+
+    private static void InspectPromise(StringBuilder builder, JsPromise promise, int depth, List<ObjectInstance> seen)
+    {
+        builder.Append("Promise { ");
+        switch (promise.State)
+        {
+            case PromiseState.Pending:
+                builder.Append("<pending>");
+                break;
+            case PromiseState.Rejected:
+                builder.Append("<rejected> ");
+                Inspect(builder, promise.Value, depth + 1, seen);
+                break;
+            default:
+                Inspect(builder, promise.Value, depth + 1, seen);
+                break;
+        }
+
+        builder.Append(" }");
+    }
+
+    private static void InspectMap(StringBuilder builder, JsMap map, int depth, List<ObjectInstance> seen)
+    {
+        var size = map.Size;
+        builder.Append("Map(").Append(size.ToString(CultureInfo.InvariantCulture)).Append(')');
+        if (size == 0)
+        {
+            builder.Append(" {}");
+            return;
+        }
+
+        builder.Append(" { ");
+        var written = 0;
+        foreach (var entry in map)
+        {
+            if (written >= MaxEntries)
+            {
+                break;
+            }
+
+            if (written > 0)
+            {
+                builder.Append(", ");
+            }
+
+            Inspect(builder, entry.Key, depth + 1, seen);
+            builder.Append(" => ");
+            Inspect(builder, entry.Value, depth + 1, seen);
+            written++;
+        }
+
+        AppendRemainder(builder, size - written);
+        builder.Append(" }");
+    }
+
+    private static void InspectSet(StringBuilder builder, JsSet set, int depth, List<ObjectInstance> seen)
+    {
+        var size = set.Size;
+        builder.Append("Set(").Append(size.ToString(CultureInfo.InvariantCulture)).Append(')');
+        if (size == 0)
+        {
+            builder.Append(" {}");
+            return;
+        }
+
+        builder.Append(" { ");
+        var written = 0;
+        foreach (var value in set)
+        {
+            if (written >= MaxEntries)
+            {
+                break;
+            }
+
+            if (written > 0)
+            {
+                builder.Append(", ");
+            }
+
+            Inspect(builder, value, depth + 1, seen);
+            written++;
+        }
+
+        AppendRemainder(builder, size - written);
+        builder.Append(" }");
+    }
+
+    private static void InspectTypedArray(StringBuilder builder, JsTypedArray array, int depth, List<ObjectInstance> seen)
+    {
+        // GetLength answers 0 for a detached or out-of-bounds view, so nothing below reads a buffer that is
+        // no longer there.
+        var length = array.Length;
+        builder.Append(array._arrayElementType.GetTypedArrayName());
+        builder.Append('(').Append(length.ToString(CultureInfo.InvariantCulture)).Append(')');
+        if (length == 0)
+        {
+            builder.Append(" []");
+            return;
+        }
+
+        builder.Append(" [ ");
+        var rendered = System.Math.Min(length, (uint) MaxEntries);
+        for (var i = 0u; i < rendered; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            Inspect(builder, array[i], depth + 1, seen);
+        }
+
+        AppendRemainder(builder, length - rendered);
+        builder.Append(" ]");
+    }
+
+    private static void InspectDataView(StringBuilder builder, JsDataView view, int depth, List<ObjectInstance> seen)
+    {
+        builder.Append("DataView { byteLength: ").Append(view._byteLength.ToString(CultureInfo.InvariantCulture));
+        builder.Append(", byteOffset: ").Append(view._byteOffset.ToString(CultureInfo.InvariantCulture));
+
+        if (view._viewedArrayBuffer is { } buffer)
+        {
+            builder.Append(", buffer: ");
+            Inspect(builder, buffer, depth + 1, seen);
+        }
+
+        builder.Append(" }");
+    }
+
+    private static void AppendRemainder(StringBuilder builder, long skipped)
+    {
+        if (skipped > 0)
+        {
+            builder.Append(", ... ").Append(skipped.ToString(CultureInfo.InvariantCulture)).Append(" more items");
         }
     }
 
@@ -626,8 +1014,19 @@ internal static class ConsoleFormatter
         builder.Append(" ]");
     }
 
-    private static void InspectPlainObject(StringBuilder builder, ObjectInstance obj, int depth, List<ObjectInstance> seen)
+    private static void InspectPlainObject(StringBuilder builder, ObjectInstance obj, ObjectKind kind, int depth, List<ObjectInstance> seen)
     {
+        if (kind == ObjectKind.Arguments)
+        {
+            builder.Append("[Arguments] ");
+        }
+        else if (obj.Prototype is null)
+        {
+            // Object.create(null) inherits no toString, so every implementation says so rather than letting
+            // it read as an ordinary object literal.
+            builder.Append("[Object: null prototype] ");
+        }
+
         var keys = obj.GetOwnPropertyKeys(Types.String);
         var written = 0;
         var skipped = 0;
