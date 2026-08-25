@@ -186,6 +186,46 @@ public sealed partial class Engine : IDisposable
     internal HostCallScope EnterHostCallback()
         => EnterHostCall();
 
+    /// <summary>
+    /// The host-contract verifier for <b>thread affinity</b>: reports engine-affine state built on a thread
+    /// while a <em>different</em> thread is inside this engine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Jint guards <em>operations</em> against concurrent use and does not guard <em>value construction</em>:
+    /// <see cref="Native.JsObject.Create(Engine, Native.JsObjectLayout, ReadOnlySpan{JsValue})"/>,
+    /// <see cref="Native.JsObject.CreateFromEntries(Engine, ReadOnlySpan{KeyValuePair{string, JsValue}})"/>
+    /// and the <see cref="Native.JsArray"/> constructors are per-object APIs on a bulk path, and an always-on
+    /// <see cref="EnterHostCall"/> there would be paid by every host that never got this wrong. This check is
+    /// where that line is enforced instead — folded out entirely in a process that never set the switch, and
+    /// exact in one that did.
+    /// </para>
+    /// <para>
+    /// It is deliberately the narrowest question that has no false positives: <em>another thread owns this
+    /// engine right now, and it is not me</em>. An idle engine answers no, because a host building values
+    /// between turns is the legitimate case this must never flag. A reserved-but-unclaimed engine — an
+    /// outstanding <c>*Async</c> operation between continuations — answers no for the same reason: there is
+    /// no thread to name, so there is nothing to report that is not a guess.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    internal void VerifyValueConstructedOnOwningThread(Type constructedType)
+    {
+        var owner = Volatile.Read(ref _ownerThreadId);
+        var current = System.Environment.CurrentManagedThreadId;
+        if (owner == 0 || owner == current)
+        {
+            return;
+        }
+
+        HostContractVerification.Fail(
+            $"{constructedType} was built for an Engine on managed thread {current} while managed thread {owner} "
+            + "was using that engine. Value construction is outside the concurrency guard that rejects a "
+            + "concurrent Evaluate or Invoke, so nothing refused this and the object is now sharing an engine "
+            + "and a realm with another thread's work. Build the value on the thread that owns the engine, or "
+            + "while no thread does.");
+    }
+
     internal HostCallScope EnterTransferredHostCallback(object? expectedAuthorization)
     {
         if (expectedAuthorization is not HostCallbackAuthorization authorization)

@@ -80,6 +80,14 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
         InternalTypes type = InternalTypes.Object)
         : base(type)
     {
+        if (HostContractVerification.Enabled)
+        {
+            // Every engine-affine object begins here, whichever public API built it, so this is the one
+            // place the thread-affinity check has to be. GetType() in a base constructor is the
+            // most-derived runtime type, which is what names the object a host would go looking for.
+            engine.VerifyValueConstructedOnOwningThread(GetType());
+        }
+
         _engine = engine;
         _class = objectClass;
         // if engine is ready, we can take default prototype for object

@@ -1494,6 +1494,7 @@ none of it changes an engine that does not.
 | The three shipped locale-data providers are extensible — one datum is one override | derive from `DefaultCldrProvider` / `DefaultTimeZoneProvider` / `DefaultCalendarProvider` and assign the instance to the matching `Options` property | [5.2](#52-changing-one-locale-datum-is-one-override) |
 | Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
 | `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#55-a-host-function-is-a-class-you-can-derive-3345) |
+| Host-contract verification catches a value built for an engine another thread is using | `AppContext.SetSwitch("Jint.EnableHostContractVerification", true)` | [§5.6](#56-host-contract-verification-also-checks-thread-affinity-3332) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -1765,6 +1766,34 @@ Four things decided deliberately:
 
 Reach for `ClrFunction` when the body is a lambda, and for `HostFunction` when the callable has state,
 wants a name a stack trace can show, or belongs to a family that shares a base.
+
+### 5.6 Host-contract verification also checks thread affinity ([#3332](https://github.com/sebastienros/jint/issues/3332))
+
+Jint guards *operations* against concurrent use and does not guard *value construction*. `Engine.Evaluate`,
+`JsValue.FromObject`, `JsonSerializer.Serialize` and `JsonParser.Parse` all reject a second thread while the
+engine is in use; `JsObject.Create`, `JsObject.CreateFromEntries` and the `JsArray` constructors — the ones
+README's **Projecting host data** recommends in preference to subclassing `ObjectInstance` — build the value
+anyway. They are per-object APIs on a bulk path, so an always-on claim there would be paid by every host that
+never got this wrong.
+
+That line has not moved, and construction stays as cheap as it was. What is new is that the violation is now
+*visible*: with host-contract verification on, an engine-affine object built on one thread while a different
+thread is inside that engine throws `InvalidOperationException` naming the type, at the point of construction:
+
+```csharp
+// once, before the first use of any Jint type — a [ModuleInitializer] in the test assembly is the usual place
+AppContext.SetSwitch("Jint.EnableHostContractVerification", true);
+```
+
+The check is the narrowest question with no false positives — *another thread owns this engine right now, and
+it is not me*. An **idle** engine answers no, so a host preparing values between turns, or building them
+before handing an engine out of a pool, is never flagged. It costs a production build nothing: the gate is a
+`static readonly bool` read once at type initialization, so the JIT folds the check and the branch out of a
+process that never set the switch.
+
+This is worth turning on precisely because the failure it catches is not local. An object built for an engine
+another thread is using does not fail where it was built; it fails later, somewhere else, as a torn shape
+table or a lost property, and the host sees a nondeterministic script result.
 
 ## 6. AOT and trimming
 
