@@ -141,6 +141,36 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
+    /// <summary>
+    /// <c>ShadowRealm.ImportValue</c> drives module loading and evaluation, so it runs script and has to claim
+    /// the engine for all of it — the load, and the continuations it drains afterwards. It used to claim it for
+    /// neither, so a second thread was served in the middle of a load. sebastienros/jint#3324.
+    /// </summary>
+    [Fact]
+    public async Task ConcurrentShadowRealmImportValueIsRejected()
+    {
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        var engine = new Engine(options => options.UseModules(new BlockingModuleLoader(entered, release, HandoffCeiling)));
+        var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
+        var running = StartOwningThread(() => shadowRealm.ImportValue("./blocked.js", "value"));
+
+        await WaitUntilOwned(entered, running);
+        try
+        {
+            Invoking(() => engine.Evaluate("40 + 2"))
+                .Should().Throw<InvalidOperationException>()
+                .WithMessage(ConcurrentUseMessage);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await running;
+        engine.Evaluate("40 + 2").AsNumber().Should().Be(42);
+    }
+
     [Fact]
     public async Task ConcurrentMutationIsRejectedBeforeItChangesState()
     {
@@ -926,6 +956,23 @@ public class HostEngineConcurrencyTests
         public void LoadModuleAsync(Engine engine, ResolvedSpecifier resolved, ModuleLoadCompletion completion)
         {
             Completion = completion;
+        }
+    }
+
+    /// <summary>
+    /// Parks inside <see cref="IModuleLoader.LoadModule"/> — the one point of a module load that is provably
+    /// still inside the host entry that asked for it — until the test releases it.
+    /// </summary>
+    private sealed class BlockingModuleLoader(ManualResetEventSlim entered, ManualResetEventSlim release, TimeSpan ceiling) : IModuleLoader
+    {
+        public ResolvedSpecifier Resolve(string? referencingModuleLocation, ModuleRequest moduleRequest)
+            => new(moduleRequest, moduleRequest.Specifier, Uri: null, SpecifierType.Bare);
+
+        public Module LoadModule(Engine engine, ResolvedSpecifier resolved)
+        {
+            entered.Set();
+            release.Wait(ceiling);
+            return ModuleFactory.BuildSourceTextModule(engine, Engine.PrepareModule("export const value = 42;", resolved.Key));
         }
     }
 

@@ -27,6 +27,12 @@ namespace Jint;
 /// (<c>Engine.EnterHostCall</c>), which is also what makes it safe for the caller to have read the target
 /// global object off its realm.
 /// </para>
+/// <para>
+/// It also assumes the target global object's realm is the engine's <em>running</em> realm, because that is
+/// what every conversion below reads to pick a prototype. On the engine that is free; <c>ShadowRealm</c> has
+/// to enter its own execution context to make it true (<c>ShadowRealm.EnterRealm</c>), and until it did, a
+/// wrapper projected into a shadow realm was not <c>instanceof Object</c> inside that realm.
+/// </para>
 /// </remarks>
 internal static class GlobalValueRegistration
 {

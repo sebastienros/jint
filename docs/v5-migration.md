@@ -1378,6 +1378,41 @@ they return is what script sees. Returning `null` from `GetCurrencyData` formats
 (`"USD12.50"`), which is what `currencyDisplay: "code"` has always produced; returning `null` from
 `GetWeekInfo` keeps the embedded week data. `currencyDisplay: "code"` never consults the provider, because
 the specification fixes that display to the currency code.
+### 4.23 A value registered on a `ShadowRealm` belongs to that realm ([#3325](https://github.com/sebastienros/jint/issues/3325))
+
+`ShadowRealm.SetValue` built its value against whichever realm the host called from — the principal one —
+and then installed it on the shadow realm's global object. The wrapper therefore carried the principal
+realm's `Object.prototype`, so script inside the realm saw an object that was not `instanceof Object`:
+
+```csharp
+var shadowRealm = engine.Intrinsics.ShadowRealm.Construct();
+shadowRealm.SetValue("company", new Company("acme"));
+
+// 4.16.x: false — the wrapper's prototype came from a realm this script cannot reach
+// 5.x:    true
+shadowRealm.Evaluate("company instanceof Object");
+```
+
+Every overload now registers with the shadow realm as the running realm, so the prototype comes from that
+realm's intrinsics: an object gets its `Object.prototype`, a delegate its `Function.prototype`, a projected
+array its `Array.prototype`, and a `Type` a prototype object chained to its `Object.prototype`.
+
+**What could break:** a host comparing such a value's prototype against `engine.Intrinsics` — that is the
+principal realm's, and it is no longer what the value inherits from. `Engine.SetValue` is unchanged, and so
+is a `JsValue` the host built itself and passed to the `JsValue` overload: only what `SetValue` converts
+moves.
+
+### 4.24 `ShadowRealm.ImportValue` takes the engine's host-call reservation ([#3324](https://github.com/sebastienros/jint/issues/3324))
+
+It loads, links and evaluates a module graph, and it used to claim the engine for none of that — only for
+the continuation drain at the end, and then only for the length of the drain. A second thread reaching the
+engine during a load was served instead of refused. It now claims the engine for the whole call, the same
+way `ShadowRealm.Evaluate` and `ShadowRealm.SetValue` do.
+
+Nothing changes for a host importing on the engine's own thread, or into an idle engine: the reservation
+takes its re-entrant branch in the first case and claims an unowned engine in the second. What changes is an
+import issued while the engine is busy elsewhere, which now fails with `InvalidOperationException` instead
+of running concurrently.
 
 ## 5. New in v5
 

@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 635
+undocumented: 634
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -261,7 +261,6 @@ M:Jint.Native.RegExp.RegExpConstructor.Construct(System.Text.RegularExpressions.
 M:Jint.Native.Set.SetConstructor.Construct
 M:Jint.Native.ShadowRealm.ShadowRealm.Evaluate(Jint.Prepared{Acornima.Ast.Script}@)
 M:Jint.Native.ShadowRealm.ShadowRealm.Evaluate(System.String,Jint.ScriptParsingOptions)
-M:Jint.Native.ShadowRealm.ShadowRealm.ImportValue(System.String,System.String)
 M:Jint.Native.ShadowRealm.ShadowRealmConstructor.Construct
 M:Jint.Native.Temporal.DefaultTimeZoneProvider.#ctor
 M:Jint.Native.TypedArray.BigInt64ArrayConstructor.Construct(System.ReadOnlySpan{System.Int64})
