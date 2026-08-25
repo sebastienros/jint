@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (5,22)-(5,30),
+      Location: /*
+[JsAccessible]
+public abstract class Abstract
+                      ^^^^^^^^
+{
+*/
+ : (5,22)-(5,30),
       Message: Type 'Abstract' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is abstract, so it is never the runtime type of a receiver,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (11,20)-(11,27),
+      Location: /*
+[JsAccessible]
+public sealed class Generic<T>
+                    ^^^^^^^
+{
+*/
+ : (11,20)-(11,27),
       Message: Type 'Generic' is annotated with [JsAccessible] but cannot be registered, so every member of it is reached through reflection: it is a generic type definition, and has no single runtime type to register under,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (17,20)-(17,40),
+      Location: /*
+[JsAccessible]
+public sealed class NoExpressibleMembers
+                    ^^^^^^^^^^^^^^^^^^^^
+{
+*/
+ : (17,20)-(17,40),
       Message: Type 'NoExpressibleMembers' is annotated with [JsAccessible] but no member of it can be generated, so the annotation registers nothing and every member is reached through reflection,
       Severity: Info,
       WarningLevel: 1,

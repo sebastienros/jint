@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (13,18)-(13,26),
+      Location: /*
+
+    public Handle Borrowed => default;
+                  ^^^^^^^^
+    public unsafe int* Address => null;
+*/
+ : (13,18)-(13,26),
       Message: Property 'Borrowed' on 'Model' is reached through reflection: its type 'Sample.Handle' is a ref struct, which generated code cannot box,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (14,23)-(14,30),
+      Location: /*
+    public Handle Borrowed => default;
+    public unsafe int* Address => null;
+                       ^^^^^^^
+    public Handle Borrow() => default;
+*/
+ : (14,23)-(14,30),
       Message: Property 'Address' on 'Model' is reached through reflection: its type 'int*' is a pointer type, which generated code cannot box,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (15,18)-(15,24),
+      Location: /*
+    public unsafe int* Address => null;
+    public Handle Borrow() => default;
+                  ^^^^^^
+}
+*/
+ : (15,18)-(15,24),
       Message: Method 'Borrow' on 'Model' is reached through reflection: its return type 'Sample.Handle' is a ref struct, which generated code cannot box,
       Severity: Info,
       WarningLevel: 1,

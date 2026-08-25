@@ -110,11 +110,19 @@ Six consequences worth knowing before touching any of it.
   nothing was lost. A public **static method** is reported, because the default method flags include
   `BindingFlags.Static` and reflection does serve it. Getting that wrong in the permissive direction is how
   a rule earns a blanket suppression and stops being read at all. There is deliberately **no attribute
-  property** promoting these: `dotnet_diagnostic.JINT033.severity = error` in an `.editorconfig` is
-  verified to reach a generator-reported diagnostic, it is per id rather than all-or-nothing, and it is a
-  property of the build rather than of one annotated type. A branch that cannot be reached is declined
-  silently and says so in a comment (an abstract method, a `ref` field) rather than carrying a message no
-  snapshot can pin.
+  property** promoting these: `dotnet_diagnostic.JINT033.severity = error` in an `.editorconfig` is what
+  promotes one, it is per id rather than all-or-nothing, and it is a property of the build rather than of
+  one annotated type. **That works only because each diagnostic carries a real `Location` with a
+  `SourceTree`**, which is why these do not use `Jint.SourceGenerators`' `DiagnosticInfo`: that type
+  rebuilds its location from a file path through `Location.Create(string, TextSpan, LinePositionSpan)`,
+  and the compiler resolves an `.editorconfig` severity *per syntax tree* — a tree-less diagnostic skips
+  that lookup and keeps its default severity whatever the host writes, with no error and nothing in a
+  snapshot to show it, since Verify records the line and column either way. It costs the other generator
+  nothing, every descriptor there being an error already. A `Location` is not a value, so
+  `JsAccessibleGenerator` keeps reporting and emitting as two outputs: the emitting one selects
+  `AccessibleTypeDefinition`, which carries no location, and stays on the cached path. A branch that
+  cannot be reached is declined silently and says so in a comment (an abstract method, a `ref` field)
+  rather than carrying a message no snapshot can pin.
 - **The generator lives in its own analyzer assembly, `Jint.SourceGenerators.Interop`, and that is not
   organisational.** `Jint.SourceGenerators` emits its attribute set through
   `RegisterPostInitializationOutput` unconditionally, and that source declares members typed

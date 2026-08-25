@@ -1,7 +1,13 @@
 ﻿{
   Diagnostics: [
     {
-      Location: : (12,22)-(12,29),
+      Location: /*
+
+    public static int Utility() => 0;
+                      ^^^^^^^
+    public T Generic<T>(JsValue value) => default;
+*/
+ : (12,22)-(12,29),
       Message: Method 'Utility' on 'Model' is reached through reflection: it is static, and the generated read, write and invoke lanes are instance lanes,
       Severity: Info,
       WarningLevel: 1,
@@ -15,7 +21,13 @@
       }
     },
     {
-      Location: : (13,13)-(13,20),
+      Location: /*
+    public static int Utility() => 0;
+    public T Generic<T>(JsValue value) => default;
+             ^^^^^^^
+    public ref int Slot() => ref _slot;
+*/
+ : (13,13)-(13,20),
       Message: Method 'Generic' on 'Model' is reached through reflection: it is generic, and its type arguments are chosen per call,
       Severity: Info,
       WarningLevel: 1,
@@ -29,7 +41,13 @@
       }
     },
     {
-      Location: : (14,19)-(14,23),
+      Location: /*
+    public T Generic<T>(JsValue value) => default;
+    public ref int Slot() => ref _slot;
+                   ^^^^
+    public JsValue Coerced(string text) => text;
+*/
+ : (14,19)-(14,23),
       Message: Method 'Slot' on 'Model' is reached through reflection: it returns by reference,
       Severity: Info,
       WarningLevel: 1,
@@ -43,7 +61,13 @@
       }
     },
     {
-      Location: : (15,34)-(15,38),
+      Location: /*
+    public ref int Slot() => ref _slot;
+    public JsValue Coerced(string text) => text;
+                                  ^^^^
+    public JsValue Defaulted(JsValue value, JsValue other = null) => value;
+*/
+ : (15,34)-(15,38),
       Message: Method 'Coerced' on 'Model' is reached through reflection: parameter 'text' is typed 'string' rather than JsValue, so its reflected binding is a conversion chain steered by engine options,
       Severity: Info,
       WarningLevel: 1,
@@ -57,7 +81,13 @@
       }
     },
     {
-      Location: : (16,52)-(16,57),
+      Location: /*
+    public JsValue Coerced(string text) => text;
+    public JsValue Defaulted(JsValue value, JsValue other = null) => value;
+                                                    ^^^^^
+    public JsValue Spread(params JsValue[] values) => values[0];
+*/
+ : (16,52)-(16,57),
       Message: Method 'Defaulted' on 'Model' is reached through reflection: parameter 'other' is optional, and its default is applied by the reflected binder,
       Severity: Info,
       WarningLevel: 1,
@@ -71,7 +101,13 @@
       }
     },
     {
-      Location: : (17,43)-(17,49),
+      Location: /*
+    public JsValue Defaulted(JsValue value, JsValue other = null) => value;
+    public JsValue Spread(params JsValue[] values) => values[0];
+                                           ^^^^^^
+    public JsValue ByRef(ref JsValue value) => value;
+*/
+ : (17,43)-(17,49),
       Message: Method 'Spread' on 'Model' is reached through reflection: parameter 'values' is a params parameter, whose reflected binding spreads the remaining arguments,
       Severity: Info,
       WarningLevel: 1,
@@ -85,7 +121,13 @@
       }
     },
     {
-      Location: : (18,37)-(18,42),
+      Location: /*
+    public JsValue Spread(params JsValue[] values) => values[0];
+    public JsValue ByRef(ref JsValue value) => value;
+                                     ^^^^^
+}
+*/
+ : (18,37)-(18,42),
       Message: Method 'ByRef' on 'Model' is reached through reflection: parameter 'value' is passed by reference,
       Severity: Info,
       WarningLevel: 1,

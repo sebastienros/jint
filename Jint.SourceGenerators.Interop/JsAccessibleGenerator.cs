@@ -32,8 +32,7 @@ public sealed class JsAccessibleGenerator : IIncrementalGenerator
                 JsAccessibleAttributeMetadataName,
                 predicate: static (node, _) => node is TypeDeclarationSyntax,
                 transform: static (ctx, ct) => AccessibleTypeResult.From(ctx, ct))
-            .Where(static result => result is not null)
-            .Collect();
+            .Where(static result => result is not null);
 
         var rootNamespace = context.AnalyzerConfigOptionsProvider
             .Select(static (provider, _) =>
@@ -41,33 +40,24 @@ public sealed class JsAccessibleGenerator : IIncrementalGenerator
             .Combine(context.CompilationProvider.Select(static (compilation, _) => compilation.AssemblyName))
             .Select(static (pair, _) => SanitizeNamespace(pair.Left) ?? SanitizeNamespace(pair.Right) ?? string.Empty);
 
-        context.RegisterSourceOutput(types.Combine(rootNamespace), static (spc, pair) =>
+        // Two outputs, and the split is load-bearing rather than tidy. A reported decline carries a real
+        // Location, because that is the only kind an .editorconfig severity can reach — and a Location is
+        // not a value, so anything holding one re-runs on every edit. Selecting the definitions first, which
+        // carry no location at all, keeps emission on the cached path: an edit that moves an annotated
+        // declaration without changing what is generated re-runs the reporting and nothing else.
+        var definitions = types
+            .Select(static (result, _) => result!.Definition)
+            .Collect()
+            .Combine(rootNamespace);
+
+        context.RegisterSourceOutput(definitions, static (spc, pair) =>
         {
-            var results = Deduplicate(pair.Left!);
-
-            foreach (var result in results)
-            {
-                foreach (var diagnostic in result.Diagnostics)
-                {
-                    spc.ReportDiagnostic(diagnostic);
-                }
-            }
-
-            var definitions = ImmutableArray.CreateBuilder<AccessibleTypeDefinition>(results.Length);
-            foreach (var result in results)
-            {
-                if (result.Definition is not null)
-                {
-                    definitions.Add(result.Definition);
-                }
-            }
-
-            if (definitions.Count == 0)
+            var emitted = DeduplicateDefinitions(pair.Left);
+            if (emitted.Length == 0)
             {
                 return;
             }
 
-            var emitted = definitions.ToImmutable();
             foreach (var definition in emitted)
             {
                 spc.AddSource(definition.HintName, SourceText.From(JsAccessibleEmitter.EmitType(definition), Encoding.UTF8));
@@ -77,14 +67,43 @@ public sealed class JsAccessibleGenerator : IIncrementalGenerator
                 "JsAccessibleRegistration.g.cs",
                 SourceText.From(JsAccessibleEmitter.EmitRegistration(pair.Right, emitted), Encoding.UTF8));
         });
+
+        context.RegisterSourceOutput(types.Collect(), static (spc, results) =>
+        {
+            foreach (var result in DeduplicateResults(results))
+            {
+                foreach (var diagnostic in result.Diagnostics)
+                {
+                    spc.ReportDiagnostic(diagnostic);
+                }
+            }
+        });
     }
 
     /// <summary>
     /// One entry per annotated type, ordered by the path that names it so the emitted registration — and the
     /// order the diagnostics are reported in — is stable whatever order the compilation reported the
-    /// declarations in.
+    /// declarations in. Deduplicating is what makes a <c>partial class</c> carrying the attribute on two of
+    /// its parts produce one file and one set of diagnostics rather than two of each.
     /// </summary>
-    private static ImmutableArray<AccessibleTypeResult> Deduplicate(ImmutableArray<AccessibleTypeResult?> results)
+    private static ImmutableArray<AccessibleTypeDefinition> DeduplicateDefinitions(ImmutableArray<AccessibleTypeDefinition?> definitions)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var unique = new List<AccessibleTypeDefinition>(definitions.Length);
+        foreach (var definition in definitions)
+        {
+            if (definition is not null && seen.Add(definition.MetadataPath))
+            {
+                unique.Add(definition);
+            }
+        }
+
+        unique.Sort(static (a, b) => string.CompareOrdinal(a.MetadataPath, b.MetadataPath));
+        return unique.ToImmutableArray();
+    }
+
+    /// <inheritdoc cref="DeduplicateDefinitions" />
+    private static ImmutableArray<AccessibleTypeResult> DeduplicateResults(ImmutableArray<AccessibleTypeResult?> results)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var unique = new List<AccessibleTypeResult>(results.Length);

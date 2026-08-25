@@ -2,6 +2,8 @@ using static Jint.Tests.SourceGenerators.VerifyHelper;
 
 namespace Jint.Tests.SourceGenerators;
 
+#pragma warning disable NUnit2045 // the assertions describe one location each, and the first failure names it
+
 #pragma warning disable NUnit1032 // Verify is used as a static helper, not async-disposable infra
 
 /// <summary>
@@ -220,6 +222,63 @@ public class JsAccessibleGeneratorTests
                 public static int Score { get; set; }
             }
             """);
+    }
+
+    /// <summary>
+    /// Every reported decline has to point at a syntax tree the compilation actually holds, because that is
+    /// the one thing an <c>.editorconfig</c> severity depends on: the compiler resolves
+    /// <c>dotnet_diagnostic.JINT03x.severity</c> per tree, and falls back to the global configuration alone
+    /// when <c>Location.SourceTree</c> is <see langword="null"/>. A diagnostic whose location was rebuilt
+    /// from a file path — which is what <c>Location.Create(string, TextSpan, LinePositionSpan)</c> produces,
+    /// and what the sibling generator's <c>DiagnosticInfo</c> does — therefore keeps its default severity
+    /// whatever a host writes, silently. Nothing else in this suite would notice: the snapshots record the
+    /// line and column either way.
+    /// </summary>
+    [Test]
+    public void EveryDiagnosticPointsAtATreeTheCompilationHolds()
+    {
+        var (diagnostics, compilation) = VerifyHelper.RunJsAccessibleGeneratorFor("""
+            using Jint;
+            using Jint.Native;
+
+            namespace Sample;
+
+            [JsAccessible]
+            public sealed class Model
+            {
+                public int Kept { get; set; }
+                public int PrivateSetter { get; private set; }
+                public string Shout(string text) => text;
+                public static int StaticMethod() => 0;
+                public int this[string key] => 0;
+            }
+
+            [JsAccessible]
+            public abstract class Abstract
+            {
+                public int Score { get; set; }
+            }
+
+            [JsAccessible]
+            public sealed class Marker
+            {
+            }
+            """);
+
+        Assert.That(diagnostics, Is.Not.Empty);
+
+        foreach (var diagnostic in diagnostics)
+        {
+            Assert.That(
+                diagnostic.Location.SourceTree,
+                Is.Not.Null,
+                $"{diagnostic.Id} has no source tree, so no .editorconfig severity can reach it");
+
+            Assert.That(
+                compilation.SyntaxTrees,
+                Does.Contain(diagnostic.Location.SourceTree),
+                $"{diagnostic.Id} points at a tree the compilation does not hold");
+        }
     }
 
     [Test]
