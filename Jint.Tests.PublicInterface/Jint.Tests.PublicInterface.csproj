@@ -1,15 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Deliberately NOT net8.0, unlike Jint.Tests. A net8.0 leg here wedges the xUnit pipeline on
-         macOS: the run reports ~486 of 2554 tests, then makes no progress for a further minute -
-         including after the net10.0 leg has exited and left it the machine - and dies with a bare
-         Xunit.Sdk.TestPipelineException. Reproduced on three CI runs at the same point each time, and
-         only on macOS: the same leg is green on linux, linux-ARM and windows, Jint.Tests runs its own
-         two legs concurrently on that same macOS runner, and the net8.0 asset itself passes 10,602
-         tests there. Tracked in https://github.com/sebastienros/jint/issues/3308 - restore the leg
-         with that issue, not before. -->
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);612;xUnit1051</NoWarn>

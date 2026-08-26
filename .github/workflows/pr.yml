@@ -69,6 +69,109 @@ jobs:
     - name: Test
       run: dotnet test --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
 
+  # TEMPORARY, and non-gating: the instrument for https://github.com/sebastienros/jint/issues/3308. Delete
+  # this job with the issue. The macOS leg above cannot say what went wrong there, for reasons that are all
+  # in the pipeline rather than in the suite:
+  #
+  #   * the Xunit.Sdk.TestPipelineException is synthesised by xunit.runner.visualstudio's
+  #     CrashDetectionExecutionSink when the test process stops talking without ever sending
+  #     TestAssemblyFinished. Its one message line — "Test process crashed with exit code N." or
+  #     "...or communication channel was lost." — is logged at Informational, which
+  #     `console;verbosity=quiet` drops, leaving the bare type name;
+  #   * the adapter starts the test assembly's app host with only stdin and stdout redirected, so a runtime
+  #     crash banner on stderr goes to the test host's stderr and is never surfaced;
+  #   * and the sixty seconds of "no progress" are the crash detector counting down, not the suite hanging.
+  #
+  # So this job runs the same net8.0 binary the same way the adapter does — directly, as its own process —
+  # where the exit code, stderr and macOS's own crash report are all just there.
+  net8-publicinterface-macos:
+
+    name: 'macos - net8.0 PublicInterface (#3308)'
+
+    runs-on: macos-latest
+
+    continue-on-error: true
+
+    env:
+      # Off everywhere else. Writes one stderr line per test start and finish, which is the only record that
+      # survives a process that dies without reporting. See Jint.Tests.PublicInterface/TestProcessTrace.cs.
+      JINT_TEST_TRACE: 1
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: |
+          8.0
+          10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Build
+      run: dotnet build Jint.Tests.PublicInterface/Jint.Tests.PublicInterface.csproj --configuration Release
+
+    # No `dotnet test`, no VSTest, no adapter: this is the executable the adapter would have launched. A
+    # crash therefore reports itself the way any process does — 139 is SIGSEGV, 134 SIGABRT, 137 the OOM
+    # killer — and .NET's own "Stack overflow." / "Unhandled exception." banner reaches the log.
+    - name: Run the net8.0 assembly directly, in parallel
+      id: parallel
+      run: |
+        set +e
+        ./artifacts/bin/Jint.Tests.PublicInterface/release_net8.0/Jint.Tests.PublicInterface -diagnostics > parallel.log 2>&1
+        code=$?
+        set -e
+        echo "exit=$code" >> "$GITHUB_OUTPUT"
+        echo "### Parallel run: exit code $code" >> "$GITHUB_STEP_SUMMARY"
+        echo "started: $(grep -c '^>>>' parallel.log || true), finished: $(grep -c '^<<<' parallel.log || true)"
+        echo '--- tests still open when the process ended ---'
+        # Everything started that never finished. On a crash this is the short list the culprit is in.
+        awk -F' :: ' '/^>>>/ { open[$2] = 1 } /^<<</ { delete open[$2] } END { for (t in open) print t }' parallel.log
+        echo '--- last 120 lines ---'
+        tail -120 parallel.log
+
+    # A second, serial pass, so that "still open" is one test rather than a handful. Runs whatever the first
+    # pass did, because a first pass that stayed green is itself the finding.
+    - name: Run the net8.0 assembly directly, serially
+      if: always()
+      run: |
+        set +e
+        ./artifacts/bin/Jint.Tests.PublicInterface/release_net8.0/Jint.Tests.PublicInterface -diagnostics -parallelMode none -maxThreads 1 > serial.log 2>&1
+        code=$?
+        set -e
+        echo "### Serial run: exit code $code" >> "$GITHUB_STEP_SUMMARY"
+        echo "started: $(grep -c '^>>>' serial.log || true), finished: $(grep -c '^<<<' serial.log || true)"
+        echo '--- tests still open when the process ended ---'
+        awk -F' :: ' '/^>>>/ { open[$2] = 1 } /^<<</ { delete open[$2] } END { for (t in open) print t }' serial.log
+        echo '--- last started ---'
+        grep '^>>>' serial.log | tail -3
+        echo '--- last 120 lines ---'
+        tail -120 serial.log
+
+    # macOS writes a per-crash .ips report with the signal and the faulting thread's native backtrace, which
+    # is the one artefact that distinguishes a stack overflow from an abort from a native fault.
+    - name: Crash reports
+      if: always()
+      run: |
+        shopt -s nullglob
+        reports=(~/Library/Logs/DiagnosticReports/*.ips ~/Library/Logs/DiagnosticReports/*.crash)
+        echo "${#reports[@]} crash report(s)"
+        for report in "${reports[@]}"; do
+          echo "===== $report"
+          head -200 "$report"
+        done
+
+    - name: Upload the logs
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: net8-publicinterface-macos
+        path: |
+          parallel.log
+          serial.log
+        if-no-files-found: warn
+
   # The matrix above is the shipped configuration: Release with host-contract verification off, which is what
   # the probe-count and no-descriptor pins in Jint.Tests.PublicInterface document as costing nothing. This leg
   # is the other one an embedder is told to use — the shipped Release package with
