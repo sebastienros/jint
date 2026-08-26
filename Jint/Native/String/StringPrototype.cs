@@ -1304,49 +1304,57 @@ internal sealed partial class StringPrototype : StringInstance
             return emptyResult;
         }
 
-        var segments = StringExecutionContext.Current.SplitSegmentList;
-        segments.Clear();
-
-        // Direct scan instead of string.Split: avoids the throwaway result array
-        // string.Split allocates on every call, and stops scanning once lim
-        // segments have been collected. Each segment goes through CreateSliced so the
-        // retention policy decides copy vs zero-copy view against the source length.
-        var start = 0;
-        while ((uint) segments.Count < lim)
+        // Rented rather than taken: the loops below run the engine's constraints, a host constraint may run
+        // script, and a split reached that way shares this thread's buffer. See RentSplitSegmentList.
+        var stringContext = StringExecutionContext.Current;
+        var segments = stringContext.RentSplitSegmentList();
+        try
         {
-            if (segments.Count > 0 && segments.Count % ConstraintCheckInterval == 0)
+            // Direct scan instead of string.Split: avoids the throwaway result array
+            // string.Split allocates on every call, and stops scanning once lim
+            // segments have been collected. Each segment goes through CreateSliced so the
+            // retention policy decides copy vs zero-copy view against the source length.
+            var start = 0;
+            while ((uint) segments.Count < lim)
             {
-                engine.Constraints.Check();
+                if (segments.Count > 0 && segments.Count % ConstraintCheckInterval == 0)
+                {
+                    engine.Constraints.Check();
+                }
+
+                var index = sep.Length == 1
+                    ? s.IndexOf(sep[0], start)
+                    : s.IndexOf(sep, start, StringComparison.Ordinal);
+
+                if (index < 0)
+                {
+                    segments.Add(JsString.CreateSliced(s, start, s.Length - start));
+                    break;
+                }
+
+                segments.Add(JsString.CreateSliced(s, start, index - start));
+                start = index + sep.Length;
             }
 
-            var index = sep.Length == 1
-                ? s.IndexOf(sep[0], start)
-                : s.IndexOf(sep, start, StringComparison.Ordinal);
-
-            if (index < 0)
+            var length = (uint) System.Math.Min(segments.Count, lim);
+            var a = realm.Intrinsics.Array.ArrayCreate(length);
+            for (int i = 0; i < length; i++)
             {
-                segments.Add(JsString.CreateSliced(s, start, s.Length - start));
-                break;
+                if (i > 0 && i % ConstraintCheckInterval == 0)
+                {
+                    engine.Constraints.Check();
+                }
+
+                a.SetIndexValue((uint) i, segments[i], updateLength: false);
             }
 
-            segments.Add(JsString.CreateSliced(s, start, index - start));
-            start = index + sep.Length;
+            a.SetLength(length);
+            return a;
         }
-
-        var length = (uint) System.Math.Min(segments.Count, lim);
-        var a = realm.Intrinsics.Array.ArrayCreate(length);
-        for (int i = 0; i < length; i++)
+        finally
         {
-            if (i > 0 && i % ConstraintCheckInterval == 0)
-            {
-                engine.Constraints.Check();
-            }
-
-            a.SetIndexValue((uint) i, segments[i], updateLength: false);
+            stringContext.ReturnSplitSegmentList(segments);
         }
-
-        a.SetLength(length);
-        return a;
     }
 
     /// <summary>
