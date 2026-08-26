@@ -482,7 +482,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         var adjustedDuration = new DurationRecord(
             duration.Years, duration.Months, duration.Weeks,
             duration.Days + (long) dayOverflow, 0, 0, 0, 0, 0, 0);
-        var regulated = TemporalHelpers.CalendarDateAdd(_realm, plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, adjustedDuration, overflow);
+        var regulated = TemporalHelpers.CalendarDateAdd(_engine, _realm, plainDateTime.Calendar, plainDateTime.IsoDateTime.Date, adjustedDuration, overflow);
 
         // Step 6: Construct validates ISODateTimeWithinLimits
         var newTime = IsoTime.FromNanoseconds((long) timeNs);
@@ -584,6 +584,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         // Step 6: Get rounded difference
         // DifferencePlainDateTimeWithRounding returns an already-balanced DurationRecord
         var result = TemporalHelpers.DifferencePlainDateTimeWithRounding(
+            _engine,
             _realm,
             dateTime.IsoDateTime,
             other.IsoDateTime,

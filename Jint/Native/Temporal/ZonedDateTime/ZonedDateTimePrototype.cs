@@ -1194,7 +1194,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
     private BigInteger AddDurationToZonedDateTime(JsZonedDateTime zdt, DurationRecord duration, string overflow)
     {
         var provider = _engine.Options.Temporal.TimeZoneProvider;
-        return TemporalHelpers.AddZonedDateTime(_realm, provider, zdt.EpochNanoseconds, zdt.TimeZone, zdt.Calendar, duration, overflow);
+        return TemporalHelpers.AddZonedDateTime(_engine, _realm, provider, zdt.EpochNanoseconds, zdt.TimeZone, zdt.Calendar, duration, overflow);
     }
 
     /// <summary>
@@ -1276,6 +1276,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
         // Step 16: Call DifferenceZonedDateTimeWithRounding for calendar-aware difference
         var timeZoneProvider = _engine.Options.Temporal.TimeZoneProvider;
         var finalResult = TemporalHelpers.DifferenceZonedDateTimeWithRounding(
+            _engine,
             _realm,
             timeZoneProvider,
             zonedDateTime.EpochNanoseconds,

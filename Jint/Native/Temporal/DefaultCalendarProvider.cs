@@ -23,11 +23,19 @@ namespace Jint.Native.Temporal;
 /// </para>
 /// <para>
 /// A calendar added this way reaches construction from fields and from a <c>[u-ca=…]</c> annotation, every
-/// field accessor, <c>with</c>, <c>toString</c> and the <c>PlainYearMonth</c> / <c>PlainMonthDay</c>
-/// conversions. It does not reach calendar arithmetic — <c>add</c>, <c>subtract</c>, <c>until</c>,
-/// <c>since</c> — which is implemented per calendar inside the engine and raises a <c>RangeError</c> for a
-/// calendar it does not implement; nor <c>Intl.DateTimeFormat</c>, which has its own calendar list, so
-/// <c>toLocaleString</c> on such a date raises a <c>RangeError</c> too.
+/// field accessor, <c>with</c>, <c>toString</c>, the <c>PlainYearMonth</c> / <c>PlainMonthDay</c>
+/// conversions, and calendar arithmetic — <c>add</c>, <c>subtract</c>, <c>until</c>, <c>since</c> — which
+/// walks the two conversions below rather than any table of its own, so a year is however many months the
+/// provider says that year holds and a month is however many days it says that month holds. The one thing
+/// it does not reach is <c>Intl.DateTimeFormat</c>, which has its own calendar list, so
+/// <c>toLocaleString</c> on such a date raises a <c>RangeError</c>.
+/// </para>
+/// <para>
+/// The same walk answers for a calendar this class already implements once a derived provider is installed,
+/// because the inherited <see cref="GetSupportedCalendars"/> claims all eleven and the conversions are what
+/// the field accessors were already reading. That is deliberate: a host that corrects one calendar gets the
+/// correction in its arithmetic too, and one that corrects none gets the same dates either way, since the
+/// inherited conversions are the same data the per-calendar implementations read.
 /// </para>
 /// </remarks>
 /// <example>

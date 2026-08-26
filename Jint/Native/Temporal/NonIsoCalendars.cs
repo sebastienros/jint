@@ -222,19 +222,161 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Whether the engine's <see cref="ICalendarProvider"/> is the one that answers for this calendar.
+    /// It is the same identity-then-membership test <see cref="IsoToCalendarDate"/> and
+    /// <see cref="CalendarDateToIso"/> already make, asked once here so that a date's arithmetic and its
+    /// field accessors are never answered by two different reckonings.
+    /// </summary>
+    private static bool AnsweredByProvider(string calendar, [NotNullWhen(true)] Engine? engine)
+    {
+        var provider = engine?.Options.Temporal.CalendarProvider;
+        return provider is not null
+            && !ReferenceEquals(provider, DefaultCalendarProvider.Instance)
+            && provider.IsSupported(calendar);
+    }
+
+    /// <summary>
+    /// The calendar fields of the first of (<paramref name="year"/>, <paramref name="ordinalMonth"/>), or
+    /// null when the conversion cannot place that month. Everything the walk below needs to know about a
+    /// month it has not landed on yet — how long it is, how many months its year holds — is read back off
+    /// a trip out to ISO and straight back in, because those two conversions are all an
+    /// <see cref="ICalendarProvider"/> supplies.
+    /// </summary>
+    private static CalendarDate? ProviderProbeMonth(string calendar, int year, int ordinalMonth, Engine engine)
+    {
+        var iso = CalendarDateToIso(calendar, year, null, ordinalMonth, 1, "constrain", engine);
+        return iso is null ? null : IsoToCalendarDate(calendar, iso.Value, engine);
+    }
+
+    /// <summary>
+    /// The number of months in a calendar year, read off the same probe. A year the provider cannot place
+    /// at all has no month count, and answering zero would leave the month-stepping loop below turning
+    /// forever, so it raises the "reject" signal the caller already reports as a <c>RangeError</c>.
+    /// </summary>
+    private static int ProviderMonthsInYear(string calendar, int year, Engine engine)
+    {
+        var probe = ProviderProbeMonth(calendar, year, 1, engine);
+        if (probe is null || probe.Value.MonthsInYear < 1)
+        {
+            throw new InvalidOperationException("reject");
+        }
+
+        return probe.Value.MonthsInYear;
+    }
+
+    /// <summary>
+    /// The same year-then-month-then-day walk the per-calendar implementations below make, expressed only
+    /// in terms of the two conversions an <see cref="ICalendarProvider"/> supplies, for a calendar whose
+    /// reckoning nobody but the provider knows. Every conversion here can decline to answer; each one that
+    /// does ends in the "reject" signal an out-of-range date already raises and the caller already turns
+    /// into a <c>RangeError</c>, so no null is dereferenced and no CLR exception leaves the engine.
+    /// </summary>
+    private static IsoDate ProviderCalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow, Engine engine)
+    {
+        var reject = string.Equals(overflow, "reject", StringComparison.Ordinal);
+        var calDate = IsoToCalendarDate(calendar, in isoDate, engine);
+        var newYear = calDate.Year + years;
+        int newOrdinalMonth;
+
+        if (years != 0)
+        {
+            // Years move by monthCode, never by ordinal: a lunisolar year need not hold as many months as
+            // the one beside it, so the fourth month of one year is not the fourth month of the next.
+            // Asking the provider to place the same monthCode in the target year is what carries the
+            // meaning across, and a rejected placement is how it says that code does not occur there.
+            var placed = CalendarDateToIso(calendar, newYear, calDate.MonthCode, 0, 1, "reject", engine);
+            if (placed is not null)
+            {
+                newOrdinalMonth = IsoToCalendarDate(calendar, placed.Value, engine).Month;
+            }
+            else
+            {
+                // A leap month landing in a year that has no such leap month. Constraining moves to the
+                // calendar's own non-leap equivalent, which is the rule the per-calendar paths apply too;
+                // if even that will not place, the ordinal it started from is the last thing left to try.
+                if (reject)
+                {
+                    throw new InvalidOperationException("reject");
+                }
+
+                var fallbackCode = NonLeapEquivalentMonthCode(calendar, calDate.MonthCode);
+                var fallback = CalendarDateToIso(calendar, newYear, fallbackCode, 0, 1, "constrain", engine);
+                newOrdinalMonth = fallback is null
+                    ? calDate.Month
+                    : IsoToCalendarDate(calendar, fallback.Value, engine).Month;
+            }
+        }
+        else
+        {
+            newOrdinalMonth = calDate.Month;
+        }
+
+        if (months != 0)
+        {
+            newOrdinalMonth += months;
+            var monthsInYear = ProviderMonthsInYear(calendar, newYear, engine);
+            while (newOrdinalMonth > monthsInYear)
+            {
+                newOrdinalMonth -= monthsInYear;
+                newYear++;
+                monthsInYear = ProviderMonthsInYear(calendar, newYear, engine);
+            }
+
+            while (newOrdinalMonth < 1)
+            {
+                newYear--;
+                newOrdinalMonth += ProviderMonthsInYear(calendar, newYear, engine);
+            }
+        }
+
+        // The length of the month landed on stays the provider's to state, so the day is clamped against a
+        // probe of that month rather than against anything computed here.
+        var target = ProviderProbeMonth(calendar, newYear, newOrdinalMonth, engine);
+        if (target is null)
+        {
+            throw new InvalidOperationException("reject");
+        }
+
+        var newDay = calDate.Day;
+        if (newDay > target.Value.DaysInMonth)
+        {
+            if (reject)
+            {
+                throw new InvalidOperationException("reject");
+            }
+
+            newDay = target.Value.DaysInMonth;
+        }
+
+        var result = CalendarDateToIso(calendar, newYear, null, newOrdinalMonth, newDay, "constrain", engine);
+        if (result is null)
+        {
+            throw new InvalidOperationException("reject");
+        }
+
+        return result.Value;
+    }
+
+    /// <summary>
     /// Adds years and months to an ISO date using calendar-specific reckoning.
     /// Years are added preserving monthCode semantics (not ordinal month).
     /// Months are added as ordinal month steps.
     /// </summary>
     /// <remarks>
-    /// Note: <see cref="ICalendarProvider"/> is consulted only for IsoToCalendarFields /
-    /// CalendarFieldsToIso. Higher-level calendar arithmetic (this method, CalendarDateUntil,
-    /// MaxDaysForChineseLeapMonth, etc.) currently uses the BCL/inline implementations
-    /// regardless of the registered provider. A custom provider that needs different
-    /// add/until semantics will need this helper threaded through too.
+    /// A calendar a host <see cref="ICalendarProvider"/> answers for is walked by
+    /// <see cref="ProviderCalendarDateAdd"/>, through the provider's own two conversions — which is what
+    /// gives a calendar the host added arithmetic at all, and what keeps a calendar the host corrected
+    /// from being corrected in its field accessors and not in its arithmetic. The per-calendar
+    /// implementations below answer for every calendar the provider leaves to the engine, so an engine
+    /// that configures nothing reaches exactly the same one it always did.
     /// </remarks>
-    internal static IsoDate CalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow)
+    internal static IsoDate CalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow, Engine? engine = null)
     {
+        if (AnsweredByProvider(calendar, engine))
+        {
+            return ProviderCalendarDateAdd(calendar, in isoDate, years, months, overflow, engine);
+        }
+
         // For calendars that use epoch-day arithmetic (coptic/ethiopic/ethioaa)
         // or Indian calendar, handle them directly
         if (calendar is "coptic" or "ethiopic" or "ethioaa")
@@ -253,7 +395,7 @@ internal static class NonIsoCalendars
         }
 
         var cal = GetCalendar(calendar);
-        var calDate = IsoToCalendarDate(calendar, in isoDate);
+        var calDate = IsoToCalendarDate(calendar, in isoDate, engine);
         var newYear = calDate.Year + years;
         int newOrdinalMonth;
 
@@ -350,6 +492,31 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Whether stepping <paramref name="months"/> months out from <paramref name="one"/> lands past
+    /// <paramref name="calTwo"/>, and where that step landed. The comparison is made in calendar-field
+    /// space with the day left un-constrained: a day the step had to force down to fit a shorter target
+    /// month still counts from where it started, which is the "would the original day exist there?"
+    /// criterion the specification's ISODateSurpasses states and the polyfill implements.
+    /// </summary>
+    private static bool MonthStepSurpasses(
+        string calendar,
+        in IsoDate one,
+        in CalendarDate calOne,
+        in CalendarDate calTwo,
+        int years,
+        int months,
+        int sign,
+        Engine? engine,
+        out IsoDate stepped)
+    {
+        stepped = CalendarDateAdd(calendar, in one, years, months, "constrain", engine);
+        var steppedCal = IsoToCalendarDate(calendar, in stepped, engine);
+        var notionalDay = steppedCal.Day != calOne.Day ? calOne.Day : steppedCal.Day;
+        var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, steppedCal.Year, steppedCal.MonthCode, notionalDay);
+        return ccd * sign < 0;
+    }
+
+    /// <summary>
     /// Computes the difference between two ISO dates using calendar-specific reckoning.
     /// Mirrors the temporal-polyfill HelperBase.untilCalendar algorithm:
     /// (1) compute years from a "diffInYearSign" formula based on monthCode/day position,
@@ -358,7 +525,13 @@ internal static class NonIsoCalendars
     ///     un-constrained (so a day forced down by AddCalendar still counts as "past target"),
     /// (4) measure remaining days as ISO epoch-day diff.
     /// </summary>
-    internal static DurationRecord CalendarDateUntil(string calendar, in IsoDate one, in IsoDate two, string largestUnit)
+    /// <remarks>
+    /// Every calendar-specific step here is one of <see cref="IsoToCalendarDate"/> or
+    /// <see cref="CalendarDateAdd"/>, so threading <paramref name="engine"/> through is the whole of what a
+    /// calendar a host <see cref="ICalendarProvider"/> answers for needs: the difference is then measured
+    /// in the provider's own fields, the way its <c>add</c> already moves in them.
+    /// </remarks>
+    internal static DurationRecord CalendarDateUntil(string calendar, in IsoDate one, in IsoDate two, string largestUnit, Engine? engine = null)
     {
         var rawSign = TemporalHelpers.CompareIsoDates(one, two);
         if (rawSign == 0)
@@ -386,8 +559,8 @@ internal static class NonIsoCalendars
         // Spec convention: sign = +1 if two > one (forward), -1 if backward.
         var sign = -rawSign;
 
-        var calOne = IsoToCalendarDate(calendar, in one);
-        var calTwo = IsoToCalendarDate(calendar, in two);
+        var calOne = IsoToCalendarDate(calendar, in one, engine);
+        var calTwo = IsoToCalendarDate(calendar, in two, engine);
 
         var years = 0;
         var diffYears = calTwo.Year - calOne.Year;
@@ -410,8 +583,8 @@ internal static class NonIsoCalendars
             // day-overflow within the same year boundary all flow through this check.
             if (years != 0)
             {
-                var check = CalendarDateAdd(calendar, in one, years, 0, "constrain");
-                var checkCal = IsoToCalendarDate(calendar, in check);
+                var check = CalendarDateAdd(calendar, in one, years, 0, "constrain", engine);
+                var checkCal = IsoToCalendarDate(calendar, in check, engine);
                 var notional = checkCal.Day != calOne.Day ? calOne.Day : checkCal.Day;
                 var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, checkCal.Year, checkCal.MonthCode, notional);
                 if (ccd * sign < 0)
@@ -426,49 +599,57 @@ internal static class NonIsoCalendars
         {
             if (years != 0)
             {
-                // Whole-year skip estimate. The iteration loop below corrects for
-                // year-length variation in lunisolar calendars (Hebrew/Chinese/Dangi).
-                var monthsPerCycle = calendar is "coptic" or "ethiopic" or "ethioaa" ? 13 : 12;
-                months = years * monthsPerCycle;
+                // Whole-year skip estimate. How many months a year holds is the calendar's own answer, and
+                // for one only a provider knows nothing else here can give it, so the count the conversion
+                // already reported for the starting date's year is the guess — a guess, because the year
+                // beside it may hold one more or one fewer in a lunisolar calendar.
+                months = years * System.Math.Max(calOne.MonthsInYear, 1);
             }
             years = 0;
         }
 
+        // The iteration below only ever steps in the direction of sign, so an estimate that has already
+        // reached past two would be returned as it stands and the overshoot would come back as a negative
+        // day count. Walk it back a month at a time until it is short of two again; an estimate that was
+        // never past it leaves this loop untouched.
+        while (months != 0 && MonthStepSurpasses(calendar, in one, in calOne, in calTwo, years, months, sign, engine, out _))
+        {
+            months -= sign;
+        }
+
         var currentIso = years != 0 || months != 0
-            ? CalendarDateAdd(calendar, in one, years, months, "constrain")
+            ? CalendarDateAdd(calendar, in one, years, months, "constrain", engine)
             : one;
 
         while (true)
         {
             var prevMonths = months;
             months += sign;
-            var nextIso = CalendarDateAdd(calendar, in one, years, months, "constrain");
 
-            // The loop's only exit is "this step passed two", so a step that does not move the date
-            // never takes it: one more month of a walk that stands still is still standing still,
-            // however many are taken. Every conversion that used to saturate now raises
-            // CalendarRangeException rather than answering with a boundary date, which is what makes
-            // this a structural guarantee rather than a live path -- and it stays here so that a future
-            // calendar, or a host-supplied one, cannot reintroduce the hang of issue #3428 by adding a
-            // clamp somewhere below.
-            if (nextIso == currentIso)
-            {
-                throw new CalendarRangeException(calendar);
-            }
-
-            var nextCal = IsoToCalendarDate(calendar, in nextIso);
-            // Un-constrain the day in calendar-field space: if AddCalendar forced day down
-            // to fit the target month, we still want to consider "next" as standing at the
-            // source's original day for comparison (matches polyfill behavior).
-            var notionalDay = nextCal.Day != calOne.Day ? calOne.Day : nextCal.Day;
-
-            var ccd = CompareCalendarFields(calTwo.Year, calTwo.MonthCode, calTwo.Day, nextCal.Year, nextCal.MonthCode, notionalDay);
-
-            // Continue while ccd * sign >= 0 (next has not yet passed two).
-            if (ccd * sign < 0)
+            // Continue while the step has not yet passed two.
+            if (MonthStepSurpasses(calendar, in one, in calOne, in calTwo, years, months, sign, engine, out var nextIso))
             {
                 months = prevMonths;
                 break;
+            }
+
+            // The loop's only exit above is "this step passed two", so a step that does not move the
+            // date never takes it: one more month of a walk that stands still is still standing still,
+            // however many are taken. Without this the loop turns forever — a script asking a Chinese
+            // date for its distance to a date before 1901 never returned, and no execution constraint
+            // interrupts a CLR loop that crosses no statement boundary
+            // (https://github.com/sebastienros/jint/issues/3428).
+            //
+            // For the eleven calendars the engine reckons itself this is now a structural guarantee
+            // rather than a live path: every conversion that used to saturate raises
+            // CalendarRangeException instead of answering with a boundary date. It stays because the
+            // walk above is written in whichever two conversions answer for the calendar, and a host
+            // ICalendarProvider is free to clamp where the engine no longer does. Either way a walk
+            // that cannot reach its target is a difference the calendar cannot represent, and that is
+            // the RangeError CalendarDateAdd raises — not a degraded answer that never reached two.
+            if (nextIso == currentIso)
+            {
+                throw new CalendarRangeException(calendar);
             }
 
             currentIso = nextIso;

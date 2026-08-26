@@ -424,7 +424,7 @@ internal sealed partial class DurationPrototype : Prototype
     {
         if (relativeTo.PlainRelativeTo is not null)
         {
-            return RoundDurationWithPlainDate(realm, duration, smallestUnit, largestUnit, roundingIncrement, roundingMode, relativeTo.PlainRelativeTo);
+            return RoundDurationWithPlainDate(engine, realm, duration, smallestUnit, largestUnit, roundingIncrement, roundingMode, relativeTo.PlainRelativeTo);
         }
 
         if (relativeTo.ZonedRelativeTo is not null)
@@ -437,6 +437,7 @@ internal sealed partial class DurationPrototype : Prototype
     }
 
     private static DurationRecord RoundDurationWithPlainDate(
+        Engine engine,
         Realm realm,
         DurationRecord duration,
         string smallestUnit,
@@ -490,7 +491,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 443: targetDate = CalendarDateAdd(calendar, relativeTo, dateDuration)
         var adjustedDuration = new DurationRecord(duration.Years, duration.Months, duration.Weeks, adjustedDays, 0, 0, 0, 0, 0, 0);
-        var targetDate = TemporalHelpers.CalendarDateAdd(realm, "iso8601", relativeDateStart, adjustedDuration, "constrain");
+        var targetDate = TemporalHelpers.CalendarDateAdd(engine, realm, "iso8601", relativeDateStart, adjustedDuration, "constrain");
 
         // Step 444-445: Combine isoDateTime and targetDateTime
         var isoDateTime = new IsoDateTime(relativeDateStart, IsoTime.Midnight);
@@ -504,6 +505,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 446: Call DifferencePlainDateTimeWithRounding
         return TemporalHelpers.DifferencePlainDateTimeWithRounding(
+            engine,
             realm,
             isoDateTime,
             targetDateTime,
@@ -537,6 +539,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 434: AddZonedDateTime to get target epoch nanoseconds
         var targetEpochNs = TemporalHelpers.AddZonedDateTime(
+            engine,
             realm,
             provider,
             relativeEpochNs,
@@ -547,6 +550,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 435: DifferenceZonedDateTimeWithRounding
         return TemporalHelpers.DifferenceZonedDateTimeWithRounding(
+            engine,
             realm,
             provider,
             relativeEpochNs,
@@ -924,7 +928,7 @@ internal sealed partial class DurationPrototype : Prototype
     {
         if (relativeTo.PlainRelativeTo is not null)
         {
-            return TotalDurationWithPlainDate(realm, duration, unit, relativeTo.PlainRelativeTo);
+            return TotalDurationWithPlainDate(engine, realm, duration, unit, relativeTo.PlainRelativeTo);
         }
 
         if (relativeTo.ZonedRelativeTo is not null)
@@ -936,6 +940,7 @@ internal sealed partial class DurationPrototype : Prototype
     }
 
     private static double TotalDurationWithPlainDate(
+        Engine engine,
         Realm realm,
         DurationRecord duration,
         string unit,
@@ -967,7 +972,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 494: CalendarDateAdd to get targetDate
         var calendar = plainRelativeTo.Calendar;
-        var targetDate = TemporalHelpers.CalendarDateAdd(realm, calendar, plainRelativeTo.IsoDate, adjustedDuration, "constrain");
+        var targetDate = TemporalHelpers.CalendarDateAdd(engine, realm, calendar, plainRelativeTo.IsoDate, adjustedDuration, "constrain");
 
         // Step 495-496: Combine start and target as IsoDateTime
         var isoDateTime = new IsoDateTime(plainRelativeTo.IsoDate, IsoTime.Midnight);
@@ -981,6 +986,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 497: Call DifferencePlainDateTimeWithTotal
         return TemporalHelpers.DifferencePlainDateTimeWithTotal(
+            engine,
             realm,
             isoDateTime,
             targetDateTime,
@@ -1009,6 +1015,7 @@ internal sealed partial class DurationPrototype : Prototype
         // Step 487: Add duration to get target epoch nanoseconds
         // Uses AddZonedDateTime which handles calendar-aware date addition + timezone-aware time addition
         var ns2 = TemporalHelpers.AddZonedDateTime(
+            engine,
             realm,
             provider,
             ns1,
@@ -1020,6 +1027,7 @@ internal sealed partial class DurationPrototype : Prototype
         // Step 488: Compute total using DifferenceZonedDateTimeWithTotal
         // This operation handles both calendar units and time units correctly
         return TemporalHelpers.DifferenceZonedDateTimeWithTotal(
+            engine,
             realm,
             provider,
             ns1,
@@ -1331,7 +1339,7 @@ internal sealed partial class DurationPrototype : Prototype
         // Per spec step 20: If plainRelativeTo is not undefined, ALWAYS use PlainDate path
         if (relativeToResult.PlainRelativeTo != null)
         {
-            var total = TotalDurationWithPlainDate(_realm, d, unit, relativeToResult.PlainRelativeTo);
+            var total = TotalDurationWithPlainDate(_engine, _realm, d, unit, relativeToResult.PlainRelativeTo);
             return JsNumber.Create(total);
         }
 

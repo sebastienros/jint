@@ -13,6 +13,14 @@ namespace Jint.Native.Temporal;
 /// The provider is consulted only for calendars where <see cref="IsSupported"/> returns
 /// true. ISO/Gregorian calendars are handled directly in TemporalHelpers and never
 /// reach the provider.
+/// <para>
+/// The two conversions are also the whole of what calendar arithmetic — <c>add</c>, <c>subtract</c>,
+/// <c>until</c>, <c>since</c> — asks for: a year is however many months
+/// <see cref="CalendarFields.MonthsInYear"/> reports for it, a month however many days
+/// <see cref="CalendarFields.DaysInMonth"/> reports, and a monthCode carried from one year into the next is
+/// whatever <see cref="CalendarFieldsToIso"/> places there. A provider that answers those two consistently
+/// therefore needs nothing else to make a date in its calendar movable.
+/// </para>
 /// </remarks>
 public interface ICalendarProvider
 {
