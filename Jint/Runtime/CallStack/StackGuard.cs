@@ -100,7 +100,8 @@ internal sealed class StackGuard
     /// <summary>
     /// Whether the current thread still has the runtime's reserve below it, for a caller about to add one
     /// more level to a recursion that is linear in the size of a *host-supplied* graph rather than in
-    /// anything script wrote — the module pipeline's linking, evaluation and export resolution.
+    /// anything script wrote — <c>InnerModuleLinking</c> and <c>InnerModuleEvaluation</c>, which descend
+    /// once per module of an import graph.
     /// </summary>
     /// <remarks>
     /// <para>

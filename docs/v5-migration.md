@@ -1686,6 +1686,37 @@ Second, a host calendar reaches construction, the field accessors, `with`, `toSt
 `PlainYearMonth`/`PlainMonthDay` conversions, but not arithmetic and not `Intl.DateTimeFormat`; both refuse
 it with a `RangeError`.
 
+### 4.31 A module graph too deep to link raises an error instead of ending the process ([#3401](https://github.com/sebastienros/jint/issues/3401))
+
+`CyclicModuleRecord.InnerModuleLinking` and `InnerModuleEvaluation` descend once per module, the way the
+spec writes them. The load phase does not — it drives a work queue — so the depth of a graph an engine
+can *load* is `Options.Modules.MaxModuleGraphDepth`, while the depth it can *link and evaluate* was the
+calling thread's stack. Exceeding that is a native stack overflow: no exception, nothing in a `catch`,
+no log, and the process gone. Measured at roughly 700 bytes of stack per module, a thousand-module import
+needed 640–768 KB on `net8.0` and 768–896 KB on `net10.0` — inside a factor of two of an ordinary thread's
+stack, which is why [#3308](https://github.com/sebastienros/jint/issues/3308) killed one CI leg and passed
+on four.
+
+Both algorithms now probe for headroom, under the same `Options.Constraints.StackOverflowGuard` that covers
+script recursion ([4.5](#45-the-stack-overflow-guard-is-enabled-by-default-3057)), and raise
+`RangeError: Maximum call stack size exceeded while linking module '…'` — or `while evaluating module '…'` —
+naming the module the walk gave up on. It is an ordinary JavaScript error: a rejection for `import()`, a
+`JavaScriptException` out of `Engine.Modules.Import`, and an engine that still runs script afterwards. A
+graph that fails during evaluation is left *errored* — every module the walk had reached is marked evaluated
+with that error — so importing the same root again fails the same way rather than handing back a namespace
+for a graph whose bodies never ran.
+
+Unlike the script lane, this half is **not** displaced by `Options.Constraints.MaxExecutionStackCount`: that
+limit's own probe sits at the call expression, which no part of the module pipeline reaches, so honouring the
+precedence there would leave nothing in its place.
+
+**What could break:** a host that already sized its threads for its deepest graph sees no change — the probe
+fires only where the process would otherwise have died. What changes is that "too deep" is now an outcome you
+can observe, so a graph near the limit surfaces as a failed import rather than as an occasional lost process.
+This is a catchable *failure*, not a raised ceiling: how deep a graph an engine can import is still decided by
+the thread's stack rather than by `MaxModuleGraphDepth`. Making the two algorithms iterative, the way loading
+already is, is tracked in [#3401](https://github.com/sebastienros/jint/issues/3401).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

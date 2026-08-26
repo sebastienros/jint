@@ -657,13 +657,16 @@ public sealed class HostModuleGraphSecurityTests
     /// The load phase, and only the load phase: <c>LoadRequestedModules</c> is what this drives, rather than
     /// a whole <c>Import</c>. Linking and evaluation still recurse once per module
     /// (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>), so an import of this same
-    /// graph is bounded by the stack. That is what
+    /// graph is bounded by the stack — catchably now, but still by the stack rather than by
+    /// <see cref="Options.ModuleOptions.MaxModuleGraphDepth"/>. That is what
     /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> turned out to be: a thousand
     /// nested <c>InnerModuleLinking</c> frames overflowed the stack and ended the test process on macOS under
     /// <c>net8.0</c>, while passing everywhere else. Asserting the import here asserted that gap did not
     /// exist on whichever runtime and operating system ran the suite, which is not a property of Jint.
     /// <see cref="GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases"/> keeps the
-    /// import covered, on a stack chosen for it.
+    /// import covered, on a stack chosen for it, and
+    /// <see cref="GraphDepth_AnImportTooDeepForTheStackThrowsRatherThanEndingTheProcess"/> pins what happens
+    /// on one that is not.
     /// </remarks>
     [Test]
     public void GraphDepth_LongSynchronousChainLoadsIteratively()
@@ -802,9 +805,10 @@ public sealed class HostModuleGraphSecurityTests
     /// This is what makes the evaluation half of the probe hand back a throw <em>completion</em> where the
     /// linking half throws. <c>Evaluate</c> step 9.a is the only thing that marks the modules still on the
     /// Tarjan stack, and only an abrupt completion returned to it reaches that step; an exception thrown past
-    /// it leaves them in <c>evaluating</c> with a top-level capability that is never settled, so the *second*
-    /// import below would sit on a pending promise until <c>PromiseTimeout</c> and report a
-    /// <c>TimeoutException</c> — a failure with nothing to say about what went wrong.
+    /// it leaves them in <c>evaluating</c> forever. Measured against a build that throws instead: the first
+    /// import fails as it does here and the second one <b>succeeds</b>, handing the host a namespace for a
+    /// graph not one body of which ever ran. That is the failure this second assertion exists for — a
+    /// half-evaluated graph that reports itself as fine is worse than the crash the probe replaced.
     /// <para>
     /// The evaluation half is selected rather than hoped for: linking the chain in slices first means the
     /// only walk left with a thousand levels to descend is evaluation's.

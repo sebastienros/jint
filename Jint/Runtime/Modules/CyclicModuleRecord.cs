@@ -451,9 +451,9 @@ public abstract class CyclicModuleRecord : ModuleRecord
     {
         // The linking half's probe, in the shape this half needs. A throw completion rather than a throw:
         // returning one lets Evaluate step 9.a mark every module still on the Tarjan stack evaluated with
-        // this error, which is the state the spec leaves an aborted evaluation in. Throwing instead would
-        // leave them in `evaluating` forever, where a later import of the same graph reads them as members
-        // of a cycle in progress and links against bindings nothing ever initialized.
+        // this error, which is the state the spec leaves an aborted evaluation in. Throwing instead leaves
+        // them in `evaluating` forever, and — measured, not reasoned — the *next* import of that root then
+        // succeeds, handing the host a namespace for a graph not one body of which ever ran.
         if (!_engine._stackGuard.HasGraphRecursionHeadroom())
         {
             var tooDeep = _realm.Intrinsics.RangeError.Construct($"Maximum call stack size exceeded while evaluating module '{Location ?? "(null)"}'");
