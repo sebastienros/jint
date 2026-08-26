@@ -1033,10 +1033,11 @@ public partial class InteropTests : IDisposable
     [Fact]
     public void ReadOnlyCollectionWrapper_RejectsIndexWriteCleanly()
     {
-        // A runtime read-only IList<T> (e.g. List<T>.AsReadOnly()) is wrapped as a writable
-        // GenericListWrapper, but its backing indexer throws. The element write must be rejected
-        // through the normal [[Set]] path (TypeError in strict, silent no-op in non-strict), NOT
-        // surface a raw NotSupportedException from the underlying collection.
+        // A runtime read-only IList<T> (e.g. List<T>.AsReadOnly()) reaches GenericListWrapper, whose
+        // backing indexer throws. The element write must be rejected through the normal [[Set]] path
+        // (TypeError in strict, silent no-op in non-strict), NOT surface a raw NotSupportedException
+        // from the underlying collection. This engine has AllowWrite off, so CanWrite refuses either
+        // way; the wrapper's own ICollection<T>.IsReadOnly refuses it with AllowWrite on (#3382).
         var readOnly = new List<int> { 1, 2 }.AsReadOnly();
 
         var strict = new Engine(x => x.Strict = true);

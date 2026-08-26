@@ -842,7 +842,12 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
         {
-            if (_target.Engine.Options.Interop.AllowWrite && _target.Extensible)
+            // CanWrite, not Options.Interop.AllowWrite: a wrapper over a target that declared itself
+            // read-only refuses the write, and the refusal it owes an Array.prototype generic is the
+            // TypeError Set(O, k, v, true) raises on a false [[Set]] - which is what routing through the
+            // wrapper produces, where SetAt would reach the collection and let its NotSupportedException
+            // past script (#3382).
+            if (_target.CanWrite && _target.Extensible)
             {
                 _target.SetAt((int) index, value);
             }
