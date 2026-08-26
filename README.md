@@ -2818,7 +2818,7 @@ data and full IANA timezone DST history are reachable via two pluggable provider
 | Extension point | Default | What it covers | Reusable example |
 | --- | --- | --- | --- |
 | `Options.Temporal.TimeZoneProvider` (`ITimeZoneProvider`) | `DefaultTimeZoneProvider` (BCL `TimeZoneInfo` + Windows↔IANA mapping) | UTC offsets, DST transitions, IANA canonicalization | [`NodaTimeZoneProvider.cs`](Jint.Tests.Test262/NodaTimeZoneProvider.cs) — uses NodaTime TZDB for full historical accuracy |
-| `Options.Intl.CldrProvider` (`ICldrProvider`) | `DefaultCldrProvider` (English + .NET `CultureInfo`) | currency symbols and names, unit patterns, list and relative-time patterns, era names, week info, and the `Intl.supportedValuesOf` lists | [`IcuCldrProvider.cs`](Jint.Tests.Test262/IcuCldrProvider.cs) — uses ICU4N for full CLDR coverage |
+| `Options.Intl.CldrProvider` (`ICldrProvider`) | `DefaultCldrProvider` (English + .NET `CultureInfo`) | currency symbols and names, unit patterns, list and relative-time patterns, month, weekday, day-period and era names, numbering-system digits, week info, and the `Intl.supportedValuesOf` lists | [`IcuCldrProvider.cs`](Jint.Tests.Test262/IcuCldrProvider.cs) — uses ICU4N for full CLDR coverage |
 
 The provider files in `Jint.Tests.Test262/` are **MIT-licensed copy-and-modify templates**,
 not a stable API contract. They are also exactly how the test suite reaches its current

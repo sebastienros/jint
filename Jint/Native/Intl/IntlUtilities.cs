@@ -858,6 +858,15 @@ internal static class IntlUtilities
     }
 
     /// <summary>
+    /// https://tc39.es/ecma402/#table-numbering-system-digits
+    /// A numbering system is usable when the engine's <see cref="ICldrProvider"/> can supply its ten digits.
+    /// The embedded table is only what the default provider answers with, so a host that adds a system by
+    /// overriding <see cref="ICldrProvider.GetNumberingSystemDigits"/> gets it accepted here as well.
+    /// </summary>
+    internal static bool IsSupportedNumberingSystem(Engine engine, string numberingSystem)
+        => engine.Options.Intl.CldrProvider.GetNumberingSystemDigits(numberingSystem) is not null;
+
+    /// <summary>
     /// Validates that a string matches the Unicode extension value pattern: (3*8alphanum) *("-" (3*8alphanum))
     /// Only ASCII alphanumeric characters are allowed.
     /// </summary>

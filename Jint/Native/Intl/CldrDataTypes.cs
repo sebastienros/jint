@@ -139,39 +139,6 @@ public sealed class UnitPatterns
 }
 
 /// <summary>
-/// Compact number formatting patterns from CLDR.
-/// </summary>
-public sealed class CompactPatterns
-{
-    /// <summary>
-    /// Patterns keyed by magnitude (3 for thousands, 6 for millions, etc.).
-    /// Value is the pattern, e.g., "{0}K" or "{0} thousand".
-    /// </summary>
-    public required Dictionary<int, string> Patterns { get; init; }
-}
-
-/// <summary>
-/// Date/time formatting patterns from CLDR.
-/// </summary>
-public sealed class DateTimePatterns
-{
-    /// <summary>
-    /// Date pattern component.
-    /// </summary>
-    public string? DatePattern { get; init; }
-
-    /// <summary>
-    /// Time pattern component.
-    /// </summary>
-    public string? TimePattern { get; init; }
-
-    /// <summary>
-    /// Combined date/time pattern.
-    /// </summary>
-    public string? DateTimePattern { get; init; }
-}
-
-/// <summary>
 /// Week information from CLDR.
 /// </summary>
 public sealed class WeekInfo

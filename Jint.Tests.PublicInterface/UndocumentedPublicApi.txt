@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 634
+undocumented: 632
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -172,9 +172,7 @@ M:Jint.Native.Array.ArrayInstance.ToArray
 M:Jint.Native.Array.ArrayPrototype.Pop(Jint.Native.JsValue)
 M:Jint.Native.Constructor.Construct(Jint.Native.JsValue[],Jint.Native.JsValue)
 M:Jint.Native.Error.ErrorConstructor.Construct(System.String)
-M:Jint.Native.Intl.CompactPatterns.#ctor
 M:Jint.Native.Intl.CurrencyData.#ctor
-M:Jint.Native.Intl.DateTimePatterns.#ctor
 M:Jint.Native.Intl.ListPatterns.#ctor
 M:Jint.Native.Intl.RelativeTimePatterns.#ctor
 M:Jint.Native.Intl.UnitPatterns.#ctor

@@ -1,6 +1,5 @@
 using System.Globalization;
 using Jint.Native.Function;
-using Jint.Native.Intl.Data;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -283,7 +282,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
             Throw.RangeError(_realm, $"Invalid numbering system: {stringValue}");
         }
 
-        // 9.2.7 step 10. ResolveNumberingSystem below probes NumberingSystemData.Digits, which is keyed
+        // 9.2.7 step 10. ResolveNumberingSystem below asks the provider, whose default answers
         // OrdinalIgnoreCase, so an uncanonicalized 'LATN' was accepted and then reported back verbatim
         // from resolvedOptions() as a numbering system identifier that does not exist.
         return IntlUtilities.CanonicalizeUValue("nu", stringValue);
@@ -313,16 +312,17 @@ internal sealed partial class DurationFormatConstructor : Constructor
         return null;
     }
 
-    private static string ResolveNumberingSystem(string? optionValue, string? extensionValue)
+    private string ResolveNumberingSystem(string? optionValue, string? extensionValue)
     {
-        // Options override extension
-        if (optionValue != null && NumberingSystemData.Digits.ContainsKey(optionValue))
+        // Options override extension. A system is supported when the provider can supply its digits —
+        // the embedded table is the default provider's answer, not the engine's own.
+        if (optionValue != null && IntlUtilities.IsSupportedNumberingSystem(_engine, optionValue))
         {
             return optionValue;
         }
 
         // Extension fallback
-        if (extensionValue != null && NumberingSystemData.Digits.ContainsKey(extensionValue))
+        if (extensionValue != null && IntlUtilities.IsSupportedNumberingSystem(_engine, extensionValue))
         {
             return extensionValue;
         }

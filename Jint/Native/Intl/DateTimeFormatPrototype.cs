@@ -299,7 +299,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                 }
 
                 return new JsDateTimeFormat(
-                    _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.NumberingSystem,
+                    _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.ResolvedNumberingSystem,
                     dtf.TimeZone, dtf.HourCycle, null, null,
                     null, null, year, month, day, null, null, null, null, null,
                     null, false, dtf.DateTimeFormatInfo, dtf.CultureInfo);
@@ -310,7 +310,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                 || !string.Equals(effectiveTimeStyle, dtf.TimeStyle, StringComparison.Ordinal))
             {
                 return new JsDateTimeFormat(
-                    _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.NumberingSystem,
+                    _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.ResolvedNumberingSystem,
                     dtf.TimeZone, dtf.HourCycle, effectiveDateStyle, effectiveTimeStyle,
                     dtf.Weekday, dtf.Era, dtf.Year, dtf.Month, dtf.Day, dtf.DayPeriod,
                     dtf.Hour, dtf.Minute, dtf.Second, dtf.FractionalSecondDigits,
@@ -371,7 +371,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
             }
 
             return new JsDateTimeFormat(
-                _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.NumberingSystem,
+                _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.ResolvedNumberingSystem,
                 dtf.TimeZone, dtf.HourCycle, null, null,
                 null, era, year, month, day, null, hour, minute, second, null,
                 timeZoneName, false, dtf.DateTimeFormatInfo, dtf.CultureInfo);
@@ -421,7 +421,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
         }
 
         return new JsDateTimeFormat(
-            _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.NumberingSystem,
+            _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.ResolvedNumberingSystem,
             dtf.TimeZone, dtf.HourCycle, null, null,
             fWeekday, era, fYear, fMonth, fDay, fDayPeriod, fHour, fMinute, fSecond, fFractionalSecondDigits,
             fTimeZoneName, true, dtf.DateTimeFormatInfo, dtf.CultureInfo);
@@ -741,7 +741,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
 
         result.CreateDataPropertyOrThrow("calendar", dateTimeFormat.Calendar ?? "gregory");
 
-        result.CreateDataPropertyOrThrow("numberingSystem", dateTimeFormat.NumberingSystem ?? "latn");
+        result.CreateDataPropertyOrThrow("numberingSystem", dateTimeFormat.NumberingSystem);
 
         // timeZone is always present - use local timezone if not specified
         // Convert Windows timezone IDs to IANA format per ECMA-402

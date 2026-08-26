@@ -16,7 +16,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         ObjectInstance prototype,
         string locale,
         string? calendar,
-        string? numberingSystem,
+        in Data.ResolvedNumberingSystem numberingSystem,
         string? timeZone,
         string? hourCycle,
         string? dateStyle,
@@ -39,7 +39,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         _prototype = prototype;
         Locale = locale;
         Calendar = calendar;
-        NumberingSystem = numberingSystem;
+        _numberingSystem = numberingSystem;
         TimeZone = timeZone;
         HourCycle = hourCycle;
         DateStyle = dateStyle;
@@ -60,9 +60,14 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         CultureInfo = cultureInfo;
     }
 
+    private readonly Data.ResolvedNumberingSystem _numberingSystem;
+
     internal string Locale { get; }
     internal string? Calendar { get; }
-    internal string? NumberingSystem { get; }
+    internal string NumberingSystem => _numberingSystem.Name;
+
+    /// <summary>The numbering system resolved once at construction, digits and all.</summary>
+    internal Data.ResolvedNumberingSystem ResolvedNumberingSystem => _numberingSystem;
     internal string? TimeZone { get; }
     internal string? HourCycle { get; }
     internal string? DateStyle { get; }
@@ -162,9 +167,9 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Apply numbering system transliteration if not using Latin digits
-        if (NumberingSystem != null && !string.Equals(NumberingSystem, "latn", StringComparison.OrdinalIgnoreCase))
+        if (_numberingSystem.RewritesDigits)
         {
-            result = Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+            result = _numberingSystem.Transliterate(result);
         }
 
         return result;
@@ -1427,12 +1432,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Apply numbering system transliteration if not using Latin digits
-        if (NumberingSystem != null && !string.Equals(NumberingSystem, "latn", StringComparison.OrdinalIgnoreCase))
+        if (_numberingSystem.RewritesDigits)
         {
             for (var i = 0; i < result.Count; i++)
             {
                 var part = result[i];
-                var transliterated = Data.NumberingSystemData.TransliterateDigits(part.Value, NumberingSystem);
+                var transliterated = _numberingSystem.Transliterate(part.Value);
                 if (!ReferenceEquals(transliterated, part.Value))
                 {
                     result[i] = new DateTimePart(part.Type, transliterated);
@@ -1901,9 +1906,7 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         if (FractionalSecondDigits.HasValue && FractionalSecondDigits.Value > 0)
         {
             // Use the decimal separator for the numbering system (e.g., ٫ for Arabic)
-            var decimalSeparator = NumberingSystem != null
-                ? Data.NumberingSystemData.GetDecimalSeparator(NumberingSystem).ToString()
-                : ".";
+            var decimalSeparator = _numberingSystem.DecimalSeparator.ToString();
             result.Add(new DateTimePart("literal", decimalSeparator));
             // Use % prefix for single-character format to prevent it being interpreted as standard format
             var format = FractionalSecondDigits.Value == 1 ? "%f" : new string('f', FractionalSecondDigits.Value);

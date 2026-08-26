@@ -1,4 +1,45 @@
+using System.Runtime.InteropServices;
+
 namespace Jint.Native.Intl.Data;
+
+/// <summary>
+/// A numbering system resolved against <see cref="ICldrProvider.GetNumberingSystemDigits"/> once, while a
+/// formatter is being constructed, so that <c>format()</c> never asks the provider again.
+/// </summary>
+/// <param name="Name">The resolved numbering system, as <c>resolvedOptions()</c> reports it.</param>
+/// <param name="Digits">The ten digits, or null for Latin and for a system the provider does not answer for.</param>
+/// <param name="DecimalSeparator">The separator this system writes, which is '.' unless CLDR says otherwise.</param>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct ResolvedNumberingSystem(string Name, string? Digits, char DecimalSeparator)
+{
+    /// <summary>The Latin digits every formatter falls back to; null digits mean "write the string as it is".</summary>
+    public static ResolvedNumberingSystem Latin { get; } = new("latn", Digits: null, DecimalSeparator: '.');
+
+    /// <summary>
+    /// Asks the engine's <see cref="ICldrProvider"/> for the system's digits. Latin is answered inline:
+    /// its digits are the ones the formatter already wrote, so there is nothing to transliterate.
+    /// </summary>
+    public static ResolvedNumberingSystem Resolve(Engine engine, string? numberingSystem)
+    {
+        if (string.IsNullOrEmpty(numberingSystem)
+            || string.Equals(numberingSystem, "latn", StringComparison.OrdinalIgnoreCase))
+        {
+            return Latin;
+        }
+
+        var name = numberingSystem!;
+        var digits = engine.Options.Intl.CldrProvider.GetNumberingSystemDigits(name);
+        return new ResolvedNumberingSystem(name, digits, NumberingSystemData.GetDecimalSeparator(name));
+    }
+
+    /// <summary>True when <see cref="Transliterate"/> can change anything; false for Latin.</summary>
+    public bool RewritesDigits => Digits is not null;
+
+    /// <summary>
+    /// Rewrites the ASCII digits and the decimal point of an already-formatted string in this system.
+    /// </summary>
+    public string Transliterate(string input) => NumberingSystemData.TransliterateDigits(input, Digits, DecimalSeparator);
+}
 
 /// <summary>
 /// Provides digit mappings for numbering systems.
@@ -111,24 +152,16 @@ internal static class NumberingSystemData
     }
 
     /// <summary>
-    /// Transliterates Latin digits (0-9) and decimal separator in the input string to the specified numbering system.
+    /// Transliterates Latin digits (0-9) and the decimal separator in the input string into the digits a
+    /// <see cref="ResolvedNumberingSystem"/> carries. Null digits — Latin, or a system the provider does not
+    /// answer for — leave the string alone.
     /// </summary>
-    public static string TransliterateDigits(string input, string numberingSystem)
+    public static string TransliterateDigits(string input, string? targetDigits, char decimalSeparator)
     {
-        // "latn" is the default - no transliteration needed
-        if (string.Equals(numberingSystem, "latn", StringComparison.OrdinalIgnoreCase))
+        if (targetDigits is null)
         {
             return input;
         }
-
-        if (!Digits.TryGetValue(numberingSystem, out var targetDigits))
-        {
-            // Unknown numbering system - return as-is
-            return input;
-        }
-
-        // Get the decimal separator for this numbering system
-        var decimalSeparator = GetDecimalSeparator(numberingSystem);
 
         // Use a StringBuilder for efficient character replacement
         var sb = new System.Text.StringBuilder(input.Length * 2); // Extra space for surrogate pairs

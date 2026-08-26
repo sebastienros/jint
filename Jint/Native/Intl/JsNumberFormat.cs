@@ -19,7 +19,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         Engine engine,
         ObjectInstance prototype,
         string locale,
-        string numberingSystem,
+        in Data.ResolvedNumberingSystem numberingSystem,
         string style,
         string? currency,
         string? currencyDisplay,
@@ -46,7 +46,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     {
         _prototype = prototype;
         Locale = locale;
-        NumberingSystem = numberingSystem;
+        _numberingSystem = numberingSystem;
         Style = style;
         Currency = currency;
         CurrencyDisplay = currencyDisplay;
@@ -72,8 +72,10 @@ internal sealed class JsNumberFormat : ObjectInstance
         CultureInfo = cultureInfo;
     }
 
+    private readonly Data.ResolvedNumberingSystem _numberingSystem;
+
     internal string Locale { get; }
-    internal string NumberingSystem { get; }
+    internal string NumberingSystem => _numberingSystem.Name;
     internal string Style { get; }
     internal string? Currency { get; }
     internal string? CurrencyDisplay { get; }
@@ -166,7 +168,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         var result = FormatCore(value);
 
         // Apply numbering system digit transliteration
-        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+        return _numberingSystem.Transliterate(result);
     }
 
     private string FormatCore(double value)
@@ -900,7 +902,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             result = NumberFormatInfo.NegativeSign + result;
         }
 
-        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+        return _numberingSystem.Transliterate(result);
     }
 
     /// <summary>
@@ -951,7 +953,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         };
 
         // Apply numbering system digit transliteration
-        return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+        return _numberingSystem.Transliterate(result);
     }
 
     /// <summary>
