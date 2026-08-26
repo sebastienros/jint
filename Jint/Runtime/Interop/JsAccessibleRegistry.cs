@@ -18,8 +18,9 @@ namespace Jint.Runtime.Interop;
 /// The registry is process-wide, which is what a <see cref="JsAccessibleAttribute"/> already implies: the
 /// members of a type do not vary by engine, and the lanes registered here close over nothing but the target
 /// instance handed to them. It composes with <see cref="TypeResolver"/>'s own process-wide accessor cache —
-/// registering a type after an engine has already resolved one of its members invalidates that cache, so a
-/// late <c>RegisterAll()</c> is merely late rather than silently ineffective.
+/// registering a type after an engine has already resolved one of its members invalidates that type's
+/// entries in that cache, so a late <c>RegisterAll()</c> is merely late rather than silently ineffective,
+/// and costs the types it did not name nothing.
 /// </para>
 /// <para>
 /// Registering the same type twice replaces its previous entry. Registering is safe from several threads;
@@ -39,12 +40,28 @@ public static class JsAccessibleRegistry
 
     /// <summary>
     /// Bumped by every <see cref="Register"/> call. <see cref="TypeResolver"/> compares the value it last
-    /// saw against this one and drops its accessor cache when they differ, so a member resolved before its
-    /// type was registered does not keep answering from the cache afterwards.
+    /// saw against this one and, when they differ, drops the accessor cache entries of the <b>registered
+    /// types</b>, so a member resolved before its type was registered does not keep answering from the cache
+    /// afterwards.
     /// </summary>
+    /// <remarks>
+    /// It is a counter and not a log of what changed, so the resolver cannot ask which type moved and asks
+    /// <see cref="IsRegistered"/> about each cached entry instead. That over-invalidates by the types
+    /// registered earlier and under-invalidates by nothing, where dropping the whole cache made one
+    /// registration cost every unrelated engine in the process everything it had resolved (#3368).
+    /// </remarks>
     private static int _generation;
 
     internal static int Generation => Volatile.Read(ref _generation);
+
+    /// <summary>
+    /// Whether <paramref name="type"/> has been registered, and therefore whether a cached accessor for it
+    /// may have been resolved before its registration. Every consult of this registry is keyed on the exact
+    /// target type — <see cref="TryGetMember"/>, and <see cref="TryGetAccessorForDeclaredMember"/>, which
+    /// additionally requires the reflected member to be declared on that very type — so no other type's
+    /// resolution can have changed.
+    /// </summary>
+    internal static bool IsRegistered(Type type) => _byType.ContainsKey(type);
 
     /// <summary>
     /// Declares the typed member lanes of one <see cref="JsAccessibleAttribute"/>-annotated type. Called by

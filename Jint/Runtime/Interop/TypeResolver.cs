@@ -394,17 +394,40 @@ public sealed class TypeResolver
     }
 
     /// <summary>
-    /// Drops the accessor cache when something has been registered with <see cref="JsAccessibleRegistry"/>
-    /// since the last resolution. Costs one volatile read per resolution and nothing else while no host has
-    /// registered anything.
+    /// Drops the accessor cache entries a <see cref="JsAccessibleRegistry"/> registration can have changed,
+    /// when something has been registered since the last resolution. Costs one volatile read per resolution
+    /// and nothing else while no host has registered anything.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The entries of registered types only, because a registration reaches nothing else: every consult of
+    /// the registry is keyed on the exact target type, and the substitution additionally requires the
+    /// reflected member to be declared on it. Dropping the whole cache instead was measurable from an
+    /// unrelated engine — one <c>RegisterAll()</c> made every other type re-resolve, in every engine sharing
+    /// any resolver, including a privately constructed one (#3368).
+    /// </para>
+    /// <para>
+    /// The static accessors and the constructors are not touched at all. Everything registered is a public
+    /// <em>instance</em> member, and the static lane passes its own binding flags — which is exactly what
+    /// excludes it from the substitution in <see cref="TryFindMemberAccessor"/>.
+    /// </para>
+    /// </remarks>
     private void SyncGeneratedMembers()
     {
         var generation = JsAccessibleRegistry.Generation;
-        if (_generatedMembersGeneration != generation)
+        if (_generatedMembersGeneration == generation)
         {
-            _generatedMembersGeneration = generation;
-            InvalidateResolvedAccessors();
+            return;
+        }
+
+        _generatedMembersGeneration = generation;
+
+        foreach (var entry in _reflectionAccessors)
+        {
+            if (JsAccessibleRegistry.IsRegistered(entry.Key.Type))
+            {
+                _reflectionAccessors.TryRemove(entry.Key, out _);
+            }
         }
     }
 
