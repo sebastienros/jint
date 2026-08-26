@@ -615,9 +615,17 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         private readonly IList? _list;
 
         // The caller guarantees ObjectWrapper.HasIndexedElements, so one of _list and the type descriptor's
-        // integer indexer answers an element read — the second being the AOT-degraded case, where an
-        // IList<T> that is not an IList could not get its typed wrapper. Every member below was already
-        // written for a null _list, which is what says the hard cast this replaced was never the intent.
+        // integer indexer answers an element read. Every member below was already written for a null _list,
+        // which is what says the hard cast this replaced was never the intent.
+        //
+        // A null _list is not the Native AOT case alone, which is what this comment used to say and what
+        // #3362 assumed. It is reached under a plain JIT whenever a host object is *exposed* as IList<T> —
+        // ObjectWrapper.Create(engine, target, typeof(IList<int>)), which is public API and is what a
+        // WrapObjectDelegate writes. ResolveArrayLikeWrapperFactoryType looks for IList<> among the exposed
+        // type's GetInterfaces(), and an interface is not among its own, so no typed wrapper is built; a
+        // target that is not a non-generic IList has no ListWrapper to fall back to either; and the plain
+        // ObjectWrapper that results still reports an integer index, which is what admits it here.
+        // Jint.Tests.PublicInterface/HostExposedCollectionTypeTests.cs covers that route on every leg (#3394).
         public IndexWrappedOperations(ObjectWrapper wrapper)
         {
             _target = wrapper;
@@ -714,7 +722,24 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
 
         public override void Set(ulong index, JsValue value, bool updateLength = false, bool throwOnError = true)
         {
-            if (updateLength && _list != null && index >= (ulong) _list.Count)
+            var list = _list;
+            if (list is null && index >= (ulong) _collection.Count)
+            {
+                // There is no IList to grow, and the write below resolves the reflected indexer, which takes
+                // the index straight to the collection — List<T>'s own ArgumentOutOfRangeException out of
+                // Evaluate, where neither a script try/catch nor a host catch (JavaScriptException) can see
+                // it. A position this view cannot hold is refused the way its read-only "length" already is
+                // (#3394). The message is the one ObjectInstance.Set(p, v, throwOnError) gives, because that
+                // refusal is what is being stood in for.
+                if (throwOnError)
+                {
+                    Throw.TypeError(_target.Engine.Realm, $"Cannot assign to read only property '{index}' of object '#<Object>'");
+                }
+
+                return;
+            }
+
+            if (updateLength && list is not null && index >= (ulong) list.Count)
             {
                 SetLength(index + 1);
             }

@@ -1862,6 +1862,27 @@ Digits only: a unit name is not a number, so `hr` and `min` keep their own chara
 **What could break:** a duration formatted with an explicit `numberingSystem`, or a `-u-nu-` extension, that
 is not `latn`. Nothing else moves — a formatter that resolves to `latn`, which is every formatter that does
 not ask for something else, writes exactly what it wrote before.
+### 4.37 A host collection exposed as `IList<T>` refuses a growing generic with a `TypeError` ([#3394](https://github.com/sebastienros/jint/issues/3394))
+
+A host object handed to script under a collection *interface* — `ObjectWrapper.Create(engine, target,
+typeof(IList<int>))`, which is what a `WrapObjectDelegate` writes — gets a plain wrapper whose `length` is
+the target's read-only `Count`. `Array.prototype` generics read it through a reflected indexer, and one that
+had to write past the end took the index straight to the collection:
+
+```js
+// 4.16.x, for engine.SetValue("host", ObjectWrapper.Create(engine, items, typeof(IList<int>)))
+Array.prototype.push.call(host, 4)        // ArgumentOutOfRangeException out of Evaluate
+Array.prototype.unshift.call(host, 0)     // ArgumentOutOfRangeException
+```
+
+Both are `Set(O, k, v, true)` over a position the view cannot hold, so both are now the `TypeError` that a
+`false` `[[Set]]` raises — the same answer `Array.prototype.splice.call(host, 0, 0)` already gave for the
+`length` write it makes. The collection is left untouched.
+
+**What could break:** a `catch (ArgumentOutOfRangeException)` around `Evaluate` written to absorb this no
+longer fires. Nothing changes for a target exposed under its own type or under a type that implements
+`IList<T>` (both get a typed, growable wrapper), for reads, or for any generic that stays inside the
+collection's bounds.
 
 ## 5. New in v5
 

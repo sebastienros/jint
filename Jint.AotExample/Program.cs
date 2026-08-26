@@ -148,12 +148,17 @@ Probe("IList<string> without IList (GenericListWrapperFactory<string>)", static 
 });
 
 // Same site, value-type argument, and the shape that reaches ArrayOperations.IndexWrappedOperations: a
-// wrapped CLR collection with an index to read but no IList to read it through. Under a JIT this host
-// gets the typed GenericListWrapper<int> and the lane is never entered, so Native AOT is what runs it -
-// which is why two bugs sat on it undetected until #3302 was fixed beside them (#3362). The reflection
-// fallback passed the WRAPPER to PropertyInfo.GetValue instead of the CLR target, a TargetException
-// waiting for its first read, and SetLength threw a bare NotSupportedException where the wrapper's
-// read-only "length" owes script a TypeError. Both fail this probe.
+// wrapped CLR collection with an index to read but no IList to read it through. Under a JIT *this host*
+// gets the typed GenericListWrapper<int> and the lane is never entered, so Native AOT is what runs the
+// lane for this type - but not the only thing that runs the lane, which is what #3362 got wrong and #3394
+// corrected: exposing any host collection as IList<T> reaches it under a plain JIT, because
+// ResolveArrayLikeWrapperFactoryType scans the exposed type's interfaces and an interface is not among
+// its own. Jint.Tests.PublicInterface/HostExposedCollectionTypeTests.cs covers that route on every leg;
+// what this probe adds is the value-type degradation, which only a published native binary produces.
+// Two bugs sat on the lane undetected until #3302 was fixed beside them: the reflection fallback passed
+// the WRAPPER to PropertyInfo.GetValue instead of the CLR target, a TargetException waiting for its first
+// read, and SetLength threw a bare NotSupportedException where the wrapper's read-only "length" owes
+// script a TypeError. Both fail this probe.
 //
 // Two facts about the host type are load-bearing, and neither is decoration. The non-generic ICollection
 // is where ArrayOperations reads the count, so an IList<T> without it falls through to ObjectOperations.
