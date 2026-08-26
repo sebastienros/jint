@@ -106,7 +106,7 @@ public class WinterTcMinimumCommonApiTests
 
     private static string[] AllMembers => [.. CommonInterfaces, .. CommonMethodsAndProperties];
 
-    [Fact]
+    [Test]
     public void ADefaultEngineIsMissingExactlyTheMembersTheReadmeRecordsAsAbsent()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -114,7 +114,7 @@ public class WinterTcMinimumCommonApiTests
         MissingFrom(engine, AllMembers).Should().BeEquivalentTo(AbsentFromDefault);
     }
 
-    [Fact]
+    [Test]
     public void TheFetchGrantAddsTheFourNetworkMembersAndNothingElse()
     {
         var engine = new Engine(options => options.UseWebApis().UseFetch());
@@ -124,7 +124,7 @@ public class WinterTcMinimumCommonApiTests
         MissingFrom(engine, AllMembers).Should().BeEquivalentTo(stillAbsent);
     }
 
-    [Fact]
+    [Test]
     public void AnEngineThatAskedForNoFeatureCarriesNoneOfThem()
     {
         var engine = new Engine();
@@ -141,17 +141,16 @@ public class WinterTcMinimumCommonApiTests
     /// <c>instanceof</c> therefore agree, which is what makes each row of the README's table a claim about the
     /// prototype chain rather than about a name being defined.
     /// </summary>
-    [Theory]
-    [InlineData("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
-    [InlineData("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
-    [InlineData("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
-    [InlineData("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
-    [InlineData("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
-    [InlineData("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
-    [InlineData("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
-    [InlineData("Crypto", "crypto")]
-    [InlineData("SubtleCrypto", "crypto.subtle")]
-    [InlineData("Performance", "performance")]
+    [TestCase("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
+    [TestCase("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
+    [TestCase("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
+    [TestCase("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
+    [TestCase("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
+    [TestCase("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
+    [TestCase("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
+    [TestCase("Crypto", "crypto")]
+    [TestCase("SubtleCrypto", "crypto.subtle")]
+    [TestCase("Performance", "performance")]
     public void AnInterfaceObjectIsWhatItsInstancesInheritFrom(string name, string instance)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -164,7 +163,7 @@ public class WinterTcMinimumCommonApiTests
         engine.Evaluate($"Object.getPrototypeOf({instance}).constructor.name").AsString().Should().Be(name);
     }
 
-    [Fact]
+    [Test]
     public void TheByobRequestInterfaceObjectIsTheRealThingToo()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -192,7 +191,7 @@ public class WinterTcMinimumCommonApiTests
         engine.Evaluate("seen").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CryptoSubtleCryptoAndPerformanceKeepTheirMembersOnTheInterfacePrototype()
     {
         var engine = new Engine(options => options.UseWebApis());

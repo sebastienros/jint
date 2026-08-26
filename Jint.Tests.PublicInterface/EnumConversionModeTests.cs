@@ -65,7 +65,7 @@ public class EnumConversionModeTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void DefaultsToTheNumericValue()
     {
         var engine = CreateEngine(new Host());
@@ -76,7 +76,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Echo(2)").Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitNumberModeMatchesTheDefault()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.Number);
@@ -84,7 +84,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Level").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StringModeExposesTheMemberName()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -93,7 +93,7 @@ public class EnumConversionModeTests
         engine.Evaluate("typeof host.Level").Should().Be("string");
     }
 
-    [Fact]
+    [Test]
     public void StringModeCombinesFlagNames()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -101,7 +101,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Access").Should().Be("Read, Write");
     }
 
-    [Fact]
+    [Test]
     public void StringModeFallsBackToTheNumberForANamelessValue()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -109,7 +109,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Undefined").Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void StringModeCoversWideUnderlyingTypes()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -117,7 +117,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.LongLevel").Should().Be("Big");
     }
 
-    [Fact]
+    [Test]
     public void StringModeCoversNullableMembers()
     {
         var engine = CreateEngine(new Host { NullableLevel = Level.Two }, EnumConversionMode.String);
@@ -126,7 +126,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Level === 'One'").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void NullNullableMemberStaysNull()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -134,7 +134,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.NullableLevel").Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void StringModeCoversMethodReturnValues()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -142,7 +142,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Echo(2)").Should().Be("Two");
     }
 
-    [Fact]
+    [Test]
     public void StringModeLeavesOtherMembersAlone()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);
@@ -151,7 +151,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Number").Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void WritesStillAcceptBothNamesAndNumbers()
     {
         var host = new Host();
@@ -166,7 +166,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Echo('Two')").Should().Be("Two");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsThroughScript()
     {
         var host = new Host();
@@ -176,7 +176,7 @@ public class EnumConversionModeTests
         host.Level.Should().Be(Level.One);
     }
 
-    [Fact]
+    [Test]
     public void ModeIsPerEngine()
     {
         var host = new Host();
@@ -193,7 +193,7 @@ public class EnumConversionModeTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceConstantsDefaultToTheNumber()
     {
         var engine = CreateEngineWithLevelType(new Host());
@@ -202,7 +202,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Level === Level.One").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceConstantsFollowStringMode()
     {
         // Values crossing out of a CLR member become names under String mode, so the constants a
@@ -215,7 +215,7 @@ public class EnumConversionModeTests
         engine.Evaluate("host.Echo(Level.Two) === Level.Two").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceConstantsOfDifferentModesDoNotPoisonEachOther()
     {
         // The accessor cache TypeReference keeps is process-wide and keyed on (type, member name) only,
@@ -229,7 +229,7 @@ public class EnumConversionModeTests
         CreateEngineWithLevelType(new Host()).Evaluate("Level.Zero").Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceConstantsCoverFlagsAndWideUnderlyingTypes()
     {
         var engine = CreateEngine(new Host(), EnumConversionMode.String);

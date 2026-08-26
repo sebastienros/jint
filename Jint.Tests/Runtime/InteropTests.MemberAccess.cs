@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void ShouldHideSpecificMembers()
     {
         var engine = new Engine(options => options.Interop.MemberAccessor = (e, target, member) =>
@@ -35,7 +35,7 @@ public partial class InteropTests
         engine.Evaluate("m.Method2").ToString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldOverrideMembers()
     {
         var engine = new Engine(options => options.Interop.MemberAccessor = (e, target, member) =>
@@ -53,7 +53,7 @@ public partial class InteropTests
         engine.Evaluate("m.Member1").ToString().Should().Be("Orange");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToFilterMembers()
     {
         var engine = new Engine(options => options
@@ -77,7 +77,7 @@ public partial class InteropTests
         engine.Evaluate("m.GetType").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToFilterConstructors()
     {
         var engine = new Engine(options => options
@@ -94,7 +94,7 @@ public partial class InteropTests
         act.Should().Throw<JavaScriptException>().WithMessage("Could not resolve a constructor*");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToExposeGetType()
     {
         var engine = new Engine(options =>
@@ -109,7 +109,7 @@ public partial class InteropTests
         engine.Evaluate("m.GetType().GetMethod('Method1').Invoke(m, [])").AsString().Should().Be("Method1");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToVaryGetTypeConfigurationBetweenEngines()
     {
         static string TestAllowGetTypeOption(bool allowGetType)
@@ -129,7 +129,7 @@ public partial class InteropTests
         ex.Message.Should().Be("Property 'GetType' of object is not a function");
     }
 
-    [Fact]
+    [Test]
     public void ShouldProtectFromReflectionServiceUsage()
     {
         var engine = new Engine();
@@ -143,7 +143,7 @@ public partial class InteropTests
         ex.Message.Should().Be("Cannot access System.Reflection namespace, check Engine's interop options");
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceShouldUseTypeResolverConfiguration()
     {
         var engine = new Engine(options =>
@@ -161,7 +161,7 @@ public partial class InteropTests
         engine.Evaluate("EchoService.Hidden").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CustomDictionaryPropertyAccessTests()
     {
         var engine = new Engine(options =>
@@ -187,7 +187,7 @@ public partial class InteropTests
         engine.Evaluate("dc.c").Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void CanAccessBaseClassStaticFields()
     {
         var engine = new Engine(options =>
@@ -269,7 +269,7 @@ public partial class InteropTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NewTypedObjectFromUntypedInitializerShouldBeMapped()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -281,7 +281,7 @@ public partial class InteropTests
         (obj?.Data.Value).Should().Be("123");
     }
 
-    [Fact]
+    [Test]
     public void CanConfigureStrictAccess()
     {
         var engine = new Engine();
@@ -312,7 +312,7 @@ public partial class InteropTests
         public override string ToString() => "Custom";
     }
 
-    [Fact]
+    [Test]
     public void ImplicitStringCoercionShouldNotThrowForMissingValueOf()
     {
         // default settings — works as before via NullAccessor + prototype fallback
@@ -333,7 +333,7 @@ public partial class InteropTests
         engine.Invoking(e => e.Evaluate("obj.AgeMissing")).Should().Throw<MissingMemberException>();
     }
 
-    [Fact]
+    [Test]
     public void NumericCoercionFallsBackToToStringWithStrictAccess()
     {
         // Number(obj): valueOf -> proto returns wrapper (not primitive) -> toString -> CLR ToString -> "Test" -> NaN
@@ -342,7 +342,7 @@ public partial class InteropTests
         engine.Evaluate("Number(obj)").AsNumber().Should().Be(double.NaN);
     }
 
-    [Fact]
+    [Test]
     public void CustomValueOfStillUsedWithStrictAccess()
     {
         // CLR ValueOf() resolves via case-insensitive first-char match — must take precedence over prototype's valueOf
@@ -352,7 +352,7 @@ public partial class InteropTests
         engine.Evaluate("Number(obj)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void StrictAccessStillThrowsForMissingWrites()
     {
         // Set policy unchanged: writing to an unknown member with strict mode throws
@@ -361,7 +361,7 @@ public partial class InteropTests
         engine.Invoking(e => e.Evaluate("obj.NewProperty = 5")).Should().Throw<MissingMemberException>();
     }
 
-    [Fact]
+    [Test]
     public void StrictAccessReturnsUndefinedForMissingDictionaryKey()
     {
         // dictionaries are key-value stores — missing keys return undefined even with strict access,
@@ -376,7 +376,7 @@ public partial class InteropTests
         engine.Evaluate("dict.Count").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StrictAccessReturnsUndefinedForMissingNonGenericDictionaryKey()
     {
         // covers the IsDictionary && !IsStringKeyedGenericDictionary branch (Hashtable etc.)
@@ -388,7 +388,7 @@ public partial class InteropTests
         engine.Evaluate("dict['Missing']").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void StrictAccessReturnsUndefinedForMissingReadOnlyDictionaryKey()
     {
         // IReadOnlyDictionary<string, T> goes through the same string-keyed-generic path
@@ -411,7 +411,7 @@ public partial class InteropTests
         public new bool x { get; set; } = true;
     }
 
-    [Fact]
+    [Test]
     public void ShouldRespectExplicitHiding()
     {
         var engine = new Engine();
@@ -421,7 +421,7 @@ public partial class InteropTests
         engine.Evaluate("obj.y").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldSkipEnumIndexerWhenNoMatch()
     {
         var engine = new Engine();

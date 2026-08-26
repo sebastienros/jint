@@ -21,7 +21,7 @@ public class ReadableStreamAsyncIterationTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void IteratesEveryChunkAndReleasesTheLockAtTheEnd()
     {
         var engine = StreamEngine();
@@ -36,7 +36,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("a,b,locked:false");
     }
 
-    [Fact]
+    [Test]
     public void LocksTheStreamForTheWholeIteration()
     {
         var engine = StreamEngine();
@@ -46,11 +46,11 @@ public class ReadableStreamAsyncIterationTests
             """);
 
         engine.Evaluate("stream.locked").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SymbolAsyncIteratorIsTheValuesFunctionItself()
     {
         var engine = StreamEngine();
@@ -61,7 +61,7 @@ public class ReadableStreamAsyncIterationTests
         engine.Evaluate("ReadableStream.prototype.values.name").AsString().Should().Be("values");
     }
 
-    [Fact]
+    [Test]
     public void TheIteratorPrototypeInheritsFromTheAsyncIteratorPrototype()
     {
         var engine = StreamEngine();
@@ -83,7 +83,7 @@ public class ReadableStreamAsyncIterationTests
         engine.Evaluate("iterator[Symbol.asyncIterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheIteratorPrototypesMethodsCarryWebIdlsAttributes()
     {
         // "An asynchronous iterator prototype object must have a next data property with attributes
@@ -128,7 +128,7 @@ public class ReadableStreamAsyncIterationTests
         engine.Evaluate("a.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BreakingOutOfTheLoopCancelsTheStream()
     {
         // "By default, calling the async iterator's return() method will also cancel the stream."
@@ -147,7 +147,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("a,cancel:undefined,locked:false");
     }
 
-    [Fact]
+    [Test]
     public void PreventCancelReleasesTheLockWithoutCancelling()
     {
         var engine = StreamEngine();
@@ -167,7 +167,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("a,locked:false,left:b");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorInTheStreamThrowsOutOfTheLoopAndReleasesTheLock()
     {
         var engine = StreamEngine();
@@ -187,7 +187,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("a,caught:bad,locked:false");
     }
 
-    [Fact]
+    [Test]
     public void ReportsAFailingCancelThroughTheReturnPromise()
     {
         // The iterator's return() is what `break` calls, and a cancel() that fails rejects it. Asserted on
@@ -210,7 +210,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("a,rejected:cancel failed");
     }
 
-    [Fact]
+    [Test]
     public void NextSerializesConcurrentCalls()
     {
         // WebIDL queues a second next() behind the first, so the read requests can never interleave.
@@ -230,7 +230,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("1:a,2:b,3:undefined:true");
     }
 
-    [Fact]
+    [Test]
     public void NextAfterTheEndKeepsAnsweringDone()
     {
         var engine = StreamEngine();
@@ -245,7 +245,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("{\"done\":true},{\"done\":true}");
     }
 
-    [Fact]
+    [Test]
     public void ReturnAnswersWithTheValueItWasGiven()
     {
         var engine = StreamEngine();
@@ -258,7 +258,7 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("cancel:bye,return:bye:true,next:undefined:true");
     }
 
-    [Fact]
+    [Test]
     public void NextAndReturnBrandCheckTheirReceiverAsARejection()
     {
         var engine = StreamEngine();
@@ -271,30 +271,30 @@ public class ReadableStreamAsyncIterationTests
         Log(engine).Should().Be("next:TypeError,return:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ValuesConvertsItsOptionsBeforeLockingTheStream()
     {
         var engine = StreamEngine();
         engine.Execute("var stream = new ReadableStream(); var e = new Error('options');");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.values({ get preventCancel() { throw e; } })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.values({ get preventCancel() { throw e; } })"))!
             .Error.Get("message").AsString().Should().Be("options");
 
         // The stream is untouched, so it can still be iterated afterwards.
         engine.Evaluate("stream.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IteratingALockedStreamThrows()
     {
         var engine = StreamEngine();
         engine.Execute("var stream = new ReadableStream(); stream.getReader();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.values()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.values()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void WorksWithTheAsyncIteratorHelpers()
     {
         // Inheriting %AsyncIteratorPrototype% is what makes this work at all.

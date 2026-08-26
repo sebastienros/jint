@@ -15,7 +15,7 @@ public class BlobTests
 
     private static JsValue Eval(string source) => WebEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void ConstructsAnEmptyBlobFromNoArguments()
     {
         // https://w3c.github.io/FileAPI/#constructorBlob step 1.
@@ -27,7 +27,7 @@ public class BlobTests
         Eval("new Blob(undefined, { type: 'x/y' }).type").AsString().Should().Be("x/y");
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatesThePartsInOrder()
     {
         // https://w3c.github.io/FileAPI/#process-blob-parts
@@ -35,7 +35,7 @@ public class BlobTests
         Eval("new Blob(['a', 'bc']).text()").UnwrapIfPromise().AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void EncodesStringPartsAsUtf8()
     {
         // "Append the result of UTF-8 encoding s to bytes" — so size counts bytes, not code units.
@@ -47,7 +47,7 @@ public class BlobTests
         Eval("new Blob(['\\uD800']).text()").UnwrapIfPromise().AsString().Should().Be("\uFFFD");
     }
 
-    [Fact]
+    [Test]
     public void StringifiesAPartThatIsNeitherABufferSourceNorABlob()
     {
         Eval("new Blob([123]).text()").UnwrapIfPromise().AsString().Should().Be("123");
@@ -55,7 +55,7 @@ public class BlobTests
         Eval("new Blob([{ toString() { return 'hi'; } }]).text()").UnwrapIfPromise().AsString().Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void CopiesTheBytesOfEveryBufferSourceShape()
     {
         // "If element is a BufferSource, get a copy of the bytes held by the buffer source".
@@ -66,7 +66,7 @@ public class BlobTests
         Eval("new Blob([new DataView(new Uint8Array([1, 2, 3, 4]).buffer, 2)]).size").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void CopiesRatherThanAliasesABufferSource()
     {
         var engine = WebEngine();
@@ -76,13 +76,13 @@ public class BlobTests
         engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("A");
     }
 
-    [Fact]
+    [Test]
     public void AppendsTheBytesOfANestedBlob()
     {
         Eval("new Blob([new Blob(['ab']), 'c']).text()").UnwrapIfPromise().AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void TreatsADetachedBufferAsNoBytes()
     {
         // A detached buffer holds nothing to copy. It is not an error: WebIDL admits the value, and the
@@ -91,7 +91,7 @@ public class BlobTests
             .AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TreatsAViewThatHasGoneOutOfBoundsAsNoBytes()
     {
         // A resizable buffer can shrink out from under a view, leaving both its offset and its length past
@@ -106,7 +106,7 @@ public class BlobTests
             """).AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ReadsBackAnEmptyBlob()
     {
         Eval("new Blob().text()").UnwrapIfPromise().AsString().Should().Be("");
@@ -115,12 +115,12 @@ public class BlobTests
         Eval("new Blob().slice(0, 0).size").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RejectsAnythingThatIsNotASequence()
     {
         // WebIDL sequence conversion: a bare string is not an object and is not iterated character by
         // character, which is the mistake `new Blob('abc')` usually is.
-        Assert.Throws<JavaScriptException>(() => Eval("new Blob('abc')"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Blob('abc')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         Assert.Throws<JavaScriptException>(() => Eval("new Blob(null)"));
@@ -128,28 +128,27 @@ public class BlobTests
         Assert.Throws<JavaScriptException>(() => Eval("new Blob(5)"));
     }
 
-    [Fact]
+    [Test]
     public void AcceptsAnyIterable()
     {
         Eval("new Blob(new Set(['a', 'b'])).size").AsNumber().Should().Be(2);
         Eval("new Blob(function* () { yield 'a'; yield 'bc'; }()).size").AsNumber().Should().Be(3);
     }
 
-    [Theory]
-    [InlineData("text/plain", "text/plain")]
-    [InlineData("TEXT/PLAIN", "text/plain")]
-    [InlineData("Text/Plain; Charset=UTF-8", "text/plain; charset=utf-8")]
+    [TestCase("text/plain", "text/plain")]
+    [TestCase("TEXT/PLAIN", "text/plain")]
+    [TestCase("Text/Plain; Charset=UTF-8", "text/plain; charset=utf-8")]
     // A code point outside U+0020..U+007E replaces the whole type with the empty string.
-    [InlineData("a\u00FFb", "")]
-    [InlineData("a\tb", "")]
-    [InlineData("a\nb", "")]
+    [TestCase("a\u00FFb", "")]
+    [TestCase("a\tb", "")]
+    [TestCase("a\nb", "")]
     public void NormalizesTheMediaType(string given, string expected)
     {
         // https://w3c.github.io/FileAPI/#constructorBlob step 3.
         WebEngine().SetValue("given", given).Evaluate("new Blob([], { type: given }).type").AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void TakesTheOptionsBagTheWayWebIdlDoes()
     {
         // null and undefined mean "every member defaulted"; anything else that is not an object is a
@@ -160,7 +159,7 @@ public class BlobTests
         Assert.Throws<JavaScriptException>(() => Eval("new Blob([], 5)"));
     }
 
-    [Fact]
+    [Test]
     public void ReadsDictionaryMembersInLexicographicalOrder()
     {
         var engine = WebEngine();
@@ -178,7 +177,7 @@ public class BlobTests
         engine.Evaluate("seen.join(',')").AsString().Should().Be("parts,endings,type");
     }
 
-    [Fact]
+    [Test]
     public void ValidatesTheEndingsEnumerationButTreatsNativeAsTransparent()
     {
         Eval("new Blob(['a'], { endings: 'transparent' }).size").AsNumber().Should().Be(1);
@@ -191,7 +190,7 @@ public class BlobTests
         Assert.Throws<JavaScriptException>(() => Eval("new Blob([], { endings: 'bogus' })"));
     }
 
-    [Fact]
+    [Test]
     public void ExposesSizeAndTypeAsPrototypeAccessors()
     {
         var engine = WebEngine();
@@ -205,7 +204,7 @@ public class BlobTests
         engine.Evaluate("d.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksEveryMember()
     {
         var engine = WebEngine();
@@ -219,7 +218,7 @@ public class BlobTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.bytes.call('')"));
     }
 
-    [Fact]
+    [Test]
     public void HasTheToStringTagAndConstructorWebIdlAsksFor()
     {
         var engine = WebEngine();
@@ -231,13 +230,13 @@ public class BlobTests
         engine.Evaluate("Blob.name").AsString().Should().Be("Blob");
     }
 
-    [Fact]
+    [Test]
     public void RequiresNew()
     {
         Assert.Throws<JavaScriptException>(() => Eval("Blob()"));
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassing()
     {
         var engine = WebEngine();
@@ -248,26 +247,25 @@ public class BlobTests
         engine.Evaluate("new MyBlob(['abc']).tag").AsString().Should().Be("mine");
     }
 
-    [Theory]
     // https://w3c.github.io/FileAPI/#slice-blob — relativeStart/relativeEnd normalization.
-    [InlineData("blob.slice()", "abcdef")]
-    [InlineData("blob.slice(2)", "cdef")]
-    [InlineData("blob.slice(2, 4)", "cd")]
-    [InlineData("blob.slice(-2)", "ef")]
-    [InlineData("blob.slice(-100)", "abcdef")]
-    [InlineData("blob.slice(0, -2)", "abcd")]
-    [InlineData("blob.slice(0, -100)", "")]
-    [InlineData("blob.slice(4, 2)", "")]
-    [InlineData("blob.slice(100)", "")]
-    [InlineData("blob.slice(0, 100)", "abcdef")]
+    [TestCase("blob.slice()", "abcdef")]
+    [TestCase("blob.slice(2)", "cdef")]
+    [TestCase("blob.slice(2, 4)", "cd")]
+    [TestCase("blob.slice(-2)", "ef")]
+    [TestCase("blob.slice(-100)", "abcdef")]
+    [TestCase("blob.slice(0, -2)", "abcd")]
+    [TestCase("blob.slice(0, -100)", "")]
+    [TestCase("blob.slice(4, 2)", "")]
+    [TestCase("blob.slice(100)", "")]
+    [TestCase("blob.slice(0, 100)", "abcdef")]
     // An optional argument with no default value is missing when undefined is passed explicitly.
-    [InlineData("blob.slice(undefined, undefined)", "abcdef")]
-    [InlineData("blob.slice(2, undefined)", "cdef")]
+    [TestCase("blob.slice(undefined, undefined)", "abcdef")]
+    [TestCase("blob.slice(2, undefined)", "cdef")]
     // [Clamp] rounds to nearest, ties to even, and NaN becomes zero.
-    [InlineData("blob.slice(1.5, 4.5)", "cd")]
-    [InlineData("blob.slice(2.4)", "cdef")]
-    [InlineData("blob.slice(NaN, 2)", "ab")]
-    [InlineData("blob.slice(-Infinity, Infinity)", "abcdef")]
+    [TestCase("blob.slice(1.5, 4.5)", "cd")]
+    [TestCase("blob.slice(2.4)", "cdef")]
+    [TestCase("blob.slice(NaN, 2)", "ab")]
+    [TestCase("blob.slice(-Infinity, Infinity)", "abcdef")]
     public void SlicesByByteOrderPosition(string expression, string expected)
     {
         var engine = WebEngine();
@@ -276,7 +274,7 @@ public class BlobTests
         engine.Evaluate(expression + ".text()").UnwrapIfPromise().AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void GivesTheSliceOnlyTheContentTypeItWasAskedFor()
     {
         var engine = WebEngine();
@@ -292,7 +290,7 @@ public class BlobTests
         engine.Evaluate("blob.slice(0, 2) instanceof Blob").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsBackAsTextArrayBufferAndBytes()
     {
         var engine = WebEngine();
@@ -307,7 +305,7 @@ public class BlobTests
             .UnwrapIfPromise().AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheReadMethodsAnswerRealPromises()
     {
         var engine = WebEngine();
@@ -322,7 +320,7 @@ public class BlobTests
         engine.Evaluate("blob.text()").UnwrapIfPromise().AsString().Should().Be("AB");
     }
 
-    [Fact]
+    [Test]
     public void TextIsALenientBomStrippingUtf8Decode()
     {
         // https://encoding.spec.whatwg.org/#utf-8-decode strips one leading BOM ...
@@ -335,7 +333,7 @@ public class BlobTests
         Eval("new Blob([new Uint8Array([0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF])]).text()").UnwrapIfPromise().AsString().Should().Be("\uFEFF");
     }
 
-    [Fact]
+    [Test]
     public void StreamProducesTheBytesAsOneChunkAndThenCloses()
     {
         // https://w3c.github.io/FileAPI/#blob-get-stream. The bytes are already in memory, so they are one
@@ -350,7 +348,7 @@ public class BlobTests
             .UnwrapIfPromise().AsString().Should().Be("true:true");
     }
 
-    [Fact]
+    [Test]
     public void StreamOfAnEmptyBlobIsDoneAtOnce()
     {
         Eval("new Blob([]).stream().getReader().read().then(x => x.done + ':' + (x.value === undefined))")
@@ -362,7 +360,7 @@ public class BlobTests
     /// realm … set up with byte reading support." So a BYOB reader works on it, and a BYOB read is bounded
     /// by the caller's buffer rather than by the one chunk a default reader sees.
     /// </summary>
-    [Fact]
+    [Test]
     public void StreamIsAByteStreamAndCanBeReadByob()
     {
         var engine = WebEngine();
@@ -386,7 +384,7 @@ public class BlobTests
     /// blob's stream has its bytes already, so what this pins is the other half of the ownership rule: the
     /// caller's buffer is transferred away, and the view handed back owns the memory.
     /// </summary>
-    [Fact]
+    [Test]
     public void StreamTransfersTheBufferOfAByobRead()
     {
         var engine = WebEngine();
@@ -399,7 +397,7 @@ public class BlobTests
         engine.Evaluate("view.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void StreamIsAReadableStreamEvenWithoutTheStreamsFeature()
     {
         // This engine asked for Files and nothing else, so the ReadableStream *global* is absent — but the
@@ -412,7 +410,7 @@ public class BlobTests
         engine.Evaluate("new Blob(['x']).stream().locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void StreamHandsEachCallItsOwnStreamOverACopyOfTheBytes()
     {
         var engine = WebEngine();
@@ -460,7 +458,7 @@ public class BlobTests
     /// https://w3c.github.io/FileAPI/#dom-blob-textstream: the blob's stream piped through a UTF-8
     /// <c>TextDecoderStream</c>, so the chunks are strings rather than bytes.
     /// </summary>
-    [Fact]
+    [Test]
     public void TextStreamDecodesTheBytesAsUtf8Strings()
     {
         var engine = TextStreamEngine();
@@ -472,7 +470,7 @@ public class BlobTests
         Log(engine).Should().Be("out:string:hello world,out:done");
     }
 
-    [Fact]
+    [Test]
     public void TextStreamOfAnEmptyBlobClosesWithNoChunks()
     {
         // The flush produces the empty string, and "if outputChunk is not the empty string" means nothing is
@@ -495,7 +493,7 @@ public class BlobTests
     /// instead. What this pins is that the composition cannot decode part-wise, which is exactly what would
     /// break if <c>textStream()</c> ever decoded each part on its own or if the source were later chunked.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TextStreamJoinsAMultiByteSequenceSplitAcrossParts()
     {
         var engine = TextStreamEngine();
@@ -519,7 +517,7 @@ public class BlobTests
     /// deliberately asserts the same three answers <c>text()</c> gives, since both are "UTF-8 decode" and the
     /// two must not drift.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TextStreamStripsOneLeadingByteOrderMark()
     {
         // One drain per Execute, so the log is this stream's chunks rather than three pipes interleaved.
@@ -536,7 +534,7 @@ public class BlobTests
         Eval("new Blob([new Uint8Array([0xEF, 0xBB, 0xBF, 0x41])]).text()").UnwrapIfPromise().AsString().Should().Be("A");
     }
 
-    [Fact]
+    [Test]
     public void TextStreamSubstitutesU00FFFDRatherThanFailing()
     {
         // The error mode is "replacement", not "fatal" — "set up a text decoder stream" defaults it that
@@ -551,7 +549,7 @@ public class BlobTests
     /// "This differs from <c>readAsText()</c> in that it always uses the UTF-8 encoding" — the blob's
     /// <c>type</c> is never consulted, whatever charset it names.
     /// </summary>
-    [Fact]
+    [Test]
     public void TextStreamIgnoresTheCharsetOfTheBlobType()
     {
         var engine = TextStreamEngine();
@@ -576,7 +574,7 @@ public class BlobTests
     /// <c>[NewObject]</c>: every call builds a fresh source, a fresh decoder and a fresh result, so reading
     /// one cannot disturb another.
     /// </summary>
-    [Fact]
+    [Test]
     public void TextStreamHandsEachCallItsOwnStream()
     {
         var engine = TextStreamEngine();
@@ -598,7 +596,7 @@ public class BlobTests
     /// A <c>stream()</c> and a <c>textStream()</c> taken from one blob are two streams over two sources,
     /// not one source read twice — so either can be drained without the other noticing, in either order.
     /// </summary>
-    [Fact]
+    [Test]
     public void TextStreamAndStreamOfOneBlobAreIndependent()
     {
         var engine = TextStreamEngine();
@@ -633,7 +631,7 @@ public class BlobTests
     /// and is what this pins, is that the cancellation settles cleanly rather than erroring the stream: the
     /// promise fulfils with <c>undefined</c>, the next read is done, and <c>closed</c> fulfils.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TextStreamCanBeCancelled()
     {
         var engine = TextStreamEngine();
@@ -665,7 +663,7 @@ public class BlobTests
     /// The result is an ordinary <c>ReadableStream</c> of strings: the byte-stream machinery is the
     /// <i>source</i>, and what a transform's readable side hands out is not a byte stream.
     /// </summary>
-    [Fact]
+    [Test]
     public void TextStreamIsNotAByteStream()
     {
         var engine = WebEngine();
@@ -680,22 +678,22 @@ public class BlobTests
 
         // stream() serves a BYOB reader; textStream() cannot, because its chunks are strings.
         engine.Execute("var byob = new Blob(['x']).stream().getReader({ mode: 'byob' });");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Blob(['x']).textStream().getReader({ mode: 'byob' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Blob(['x']).textStream().getReader({ mode: 'byob' })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TextStreamBrandChecksItsReceiver()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Blob.prototype.textStream.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void DeclaresTheArityTheIdlDoes()
     {
         var engine = WebEngine();

@@ -13,7 +13,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class Test262HarnessObjectTests
 {
-    [Fact]
+    [Test]
     public void CreateRealmReturnsTheNewRealmsOwn262Object()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class Test262HarnessObjectTests
         engine.Evaluate("$262.global === globalThis").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CreatedRealmHasItsOwnGlobalAndIntrinsics()
     {
         var engine = new Engine();
@@ -53,7 +53,7 @@ public class Test262HarnessObjectTests
         engine.Evaluate("other.createRealm().global !== other.global").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CreatedRealmsFunctionsBelongToThatRealm()
     {
         var engine = new Engine();
@@ -74,7 +74,7 @@ public class Test262HarnessObjectTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CreatedRealmDetachesABufferMadeInThatRealm()
     {
         var engine = new Engine();

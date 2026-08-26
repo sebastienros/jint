@@ -16,7 +16,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class NodeProcessTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoProcess()
     {
         var engine = new Engine();
@@ -25,7 +25,7 @@ public class NodeProcessTests
         engine.Evaluate("'process' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseNodeProcessNeedsNoConfigurationAtAll()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -35,7 +35,7 @@ public class NodeProcessTests
         engine.Evaluate("Object.keys(process.env).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void NotOneEnvironmentVariableIsExposedUntilTheHostListsIt()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_UNLISTED";
@@ -57,7 +57,7 @@ public class NodeProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnOverrideWinsOverTheRealEnvironment()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_OVERRIDDEN";
@@ -78,7 +78,7 @@ public class NodeProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnOverrideThatIsNotAllowedIsStillNotExposed()
     {
         var engine = new Engine(options => options.UseNodeProcess(p =>
@@ -93,7 +93,7 @@ public class NodeProcessTests
         engine.Evaluate("typeof process.env.SNEAKY").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ANullOverrideHidesTheVariableRatherThanFallingBackToTheRealOne()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_HIDDEN";
@@ -115,7 +115,7 @@ public class NodeProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnOverrideKeepsItsDictionarysComparer()
     {
         var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["node_env"] = "production" };
@@ -128,7 +128,7 @@ public class NodeProcessTests
         engine.Evaluate("process.env.NODE_ENV").AsString().Should().Be("production");
     }
 
-    [Fact]
+    [Test]
     public void WritesToEnvNeverReachTheRealEnvironment()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_WRITE";
@@ -147,7 +147,7 @@ public class NodeProcessTests
         Environment.GetEnvironmentVariable("INVENTED").Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void DeletingFromEnvIsScriptLocalToo()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_DELETE";
@@ -167,7 +167,7 @@ public class NodeProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesFromOneOptionsGetTheirOwnEnvObject()
     {
         var options = new Options().UseNodeProcess(p =>
@@ -185,7 +185,7 @@ public class NodeProcessTests
         second.Evaluate("process.env.A").AsString().Should().Be("shared");
     }
 
-    [Fact]
+    [Test]
     public void TheConfigurationIsSnapshottedWhenUseNodeProcessReturns()
     {
         var overrides = new Dictionary<string, string> { ["A"] = "captured" };
@@ -210,7 +210,7 @@ public class NodeProcessTests
         engine.Evaluate("process.platform").AsString().Should().NotBe("changed");
     }
 
-    [Fact]
+    [Test]
     public void PlatformIsTheRunningPlatformUnlessTheHostSaysOtherwise()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -221,7 +221,7 @@ public class NodeProcessTests
         pretending.Evaluate("process.platform").AsString().Should().Be("freebsd");
     }
 
-    [Fact]
+    [Test]
     public void VersionIsNotANodeVersionUnlessTheHostMakesItOne()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -242,7 +242,7 @@ public class NodeProcessTests
         pretending.Evaluate("typeof process.versions.jint").AsString().Should().Be("string");
     }
 
-    [Fact]
+    [Test]
     public void CwdAnswersTheConfiguredDirectoryAndNeverTheRealOne()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -254,7 +254,7 @@ public class NodeProcessTests
         rooted.Evaluate("process.cwd()").AsString().Should().Be("/app");
     }
 
-    [Fact]
+    [Test]
     public void NothingCanActOnTheHostProcess()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -265,7 +265,7 @@ public class NodeProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NextTickQueuesOntoTheEnginesOwnJobQueue()
     {
         var engine = new Engine(options => options.UseNodeProcess());
@@ -279,7 +279,7 @@ public class NodeProcessTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("script,tick(1,2)");
     }
 
-    [Fact]
+    [Test]
     public void TheNpmStyleProbeAScriptActuallyWritesWorks()
     {
         var engine = new Engine(options => options.UseNodeProcess(p =>
@@ -303,7 +303,7 @@ public class NodeProcessTests
             """).AsString().Should().Be("development build");
     }
 
-    [Fact]
+    [Test]
     public void AProcessGlobalTheHostRegisteredItselfWins()
     {
         var before = new Engine(options => options

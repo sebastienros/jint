@@ -28,7 +28,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class LazyGlobalRestoreContractTests
 {
-    [Fact]
+    [Test]
     public void AnUnreadOptionsGlobalIsRebuiltAfterARestore()
     {
         var built = 0;
@@ -57,7 +57,7 @@ public class LazyGlobalRestoreContractTests
         built.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void TheSameHoldsForAPerEngineRegistration()
     {
         var built = 0;
@@ -92,7 +92,7 @@ public class LazyGlobalRestoreContractTests
         built.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AGlobalAlreadyReadAtCaptureIsRestoredToThatValue()
     {
         // The other side of the same rule, and the one a host must not get wrong in the opposite direction:
@@ -121,7 +121,7 @@ public class LazyGlobalRestoreContractTests
         built.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ScriptStateFromThePreviousEvaluationDoesNotSurvive()
     {
         // The rest of what a pool relies on, in one place: a global declared by a script, a redeclarable
@@ -146,7 +146,7 @@ public class LazyGlobalRestoreContractTests
             .Be(4, "a restore reverts global bindings and explicitly not intrinsic mutations — a pool is a configuration-reuse primitive, not an isolation boundary");
     }
 
-    [Fact]
+    [Test]
     public void APropertyFlagOnARestoredGlobalIsRevertedToo()
     {
         // A host that declares its globals non-enumerable, as a delegate registration would, needs the

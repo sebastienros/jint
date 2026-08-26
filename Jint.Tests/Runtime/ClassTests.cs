@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class ClassTests
 {
-    [Fact]
+    [Test]
     public void IsBlockScoped()
     {
         const string Script = @"
@@ -20,7 +20,7 @@ public class ClassTests
         engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanDestructureNestedMembers()
     {
         const string Script = @"
@@ -48,7 +48,7 @@ public class ClassTests
         engine.Evaluate("board.doubleWidth ").Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void PrivateMemberAccessOutsideOfClass()
     {
         var ex = Invoking(() => new Engine().Evaluate
@@ -62,7 +62,7 @@ public class ClassTests
         ex.Message.Should().Be("Private field '#nonexistent' must be declared in an enclosing class (<anonymous>:2:9)");
     }
 
-    [Fact]
+    [Test]
     public void PrivateMemberAccessAgainstUnknownMemberInConstructor()
     {
         var ex = Invoking(() => new Engine().Evaluate
@@ -81,15 +81,14 @@ public class ClassTests
     /// own "name" property - the constructor *method's* definition has no name of its own. The nameless
     /// phrasing is what V8 answers for a class that never acquired a name.
     /// </summary>
-    [Theory]
-    [InlineData("class C {}; [1].map(C);", "Class constructor C cannot be invoked without 'new'")]
-    [InlineData("[1].map(class C {});", "Class constructor C cannot be invoked without 'new'")]
-    [InlineData("[1].map(class {});", "Class constructors cannot be invoked without 'new'")]
-    [InlineData("const D = class {}; [1].map(D);", "Class constructor D cannot be invoked without 'new'")]
-    [InlineData("class E { constructor() {} }; E();", "Class constructor E cannot be invoked without 'new'")]
-    [InlineData("class B {}; class F extends B {}; F();", "Class constructor F cannot be invoked without 'new'")]
-    [InlineData("const o = {}; o.h = class {}; o.h();", "Class constructors cannot be invoked without 'new'")]
-    [InlineData("const o = { g: class {} }; o.g();", "Class constructor g cannot be invoked without 'new'")]
+    [TestCase("class C {}; [1].map(C);", "Class constructor C cannot be invoked without 'new'")]
+    [TestCase("[1].map(class C {});", "Class constructor C cannot be invoked without 'new'")]
+    [TestCase("[1].map(class {});", "Class constructors cannot be invoked without 'new'")]
+    [TestCase("const D = class {}; [1].map(D);", "Class constructor D cannot be invoked without 'new'")]
+    [TestCase("class E { constructor() {} }; E();", "Class constructor E cannot be invoked without 'new'")]
+    [TestCase("class B {}; class F extends B {}; F();", "Class constructor F cannot be invoked without 'new'")]
+    [TestCase("const o = {}; o.h = class {}; o.h();", "Class constructors cannot be invoked without 'new'")]
+    [TestCase("const o = { g: class {} }; o.g();", "Class constructor g cannot be invoked without 'new'")]
     public void ClassConstructorCalledWithoutNewNamesTheClass(string script, string expected)
     {
         var ex = Invoking(() => new Engine().Evaluate(script))
@@ -106,7 +105,7 @@ public class ClassTests
     /// Jint resolved the super base first, and the read went to the old prototype. test262 covers it in
     /// <c>staging/sm/class/superPropOrdering.js</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ComputedSuperPropertyResolvesItsBaseAfterThePropertyExpression()
     {
         const string Script = """
@@ -127,7 +126,7 @@ public class ClassTests
     /// A non-computed <c>super.name</c> has no such expression, so its base is resolved before the argument
     /// list — the same re-pointing during an argument leaves the already-resolved method alone.
     /// </summary>
-    [Fact]
+    [Test]
     public void NonComputedSuperPropertyResolvesItsBaseBeforeTheArguments()
     {
         const string Script = """
@@ -148,7 +147,7 @@ public class ClassTests
     /// still taken before the right-hand side runs, and the reference still writes through the super base's
     /// [[Set]] onto the receiver.
     /// </summary>
-    [Fact]
+    [Test]
     public void ComputedSuperPropertyStillReadsAndWritesNormally()
     {
         const string Script = """
@@ -174,7 +173,7 @@ public class ClassTests
     /// And it must survive suspension: <c>super[await key]</c> resumes into the same deferred base rather
     /// than into whatever evaluating the <c>super</c> keyword on its own would produce.
     /// </summary>
-    [Fact]
+    [Test]
     public void ComputedSuperPropertySurvivesAnAwaitInThePropertyExpression()
     {
         const string Script = """

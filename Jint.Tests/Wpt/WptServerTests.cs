@@ -37,7 +37,7 @@ public class WptServerTests
     /// <c>fetch/api/resources/inspect-headers.py</c> echoes each named request header back as
     /// <c>x-request-&lt;name&gt;</c>, and names it does not find are simply absent.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task InspectHeadersEchoesTheHeadersItWasAskedFor()
     {
         using var request = new HttpRequestMessage(
@@ -56,7 +56,7 @@ public class WptServerTests
     /// <c>fetch/api/resources/status.py</c> takes its code, its reason phrase, its content type and its body
     /// from the query, and echoes the request method.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task StatusAnswersWithWhatTheQueryAsksFor()
     {
         using var response = await GetAsync("/fetch/api/resources/status.py?code=418&text=Nope&type=text/plain&content=hi");
@@ -73,7 +73,7 @@ public class WptServerTests
     /// depends on: it asks for a UTF-16BE body and reads it back through a UTF-8 decoder, so a server that
     /// decoded the query as text would have replaced the invalid sequences before the engine saw them.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TheQueryIsDecodedToBytesRatherThanToText()
     {
         using var response = await GetAsync("/fetch/api/resources/status.py?code=200&content=%fe%ff%4e%09");
@@ -86,7 +86,7 @@ public class WptServerTests
     /// <c>fetch/api/resources/method.py</c> echoes the method, the four content headers (or <c>NO</c>) and
     /// the request body — which is how <c>redirect-method.any.js</c> sees what a redirect kept.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task MethodEchoesTheRequestBackToTheCaller()
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/fetch/api/resources/method.py")
@@ -107,7 +107,7 @@ public class WptServerTests
     /// <c>simple</c> was not passed — rewrites the location to carry the original query plus a
     /// <c>count=</c> that changes on every hop.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task RedirectAnswersTheStatusAndRewritesTheLocation()
     {
         using var response = await GetAsync("/fetch/api/resources/redirect.py?redirect_status=307&location=top.txt");
@@ -123,7 +123,7 @@ public class WptServerTests
     /// <c>simple</c> suppresses that rewrite, which is the branch a location with a non-http scheme also
     /// takes.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task RedirectLeavesASimpleLocationAlone()
     {
         using var response = await GetAsync("/fetch/api/resources/redirect.py?simple&location=top.txt");
@@ -137,7 +137,7 @@ public class WptServerTests
     /// and answers 200 with the count instead — one less than the hops it served, because the reporting hop
     /// is not itself a redirection. <c>redirect-count.any.js</c> asserts exactly that number.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task RedirectCountsHopsInTheStashAndReportsThemAtMaxCount()
     {
         var token = "jint-" + Guid.NewGuid().ToString("N");
@@ -162,7 +162,7 @@ public class WptServerTests
     }
 
     /// <summary><c>fetch/api/resources/redirect-empty-location.py</c>: a 302 with an empty <c>Location</c>.</summary>
-    [Fact]
+    [Test]
     public async Task RedirectEmptyLocationSendsAnEmptyLocationHeader()
     {
         using var response = await GetAsync("/fetch/api/resources/redirect-empty-location.py");
@@ -178,7 +178,7 @@ public class WptServerTests
     /// assertion is on the bytes rather than on the timing: a wall-clock assertion is the kind of thing that
     /// makes a suite flaky on a loaded machine.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TrickleWritesTheLinesItWasAskedFor()
     {
         using var response = await GetAsync("/fetch/api/resources/trickle.py?ms=1&count=4");
@@ -188,7 +188,7 @@ public class WptServerTests
     }
 
     /// <summary><c>notype</c> is what makes it send no <c>Content-Type</c> at all.</summary>
-    [Fact]
+    [Test]
     public async Task TrickleSendsNoContentTypeWhenAskedNotTo()
     {
         using var response = await GetAsync("/fetch/api/resources/trickle.py?ms=1&count=1&notype=true");
@@ -200,7 +200,7 @@ public class WptServerTests
     /// Anything that is not a handler is a file out of the vendored corpus — the same bytes every other suite
     /// reads, which is what keeps the vendored-and-byte-verified model intact.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task StaticFilesComeOutOfTheVendoredCorpus()
     {
         using var response = await GetAsync("/fetch/api/resources/top.txt");
@@ -210,7 +210,7 @@ public class WptServerTests
     }
 
     /// <summary>A path the corpus does not hold is a 404, not a CLR exception.</summary>
-    [Fact]
+    [Test]
     public async Task APathTheCorpusDoesNotHoldIsA404()
     {
         using var response = await GetAsync("/fetch/api/resources/there-is-no-such-file.txt");
@@ -242,7 +242,7 @@ public class WptServerTests
     /// <c>ResponseHeaderEncodingSelector</c>.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack()
     {
         var lost = new List<int>();

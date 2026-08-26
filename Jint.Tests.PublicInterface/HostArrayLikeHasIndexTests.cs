@@ -173,8 +173,8 @@ public class HostArrayLikeHasIndexTests
     /// <summary>
     /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
     /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
-    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
-    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Static so
+    /// <see cref="IgnoreUnlessAttribute" /> can read it while the test tree is built.
     /// </summary>
     public static bool Verifying => HostContractVerificationSwitch.Enabled;
 
@@ -198,15 +198,14 @@ public class HostArrayLikeHasIndexTests
         }
     }
 
-    [Theory]
-    [InlineData("0 in list", true)]
-    [InlineData("2 in list", true)]
-    [InlineData("3 in list", false)]
-    [InlineData("list.hasOwnProperty(0)", true)]
-    [InlineData("list.hasOwnProperty('1')", true)]
-    [InlineData("list.hasOwnProperty(9)", false)]
-    [InlineData("list.propertyIsEnumerable(0)", true)]
-    [InlineData("list.propertyIsEnumerable(9)", false)]
+    [TestCase("0 in list", true)]
+    [TestCase("2 in list", true)]
+    [TestCase("3 in list", false)]
+    [TestCase("list.hasOwnProperty(0)", true)]
+    [TestCase("list.hasOwnProperty('1')", true)]
+    [TestCase("list.hasOwnProperty(9)", false)]
+    [TestCase("list.propertyIsEnumerable(0)", true)]
+    [TestCase("list.propertyIsEnumerable(9)", false)]
     public void AnExistenceQuestionAsksTheContainmentHookAndNeverProjectsAnElement(string script, bool expected)
     {
         var engine = CreateEngine(out var list);
@@ -218,10 +217,9 @@ public class HostArrayLikeHasIndexTests
         AssertNoValueWasMaterialized(list);
     }
 
-    [Theory]
-    [InlineData("Object.keys(list).join(',')", "0,1,2")]
-    [InlineData("Object.getOwnPropertyNames(list).join(',')", "0,1,2,length")]
-    [InlineData("(function () { var k = []; for (var n in list) { k.push(n); } return k.join(','); })()", "0,1,2")]
+    [TestCase("Object.keys(list).join(',')", "0,1,2")]
+    [TestCase("Object.getOwnPropertyNames(list).join(',')", "0,1,2,length")]
+    [TestCase("(function () { var k = []; for (var n in list) { k.push(n); } return k.join(','); })()", "0,1,2")]
     public void KeyEnumerationAsksTheContainmentHookAndNeverProjectsAnElement(string script, string expected)
     {
         var engine = CreateEngine(out var list);
@@ -233,7 +231,7 @@ public class HostArrayLikeHasIndexTests
         AssertNoValueWasMaterialized(list);
     }
 
-    [Fact]
+    [Test]
     public void DeleteAsksTheContainmentHookAndNeverProjectsAnElement()
     {
         var engine = CreateEngine(out var list);
@@ -245,7 +243,7 @@ public class HostArrayLikeHasIndexTests
         AssertNoValueWasMaterialized(list);
     }
 
-    [Fact]
+    [Test]
     public void ReadsStillGoThroughTheValueHookAndNeverAskTheContainmentHookFirst()
     {
         // The counterpart claim: adding the hook must not put an extra call on a read path. A question that
@@ -265,7 +263,7 @@ public class HostArrayLikeHasIndexTests
         list.HasIndexCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnOverridingHostKeepsEveryDerivedAnswerCoherent()
     {
         // The positive agreement case, and the one that matters most under Debug: the verifier runs on every
@@ -290,7 +288,7 @@ public class HostArrayLikeHasIndexTests
         engine.Evaluate("delete list[2]").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void TheContainmentHookIsConsultedLive()
     {
         var engine = CreateEngine(out var list);
@@ -313,9 +311,9 @@ public class HostArrayLikeHasIndexTests
     /// never gets the chance to happen, because the first probe that disagrees with <c>TryGetIndex</c> throws
     /// and names the host, the index and both answers.
     /// </summary>
-    [Theory(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
-    [InlineData(true)]
-    [InlineData(false)]
+    [IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
+    [TestCase(true)]
+    [TestCase(false)]
     public void VerificationTurnsASilentIndexDisagreementIntoAThrow(bool overclaiming)
     {
         var engine = new Engine();
@@ -338,7 +336,7 @@ public class HostArrayLikeHasIndexTests
     /// probe throws, which is what the theory above asserts instead.
     /// </para>
     /// </summary>
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void AHostClaimingAnIndexItCannotServeAdvertisesAKeyThatReadsAsUndefined()
     {
         var engine = new Engine();
@@ -359,7 +357,7 @@ public class HostArrayLikeHasIndexTests
             .Should().Be(true);
     }
 
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void AHostDenyingAnIndexItDoesServeHidesTheElementFromEveryEnumeration()
     {
         var engine = new Engine();

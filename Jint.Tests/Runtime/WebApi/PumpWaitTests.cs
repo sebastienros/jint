@@ -55,7 +55,7 @@ public class PumpWaitTests
     /// very thing the wait is supposed to clamp to.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void ClampsToTheEnginesOwnSchedule()
     {
         using var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Timers));

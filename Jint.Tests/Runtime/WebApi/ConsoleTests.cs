@@ -42,7 +42,7 @@ public class ConsoleTests
         return sink.Messages;
     }
 
-    [Fact]
+    [Test]
     public void SubstitutesTheFormatSpecifiers()
     {
         Run("console.log('hello %s', 'world')").Should().Equal("hello world");
@@ -53,7 +53,7 @@ public class ConsoleTests
         Run("console.log('%O', [1,'x'])").Should().Equal("[ 1, 'x' ]");
     }
 
-    [Fact]
+    [Test]
     public void CoercesAwkwardValuesTheWayTheSpecifierSays()
     {
         Run("console.log('%d', Symbol('s'))").Should().Equal("NaN");
@@ -63,14 +63,14 @@ public class ConsoleTests
         Run("console.log('%d', 10n)").Should().Equal("10");
     }
 
-    [Fact]
+    [Test]
     public void ConsumesPercentCWithoutEmittingStyling()
     {
         Run("console.log('%cstyled', 'color: red')").Should().Equal("styled");
         Run("console.log('%ca%cb', 'x', 'y')").Should().Equal("ab");
     }
 
-    [Fact]
+    [Test]
     public void CollapsesADoubledPercent()
     {
         // Formatter step 1 returns a single argument untouched, so substitution — including %% — only ever
@@ -79,13 +79,13 @@ public class ConsoleTests
         Run("console.log('100%% sure of %s', 'it')").Should().Equal("100% sure of it");
     }
 
-    [Fact]
+    [Test]
     public void LeavesASpecifierWithNoArgumentAlone()
     {
         Run("console.log('a %s %s', 'b')").Should().Equal("a b %s");
     }
 
-    [Fact]
+    [Test]
     public void AppendsExtraArgumentsSeparatedBySpaces()
     {
         Run("console.log('a', 'b', 'c')").Should().Equal("a b c");
@@ -93,13 +93,13 @@ public class ConsoleTests
         Run("console.log(1, 2)").Should().Equal("1 2");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotTreatANonStringFirstArgumentAsAFormatString()
     {
         Run("console.log({a:'%s'}, 'b')").Should().Equal("{ a: '%s' } b");
     }
 
-    [Fact]
+    [Test]
     public void EmitsNothingWhenThereIsNothingToLog()
     {
         // https://console.spec.whatwg.org/#logger step 1.
@@ -107,7 +107,7 @@ public class ConsoleTests
         Run("console.warn(); console.error(); console.info(); console.debug()").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void MakesExactlyOneWritePerRecord()
     {
         var (engine, sink) = Recording();
@@ -118,7 +118,7 @@ public class ConsoleTests
         sink.Records[0].Message.Should().Be("a\nb { x: 1 }");
     }
 
-    [Fact]
+    [Test]
     public void MapsEachMethodToItsLevel()
     {
         var (engine, sink) = Recording();
@@ -133,7 +133,7 @@ public class ConsoleTests
             ConsoleLogLevel.Error);
     }
 
-    [Fact]
+    [Test]
     public void IndentsWhatFollowsAGroupLabel()
     {
         var messages = Run(@"
@@ -157,33 +157,33 @@ public class ConsoleTests
             "after");
     }
 
-    [Fact]
+    [Test]
     public void IndentsEveryLineOfAMultiLineRecord()
     {
         Run("console.group('g'); console.log('a\\nb')").Should().Equal("g", "  a\n  b");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAnUnbalancedGroupEnd()
     {
         Run("console.groupEnd(); console.groupEnd(); console.log('flat')").Should().Equal("flat");
     }
 
-    [Fact]
+    [Test]
     public void CountsPerLabel()
     {
         Run("console.count(); console.count(); console.count('a'); console.count()")
             .Should().Equal("default: 1", "default: 2", "a: 1", "default: 3");
     }
 
-    [Fact]
+    [Test]
     public void ResetsACounter()
     {
         Run("console.count('a'); console.countReset('a'); console.count('a')")
             .Should().Equal("a: 1", "a: 1");
     }
 
-    [Fact]
+    [Test]
     public void WarnsWhenResettingACounterThatDoesNotExist()
     {
         var (engine, sink) = Recording();
@@ -195,7 +195,7 @@ public class ConsoleTests
         sink.Records[0].Message.Should().Be("Count for 'nope' does not exist");
     }
 
-    [Fact]
+    [Test]
     public void ReportsTimersByLabelWithADuration()
     {
         var (engine, sink) = Recording();
@@ -210,7 +210,7 @@ public class ConsoleTests
         sink.Records.TrueForAll(r => r.Level == ConsoleLogLevel.Log).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void WarnsAboutADuplicateOrMissingTimer()
     {
         var (engine, sink) = Recording();
@@ -224,7 +224,7 @@ public class ConsoleTests
         sink.Records[3].Message.Should().Be("Timer 't' does not exist");
     }
 
-    [Fact]
+    [Test]
     public void AssertsOnlyOnAFalsyCondition()
     {
         var (engine, sink) = Recording();
@@ -245,7 +245,7 @@ public class ConsoleTests
         sink.Records.TrueForAll(r => r.Level == ConsoleLogLevel.Error).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TracesTheCallStack()
     {
         var (engine, sink) = Recording();
@@ -262,7 +262,7 @@ public class ConsoleTests
         sink.Records[0].Message.Should().NotContain("at trace");
     }
 
-    [Fact]
+    [Test]
     public void InspectsBoundedAndCycleSafely()
     {
         Run("var o = {}; o.self = o; console.log(o)").Should().Equal("{ self: [Circular] }");
@@ -278,7 +278,7 @@ public class ConsoleTests
         Run("var o = {}; Object.defineProperty(o, 'hidden', { value: 1 }); console.log(o)").Should().Equal("{}");
     }
 
-    [Fact]
+    [Test]
     public void QuotesStringsOnlyBelowTheTopLevel()
     {
         Run("console.log('x')").Should().Equal("x");
@@ -286,7 +286,7 @@ public class ConsoleTests
         Run("console.dir('x')").Should().Equal("'x'");
     }
 
-    [Fact]
+    [Test]
     public void RendersFunctionsSymbolsAndErrors()
     {
         Run("console.log(Symbol('s'))").Should().Equal("Symbol(s)");
@@ -298,7 +298,7 @@ public class ConsoleTests
     /// https://github.com/sebastienros/jint/issues/3316. A promise owns no enumerable property, so walking
     /// it as an ordinary object rendered the empty one every other engine renders as its state.
     /// </summary>
-    [Fact]
+    [Test]
     public void RendersAPromiseInEachOfItsThreeStates()
     {
         Run("console.log(new Promise(() => {}))").Should().Equal("Promise { <pending> }");
@@ -320,7 +320,7 @@ public class ConsoleTests
     /// slots, never through the prototype accessor of the same name — <c>source</c>, <c>flags</c>,
     /// <c>byteLength</c> and <c>toISOString</c> are configurable on every one of these.
     /// </summary>
-    [Fact]
+    [Test]
     public void RendersTheWellKnownExoticObjects()
     {
         Run("console.log(new Map())").Should().Equal("Map(0) {}");
@@ -367,7 +367,7 @@ public class ConsoleTests
     /// once the engine retains it, and one console record carrying a function body is exactly the unbounded
     /// output the rest of the renderer is written to avoid.
     /// </summary>
-    [Fact]
+    [Test]
     public void NamesAFunctionInsteadOfPrintingIt()
     {
         Run("console.log(function foo() {})").Should().Equal("[Function: foo]");
@@ -400,7 +400,7 @@ public class ConsoleTests
     /// The class promises it is not a way to run script. A proxy is where that promise was untrue: walking
     /// one calls its <c>ownKeys</c> and <c>getOwnPropertyDescriptor</c> traps, so it renders as its target.
     /// </summary>
-    [Fact]
+    [Test]
     public void NeverRunsScriptWhileInspecting()
     {
         Run(@"var p = new Proxy({ a: 1 }, {
@@ -418,7 +418,7 @@ public class ConsoleTests
             .Should().Equal("{ a: 1 }");
     }
 
-    [Fact]
+    [Test]
     public void AnExoticContainerIsDepthCappedAndCycleSafe()
     {
         Run("var m = new Map(); m.set('self', m); console.log(m)").Should().Equal("Map(1) { 'self' => [Circular] }");
@@ -436,7 +436,7 @@ public class ConsoleTests
             .Should().ContainSingle().Which.Should().EndWith("99 => 99, ... 5 more items }");
     }
 
-    [Fact]
+    [Test]
     public void TablesAnArrayOfPrimitivesThroughTheValuesColumn()
     {
         Run("console.table(['a', 'b'])").Should().Equal(
@@ -450,7 +450,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TablesAnArrayOfObjectsWithTheUnionOfTheirKeys()
     {
         // Columns are unioned across rows in first-seen order, and a row that lacks one renders an empty cell.
@@ -465,7 +465,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TablesAPlainObjectByItsKeys()
     {
         Run("console.table({ first: { n: 1 }, second: { n: 2 } })").Should().Equal(
@@ -479,7 +479,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TheColumnsArgumentReplacesTheDerivedColumnSet()
     {
         Run("console.table([{ a: 1, b: 2 }], ['b'])").Should().Equal(
@@ -502,7 +502,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void MixesObjectRowsAndPrimitiveRowsInOneTable()
     {
         Run("console.table([{ a: 1 }, 'plain'])").Should().Equal(
@@ -516,7 +516,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TableNeverInvokesAnAccessor()
     {
         // The same rule the rest of the formatter follows: a console must not be a way to run script.
@@ -530,7 +530,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TablesAnEmptyCollectionAsAnEmptyTable()
     {
         // An object with rows is tabular whether or not it has any, so this is a table and not the fallback.
@@ -545,7 +545,7 @@ public class ConsoleTests
         Run("console.table({})").Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void TableFallsBackToLoggingWhatCannotBeParsedAsTabular()
     {
         // "Fall back to just logging the argument if it can't be parsed as tabular."
@@ -556,7 +556,7 @@ public class ConsoleTests
         Run("console.table(function foo() {})").Should().Equal("[Function: foo]");
     }
 
-    [Fact]
+    [Test]
     public void TableEmitsExactlyOneRecordAtLogLevel()
     {
         var (engine, sink) = Recording();
@@ -577,7 +577,7 @@ public class ConsoleTests
             """.ReplaceLineEndings("\n"));
     }
 
-    [Fact]
+    [Test]
     public void TableBoundsTheRowsItRenders()
     {
         var messages = Run("console.table(Array.from({ length: 105 }, (_, i) => i))");
@@ -591,7 +591,7 @@ public class ConsoleTests
         messages[0].Should().EndWith("... 5 more rows");
     }
 
-    [Fact]
+    [Test]
     public void TheColumnsArgumentIsAWebIdlSequence()
     {
         // sequence<DOMString> is iterated with the iterator protocol and each element stringified, so a Set
@@ -605,7 +605,7 @@ public class ConsoleTests
         otherSink.Records.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void TimeStampEmitsItsLabel()
     {
         // Not a Console Standard method — a browser drops a marker on a profiler timeline and prints nothing.
@@ -615,7 +615,7 @@ public class ConsoleTests
         Run("console.timeStamp(7)").Should().Equal("7");
     }
 
-    [Fact]
+    [Test]
     public void IsIdentityStableAndTagged()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -636,7 +636,7 @@ public class ConsoleTests
     /// <c>true</c> to them. <c>idlharness.js</c> asserts exactly this, for <c>console</c> and for nothing
     /// else.
     /// </remarks>
-    [Fact]
+    [Test]
     public void SitsOnAPrivateEmptyPrototypeRatherThanOnObjectPrototype()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -663,7 +663,7 @@ public class ConsoleTests
     /// (https://webidl.spec.whatwg.org/#es-namespaces) and what Node 24 answers — its
     /// <c>Object.getOwnPropertyNames(console)</c> lists every method, and the object above it lists nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void KeepsItsMembersOnTheNamespaceObjectItself()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -690,7 +690,7 @@ public class ConsoleTests
     /// library decorating logging through the object above <c>console</c> must reach a throwaway object, not
     /// every object in the realm.
     /// </summary>
-    [Fact]
+    [Test]
     public void PatchingConsolesPrototypeDoesNotReachObjectPrototype()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -722,7 +722,7 @@ public class ConsoleTests
     /// The prototype is per realm, like the namespace object it sits under, so one engine's patch is not
     /// another's.
     /// </summary>
-    [Fact]
+    [Test]
     public void GivesEachEngineItsOwnConsolePrototype()
     {
         var options = new Options().UseWebApis();
@@ -737,7 +737,7 @@ public class ConsoleTests
         second.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CountsAndTimersAreOwnedByTheEngine()
     {
         var sink = new RecordingSink();

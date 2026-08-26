@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class MapTests
 {
-    [Fact]
+    [Test]
     public void ConConstructMap()
     {
         var engine = new Engine();

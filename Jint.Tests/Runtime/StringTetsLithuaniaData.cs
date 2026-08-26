@@ -3,7 +3,7 @@
 public class StringTetsLithuaniaData
 {
     // Contains the non-uppercased string that will be processed by the engine and the expected result.
-    private readonly TheoryData<string, string> fullSetOfData = new TheoryData<string, string>();
+    private readonly TestCases<string, string> fullSetOfData = new TestCases<string, string>();
     // From: https://github.com/tc39/test262/blob/main/test/intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian.js
     private readonly string[] softDotted = [
         "\u0069", "\u006A",   // LATIN SMALL LETTER I..LATIN SMALL LETTER J
@@ -68,7 +68,7 @@ public class StringTetsLithuaniaData
     }
 
     // All the cases from https://github.com/tc39/test262/blob/main/test/intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian.js
-    public TheoryData<string, string> TestData()
+    public TestCases<string, string> TestData()
     {
         // COMBINING DOT ABOVE (U+0307) not removed when uppercasing capital I
         AddStringsForChars("İ", "İ");

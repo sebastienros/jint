@@ -14,7 +14,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiCryptoTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoCrypto()
     {
         var engine = new Engine();
@@ -23,7 +23,7 @@ public class WebApiCryptoTests
         engine.Evaluate("'crypto' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsCrypto()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -36,7 +36,7 @@ public class WebApiCryptoTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Crypto);
     }
 
-    [Fact]
+    [Test]
     public void AskingForConsoleAloneDoesNotBringCrypto()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -45,7 +45,7 @@ public class WebApiCryptoTests
         engine.Evaluate("typeof crypto").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void FillsAHostSuppliedTypedArrayWithRandomBytes()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -61,7 +61,7 @@ public class WebApiCryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ProducesRandomUuidsAHostCanParse()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -78,7 +78,7 @@ public class WebApiCryptoTests
         "89ab".Contains(first[19]).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReportsItsFailuresAsTheStandardExceptions()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -98,7 +98,7 @@ public class WebApiCryptoTests
             """).AsString().Should().Be("TypeMismatchError,QuotaExceededError,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void HasASubtleCryptoWhoseUnimplementedOperationsFeatureDetectionCanSee()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -127,7 +127,7 @@ public class WebApiCryptoTests
             """).AsString().Should().Be("function:4,function:7");
     }
 
-    [Fact]
+    [Test]
     public void VerifiesAnRs256SignatureAHostCanHandTheScript()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -158,7 +158,7 @@ public class WebApiCryptoTests
         result.AsString().Should().Be("true|false|public|2048|SHA-256");
     }
 
-    [Fact]
+    [Test]
     public void GeneratesAKeyPairAsThePlainDictionaryTheSpecificationDefines()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -190,7 +190,7 @@ public class WebApiCryptoTests
         result.AsString().Should().Be("undefined|privateKey,publicKey|true|true");
     }
 
-    [Fact]
+    [Test]
     public void ReportsARestrictionOfThePlatformAsACatchableDomException()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -229,7 +229,7 @@ public class WebApiCryptoTests
         result.AsString().Should().Be("OperationError:true,OperationError:true,OperationError:true");
     }
 
-    [Fact]
+    [Test]
     public void ReportsEveryDerivationRefusalAsACatchableDomException()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -277,7 +277,7 @@ public class WebApiCryptoTests
             "OperationError:true,ok:0,OperationError:true,InvalidAccessError:true,OperationError:true");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredCryptoGlobalWins()
     {
         var marker = new JsString("the host's own crypto");
@@ -290,7 +290,7 @@ public class WebApiCryptoTests
         engine.Evaluate("crypto").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void IsAnEnumerableDataPropertyOfTheGlobal()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -303,7 +303,7 @@ public class WebApiCryptoTests
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -312,7 +312,7 @@ public class WebApiCryptoTests
         engine.Evaluate("typeof crypto").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEngines()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Crypto);

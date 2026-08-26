@@ -28,7 +28,7 @@ public class HostKeyedMemberAccessTests
 
     #region 1. non-string-keyed dictionary: read, contains, write, delete
 
-    [Fact]
+    [Test]
     public void IntKeyedDictionaryRoundTripsThroughTheEngine()
     {
         var dictionary = new Dictionary<int, string> { [1] = "one", [2] = "two" };
@@ -49,7 +49,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("1 in host").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IntKeyedDictionaryOfANonVisibleValueTypeBehavesIdentically()
     {
         // IDictionary<int, Hidden> is not a visible type, so no compiled delegate can be built for any of
@@ -68,7 +68,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("1 in host").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IntKeyedDictionaryAcceptsAValueTypedValue()
     {
         var dictionary = new Dictionary<int, long>();
@@ -80,7 +80,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("host[1]").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void IntKeyedDictionaryAcceptsANullValue()
     {
         var dictionary = new Dictionary<int, string?>();
@@ -91,7 +91,7 @@ public class HostKeyedMemberAccessTests
         dictionary.Should().ContainKey(1).WhoseValue.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void IntKeyedDictionaryAcceptsANullableValue()
     {
         // a null for a Nullable<T> value keeps its meaning; a null for a plain value type is refused before
@@ -108,7 +108,7 @@ public class HostKeyedMemberAccessTests
         plain.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void DictionaryWithAReferenceKeyRoundTrips()
     {
         // the key arrives as the wrapped CLR instance itself, so it is already an instance of the key type
@@ -131,7 +131,7 @@ public class HostKeyedMemberAccessTests
 
     #region 2. string-keyed dictionary: the write and delete lanes
 
-    [Fact]
+    [Test]
     public void StringKeyedDictionaryRoundTripsThroughTheEngine()
     {
         var dictionary = new Dictionary<string, string> { ["a"] = "one" };
@@ -150,7 +150,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("typeof host.a").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void StringKeyedDictionaryOfAValueTypeRoundTrips()
     {
         var dictionary = new Dictionary<string, int> { ["a"] = 1 };
@@ -167,7 +167,7 @@ public class HostKeyedMemberAccessTests
 
     #region 3. declared indexer
 
-    [Fact]
+    [Test]
     public void IndexerWithAContainsProbeAnswersHitsAndMisses()
     {
         var registry = new Registry();
@@ -183,7 +183,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("host.b").AsString().Should().Be("two");
     }
 
-    [Fact]
+    [Test]
     public void IndexerWithoutAProbeTurnsAKeyNotFoundIntoUndefined()
     {
         // no ContainsKey next to the indexer, so the miss arrives as an exception out of the getter; the
@@ -196,7 +196,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("typeof host.missing").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void IndexerFailureOtherThanAMissStillSurfaces()
     {
         var engine = CreateEngine(new ThrowingIndexer());
@@ -206,7 +206,7 @@ public class HostKeyedMemberAccessTests
         act.Should().Throw<Exception>();
     }
 
-    [Fact]
+    [Test]
     public void StructIndexerWritesReachTheWrappedInstance()
     {
         // a value-type receiver declines every compiled lane: a compiled call would unbox a copy, and this
@@ -221,7 +221,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("host.anything").AsString().Should().Be("written");
     }
 
-    [Fact]
+    [Test]
     public void IntIndexerDoesNotShadowANamedMember()
     {
         // the member-name probe cannot be handed to a this[int], so the named member answers - the same
@@ -232,7 +232,7 @@ public class HostKeyedMemberAccessTests
         engine.Evaluate("host[1]").AsString().Should().Be("item1");
     }
 
-    [Fact]
+    [Test]
     public void StringIndexerStillShadowsANamedMember()
     {
         // the documented order: an indexer that can be handed the member name is probed before the member

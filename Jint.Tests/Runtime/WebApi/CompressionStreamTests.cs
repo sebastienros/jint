@@ -105,10 +105,9 @@ public class CompressionStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Theory]
-    [InlineData("gzip", GzipVector)]
-    [InlineData("deflate", ZlibVector)]
-    [InlineData("deflate-raw", RawDeflateVector)]
+    [TestCase("gzip", GzipVector)]
+    [TestCase("deflate", ZlibVector)]
+    [TestCase("deflate-raw", RawDeflateVector)]
     public void DecompressesAnotherImplementationsBytes(string format, string bytes)
     {
         var engine = StreamEngine();
@@ -119,11 +118,10 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData("gzip")]
-    [InlineData("deflate")]
-    [InlineData("deflate-raw")]
-    [InlineData("brotli")]
+    [TestCase("gzip")]
+    [TestCase("deflate")]
+    [TestCase("deflate-raw")]
+    [TestCase("brotli")]
     public void RoundTripsThroughItsOwnCompressor(string format)
     {
         var engine = StreamEngine();
@@ -142,7 +140,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ProducesTheFormatsOwnFraming()
     {
         var engine = StreamEngine();
@@ -170,7 +168,7 @@ public class CompressionStreamTests
         checks.AsString().Should().Be("gzip:true cmf:true fcheck:true wrapper:true body:true");
     }
 
-    [Fact]
+    [Test]
     public void DeflateIsTheZlibWrapperNotRawDeflate()
     {
         // The classic implementation mistake: mapping "deflate" onto a bare DeflateStream. Each format
@@ -190,11 +188,10 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData("gzip", GzipVector)]
-    [InlineData("deflate", ZlibVector)]
-    [InlineData("deflate-raw", RawDeflateVector)]
-    [InlineData("brotli", BclBrotliVector)]
+    [TestCase("gzip", GzipVector)]
+    [TestCase("deflate", ZlibVector)]
+    [TestCase("deflate-raw", RawDeflateVector)]
+    [TestCase("brotli", BclBrotliVector)]
     public void DecompressesInputSplitOneByteAtATime(string format, string bytes)
     {
         var engine = StreamEngine();
@@ -205,7 +202,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void CompressedOutputIsSplitIntoUint8ArrayChunks()
     {
         var engine = StreamEngine();
@@ -235,7 +232,7 @@ public class CompressionStreamTests
         shapes.AsString().Should().EndWith("Uint8Array(true)");
     }
 
-    [Fact]
+    [Test]
     public void CorruptInputErrorsBothSides()
     {
         var engine = StreamEngine();
@@ -255,7 +252,7 @@ public class CompressionStreamTests
         Log(engine).Should().Contain("write:TypeError").And.Contain("writable:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ClosingADecompressionStreamThatReceivedNothingIsAnError()
     {
         var engine = StreamEngine();
@@ -271,7 +268,7 @@ public class CompressionStreamTests
         Log(engine).Should().Contain("close:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ClosingACompressionStreamThatReceivedNothingProducesAnEmptyMember()
     {
         var engine = StreamEngine();
@@ -296,7 +293,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ClosingABrotliCompressionStreamThatReceivedNothingProducesAnEmptyStream()
     {
         var engine = StreamEngine();
@@ -317,7 +314,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void DecompressesBrotliBytesItDidNotProduce()
     {
         var engine = StreamEngine();
@@ -336,7 +333,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsBrotliOneByteAtATimeOnBothSides()
     {
         var engine = StreamEngine();
@@ -356,7 +353,7 @@ public class CompressionStreamTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void RefusesBytesTheBrotliDecoderCannotParse()
     {
         var engine = StreamEngine();
@@ -386,7 +383,7 @@ public class CompressionStreamTests
         Log(engine).Should().Contain("not valid brotli data");
     }
 
-    [Fact]
+    [Test]
     public void BrotliSharesTheLenientTruncationDivergence()
     {
         var engine = StreamEngine();
@@ -420,7 +417,7 @@ public class CompressionStreamTests
         Log(engine).Should().StartWith("nothing:error:TypeError:").And.Contain("close:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAChunkThatIsNotABufferSource()
     {
         var engine = StreamEngine();
@@ -433,7 +430,7 @@ public class CompressionStreamTests
         Log(engine).Should().Be("out:error:TypeError:CompressionStream: the chunk is not an ArrayBuffer or a view over one,write:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ComposesWithPipeThrough()
     {
         var engine = StreamEngine();
@@ -456,13 +453,12 @@ public class CompressionStreamTests
         text.AsString().Should().Be("round trip");
     }
 
-    [Theory]
-    [InlineData("GZIP")]
-    [InlineData("Deflate")]
-    [InlineData("Brotli")]
-    [InlineData("deflate_raw")]
-    [InlineData("br")]
-    [InlineData("")]
+    [TestCase("GZIP")]
+    [TestCase("Deflate")]
+    [TestCase("Brotli")]
+    [TestCase("deflate_raw")]
+    [TestCase("br")]
+    [TestCase("")]
     public void RefusesAFormatItDoesNotSupport(string format)
     {
         var engine = StreamEngine();
@@ -471,13 +467,13 @@ public class CompressionStreamTests
         // https://webidl.spec.whatwg.org/#es-enumeration matches the identifier exactly and
         // case-sensitively, so none of these is the enumeration value it resembles. "br" in particular is
         // the HTTP Content-Encoding token for brotli and is not what CompressionFormat calls it.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CompressionStream(format)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CompressionStream(format)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new DecompressionStream(format)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new DecompressionStream(format)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsEveryFormatTheEnumerationNames()
     {
         var engine = StreamEngine();
@@ -492,23 +488,23 @@ public class CompressionStreamTests
             """).AsString().Should().Be("deflate:ok deflate-raw:ok gzip:ok brotli:ok");
     }
 
-    [Fact]
+    [Test]
     public void RequiresTheFormatArgumentAndNew()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CompressionStream()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CompressionStream()"))!
             .Error.Get("message").AsString().Should().Contain("1 argument required");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CompressionStream('gzip')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CompressionStream('gzip')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("DecompressionStream('gzip')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("DecompressionStream('gzip')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Evaluate("CompressionStream.length").AsNumber().Should().Be(1);
         engine.Evaluate("DecompressionStream.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ExposesNothingButTheGenericTransformStreamMixin()
     {
         var engine = StreamEngine();
@@ -525,17 +521,17 @@ public class CompressionStreamTests
 
         foreach (var attribute in new[] { "readable", "writable" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"CompressionStream.prototype.{attribute}"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"CompressionStream.prototype.{attribute}"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", attribute);
 
             // The two interfaces share the mixin but not their brands.
             Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-                    $"Object.getOwnPropertyDescriptor(CompressionStream.prototype, '{attribute}').get.call(ds)"))
+                    $"Object.getOwnPropertyDescriptor(CompressionStream.prototype, '{attribute}').get.call(ds)"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", attribute);
         }
     }
 
-    [Fact]
+    [Test]
     public void NeedsBothItsFlagAndTheStreamsFlag()
     {
         foreach (var name in new[] { "CompressionStream", "DecompressionStream" })

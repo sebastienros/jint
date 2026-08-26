@@ -40,7 +40,7 @@ public class ClrWriteConfigurationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DirectClrWritesAreDisabledByDefault()
     {
         new Options().Interop.AllowWrite.Should().BeFalse();
@@ -71,7 +71,7 @@ public class ClrWriteConfigurationTests
         array.Should().Equal(7);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitOptInEnablesDirectClrWrites()
     {
         var host = new Host();
@@ -100,7 +100,7 @@ public class ClrWriteConfigurationTests
         array.Should().Equal(17);
     }
 
-    [Fact]
+    [Test]
     public void StrictModeSurfacesBlockedWritesAsTypeErrors()
     {
         var host = new Host();
@@ -113,7 +113,7 @@ public class ClrWriteConfigurationTests
         host.Property.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AllowClrDoesNotImplicitlyEnableDirectWrites()
     {
         var host = new Host();
@@ -126,7 +126,7 @@ public class ClrWriteConfigurationTests
         host.Property.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void CachedAccessorsDoNotShareWriteAuthorityAcrossEngines()
     {
         var writableHost = new Host();
@@ -143,7 +143,7 @@ public class ClrWriteConfigurationTests
         readOnlyHost.Property.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AlternateClrMutationRoutesAreBlockedByDefault()
     {
         Host.StaticField = 1;
@@ -175,7 +175,7 @@ public class ClrWriteConfigurationTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryJavaScriptObjectWritesRemainEnabled()
     {
         var engine = new Engine();
@@ -190,7 +190,7 @@ public class ClrWriteConfigurationTests
             """).Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void ClrWriteOptInDoesNotBypassJavaScriptObjectExtensibility()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -215,12 +215,11 @@ public class ClrWriteConfigurationTests
         engine.Evaluate("1 in result").Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("Array.prototype.push.call(list, 9)")]
-    [InlineData("Array.prototype.unshift.call(list, 9)")]
-    [InlineData("Array.prototype.splice.call(list, 0, 1)")]
-    [InlineData("Array.prototype.fill.call(list, 9)")]
-    [InlineData("const source = [3, 4]; source.constructor = { [Symbol.species]: function () { return list; } }; source.filter(() => true)")]
+    [TestCase("Array.prototype.push.call(list, 9)")]
+    [TestCase("Array.prototype.unshift.call(list, 9)")]
+    [TestCase("Array.prototype.splice.call(list, 0, 1)")]
+    [TestCase("Array.prototype.fill.call(list, 9)")]
+    [TestCase("const source = [3, 4]; source.constructor = { [Symbol.species]: function () { return list; } }; source.filter(() => true)")]
     public void ArrayGenericsCannotMutateClrListsByDefault(string script)
     {
         var list = new List<int> { 1, 2 };
@@ -233,16 +232,15 @@ public class ClrWriteConfigurationTests
         list.Should().Equal(1, 2);
     }
 
-    [Theory]
-    [InlineData("Array.prototype.fill.call(list, 9)")]
-    [InlineData("Array.prototype.push.call(list, 9)")]
-    [InlineData("Array.prototype.pop.call(list)")]
-    [InlineData("Array.prototype.shift.call(list)")]
-    [InlineData("Array.prototype.splice.call(list, 0, 1)")]
-    [InlineData("list['0'] = 9")]
-    [InlineData("Reflect.set(list, '0', 9)")]
-    [InlineData("Object.assign(list, { 0: 9 })")]
-    [InlineData("Object.getOwnPropertyDescriptor(list, '0').set.call(list, 9)")]
+    [TestCase("Array.prototype.fill.call(list, 9)")]
+    [TestCase("Array.prototype.push.call(list, 9)")]
+    [TestCase("Array.prototype.pop.call(list)")]
+    [TestCase("Array.prototype.shift.call(list)")]
+    [TestCase("Array.prototype.splice.call(list, 0, 1)")]
+    [TestCase("list['0'] = 9")]
+    [TestCase("Reflect.set(list, '0', 9)")]
+    [TestCase("Object.assign(list, { 0: 9 })")]
+    [TestCase("Object.getOwnPropertyDescriptor(list, '0').set.call(list, 9)")]
     public void ArrayGenericsCannotMutateFrozenClrListsWhenWritesAreEnabled(string script)
     {
         var list = new List<int> { 1, 2 };
@@ -256,7 +254,7 @@ public class ClrWriteConfigurationTests
         list.Should().Equal(1, 2);
     }
 
-    [Fact]
+    [Test]
     public void AbsentPropertiesCanBeDeletedFromReadOnlyClrWrappers()
     {
         var engine = new Engine().SetValue("list", new List<int> { 1, 2 });
@@ -266,7 +264,7 @@ public class ClrWriteConfigurationTests
         engine.Evaluate("'use strict'; delete list.missing").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyDictionaryShapedWrappersUseKeyMembershipForDeletion()
     {
         var value = new JObject
@@ -281,7 +279,7 @@ public class ClrWriteConfigurationTests
         value["5"]!.Value<int>().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MethodsAndExtensionMethodsCanStillMutateHostState()
     {
         var host = new Host();

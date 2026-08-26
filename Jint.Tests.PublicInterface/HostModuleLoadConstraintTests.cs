@@ -59,7 +59,7 @@ public class HostModuleLoadConstraintTests
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved) => "export const v = 1;";
     }
 
-    [Fact]
+    [Test]
     public void ARecursionLimitReachedInsideAnAsynchronousLoaderIsNotFlattenedIntoARejection()
     {
         var engine = new Engine(options =>
@@ -76,7 +76,7 @@ public class HostModuleLoadConstraintTests
         engine.Evaluate("globalThis.caught").AsString().Should().Be("none");
     }
 
-    [Fact]
+    [Test]
     public void ARecursionLimitReachedInsideResolveIsNotFlattenedIntoAFailedOperation()
     {
         var loader = new ScriptResolvingModuleLoader();
@@ -92,7 +92,7 @@ public class HostModuleLoadConstraintTests
         Invoking(() => engine.Modules.StartImport("m")).Should().Throw<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryLoaderFailureStillBecomesARejection()
     {
         var engine = new Engine(options =>

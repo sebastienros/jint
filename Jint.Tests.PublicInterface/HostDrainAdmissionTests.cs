@@ -114,7 +114,7 @@ public class HostDrainAdmissionTests
     /// claimed the engine, because <c>Import</c> claimed it first. Guarding the window on the claiming
     /// scope would close this one.
     /// </summary>
-    [Fact]
+    [Test]
     public void ABlockingImportAdmitsACallbackAuthorizedUnderAnEarlierEvaluation()
     {
         var engine = new Engine(options => options.Constraints.PromiseTimeout = Ceiling);
@@ -148,7 +148,7 @@ public class HostDrainAdmissionTests
     /// deliberate — the drain is already interleaving arbitrary script from its own queue while it waits,
     /// so refusing the callback would remove the callback and not the interleaving.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADrainNestedInsideARunningEvaluationAdmitsOneToo()
     {
         var engine = new Engine();
@@ -180,7 +180,7 @@ public class HostDrainAdmissionTests
     /// where the frame sits. Once a host call in this evaluation has been handed a callback, a token is in
     /// force and the very same nested drain admits only that operation's callbacks.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADrainUnderAnOperationTokenAdmitsOnlyThatOperationsCallbacks()
     {
         var engine = new Engine();

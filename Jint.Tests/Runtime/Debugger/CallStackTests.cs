@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime.Debugger;
 
 public class CallStackTests
 {
-    [Fact]
+    [Test]
     public void IncludesFunctionNames()
     {
         var script = @"
@@ -30,7 +30,7 @@ public class CallStackTests
         });
     }
 
-    [Fact]
+    [Test]
     public void IncludesLocations()
     {
         var script = @"
@@ -62,7 +62,7 @@ bar()";
         });
     }
 
-    [Fact]
+    [Test]
     public void IncludesFunctionLocations()
     {
         var script = @"
@@ -92,7 +92,7 @@ bar()";
         });
     }
 
-    [Fact]
+    [Test]
     public void HasReturnValue()
     {
         string script = @"
@@ -131,7 +131,7 @@ bar()";
         didCheckReturn.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasThis()
     {
         string script = @"
@@ -158,7 +158,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesRegularFunction()
     {
         string script = @"
@@ -171,7 +171,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesFunctionExpression()
     {
         string script = @"
@@ -184,7 +184,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesNamedFunctionExpression()
     {
         string script = @"
@@ -197,7 +197,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesArrowFunction()
     {
         string script = @"
@@ -210,7 +210,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesNewFunction()
     {
         string script = @"
@@ -224,7 +224,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesMemberFunction()
     {
         string script = @"
@@ -237,7 +237,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesAnonymousFunction()
     {
         string script = @"
@@ -252,7 +252,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesGetAccessor()
     {
         string script = @"
@@ -271,7 +271,7 @@ car.test();
         });
     }
 
-    [Fact]
+    [Test]
     public void NamesSetAccessor()
     {
         string script = @"

@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class JsValueListBuilderTests
 {
-    [Fact]
+    [Test]
     public void AccumulatesAndMaterializesExactSize()
     {
         var builder = new JsValueListBuilder(4);
@@ -31,7 +31,7 @@ public class JsValueListBuilderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void GrowsAcrossManyPoolBuckets()
     {
         var builder = new JsValueListBuilder(4);
@@ -54,7 +54,7 @@ public class JsValueListBuilderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void HolesArePreservedAsNulls()
     {
         var builder = new JsValueListBuilder(4);
@@ -79,7 +79,7 @@ public class JsValueListBuilderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AddRangePreservesNullsAndGrows()
     {
         var builder = new JsValueListBuilder(4);
@@ -107,7 +107,7 @@ public class JsValueListBuilderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EmptyBuilderMaterializesSharedEmptyArray()
     {
         var builder = new JsValueListBuilder(0);
@@ -123,7 +123,7 @@ public class JsValueListBuilderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DoubleDisposeIsSafe()
     {
         var builder = new JsValueListBuilder(4);

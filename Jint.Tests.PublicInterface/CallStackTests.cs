@@ -5,7 +5,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class CallStackTests
 {
-    [Fact]
+    [Test]
     public void CanInjectTraceFunction()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ Trace
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnTheSourceMapStack()
     {
         var sourceMap = SourceMapParser.Parse("""{"version":3,"file":"custom.js","sourceRoot":"","sources":["custom.ts"],"names":[],"mappings":"AAEA,SAAS,CAAC,CAAC,CAAM;IAChB,MAAM,IAAI,KAAK,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC;AAED,IAAI,CAAC,GAAG,UAAU,CAAM;IACvB,OAAO,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAA;AAED,CAAC,CAAC,CAAC,CAAC,CAAC"}""");
@@ -107,7 +107,7 @@ b(7);
     at custom.ts:11:1".Replace("\r\n", "\n"));
     }
 
-    [Fact]
+    [Test]
     public void NestedEvaluationUnhandledThrowShouldNotClearOuterRunCallStack()
     {
         // A host callback invoked from a running script re-enters the engine with

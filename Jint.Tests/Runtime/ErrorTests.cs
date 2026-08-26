@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime;
 
 public class ErrorTests
 {
-    [Fact]
+    [Test]
     public void CanReturnCorrectErrorMessageAndLocation1()
     {
         const string script = @"
@@ -23,7 +23,7 @@ var b = a.user.name;
         e.Location.Start.Column.Should().Be(15);
     }
 
-    [Fact]
+    [Test]
     public void CanReturnCorrectErrorMessageAndLocation1WithoutReferencedName()
     {
         const string script = @"
@@ -39,7 +39,7 @@ var c = a(b().Length);
         e.Location.Start.Column.Should().Be(14);
     }
 
-    [Fact]
+    [Test]
     public void CanReturnCorrectErrorMessageAndLocation2()
     {
         const string script = @"
@@ -53,7 +53,7 @@ var c = a(b().Length);
         e.Location.Start.Column.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CanProduceCorrectStackTraceForInternalError()
     {
         var engine = new Engine();
@@ -80,7 +80,7 @@ var b = function(v) {
     at main.js:1:9", stack);
     }
 
-    [Fact]
+    [Test]
     public void CanProduceCorrectStackTraceForScriptError()
     {
         var engine = new Engine();
@@ -107,7 +107,7 @@ var b = function(v) {
     at main.js:1:9", stack);
     }
 
-    [Fact]
+    [Test]
     public void ErrorObjectHasTheStackTraceImmediately()
     {
         var engine = new Engine();
@@ -130,7 +130,7 @@ var b = function(v) {
     at main.js:1:1", stack);
     }
 
-    [Fact]
+    [Test]
     public void ThrownErrorObjectHasStackTraceInCatch()
     {
         var engine = new Engine();
@@ -158,7 +158,7 @@ var b = function(v) {
     }
 
 
-    [Fact]
+    [Test]
     public void GeneratedErrorHasStackTraceInCatch()
     {
         var engine = new Engine();
@@ -185,7 +185,7 @@ var b = function(v) {
     at main.js:1:1", stack);
     }
 
-    [Fact]
+    [Test]
     public void EscapedErrorRendersDeferredStackAndIsStableAcrossReads()
     {
         // The stack string is captured lazily at construction and rendered on first read. Here the error
@@ -212,7 +212,7 @@ var wrap = function(v) {
     at main.js:1:9", first);
     }
 
-    [Fact]
+    [Test]
     public void ErrorObjectHasStackAccessorOnPrototype()
     {
         var engine = new Engine();
@@ -237,7 +237,7 @@ var wrap = function(v) {
         public string Name { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void CallStackBuildingShouldSkipResolvingFromEngine()
     {
         var engine = new Engine(o => o.Constraints.MaxRecursionDepth = 200);
@@ -289,7 +289,7 @@ var wrap = function(v) {
         recordedFolderTraversalOrder.Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void StackTraceCollectedOnThreeLevels()
     {
         var engine = new Engine();
@@ -315,7 +315,7 @@ var x = b(7);";
         ex.Location.Start.Column.Should().Be(17);
     }
 
-    [Fact]
+    [Test]
     public void StackTraceCollectedForImmediatelyInvokedFunctionExpression()
     {
         var engine = new Engine();
@@ -352,7 +352,7 @@ var x = b(7);";
     }
 
     // Verify #1202
-    [Fact]
+    [Test]
     public void StackIsUnwoundWhenExceptionHandledByInteropCode()
     {
         var engine = new Engine()
@@ -390,7 +390,7 @@ try {
         }
     }
 
-    [Fact]
+    [Test]
     public void StackTraceIsForOriginalException()
     {
         var engine = new Engine();
@@ -404,7 +404,7 @@ try {
         ContainsIgnoringNewLineDifferences(expected, ex.ToString());
     }
 
-    [Fact]
+    [Test]
     public void BubbledClrExceptionShouldExposeJavaScriptLocation()
     {
         var engine = new Engine();
@@ -425,7 +425,7 @@ HelloWorld.ThrowException();";
         ContainsIgnoringNewLineDifferences("HelloWorld", ex.ToString());
     }
 
-    [Fact]
+    [Test]
     public void BubbledClrExceptionLocationSurvivesNestedCalls()
     {
         var engine = new Engine();
@@ -445,7 +445,7 @@ outer();";
         location.Start.Line.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void BubbledClrExceptionFromConstructorExposesLocation()
     {
         var engine = new Engine();
@@ -458,7 +458,7 @@ new Ctor();")).Should().ThrowExactly<InvalidOperationException>().Which;
         location.Start.Line.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void BubbledClrExceptionFromGetterExposesLocation()
     {
         var engine = new Engine();
@@ -471,7 +471,7 @@ var x = instance.Boom;")).Should().ThrowExactly<InvalidOperationException>().Whi
         location.Start.Line.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void TryGetJavaScriptLocationReturnsFalseForUnannotatedException()
     {
         var unrelated = new InvalidOperationException();
@@ -495,13 +495,12 @@ var x = instance.Boom;")).Should().ThrowExactly<InvalidOperationException>().Whi
         public int Boom => throw new InvalidOperationException("getter boom");
     }
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("EvalError")]
-    [InlineData("RangeError")]
-    [InlineData("SyntaxError")]
-    [InlineData("TypeError")]
-    [InlineData("ReferenceError")]
+    [TestCase("Error")]
+    [TestCase("EvalError")]
+    [TestCase("RangeError")]
+    [TestCase("SyntaxError")]
+    [TestCase("TypeError")]
+    [TestCase("ReferenceError")]
     public void ErrorsHaveCorrectConstructor(string type)
     {
         var engine = new Engine();
@@ -510,7 +509,7 @@ var x = instance.Boom;")).Should().ThrowExactly<InvalidOperationException>().Whi
         engine.Evaluate("o.constructor.name").AsString().Should().Be(type);
     }
 
-    [Fact]
+    [Test]
     public void CallStackWorksWithRecursiveCalls()
     {
         static ScriptParsingOptions CreateParsingOptions()
@@ -554,7 +553,7 @@ executeFile(""first-file.js"");",
         EqualIgnoringNewLineDifferences(Expected, e.JavaScriptStackTrace);
     }
 
-    [Fact]
+    [Test]
     public void ShouldReportCorrectColumn()
     {
         var e = Invoking(() =>
@@ -572,7 +571,7 @@ $variable1 + -variable2 - variable3;");
         e.JavaScriptStackTrace.Should().Be("    at <anonymous>:5:15");
     }
 
-    [Fact]
+    [Test]
     public void InvokingDelegateShouldContainJavascriptExceptionAsInnerException()
     {
         Delegate func = null;
@@ -588,7 +587,7 @@ $variable1 + -variable2 - variable3;");
         exception.Message.Should().Be("foo is not defined");
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptExceptionLocationOnModuleShouldBeRight()
     {
         var engine = new Engine();
@@ -605,7 +604,7 @@ throw_error();
         10.Should().Be(ex.Location.Start.Column);
     }
 
-    [Fact]
+    [Test]
     public void ShouldApplySourceOffsetToErrorLocation()
     {
         var parsingOptions = ScriptParsingOptions.Default with
@@ -623,7 +622,7 @@ throw_error();
         e.Location.SourceFile.Should().Be("mapping-spec.json");
     }
 
-    [Fact]
+    [Test]
     public void ShouldApplySourceOffsetToStackTrace()
     {
         var parsingOptions = ScriptParsingOptions.Default with
@@ -643,7 +642,7 @@ throw_error();
         ContainsIgnoringNewLineDifferences("test.json:10:", e.JavaScriptStackTrace!);
     }
 
-    [Fact]
+    [Test]
     public void ShouldApplySourceOffsetWithEvaluate()
     {
         var parsingOptions = ScriptParsingOptions.Default with
@@ -661,7 +660,7 @@ throw_error();
         e.Location.SourceFile.Should().Be("test.json");
     }
 
-    [Fact]
+    [Test]
     public void ShouldApplySourceOffsetWithPreparedScript()
     {
         var preparedScript = Engine.PrepareScript(

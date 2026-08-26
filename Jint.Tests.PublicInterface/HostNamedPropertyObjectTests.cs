@@ -47,7 +47,7 @@ public class HostNamedPropertyObjectTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void AProjectedNameReads()
     {
         var engine = EngineWith(out _, "alpha", "beta");
@@ -56,7 +56,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("host['beta']").Should().Be("value-of-beta");
     }
 
-    [Fact]
+    [Test]
     public void ANameTheProjectionDoesNotCarryResolvesOnThePrototype()
     {
         var engine = EngineWith(out _, "alpha");
@@ -67,7 +67,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("'inherited' in host").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ANameNobodyCarriesIsUndefined()
     {
         var engine = EngineWith(out _, "alpha");
@@ -77,7 +77,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("host.hasOwnProperty('missing')").Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ExistenceQuestionsAnswerFromTheProjection()
     {
         var engine = EngineWith(out var host, "alpha");
@@ -91,7 +91,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("host.propertyIsEnumerable('hidden')").Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeysValuesAndEntriesSeeTheProjection()
     {
         var engine = EngineWith(out var host, "alpha", "beta");
@@ -103,7 +103,7 @@ public class HostNamedPropertyObjectTests
             .Should().Be("""[["alpha","value-of-alpha"],["beta","value-of-beta"]]""");
     }
 
-    [Fact]
+    [Test]
     public void GetOwnPropertyNamesListsNonEnumerableNamesToo()
     {
         var engine = EngineWith(out var host, "alpha");
@@ -112,7 +112,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("Object.getOwnPropertyNames(host).join()").Should().Be("alpha,hidden");
     }
 
-    [Fact]
+    [Test]
     public void ForInWalksTheProjectionAndThenThePrototype()
     {
         var engine = EngineWith(out var host, "alpha", "beta");
@@ -123,7 +123,7 @@ public class HostNamedPropertyObjectTests
             .Should().Be("alpha,beta,inherited");
     }
 
-    [Fact]
+    [Test]
     public void SpreadAndObjectAssignCopyTheProjection()
     {
         var engine = EngineWith(out var host, "alpha", "beta");
@@ -135,7 +135,7 @@ public class HostNamedPropertyObjectTests
             .Should().Be("""{"alpha":"value-of-alpha","beta":"value-of-beta"}""");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringifySerializesTheProjection()
     {
         var engine = EngineWith(out var host, "alpha", "beta");
@@ -145,7 +145,7 @@ public class HostNamedPropertyObjectTests
             .Should().Be("""{"alpha":"value-of-alpha","beta":"value-of-beta"}""");
     }
 
-    [Fact]
+    [Test]
     public void TheProjectionIsLive()
     {
         var engine = EngineWith(out var host, "alpha");
@@ -162,7 +162,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("'alpha' in host").Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void GetOwnPropertyDescriptorReportsTheProjectionShape()
     {
         var engine = EngineWith(out var host, "alpha");
@@ -174,7 +174,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(host, 'missing')").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void AProjectedNameIsReadOnly()
     {
         var engine = EngineWith(out _, "alpha");
@@ -184,7 +184,7 @@ public class HostNamedPropertyObjectTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void DeleteOfAProjectedNameIsRefused()
     {
         var engine = EngineWith(out _, "alpha");
@@ -195,7 +195,7 @@ public class HostNamedPropertyObjectTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void DefiningOverAProjectedNameIsRefused()
     {
         var engine = EngineWith(out _, "alpha");
@@ -205,7 +205,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("host.alpha").Should().Be("value-of-alpha");
     }
 
-    [Fact]
+    [Test]
     public void NamesTheProjectionDoesNotCarryStayOrdinary()
     {
         var engine = EngineWith(out _, "alpha");
@@ -220,7 +220,7 @@ public class HostNamedPropertyObjectTests
     /// A name written as an expando before the projection carried it is shadowed by the projection once it
     /// appears — and listed once, not twice.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProjectionThatGrowsOverAnExpandoShadowsItWithoutDuplicatingTheKey()
     {
         var engine = EngineWith(out var host, "alpha");
@@ -236,7 +236,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("host.later").Should().Be("value-of-later");
     }
 
-    [Fact]
+    [Test]
     public void SymbolKeysStayOrdinary()
     {
         var engine = EngineWith(out _, "alpha");
@@ -247,7 +247,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("Object.keys(host).join()").Should().Be("alpha");
     }
 
-    [Fact]
+    [Test]
     public void ANumericKeyResolvesTheSameAsItsStringForm()
     {
         var engine = EngineWith(out var host);
@@ -258,7 +258,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("7 in host").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanonicalIndexNamesEnumerateAscendingAndFirst()
     {
         var engine = EngineWith(out var host);
@@ -267,7 +267,7 @@ public class HostNamedPropertyObjectTests
         engine.Evaluate("Object.keys(host).join()").Should().Be("1,2,beta,alpha");
     }
 
-    [Fact]
+    [Test]
     public void TheRecordIsNotArrayLike()
     {
         var engine = EngineWith(out _, "alpha");
@@ -280,7 +280,7 @@ public class HostNamedPropertyObjectTests
     /// The existence-only hook is pure opt-in and, when overridden, is what every yes/no question uses — no
     /// value is projected to be thrown away.
     /// </summary>
-    [Fact]
+    [Test]
     public void ExistenceQuestionsUseTheExistenceHookAndProjectNoValue()
     {
         var engine = EngineWith(out var host, "alpha", "beta");

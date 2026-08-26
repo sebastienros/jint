@@ -51,7 +51,7 @@ public class HostObjectSemanticsTests
     // GetOwnProperty a second time on each of the two hook consults a verifying read makes.
     private static readonly int HookDeferredReadProbes = Verifying ? 5 : 1;
 
-    [Fact]
+    [Test]
     public void OrdinarySemanticsAgreeWithGetOwnPropertyForEveryReadOutcome()
     {
         var engine = new Engine();
@@ -80,7 +80,7 @@ public class HostObjectSemanticsTests
         engine.Evaluate("host['absen' + 't']").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AHostThatDoesNotOverrideGetResolvesAnOwnReadFromASingleProbe()
     {
         var engine = new Engine();
@@ -96,7 +96,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AHostThatDoesNotOverrideGetResolvesAMemberCallCalleeFromASingleProbe()
     {
         var engine = new Engine();
@@ -110,7 +110,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void PrototypeMethodResolvedOffAHostReceiverStaysCorrectAcrossPrototypeMutation()
     {
         var engine = new Engine();
@@ -143,7 +143,7 @@ public class HostObjectSemanticsTests
         result.Should().Be("v1,v2,v3,v4");
     }
 
-    [Fact]
+    [Test]
     public void AWarmPrototypeReadProbesTheHostOncePerRead()
     {
         var engine = new Engine();
@@ -162,7 +162,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(10 * OrdinaryWarmPrototypeReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AHostThatOverridesGetIsHonouredWithoutDeclaringAnything()
     {
         // The correctness hole the derivation closes. The read path used to treat "carries no exotic flag" as
@@ -178,7 +178,7 @@ public class HostObjectSemanticsTests
         engine.Evaluate("host.onPrototype").Should().Be("computed:onPrototype");
     }
 
-    [Fact]
+    [Test]
     public void AHostThatOverridesGetRoutesEveryReadThroughIt()
     {
         var engine = new Engine();
@@ -194,7 +194,7 @@ public class HostObjectSemanticsTests
             .Should().Be("computed:toString|computed:toString|computed:toString");
     }
 
-    [Fact]
+    [Test]
     public void AGetOverrideThatIsOrdinaryCanDeclareItselfBackOntoTheShortLane()
     {
         // Residual case one: the rule sees an override and assumes it may deviate. A host that overrides Get
@@ -209,7 +209,7 @@ public class HostObjectSemanticsTests
         traced.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AHostThatDoesNotOverrideGetCanStillDeclareItselfExotic()
     {
         // Residual case two: the rule sees no override and concludes Ordinary, but the host knows its
@@ -223,7 +223,7 @@ public class HostObjectSemanticsTests
             .Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ADeclarationCanBeReplaced()
     {
         // Last call wins, so a subclass can override what its base class declared.
@@ -235,7 +235,7 @@ public class HostObjectSemanticsTests
         redeclared.GetOwnPropertyCalls.Should().Be(OrdinaryOwnReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AnUnknownSemanticsValueIsRejected()
     {
         var engine = new Engine();
@@ -243,7 +243,7 @@ public class HostObjectSemanticsTests
             .Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    [Fact]
+    [Test]
     public void AnOwnReadAnsweredByTheValueHookMaterializesNoDescriptor()
     {
         var engine = new Engine();
@@ -262,7 +262,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(HookComputedReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AFalseFromTheValueHookIsAnAuthoritativeOwnMiss()
     {
         // The half of the contract that makes the hook usable as a replacement for the probe rather than an
@@ -282,7 +282,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(HookAbsentReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void AWarmPrototypeReadOffAValueAnsweringHostDoesNotProbeIt()
     {
         // The cost the ordinary host cannot avoid. It re-establishes the own miss with a real probe before
@@ -301,7 +301,7 @@ public class HostObjectSemanticsTests
         host.GetOwnPropertyCalls.Should().Be(10 * HookPrototypeReadProbes);
     }
 
-    [Fact]
+    [Test]
     public void DeferringToTheBaseImplementationResolvesFromTheDescriptor()
     {
         // What an override does with a key it cannot serve itself. `false` would be a lie — the property is
@@ -320,7 +320,7 @@ public class HostObjectSemanticsTests
         engine.Evaluate("JSON.stringify(host)").Should().Be("""{"deferred":"deferred-value"}""");
     }
 
-    [Fact]
+    [Test]
     public void AHostThatDoesNotOverrideTheValueHookIsNeverAsked()
     {
         var engine = new Engine();
@@ -335,7 +335,7 @@ public class HostObjectSemanticsTests
 
     // ---- Engine.Advanced.GetPropertyAccessSemantics ----
 
-    [Fact]
+    [Test]
     public void TheResolvedSemanticsAreReadableFromOutsideTheJintAssembly()
     {
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee: before
@@ -347,7 +347,7 @@ public class HostObjectSemanticsTests
             .Should().Be(PropertyAccessSemantics.Ordinary);
     }
 
-    [Fact]
+    [Test]
     public void AHostThatOverridesGetIsReportedExotic()
     {
         var engine = new Engine();
@@ -356,7 +356,7 @@ public class HostObjectSemanticsTests
             .Should().Be(PropertyAccessSemantics.Exotic);
     }
 
-    [Fact]
+    [Test]
     public void TwoHostsThatAnswerEveryReadIdenticallyStillReportTheDerivationThatSeparatesThem()
     {
         // The motivating pin, and the reason the diagnostic is worth a public method. These two types project
@@ -382,7 +382,7 @@ public class HostObjectSemanticsTests
         engine.Advanced.GetPropertyAccessSemantics(withOverride).Should().Be(PropertyAccessSemantics.Exotic);
     }
 
-    [Fact]
+    [Test]
     public void ADeclarationIsWhatTheDiagnosticReports()
     {
         // For the two shapes the rule cannot see, the declaration is the answer — so the diagnostic reports
@@ -406,7 +406,7 @@ public class HostObjectSemanticsTests
             .Should().Be(PropertyAccessSemantics.Exotic);
     }
 
-    [Fact]
+    [Test]
     public void TheDeclarationIsPerInstanceNotPerType()
     {
         // SetPropertyAccessSemantics is called from a constructor and writes the instance, so two instances of
@@ -422,7 +422,7 @@ public class HostObjectSemanticsTests
             .Should().Be(PropertyAccessSemantics.Exotic);
     }
 
-    [Fact]
+    [Test]
     public void TheEnginesOwnObjectsAreClassifiedToo()
     {
         // Non-contractual by documentation — an in-box object's classification may be refined in any release —
@@ -454,7 +454,7 @@ public class HostObjectSemanticsTests
             .Should().Be(PropertyAccessSemantics.Exotic);
     }
 
-    [Fact]
+    [Test]
     public void AMissingOrForeignObjectIsRejected()
     {
         var engine = new Engine();

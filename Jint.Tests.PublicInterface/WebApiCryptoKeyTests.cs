@@ -24,7 +24,7 @@ public class WebApiCryptoKeyTests
 
     private static string Hex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoKeyedCrypto()
     {
         var engine = new Engine();
@@ -34,7 +34,7 @@ public class WebApiCryptoKeyTests
         engine.Evaluate("'CryptoKey' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheCryptoFlagIsWhatInstallsThem()
     {
         WebEngine().Evaluate("typeof crypto.subtle.generateKey").AsString().Should().Be("function");
@@ -46,7 +46,7 @@ public class WebApiCryptoKeyTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Crypto);
     }
 
-    [Fact]
+    [Test]
     public void AScriptsMacIsTheOneTheHostComputes()
     {
         var engine = WebEngine();
@@ -73,7 +73,7 @@ public class WebApiCryptoKeyTests
         fromScript.Should().Be(Hex(HMACSHA256.HashData(keyMaterial, message)));
     }
 
-    [Fact]
+    [Test]
     public void AHostCanVerifyWithTheKeyMaterialItExported()
     {
         var engine = WebEngine();
@@ -98,7 +98,7 @@ public class WebApiCryptoKeyTests
         HMACSHA512.HashData(raw, "payload"u8.ToArray()).Should().Equal(mac);
     }
 
-    [Fact]
+    [Test]
     public void AHostCanOpenWhatAScriptEncrypted()
     {
         var engine = WebEngine();
@@ -135,7 +135,7 @@ public class WebApiCryptoKeyTests
         System.Text.Encoding.UTF8.GetString(plaintext).Should().Be("a message for the host");
     }
 
-    [Fact]
+    [Test]
     public void AScriptCanOpenWhatTheHostEncrypted()
     {
         var engine = WebEngine();
@@ -170,7 +170,7 @@ public class WebApiCryptoKeyTests
             """).UnwrapIfPromise().AsString().Should().Be("a message for the script");
     }
 
-    [Fact]
+    [Test]
     public void AHostHoldingAKeyStillCannotReadIt()
     {
         var engine = WebEngine();
@@ -203,7 +203,7 @@ public class WebApiCryptoKeyTests
             """).UnwrapIfPromise().AsNumber().Should().Be(32);
     }
 
-    [Fact]
+    [Test]
     public void NeverThrowsIntoTheHost()
     {
         var engine = WebEngine();
@@ -218,7 +218,7 @@ public class WebApiCryptoKeyTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ReportsItsFailuresAsRejectionsAScriptCanCatch()
     {
         var engine = WebEngine();
@@ -244,7 +244,7 @@ public class WebApiCryptoKeyTests
             .Should().Be("OperationError,DataError,SyntaxError,NotSupportedError,InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void IsOneSetOfObjectsPerEngineAndNeverShared()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Crypto);
@@ -264,7 +264,7 @@ public class WebApiCryptoKeyTests
         first.Evaluate("key instanceof CryptoKey").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredCryptoKeyGlobalWins()
     {
         var marker = new JsString("the host's own CryptoKey");
@@ -280,7 +280,7 @@ public class WebApiCryptoKeyTests
             .UnwrapIfPromise().AsString().Should().Be("secret");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis());

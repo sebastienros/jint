@@ -34,75 +34,74 @@ public class QueryStringTests
         return engine;
     }
 
-    [Theory]
-    [InlineData("querystring.escape('hello world')", "hello%20world")]
-    [InlineData("querystring.escape('a=b&c=d')", "a%3Db%26c%3Dd")]
-    [InlineData("querystring.escape(\"!'()*-._~\")", "!'()*-._~")]
-    [InlineData("querystring.escape('abcABC123')", "abcABC123")]
-    [InlineData("querystring.escape('+')", "%2B")]
-    [InlineData("querystring.escape('/?:@&=$,#[]')", "%2F%3F%3A%40%26%3D%24%2C%23%5B%5D")]
-    [InlineData("querystring.escape('\\u00e9')", "%C3%A9")]
-    [InlineData("querystring.escape('\\u4e2d\\u6587')", "%E4%B8%AD%E6%96%87")]
-    [InlineData("querystring.escape('\\ud83d\\ude00')", "%F0%9F%98%80")]
-    [InlineData("querystring.escape('')", "")]
-    [InlineData("querystring.escape(123)", "123")]
-    [InlineData("querystring.escape(true)", "true")]
-    [InlineData("querystring.unescape('hello%20world')", "hello world")]
-    [InlineData("querystring.unescape('a%3Db')", "a=b")]
-    [InlineData("querystring.unescape('%E4%B8%AD%E6%96%87')", "\u4e2d\u6587")]
-    [InlineData("querystring.unescape('a+b')", "a+b")]
-    [InlineData("querystring.unescape('%')", "%")]
-    [InlineData("querystring.unescape('%zz')", "%zz")]
-    [InlineData("querystring.unescape('%C3%28')", "\ufffd(")]
-    [InlineData("querystring.unescape('100%')", "100%")]
-    [InlineData("querystring.unescape('')", "")]
-    [InlineData("querystring.stringify({ foo: 'bar', baz: ['qux', 'quux'], corge: '' })", "foo=bar&baz=qux&baz=quux&corge=")]
-    [InlineData("querystring.stringify({ foo: 'bar', baz: 'qux' }, ';', ':')", "foo:bar;baz:qux")]
-    [InlineData("querystring.stringify({})", "")]
-    [InlineData("querystring.stringify({ a: 1, b: true, c: null, d: undefined })", "a=1&b=true&c=&d=")]
-    [InlineData("querystring.stringify({ a: [] })", "")]
-    [InlineData("querystring.stringify({ a: [1, 2, 3] })", "a=1&a=2&a=3")]
-    [InlineData("querystring.stringify({ 'a b': 'c d' })", "a%20b=c%20d")]
-    [InlineData("querystring.stringify({ a: NaN, b: Infinity })", "a=&b=")]
-    [InlineData("querystring.stringify({ a: 1e21 })", "a=1e%2B21")]
-    [InlineData("querystring.stringify({ a: 1e20 })", "a=100000000000000000000")]
-    [InlineData("querystring.stringify(null)", "")]
-    [InlineData("querystring.stringify('nope')", "")]
-    [InlineData("querystring.stringify({ a: { b: 1 } })", "a=")]
-    [InlineData("querystring.stringify({ a: 10n })", "a=10")]
-    [InlineData("querystring.stringify({ w: '\\u4e2d\\u6587', foo: 'bar' })", "w=%E4%B8%AD%E6%96%87&foo=bar")]
-    [InlineData("querystring.stringify({ a: 'b' }, null, null)", "a=b")]
-    [InlineData("querystring.stringify({ a: 'b', c: 'd' }, '', '')", "a=b&c=d")]
-    [InlineData("querystring.stringify({ a: 'x' }, null, null, { encodeURIComponent: (s) => s.toUpperCase() })", "A=X")]
-    [InlineData("querystring.encode({ a: 'b' })", "a=b")]
-    [InlineData("JSON.stringify(querystring.parse('foo=bar&abc=xyz&abc=123'))", "{\"foo\":\"bar\",\"abc\":[\"xyz\",\"123\"]}")]
-    [InlineData("JSON.stringify(querystring.parse(''))", "{}")]
-    [InlineData("JSON.stringify(querystring.parse('&=&='))", "{\"\":[\"\",\"\"]}")]
-    [InlineData("JSON.stringify(querystring.parse('a=b&&c=d'))", "{\"a\":\"b\",\"c\":\"d\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a'))", "{\"a\":\"\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a='))", "{\"a\":\"\"}")]
-    [InlineData("JSON.stringify(querystring.parse('=b'))", "{\"\":\"b\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=b&'))", "{\"a\":\"b\"}")]
-    [InlineData("JSON.stringify(querystring.parse('&a=b'))", "{\"a\":\"b\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=b&a=c&a=d'))", "{\"a\":[\"b\",\"c\",\"d\"]}")]
-    [InlineData("JSON.stringify(querystring.parse('hello+world=foo+bar'))", "{\"hello world\":\"foo bar\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a%20b=c%20d'))", "{\"a b\":\"c d\"}")]
-    [InlineData("JSON.stringify(querystring.parse('w=%E4%B8%AD%E6%96%87'))", "{\"w\":\"\u4e2d\u6587\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=%'))", "{\"a\":\"%\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=%C3%28'))", "{\"a\":\"\ufffd(\"}")]
-    [InlineData("JSON.stringify(querystring.parse('foo:bar;baz:qux', ';', ':'))", "{\"foo\":\"bar\",\"baz\":\"qux\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a==b'))", "{\"a\":\"=b\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=b=c'))", "{\"a\":\"b=c\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=1&b=2&c=3', null, null, { maxKeys: 2 }))", "{\"a\":\"1\",\"b\":\"2\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a=1&b=2&c=3', null, null, { maxKeys: 0 }))", "{\"a\":\"1\",\"b\":\"2\",\"c\":\"3\"}")]
-    [InlineData("JSON.stringify(querystring.parse('toString=x'))", "{\"toString\":\"x\"}")]
-    [InlineData("String(querystring.parse('a=b').hasOwnProperty)", "undefined")]
-    [InlineData("String(Object.getPrototypeOf(querystring.parse('a=b')))", "null")]
-    [InlineData("JSON.stringify(querystring.parse('a=b', null, null, { decodeURIComponent: (s) => s.toUpperCase() }))", "{\"A\":\"B\"}")]
-    [InlineData("JSON.stringify(querystring.parse('a+b=c+d', null, null, { decodeURIComponent: (s) => s }))", "{\"a%20b\":\"c%20d\"}")]
-    [InlineData("JSON.stringify(querystring.decode('a=b'))", "{\"a\":\"b\"}")]
-    [InlineData("JSON.stringify(querystring.parse(123))", "{}")]
-    [InlineData("JSON.stringify(querystring.parse('a=b&c', '&&'))", "{\"a\":\"b&c\"}")]
+    [TestCase("querystring.escape('hello world')", "hello%20world")]
+    [TestCase("querystring.escape('a=b&c=d')", "a%3Db%26c%3Dd")]
+    [TestCase("querystring.escape(\"!'()*-._~\")", "!'()*-._~")]
+    [TestCase("querystring.escape('abcABC123')", "abcABC123")]
+    [TestCase("querystring.escape('+')", "%2B")]
+    [TestCase("querystring.escape('/?:@&=$,#[]')", "%2F%3F%3A%40%26%3D%24%2C%23%5B%5D")]
+    [TestCase("querystring.escape('\\u00e9')", "%C3%A9")]
+    [TestCase("querystring.escape('\\u4e2d\\u6587')", "%E4%B8%AD%E6%96%87")]
+    [TestCase("querystring.escape('\\ud83d\\ude00')", "%F0%9F%98%80")]
+    [TestCase("querystring.escape('')", "")]
+    [TestCase("querystring.escape(123)", "123")]
+    [TestCase("querystring.escape(true)", "true")]
+    [TestCase("querystring.unescape('hello%20world')", "hello world")]
+    [TestCase("querystring.unescape('a%3Db')", "a=b")]
+    [TestCase("querystring.unescape('%E4%B8%AD%E6%96%87')", "\u4e2d\u6587")]
+    [TestCase("querystring.unescape('a+b')", "a+b")]
+    [TestCase("querystring.unescape('%')", "%")]
+    [TestCase("querystring.unescape('%zz')", "%zz")]
+    [TestCase("querystring.unescape('%C3%28')", "\ufffd(")]
+    [TestCase("querystring.unescape('100%')", "100%")]
+    [TestCase("querystring.unescape('')", "")]
+    [TestCase("querystring.stringify({ foo: 'bar', baz: ['qux', 'quux'], corge: '' })", "foo=bar&baz=qux&baz=quux&corge=")]
+    [TestCase("querystring.stringify({ foo: 'bar', baz: 'qux' }, ';', ':')", "foo:bar;baz:qux")]
+    [TestCase("querystring.stringify({})", "")]
+    [TestCase("querystring.stringify({ a: 1, b: true, c: null, d: undefined })", "a=1&b=true&c=&d=")]
+    [TestCase("querystring.stringify({ a: [] })", "")]
+    [TestCase("querystring.stringify({ a: [1, 2, 3] })", "a=1&a=2&a=3")]
+    [TestCase("querystring.stringify({ 'a b': 'c d' })", "a%20b=c%20d")]
+    [TestCase("querystring.stringify({ a: NaN, b: Infinity })", "a=&b=")]
+    [TestCase("querystring.stringify({ a: 1e21 })", "a=1e%2B21")]
+    [TestCase("querystring.stringify({ a: 1e20 })", "a=100000000000000000000")]
+    [TestCase("querystring.stringify(null)", "")]
+    [TestCase("querystring.stringify('nope')", "")]
+    [TestCase("querystring.stringify({ a: { b: 1 } })", "a=")]
+    [TestCase("querystring.stringify({ a: 10n })", "a=10")]
+    [TestCase("querystring.stringify({ w: '\\u4e2d\\u6587', foo: 'bar' })", "w=%E4%B8%AD%E6%96%87&foo=bar")]
+    [TestCase("querystring.stringify({ a: 'b' }, null, null)", "a=b")]
+    [TestCase("querystring.stringify({ a: 'b', c: 'd' }, '', '')", "a=b&c=d")]
+    [TestCase("querystring.stringify({ a: 'x' }, null, null, { encodeURIComponent: (s) => s.toUpperCase() })", "A=X")]
+    [TestCase("querystring.encode({ a: 'b' })", "a=b")]
+    [TestCase("JSON.stringify(querystring.parse('foo=bar&abc=xyz&abc=123'))", "{\"foo\":\"bar\",\"abc\":[\"xyz\",\"123\"]}")]
+    [TestCase("JSON.stringify(querystring.parse(''))", "{}")]
+    [TestCase("JSON.stringify(querystring.parse('&=&='))", "{\"\":[\"\",\"\"]}")]
+    [TestCase("JSON.stringify(querystring.parse('a=b&&c=d'))", "{\"a\":\"b\",\"c\":\"d\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a'))", "{\"a\":\"\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a='))", "{\"a\":\"\"}")]
+    [TestCase("JSON.stringify(querystring.parse('=b'))", "{\"\":\"b\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=b&'))", "{\"a\":\"b\"}")]
+    [TestCase("JSON.stringify(querystring.parse('&a=b'))", "{\"a\":\"b\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=b&a=c&a=d'))", "{\"a\":[\"b\",\"c\",\"d\"]}")]
+    [TestCase("JSON.stringify(querystring.parse('hello+world=foo+bar'))", "{\"hello world\":\"foo bar\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a%20b=c%20d'))", "{\"a b\":\"c d\"}")]
+    [TestCase("JSON.stringify(querystring.parse('w=%E4%B8%AD%E6%96%87'))", "{\"w\":\"\u4e2d\u6587\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=%'))", "{\"a\":\"%\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=%C3%28'))", "{\"a\":\"\ufffd(\"}")]
+    [TestCase("JSON.stringify(querystring.parse('foo:bar;baz:qux', ';', ':'))", "{\"foo\":\"bar\",\"baz\":\"qux\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a==b'))", "{\"a\":\"=b\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=b=c'))", "{\"a\":\"b=c\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=1&b=2&c=3', null, null, { maxKeys: 2 }))", "{\"a\":\"1\",\"b\":\"2\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a=1&b=2&c=3', null, null, { maxKeys: 0 }))", "{\"a\":\"1\",\"b\":\"2\",\"c\":\"3\"}")]
+    [TestCase("JSON.stringify(querystring.parse('toString=x'))", "{\"toString\":\"x\"}")]
+    [TestCase("String(querystring.parse('a=b').hasOwnProperty)", "undefined")]
+    [TestCase("String(Object.getPrototypeOf(querystring.parse('a=b')))", "null")]
+    [TestCase("JSON.stringify(querystring.parse('a=b', null, null, { decodeURIComponent: (s) => s.toUpperCase() }))", "{\"A\":\"B\"}")]
+    [TestCase("JSON.stringify(querystring.parse('a+b=c+d', null, null, { decodeURIComponent: (s) => s }))", "{\"a%20b\":\"c%20d\"}")]
+    [TestCase("JSON.stringify(querystring.decode('a=b'))", "{\"a\":\"b\"}")]
+    [TestCase("JSON.stringify(querystring.parse(123))", "{}")]
+    [TestCase("JSON.stringify(querystring.parse('a=b&c', '&&'))", "{\"a\":\"b&c\"}")]
     public void MatchesNode(string expression, string expected)
     {
         var engine = QueryStringEngine();
@@ -116,7 +115,7 @@ public class QueryStringTests
     /// <c>querystring.escape</c> to an alternative function" - and <c>stringify</c> reads the current one
     /// every time it runs.
     /// </summary>
-    [Fact]
+    [Test]
     public void StringifyUsesAReassignedEscape()
     {
         var engine = QueryStringEngine();
@@ -131,7 +130,7 @@ public class QueryStringTests
     /// is not the built-in one is handed every component - including the <c>%20</c> a <c>+</c> was turned into,
     /// rather than an already-substituted space.
     /// </summary>
-    [Fact]
+    [Test]
     public void ParseUsesAReassignedUnescape()
     {
         var engine = QueryStringEngine();
@@ -144,7 +143,7 @@ public class QueryStringTests
     /// <summary>
     /// A decoder that throws is not fatal: Node falls back to the built-in one rather than failing the parse.
     /// </summary>
-    [Fact]
+    [Test]
     public void ParseFallsBackWhenACustomDecoderThrows()
     {
         var engine = QueryStringEngine();
@@ -159,7 +158,7 @@ public class QueryStringTests
     /// <c>unescapeBuffer</c> is absent because it answers with a <c>Buffer</c>, and <c>node:buffer</c> is not
     /// one of the modules Jint provides.
     /// </summary>
-    [Fact]
+    [Test]
     public void UnescapeBufferIsAbsent()
     {
         var engine = QueryStringEngine();
@@ -171,7 +170,7 @@ public class QueryStringTests
     /// The named exports are there beside the default one, so <c>import { parse } from 'node:querystring'</c>
     /// works as it does in Node.
     /// </summary>
-    [Fact]
+    [Test]
     public void ExposesNamedExports()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());

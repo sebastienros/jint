@@ -38,7 +38,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------------------------ simple assignment
 
-    [Fact]
+    [Test]
     public void ComputedAssignmentKeyRunsOnceAcrossAnAwait()
     {
         RunAsync($$"""
@@ -51,7 +51,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"k1\"]|1");
     }
 
-    [Fact]
+    [Test]
     public void ComputedAssignmentKeyRunsOnceAcrossAYield()
     {
         Run($$"""
@@ -65,7 +65,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"k1\"]|42");
     }
 
-    [Fact]
+    [Test]
     public void ComputedAssignmentBaseRunsOnceAcrossAnAwait()
     {
         // The base of the member expression is side-effecting too; the parked Reference holds it,
@@ -82,7 +82,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|1|3");
     }
 
-    [Fact]
+    [Test]
     public void ComputedAssignmentIndexSideEffectAppliesOnceAcrossAnAwait()
     {
         RunAsync("""
@@ -95,7 +95,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|9,0,0");
     }
 
-    [Fact]
+    [Test]
     public void ComputedAssignmentKeyRunsOnceWhenTheAwaitedPromiseRejects()
     {
         RunAsync($$"""
@@ -111,7 +111,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------------------------ compound assignment (guard)
 
-    [Fact]
+    [Test]
     public void CompoundComputedAssignmentKeyRunsOnceAcrossAnAwait()
     {
         RunAsync($$"""
@@ -124,7 +124,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"k1\"]|6");
     }
 
-    [Fact]
+    [Test]
     public void CompoundComputedAssignmentKeyRunsOnceAcrossAYield()
     {
         Run($$"""
@@ -140,7 +140,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------------------------ object literal
 
-    [Fact]
+    [Test]
     public void ComputedObjectLiteralKeyRunsOnceAcrossAnAwait()
     {
         RunAsync($$"""
@@ -152,7 +152,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"a\":0,\"k1\":7}");
     }
 
-    [Fact]
+    [Test]
     public void ComputedObjectLiteralKeyRunsOnceAcrossAYield()
     {
         Run($$"""
@@ -166,7 +166,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"a\":0,\"k1\":9}");
     }
 
-    [Fact]
+    [Test]
     public void EveryComputedObjectLiteralKeyRunsOnceWhenSeveralPropertiesSuspend()
     {
         // Each property parks its own key at its own index, so the slot must be consumed by the
@@ -180,7 +180,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("3|{\"k1\":1,\"k2\":2,\"k3\":3}");
     }
 
-    [Fact]
+    [Test]
     public void ComputedObjectLiteralKeyAfterANonSuspendingPropertyRunsOnce()
     {
         Run($$"""
@@ -196,7 +196,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------- suspension INSIDE the key expression
 
-    [Fact]
+    [Test]
     public void AComputedObjectLiteralKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -208,7 +208,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"k1!\":1}");
     }
 
-    [Fact]
+    [Test]
     public void AComputedObjectLiteralKeyThatSuspendsMidwayOnAYieldRunsItsSideEffectsOnce()
     {
         Run($$"""
@@ -222,7 +222,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"k1!\":5}");
     }
 
-    [Fact]
+    [Test]
     public void AComputedKeyThatIsItselfTheAwaitRunsOnce()
     {
         // Already correct before the handler-identity fix — an await finds its settled value by AST node
@@ -237,7 +237,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"k\":1}");
     }
 
-    [Fact]
+    [Test]
     public void AnEarlierComputedKeySuspendingMidwayDoesNotShiftTheLaterKeys()
     {
         // Re-running the first key would consume the counter the second key then reads, so the whole
@@ -251,7 +251,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("2|{\"k1\":1,\"k2\":2}");
     }
 
-    [Fact]
+    [Test]
     public void AComputedMethodKeyThatSuspendsMidwayDefinesOnlyTheKeyItResolvesTo()
     {
         // A method is defined from inside MethodDefinitionEvaluation, before the object literal's own
@@ -267,7 +267,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"k1!\"]|7");
     }
 
-    [Fact]
+    [Test]
     public void AComputedAccessorKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -279,7 +279,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"k1!\"]|7");
     }
 
-    [Fact]
+    [Test]
     public void TheSameComputedKeySuspendingOnEveryIterationRunsItsSideEffectsOncePerIteration()
     {
         // The key handler is now shared by every evaluation of the node, so what one iteration parks
@@ -296,7 +296,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("3|[{\"k10\":0},{\"k21\":1},{\"k32\":2}]");
     }
 
-    [Fact]
+    [Test]
     public void TwoGeneratorsSuspendedInsideTheSameComputedKeyKeepTheirOwnParkedState()
     {
         // One handler, two suspendables: the parked state lives in each generator's own suspend-data
@@ -314,7 +314,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------------------------ class bodies
 
-    [Fact]
+    [Test]
     public void AComputedClassMethodKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -326,7 +326,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|[\"constructor\",\"k1!\"]");
     }
 
-    [Fact]
+    [Test]
     public void AComputedStaticClassMethodKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -338,7 +338,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|7");
     }
 
-    [Fact]
+    [Test]
     public void AComputedClassFieldKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -350,7 +350,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|{\"k1!\":7}");
     }
 
-    [Fact]
+    [Test]
     public void AComputedClassMethodKeyThatSuspendsMidwayOnAYieldRunsItsSideEffectsOnce()
     {
         Run($$"""
@@ -366,7 +366,7 @@ public class SuspendedComputedKeyTests
 
     // ------------------------------------------------------------------ destructuring
 
-    [Fact]
+    [Test]
     public void AComputedDestructuringKeyThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""
@@ -379,7 +379,7 @@ public class SuspendedComputedKeyTests
             """).Should().Be("1|11");
     }
 
-    [Fact]
+    [Test]
     public void AComputedKeyInADestructuringDeclarationThatSuspendsMidwayRunsItsSideEffectsOnce()
     {
         RunAsync($$"""

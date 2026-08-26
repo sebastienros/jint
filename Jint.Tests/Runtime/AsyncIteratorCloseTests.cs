@@ -87,7 +87,7 @@ public class AsyncIteratorCloseTests
     /// The report from issue #3098, verbatim in shape: a loop left by <c>break</c> whose
     /// <c>return()</c> answers a rejected promise. Step 6 makes that rejection the loop's completion.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARejectedReturnBecomesTheCompletionOfALoopLeftByBreak()
     {
         Run("""
@@ -106,7 +106,7 @@ public class AsyncIteratorCloseTests
     /// Step 5 — "If completion is a throw completion, return ? completion" — comes before step 6, so a
     /// throw already in flight outranks the close's rejection. The <c>return()</c> is still called.
     /// </summary>
-    [Fact]
+    [Test]
     public void AThrowFromTheBodyOutranksARejectedReturn()
     {
         Run("""
@@ -125,7 +125,7 @@ public class AsyncIteratorCloseTests
     /// The other direction of the same precedence: a <c>return</c> completion is abrupt but is not a
     /// throw completion, so step 5 does not fire and step 6 replaces it with the close's rejection.
     /// </summary>
-    [Fact]
+    [Test]
     public void AReturnFromTheBodyLosesToARejectedReturn()
     {
         Run("""
@@ -144,7 +144,7 @@ public class AsyncIteratorCloseTests
     /// A <c>break</c> naming the loop's own label, and one naming an enclosing label (which leaves the
     /// loop with a Break completion still carrying its target), both reach the close.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALabelledBreakStillPropagatesTheRejectedReturn()
     {
         Run("""
@@ -174,7 +174,7 @@ public class AsyncIteratorCloseTests
     /// handed over — which is exactly the check the old synchronous close could never make, since
     /// every promise is an Object.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheReturnResultIsCheckedAfterTheAwaitNotBefore()
     {
         Run("""
@@ -208,7 +208,7 @@ public class AsyncIteratorCloseTests
     /// <summary>
     /// Step 4.b (<c>return</c> is undefined, "return ? completion") and step 4.c throwing on its own.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAbsentReturnLeavesTheCompletionAloneAndAThrowingOneReplacesIt()
     {
         Run("""
@@ -236,7 +236,7 @@ public class AsyncIteratorCloseTests
     /// everything the awaited chain does happens before the loop's own completion is observed. Without
     /// step 4.d the loop finishes first and <c>awaited</c> lands after <c>after</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheCloseSuspendsTheAsyncFunctionOnItsAwait()
     {
         Run("""
@@ -264,7 +264,7 @@ public class AsyncIteratorCloseTests
     /// <c>return</c> reports a throwing sync <c>return()</c>, a non-object result and a rejected
     /// <c>value</c> alike as a rejection of the promise it answers with. All three were swallowed.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASyncIterableUnderForAwaitPropagatesItsCloseFailure()
     {
         Run("""
@@ -303,7 +303,7 @@ public class AsyncIteratorCloseTests
     /// The same for a <c>for await…of</c> in an async <em>generator</em> body, which suspends through a
     /// different resume path than an async function's.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAsyncGeneratorBodyPropagatesTheRejectedClose()
     {
         Run("""
@@ -326,7 +326,7 @@ public class AsyncIteratorCloseTests
     /// AsyncIteratorClose. Running out does not close either — ForIn/OfBodyEvaluation step 8.e returns
     /// the iteration result before any close.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFailedStepAndAnExhaustedIteratorStillCloseNothing()
     {
         Run("""
@@ -355,7 +355,7 @@ public class AsyncIteratorCloseTests
     /// close, so its abrupt exits leave through a second code path (the dispose resume) that owes the
     /// same AsyncIteratorClose. The dispose runs first, then the close.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALoopSuspendedOnAnAsyncDisposeStillPropagatesTheRejectedClose()
     {
         Run("""

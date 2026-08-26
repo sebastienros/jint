@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class ComputedPropertyKeyTests
 {
-    [Fact]
+    [Test]
     public void RegExpLiteralComputedKeyUsesRegExpToString()
     {
         var engine = new Engine();
@@ -19,7 +19,7 @@ public class ComputedPropertyKeyTests
         engine.Evaluate("JSON.stringify(Object.keys({ [/a/gi]: 0 }))").AsString().Should().Be("[\"/a/gi\"]");
     }
 
-    [Fact]
+    [Test]
     public void RegExpLiteralComputedKeyHonoursOverriddenToString()
     {
         var engine = new Engine();
@@ -30,7 +30,7 @@ JSON.stringify(Object.keys({ [/a/]: 0 }));").AsString();
         result.Should().Be("[\"overridden\"]");
     }
 
-    [Fact]
+    [Test]
     public void ComputedKeyConversionIsObservableAndCanThrow()
     {
         var engine = new Engine();
@@ -43,7 +43,7 @@ thrown;").AsNumber();
         result.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void BooleanLiteralComputedKeyUsesJavaScriptSpelling()
     {
         var engine = new Engine();
@@ -52,7 +52,7 @@ thrown;").AsNumber();
         engine.Evaluate("({ [true]: 1 })[true]").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NullLiteralComputedKeyIsNullString()
     {
         var engine = new Engine();
@@ -60,7 +60,7 @@ thrown;").AsNumber();
         engine.Evaluate("({ [null]: 1 })['null']").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NonComputedKeywordKeysAreUnaffected()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ thrown;").AsNumber();
         engine.Evaluate("({ true: 1 })['true']").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StringAndNumberComputedKeysAreUnchanged()
     {
         var engine = new Engine();
@@ -82,7 +82,7 @@ thrown;").AsNumber();
         engine.Evaluate("JSON.stringify(Object.keys({ foo: 1, 0: 2, 'bar': 3 }))").AsString().Should().Be("[\"0\",\"foo\",\"bar\"]");
     }
 
-    [Fact]
+    [Test]
     public void ClassMethodComputedRegExpKey()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ JSON.stringify(Object.getOwnPropertyNames(C.prototype)) + '|' + new C()[/re/]() 
         result.Should().Be("[\"constructor\",\"/re/\"]|7|/re/");
     }
 
-    [Fact]
+    [Test]
     public void ClassMethodComputedBooleanKey()
     {
         var engine = new Engine();
@@ -104,7 +104,7 @@ JSON.stringify(Object.getOwnPropertyNames(C.prototype)) + '|' + new C()[true]() 
         result.Should().Be("[\"constructor\",\"true\"]|8|true");
     }
 
-    [Fact]
+    [Test]
     public void ClassAccessorsAndFieldsUseConvertedComputedKeys()
     {
         var engine = new Engine();
@@ -120,7 +120,7 @@ c[/f/] + '|' + c[/g/] + '|' + C[/s/]() + '|' + Object.getOwnPropertyDescriptor(C
         result.Should().Be("1|2|3|get /g/");
     }
 
-    [Fact]
+    [Test]
     public void AnonymousFunctionNamedFromComputedRegExpKey()
     {
         var engine = new Engine();
@@ -128,7 +128,7 @@ c[/f/] + '|' + c[/g/] + '|' + C[/s/]() + '|' + Object.getOwnPropertyDescriptor(C
         engine.Evaluate("({ [/a/]() {} })[/a/].name").AsString().Should().Be("/a/");
     }
 
-    [Fact]
+    [Test]
     public void ComputedKeysInDestructuringPatternsAreConverted()
     {
         var engine = new Engine();

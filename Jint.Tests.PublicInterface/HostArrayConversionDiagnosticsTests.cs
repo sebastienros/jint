@@ -41,7 +41,7 @@ public class HostArrayConversionDiagnosticsTests
 
     // ---- reachability ----
 
-    [Fact]
+    [Test]
     public void TheCountersAreReadableFromOutsideTheJintAssemblyAndStartAtZero()
     {
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee.
@@ -53,7 +53,7 @@ public class HostArrayConversionDiagnosticsTests
 
     // ---- the audit ----
 
-    [Fact]
+    [Test]
     public void CopyIsTheDefaultAndLiveViewRemainsAnExplicitOptIn()
     {
         new Options().Interop.ArrayConversion.Should().Be(ArrayConversionMode.Copy);
@@ -73,7 +73,7 @@ public class HostArrayConversionDiagnosticsTests
         shared.Values[0].Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void CopyMutationRemainsAllowedWhileLiveViewWriteThroughRequiresBothOptIns()
     {
         var copied = new[] { 1, 2 };
@@ -104,7 +104,7 @@ public class HostArrayConversionDiagnosticsTests
         writableLive[0].Should().Be(9);
     }
 
-    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    [Test, IgnoreUnless(nameof(MemoryAccountingAvailable), "Managed allocation accounting is unavailable on this runtime.")]
     public void FailedMemoryBoundCopyPublishesNothingAndLaterCopyCanRetry()
     {
         var engine = new Engine(options => options.LimitMemory(256_000));
@@ -119,7 +119,7 @@ public class HostArrayConversionDiagnosticsTests
         engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void FailedDeadlineBoundCopyPublishesNothingAndCanRetryAfterDisarm()
     {
         var deadline = new OperationDeadlineConstraint();
@@ -137,7 +137,7 @@ public class HostArrayConversionDiagnosticsTests
         engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AnAuditOfARunThatCrossesNoArrayAnswersZero()
     {
         // The negative result is the one the audit usually wants, and the one that has to be trustworthy: a
@@ -164,7 +164,7 @@ public class HostArrayConversionDiagnosticsTests
         diagnostics.ArrayCopyConversions.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnAuditOfARunThatCrossesAnArrayAnswersHowItCrossed()
     {
         // ...and the positive result names the semantics, which is the half that decides whether the host
@@ -186,7 +186,7 @@ public class HostArrayConversionDiagnosticsTests
         copy.ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheCountedSemanticsAreTheOnesTheScriptObserves()
     {
         // The counter is only worth reading if it names what actually happened, so pin it against the
@@ -210,7 +210,7 @@ public class HostArrayConversionDiagnosticsTests
 
     // ---- what is and is not counted ----
 
-    [Fact]
+    [Test]
     public void ARecrossingServedFromTheIdentityCacheIsNotCountedAgain()
     {
         // A cache hit performs no conversion, so counting it would be counting nothing. It also cannot hide a
@@ -226,7 +226,7 @@ public class HostArrayConversionDiagnosticsTests
         diagnostics.ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DistinctArraysAreCountedSeparately()
     {
         var engine = CreateEngine();
@@ -239,7 +239,7 @@ public class HostArrayConversionDiagnosticsTests
         diagnostics.ArrayCopyConversions.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AnArrayNoViewCanBeBuiltOverIsCountedAsTheCopyItBecomes()
     {
         // LiveView is a preference, not a guarantee: a wrap handler declining the value drops the conversion
@@ -261,7 +261,7 @@ public class HostArrayConversionDiagnosticsTests
         diagnostics.ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredCollectionTypeDecidesWhetherTheArrayLaneIsTakenAtAll()
     {
         // The documented scope boundary. Under LiveView an array reaching script under a non-array declared
@@ -284,7 +284,7 @@ public class HostArrayConversionDiagnosticsTests
         copy.ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EachEngineCountsItsOwnConversions()
     {
         // A host pooling engines audits per engine, so the counters must not be static.
@@ -300,7 +300,7 @@ public class HostArrayConversionDiagnosticsTests
         second.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheCountersAreCumulativeAcrossEvaluations()
     {
         var engine = CreateEngine();
@@ -318,7 +318,7 @@ public class HostArrayConversionDiagnosticsTests
         afterSecond.ArrayCopyConversions.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void TheResultIsAValueSnapshotNotALiveHandle()
     {
         // Reading the counters must not hand back something that keeps changing underneath the host, or an

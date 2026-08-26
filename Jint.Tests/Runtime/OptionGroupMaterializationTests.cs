@@ -24,7 +24,7 @@ public class OptionGroupMaterializationTests
             .Where(static f => f.FieldType.DeclaringType == typeof(Options) && f.FieldType.Name.EndsWith("Options"))
             .ToList();
 
-    [Fact]
+    [Test]
     public void ADefaultOptionsInstanceMaterializesNoGroup()
     {
         var options = new Options();
@@ -38,7 +38,7 @@ public class OptionGroupMaterializationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ReadingOneGroupMaterializesOnlyThatGroup()
     {
         var options = new Options();
@@ -58,7 +58,7 @@ public class OptionGroupMaterializationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EveryGroupCanBeCloned()
     {
         // CreateEngineOptions clones every materialized group so the untrusted-code profile's private

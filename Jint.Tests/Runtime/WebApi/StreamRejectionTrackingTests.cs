@@ -106,7 +106,7 @@ public class StreamRejectionTrackingTests
 
     // ---- The algorithms' own bookkeeping: silent ----
 
-    [Fact]
+    [Test]
     public void ASuccessfulPipeToReportsNothingAtAll()
     {
         var (engine, rejections) = TrackingEngine();
@@ -117,7 +117,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ASuccessfulPipeThroughReportsNothingAtAll()
     {
         var (engine, rejections) = TrackingEngine();
@@ -133,7 +133,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ATextDecoderStreamPipeThroughReportsNothingAtAll()
     {
         var (engine, rejections) = TrackingEngine(
@@ -150,7 +150,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ABlobStreamPipeThroughReportsNothingAtAll()
     {
         // The shape the defect was found in: Blob.stream() feeding a transform.
@@ -169,7 +169,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void APlainDrainReportsNothingAtAll()
     {
         // The control the issue reported: no pipe, no phantom. It has to stay at zero too.
@@ -181,7 +181,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ScriptCalledReleaseLockOnAReaderReportsNothing()
     {
         // ReadableStreamReaderGenericRelease, reached by the script rather than by a pipe.
@@ -192,7 +192,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ScriptCalledReleaseLockOnAWriterReportsNothing()
     {
         // WritableStreamDefaultWriterRelease, and with it both Ensure*PromiseRejected operations.
@@ -203,7 +203,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ReleasingAReaderOnAnAlreadyClosedStreamReportsNothing()
     {
         // The other branch of the release steps: the closed promise has already settled, so the reader is
@@ -219,7 +219,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ErroringAStreamThatHasAReaderReportsNothing()
     {
         // ReadableStreamError: "Reject reader.[[closedPromise]] with e" then "set …[[PromiseIsHandled]] to
@@ -236,7 +236,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ErroringAWritableStreamThatHasAWriterReportsNothing()
     {
         // WritableStreamRejectCloseAndClosedPromiseIfNeeded, plus the ready promise the erroring rejects.
@@ -252,7 +252,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void TeeReportsNothing()
     {
         var (engine, rejections) = TrackingEngine();
@@ -267,7 +267,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void CancellingBothTeeBranchesReportsNothing()
     {
         var (engine, rejections) = TrackingEngine();
@@ -287,7 +287,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AnAbortedPipeReportsOnlyTheAbortReason()
     {
         // The signal case: the pipe's own promise rejects and the script does not catch it, so exactly one
@@ -308,7 +308,7 @@ public class StreamRejectionTrackingTests
 
     // ---- Everything that is not the algorithms' own: still reported ----
 
-    [Fact]
+    [Test]
     public void AnOrdinaryUnhandledRejectionIsStillReported()
     {
         var (engine, rejections) = TrackingEngine();
@@ -318,7 +318,7 @@ public class StreamRejectionTrackingTests
         rejections.Select(r => r.ToString()).Should().Equal("Reject:Error: boom");
     }
 
-    [Fact]
+    [Test]
     public void AFailedPipeStillReportsItsOwnRejection()
     {
         // The signal a host actually wants: pipeTo()'s promise is the script's, so nothing marks it handled.
@@ -349,7 +349,7 @@ public class StreamRejectionTrackingTests
             "Reject:Error: dest failed");
     }
 
-    [Fact]
+    [Test]
     public void AWriteThatFailsStillReportsItsOwnRejection()
     {
         // writer.write()'s promise is handed to the script and the specification never marks it handled, so
@@ -364,7 +364,7 @@ public class StreamRejectionTrackingTests
         Standing(rejections).Should().Contain("Error: write failed");
     }
 
-    [Fact]
+    [Test]
     public void APromiseDerivedFromAReleasedReadersClosedPromiseIsStillReported()
     {
         // The over-suppression check. The reader's own closed promise is accounted for by the release steps;
@@ -384,7 +384,7 @@ public class StreamRejectionTrackingTests
             "Reject:TypeError: Reader was released and can no longer be used to monitor the stream's closedness");
     }
 
-    [Fact]
+    [Test]
     public void AReleasedReadersClosedPromiseIsRejectedEvenThoughNothingIsReported()
     {
         // The other half of the same check: the flag suppresses the report, never the rejection. The script
@@ -406,7 +406,7 @@ public class StreamRejectionTrackingTests
         rejections.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AReleasedWritersReadyAndClosedPromisesAreRejectedEvenThoughNothingIsReported()
     {
         var (engine, rejections) = TrackingEngine();

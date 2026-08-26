@@ -16,9 +16,8 @@ public class MapSetSizeAccessorTests
     private const string Map = "new Map([[1, 'a'], [2, 'b'], [3, 'c']])";
     private const string Set = "new Set([1, 2, 3])";
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void TheExtractedPrototypeGetterReadsItsReceiver(string kind, string create)
     {
         new Engine().Evaluate($$"""
@@ -28,9 +27,8 @@ public class MapSetSizeAccessorTests
             """).AsNumber().Should().Be(3);
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void TheExtractedPrototypeGetterTracksLaterMutations(string kind, string create)
     {
         new Engine().Evaluate($$"""
@@ -42,9 +40,8 @@ public class MapSetSizeAccessorTests
             """).AsString().Should().Be("3/0");
     }
 
-    [Theory]
-    [InlineData("Map")]
-    [InlineData("Set")]
+    [TestCase("Map")]
+    [TestCase("Set")]
     public void TheExtractedPrototypeGetterKeepsItsBrandCheck(string kind)
     {
         // The other collection is the interesting negative: it has a `size` of its own, so only a real
@@ -62,9 +59,8 @@ public class MapSetSizeAccessorTests
         }
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void AnInstanceHasNoOwnSize(string kind, string create)
     {
         _ = kind;
@@ -83,9 +79,8 @@ public class MapSetSizeAccessorTests
         engine.Evaluate("c.size").AsNumber().Should().Be(3);
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void AnOwnShadowingAccessorCanBeDefinedAndDeleted(string kind, string create)
     {
         _ = kind;
@@ -101,9 +96,8 @@ public class MapSetSizeAccessorTests
             """).AsString().Should().Be("99/true/0|true|3/false");
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void AnOwnShadowingDataPropertyCanBeDefinedAndDeleted(string kind, string create)
     {
         _ = kind;
@@ -116,9 +110,8 @@ public class MapSetSizeAccessorTests
             """).AsString().Should().Be("7/size|3");
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void DeletingSizeFromAnInstanceThatNeverDefinedItSucceeds(string kind, string create)
     {
         _ = kind;
@@ -132,9 +125,8 @@ public class MapSetSizeAccessorTests
             """).AsString().Should().Be("true/3");
     }
 
-    [Theory]
-    [InlineData("Map", "class C extends Map {}", "new C([[1, 'a'], [2, 'b'], [3, 'c']])")]
-    [InlineData("Set", "class C extends Set {}", "new C([1, 2, 3])")]
+    [TestCase("Map", "class C extends Map {}", "new C([[1, 'a'], [2, 'b'], [3, 'c']])")]
+    [TestCase("Set", "class C extends Set {}", "new C([1, 2, 3])")]
     public void ASubclassInstanceReadsTheInheritedAccessor(string kind, string declare, string create)
     {
         _ = kind;
@@ -145,9 +137,8 @@ public class MapSetSizeAccessorTests
             """).AsString().Should().Be("3/false/0");
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void AProxyGetTrapForwardingTheTargetAsReceiverStillReadsSize(string kind, string create)
     {
         _ = kind;
@@ -158,9 +149,8 @@ public class MapSetSizeAccessorTests
             """).AsNumber().Should().Be(3);
     }
 
-    [Theory]
-    [InlineData("Map", Map)]
-    [InlineData("Set", Set)]
+    [TestCase("Map", Map)]
+    [TestCase("Set", Set)]
     public void ABareProxyIsAnIncompatibleReceiverForSize(string kind, string create)
     {
         // A proxy without a `get` trap forwards to the target with the *proxy* as receiver, so the accessor
@@ -171,9 +161,8 @@ public class MapSetSizeAccessorTests
             .WithMessage($"Method {kind}.prototype.get size called on incompatible receiver");
     }
 
-    [Theory]
-    [InlineData("Map")]
-    [InlineData("Set")]
+    [TestCase("Map")]
+    [TestCase("Set")]
     public void ThePrototypeCarriesTheAccessorItself(string kind)
     {
         new Engine().Evaluate($$"""

@@ -17,7 +17,7 @@ public class KeyedCollectionMutationTests
 {
     private static string Run(string script) => new Engine().Evaluate(script).AsString();
 
-    [Fact]
+    [Test]
     public void SetForEachRevisitsAValueDeletedAndReAddedWhileVisiting()
     {
         const string Script = """
@@ -34,7 +34,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,2,3,2|1,3,2");
     }
 
-    [Fact]
+    [Test]
     public void SetForEachDoesNotVisitAValueDeletedBeforeItsTurn()
     {
         const string Script = """
@@ -47,7 +47,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,2,4");
     }
 
-    [Fact]
+    [Test]
     public void SetForEachKeepsItsPlaceWhenAnAlreadyVisitedValueIsDeleted()
     {
         const string Script = """
@@ -60,7 +60,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void SetIteratorResumesAtTheRightEntryAfterDeletesAndAdds()
     {
         const string Script = """
@@ -84,7 +84,7 @@ public class KeyedCollectionMutationTests
     /// entry. A suspended iterator has to survive that, so it resumes by the entry's own sequence
     /// number rather than by a raw slot index.
     /// </summary>
-    [Fact]
+    [Test]
     public void SetIteratorSurvivesAnEntryListCompaction()
     {
         const string Script = """
@@ -103,7 +103,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("0,2,4,6");
     }
 
-    [Fact]
+    [Test]
     public void SetIteratorSeesEntriesAddedAfterAClear()
     {
         const string Script = """
@@ -122,7 +122,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,7,8,true");
     }
 
-    [Fact]
+    [Test]
     public void AnExhaustedSetIteratorStaysDone()
     {
         const string Script = """
@@ -142,7 +142,7 @@ public class KeyedCollectionMutationTests
     /// which the spec says makes that element visible a second time, at its new position — and the walk
     /// must still reach the elements after it.
     /// </summary>
-    [Fact]
+    [Test]
     public void IntersectionRevisitsAnElementItsHasCallbackReAdded()
     {
         const string Script = """
@@ -167,7 +167,7 @@ public class KeyedCollectionMutationTests
     /// Each call to <c>has</c> deletes the element it was handed and appends a new one; the walk has to
     /// keep its place across both, so every element ever in the set is visited exactly once.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsSubsetOfVisitsEveryElementWhenHasDeletesTheCurrentOne()
     {
         const string Script = """
@@ -195,7 +195,7 @@ public class KeyedCollectionMutationTests
     /// report that order. The combining methods used to answer from an unordered hash set, whose
     /// enumeration reuses the slot a delete freed, so the re-added element came back first.
     /// </summary>
-    [Fact]
+    [Test]
     public void SetMethodsReportInsertionOrderAfterADeleteAndAnAdd()
     {
         const string Script = """
@@ -215,7 +215,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("234|234|2349|2349|234|24");
     }
 
-    [Fact]
+    [Test]
     public void MapForEachRevisitsAKeyDeletedAndReAddedWhileVisiting()
     {
         const string Script = """
@@ -232,7 +232,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,2,3,2|1,3,2");
     }
 
-    [Fact]
+    [Test]
     public void MapForEachKeepsItsPlaceWhenAnAlreadyVisitedKeyIsDeleted()
     {
         const string Script = """
@@ -245,7 +245,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1=a,2=b,3=c,4=d");
     }
 
-    [Fact]
+    [Test]
     public void MapIteratorResumesAtTheRightEntryAfterDeletesAndAdds()
     {
         const string Script = """
@@ -264,7 +264,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("1,3,4,true");
     }
 
-    [Fact]
+    [Test]
     public void MapIteratorSurvivesAnEntryListCompaction()
     {
         const string Script = """
@@ -282,7 +282,7 @@ public class KeyedCollectionMutationTests
         Run(Script).Should().Be("0,2,4");
     }
 
-    [Fact]
+    [Test]
     public void SettingAnExistingMapKeyLeavesItWhereItIs()
     {
         const string Script = """
@@ -299,7 +299,7 @@ public class KeyedCollectionMutationTests
     /// List has to stay within a constant factor of the live count. Deleting the last entry drops its
     /// slot outright, which is what keeps this shape flat.
     /// </summary>
-    [Fact]
+    [Test]
     public void AddDeleteChurnDoesNotGrowTheSetEntryList()
     {
         var engine = new Engine();
@@ -313,7 +313,7 @@ public class KeyedCollectionMutationTests
     /// The sliding-window shape deletes from the front rather than the tail, so the slot list is held
     /// down by compaction instead: it may never grow while more than half of it is live.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASlidingWindowDoesNotGrowTheMapEntryList()
     {
         var engine = new Engine();

@@ -23,14 +23,14 @@ public class UuidTests : IDisposable
         return _engine.Evaluate(source).ToObject();
     }
 
-    [Fact]
+    [Test]
     public void Empty()
     {
         RunTest($"Uuid.parse('{Guid.Empty}')").Should().Be(Guid.Empty);
         RunTest($"Uuid.Empty").Should().Be(Guid.Empty);
     }
 
-    [Fact]
+    [Test]
     public void Random()
     {
         var actual = RunTest($"new Uuid()");
@@ -38,7 +38,7 @@ public class UuidTests : IDisposable
         actual.Should().BeOfType<Guid>();
     }
 
-    [Fact]
+    [Test]
     public void Copy()
     {
         _engine.Evaluate("const g = new Uuid();");

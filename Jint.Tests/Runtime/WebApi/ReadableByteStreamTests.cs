@@ -28,7 +28,7 @@ public class ReadableByteStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ConstructsAByteStream()
     {
         var engine = StreamEngine();
@@ -38,7 +38,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("stream.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void GivesTheUnderlyingSourceAByteController()
     {
         var engine = StreamEngine();
@@ -52,14 +52,14 @@ public class ReadableByteStreamTests
         engine.Evaluate("seen.byobRequest").Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAQueuingStrategyWithASizeFunction()
     {
         // "If strategy["size"] exists, throw a RangeError exception" — a byte stream's chunk size is its
         // byte length, so a size() would have nothing to mean.
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'bytes' }, { size: () => 1 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'bytes' }, { size: () => 1 })"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
 
         // A high water mark on its own is fine, and is in bytes.
@@ -67,7 +67,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("c.desiredSize").AsNumber().Should().Be(64);
     }
 
-    [Fact]
+    [Test]
     public void ReadsAnEnqueuedChunkWithADefaultReader()
     {
         var engine = StreamEngine();
@@ -85,7 +85,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("false:Uint8Array:1,2,3,true:undefined");
     }
 
-    [Fact]
+    [Test]
     public void TransfersTheBufferOfAnEnqueuedChunk()
     {
         var engine = StreamEngine();
@@ -101,25 +101,25 @@ public class ReadableByteStreamTests
         engine.Evaluate("source.buffer.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnEmptyOrNonViewChunk()
     {
         var engine = StreamEngine();
         engine.Execute("var c; new ReadableStream({ type: 'bytes', start(controller) { c = controller; } });");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue('nope')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue('nope')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue(new Uint8Array(0))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue(new Uint8Array(0))"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // A view over a detached buffer has a byte length of 0 and is refused by the same check.
         engine.Execute("var detached = new Uint8Array([1]); c.enqueue(detached);");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue(detached)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.enqueue(detached)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AcquiresABYOBReader()
     {
         var engine = StreamEngine();
@@ -133,19 +133,19 @@ public class ReadableByteStreamTests
 
         // The constructor is equivalent to getReader({ mode: 'byob' }), and refuses a locked stream.
         var byobReaderConstructor = "Object.getPrototypeOf(reader).constructor";
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ({byobReaderConstructor})(stream)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ({byobReaderConstructor})(stream)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("reader.releaseLock();");
         engine.Evaluate($"new ({byobReaderConstructor})(stream) instanceof Object").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesABYOBReaderForANonByteStream()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream().getReader({ mode: 'byob' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream().getReader({ mode: 'byob' })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // And the stream is not left locked by the attempt.
@@ -153,7 +153,7 @@ public class ReadableByteStreamTests
             .AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void FillsABYOBReadFromTheQueue()
     {
         var engine = StreamEngine();
@@ -173,7 +173,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("false:1,2:0,false:3,4");
     }
 
-    [Fact]
+    [Test]
     public void TransfersTheViewPassedToABYOBRead()
     {
         var engine = StreamEngine();
@@ -195,7 +195,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("returned.buffer === buffer").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheViewTypeOfABYOBRead()
     {
         var engine = StreamEngine();
@@ -212,7 +212,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("Uint16Array:2:1,2");
     }
 
-    [Fact]
+    [Test]
     public void ReadsIntoADataView()
     {
         var engine = StreamEngine();
@@ -227,7 +227,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("DataView:5,6");
     }
 
-    [Fact]
+    [Test]
     public void HonoursTheMinimumFill()
     {
         var engine = StreamEngine();
@@ -248,7 +248,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("one,two,three,read:1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ValidatesTheArgumentsOfABYOBRead()
     {
         var engine = StreamEngine();
@@ -271,7 +271,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("nonView:TypeError,empty:TypeError,minZero:TypeError,minTooBig:RangeError,released:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void OffersABYOBRequestToTheUnderlyingSource()
     {
         var engine = StreamEngine();
@@ -292,7 +292,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("pull:8,read:1:42");
     }
 
-    [Fact]
+    [Test]
     public void InvalidatesTheBYOBRequestOnceRespondedTo()
     {
         var engine = StreamEngine();
@@ -308,11 +308,11 @@ public class ReadableByteStreamTests
 
         Log(engine).Should().Be("read");
         engine.Evaluate("kept.view").Should().Be(JsValue.Null);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("kept.respond(1)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("kept.respond(1)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ValidatesRespond()
     {
         var engine = StreamEngine();
@@ -323,17 +323,17 @@ public class ReadableByteStreamTests
             reader.read(new Uint8Array(2));
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(3)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(3)"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(0)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(0)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(-1)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respond(-1)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RespondsWithANewView()
     {
         var engine = StreamEngine();
@@ -360,7 +360,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("replacement.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ValidatesRespondWithANewView()
     {
         var engine = StreamEngine();
@@ -374,18 +374,18 @@ public class ReadableByteStreamTests
         // The new view has to describe the very region the request named: the same start, a buffer of the
         // same capacity, and no more bytes than were asked for. Note what is *not* checked — the buffer
         // need not be the request's own, since it is transferred in either way.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respondWithNewView(new Uint8Array(8))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respondWithNewView(new Uint8Array(8))"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-            "request.respondWithNewView(new Uint8Array(request.view.buffer, request.view.byteOffset + 1, 1))"))
+            "request.respondWithNewView(new Uint8Array(request.view.buffer, request.view.byteOffset + 1, 1))"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respondWithNewView('nope')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("request.respondWithNewView('nope')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AutomaticallyAllocatesABufferForADefaultRead()
     {
         var engine = StreamEngine();
@@ -406,7 +406,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("request:16,read:2:1,2");
     }
 
-    [Fact]
+    [Test]
     public void LetsTheSourceEnqueueInsteadOfRespondingToAnAutomaticAllocation()
     {
         var engine = StreamEngine();
@@ -426,21 +426,21 @@ public class ReadableByteStreamTests
         engine.Evaluate("kept.view").Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAZeroAutoAllocateChunkSize()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'bytes', autoAllocateChunkSize: 0 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'bytes', autoAllocateChunkSize: 0 })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // The member is an [EnforceRange] unsigned long long, so it is converted — and rejected — even for a
         // stream that is not a byte stream.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ autoAllocateChunkSize: -1 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ autoAllocateChunkSize: -1 })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void HandsBackTheMemoryOfAClosedStream()
     {
         var engine = StreamEngine();
@@ -456,7 +456,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("true:Uint8Array:0:4");
     }
 
-    [Fact]
+    [Test]
     public void DiscardsTheMemoryOfACancelledStream()
     {
         var engine = StreamEngine();
@@ -472,7 +472,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("true:undefined");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToCloseWithAPartialElement()
     {
         var engine = StreamEngine();
@@ -486,14 +486,14 @@ public class ReadableByteStreamTests
             """);
 
         // One byte of a two-byte element has been written, so there is nothing that can be handed back.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.close()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("c.close()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("");
         Log(engine).Should().Be("rejected:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EndsAPartlyFilledReadWithAZeroByteResponse()
     {
         var engine = StreamEngine();
@@ -522,7 +522,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("pulls").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReadThatCanNeverBeFilled()
     {
         var engine = StreamEngine();
@@ -541,7 +541,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("read:TypeError,closed:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ErrorsAPendingBYOBReadWhenTheStreamErrors()
     {
         var engine = StreamEngine();
@@ -559,7 +559,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("closed:boom,rejected:boom");
     }
 
-    [Fact]
+    [Test]
     public void RejectsPendingBYOBReadsWhenTheLockIsReleased()
     {
         var engine = StreamEngine();
@@ -575,7 +575,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("released:false,rejected:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheBytesWrittenIntoAnAbandonedBuffer()
     {
         var engine = StreamEngine();
@@ -599,7 +599,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("abandoned,recovered:11,12");
     }
 
-    [Fact]
+    [Test]
     public void ServesAWaitingDefaultReadDirectlyFromAnEnqueue()
     {
         var engine = StreamEngine();
@@ -616,7 +616,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("enqueued:0,read:1,2");
     }
 
-    [Fact]
+    [Test]
     public void SplitsOneEnqueueAcrossSeveralBYOBReads()
     {
         var engine = StreamEngine();
@@ -632,7 +632,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("a:1,2,b:3,4");
     }
 
-    [Fact]
+    [Test]
     public void TeesAByteStreamIntoTwoByteStreams()
     {
         var engine = StreamEngine();
@@ -651,7 +651,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("byob:true,b:1,2");
     }
 
-    [Fact]
+    [Test]
     public void TeeReadsTheOriginalThroughABranchesOwnBuffer()
     {
         var engine = StreamEngine();
@@ -669,7 +669,7 @@ public class ReadableByteStreamTests
         Log(engine).Should().Be("a:1,2,b:1,2");
     }
 
-    [Fact]
+    [Test]
     public void PipesAndIteratesAByteStream()
     {
         var engine = StreamEngine();
@@ -696,7 +696,7 @@ public class ReadableByteStreamTests
         Log(piped).Should().Be("write:3,4,piped");
     }
 
-    [Fact]
+    [Test]
     public void NamesTheThreeByteStreamInterfaceObjectsOnTheGlobal()
     {
         var engine = StreamEngine();
@@ -717,7 +717,7 @@ public class ReadableByteStreamTests
         engine.Evaluate("request[Symbol.toStringTag]").AsString().Should().Be("ReadableStreamBYOBRequest");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToConstructTheControllerAndTheRequest()
     {
         var engine = StreamEngine();
@@ -727,14 +727,14 @@ public class ReadableByteStreamTests
             stream.getReader({ mode: 'byob' }).read(new Uint8Array(1));
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (Object.getPrototypeOf(controller).constructor)()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (Object.getPrototypeOf(controller).constructor)()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (Object.getPrototypeOf(request).constructor)()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (Object.getPrototypeOf(request).constructor)()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAForeignReceiver()
     {
         var engine = StreamEngine();
@@ -762,7 +762,7 @@ public class ReadableByteStreamTests
                      "readerProto.releaseLock.call({})",
                  })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate(source))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate(source))!
                 .Error.Get("name").AsString().Should().Be("TypeError", source);
         }
 
@@ -797,7 +797,7 @@ public class ReadableByteStreamTests
     /// nothing about byte streams; that they need to know nothing is the point of extending the default
     /// controller rather than forking it.
     /// </summary>
-    [Fact]
+    [Test]
     public void PipesThroughATransformStreamDefinedByAnotherStandard()
     {
         var engine = new Engine(options => options.UseWebApis(
@@ -837,7 +837,7 @@ public class ReadableByteStreamTests
     /// A byte stream is accepted as a <c>BodyInit</c>, which reads it with a <i>default</i> reader — the one
     /// path through a byte controller that an ordinary consumer takes without knowing it is one.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsAcceptedAsAFetchBody()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -860,7 +860,7 @@ public class ReadableByteStreamTests
     /// This test replaces the boundary pin that asserted the opposite. It is the observable half of the
     /// upgrade: nothing about the default-reader path changed, and the next test says so.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ServesBYOBOnTheBodiesTheEngineHandsOut()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -890,7 +890,7 @@ public class ReadableByteStreamTests
     /// The regression half of the upgrade above: a default reader on those same bodies still answers with
     /// one <c>Uint8Array</c> chunk carrying the whole body, and every <c>Body</c>-mixin consumer still works.
     /// </summary>
-    [Fact]
+    [Test]
     public void StillServesADefaultReaderOnTheBodiesTheEngineHandsOut()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -910,7 +910,7 @@ public class ReadableByteStreamTests
     /// <c>tee()</c> on a body picks the byte-stream algorithm now, so both branches are byte streams and each
     /// can be read BYOB — https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the controller.
     /// </summary>
-    [Fact]
+    [Test]
     public void TeesABodyIntoTwoByteStreams()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -929,7 +929,7 @@ public class ReadableByteStreamTests
     /// <c>clone()</c> is the <c>Body</c> mixin's own tee — https://fetch.spec.whatwg.org/#concept-body-clone
     /// — so a cloned body whose stream had already been materialized is a byte stream on both sides.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClonesAMaterializedBodyIntoTwoByteStreams()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -949,7 +949,7 @@ public class ReadableByteStreamTests
     /// bytes the source enqueues rather than through a <c>byobRequest</c> — but the buffer the caller
     /// supplied is still transferred away from it, which is the ownership rule every byte stream keeps.
     /// </summary>
-    [Fact]
+    [Test]
     public void TransfersTheCallersBufferOnABodyRead()
     {
         var engine = new Engine(options => options.UseFetch());

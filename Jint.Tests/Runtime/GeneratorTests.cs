@@ -9,7 +9,7 @@ public class GeneratorTests
         _engine = new Engine();
     }
 
-    [Fact(Timeout = 10000)]
+    [Test, CancelAfter(10000)]
     public void YieldInForLoopUpdateExpression()
     {
         const string Script = """
@@ -24,14 +24,14 @@ public class GeneratorTests
             return str;
         """;
 
-        // A regression here spins forever, and xUnit's Timeout cannot abort a synchronous test method on
+        // A regression here spins forever, and [CancelAfter] cannot abort a synchronous test method on
         // its own. Handing the engine the test's cancellation token is what makes the timeout bite.
-        var engine = new Engine(options => options.ObserveCancellation(TestContext.Current.CancellationToken));
+        var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
 
         engine.Evaluate(Script).Should().Be("01234");
     }
 
-    [Fact]
+    [Test]
     public void LoopYield()
     {
         const string Script = """
@@ -51,7 +51,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ReturnDuringYield()
     {
         const string Script = """
@@ -71,7 +71,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("a");
     }
 
-    [Fact]
+    [Test]
     public void LoneReturnInYield()
     {
         const string Script = """
@@ -89,7 +89,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void LoneReturnValueInYield()
     {
         const string Script = """
@@ -107,7 +107,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void YieldUndefined()
     {
         const string Script = """
@@ -125,7 +125,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReturnUndefined()
     {
         const string Script = """
@@ -143,7 +143,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void Basic()
     {
         _engine.Execute("function * generator() { yield 5; yield 6; };");
@@ -158,7 +158,7 @@ public class GeneratorTests
         _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FunctionExpressions()
     {
         _engine.Execute("var generator = function * () { yield 5; yield 6; };");
@@ -173,7 +173,7 @@ public class GeneratorTests
         _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CorrectThisBinding()
     {
         _engine.Execute("var generator = function * () { yield 5; yield 6; };");
@@ -188,7 +188,7 @@ public class GeneratorTests
         _engine.Evaluate("item.done").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void Sending()
     {
         const string Script = """
@@ -208,7 +208,7 @@ public class GeneratorTests
         _engine.Evaluate("sent[1]").Should().Be("bar");
     }
 
-    [Fact]
+    [Test]
     public void Sending2()
     {
         const string Script = """
@@ -236,7 +236,7 @@ public class GeneratorTests
         _engine.Evaluate("generatorFunc.next(10).value").Should().Be(26); // 26
     }
 
-    [Fact]
+    [Test]
     public void Fibonacci()
     {
         const string Script = """
@@ -276,7 +276,7 @@ public class GeneratorTests
     // (ISuspendable.Data, GetSuspensionNode, IsNodeInsideRange), so these are
     // regression guards against drift between the async and sync resume paths.
 
-    [Fact]
+    [Test]
     public void ShouldResumeYieldInsideCatchWithoutReexecutingTryBlock()
     {
         const string Script = """
@@ -300,7 +300,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeYieldInsideIfWithoutReexecutingTest()
     {
         const string Script = """
@@ -322,7 +322,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeYieldInsideForBodyWithoutReexecutingTest()
     {
         const string Script = """
@@ -345,7 +345,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("[1,1,0,1]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeYieldInsideSwitchCaseWithoutReexecutingDiscriminant()
     {
         const string Script = """
@@ -369,7 +369,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateBinaryLeftOperandAfterYield()
     {
         const string Script = """
@@ -388,7 +388,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("[1,6]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateLogicalAndLeftOperandAfterYield()
     {
         const string Script = """
@@ -407,7 +407,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("[1,7]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCallArgumentsBeforeYield()
     {
         const string Script = """
@@ -427,7 +427,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""[[1,2,"done"],3]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCompoundAssignmentLhsAfterYield()
     {
         const string Script = """
@@ -447,7 +447,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""[{"0":5},0]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveSwitchLexicalBindingAfterYieldInsideCase()
     {
         const string Script = """
@@ -471,7 +471,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldClearSwitchSuspendDataAfterResumedBreakInGenerator()
     {
         const string Script = """
@@ -499,7 +499,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("[0,1]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateArrayLiteralElementsBeforeYield()
     {
         const string Script = """
@@ -518,7 +518,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""[[1,2,"done"],3]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReiterateOneShotSpreadIteratorAcrossYield()
     {
         const string Script = """
@@ -538,7 +538,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""["a","b","c","d"]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateTemplateLiteralInterpolationsBeforeYield()
     {
         const string Script = """
@@ -557,7 +557,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""["1-X-2",2]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateObjectLiteralPropertiesBeforeYield()
     {
         const string Script = """
@@ -576,7 +576,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""[{"a":1,"b":2,"c":"done"},3]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateMemberObjectAcrossPropertyYield()
     {
         const string Script = """
@@ -597,7 +597,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("[1,1]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateNullishCoalescingLeftOperandAfterYield()
     {
         const string Script = """
@@ -617,7 +617,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).Should().Be("""[1,"done"]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeYieldInsideCatchInAsyncGenerator()
     {
         // Async generators share ISuspendable.Data with sync generators / async
@@ -643,7 +643,7 @@ public class GeneratorTests
         result.AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void InterleavedGeneratorsFromSameDeclarationKeepIndependentPositions()
     {
         // Each instance must track its own resume position: a shared statement list
@@ -670,7 +670,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedGeneratorsKeepIndependentPositionsInsideNestedBlocks()
     {
         // Yields inside nested blocks exercise the nested statement lists' saved
@@ -699,7 +699,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("""[1,false,1,false,2,false,2,false,"ab",true,"ab",true]""");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedForOfOverGeneratorsFromSameDeclarationTerminates()
     {
         // With a shared statement list a second live instance restarted from the top
@@ -722,7 +722,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[1,1,2,2,true]");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedAsyncGeneratorsFromSameDeclarationKeepIndependentPositions()
     {
         var result = _engine.Evaluate("""
@@ -749,7 +749,7 @@ public class GeneratorTests
         result.AsString().Should().Be("""[1,false,1,false,2,false,2,false,"sm",true,"sm",true]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotDivertSuspendedAdditionChainResumeWhenSiblingInvocationLatchesNumericKind()
     {
         // A 3+-operand '+' chain is flattened onto one handler node shared by every live invocation
@@ -775,7 +775,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[106,2]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAdditionChainWithTwoSuspensionsAfterSiblingInvocationLatchesNumericKind()
     {
         // Same interleave with a second suspension point in the chain: the diverted resume asked
@@ -800,7 +800,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[12,2]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotDivertSuspendedAdditionChainResumeInAsyncFunction()
     {
         // The async twin of the generator case: two in-flight calls of one async function, the
@@ -824,7 +824,7 @@ public class GeneratorTests
         result.AsString().Should().Be("[106,2]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRaiseAdditionChainSymbolCoercionErrorBeforeLaterOperandSideEffects()
     {
         // ApplyStringOrNumericBinaryOperator folds left-associatively, so ToString of the Symbol in
@@ -848,7 +848,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRaiseAdditionChainBigIntMixErrorBeforeLaterOperandSideEffects()
     {
         // Same ordering requirement for the numeric arm: mixing BigInt and Number throws while
@@ -871,7 +871,7 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
     }
 
-    [Fact]
+    [Test]
     public void GeneratorFunctionConstructorsInheritFromTheFunctionConstructor()
     {
         // https://tc39.es/ecma262/#sec-generatorfunction-constructor and

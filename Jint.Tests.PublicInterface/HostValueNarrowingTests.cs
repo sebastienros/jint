@@ -20,7 +20,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostValueNarrowingTests
 {
-    [Fact]
+    [Test]
     public void AMissedNarrowingIsTypedNullableSoTheHostHasToHandleIt()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class HostValueNarrowingTests
         narrowed.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void TheMatchingNarrowingHandsBackACheckedNonNullableBinding()
     {
         var engine = new Engine();
@@ -59,7 +59,7 @@ public class HostValueNarrowingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheThrowingFormIsACastAndItThrowsWhereItMisses()
     {
         var engine = new Engine();
@@ -75,7 +75,7 @@ public class HostValueNarrowingTests
     /// exactly what shipped. So <c>JsValueExtensions</c> declares no such helper at all: nothing on it is
     /// generic in the type being narrowed to.
     /// </summary>
-    [Fact]
+    [Test]
     public void JsValueExtensionsDeclaresNoGenericNarrowingHelper()
     {
         var offenders = typeof(JsValueExtensions)

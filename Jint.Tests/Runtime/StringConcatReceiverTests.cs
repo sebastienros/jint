@@ -15,7 +15,7 @@ public class StringConcatReceiverTests
 
     private static Engine CreateEngine() => new();
 
-    [Fact]
+    [Test]
     public void ConcatOnASingleAppendReceiver()
     {
         // no buffer had been created yet, so asking to grow one used to dereference null
@@ -24,7 +24,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(OneAppend + " o.p.concat('c')").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnASingleAppendReceiverLeavesItUnchanged()
     {
         var engine = CreateEngine();
@@ -32,7 +32,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(OneAppend + " o.p.concat('c'); o.p").AsString().Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnAMultiAppendReceiver()
     {
         var engine = CreateEngine();
@@ -40,7 +40,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(TwoAppends + " o.p.concat('d')").AsString().Should().Be("abcd");
     }
 
-    [Fact]
+    [Test]
     public void ConcatDoesNotMutateAMultiAppendReceiver()
     {
         var engine = CreateEngine();
@@ -48,7 +48,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(TwoAppends + " o.p.concat('d'); o.p").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedConcatOffTheSameReceiverIsIndependent()
     {
         var engine = CreateEngine();
@@ -58,7 +58,7 @@ public class StringConcatReceiverTests
             .AsString().Should().Be("abc1|abc2|abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatWithSeveralArguments()
     {
         var engine = CreateEngine();
@@ -68,7 +68,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(OneAppend + " o.p.concat('c', 'd')").AsString().Should().Be("abcd");
     }
 
-    [Fact]
+    [Test]
     public void ConcatWithNoArguments()
     {
         var engine = CreateEngine();
@@ -78,7 +78,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(TwoAppends + " o.p.concat(); o.p").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnAnAppendChainReceiver()
     {
         var engine = CreateEngine();
@@ -89,7 +89,7 @@ public class StringConcatReceiverTests
             .AsString().Should().Be("x01234");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnAnArrayElementReceiver()
     {
         var engine = CreateEngine();
@@ -98,7 +98,7 @@ public class StringConcatReceiverTests
         engine.Evaluate("var a = ['a']; a[0] += 'b'; a[0] += 'c'; a[0].concat('!'); a[0]").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatChainedOnItsOwnResult()
     {
         var engine = CreateEngine();
@@ -107,7 +107,7 @@ public class StringConcatReceiverTests
         engine.Evaluate(TwoAppends + " o.p.concat('d').concat('e'); o.p").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnAFlatReceiverIsUnaffected()
     {
         // control: a plain literal receiver never had either problem
@@ -119,7 +119,7 @@ public class StringConcatReceiverTests
         engine.Evaluate("var s = 'ab'; s.concat('c'); s").AsString().Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOnANonStringReceiverIsUnaffected()
     {
         // control: the coercion branch builds its own value and never touches the receiver

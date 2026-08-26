@@ -11,7 +11,7 @@ public class SetSameValueZeroTests
 {
     private static Engine CreateEngine() => new();
 
-    [Fact]
+    [Test]
     public void DeleteRemovesNaN()
     {
         var engine = CreateEngine();
@@ -21,7 +21,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("var s = new Set([NaN]); s.delete(NaN); s.has(NaN)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeleteLeavesNoStragglerBehindForNaN()
     {
         // the ordering list and the lookup structure must agree afterwards
@@ -33,7 +33,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("var s = new Set([NaN]); s.delete(NaN); Array.from(s.values()).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ReAddingNaNAfterDeleteDoesNotDuplicate()
     {
         var engine = CreateEngine();
@@ -42,7 +42,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("var s = new Set([NaN]); s.delete(NaN); s.add(NaN); [...s].length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DeleteRemovesNaNAmongOtherValues()
     {
         var engine = CreateEngine();
@@ -51,7 +51,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("var s = new Set([1, NaN, 2]); s.delete(NaN); [...s].join(',')").AsString().Should().Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void ADerivedSetKeepsNaNSemantics()
     {
         // a set produced from another one must not fall back to default equality
@@ -63,7 +63,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("new Set([NaN, 1]).union(new Set([NaN])).has(NaN)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ADerivedSetDoesNotDuplicateNaN()
     {
         var engine = CreateEngine();
@@ -74,7 +74,7 @@ public class SetSameValueZeroTests
             .AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ADerivedSetCanDeleteNaN()
     {
         var engine = CreateEngine();
@@ -84,7 +84,7 @@ public class SetSameValueZeroTests
             .AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void SubsetAndDisjointChecksHandleNaN()
     {
         var engine = CreateEngine();
@@ -94,7 +94,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("new Set([NaN]).isDisjointFrom(new Set([NaN]))").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void NegativeZeroIsNormalized()
     {
         // the other SameValueZero special case, which already worked; guards the same code path
@@ -106,7 +106,7 @@ public class SetSameValueZeroTests
         engine.Evaluate("Object.is([...new Set([-0])][0], 0)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryValuesAreUnaffected()
     {
         // control
@@ -126,7 +126,7 @@ public class SetSameValueZeroTests
     /// own comparer. Locating NaN with the default one instead reports "not found", which reads as
     /// "moved to the front" and restarts the walk over already-visited entries. Expected order matches V8.
     /// </summary>
-    [Fact]
+    [Test]
     public void ForEachDoesNotRevisitEntriesWhenNaNIsVisitedAndAnEarlierEntryIsDeleted()
     {
         var engine = CreateEngine();
@@ -151,7 +151,7 @@ public class SetSameValueZeroTests
     /// The same adjuster on the iterator side (https://tc39.es/ecma262/#sec-createsetiterator), reached
     /// by <c>for...of</c> and by spreading a set that is mutated mid-iteration.
     /// </summary>
-    [Fact]
+    [Test]
     public void IteratingDoesNotRevisitEntriesWhenNaNIsVisitedAndAnEarlierEntryIsDeleted()
     {
         var engine = CreateEngine();
@@ -171,7 +171,7 @@ public class SetSameValueZeroTests
             """).AsString().Should().Be("1,NaN,3");
     }
 
-    [Fact]
+    [Test]
     public void MapAlreadyHandledNaN()
     {
         // Map uses a different backing structure and was never affected; pinned for contrast

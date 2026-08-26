@@ -22,7 +22,7 @@ public class SharedOptionsConstraintIsolationTests
 
     private const double LoopScriptResult = 1999 * 2000 / 2d;
 
-    [Fact]
+    [Test]
     public async Task EachEngineGetsItsOwnStatementBudgetWhenRunConcurrently()
     {
         // A budget just above what one run needs: a shared counter would blow it well before all
@@ -53,7 +53,7 @@ public class SharedOptionsConstraintIsolationTests
         results.Should().OnlyContain(x => x == LoopScriptResult);
     }
 
-    [Fact]
+    [Test]
     public void EachEngineGetsItsOwnStatementConstraintInstance()
     {
         var options = new Options().LimitStatements(100_000);
@@ -68,7 +68,7 @@ public class SharedOptionsConstraintIsolationTests
         firstConstraint.Should().NotBeSameAs(secondConstraint);
     }
 
-    [Fact]
+    [Test]
     public void FindReturnsALiveConstraintThatOnlyAffectsItsOwnEngine()
     {
         var options = new Options().LimitStatements(100_000);
@@ -84,7 +84,7 @@ public class SharedOptionsConstraintIsolationTests
         unrestricted.Evaluate(LoopScript).AsNumber().Should().Be(LoopScriptResult);
     }
 
-    [Fact]
+    [Test]
     public void EachEngineGetsItsOwnTimeoutDeadline()
     {
         var options = new Options().LimitExecutionTime(TimeSpan.FromMilliseconds(100));
@@ -112,7 +112,7 @@ public class SharedOptionsConstraintIsolationTests
         Invoking(() => engine.Evaluate(script)).Should().Throw<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void ConstraintInstanceRegistrationStillWorks()
     {
         // the instance overload stays supported for the single-engine case
@@ -124,7 +124,7 @@ public class SharedOptionsConstraintIsolationTests
         constraint.HighWaterMark.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void ConstraintFactoryRegistrationProducesOneInstancePerEngine()
     {
         var created = new List<CountingConstraint>();
@@ -146,7 +146,7 @@ public class SharedOptionsConstraintIsolationTests
         created.Distinct().Should().HaveCount(3);
     }
 
-    [Fact]
+    [Test]
     public void RemoveConstraintsRemovesFactoryRegistrations()
     {
         var options = new Options()
@@ -159,7 +159,7 @@ public class SharedOptionsConstraintIsolationTests
         engine.Evaluate(LoopScript).AsNumber().Should().Be(LoopScriptResult);
     }
 
-    [Fact]
+    [Test]
     public void ReconfiguringAConstraintReplacesTheEarlierRegistration()
     {
         // MaxStatements clears any previous registration before adding its own

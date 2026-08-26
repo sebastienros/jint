@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime.Debugger;
 
 public class BreakPointTests
 {
-    [Fact]
+    [Test]
     public void BreakLocationsCompareEqualityByValue()
     {
         var loc1 = new BreakLocation(42, 23);
@@ -19,7 +19,7 @@ public class BreakPointTests
         loc2.Should().NotBe(loc3);
     }
 
-    [Fact]
+    [Test]
     public void BreakLocationsWithSourceCompareEqualityByValue()
     {
         var loc1 = new BreakLocation("script1", 42, 23);
@@ -33,7 +33,7 @@ public class BreakPointTests
         loc2.Should().NotBe(loc3);
     }
 
-    [Fact]
+    [Test]
     public void BreakLocationsOptionalSourceEqualityComparer()
     {
         var script1 = new BreakLocation("script1", 42, 23);
@@ -51,7 +51,7 @@ public class BreakPointTests
         comparer.GetHashCode(script2b).Should().NotBe(comparer.GetHashCode(script2));
     }
 
-    [Fact]
+    [Test]
     public void BreakPointReplacesPreviousBreakPoint()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -75,7 +75,7 @@ public class BreakPointTests
             });
     }
 
-    [Fact]
+    [Test]
     public void BreakPointRemovesBasedOnLocationEquality()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -97,7 +97,7 @@ public class BreakPointTests
             });
     }
 
-    [Fact]
+    [Test]
     public void BreakPointContainsBasedOnLocationEquality()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -109,7 +109,7 @@ public class BreakPointTests
         engine.Debugger.BreakPoints.Contains(new BreakLocation(null, 8, 9)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void BreakPointBreaksAtPosition()
     {
         string script = @"let x = 1, y = 2;
@@ -134,7 +134,7 @@ x++; y *= 2;
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BreakPointBreaksAtPositionWithPreparedScript()
     {
         string script = @"let x = 1, y = 2;
@@ -160,7 +160,7 @@ x++; y *= 2;
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BreakPointBreaksInCorrectSourceWithPreparedScript()
     {
         string script1 = @"let x = 1, y = 2;
@@ -201,7 +201,7 @@ test(z);";
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BreakPointBreaksWithPreparedScriptDefaultSource()
     {
         string script = @"let x = 1;
@@ -223,7 +223,7 @@ x++;";
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BreakPointBreaksInCorrectSource()
     {
         string script1 = @"let x = 1, y = 2;
@@ -268,7 +268,7 @@ test(z);";
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DebuggerStatementTriggersBreak()
     {
         string script = @"'dummy';
@@ -290,7 +290,7 @@ debugger;
         didBreak.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DebuggerStatementDoesNotTriggerBreakWhenStepping()
     {
         string script = @"'dummy';
@@ -318,7 +318,7 @@ debugger;
         didBreak.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DebuggerStatementDoesNotTriggerBreakWhenAtBreakPoint()
     {
         string script = @"'dummy';
@@ -342,7 +342,7 @@ debugger;
         breakCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void BreakPointDoesNotTriggerBreakWhenStepping()
     {
         string script = @"
@@ -384,7 +384,7 @@ debugger;
         didBreak.Should().BeTrue();
     }
 
-    [Fact(Skip = "Non-source breakpoint is triggered before Statement, while debugger statement is now triggered by ExecuteInternal")]
+    [Test, Ignore("Non-source breakpoint is triggered before Statement, while debugger statement is now triggered by ExecuteInternal")]
     public void DebuggerStatementAndBreakpointTriggerSingleBreak()
     {
         string script = @"'dummy';
@@ -407,7 +407,7 @@ debugger;
         breakTriggered.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void BreakpointOverridesStepOut()
     {
         string script = @"function test()
@@ -444,7 +444,7 @@ test();";
         step.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ErrorInConditionalBreakpointLeavesCallStackAlone()
     {
         string script = @"
@@ -511,7 +511,7 @@ foo();
         public int? HitCondition { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void BreakPointCanBeExtended()
     {
         // More of a documentation than a required test, this shows the usefulness of BreakPoint being

@@ -9,7 +9,7 @@ public partial class InteropTests
         public int[] Numbers { get; } = [1, 2, 3];
     }
 
-    [Fact]
+    [Test]
     public void ArrayConversionCreatesFreshCopyByDefaultWithoutCache()
     {
         // The recent-wrapper cache would reuse the first default Copy snapshot; opt out to lock the
@@ -26,7 +26,7 @@ public partial class InteropTests
         engine.Evaluate("var a = host.Numbers; a[0] = 42; host.Numbers[0]").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ArrayConversionReusesSnapshotWithTrackObjectWrapperIdentity()
     {
         var host = new ArrayConversionHost();
@@ -46,7 +46,7 @@ public partial class InteropTests
         engine.Evaluate("host.Numbers[1]").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ArrayConversionReusesSnapshotWithRecentObjectWrapperCache()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public partial class InteropTests
         engine.Evaluate("host.Numbers === host.Numbers").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IdentityMapHandlesExposedTypeChangeForArrays()
     {
         // the identity map may hold a wrapper for a different exposed view of the same array;
@@ -80,7 +80,7 @@ public partial class InteropTests
         engine.Evaluate("b[0]").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DisposeReleasesRecentWrapperCache()
     {
         // the recent-wrapper ring is on by default and strongly roots its targets;

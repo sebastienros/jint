@@ -26,7 +26,7 @@ public class HostCallableResolutionTests
     /// The surviving <see cref="string"/> entry point resolves one property of the global object, by that
     /// name — the same name <see cref="Engine.SetValue(string, JsValue)"/> writes.
     /// </summary>
-    [Fact]
+    [Test]
     public void InvokeResolvesOnePropertyOfTheGlobalObject()
     {
         var engine = new Engine();
@@ -39,7 +39,7 @@ public class HostCallableResolutionTests
     /// A dot is part of the name, not a path separator, so a nested callable is unreachable by name — which
     /// is exactly the failure that used to push a host onto <c>Call(string)</c> and its parser.
     /// </summary>
-    [Fact]
+    [Test]
     public void InvokeDoesNotWalkADottedPath()
     {
         var engine = new Engine();
@@ -53,7 +53,7 @@ public class HostCallableResolutionTests
     /// <summary>
     /// The documented way to reach one: read the value, then call it.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANestedCallableIsReadFirstAndThenInvoked()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class HostCallableResolutionTests
     /// A host that passes caller-supplied text no longer has an execution sink: nothing parses it, so a
     /// function expression is just a name that resolves to nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFunctionExpressionPassedByNameIsNeverExecuted()
     {
         var engine = new Engine();
@@ -86,7 +86,7 @@ public class HostCallableResolutionTests
     /// <see cref="string"/> overload is gone, because <see cref="JsValue"/> has an implicit conversion from
     /// <see cref="string"/> — is a <c>String</c> value that is not callable, so it fails loudly instead.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStringReachingCallIsAValueThatIsNotCallable()
     {
         var engine = new Engine();
@@ -101,7 +101,7 @@ public class HostCallableResolutionTests
     /// <summary>
     /// Same for the constructor entry, which had the identical defect.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStringReachingConstructIsAValueThatIsNotAConstructor()
     {
         var engine = new Engine();
@@ -117,7 +117,7 @@ public class HostCallableResolutionTests
     /// The API baselines pin the removal for a compiler, but only for the target frameworks a baseline
     /// covers; this states it as a fact about the shipped assembly, from outside it.
     /// </summary>
-    [Fact]
+    [Test]
     public void NoInvocationEntryPointTakesAStringNameOtherThanInvoke()
     {
         var stringTaking = typeof(Engine)
@@ -136,7 +136,7 @@ public class HostCallableResolutionTests
     /// property, <c>class</c>, <c>let</c> and <c>const</c> create a lexical binding of the global
     /// environment, which is not one. Evaluating the identifier is what reads the second kind.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALexicalDeclarationIsNotAPropertyOfTheGlobalObject()
     {
         var engine = new Engine();
@@ -152,7 +152,7 @@ public class HostCallableResolutionTests
     /// <summary>
     /// Reading a value by name is a property read and stays one: it never reaches the parser either.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetValueByNameIsAPropertyReadAndNotAnEvaluation()
     {
         var engine = new Engine();

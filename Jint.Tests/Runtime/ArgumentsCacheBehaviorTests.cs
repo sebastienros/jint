@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class ArgumentsCacheBehaviorTests
 {
-    [Fact]
+    [Test]
     public void MappedArgumentWriteSurvivesFunctionReturn()
     {
         // Regression: a mapped arguments[i] = v write updates only the parameter binding while the
@@ -15,7 +15,7 @@ public class ArgumentsCacheBehaviorTests
         engine.Evaluate("(function(){ function f(a){ arguments[0]=99; return arguments; } return JSON.stringify(f(1)); })()").AsString().Should().Be("{\"0\":99}");
     }
 
-    [Fact]
+    [Test]
     public void MappedParameterWriteSurvivesFunctionReturn()
     {
         // The mapping is bidirectional: writing the parameter must also be visible through the
@@ -25,7 +25,7 @@ public class ArgumentsCacheBehaviorTests
         engine.Evaluate("(function(){ function f(a,b){ b=88; return arguments; } var r=f(1,2); return r[0]+','+r[1]; })()").AsString().Should().Be("1,88");
     }
 
-    [Fact]
+    [Test]
     public void ParameterWriteAfterMaterializationSurvivesReturn()
     {
         // A parameter (or arguments[i]) write made AFTER the arguments object is first referenced —
@@ -37,7 +37,7 @@ public class ArgumentsCacheBehaviorTests
         engine.Evaluate("(function(){ function f(a){ arguments[0]=9; Object.keys(arguments); return arguments; } return f(1)[0]; })()").AsNumber().Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void FreezingAMappedIndexPreservesUserSetAttributes()
     {
         // A still-mapped index can be made non-enumerable (or non-configurable) without unmapping.
@@ -50,7 +50,7 @@ public class ArgumentsCacheBehaviorTests
             "(function(){ function f(a){ Object.defineProperty(arguments,'0',{enumerable:false}); a=9; return arguments; } return JSON.stringify(f(1)); })()").AsString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void DeletedMappedIndexStaysDeletedAfterParameterWrite()
     {
         // A deleted mapped index must not be resurrected by the detach-time freeze: it is no longer
@@ -60,9 +60,8 @@ public class ArgumentsCacheBehaviorTests
             "(function(){ function f(a){ var s=arguments; delete arguments[0]; a=9; return arguments.hasOwnProperty('0')+':'+arguments[0]; } return f(1); })()").AsString().Should().Be("false:undefined");
     }
 
-    [Theory]
-    [InlineData("??=")]
-    [InlineData("||=")]
+    [TestCase("??=")]
+    [TestCase("||=")]
     public void LogicalCompoundAssignmentToArgumentsDoesNotEscapePooledObject(string op)
     {
         // Regression: `arguments ??= x` / `arguments ||= x` short-circuits on the (always truthy,
@@ -96,7 +95,7 @@ public class ArgumentsCacheBehaviorTests
         engine.Evaluate(propertyStore).AsString().Should().Be("11,22,2");
     }
 
-    [Fact]
+    [Test]
     public void LogicalAndCompoundAssignmentToArgumentsReassignsAndReturnsRhs()
     {
         // `arguments &&= x` never short-circuits (arguments is always truthy): it reassigns the
@@ -106,7 +105,7 @@ public class ArgumentsCacheBehaviorTests
             "(function(){ function f(){ var y = (arguments &&= 99); return y; } return f(11, 22); })()").AsNumber().Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignmentToNonArgumentsBindingIsUnaffected()
     {
         // The materialize guard must only fire for JsArguments; ordinary compound assignment
@@ -116,7 +115,7 @@ public class ArgumentsCacheBehaviorTests
             "(function(){ var x; x ??= 7; var a = 3; a += 1; var b = 0; b ||= 5; var c = 1; c &&= 8; return x+','+a+','+b+','+c; })()").AsString().Should().Be("7,4,5,8");
     }
 
-    [Fact]
+    [Test]
     public void ArgsForGeneratorsAreNotReusedFromCache()
     {
         // Arrange
@@ -152,7 +151,7 @@ public class ArgumentsCacheBehaviorTests
         ]);
     }
 
-    [Fact]
+    [Test]
     public void NamedArgsForGeneratorsAreNotReusedFromCache()
     {
         // Arrange
@@ -188,7 +187,7 @@ public class ArgumentsCacheBehaviorTests
         ]);
     }
 
-    [Fact]
+    [Test]
     public void ArgsForGeneratorsWithBindAreNotReusedFromCache()
     {
         // Arrange
@@ -227,7 +226,7 @@ public class ArgumentsCacheBehaviorTests
         ]);
     }
 
-    [Fact]
+    [Test]
     public void ArgsForAsyncFunctionsAreNotReused()
     {
         // Arrange
@@ -262,7 +261,7 @@ public class ArgumentsCacheBehaviorTests
         ]);
     }
 
-    [Fact]
+    [Test]
     public void MappedArgumentWriteThroughAnotherReceiverDoesNotReachTheParameter()
     {
         // https://tc39.es/ecma262/#sec-arguments-exotic-objects-set-p-v-receiver step 1: the
@@ -275,7 +274,7 @@ public class ArgumentsCacheBehaviorTests
             .AsString().Should().Be("3,1,1");
     }
 
-    [Fact]
+    [Test]
     public void MappedArgumentWriteThroughAReflectSetReceiverDoesNotReachTheParameter()
     {
         // Same rule reached without a prototype chain: Reflect.set names the receiver directly.
@@ -285,7 +284,7 @@ public class ArgumentsCacheBehaviorTests
             .AsString().Should().Be("5,1");
     }
 
-    [Fact]
+    [Test]
     public void MappedArgumentWriteOnTheArgumentsObjectItselfStillReachesTheParameter()
     {
         // The other half of the same step: with the arguments object as its own receiver the write

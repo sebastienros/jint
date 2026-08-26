@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Xunit.Sdk;
 
 namespace Jint.Tests.Runtime;
 
@@ -30,7 +29,7 @@ public class EngineConcurrencyTests
     /// </summary>
     private static readonly TimeSpan HandoffCeiling = TimeSpan.FromMinutes(2);
 
-    [Fact]
+    [Test]
     public async Task ConcurrentManualPromiseCompletionOnlyEnqueuesWork()
     {
         var engine = new Engine();
@@ -76,7 +75,7 @@ public class EngineConcurrencyTests
             "the enqueued reaction runs when the thread that owns the engine next drains");
     }
 
-    [Fact]
+    [Test]
     public void ManualPromiseCompletionDrainsInlineAfterExclusiveThreadHandoff()
     {
         var engine = new Engine();
@@ -94,7 +93,7 @@ public class EngineConcurrencyTests
         engine.GetValue("result").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void SameThreadManualPromiseCompletionDrainsInline()
     {
         var engine = new Engine();
@@ -122,12 +121,12 @@ public class EngineConcurrencyTests
             {
                 // Rethrows the engine thread's own exception with its stack when it had one.
                 await running;
-                throw new XunitException("""engine.Execute("block()") returned without ever entering block()""");
+                throw new AssertionException("""engine.Execute("block()") returned without ever entering block()""");
             }
 
             if (elapsed.Elapsed > HandoffCeiling)
             {
-                throw new XunitException($"the engine thread did not enter block() within {HandoffCeiling}");
+                throw new AssertionException($"the engine thread did not enter block() within {HandoffCeiling}");
             }
         }
     }

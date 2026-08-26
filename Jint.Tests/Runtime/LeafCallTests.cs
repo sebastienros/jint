@@ -7,7 +7,7 @@
 /// </summary>
 public class LeafCallTests
 {
-    [Fact]
+    [Test]
     public void CapturedStateStaysPerInstanceAcrossInterleavedLeafCalls()
     {
         var engine = new Engine();
@@ -34,7 +34,7 @@ public class LeafCallTests
         result.Should().Be("100:50");
     }
 
-    [Fact]
+    [Test]
     public void ErrorStackIncludesLeafFrame()
     {
         var engine = new Engine();
@@ -54,7 +54,7 @@ public class LeafCallTests
         result.Should().Contain("leafBoom");
     }
 
-    [Fact]
+    [Test]
     public void NewErrorInsideLeafBodyCapturesLeafFrame()
     {
         var engine = new Engine();
@@ -74,7 +74,7 @@ public class LeafCallTests
         result.Should().Contain("leafSnap");
     }
 
-    [Fact]
+    [Test]
     public void ConstructingLeafEligibleFunctionTakesOrdinaryPath()
     {
         var engine = new Engine();
@@ -90,7 +90,7 @@ public class LeafCallTests
         result.Should().Be("true:object:true");
     }
 
-    [Fact]
+    [Test]
     public void LeafCallsWorkThroughEveryInvocationRoute()
     {
         var engine = new Engine();
@@ -111,7 +111,7 @@ public class LeafCallTests
         result.Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void ConstructorUsingResourcesSurviveLeafCallsInside()
     {
         var engine = new Engine();
@@ -135,7 +135,7 @@ public class LeafCallTests
         result.Should().Be("leaf,leaf,ctor-end,dispose");
     }
 
-    [Fact]
+    [Test]
     public void NestedBlockUsingInsideLeafBodyDisposesAtBlockExit()
     {
         var engine = new Engine();
@@ -161,7 +161,7 @@ public class LeafCallTests
         result.Should().Be("u,d,after,u,d,after");
     }
 
-    [Fact]
+    [Test]
     public void StrictLeafKeepsStrictAssignmentSemantics()
     {
         var engine = new Engine();
@@ -182,7 +182,7 @@ public class LeafCallTests
         result.Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void SloppyLeafCreatesGlobalOnUndeclaredAssignment()
     {
         var engine = new Engine();
@@ -201,7 +201,7 @@ public class LeafCallTests
         result.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void DirectlyRecursiveLeafFunctionTerminates()
     {
         var engine = new Engine();
@@ -223,7 +223,7 @@ public class LeafCallTests
         result.Should().Be("50:50");
     }
 
-    [Fact]
+    [Test]
     public void LeafFlagFiresOnStopwatchClosureShapesOnly()
     {
         var engine = new Engine();
@@ -252,7 +252,7 @@ public class LeafCallTests
         SupportsLeafCall(engine, "h.hasParam").Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TypeofUnresolvableInsideLeafBodyStaysUndefined()
     {
         var engine = new Engine();

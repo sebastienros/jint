@@ -30,7 +30,7 @@ public class ConstraintReplacementTests
     /// </summary>
     private static readonly TimeSpan WidenedInterval = TimeSpan.FromMinutes(10);
 
-    [Fact]
+    [Test]
     public void TheLaterTimeoutIsTheOneEnforced()
     {
         // a widened timeout must actually take effect, which it cannot while the earlier, stricter
@@ -42,7 +42,7 @@ public class ConstraintReplacementTests
         engine.Evaluate(LoopScript).AsNumber().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void ARemovedTimeoutNoLongerApplies()
     {
         // TimeSpan.MaxValue is the "effectively unlimited" spelling, and it removes the earlier registration
@@ -54,7 +54,7 @@ public class ConstraintReplacementTests
         engine.Evaluate(LoopScript).AsNumber().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void TheLaterStatementLimitIsTheOneEnforced()
     {
         var engine = new Engine(o => o.LimitStatements(5).LimitStatements(1_000_000));
@@ -63,7 +63,7 @@ public class ConstraintReplacementTests
         engine.Evaluate(LoopScript).AsNumber().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void ASaturatedStatementLimitLeavesTheEngineIndistinguishableFromNoLimit()
     {
         // The documented consequence of the sentinel: this is not "a very large limit", it is the
@@ -80,7 +80,7 @@ public class ConstraintReplacementTests
         saturated.Evaluate(Script).AsNumber().Should().Be(unlimited.Evaluate(Script).AsNumber());
     }
 
-    [Fact]
+    [Test]
     public void ASaturatedStatementLimitAlsoRemovesAnEarlierRealOne()
     {
         var engine = new Engine(o => o.LimitStatements(5).LimitStatements(int.MaxValue));
@@ -89,7 +89,7 @@ public class ConstraintReplacementTests
         engine.Evaluate(LoopScript).AsNumber().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void ASaturatedMemoryLimitLeavesNoConstraintBehind()
     {
         new Engine(o => o.LimitMemory(long.MaxValue)).Constraints.Find<MemoryLimitConstraint>().Should().BeNull();
@@ -99,7 +99,7 @@ public class ConstraintReplacementTests
         new Engine(o => o.LimitMemory(4_000_000)).Constraints.Find<MemoryLimitConstraint>().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ADefaultCancellationTokenLeavesNoConstraintBehind()
     {
         using var source = new CancellationTokenSource();
@@ -109,7 +109,7 @@ public class ConstraintReplacementTests
         new Engine(o => o.ObserveCancellation(source.Token).ObserveCancellation(default)).Constraints.Find<CancellationConstraint>().Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ASaturatedRecursionDepthIsNoLimitAtAll()
     {
         // A limit that cannot be reached is not a limit: int.MaxValue produces the same engine -1 does,

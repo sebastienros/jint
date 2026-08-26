@@ -24,7 +24,6 @@ updates:
       # Test frameworks, runners, adapters and assertion/helper libraries.
       testing:
         patterns:
-          - "xunit*"
           - "NUnit*"
           - "Microsoft.NET.Test.Sdk"
           - "Microsoft.Extensions.TimeProvider.Testing"

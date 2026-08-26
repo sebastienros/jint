@@ -57,7 +57,7 @@ public class WebApiLiveEnableTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EnablingOnADefaultEngineInstallsTheGlobals()
     {
         var engine = new Engine();
@@ -83,7 +83,7 @@ public class WebApiLiveEnableTests
     /// property attributes, which differ per global and are the part a second install path is most likely to
     /// get wrong.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALiveEnabledEngineHasTheSameSurfaceAsAnOptionsConfiguredOne()
     {
         var configured = new Engine(options => options.UseWebApis());
@@ -104,7 +104,7 @@ public class WebApiLiveEnableTests
         live.Evaluate(Survey).AsString().Should().Be(configured.Evaluate(Survey).AsString());
     }
 
-    [Fact]
+    [Test]
     public void ALiveEnabledTimerFiresOnTheHostsClock()
     {
         var clock = new ManualClock();
@@ -129,7 +129,7 @@ public class WebApiLiveEnableTests
     /// The closure is the options-time closure: fetch's own interfaces are part of its surface, so they arrive
     /// with it here exactly as they do at construction.
     /// </summary>
-    [Fact]
+    [Test]
     public void EnablingReportsTheWholeClosureItAdded()
     {
         var engine = new Engine();
@@ -151,7 +151,7 @@ public class WebApiLiveEnableTests
     /// network feature in. Asserted over every feature the enum declares, one engine each, so a closure rule
     /// added later cannot quietly change the answer.
     /// </summary>
-    [Fact]
+    [Test]
     public void NoNonNetworkFeatureEverBringsNetworkAccess()
     {
         const WebApiFeatures Network = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket;
@@ -176,7 +176,7 @@ public class WebApiLiveEnableTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EnablingWhatIsAlreadyOnIsANoOpRatherThanAnError()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -192,7 +192,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("console === saved").AsBoolean().Should().BeTrue("an already-installed global must not be re-installed");
     }
 
-    [Fact]
+    [Test]
     public void EnablingNothingIsANoOp()
     {
         var engine = new Engine();
@@ -205,7 +205,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EnablingUnionsWithWhatTheEngineWasBuiltWith()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -225,7 +225,7 @@ public class WebApiLiveEnableTests
     /// A global whose value the script has already forced into existence must come through untouched — its
     /// own expandos included, since re-installing would replace the object rather than the descriptor.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAlreadyMaterializedGlobalKeepsItsIdentity()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
@@ -242,7 +242,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("typeof TextDecoderStream").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostGlobalOfTheSameNameSurvives()
     {
         var engine = new Engine();
@@ -262,7 +262,7 @@ public class WebApiLiveEnableTests
     /// built by the mere act of enabling a feature that shares its name — which is exactly what a host chose
     /// laziness to avoid.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostLazyGlobalOfTheSameNameIsNotMaterializedByTheCheck()
     {
         var built = 0;
@@ -286,7 +286,7 @@ public class WebApiLiveEnableTests
     /// carries no timer queue — <see cref="WebApiFeatures.Performance"/> reads the time origin and never
     /// schedules — has to have one attached when a scheduling feature arrives.
     /// </summary>
-    [Fact]
+    [Test]
     public void EnablingTimersOnAnEngineWhoseStateHasNoQueueAttachesOne()
     {
         var clock = new ManualClock();
@@ -312,7 +312,7 @@ public class WebApiLiveEnableTests
     /// The two-piece attachment: <c>requestIdleCallback</c> needs an idle queue, which needs the timer queue,
     /// and neither exists on a state built for <see cref="WebApiFeatures.Performance"/> alone.
     /// </summary>
-    [Fact]
+    [Test]
     public void EnablingIdleCallbacksOnAnEngineWhoseStateHasNoQueuesAttachesBoth()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -325,7 +325,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void EnablingTheSchedulerOnAnEngineThatAlreadyHadItsQueueAttachesTheTaskQueues()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -343,7 +343,7 @@ public class WebApiLiveEnableTests
     /// options-time extension does — including the policy, which is the setting a host must never be unable to
     /// supply.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheConfigureDelegateSuppliesTheNetworkPolicyAtEnableTime()
     {
         var handler = new StubHandler();
@@ -363,7 +363,7 @@ public class WebApiLiveEnableTests
         handler.Urls.Should().ContainSingle().Which.Should().Be("https://api.example.org/x");
     }
 
-    [Fact]
+    [Test]
     public void EnablingStorageLiveUsesTheProviderTheHostSupplies()
     {
         var provider = new InMemoryStorageProvider();
@@ -384,7 +384,7 @@ public class WebApiLiveEnableTests
     /// reverts, which is why the feature still reads as enabled and why re-enabling cannot bring the globals
     /// back.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreOfASnapshotTakenBeforeTheEnableRemovesTheGlobalsAgain()
     {
         var engine = new Engine();
@@ -406,7 +406,7 @@ public class WebApiLiveEnableTests
     }
 
     /// <summary>The documented remedy: capture after the enable, and every restore carries the globals.</summary>
-    [Fact]
+    [Test]
     public void ASnapshotTakenAfterTheEnableCarriesTheGlobalsThroughEveryRestore()
     {
         var engine = new Engine();
@@ -435,7 +435,7 @@ public class WebApiLiveEnableTests
     /// binding is not, which is the snapshot's documented non-guarantee and is the same for an
     /// options-time engine.
     /// </summary>
-    [Fact]
+    [Test]
     public void AGlobalStillUnreadAtCaptureIsRestoredToItsBinding()
     {
         var engine = new Engine();
@@ -453,7 +453,7 @@ public class WebApiLiveEnableTests
         engine.Evaluate("typeof console.log").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmStillGetsNothing()
     {
         var engine = new Engine();
@@ -476,7 +476,7 @@ public class WebApiLiveEnableTests
     /// <c>Jint.Tests.Runtime.WebApi.LiveEnableTests.InstallingBumpsTheOwnPropertyVersion</c>: it is what keeps
     /// this true if a later change ever makes an install replace a name rather than only add one.)
     /// </summary>
-    [Fact]
+    [Test]
     public void AWarmedIdentifierSiteReResolvesAfterALiveEnable()
     {
         var engine = new Engine();
@@ -495,7 +495,7 @@ public class WebApiLiveEnableTests
     /// The same pin for a member read of the global object rather than a bare identifier, on an engine that
     /// already had web APIs — the shape a pooled host that enables in two stages actually produces.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWarmedMemberReadSeesAGlobalInstalledAfterIt()
     {
         var engine = new Engine();
@@ -514,7 +514,7 @@ public class WebApiLiveEnableTests
     /// The host APIs that refuse an engine which never opted in have to accept one that opted in late — they
     /// read the engine's own record, which the live door updates.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheFeatureGatedHostApisAcceptALiveEnabledEngine()
     {
         var engine = new Engine();

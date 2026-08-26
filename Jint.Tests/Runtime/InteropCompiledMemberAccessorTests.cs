@@ -205,7 +205,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 1. round-trip per supported member type
 
-    [Fact]
+    [Test]
     public void RoundTrip_Int()
     {
         var host = new Host { IntProp = 1, IntField = 2 };
@@ -225,7 +225,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.IntField").Should().Be(101);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_Long()
     {
         var host = new Host { LongProp = 1L, LongField = 2L };
@@ -244,7 +244,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.LongField").Should().Be(-8589934592d);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_Double()
     {
         var host = new Host { DoubleProp = 1.25, DoubleField = 2.5 };
@@ -261,7 +261,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.DoubleProp").Should().Be(9.5);
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_Bool()
     {
         var host = new Host { BoolProp = true, BoolField = false };
@@ -278,7 +278,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.BoolProp").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_String()
     {
         var host = new Host { StringProp = "a", StringField = "b" };
@@ -295,7 +295,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.StringProp").Should().Be("live");
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_JsValue()
     {
         var host = new Host { JsValueProp = JsNumber.Create(1), JsValueField = new JsString("f") };
@@ -321,7 +321,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.JsValueProp === null").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RoundTrip_JsValueSubtype_Read()
     {
         var host = new JsSubtypeHost { JsStringProp = new JsString("s"), JsNumberField = JsNumber.Create(4) };
@@ -335,7 +335,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.JsStringProp === null").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void JsValueSubtypeWriteKeepsTheConversionPath()
     {
         // A member typed as a JsValue *subtype* is not `_memberType == typeof(JsValue)` in
@@ -359,7 +359,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 2. unsupported member types still work (raw lane)
 
-    [Fact]
+    [Test]
     public void RawLane_IntArray()
     {
         var host = new RawHost { IntArrayProp = [1, 2, 3], IntArrayField = [4, 5] };
@@ -373,7 +373,7 @@ public class InteropCompiledMemberAccessorTests
         host.IntArrayProp.Should().BeEquivalentTo(new[] { 9, 8 });
     }
 
-    [Fact]
+    [Test]
     public void RawLane_Enum()
     {
         var host = new RawHost { EnumProp = Level.Two, EnumField = Level.One };
@@ -387,7 +387,7 @@ public class InteropCompiledMemberAccessorTests
         host.EnumField.Should().Be(Level.Two);
     }
 
-    [Fact]
+    [Test]
     public void RawLane_NullableInt()
     {
         var host = new RawHost { NullableIntProp = 5, NullableIntField = null };
@@ -400,7 +400,7 @@ public class InteropCompiledMemberAccessorTests
         host.NullableIntProp.Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void RawLane_CustomClass()
     {
         var host = new RawHost { NestedProp = new Nested { N = 3 }, NestedField = null };
@@ -412,7 +412,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("typeof host.NestedField").Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void RawLane_Object()
     {
         var host = new RawHost { ObjectProp = "text", ObjectField = 12 };
@@ -425,7 +425,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.ObjectProp === null").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RawLane_DateTime()
     {
         var host = new RawHost { DateTimeProp = new DateTime(2020, 5, 6, 0, 0, 0, DateTimeKind.Utc) };
@@ -435,7 +435,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.DateTimeProp.getUTCMonth()").Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void RawLane_Decimal()
     {
         var host = new RawHost { DecimalProp = 1.5m, DecimalField = 2m };
@@ -452,7 +452,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 3. write conversion edge cases - int
 
-    [Fact]
+    [Test]
     public void IntWrite_Bounds()
     {
         var host = Assign("host.IntProp = 2147483647; host.IntField = -2147483648;");
@@ -460,7 +460,7 @@ public class InteropCompiledMemberAccessorTests
         host.IntField.Should().Be(int.MinValue);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_JustPastUpperBound_Throws()
     {
         // 2^31 is not representable, the reflection path's Convert.ChangeType overflows and the
@@ -469,13 +469,13 @@ public class InteropCompiledMemberAccessorTests
         AssignThrows("host.IntField = 2147483648;").Should().BeOfType<OverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_JustPastLowerBound_Throws()
     {
         AssignThrows("host.IntProp = -2147483649;").Should().BeOfType<OverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_FractionalUsesBankersRoundingByDefault()
     {
         // the default (String-only) coercion routes fractional values through
@@ -489,7 +489,7 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.IntField = -1.5;").IntField.Should().Be(-2);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_FractionalTruncatesUnderNumberCoercion()
     {
         // ValueCoercionType.Number takes the AsNumberOfType path instead, which is a C# cast
@@ -501,7 +501,7 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.IntField = -1.5;", ValueCoercionType.All).IntField.Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NaNAndInfinities_Throw()
     {
         AssignThrows("host.IntProp = NaN;").Should().BeOfType<OverflowException>();
@@ -510,7 +510,7 @@ public class InteropCompiledMemberAccessorTests
         AssignThrows("host.IntField = NaN;").Should().BeOfType<OverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NaNAndInfinitiesUnderNumberCoercion()
     {
         // the coercion path is a plain C# cast, so the runtime's own double->int semantics apply
@@ -520,14 +520,14 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.IntProp = 2147483648;", ValueCoercionType.All).IntProp.Should().Be(ToInt(2147483648d));
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NegativeZero()
     {
         Assign("host.IntProp = -0; host.IntField = -0;").IntProp.Should().Be(0);
         Assign("host.IntProp = -0;", ValueCoercionType.All).IntProp.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NumericString()
     {
         Assign("host.IntProp = '42'; host.IntField = '43';").IntProp.Should().Be(42);
@@ -535,14 +535,14 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.IntProp = '42';", ValueCoercionType.All).IntProp.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_Boolean()
     {
         Assign("host.IntProp = true; host.IntField = true;").IntProp.Should().Be(1);
         Assign("host.IntProp = true;", ValueCoercionType.All).IntProp.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NullAndUndefined()
     {
         // null/undefined convert to a CLR null, and reflection assigns the default value of a
@@ -553,7 +553,7 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.IntField = 3; host.IntField = undefined;").IntField.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void IntWrite_NullAndUndefinedUnderNumberCoercion()
     {
         Assign("host.IntProp = null;", ValueCoercionType.All).IntProp.Should().Be(0);
@@ -564,7 +564,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 3. write conversion edge cases - long
 
-    [Fact]
+    [Test]
     public void LongWrite_SmallAndLargeValues()
     {
         // a small integral value reaches the member as a boxed int on the reflection path and is
@@ -578,7 +578,7 @@ public class InteropCompiledMemberAccessorTests
         host.LongField.Should().Be(-4294967296L);
     }
 
-    [Fact]
+    [Test]
     public void LongWrite_Boundaries()
     {
         Assign("host.LongProp = -9223372036854775808;").LongProp.Should().Be(long.MinValue);
@@ -586,20 +586,20 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.LongProp = 1e18;", ValueCoercionType.All).LongProp.Should().Be(1000000000000000000L);
     }
 
-    [Fact]
+    [Test]
     public void LongWrite_TwoToThe63_Throws()
     {
         AssignThrows("host.LongProp = Math.pow(2, 63);").Should().BeOfType<OverflowException>();
         AssignThrows("host.LongField = Math.pow(2, 63);").Should().BeOfType<OverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void LongWrite_TwoToThe63UnderNumberCoercion()
     {
         Assign("host.LongProp = Math.pow(2, 63);", ValueCoercionType.All).LongProp.Should().Be(ToLong(9223372036854775808d));
     }
 
-    [Fact]
+    [Test]
     public void LongWrite_Fractional()
     {
         Assign("host.LongProp = 1.5;").LongProp.Should().Be(2L);
@@ -610,7 +610,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 3. write conversion edge cases - double
 
-    [Fact]
+    [Test]
     public void DoubleWrite_NonIntegral()
     {
         var host = Assign("host.DoubleProp = 1.25; host.DoubleField = -7.125;");
@@ -618,7 +618,7 @@ public class InteropCompiledMemberAccessorTests
         host.DoubleField.Should().Be(-7.125);
     }
 
-    [Fact]
+    [Test]
     public void DoubleWrite_NaNAndInfinities()
     {
         var host = Assign("host.DoubleProp = NaN;");
@@ -633,7 +633,7 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.DoubleProp = Infinity;", ValueCoercionType.All).DoubleProp.Should().Be(double.PositiveInfinity);
     }
 
-    [Fact]
+    [Test]
     public void DoubleWrite_NegativeZeroKeepsSign()
     {
         var host = Assign("host.DoubleProp = -0; host.DoubleField = -0;");
@@ -648,7 +648,7 @@ public class InteropCompiledMemberAccessorTests
         IsNegativeZero(coerced.DoubleProp).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoubleWrite_IntegralAndString()
     {
         Assign("host.DoubleProp = 5;").DoubleProp.Should().Be(5d);
@@ -661,7 +661,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 3. write conversion edge cases - string
 
-    [Fact]
+    [Test]
     public void StringWrite_Number()
     {
         var host = Assign("host.StringProp = 42; host.StringField = 1.5;");
@@ -671,14 +671,14 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.StringProp = 42;", ValueCoercionType.All).StringProp.Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void StringWrite_Boolean()
     {
         Assign("host.StringProp = true;").StringProp.Should().Be("true");
         Assign("host.StringProp = true;", ValueCoercionType.All).StringProp.Should().Be("true");
     }
 
-    [Fact]
+    [Test]
     public void StringWrite_NullAndUndefined()
     {
         var host = Assign("host.StringProp = 'x'; host.StringProp = null;");
@@ -691,7 +691,7 @@ public class InteropCompiledMemberAccessorTests
         Assign("host.StringProp = 'x'; host.StringProp = undefined;", ValueCoercionType.All).StringProp.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void StringWrite_ConcatenatedString()
     {
         // a concatenated (lazily materialized) JsString is still a JsString; it must reach the
@@ -701,7 +701,7 @@ public class InteropCompiledMemberAccessorTests
         host.StringField.Should().Be("xxx");
     }
 
-    [Fact]
+    [Test]
     public void WritesBeforeAndAfterTheFirstReadAgree()
     {
         // a write before any read takes ObjectWrapper's accessor fast path, a write afterwards goes
@@ -724,7 +724,7 @@ public class InteropCompiledMemberAccessorTests
         host.BoolProp.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void StringWrite_PlainString()
     {
         Assign("host.StringProp = 'hello'; host.StringField = '';").StringProp.Should().Be("hello");
@@ -735,7 +735,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 4. bool writes under both coercion settings
 
-    [Fact]
+    [Test]
     public void BoolWrite_UnderBothCoercionSettings()
     {
         Assign("host.BoolProp = true; host.BoolField = true;").BoolProp.Should().BeTrue();
@@ -753,7 +753,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 5. read equivalence with JsValue.FromObjectWithType
 
-    [Fact]
+    [Test]
     public void Read_MatchesFromObjectWithType()
     {
         var host = new Host
@@ -779,7 +779,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.BoolProp").Should().BeSameAs(JsBoolean.True);
     }
 
-    [Fact]
+    [Test]
     public void Read_IntBehavesAsNumber()
     {
         var host = new Host { IntProp = 42, IntField = 7 };
@@ -793,7 +793,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.IntProp | 0").Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void Read_NullStringIsNullNotUndefined()
     {
         var host = new Host { StringProp = null, StringField = null };
@@ -807,7 +807,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.StringProp").Should().Be(JsValue.FromObjectWithType(engine, null, typeof(string)));
     }
 
-    [Fact]
+    [Test]
     public void Read_LongPrecision()
     {
         var host = new Host { LongProp = 9007199254740993L }; // 2^53 + 1, not representable as a double
@@ -820,7 +820,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 6. exception fidelity
 
-    [Fact]
+    [Test]
     public void ThrowingGetter_JsValueLane()
     {
         var engine = CreateEngine(new ThrowingHost());
@@ -829,7 +829,7 @@ public class InteropCompiledMemberAccessorTests
             .WithMessage("int getter boom");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingSetter_JsValueLane()
     {
         var engine = CreateEngine(new ThrowingHost());
@@ -838,7 +838,7 @@ public class InteropCompiledMemberAccessorTests
             .WithMessage("int setter boom");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingGetter_RawLane()
     {
         var engine = CreateEngine(new ThrowingHost());
@@ -847,7 +847,7 @@ public class InteropCompiledMemberAccessorTests
             .WithMessage("decimal getter boom");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingSetter_RawLane()
     {
         var engine = CreateEngine(new ThrowingHost());
@@ -856,7 +856,7 @@ public class InteropCompiledMemberAccessorTests
             .WithMessage("decimal setter boom");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingMembers_ExceptionHandlerStillConsulted()
     {
         var seen = new List<Exception>();
@@ -879,7 +879,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 7. declining conditions
 
-    [Fact]
+    [Test]
     public void ObjectConverterStillConsultedForSupportedType()
     {
         var host = new Host { IntProp = 41, StringProp = "raw", BoolProp = true, LongProp = 1, DoubleProp = 1.5 };
@@ -907,7 +907,7 @@ public class InteropCompiledMemberAccessorTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CustomTypeConverterStillConsultedOnWrite()
     {
         var host = new Host();
@@ -952,7 +952,7 @@ public class InteropCompiledMemberAccessorTests
         }
     }
 
-    [Fact]
+    [Test]
     public void IndexerIsResolvedBeforeTheMember()
     {
         var host = new IndexerHost();
@@ -967,7 +967,7 @@ public class InteropCompiledMemberAccessorTests
         host.Value.Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void StructHostStillWorks()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -981,7 +981,7 @@ public class InteropCompiledMemberAccessorTests
         engine.Evaluate("host.StringProp").Should().Be("v");
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyFieldAndPropertyWritesFail()
     {
         var host = new ReadOnlyHost();
@@ -1005,7 +1005,7 @@ public class InteropCompiledMemberAccessorTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void StaticMembersStillWork()
     {
         StaticHost.StaticIntProp = 3;
@@ -1022,7 +1022,7 @@ public class InteropCompiledMemberAccessorTests
         StaticHost.StaticStringField.Should().Be("t");
     }
 
-    [Fact]
+    [Test]
     public void InterfaceDeclaredPropertyWorksThroughTheInterface()
     {
         var owner = new HolderOwner();
@@ -1044,7 +1044,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 8. cross-engine isolation
 
-    [Fact]
+    [Test]
     public void TypeConverterPolicyIsPerEngine_ConverterFirst()
     {
         var withConverter = new IsolationHost();
@@ -1058,7 +1058,7 @@ public class InteropCompiledMemberAccessorTests
         plain.LongProp.Should().Be(4294967296L);
     }
 
-    [Fact]
+    [Test]
     public void TypeConverterPolicyIsPerEngine_PlainFirst()
     {
         var plain = new IsolationHost();
@@ -1072,7 +1072,7 @@ public class InteropCompiledMemberAccessorTests
         withConverter.LongProp.Should().Be(42L);
     }
 
-    [Fact]
+    [Test]
     public void ObjectConverterPolicyIsPerEngine_ConverterFirst()
     {
         var host = new IsolationHost { IntProp = 41 };
@@ -1084,7 +1084,7 @@ public class InteropCompiledMemberAccessorTests
         plain.Evaluate("host.IntProp").Should().Be(41);
     }
 
-    [Fact]
+    [Test]
     public void ObjectConverterPolicyIsPerEngine_PlainFirst()
     {
         var host = new IsolationHost { IntProp = 41 };
@@ -1100,7 +1100,7 @@ public class InteropCompiledMemberAccessorTests
 
     #region 9. non-public getter
 
-    [Fact]
+    [Test]
     public void PropertyWithNonPublicGetter()
     {
         var host = new NonPublicGetterHost();
@@ -1132,7 +1132,7 @@ public class InteropCompiledMemberAccessorTests
         public static int Number { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesCoverStaticProperties()
     {
         // the engagement probe for the static half: the behavioral tests in the public-interface suite pass
@@ -1153,7 +1153,7 @@ public class InteropCompiledMemberAccessorTests
         StaticLaneHost.Number.Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesCoverStaticFields()
     {
         var field = typeof(StaticLaneHost).GetField(nameof(StaticLaneHost.TextField))!;
@@ -1165,7 +1165,7 @@ public class InteropCompiledMemberAccessorTests
         getter!(typeof(StaticLaneHost)).Should().Be("field");
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesCoverStaticMembersOfAValueType()
     {
         // an instance member of a struct is excluded (the boxed copy), but a static one has no receiver
@@ -1178,7 +1178,7 @@ public class InteropCompiledMemberAccessorTests
         getter!(typeof(StaticValueTypeLaneHost)).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesDeclineLiteralFields()
     {
         // a const has no storage an ldsfld could load; reflection answers it out of metadata

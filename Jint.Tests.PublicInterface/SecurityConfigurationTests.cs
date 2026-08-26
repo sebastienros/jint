@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class SecurityConfigurationTests
 {
-    [Fact]
+    [Test]
     public void CleanHandBuiltOptionsHaveNoDiagnostics()
     {
         var options = CreateSafeOptions();
@@ -27,7 +27,7 @@ public class SecurityConfigurationTests
         Invoking(() => new Engine(options.EnsureSecurityConfiguration())).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void EverySecurityConditionHasAStableDiagnostic()
     {
         var cases = new (string Code, Func<Options> CreateOptions)[]
@@ -117,7 +117,7 @@ public class SecurityConfigurationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EngineReportUsesCapturedClrBindingFlags()
     {
         var options = CreateSafeOptions();
@@ -135,7 +135,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.NonPublicClrMembersEnabled);
     }
 
-    [Fact]
+    [Test]
     public void DiagnosticsAreOrderedByStableCode()
     {
         var report = new Options().ValidateSecurityConfiguration();
@@ -146,7 +146,7 @@ public class SecurityConfigurationTests
             .Should().Equal(new Options().ValidateSecurityConfiguration().Diagnostics.Select(static diagnostic => diagnostic.Code));
     }
 
-    [Fact]
+    [Test]
     public void EnsureThrowsBeforeEngineConstructionAndCarriesTheReport()
     {
         var options = new Options();
@@ -161,7 +161,7 @@ public class SecurityConfigurationTests
         exception.Message.Should().Contain(SecurityDiagnosticCodes.StatementLimitMissing);
     }
 
-    [Fact]
+    [Test]
     public void WarningsRemainVisibleWithoutFailingExplicitValidation()
     {
         var options = CreateSafeModuleOptions();
@@ -175,7 +175,7 @@ public class SecurityConfigurationTests
         options.EnsureSecurityConfiguration().Should().BeSameAs(options);
     }
 
-    [Fact]
+    [Test]
     public void RemovingABuiltInConstraintUpdatesTheReport()
     {
         var options = CreateSafeOptions()
@@ -185,7 +185,7 @@ public class SecurityConfigurationTests
             .Should().Be(SecurityDiagnosticCodes.StatementLimitMissing);
     }
 
-    [Fact]
+    [Test]
     public void SideEffectFreeConstraintFactoriesRemainSupported()
     {
         var options = CreateSafeOptions().AddConstraint(static () => new NoOpConstraint());
@@ -193,7 +193,7 @@ public class SecurityConfigurationTests
         options.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ExplicitParsingTimeoutIsValidatedWithEngineOptions()
     {
         var options = CreateSafeOptions();
@@ -214,7 +214,7 @@ public class SecurityConfigurationTests
             .Should().ThrowExactly<SecurityConfigurationException>();
     }
 
-    [Fact]
+    [Test]
     public void PreparationTimeoutIsValidatedIndependentlyOfEngineOptions()
     {
         var scriptDefault = ScriptPreparationOptions.Default.ValidateSecurityConfiguration()
@@ -258,7 +258,7 @@ public class SecurityConfigurationTests
             .Should().ThrowExactly<SecurityConfigurationException>();
     }
 
-    [Fact]
+    [Test]
     public void EveryEngineConstructionCallbackIsRejected()
     {
         var options = new[]
@@ -283,7 +283,7 @@ public class SecurityConfigurationTests
             ]);
     }
 
-    [Fact]
+    [Test]
     public void AHostInstalledTypeConverterIsReportedFromABuiltEngineToo()
     {
         var options = CreateSafeOptions().SetTypeConverter(static _ => new PassThroughTypeConverter());
@@ -293,7 +293,7 @@ public class SecurityConfigurationTests
             .Should().Contain(SecurityDiagnosticCodes.ClrCallbackConfigured);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportRunsDeferredCallbacksOnceAndObservesFinalState()
     {
         var callbackCount = 0;
@@ -314,7 +314,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.AgentSuspensionEnabled);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportUsesEngineSnapshotsTakenBeforeDeferredCallbacks()
     {
         var options = CreateSafeOptions();
@@ -327,7 +327,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.DebuggerEnabled);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportCannotBeCleanedByMutatingFixedOptionsAfterConstruction()
     {
         var options = CreateSafeOptions().AllowClr();
@@ -356,7 +356,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.DetailedClrErrorsEnabled);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportUsesTheLoaderActuallyInstalled()
     {
         var options = CreateSafeModuleOptions();
@@ -368,7 +368,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ModuleLoadingEnabled);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportPreservesParserAndStackConstructionSettings()
     {
         var options = CreateSafeOptions();
@@ -397,7 +397,7 @@ public class SecurityConfigurationTests
         codes.Should().Contain(SecurityDiagnosticCodes.StackOverflowGuardDisabled);
     }
 
-    [Fact]
+    [Test]
     public void EffectiveEngineReportUsesInstalledExtensionMethodCache()
     {
         var options = CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions));
@@ -409,7 +409,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrExtensionMethodsConfigured);
     }
 
-    [Fact]
+    [Test]
     public void UserCallbackCannotSpoofFirstPartyProvenance()
     {
         var options = CreateSafeOptions().Configure(ConfigureFirstParty);
@@ -422,7 +422,7 @@ public class SecurityConfigurationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ConstraintFactoriesAreNotInvokedByDiagnostics()
     {
         var calls = 0;
@@ -440,7 +440,7 @@ public class SecurityConfigurationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SharedOptionsProduceDeterministicReportsAcrossConcurrentEngines()
     {
         var options = CreateSafeOptions();
@@ -456,7 +456,7 @@ public class SecurityConfigurationTests
         reports.Should().OnlyContain(static report => report.Length == 0);
     }
 
-    [Fact]
+    [Test]
     public void ReportsDoNotRetainOptionsEnginesCallbacksOrHostState()
     {
         var references = CreateCollectibleReport();
@@ -470,7 +470,7 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.EngineConstructionCallback);
     }
 
-    [Fact]
+    [Test]
     public void DiagnosticTextDoesNotEchoSensitiveConfigurationValues()
     {
         const string secret = "/private/customer/acme-token";

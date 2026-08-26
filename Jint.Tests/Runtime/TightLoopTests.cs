@@ -7,7 +7,7 @@
 /// </summary>
 public class TightLoopTests
 {
-    [Fact]
+    [Test]
     public void FunctionLocalLoopComputesThroughTightPath()
     {
         var engine = new Engine();
@@ -26,7 +26,7 @@ public class TightLoopTests
         result.Should().Be("01234:4950:3:3");
     }
 
-    [Fact]
+    [Test]
     public void ScriptTopLevelLoopKeepsCompletionValue()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class TightLoopTests
         result.Should().Be("012");
     }
 
-    [Fact]
+    [Test]
     public void ThrowInsideTightLoopPropagatesWithState()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class TightLoopTests
         result.Should().Be("true:0");
     }
 
-    [Fact]
+    [Test]
     public void LetLoopWithReusableEnvironmentStaysCorrect()
     {
         var engine = new Engine();
@@ -75,7 +75,7 @@ public class TightLoopTests
         result.Should().Be("60:012");
     }
 
-    [Fact]
+    [Test]
     public void DeadMarkedTopLevelLoopRunsTightWithTrailingValue()
     {
         var engine = new Engine();
@@ -88,7 +88,7 @@ public class TightLoopTests
         evalResult.Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void LabeledBreakOutOfBlockKeepsEarlierCompletionValue()
     {
         var engine = new Engine();
@@ -99,7 +99,7 @@ public class TightLoopTests
         result.Should().Be("v");
     }
 
-    [Fact]
+    [Test]
     public void ConditionalTrailingStatementProducesSpecCompletion()
     {
         var engine = new Engine();
@@ -110,7 +110,7 @@ public class TightLoopTests
         result.IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConstraintConfiguredEngineStillEnforcesInsideLoops()
     {
         var engine = new Engine(options => options.LimitStatements(50));
@@ -120,7 +120,7 @@ public class TightLoopTests
             engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } })()")).Should().ThrowExactly<Jint.Runtime.StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void IfChainBodyMatchesGenericPathExactly()
     {
         var engine = new Engine();
@@ -165,7 +165,7 @@ public class TightLoopTests
         result.Should().StartWith("true:");
     }
 
-    [Fact]
+    [Test]
     public void IfChainBodyRunsTightAtTopLevelWithTrailingStatement()
     {
         var engine = new Engine();
@@ -194,7 +194,7 @@ public class TightLoopTests
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ThrowInsideTakenBranchPropagatesWithState()
     {
         var engine = new Engine();
@@ -218,7 +218,7 @@ public class TightLoopTests
         result.Should().Be("true:0:0");
     }
 
-    [Fact]
+    [Test]
     public void NestedBranchBlockStopsAfterThrowingStatement()
     {
         var engine = new Engine();
@@ -240,7 +240,7 @@ public class TightLoopTests
         result.Should().Be("1:0");
     }
 
-    [Fact]
+    [Test]
     public void BreakContinueReturnBodiesKeepExactSemantics()
     {
         var engine = new Engine();
@@ -267,7 +267,7 @@ public class TightLoopTests
         result.Should().Be("013:4:r3");
     }
 
-    [Fact]
+    [Test]
     public void FlattenedConstBodyKeepsPerIterationTdz()
     {
         var engine = new Engine();
@@ -303,7 +303,7 @@ public class TightLoopTests
         secondIteration.Should().Be("true:tdz");
     }
 
-    [Fact]
+    [Test]
     public void ConstraintConfiguredEngineStillEnforcesInsideIfChainLoops()
     {
         var engine = new Engine(options => options.LimitStatements(50));
@@ -311,7 +311,7 @@ public class TightLoopTests
             engine.Evaluate("(function () { var x = 0; for (var i = 0; i < 100000; i++) { if (i % 2 == 0) x += 1; else x -= 1; } })()")).Should().ThrowExactly<Jint.Runtime.StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void UsingDeclarationBodyDisposesPerIteration()
     {
         var engine = new Engine();

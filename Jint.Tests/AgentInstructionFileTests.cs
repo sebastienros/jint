@@ -56,7 +56,7 @@ public class AgentInstructionFileTests
     /// <summary>
     /// No instruction file crosses the budget the root <c>AGENTS.md</c> sets for it.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryInstructionFileFitsTheBudgetTheRootFileStates()
     {
         var over = AgentInstructionFiles.All
@@ -102,7 +102,7 @@ public class AgentInstructionFileTests
     /// depth of a <c>../../..</c> changes with the destination's directory, and a moved section takes its
     /// anchor with it. Both were checked by hand in #3377, which is not a thing to rely on twice.
     /// </remarks>
-    [Fact]
+    [Test]
     public void EveryLinkAndAnchorBetweenInstructionFilesResolves()
     {
         var broken = new List<string>();
@@ -139,7 +139,7 @@ public class AgentInstructionFileTests
             }
         }
 
-        Assert.True(
+        Assert.That(
             broken.Count == 0,
             $"""
             {broken.Count} link(s) between the agent instruction files do not resolve. A broken one is worse
@@ -160,7 +160,7 @@ public class AgentInstructionFileTests
     /// missing from either half is invisible to everyone on that side of the split, which is the same outcome
     /// as truncation and just as quiet.
     /// </remarks>
-    [Fact]
+    [Test]
     public void EveryInstructionFileIsReachableFromBothHalvesOfTheRoutingMap()
     {
         var coLocated = new HashSet<string>(
@@ -188,7 +188,7 @@ public class AgentInstructionFileTests
         complaints.AddRange(coLocated.Except(ruled).Select(path => $"  {path} exists but no .claude/rules file points at it."));
         complaints.AddRange(silentRules.Select(path => $"  {path} is a rule that names no AGENTS.md, so it routes nowhere."));
 
-        Assert.True(
+        Assert.That(
             complaints.Count == 0,
             $"""
             The routing map has {complaints.Count} inconsistency(ies). An instruction file is only read because
@@ -207,7 +207,7 @@ public class AgentInstructionFileTests
     /// allowance is the smaller one. A constant that quietly disagreed with it would enforce a rule nobody had
     /// read, so the two are held together rather than merely written twice.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheRootFileStatesTheBudgetsThisTestEnforces()
     {
         var text = File.ReadAllText(AgentInstructionFiles.Root.FullPath);
@@ -216,7 +216,7 @@ public class AgentInstructionFileTests
         {
             var stated = string.Format(CultureInfo.InvariantCulture, "under **{0} KiB**", budget / 1024);
 
-            Assert.True(
+            Assert.That(
                 text.Contains(stated, StringComparison.Ordinal),
                 $"""
                 The root AGENTS.md no longer says "{stated}", but this test still enforces {budget:N0} bytes.

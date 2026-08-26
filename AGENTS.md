@@ -75,10 +75,10 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 
 ### Test projects
 
-- **`Jint.Tests`** — Main unit tests (xUnit v3, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. `Wpt/` is the web-platform-tests area — see [Web platform tests](Jint.Tests/Wpt/AGENTS.md#web-platform-tests). Use a 30-second timeout when invoking the runner.
+- **`Jint.Tests`** — Main unit tests (NUnit, AwesomeAssertions), organized by topic (`Runtime/`, `Parser/`, `Debugger/`, …). Test classes mirror runtime types; JS scripts are embedded resources in `Runtime/Scripts/` and `Parser/Scripts/`. `Wpt/` is the web-platform-tests area — see [Web platform tests](Jint.Tests/Wpt/AGENTS.md#web-platform-tests). Use a 30-second timeout when invoking the runner.
 - **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit); `Test262Harness.settings.json` holds its exclusions and which of test262's `test/` sub-directories are generated at all, and [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) says where the suite's own sources are and how to reproduce a failure. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
 - **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
-- **`Jint.Tests.PublicInterface`** — API contract tests (xUnit v3). See the integration-surface section below.
+- **`Jint.Tests.PublicInterface`** — API contract tests (NUnit). See the integration-surface section below.
 - **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
 
 ## Third-party integration surface

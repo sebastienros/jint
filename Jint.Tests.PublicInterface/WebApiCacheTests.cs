@@ -149,7 +149,7 @@ public class WebApiCacheTests
     /// <summary>How long a network-backed cache operation may take to settle. Not a measurement.</summary>
     private static readonly TimeSpan TransportSignalCeiling = TimeSpan.FromMinutes(2);
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoCaches()
     {
         new Engine().Evaluate("typeof caches").AsString().Should().Be("undefined");
@@ -158,7 +158,7 @@ public class WebApiCacheTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof caches").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void UseCacheApiRecordsOnlyItsOwnFlag()
     {
         var options = new Options().UseCacheApi();
@@ -176,7 +176,7 @@ public class WebApiCacheTests
         engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void PutIssuesOneWriteCarryingTheFlattenedPair()
     {
         var provider = new RecordingProvider();
@@ -209,7 +209,7 @@ public class WebApiCacheTests
         Encoding.UTF8.GetString(entry.Response.Body!.Value.ToArray()).Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void ASecondPutForOneUrlRemovesTheEntryItReplaces()
     {
         var provider = new RecordingProvider();
@@ -231,7 +231,7 @@ public class WebApiCacheTests
         store.Entries.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void ADeleteThatMatchesNothingWritesNothing()
     {
         var provider = new RecordingProvider();
@@ -254,7 +254,7 @@ public class WebApiCacheTests
         store.Writes[1].RemovedIndexes.Should().Equal(0);
     }
 
-    [Fact]
+    [Test]
     public void AHostCanSeedACacheAndTheScriptReadsItBack()
     {
         var provider = new RecordingProvider();
@@ -280,7 +280,7 @@ public class WebApiCacheTests
             """).Should().Be("203|Non-Authoritative Information|https://example.org/seeded|true|s|from the host|https://example.org/seeded|r");
     }
 
-    [Fact]
+    [Test]
     public void AnEntryWhoseStoredUrlDoesNotParseIsInvisible()
     {
         var provider = new RecordingProvider();
@@ -305,7 +305,7 @@ public class WebApiCacheTests
             """).Should().Be("1|https://example.org/ok|1");
     }
 
-    [Fact]
+    [Test]
     public void AQuotaExceededExceptionBecomesTheErrorABrowserRaises()
     {
         var provider = new RecordingProvider { OnWrite = _ => new CacheQuotaExceededException("no room left") };
@@ -324,7 +324,7 @@ public class WebApiCacheTests
             """).Should().Be("QuotaExceededError|22|no room left|true|true|null");
     }
 
-    [Fact]
+    [Test]
     public void AProviderCanReportHowMuchRoomThereWasAndHowMuchWasWanted()
     {
         var provider = new RecordingProvider
@@ -344,17 +344,16 @@ public class WebApiCacheTests
             """).Should().Be("QuotaExceededError|1024|4096");
     }
 
-    [Theory]
-    [InlineData(-1d, 5d)]
-    [InlineData(5d, -1d)]
-    [InlineData(9d, 8d)]
-    [InlineData(double.NaN, 1d)]
+    [TestCase(-1d, 5d)]
+    [TestCase(5d, -1d)]
+    [TestCase(9d, 8d)]
+    [TestCase(double.NaN, 1d)]
     public void AnIllFormedQuotaPairIsRefusedAtTheExceptionsOwnConstructor(double quota, double requested)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new CacheQuotaExceededException("x", quota, requested));
     }
 
-    [Fact]
+    [Test]
     public void AnyOtherProviderFailureBecomesATypeErrorTheHostCanReadTheCauseOf()
     {
         var provider = new RecordingProvider { OnWrite = _ => new InvalidOperationException("the disk is on fire") };
@@ -370,13 +369,13 @@ public class WebApiCacheTests
         // … and the host gets the original exception off the error value, which the script cannot reach.
         var rejected = Assert.Throws<PromiseRejectedException>(() => engine
             .Evaluate("(async () => { const c = await caches.open('v1'); await c.put('https://example.org/a', new Response('x')); })()")
-            .UnwrapIfPromise());
+            .UnwrapIfPromise())!;
 
         JintException.TryGetClrException(rejected, out var clrException).Should().BeTrue();
         clrException.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Be("the disk is on fire");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultProviderIsPrivateToEachEngineAndAnAssignedOneIsNot()
     {
         var shared = new Options().UseCacheApi();
@@ -398,7 +397,7 @@ public class WebApiCacheTests
             .Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void CachedDataSurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseCacheApi());
@@ -428,7 +427,7 @@ public class WebApiCacheTests
         }
     }
 
-    [Fact]
+    [Test]
     public Task AddAllCommitsTheWholeBatchAsOneWrite() => DedicatedThread.RunAsync(() =>
     {
         var provider = new RecordingProvider();
@@ -454,7 +453,7 @@ public class WebApiCacheTests
         store.Entries.Should().HaveCount(2);
     });
 
-    [Fact]
+    [Test]
     public void AFailedAddAllNeverReachesTheProvider()
     {
         var provider = new RecordingProvider();
@@ -478,7 +477,7 @@ public class WebApiCacheTests
         provider.Store("v1").Writes.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void TheEngineAsksTheProviderForNamesInTheOrderItSearchesThem()
     {
         var provider = new RecordingProvider();

@@ -48,7 +48,7 @@ public class PerformanceTimelineTests
 
     private static Engine Timeline() => TimelineEngine().Engine;
 
-    [Fact]
+    [Test]
     public void MarkRecordsAnEntryStampedWithTheCurrentTime()
     {
         var (engine, clock) = TimelineEngine();
@@ -68,7 +68,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntries()[0] === entry").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MarkHonoursAnExplicitStartTimeAndRefusesANegativeOne()
     {
         var engine = Timeline();
@@ -76,14 +76,14 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.mark('m', { startTime: 42.5 }).startTime").AsNumber().Should().Be(42.5);
 
         // Step 5.2: "If markOptions's startTime is negative, throw a TypeError."
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: -1 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: -1 })"))!
             .Message.Should().Contain("negative");
 
         // DOMHighResTimeStamp is a WebIDL `double`, not an `unrestricted double`, so a non-finite value is a
         // TypeError at the conversion — https://webidl.spec.whatwg.org/#es-double.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: NaN })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: NaN })"))!
             .Message.Should().Contain("finite");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: Infinity })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.mark('m', { startTime: Infinity })"))!
             .Message.Should().Contain("finite");
     }
 
@@ -93,16 +93,16 @@ public class PerformanceTimelineTests
     /// <c>PerformanceMarkOptions</c>, which both <c>performance.mark()</c> and the <c>PerformanceMark</c>
     /// constructor take in their second argument.
     /// </summary>
-    [Fact]
+    [Test]
     public void MarkOptionsThatIsNeitherNullishNorAnObjectIsATypeError()
     {
         var engine = Timeline();
 
         foreach (var value in new[] { "123", "NaN", "Infinity", "'string'", "true", "10n", "Symbol()" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"performance.mark('m', {value})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"performance.mark('m', {value})"))!
                 .Message.Should().Contain("PerformanceMarkOptions");
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new PerformanceMark('m', {value})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new PerformanceMark('m', {value})"))!
                 .Message.Should().Contain("PerformanceMarkOptions");
         }
 
@@ -122,7 +122,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("stringified").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MarkStructuredClonesItsDetail()
     {
         var engine = Timeline();
@@ -140,7 +140,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("entry.detail.nested === source.nested").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ADetailThatCannotBeClonedRaisesDataCloneError()
     {
         var engine = Timeline();
@@ -153,7 +153,7 @@ public class PerformanceTimelineTests
             """).AsString().Should().Be("DataCloneError/true");
     }
 
-    [Fact]
+    [Test]
     public void MeasureWithNoOptionsSpansFromTheTimeOriginToNow()
     {
         var (engine, clock) = TimelineEngine();
@@ -168,7 +168,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("m.detail").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MeasureFromAMarkNameToNowAndBetweenTwoMarks()
     {
         var (engine, clock) = TimelineEngine();
@@ -187,7 +187,7 @@ public class PerformanceTimelineTests
         between.Get("duration").AsNumber().Should().Be(150);
     }
 
-    [Fact]
+    [Test]
     public void MeasureReadsTheMostRecentMarkOfAName()
     {
         var (engine, clock) = TimelineEngine();
@@ -201,7 +201,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.measure('m', 'a').startTime").AsNumber().Should().Be(400);
     }
 
-    [Fact]
+    [Test]
     public void MeasureCoversTheWholeOptionsMatrix()
     {
         var (engine, clock) = TimelineEngine();
@@ -240,7 +240,7 @@ public class PerformanceTimelineTests
         byMark.Get("duration").AsNumber().Should().Be(200);
     }
 
-    [Fact]
+    [Test]
     public void MeasureClonesTheDetailFromTheOptions()
     {
         var engine = Timeline();
@@ -258,28 +258,28 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.measure('n', { start: 0 }).detail").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MeasureRejectsTheThreeContradictoryArgumentShapes()
     {
         var engine = Timeline();
         engine.Execute("performance.mark('a');");
 
         // "If endMark is given, throw a TypeError."
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: 0 }, 'a')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: 0 }, 'a')"))!
             .Message.Should().Contain("end mark");
 
         // "If both start and end are omitted, throw a TypeError."
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { duration: 5 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { duration: 5 })"))!
             .Message.Should().Contain("'start' and 'end'");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { detail: 1 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { detail: 1 })"))!
             .Message.Should().Contain("'start' and 'end'");
 
         // "If start, duration and end all exist, throw a TypeError."
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: 0, duration: 1, end: 2 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: 0, duration: 1, end: 2 })"))!
             .Message.Should().Contain("all three");
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyOptionsObjectIsNotAContradiction()
     {
         var (engine, clock) = TimelineEngine();
@@ -294,7 +294,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.measure('m', null).duration").AsNumber().Should().Be(90);
     }
 
-    [Fact]
+    [Test]
     public void ANumberIsAMarkNameInThePositionalArgumentButATimestampInTheDictionary()
     {
         var (engine, clock) = TimelineEngine();
@@ -310,7 +310,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.measure('m', { start: 5 }).startTime").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void AnUnknownMarkIsASyntaxErrorDomException()
     {
         var engine = Timeline();
@@ -332,7 +332,7 @@ public class PerformanceTimelineTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void TheEndTimeIsResolvedBeforeTheStartTime()
     {
         var engine = Timeline();
@@ -346,17 +346,17 @@ public class PerformanceTimelineTests
             """).AsString().Should().Contain("missing-b");
     }
 
-    [Fact]
+    [Test]
     public void ANegativeTimestampIsATypeError()
     {
         var engine = Timeline();
 
         // "If mark is negative, throw a TypeError" in convert a mark to a timestamp.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: -1 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.measure('m', { start: -1 })"))!
             .Message.Should().Contain("negative");
     }
 
-    [Fact]
+    [Test]
     public void GetEntriesFiltersByNameAndByType()
     {
         var (engine, clock) = TimelineEngine();
@@ -379,7 +379,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("Array.isArray(performance.getEntries())").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EntriesComeBackInChronologicalOrder()
     {
         var engine = Timeline();
@@ -391,7 +391,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntries().map(e => e.name).join()").AsString().Should().Be("early,late");
     }
 
-    [Fact]
+    [Test]
     public void EntriesWithTheSameStartTimeKeepTheirBufferOrder()
     {
         var engine = Timeline();
@@ -406,7 +406,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntries().map(e => e.name).join()").AsString().Should().Be("first,a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ClearMarksAndClearMeasuresRemoveOnlyTheirOwnKind()
     {
         var engine = Timeline();
@@ -424,7 +424,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntries().length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AClearedMarkIsNoLongerAMeasureAnchor()
     {
         var engine = Timeline();
@@ -436,7 +436,7 @@ public class PerformanceTimelineTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void TheBufferIsBoundedAndOverflowIsSilent()
     {
         var engine = Timeline();
@@ -456,7 +456,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntriesByName('after').length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ConstructingAMarkDoesNotAddItToTheBuffer()
     {
         var (engine, clock) = TimelineEngine();
@@ -479,23 +479,23 @@ public class PerformanceTimelineTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void OnlyPerformanceMarkIsConstructible()
     {
         var engine = Timeline();
 
         // Neither of the other two interfaces declares a constructor operation, so their interface objects
         // exist and are functions but refuse to construct — https://webidl.spec.whatwg.org/#es-interface-call.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new PerformanceEntry()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new PerformanceEntry()"))!
             .Message.Should().Be("Illegal constructor");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new PerformanceMeasure()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new PerformanceMeasure()"))!
             .Message.Should().Be("Illegal constructor");
 
         engine.Evaluate("new PerformanceMark('x') instanceof PerformanceMark").AsBoolean().Should().BeTrue();
         engine.Evaluate("class Sub extends PerformanceMark {}; new Sub('x') instanceof Sub").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceHierarchyIsTheOneWebIdlDescribes()
     {
         var engine = Timeline();
@@ -514,7 +514,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("Object.prototype.toString.call(PerformanceEntry.prototype)").AsString().Should().Be("[object PerformanceEntry]");
     }
 
-    [Fact]
+    [Test]
     public void TheAttributesLiveOnThePrototypeAndBrandCheckTheirReceiver()
     {
         var engine = Timeline();
@@ -532,20 +532,20 @@ public class PerformanceTimelineTests
         foreach (var member in new[] { "name", "entryType", "startTime", "duration" })
         {
             Assert.Throws<JavaScriptException>(
-                () => engine.Evaluate($"Object.getOwnPropertyDescriptor(PerformanceEntry.prototype, '{member}').get.call({{}})"))
+                () => engine.Evaluate($"Object.getOwnPropertyDescriptor(PerformanceEntry.prototype, '{member}').get.call({{}})"))!
                 .Message.Should().Contain("PerformanceEntry");
         }
 
         // detail is declared on each derived interface, so each brand-checks for its own.
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(PerformanceMark.prototype, 'detail').get.call(measure)"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(PerformanceMark.prototype, 'detail').get.call(measure)"))!
             .Message.Should().Contain("PerformanceMark");
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(PerformanceMeasure.prototype, 'detail').get.call(mark)"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(PerformanceMeasure.prototype, 'detail').get.call(mark)"))!
             .Message.Should().Contain("PerformanceMeasure");
     }
 
-    [Fact]
+    [Test]
     public void ToJsonCarriesTheFourInheritedAttributesAndNotTheDetail()
     {
         var engine = Timeline();
@@ -561,7 +561,7 @@ public class PerformanceTimelineTests
             .Should().Be("""{"name":"a","entryType":"mark","startTime":7,"duration":0}""");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArity()
     {
         var engine = Timeline();
@@ -576,19 +576,19 @@ public class PerformanceTimelineTests
         engine.Evaluate("PerformanceMark.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EveryMemberBrandChecksItsReceiver()
     {
         var engine = Timeline();
 
         foreach (var member in new[] { "mark", "measure", "getEntries", "getEntriesByType", "getEntriesByName", "clearMarks", "clearMeasures" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"performance.{member}.call({{}}, 'x')"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"performance.{member}.call({{}}, 'x')"))!
                 .Message.Should().Contain("Performance");
         }
     }
 
-    [Fact]
+    [Test]
     public void TheEntryInterfacesAreInstalledOnlyBehindThePerformanceFlag()
     {
         var engine = Timeline();
@@ -610,7 +610,7 @@ public class PerformanceTimelineTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheBufferBelongsToTheEngineAndSurvivesAGlobalSnapshotRestore()
     {
         var engine = Timeline();
@@ -627,7 +627,7 @@ public class PerformanceTimelineTests
         engine.Evaluate("performance.getEntries().length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesFromOneOptionsInstanceHaveSeparateTimelines()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Performance);

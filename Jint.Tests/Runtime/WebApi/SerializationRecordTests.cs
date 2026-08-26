@@ -45,7 +45,7 @@ public class SerializationRecordTests
         typeof(Intrinsics),
     ];
 
-    [Fact]
+    [Test]
     public void DeclaresNoEngineAffineField()
     {
         var recordTypes = _jintAssembly
@@ -70,7 +70,7 @@ public class SerializationRecordTests
         }
     }
 
-    [Fact]
+    [Test]
     public void HoldsNothingEngineAffineForARichGraph()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging | WebApiFeatures.Files));
@@ -114,7 +114,7 @@ public class SerializationRecordTests
         reached.Should().BeGreaterThan(20);
     }
 
-    [Fact]
+    [Test]
     public void MovesATransferredBuffersBytesIntoTheRecord()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging));
@@ -140,7 +140,7 @@ public class SerializationRecordTests
         other.Evaluate("new Uint8Array(revived)[2]").AsNumber().Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void CarriesExactlyOneChannelSideForATransferredPortAndNothingElseEngineAffine()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging));
@@ -168,7 +168,7 @@ public class SerializationRecordTests
         engine.Evaluate("moved.postMessage('inert') === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CarriesExactlyOneChannelSideForATransferredReadableStream()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -188,7 +188,7 @@ public class SerializationRecordTests
         sides.Should().HaveCount(1);
     }
 
-    [Fact]
+    [Test]
     public void CarriesTwoChannelSidesForATransferredTransformStream()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));

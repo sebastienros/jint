@@ -11,7 +11,7 @@
 /// </summary>
 public class TdzResetSkipTests
 {
-    [Fact]
+    [Test]
     public void EligibleConstBodyComputesCorrectValuesAcrossIterations()
     {
         var engine = new Engine();
@@ -44,7 +44,7 @@ public class TdzResetSkipTests
         result.Should().Be("0,2,4|0,2,4|0,2,4");
     }
 
-    [Fact]
+    [Test]
     public void ChainedConstDeclarationsComputeCorrectly()
     {
         var engine = new Engine();
@@ -72,7 +72,7 @@ public class TdzResetSkipTests
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ReadBeforeDeclarationThrowsOnEveryIteration()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public class TdzResetSkipTests
         result.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void WriteBeforeDeclarationStillThrowsOnLaterIterations()
     {
         var engine = new Engine();
@@ -116,7 +116,7 @@ public class TdzResetSkipTests
         result.Should().Be("tdz-write");
     }
 
-    [Fact]
+    [Test]
     public void ContinueOverInitializationKeepsCorrectValues()
     {
         var engine = new Engine();
@@ -138,7 +138,7 @@ public class TdzResetSkipTests
         result.Should().Be("2:4");
     }
 
-    [Fact]
+    [Test]
     public void ClosureCapturingBodyLetKeepsPerIterationSemantics()
     {
         var engine = new Engine();
@@ -158,7 +158,7 @@ public class TdzResetSkipTests
         result.Should().Be("0,10,20");
     }
 
-    [Fact]
+    [Test]
     public void ReenteredInnerLetLoopWithConstBodyStaysCorrect()
     {
         var engine = new Engine();
@@ -183,7 +183,7 @@ public class TdzResetSkipTests
         result.Should().Be(70);
     }
 
-    [Fact]
+    [Test]
     public void SelfReferencingInitializerCountsAsBeforeUse()
     {
         var engine = new Engine();
@@ -221,7 +221,7 @@ public class TdzResetSkipTests
         conditional.Should().Be("tdz");
     }
 
-    [Fact]
+    [Test]
     public void HeaderAndOuterShadowingStayCorrect()
     {
         var engine = new Engine();
@@ -276,7 +276,7 @@ public class TdzResetSkipTests
         beforeDeclaration.Should().Be("true:none");
     }
 
-    [Fact]
+    [Test]
     public void MultiDeclaratorStatementsScanPerDeclarator()
     {
         var engine = new Engine();
@@ -310,7 +310,7 @@ public class TdzResetSkipTests
         backward.Should().Be("tdz");
     }
 
-    [Fact]
+    [Test]
     public void MultiSlotEligibleBodyReinitializesEverySlot()
     {
         var engine = new Engine();

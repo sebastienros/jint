@@ -133,7 +133,7 @@ public class WebIdlPropertyAttributeTests
         "Jint.WebApi.Workers.DedicatedWorkerGlobalScopePrototype",
     ];
 
-    [Fact]
+    [Test]
     public void EveryWebApiMemberCarriesTheAttributesItsWebIdlMemberKindRequires()
     {
         var sweep = Sweep();
@@ -142,7 +142,7 @@ public class WebIdlPropertyAttributeTests
             "every member of every Jint/WebApi/ object must carry the property attributes WebIDL gives its member kind");
     }
 
-    [Fact]
+    [Test]
     public void TheSweepReachesEveryGeneratedWebApiHost()
     {
         var sweep = Sweep();
@@ -167,7 +167,7 @@ public class WebIdlPropertyAttributeTests
         stillOutOfReach.Should().BeEmpty("a host recorded as unreachable is reachable after all");
     }
 
-    [Fact]
+    [Test]
     public void EveryRecordedDivergenceIsReal()
     {
         var sweep = Sweep();
@@ -186,7 +186,7 @@ public class WebIdlPropertyAttributeTests
     /// too, since the instance has no own properties whatever — with <c>userAgent</c> an enumerable accessor
     /// on <c>Navigator.prototype</c>; a browser reports the same of <c>scheduler</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheSingletonsAreEmptyOfOwnKeys()
     {
         var engine = BuildEngine();

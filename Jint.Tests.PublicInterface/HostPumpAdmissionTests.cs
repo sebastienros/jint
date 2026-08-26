@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Diagnostics;
-using Xunit.Sdk;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -79,7 +78,7 @@ public class HostPumpAdmissionTests
         return callback!;
     }
 
-    [Fact]
+    [Test]
     public async Task AStaleAuthorizedCallbackIsAdmittedAtASynchronousPark()
     {
         using var engine = new Engine();
@@ -100,7 +99,7 @@ public class HostPumpAdmissionTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public async Task AStaleAuthorizedCallbackIsAdmittedAtAnAsynchronousPark()
     {
         using var engine = new Engine();
@@ -127,7 +126,7 @@ public class HostPumpAdmissionTests
     /// The boundary the change does not move: a host blocking its engine's thread in an ordinary synchronous
     /// call has undertaken nothing, so the same authorized callback is refused there exactly as before.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task AStaleAuthorizedCallbackIsRefusedInAnUnrelatedBlockingHostCall()
     {
         using var entered = new ManualResetEventSlim();
@@ -161,7 +160,7 @@ public class HostPumpAdmissionTests
     /// The fail-fast guarantee is untouched: an unrelated public entry from another thread is refused for the
     /// whole park, which is what keeps one-drainer-per-engine self-enforcing.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task AnUnrelatedPublicEntryIsRefusedWhileTheParkHoldsTheEngine()
     {
         using var engine = new Engine();
@@ -206,7 +205,7 @@ public class HostPumpAdmissionTests
     /// were reported as if the guard had failed.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task ANestedParkInsideARunningEvaluationAdmitsNothing()
     {
         using var engine = new Engine();
@@ -267,7 +266,7 @@ public class HostPumpAdmissionTests
     /// and is reported as work for <see cref="Engine.TaskOperations.ProcessTasks"/> — which is the whole
     /// point of admitting it there.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task WorkQueuedByAnAdmittedCallbackIsReportedByThePark()
     {
         using var engine = new Engine();
@@ -296,7 +295,7 @@ public class HostPumpAdmissionTests
     /// callback holds the engine, and the park cannot return until it has the thread back — so a
     /// frame-budgeted host can be handed control back well after its ceiling.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task AnAdmittedCallbackHoldsTheParkPastItsCeiling()
     {
         using var engine = new Engine();
@@ -343,7 +342,7 @@ public class HostPumpAdmissionTests
                 // Deliberately not `await running`: that throws whatever stopped the call and loses the
                 // sentence saying what was being waited for, which is what a reader needs first.
                 var failure = running.Exception?.GetBaseException();
-                throw new XunitException(
+                throw new AssertionException(
                     "the owning call returned without ever entering block(): "
                     + (failure is null ? "it returned normally" : $"it failed with {failure.GetType().Name}: {failure.Message}"),
                     failure);
@@ -351,7 +350,7 @@ public class HostPumpAdmissionTests
 
             if (elapsed.Elapsed > WedgeCeiling)
             {
-                throw new XunitException($"the owning thread did not enter block() within {WedgeCeiling}");
+                throw new AssertionException($"the owning thread did not enter block() within {WedgeCeiling}");
             }
         }
     }

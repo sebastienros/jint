@@ -11,7 +11,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class RavenApiUsageTests
 {
-    [Fact]
+    [Test]
     public void CanBuildCustomScriptFunctionInstance()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class RavenApiUsageTests
         functionObject.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void CanChangeMaxStatementValue()
     {
         var engine = new Engine(options => options.LimitStatements(123));
@@ -52,7 +52,7 @@ public class RavenApiUsageTests
         constraint.MaxStatements.Should().Be(321);
     }
 
-    [Fact]
+    [Test]
     public void CanGetPropertyDescriptor()
     {
         var engine = new Engine();
@@ -61,7 +61,7 @@ public class RavenApiUsageTests
         propertyDescriptor.Value.Should().Be("the-path");
     }
 
-    [Fact]
+    [Test]
     public void CanInjectConstructedObjects()
     {
         var engine = new Engine();
@@ -131,7 +131,7 @@ public class RavenApiUsageTests
     }
 
     // Checks different ways how string can be checked for equality without the need to materialize lazy value
-    [Fact]
+    [Test]
     public void CanInheritCustomString()
     {
         var engine = new Engine();
@@ -179,7 +179,7 @@ public class RavenApiUsageTests
         engine.Evaluate("str[x] === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanDefineCustomNull()
     {
         var engine = new Engine();
@@ -187,7 +187,7 @@ public class RavenApiUsageTests
         engine.Evaluate("value ? value + 'bar' : 'foo'").Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void CanDefineCustomUndefined()
     {
         var engine = new Engine();
@@ -195,14 +195,14 @@ public class RavenApiUsageTests
         engine.Evaluate("value ? value + 'bar' : 'foo'").Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void CanResetCallStack()
     {
         var engine = new Engine();
         engine.Advanced.ResetCallStack();
     }
 
-    [Fact]
+    [Test]
     public void CanUseCustomReferenceResolver()
     {
         var engine = new Engine(options =>

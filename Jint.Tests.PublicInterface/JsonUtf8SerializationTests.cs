@@ -13,7 +13,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class JsonUtf8SerializationTests
 {
-    public static TheoryData<string> Documents => new()
+    public static TestCases<string> Documents => new()
     {
         // primitives and empties
         "undefined",
@@ -60,27 +60,25 @@ public class JsonUtf8SerializationTests
         "(function () { var s = ''; for (var i = 0; i < 4000; i++) { s += '\\uD83D\\uDE00'; } return s; })()",
     };
 
-    [Theory]
-    [MemberData(nameof(Documents))]
+    [TestCaseSource(nameof(Documents))]
     public void WritesTheSameDocumentAsTheStringOverload(string script)
     {
         AssertRoundTrip(script);
     }
 
-    [Theory]
-    [InlineData("2")]
-    [InlineData("10")]
-    [InlineData("100")]
-    [InlineData("0")]
-    [InlineData("'\\t'")]
-    [InlineData("'--'")]
-    [InlineData("'0123456789abcdef'")]
+    [TestCase("2")]
+    [TestCase("10")]
+    [TestCase("100")]
+    [TestCase("0")]
+    [TestCase("'\\t'")]
+    [TestCase("'--'")]
+    [TestCase("'0123456789abcdef'")]
     public void HonoursTheSpaceArgument(string space)
     {
         AssertRoundTrip("({ a: 1, b: [1, { c: 'x\\uD83D\\uDE00' }], d: {}, e: [] })", space: space);
     }
 
-    [Fact]
+    [Test]
     public void HonoursAReplacerFunction()
     {
         AssertRoundTrip(
@@ -88,13 +86,13 @@ public class JsonUtf8SerializationTests
             replacer: "(function (key, value) { return key === 'a' ? undefined : value; })");
     }
 
-    [Fact]
+    [Test]
     public void HonoursAReplacerArray()
     {
         AssertRoundTrip("({ a: 1, b: 2, c: 3 })", replacer: "['c', 'a']");
     }
 
-    [Fact]
+    [Test]
     public void HonoursAReplacerAndSpaceTogether()
     {
         AssertRoundTrip(
@@ -103,13 +101,13 @@ public class JsonUtf8SerializationTests
             space: "'\\t'");
     }
 
-    [Fact]
+    [Test]
     public void ACallableWithAReplacerStillProducesOutput()
     {
         AssertRoundTrip("(function () {})", replacer: "(function (key, value) { return 42; })");
     }
 
-    [Fact]
+    [Test]
     public void ReportsNoOutputWithoutTouchingTheWriter()
     {
         var engine = new Engine();
@@ -122,7 +120,7 @@ public class JsonUtf8SerializationTests
         writer.GetSpanCallCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ALargeDocumentIsWrittenInSeveralRounds()
     {
         var engine = new Engine();
@@ -134,7 +132,7 @@ public class JsonUtf8SerializationTests
         writer.GetSpanCallCount.Should().BeGreaterThan(1);
     }
 
-    [Fact]
+    [Test]
     public void ARequestedSpanIsNeverProportionalToTheDocument()
     {
         var engine = new Engine();
@@ -148,7 +146,7 @@ public class JsonUtf8SerializationTests
         writer.LargestSpanRequest.Should().BeLessThan(8 * 1024);
     }
 
-    [Fact]
+    [Test]
     public void ANullWriterIsRejected()
     {
         var engine = new Engine();
@@ -157,7 +155,7 @@ public class JsonUtf8SerializationTests
         Invoking(() => serializer.Serialize(JsValue.Undefined, null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void AWriterHandingBackLessThanTheRequestedSpanIsRejected()
     {
         // GetSpan(sizeHint) must return at least sizeHint bytes. A writer that does not is a contract
@@ -191,7 +189,7 @@ public class JsonUtf8SerializationTests
     /// string overload can produce text that UTF-8 cannot represent; both overloads then agree only after
     /// the encoder's U+FFFD substitution, which is what the documented contract promises.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnpairedSurrogateInTheIndentBecomesTheReplacementCharacter()
     {
         var engine = new Engine();

@@ -38,7 +38,7 @@ public class WebApiBroadcastChannelTests
 
     // ---------------------------------------------------------------- the opt-in
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoBroadcastChannel()
     {
         var engine = new Engine();
@@ -47,7 +47,7 @@ public class WebApiBroadcastChannelTests
         engine.Evaluate("'BroadcastChannel' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheMessagingFlagInstallsIt()
     {
         var engine = BroadcastEngine();
@@ -56,13 +56,13 @@ public class WebApiBroadcastChannelTests
         engine.Evaluate("new BroadcastChannel('x').name").AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesIt()
     {
         new Engine(options => options.UseWebApis()).Evaluate("typeof BroadcastChannel").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own BroadcastChannel");
@@ -77,13 +77,13 @@ public class WebApiBroadcastChannelTests
         engine.Evaluate("typeof MessageChannel").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmHasNoBroadcastChannel()
     {
         BroadcastEngine().Evaluate("new ShadowRealm().evaluate('typeof BroadcastChannel')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EnablingMessagingOnALiveEngineBringsItToo()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -102,7 +102,7 @@ public class WebApiBroadcastChannelTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("live");
     }
 
-    [Fact]
+    [Test]
     public void ALiveEnableCanSupplyTheBroker()
     {
         var broker = new BroadcastChannelBroker();
@@ -119,7 +119,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received[0]").AsString().Should().Be("from a live enable");
     }
 
-    [Fact]
+    [Test]
     public void ALiveEnableCanSupplyTheBrokerToAnEngineThatAlreadyHasWebApiState()
     {
         var broker = new BroadcastChannelBroker();
@@ -140,7 +140,7 @@ public class WebApiBroadcastChannelTests
 
     // ---------------------------------------------------------------- the broker
 
-    [Fact]
+    [Test]
     public void EachEngineGetsAPrivateBrokerWhenTheHostNamesNone()
     {
         var first = BroadcastEngine();
@@ -153,7 +153,7 @@ public class WebApiBroadcastChannelTests
         ReceivedCount(second).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void SharingOneBrokerIsWhatPutsTwoEnginesInEarshot()
     {
         var broker = new BroadcastChannelBroker();
@@ -172,7 +172,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received[0].payload.join('-')").AsString().Should().Be("1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheSharedBrokerIsIsolated()
     {
         var broker = new BroadcastChannelBroker();
@@ -193,7 +193,7 @@ public class WebApiBroadcastChannelTests
         ReceivedCount(outside).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void OneBrokerReachesEveryEngineThatJoinedIt()
     {
         var broker = new BroadcastChannelBroker();
@@ -214,7 +214,7 @@ public class WebApiBroadcastChannelTests
         }
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceSharedByTwoEnginesSharesItsBroker()
     {
         // The other spelling: not one broker assigned to two Options, but one Options used to build two
@@ -233,7 +233,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received[0]").AsString().Should().Be("shared options");
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesSharingOptionsButNoBrokerStayPrivate()
     {
         // The default is deliberately per engine rather than one instance on the options object: two engines
@@ -251,7 +251,7 @@ public class WebApiBroadcastChannelTests
         ReceivedCount(listener).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ACrossEngineMessageIsACloneNotASharedObject()
     {
         var broker = new BroadcastChannelBroker();
@@ -269,7 +269,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("Object.getPrototypeOf(received[0]) === Map.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NothingIsDeliveredToAnEngineThatIsNeverPumped()
     {
         var broker = new BroadcastChannelBroker();
@@ -290,7 +290,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received[0]").AsString().Should().Be("never");
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesInEarshotEachGetTheirOwnArrayBufferStorage()
     {
         var broker = new BroadcastChannelBroker();
@@ -317,7 +317,7 @@ public class WebApiBroadcastChannelTests
 
     // ---------------------------------------------------------------- the evaluation cycle
 
-    [Fact]
+    [Test]
     public void AMessageInFlightWhenTheReceiverRestoresIsDropped()
     {
         var broker = new BroadcastChannelBroker();
@@ -339,7 +339,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AMessagePostedAfterTheReceiverRestoresIsDropped()
     {
         var broker = new BroadcastChannelBroker();
@@ -364,7 +364,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received.join(',')").AsString().Should().Be("next cycle");
     }
 
-    [Fact]
+    [Test]
     public void ARestoreOnTheSenderDoesNotStopTheReceiver()
     {
         var broker = new BroadcastChannelBroker();
@@ -383,7 +383,7 @@ public class WebApiBroadcastChannelTests
         listener.Evaluate("received[0]").AsString().Should().Be("sent then restored");
     }
 
-    [Fact]
+    [Test]
     public void DisposingAnEngineTakesItsChannelsOutOfASharedBroker()
     {
         var broker = new BroadcastChannelBroker();

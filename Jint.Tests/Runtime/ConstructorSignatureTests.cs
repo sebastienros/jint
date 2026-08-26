@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime;
 
 public class ConstructorSignatureTests
 {
-    [Fact]
+    [Test]
     public void OptionalConstructorParametersShouldBeSupported()
     {
         var engine = new Engine();
@@ -34,7 +34,7 @@ public class ConstructorSignatureTests
         engine.Evaluate("new A('a', 'd', 'e').Result").AsString().Should().Be("ade");
     }
 
-    [Fact]
+    [Test]
     public void CorrectOverloadShouldBeSelected()
     {
         var engine = new Engine();
@@ -44,7 +44,7 @@ public class ConstructorSignatureTests
     }
 
 
-    [Fact]
+    [Test]
     public void CanConstructWithMixedFloatAndEnumConstructorParameters()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public class ConstructorSignatureTests
         ((LengthUnit) engine.Evaluate("new Length(12.3, 42).UnitValue").AsInteger()).Should().Be(LengthUnit.Pixel);
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToIgnoreDefaultParameters()
     {
         var engine = new Engine();

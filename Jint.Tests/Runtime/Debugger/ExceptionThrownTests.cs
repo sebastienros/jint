@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime.Debugger;
 
 public class ExceptionThrownTests
 {
-    [Fact]
+    [Test]
     public void ExplicitThrowFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -25,7 +25,7 @@ public class ExceptionThrownTests
         received.ThrownValue.Should().BeAssignableTo<ObjectInstance>();
     }
 
-    [Fact]
+    [Test]
     public void CaughtExceptionStillFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -47,7 +47,7 @@ public class ExceptionThrownTests
         thrownValues.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void ImplicitTypeErrorFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -68,7 +68,7 @@ public class ExceptionThrownTests
         received.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ImplicitReferenceErrorFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -89,7 +89,7 @@ public class ExceptionThrownTests
         received.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void EventNotFiredWhenDebugModeDisabled()
     {
         var engine = new Engine(); // no debug mode
@@ -110,7 +110,7 @@ public class ExceptionThrownTests
         count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RethrowFiresEventTwice()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -135,7 +135,7 @@ public class ExceptionThrownTests
         count.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ThrowPrimitiveValueFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -157,7 +157,7 @@ public class ExceptionThrownTests
         received.ThrownValue.AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void CallStackIsAvailable()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -181,7 +181,7 @@ public class ExceptionThrownTests
         callStack.Count.Should().BeGreaterThanOrEqualTo(1, $"Expected call stack frames, got {callStack.Count}");
     }
 
-    [Fact]
+    [Test]
     public void LocationIsAvailable()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -203,7 +203,7 @@ public class ExceptionThrownTests
         location.Value.Start.Line.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void MultipleExceptionsEachFireEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);

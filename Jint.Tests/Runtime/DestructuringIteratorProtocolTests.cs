@@ -46,7 +46,7 @@ public class DestructuringIteratorProtocolTests
         return engine.Evaluate("log.join(',')").AsString();
     }
 
-    [Fact]
+    [Test]
     public void AnExhaustedIteratorIsNeverSteppedAgain()
     {
         // 13.15.5.5: each element form is guarded by "If iteratorRecord.[[Done]] is false" — once a
@@ -66,7 +66,7 @@ public class DestructuringIteratorProtocolTests
             .Should().Be("next,done,value,next,done,value,next,done,value,return");
     }
 
-    [Fact]
+    [Test]
     public void AnElisionNeverEndsThePattern()
     {
         // Elision is its own production and simply discards a step; the elements after it are still
@@ -82,7 +82,7 @@ public class DestructuringIteratorProtocolTests
         LogWithTarget("[, t.a] = iterableOf([]);").Should().Be("next,done,set a=undefined");
     }
 
-    [Fact]
+    [Test]
     public void APatternThatStopsShortClosesTheIterator()
     {
         // One step, then the pattern is exhausted while [[Done]] is still false, so IteratorClose runs.
@@ -90,7 +90,7 @@ public class DestructuringIteratorProtocolTests
             .Should().Be("next,done,value,return");
     }
 
-    [Fact]
+    [Test]
     public void ARestElementDoesNotStepAnAlreadyDoneIterator()
     {
         // AssignmentRestElement repeats "while iteratorRecord.[[Done]] is false", so an iterator that
@@ -103,7 +103,7 @@ public class DestructuringIteratorProtocolTests
             .Should().Be("next,done,value,next,done,value,next,done");
     }
 
-    [Fact]
+    [Test]
     public void ARestElementCollectsTheSteppedValues()
     {
         var engine = new Engine();
@@ -116,7 +116,7 @@ public class DestructuringIteratorProtocolTests
             .AsString().Should().Be("1|2,3");
     }
 
-    [Fact]
+    [Test]
     public void ANestedPatternReceivesTheSteppedValueNotTheIteratorResult()
     {
         // BindingElement : BindingPattern Initializer_opt binds the pattern to the *value* the step
@@ -140,7 +140,7 @@ public class DestructuringIteratorProtocolTests
         Log("var a; [[a]] = iterableOf([[1]]);").Should().Be("next,done,value,return");
     }
 
-    [Fact]
+    [Test]
     public void ANestedPatternAgainstAnExhaustedIteratorThrows()
     {
         // The element gets undefined, and BindingInitialization of a pattern ToObject's it.
@@ -151,7 +151,7 @@ public class DestructuringIteratorProtocolTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void TheOperationOrderOfAnArrayAssignmentPatternMatchesTheSpec()
     {
         // AssignmentElement evaluates its DestructuringAssignmentTarget reference first, then steps,
@@ -186,7 +186,7 @@ public class DestructuringIteratorProtocolTests
         return engine.Evaluate("log.join(',')").AsString();
     }
 
-    [Fact]
+    [Test]
     public void AReplacedArrayIteratorNextKeepsIteratingTheRealObject()
     {
         // %ArrayIteratorPrototype%.next replaced by a wrapper that delegates to the original: the
@@ -226,7 +226,7 @@ public class DestructuringIteratorProtocolTests
             """).AsNumber().Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public void AnOwnNextOnAnArrayIteratorIsHonoured()
     {
         // GetIterator step 3 reads `next` off the object @@iterator returned, so an own `next`
@@ -250,7 +250,7 @@ public class DestructuringIteratorProtocolTests
             """).AsString().Should().Be("1,2|3");
     }
 
-    [Fact]
+    [Test]
     public void APristineArrayIteratorStillIteratesNatively()
     {
         // Guard against the wrap above engaging when nothing was replaced.

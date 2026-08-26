@@ -13,7 +13,7 @@ public class ScriptStatementListReuseTests
     // Each case is (source, expected string result). Re-evaluated many times on ONE engine: the result
     // must be identical every time, matching a fresh engine — the reused top-level tree must not carry
     // stale per-run state.
-    public static TheoryData<string, string> Cases() => new()
+    public static TestCases<string, string> Cases() => new()
     {
         { "var x = 1 + 1 === 2; '' + x;", "true" },
         { "var t = 0; for (var i = 0; i < 10; i++) { t += i; } '' + t;", "45" },
@@ -27,8 +27,7 @@ public class ScriptStatementListReuseTests
         { "var sw = ''; switch (2) { case 1: sw = 'one'; break; case 2: sw = 'two'; break; default: sw = 'd'; } sw;", "two" },
     };
 
-    [Theory]
-    [MemberData(nameof(Cases))]
+    [TestCaseSource(nameof(Cases))]
     public void RepeatedEvaluationMatchesFreshEngine(string source, string expected)
     {
         var prepared = Engine.PrepareScript(source);
@@ -44,7 +43,7 @@ public class ScriptStatementListReuseTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ReusedTopLevelFunctionExpressionRecapturesCurrentState()
     {
         // A top-level function expression's interpreter definition is reused across evaluations once the
@@ -67,7 +66,7 @@ public class ScriptStatementListReuseTests
         engine.Evaluate(prepared).AsNumber().Should().Be(99); // base=90, add(9)=99
     }
 
-    [Fact]
+    [Test]
     public void ReusedTopLevelIifeKeepsIndependentPerRunState()
     {
         // The dominant embedding shape (module-pattern library) is a single top-level IIFE. Caching the

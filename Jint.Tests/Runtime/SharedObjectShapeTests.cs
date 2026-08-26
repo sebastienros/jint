@@ -18,8 +18,7 @@ namespace Jint.Tests.Runtime;
 /// </para>
 /// </summary>
 // The GC test measures collectability, which nothing else running concurrently may perturb.
-[CollectionDefinition(nameof(SharedObjectShapeTests), DisableParallelization = true)]
-[Collection(nameof(SharedObjectShapeTests))]
+[NonParallelizable]
 public class SharedObjectShapeTests
 {
     private static readonly JsObjectShape MethodsOnlyShape = new JsObjectShape.Builder()
@@ -36,7 +35,7 @@ public class SharedObjectShapeTests
         .ToStringTag("Mixed")
         .Build();
 
-    [Fact]
+    [Test]
     public void InstantiateAllocatesNoPerRealmStorageUntilTheObjectIsTouched()
     {
         var engine = new Engine();
@@ -60,7 +59,7 @@ public class SharedObjectShapeTests
         proto.BuiltinDescriptors![2].Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void InitializationPreWiresOnlyConstantsAndPerRealmValueSlots()
     {
         var engine = new Engine();
@@ -79,7 +78,7 @@ public class SharedObjectShapeTests
         descriptors[3]!.Value.Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void EveryEngineGetsItsOwnDescriptorsWhileTheShapeStaysUntouched()
     {
         var engineA = new Engine();
@@ -122,7 +121,7 @@ public class SharedObjectShapeTests
         constantBefore.Configurable.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AskingWhetherAMemberExistsDoesNotCreateIt()
     {
         // The point of the probe lane: a page walking a Web IDL prototype (for-in, Object.keys,
@@ -177,7 +176,7 @@ public class SharedObjectShapeTests
         ((IBuiltinShaped) proto).BuiltinDescriptors![3].Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void EnumeratingAnIntrinsicNamespaceDoesNotCreateItsFunctions()
     {
         // The same lane, on the built-ins it was already storing this way: Object.keys(Math) has to test
@@ -234,7 +233,7 @@ public class SharedObjectShapeTests
     /// indices from element storage, both ahead of the shared layout.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryReachableSharedLayoutObjectProbesConsistentlyWithItsDescriptors()
     {
         var engine = new Engine();
@@ -377,7 +376,7 @@ public class SharedObjectShapeTests
         public int GetHashCode(ObjectInstance obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
-    [Fact]
+    [Test]
     public void ASharedShapeDoesNotRetainEngines()
     {
         // The critical invariant of the whole feature: a host declares one shape per process and instantiates
@@ -424,7 +423,7 @@ public class SharedObjectShapeTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ASharedShapeDoesNotRetainHostStateOfDroppedEngines()
     {
         // Host state is the one thing a host is invited to hang off a shaped object, and the invitation is

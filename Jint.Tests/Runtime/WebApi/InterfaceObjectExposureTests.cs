@@ -35,7 +35,7 @@ public class InterfaceObjectExposureTests
     /// attributes and left <c>navigator.__proto__</c> pointing at <c>%Object.prototype%</c>. Both interfaces
     /// are exposed in a browser and neither is constructible.
     /// </remarks>
-    public static TheoryData<string, WebApiFeatures> Exposed => new()
+    public static TestCases<string, WebApiFeatures> Exposed => new()
     {
         { "ReadableStreamDefaultReader", WebApiFeatures.Streams },
         { "ReadableStreamBYOBReader", WebApiFeatures.Streams },
@@ -52,8 +52,7 @@ public class InterfaceObjectExposureTests
         { "Scheduler", WebApiFeatures.Scheduler },
     };
 
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void IsALazyNonEnumerableGlobalBehindItsOwnFlag(string name, WebApiFeatures feature)
     {
         var engine = new Engine(options => options.UseWebApis(feature));
@@ -74,8 +73,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("new ShadowRealm().evaluate('typeof " + name + "')").AsString().Should().Be("undefined");
     }
 
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void CostsNothingUntilItIsRead(string name, WebApiFeatures feature)
     {
         var engine = new Engine(options => options.UseWebApis(feature));
@@ -87,8 +85,7 @@ public class InterfaceObjectExposureTests
         descriptor._value.Should().BeNull();
     }
 
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void LeavesAGlobalTheHostAlreadyOwns(string name, WebApiFeatures feature)
     {
         var marker = new JsString("host's own");
@@ -99,8 +96,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate(name).Should().BeSameAs(marker);
     }
 
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void LeavesAHostLazyGlobalUnmaterialized(string name, WebApiFeatures feature)
     {
         var built = 0;
@@ -117,14 +113,13 @@ public class InterfaceObjectExposureTests
     /// The whole point: the global names the very object an instance inherits from, so <c>instanceof</c> and
     /// <c>Object.getPrototypeOf</c> agree.
     /// </summary>
-    [Theory]
-    [InlineData("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
-    [InlineData("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
-    [InlineData("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
-    [InlineData("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
-    [InlineData("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
-    [InlineData("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
-    [InlineData("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
+    [TestCase("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
+    [TestCase("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
+    [TestCase("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
+    [TestCase("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
+    [TestCase("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
+    [TestCase("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
+    [TestCase("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
     public void AStreamInstanceInheritsFromTheGlobalOfThatName(string name, string instance)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -136,7 +131,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate(name + ".name").AsString().Should().Be(name);
     }
 
-    [Fact]
+    [Test]
     public void AByobRequestInheritsFromTheGlobalOfThatName()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -169,17 +164,16 @@ public class InterfaceObjectExposureTests
     /// operation; every other interface object is a function that refuses to construct
     /// (https://webidl.spec.whatwg.org/#es-interface-call).
     /// </summary>
-    [Theory]
-    [InlineData("ReadableStreamDefaultController")]
-    [InlineData("ReadableByteStreamController")]
-    [InlineData("ReadableStreamBYOBRequest")]
-    [InlineData("WritableStreamDefaultController")]
-    [InlineData("TransformStreamDefaultController")]
-    [InlineData("Crypto")]
-    [InlineData("SubtleCrypto")]
-    [InlineData("Performance")]
-    [InlineData("Navigator")]
-    [InlineData("Scheduler")]
+    [TestCase("ReadableStreamDefaultController")]
+    [TestCase("ReadableByteStreamController")]
+    [TestCase("ReadableStreamBYOBRequest")]
+    [TestCase("WritableStreamDefaultController")]
+    [TestCase("TransformStreamDefaultController")]
+    [TestCase("Crypto")]
+    [TestCase("SubtleCrypto")]
+    [TestCase("Performance")]
+    [TestCase("Navigator")]
+    [TestCase("Scheduler")]
     public void ANonConstructibleInterfaceObjectRefusesNew(string name)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -193,12 +187,11 @@ public class InterfaceObjectExposureTests
     /// always was. The last argument is what <c>typeof instance.member</c> answers, which separates an
     /// operation from an attribute without needing two tests.
     /// </summary>
-    [Theory]
-    [InlineData("crypto", "Crypto", "randomUUID", "function")]
-    [InlineData("crypto.subtle", "SubtleCrypto", "digest", "function")]
-    [InlineData("performance", "Performance", "now", "function")]
-    [InlineData("navigator", "Navigator", "userAgent", "string")]
-    [InlineData("scheduler", "Scheduler", "postTask", "function")]
+    [TestCase("crypto", "Crypto", "randomUUID", "function")]
+    [TestCase("crypto.subtle", "SubtleCrypto", "digest", "function")]
+    [TestCase("performance", "Performance", "now", "function")]
+    [TestCase("navigator", "Navigator", "userAgent", "string")]
+    [TestCase("scheduler", "Scheduler", "postTask", "function")]
     public void TheSingletonsAreRealInstancesOfTheirInterface(string instance, string name, string member, string memberType)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -243,12 +236,11 @@ public class InterfaceObjectExposureTests
     /// (https://webidl.spec.whatwg.org/#dfn-create-operation-function). <c>SchedulerTests</c>'
     /// <c>NeitherOperationEverThrows</c> is where that half is asserted.
     /// </remarks>
-    [Theory]
-    [InlineData("Crypto.prototype.randomUUID.call({})")]
-    [InlineData("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle').get.call({})")]
-    [InlineData("Performance.prototype.now.call({})")]
-    [InlineData("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})")]
-    [InlineData("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})")]
+    [TestCase("Crypto.prototype.randomUUID.call({})")]
+    [TestCase("Object.getOwnPropertyDescriptor(Crypto.prototype, 'subtle').get.call({})")]
+    [TestCase("Performance.prototype.now.call({})")]
+    [TestCase("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})")]
+    [TestCase("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})")]
     public void APrototypeMemberBrandChecksItsReceiver(string expression)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -260,7 +252,7 @@ public class InterfaceObjectExposureTests
     /// <c>crypto.subtle</c> is still one object per realm, reached only through <c>crypto</c> — the interface
     /// object being nameable does not make a second one constructible.
     /// </summary>
-    [Fact]
+    [Test]
     public void SubtleCryptoIsStillOneObjectPerRealm()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -269,7 +261,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("crypto.subtle instanceof SubtleCrypto").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ThePerformanceTimelineStillWorksThroughThePrototype()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -282,7 +274,7 @@ public class InterfaceObjectExposureTests
         engine.Evaluate("performance.getEntries().length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -310,7 +302,7 @@ public class InterfaceObjectExposureTests
     /// <c>Engine.WebApi.Enable</c> is the same install on a live engine, so it grants the same
     /// interface objects.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArrivesThroughTheLiveDoorToo()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));

@@ -36,7 +36,7 @@ public class PrototypeMethodCacheTests
     /// When a new override appears this test fails, forcing the author to classify it rather than silently
     /// regressing (or mis-caching) prototype-method reads.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryGetOverrideIsClassifiedForThePrototypeMethodCache()
     {
         var assembly = typeof(Engine).Assembly;
@@ -106,7 +106,7 @@ public class PrototypeMethodCacheTests
         overriders.Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void ResolvesPrototypeMethodRepeatedly()
     {
         const string script = """
@@ -119,7 +119,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsNumber().Should().Be(50);
     }
 
-    [Fact]
+    [Test]
     public void OwnPropertyAddedAfterCachingShadowsPrototype()
     {
         // First reads hit the prototype method and populate the cache; assigning an own property of the
@@ -137,7 +137,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("proto,proto,proto,own,own");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeMethodRedefinedAfterCachingIsReResolved()
     {
         const string script = """
@@ -153,7 +153,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("v1,v1,v2,v2");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeMethodDeletedAfterCachingFallsBack()
     {
         const string script = """
@@ -169,7 +169,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("v1,v1,gone,gone");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeReassignedAfterCachingIsHonoured()
     {
         const string script = """
@@ -196,7 +196,7 @@ public class PrototypeMethodCacheTests
     /// exclusion is not mistaken for something broader than it is.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void AnArrayElementAddedAfterCachingShadowsThePrototypeIndex()
     {
         const string script = """
@@ -211,7 +211,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("proto,proto,own,own");
     }
 
-    [Fact]
+    [Test]
     public void AnArrayElementAssignedAfterCachingShadowsThePrototypeIndex()
     {
         const string script = """
@@ -226,9 +226,8 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("proto,proto,own,own");
     }
 
-    [Theory]
-    [InlineData("a[0]")]
-    [InlineData("a[k]")]
+    [TestCase("a[0]")]
+    [TestCase("a[k]")]
     public void ANumericIndexReadIsUnaffectedBecauseItTakesTheDenseLane(string read)
     {
         // The two spellings that never reach the prototype-method cache: a numeric literal and a computed
@@ -247,7 +246,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("proto,proto,own,own");
     }
 
-    [Fact]
+    [Test]
     public void AnArrayPrototypeMethodUnderANonIndexNameStaysCorrectWhileElementsChange()
     {
         // The counterpart of the two above: the exclusion is by name, so only index-like names give it up.
@@ -277,7 +276,7 @@ public class PrototypeMethodCacheTests
     /// own-property hit throughout, caches nothing, and was always correct.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void AFunctionOwnPropertyDefinedAfterCachingShadowsThePrototype()
     {
         const string script = """
@@ -293,7 +292,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("inherited,inherited,own,own");
     }
 
-    [Fact]
+    [Test]
     public void AFunctionOwnLengthDefinedAfterCachingShadowsThePrototype()
     {
         const string script = """
@@ -315,7 +314,7 @@ public class PrototypeMethodCacheTests
     /// This one needs no unusual spelling at all: an ordinary constructor, an ordinary instance, an ordinary
     /// <c>delete</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConstructorDeletedFromThePrototypeAfterCachingFallsBack()
     {
         const string script = """
@@ -342,9 +341,8 @@ public class PrototypeMethodCacheTests
     /// <see cref="OwnPropertyAddedAfterCachingShadowsPrototype"/> is the same statement for a constructed
     /// object; this covers the two prototype sources a plain object can have.
     /// </summary>
-    [Theory]
-    [InlineData("var proto = { shared: 'from-proto' }; var o = Object.create(proto);")]
-    [InlineData("Object.prototype.shared = 'from-proto'; var o = {};")]
+    [TestCase("var proto = { shared: 'from-proto' }; var o = Object.create(proto);")]
+    [TestCase("Object.prototype.shared = 'from-proto'; var o = {};")]
     public void APlainObjectShadowsItsPrototypeOnTheReadAfterTheOwnPropertyAppears(string setup)
     {
         var script = $$"""
@@ -372,7 +370,7 @@ public class PrototypeMethodCacheTests
     /// the change the version has to witness; a stale answer is the failure.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void OwnPropertyAddedAfterCachingShadowsASharedLayoutPrototype()
     {
         const string script = """
@@ -386,7 +384,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("1,1,1,own,own");
     }
 
-    [Fact]
+    [Test]
     public void ASharedLayoutPrototypeMemberRedefinedAfterCachingIsReResolved()
     {
         const string script = """
@@ -400,7 +398,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("1,1,1,patched,patched");
     }
 
-    [Fact]
+    [Test]
     public void AMemberDeletedFromASharedLayoutPrototypeAfterCachingFallsBack()
     {
         // Deleting a declared member is what drops the whole object back to the ordinary dictionary, so this
@@ -416,7 +414,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("function,function,function,undefined,undefined");
     }
 
-    [Fact]
+    [Test]
     public void AMemberAddedToASharedLayoutPrototypeAfterCachingIsSeen()
     {
         // The mirror image: the opening reads miss everywhere and cache nothing, then the name appears on
@@ -432,7 +430,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("undefined,undefined,undefined,added,added");
     }
 
-    [Fact]
+    [Test]
     public void AWarmSharedLayoutPrototypeReadKeepsServingTheSameMember()
     {
         // The other half: with nothing invalidating it, a warm read must keep answering — same value, and
@@ -449,7 +447,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("stable:2:2:50");
     }
 
-    [Fact]
+    [Test]
     public void AGeneratorInstanceReadsItsPrototypeMethodCorrectlyAcrossInvalidation()
     {
         // GeneratorPrototype is the shared-layout prototype the design named: gen.next is read through a
@@ -467,7 +465,7 @@ public class PrototypeMethodCacheTests
         new Engine().Evaluate(script).AsString().Should().Be("1,2,own,own");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeGetterIsReInvokedEachRead()
     {
         // An accessor on the prototype must run its getter on every read, not be frozen as a value.

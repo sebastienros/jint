@@ -19,7 +19,7 @@ public class ObjectSpreadShapeTests
     // with no reuse, and opting it into incremental shape-building exposed untested deopt edges that
     // corrupted real-world bundler output (babel-standalone). This white-box test pins the boundary;
     // the behavioral guard is the Jint.Tests.CommonScripts suite.
-    [Fact]
+    [Test]
     public void NonSpreadGeneralLiteralIsNotShapeBuilding()
     {
         var engine = new Engine();
@@ -38,7 +38,7 @@ public class ObjectSpreadShapeTests
         engine.Evaluate("(function () { var o = { a: 1, b: 2, fn: function () {} }; return o.a + ',' + o.b; })()").AsString().Should().Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void SpreadCopiesLayoutOrderGettersOnceAndSkipsNonEnumerables()
     {
         var engine = new Engine();
@@ -65,7 +65,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b","c"],"values":[1,2,3],"calls":1,"hasHidden":false,"symCopied":"symval","bIsData":true}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadBeyondInlineCapacityKeepsLayout()
     {
         var engine = new Engine();
@@ -81,7 +81,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("a,b,c,d,e,f|1,2,3,4,5,6");
     }
 
-    [Fact]
+    [Test]
     public void SpreadFromArraySourceFallsBackWithNumericFirstOrder()
     {
         var engine = new Engine();
@@ -95,7 +95,7 @@ public class ObjectSpreadShapeTests
         engine.Evaluate("Object.keys({ ...Object('ab') }).join()").AsString().Should().Be("0,1");
     }
 
-    [Fact]
+    [Test]
     public void SpreadStaticKeyCombinationsAndDuplicateKeyKeepsFirstPositionLastValue()
     {
         var engine = new Engine();
@@ -119,7 +119,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"before":["x","b","c"],"after":["b","c","x"],"dupKeys":["a"],"dupValue":2}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadWithTrailingAccessorDeoptsWithCorrectAttributes()
     {
         var engine = new Engine();
@@ -141,7 +141,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b","g"],"g":3,"hasGetter":true,"enumerable":true,"configurable":true}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadWithStaticProtoKeySetsPrototypeWithoutOwnKey()
     {
         var engine = new Engine();
@@ -161,7 +161,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a"],"protoOk":true,"ownProto":false,"inherited":"yes"}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadOfOwnProtoDataPropertyCreatesOwnKeyWithoutChangingPrototype()
     {
         var engine = new Engine();
@@ -184,7 +184,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"ownProto":true,"protoUnchanged":true,"value":true}""");
     }
 
-    [Fact]
+    [Test]
     public void ObjectRestOrderExclusionAndEmptyRest()
     {
         var engine = new Engine();
@@ -206,7 +206,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["b","c"],"b":2,"c":3,"hasA":false,"emptyKeys":[],"emptyIsObject":true}""");
     }
 
-    [Fact]
+    [Test]
     public void ObjectRestNestedPatternAndMemberExpressionTarget()
     {
         var engine = new Engine();
@@ -230,7 +230,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"inner":["z","w"],"outer":["q"],"z":2,"q":4,"member":["b","c"],"memberB":2}""");
     }
 
-    [Fact]
+    [Test]
     public void ObjectRestParameterForm()
     {
         var engine = new Engine();
@@ -244,7 +244,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["b","c"],"b":2,"c":3}""");
     }
 
-    [Fact]
+    [Test]
     public void ObjectRestFromArraySourceFallsBackWithNumericOrder()
     {
         var engine = new Engine();
@@ -258,7 +258,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"first":"x","keys":["1","2"],"one":"y","two":"z"}""");
     }
 
-    [Fact]
+    [Test]
     public void FromEntriesKeepsOrderAndDuplicateKeysLastValueWinsFirstPosition()
     {
         var engine = new Engine();
@@ -267,7 +267,7 @@ public class ObjectSpreadShapeTests
         engine.Evaluate("""JSON.stringify(Object.fromEntries([['a', 1], ['b', 2], ['a', 3]]))""").AsString().Should().Be("""{"a":3,"b":2}""");
     }
 
-    [Fact]
+    [Test]
     public void FromEntriesSymbolAndIntegerLikeKeys()
     {
         var engine = new Engine();
@@ -289,7 +289,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"symVal":1,"a":2,"keys2":["0","5","a"],"five":"five","zero":"zero"}""");
     }
 
-    [Fact]
+    [Test]
     public void FromEntriesPastMegamorphicGuardKeepsAllEntriesInOrder()
     {
         var engine = new Engine();
@@ -313,7 +313,7 @@ public class ObjectSpreadShapeTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AssignOverwritesAcrossSources()
     {
         var engine = new Engine();
@@ -327,7 +327,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b","c"],"a":1,"b":3,"c":4}""");
     }
 
-    [Fact]
+    [Test]
     public void AssignInvokesInheritedProtoSetterWithoutOwnKey()
     {
         var engine = new Engine();
@@ -354,7 +354,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"srcOwn":true,"protoOk":true,"ownProto":false,"marker":"proto","keys":[]}""");
     }
 
-    [Fact]
+    [Test]
     public void AssignOntoNonEmptyAndFrozenTargetsIsUnchanged()
     {
         var engine = new Engine();
@@ -385,7 +385,7 @@ public class ObjectSpreadShapeTests
         frozenEmpty.Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AssignResultSupportsDeleteAndDefineProperty()
     {
         var engine = new Engine();
@@ -401,7 +401,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","c"],"a":1,"d":4,"hasB":false}""");
     }
 
-    [Fact]
+    [Test]
     public void GeneratorSuspensionMidLiteralKeepsExactVisibilityAndDoesNotRerunSpread()
     {
         var engine = new Engine();
@@ -432,7 +432,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"first":"suspended","keys":["a","b","c"],"a":1,"b":2,"c":3,"late":false}""");
     }
 
-    [Fact]
+    [Test]
     public void GeneratorSuspensionWithAccessorLiteralStaysOnDictionaryPath()
     {
         var engine = new Engine();
@@ -453,7 +453,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["x","y","z"],"x":1,"y":2,"z":9}""");
     }
 
-    [Fact]
+    [Test]
     public void CopyIdiomsWithSameLayoutShareTheInternedShape()
     {
         var engine = new Engine();
@@ -476,7 +476,7 @@ public class ObjectSpreadShapeTests
         assigned.ShapeOf.Should().BeSameAs(spread1.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void DuplicateClassFieldInitializersKeepSingleSlotAcrossHotInstances()
     {
         var engine = new Engine();
@@ -494,7 +494,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["x"],"x":2}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadResultStaysFullyMutable()
     {
         var engine = new Engine();
@@ -516,7 +516,7 @@ public class ObjectSpreadShapeTests
 
     // ---- Source-shape adoption fast path: `{ ...src }` where src is itself a shape-mode object ----
 
-    [Fact]
+    [Test]
     public void SpreadOfShapeSourceAdoptsSourceInternedShape()
     {
         var engine = new Engine();
@@ -544,7 +544,7 @@ public class ObjectSpreadShapeTests
         engine.Evaluate("Object.keys({ ...src, x: 1 }).join()").AsString().Should().Be("a,b,c,d,x");
     }
 
-    [Fact]
+    [Test]
     public void SpreadCloneHasIndependentSlotStorageInlineAndOverflow()
     {
         var engine = new Engine();
@@ -568,7 +568,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"srcA":1,"srcF":6,"tA":99,"tF":88,"sharedNested":42,"sameNestedRef":true}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadOfCustomPrototypeSourceDeclinesAndResultHasObjectPrototype()
     {
         var engine = new Engine();
@@ -595,7 +595,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b"],"hasInheritedOwn":false,"protoIsObjectProto":true,"a":1,"b":2}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadOfShapeSourceWithIntegerLikeKeyKeepsSpecOrderAndValues()
     {
         var engine = new Engine();
@@ -613,7 +613,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["0","a","b"],"zero":2,"a":1,"b":3}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadOfSymbolCarryingShapeSourceDeclinesButCopiesSymbol()
     {
         var engine = new Engine();
@@ -638,7 +638,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b"],"a":1,"b":2,"enumSym":"enum","hiddenSym":true}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadNotFirstElementStreamsAndKeepsOrder()
     {
         var engine = new Engine();
@@ -655,7 +655,7 @@ public class ObjectSpreadShapeTests
         result.Should().Be("""{"keys":["a","b","c","d"],"values":[1,2,3,4]}""");
     }
 
-    [Fact]
+    [Test]
     public void SpreadTrailingKeyDoesNotLeakIntoAdoptedSource()
     {
         var engine = new Engine();

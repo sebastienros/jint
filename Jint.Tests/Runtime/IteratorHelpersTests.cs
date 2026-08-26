@@ -2,7 +2,7 @@
 
 public class IteratorHelpersTests
 {
-    [Fact]
+    [Test]
     public void ToArrayCollectsAllValues()
     {
         var engine = new Engine();
@@ -18,7 +18,7 @@ public class IteratorHelpersTests
         result.Should().Be("[[1,2,3],[1,2,3],[\"a\",\"b\"]]");
     }
 
-    [Fact]
+    [Test]
     public void ToArrayWorksThroughHelperChain()
     {
         var engine = new Engine();
@@ -27,7 +27,7 @@ public class IteratorHelpersTests
         result.Should().Be("[20,30,40]");
     }
 
-    [Fact]
+    [Test]
     public void ToArrayReturnsPlainArray()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class IteratorHelpersTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void JoinConcatenatesUsingSeparator()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["","one","one,two,three","one&&two&&three","onetwothree","a-b","20/30/40"]""");
     }
 
-    [Fact]
+    [Test]
     public void JoinFormatsNullishValuesAsEmptyString()
     {
         var engine = new Engine();
@@ -65,7 +65,7 @@ public class IteratorHelpersTests
         result.Should().Be("one,,two,,three");
     }
 
-    [Fact]
+    [Test]
     public void JoinCoercesSeparatorBeforeReadingNext()
     {
         var engine = new Engine();
@@ -85,7 +85,7 @@ public class IteratorHelpersTests
         result.Should().Be("one&&two|toString,get next");
     }
 
-    [Fact]
+    [Test]
     public void JoinClosesIteratorWhenCoercionThrows()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class IteratorHelpersTests
         result.Should().Be("[true,true,false]");
     }
 
-    [Fact]
+    [Test]
     public void JoinThrowsOnNonObjectReceiver()
     {
         var engine = new Engine();
@@ -174,17 +174,16 @@ public class IteratorHelpersTests
         }
         """;
 
-    [Theory]
     // every helper that validates an argument before building the iterator record closes the
     // receiver, and every one of them used to surrender its error to a throwing "return" getter
-    [InlineData("map")]
-    [InlineData("filter")]
-    [InlineData("flatMap")]
-    [InlineData("forEach")]
-    [InlineData("some")]
-    [InlineData("every")]
-    [InlineData("find")]
-    [InlineData("reduce")]
+    [TestCase("map")]
+    [TestCase("filter")]
+    [TestCase("flatMap")]
+    [TestCase("forEach")]
+    [TestCase("some")]
+    [TestCase("every")]
+    [TestCase("find")]
+    [TestCase("reduce")]
     public void ClosingTheReceiverNeverReplacesTheValidationError(string method)
     {
         var engine = new Engine();
@@ -201,13 +200,12 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError: Argument must be callable","TypeError: Argument must be callable","TypeError: Argument must be callable"]""");
     }
 
-    [Theory]
     // take/drop raise a RangeError, so a close that leaks its own error changes the observable
     // error TYPE, not just its message
-    [InlineData("take", "NaN")]
-    [InlineData("take", "-1")]
-    [InlineData("drop", "NaN")]
-    [InlineData("drop", "-1")]
+    [TestCase("take", "NaN")]
+    [TestCase("take", "-1")]
+    [TestCase("drop", "NaN")]
+    [TestCase("drop", "-1")]
     public void ClosingTheReceiverNeverReplacesTheLimitRangeError(string method, string limit)
     {
         var engine = new Engine();
@@ -225,7 +223,7 @@ public class IteratorHelpersTests
         result.Should().Be($"""["{expected}","{expected}","{expected}"]""");
     }
 
-    [Fact]
+    [Test]
     public void ClosingTheReceiverNeverReplacesACoercionError()
     {
         var engine = new Engine();
@@ -246,15 +244,14 @@ public class IteratorHelpersTests
         result.Should().Be("""["Error: FROM-VALUEOF","Error: FROM-VALUEOF","Error: FROM-TOSTRING","Error: FROM-TOSTRING"]""");
     }
 
-    [Theory]
-    [InlineData("map")]
-    [InlineData("filter")]
-    [InlineData("flatMap")]
-    [InlineData("forEach")]
-    [InlineData("some")]
-    [InlineData("every")]
-    [InlineData("find")]
-    [InlineData("reduce")]
+    [TestCase("map")]
+    [TestCase("filter")]
+    [TestCase("flatMap")]
+    [TestCase("forEach")]
+    [TestCase("some")]
+    [TestCase("every")]
+    [TestCase("find")]
+    [TestCase("reduce")]
     public void AsyncClosingTheReceiverNeverReplacesTheValidationError(string method)
     {
         var engine = new Engine();
@@ -271,9 +268,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError: Argument must be callable","TypeError: Argument must be callable","TypeError: Argument must be callable"]""");
     }
 
-    [Theory]
-    [InlineData("take")]
-    [InlineData("drop")]
+    [TestCase("take")]
+    [TestCase("drop")]
     public void AsyncClosingTheReceiverNeverReplacesTheLimitRangeError(string method)
     {
         var engine = new Engine();
@@ -290,7 +286,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError: NaN must be positive","RangeError: NaN must be positive","RangeError: NaN must be positive"]""");
     }
 
-    [Fact]
+    [Test]
     public void ClosingTheReceiverStillHappens()
     {
         // the fix suppresses the close's own error, it must not suppress the close
@@ -311,9 +307,8 @@ public class IteratorHelpersTests
         result.Should().Be(2);
     }
 
-    [Theory]
-    [InlineData("take")]
-    [InlineData("drop")]
+    [TestCase("take")]
+    [TestCase("drop")]
     public void LimitAtOrBelowMaxSafeIntegerIsAccepted(string method)
     {
         // Number.MAX_SAFE_INTEGER is the inclusive upper bound, and Infinity is exempt from the
@@ -332,9 +327,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["ok","ok","ok"]""");
     }
 
-    [Theory]
-    [InlineData("take")]
-    [InlineData("drop")]
+    [TestCase("take")]
+    [TestCase("drop")]
     public void FiniteLimitAboveMaxSafeIntegerThrowsRangeError(string method)
     {
         var engine = new Engine();
@@ -351,9 +345,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError","RangeError","RangeError"]""");
     }
 
-    [Theory]
-    [InlineData("take")]
-    [InlineData("drop")]
+    [TestCase("take")]
+    [TestCase("drop")]
     public void AnOversizedLimitClosesTheReceiverWithoutReadingNext(string method)
     {
         // The spec validates against an Iterator Record whose [[NextMethod]] is still undefined, so
@@ -375,9 +368,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError",1]""");
     }
 
-    [Theory]
-    [InlineData("take")]
-    [InlineData("drop")]
+    [TestCase("take")]
+    [TestCase("drop")]
     public void AsyncFiniteLimitAboveMaxSafeIntegerThrowsRangeError(string method)
     {
         // Nothing in test262 covers AsyncIterator, so this is what keeps the two limit validators
@@ -396,7 +388,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError","no throw","no throw"]""");
     }
 
-    [Fact]
+    [Test]
     public void ChunksYieldsConsecutiveNonOverlappingArrays()
     {
         var engine = new Engine();
@@ -414,7 +406,7 @@ public class IteratorHelpersTests
         result.Should().Be("[[[0,1],[2,3],[4]],[[0],[1],[2],[3],[4]],[[0,1,2,3,4]],[[0,1,2,3,4]]]");
     }
 
-    [Fact]
+    [Test]
     public void WindowsSlidesOneElementAtATime()
     {
         var engine = new Engine();
@@ -430,7 +422,7 @@ public class IteratorHelpersTests
         result.Should().Be("[[[0,1],[1,2],[2,3],[3,4]],[[0],[1],[2],[3],[4]],[[0,1,2],[1,2,3],[2,3,4]]]");
     }
 
-    [Fact]
+    [Test]
     public void WindowsUndersizedDefaultsToOnlyFull()
     {
         var engine = new Engine();
@@ -448,7 +440,7 @@ public class IteratorHelpersTests
         result.Should().Be("[[],[],[],[[0,1,2]]]");
     }
 
-    [Fact]
+    [Test]
     public void ChunksAndWindowsYieldDistinctArrays()
     {
         // windows reuses its buffer across yields, so each yielded array has to be a copy.
@@ -468,7 +460,7 @@ public class IteratorHelpersTests
         result.Should().Be("""[true,true,true,"[0,1]"]""");
     }
 
-    [Fact]
+    [Test]
     public void WindowsSlidesBeforeAppendingWhenTheUnderlyingIteratorAdvancesInParallel()
     {
         // Stealing an element from underneath the helper proves the drop-then-append ordering:
@@ -485,9 +477,8 @@ public class IteratorHelpersTests
         result.Should().Be("[[0,1],2,[1,3],[3,4]]");
     }
 
-    [Theory]
-    [InlineData("chunks")]
-    [InlineData("windows")]
+    [TestCase("chunks")]
+    [TestCase("windows")]
     public void ChunkAndWindowSizeAreNotCoerced(string method)
     {
         // The size is taken verbatim - no ToNumber - so anything that is not already an integral
@@ -503,9 +494,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
     }
 
-    [Theory]
-    [InlineData("chunks")]
-    [InlineData("windows")]
+    [TestCase("chunks")]
+    [TestCase("windows")]
     public void ChunkAndWindowSizeMustBeWithinTheValidRange(string method)
     {
         var engine = new Engine();
@@ -526,7 +516,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError","RangeError","RangeError","RangeError","RangeError","ok","ok"]""");
     }
 
-    [Fact]
+    [Test]
     public void WindowsRejectsAnInvalidUndersizedWithoutCoercingIt()
     {
         var engine = new Engine();
@@ -540,9 +530,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
     }
 
-    [Theory]
-    [InlineData("chunks")]
-    [InlineData("windows")]
+    [TestCase("chunks")]
+    [TestCase("windows")]
     public void AnInvalidSizeClosesTheReceiverWithoutReadingNext(string method)
     {
         var engine = new Engine();
@@ -563,7 +552,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError","RangeError",2]""");
     }
 
-    [Fact]
+    [Test]
     public void WindowsValidatesSizeBeforeUndersized()
     {
         // An invalid size wins even when undersized is also invalid, and an invalid undersized is
@@ -584,9 +573,8 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError","TypeError","ok",1]""");
     }
 
-    [Theory]
-    [InlineData("chunks(2)")]
-    [InlineData("windows(2)")]
+    [TestCase("chunks(2)")]
+    [TestCase("windows(2)")]
     public void ChunkingHelpersComposeWithTheOtherHelpers(string call)
     {
         var engine = new Engine();
@@ -600,9 +588,8 @@ public class IteratorHelpersTests
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("chunks")]
-    [InlineData("windows")]
+    [TestCase("chunks")]
+    [TestCase("windows")]
     public void ChunkingHelpersForwardReturnAndStopAfterExhaustion(string method)
     {
         var engine = new Engine();
@@ -638,7 +625,7 @@ public class IteratorHelpersTests
         result.Should().Be("[1,1]");
     }
 
-    [Fact]
+    [Test]
     public void IncludesFindsAValueAndSkipsLeadingElements()
     {
         var engine = new Engine();
@@ -657,7 +644,7 @@ public class IteratorHelpersTests
         result.Should().Be("[true,false,true,false,true,false]");
     }
 
-    [Fact]
+    [Test]
     public void IncludesComparesWithSameValueZero()
     {
         var engine = new Engine();
@@ -676,7 +663,7 @@ public class IteratorHelpersTests
         result.Should().Be("[true,true,true,false,true]");
     }
 
-    [Fact]
+    [Test]
     public void IncludesSkippedElementsIsNotCoerced()
     {
         var engine = new Engine();
@@ -692,7 +679,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError","TypeError"]""");
     }
 
-    [Fact]
+    [Test]
     public void IncludesRejectsNegativeAndOversizedSkippedElements()
     {
         var engine = new Engine();
@@ -714,7 +701,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["RangeError","RangeError","RangeError","ok","ok","ok","ok"]""");
     }
 
-    [Fact]
+    [Test]
     public void IncludesClosesOnAMatchButNotOnExhaustion()
     {
         var engine = new Engine();
@@ -736,7 +723,7 @@ public class IteratorHelpersTests
         result.Should().Be("[true,1,false,1]");
     }
 
-    [Fact]
+    [Test]
     public void IncludesValidationFailureClosesTheReceiverWithoutReadingNext()
     {
         var engine = new Engine();
@@ -757,7 +744,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["TypeError","RangeError",2]""");
     }
 
-    [Fact]
+    [Test]
     public void IncludesWithInfiniteSkipNeverMatches()
     {
         var engine = new Engine();
@@ -777,7 +764,7 @@ public class IteratorHelpersTests
         result.Should().Be("[false,0,4]");
     }
 
-    [Fact]
+    [Test]
     public void IncludesComposesWithTheOtherHelpers()
     {
         var engine = new Engine();
@@ -812,12 +799,11 @@ public class IteratorHelpersTests
     private static string EarlyExitScript(string call, string returnResult) =>
         EarlyExitReceiver.Replace("RETURN_RESULT", returnResult).Replace("CALL", call);
 
-    [Theory]
-    [InlineData("it.includes(42)")]
-    [InlineData("it.some(() => true)")]
-    [InlineData("it.every(() => false)")]
-    [InlineData("it.find(() => true)")]
-    [InlineData("it.take(0).next()")]
+    [TestCase("it.includes(42)")]
+    [TestCase("it.some(() => true)")]
+    [TestCase("it.every(() => false)")]
+    [TestCase("it.find(() => true)")]
+    [TestCase("it.take(0).next()")]
     public void AnEarlyExitCallsReturnExactlyOnce(string call)
     {
         var engine = new Engine();
@@ -826,12 +812,11 @@ public class IteratorHelpersTests
         result.Should().Be("""[1,"no throw"]""");
     }
 
-    [Theory]
-    [InlineData("it.includes(42)")]
-    [InlineData("it.some(() => true)")]
-    [InlineData("it.every(() => false)")]
-    [InlineData("it.find(() => true)")]
-    [InlineData("it.take(0).next()")]
+    [TestCase("it.includes(42)")]
+    [TestCase("it.some(() => true)")]
+    [TestCase("it.every(() => false)")]
+    [TestCase("it.find(() => true)")]
+    [TestCase("it.take(0).next()")]
     public void AnEarlyExitDoesNotReenterAThrowingReturn(string call)
     {
         var engine = new Engine();
@@ -840,12 +825,11 @@ public class IteratorHelpersTests
         result.Should().Be("""[1,"Error: boom"]""");
     }
 
-    [Theory]
-    [InlineData("it.includes(42)")]
-    [InlineData("it.some(() => true)")]
-    [InlineData("it.every(() => false)")]
-    [InlineData("it.find(() => true)")]
-    [InlineData("it.take(0).next()")]
+    [TestCase("it.includes(42)")]
+    [TestCase("it.some(() => true)")]
+    [TestCase("it.every(() => false)")]
+    [TestCase("it.find(() => true)")]
+    [TestCase("it.take(0).next()")]
     public void AnEarlyExitDoesNotReenterAReturnThatYieldsANonObject(string call)
     {
         var engine = new Engine();
@@ -877,7 +861,7 @@ public class IteratorHelpersTests
 
     // Every helper that consumes the underlying iterator, eager and lazy alike, plus Iterator.concat.
     // join was already right; it is kept as the control the others are brought level with.
-    public static TheoryData<string> ConsumingHelpers() =>
+    public static TestCases<string> ConsumingHelpers() =>
     [
         "it.includes(1)",
         "it.join(',')",
@@ -897,8 +881,7 @@ public class IteratorHelpersTests
         "Iterator.concat(it).next()",
     ];
 
-    [Theory]
-    [MemberData(nameof(ConsumingHelpers))]
+    [TestCaseSource(nameof(ConsumingHelpers))]
     public void AThrowingValueGetterDoesNotCloseTheIterator(string call)
     {
         var engine = new Engine();
@@ -908,8 +891,7 @@ public class IteratorHelpersTests
         result.Should().Be("""[0,"value getter"]""");
     }
 
-    [Theory]
-    [MemberData(nameof(ConsumingHelpers))]
+    [TestCaseSource(nameof(ConsumingHelpers))]
     public void AThrowingNextDoesNotCloseTheIterator(string call)
     {
         var engine = new Engine();
@@ -919,8 +901,7 @@ public class IteratorHelpersTests
         result.Should().Be("""[0,"next"]""");
     }
 
-    [Theory]
-    [MemberData(nameof(ConsumingHelpers))]
+    [TestCaseSource(nameof(ConsumingHelpers))]
     public void ANonObjectStepResultDoesNotCloseTheIterator(string call)
     {
         var engine = new Engine();
@@ -929,8 +910,7 @@ public class IteratorHelpersTests
         result.Should().Be("""[0,"Iterator result 7 is not an object"]""");
     }
 
-    [Theory]
-    [MemberData(nameof(ConsumingHelpers))]
+    [TestCaseSource(nameof(ConsumingHelpers))]
     public void AThrowingDoneGetterDoesNotCloseTheIterator(string call)
     {
         var engine = new Engine();
@@ -940,16 +920,15 @@ public class IteratorHelpersTests
         result.Should().Be("""[0,"done getter"]""");
     }
 
-    [Theory]
     // A step that completed abruptly left the record done and the helper's generator completed, so
     // %IteratorHelperPrototype%.return resumes nothing and forwards nothing either.
-    [InlineData("it.map(x => x)")]
-    [InlineData("it.filter(() => true)")]
-    [InlineData("it.take(5)")]
-    [InlineData("it.drop(0)")]
-    [InlineData("it.flatMap(x => [x])")]
-    [InlineData("it.chunks(2)")]
-    [InlineData("it.windows(2)")]
+    [TestCase("it.map(x => x)")]
+    [TestCase("it.filter(() => true)")]
+    [TestCase("it.take(5)")]
+    [TestCase("it.drop(0)")]
+    [TestCase("it.flatMap(x => [x])")]
+    [TestCase("it.chunks(2)")]
+    [TestCase("it.windows(2)")]
     public void ReturnIsNotForwardedAfterAnAbruptStep(string helper)
     {
         var engine = new Engine();
@@ -965,7 +944,7 @@ public class IteratorHelpersTests
     // round-trip "G" rules and CultureInfo.CurrentCulture: 9007199254740992 comes out as
     // "9.007199254740992E+15", Number.MAX_VALUE as "1.7976931348623157E+308", and the separator and
     // the minus sign move with the ambient culture on top of that.
-    public static TheoryData<string, string> OutOfRangeLimits() =>
+    public static TestCases<string, string> OutOfRangeLimits() =>
         new()
         {
             { "[].values().take(Number.MAX_SAFE_INTEGER + 1)", "9007199254740992 exceeds the maximum safe integer" },
@@ -992,30 +971,27 @@ public class IteratorHelpersTests
             """).AsString();
     }
 
-    [Theory]
-    [MemberData(nameof(OutOfRangeLimits))]
+    [TestCaseSource(nameof(OutOfRangeLimits))]
     public void AnOutOfRangeLimitPrintsTheNumberTheWayJavaScriptDoes(string expression, string expected)
     {
         OutOfRangeLimitMessage(expression).Should().Be(expected);
     }
 
-    [Theory]
-    [MemberData(nameof(OutOfRangeLimits))]
-    [ReplaceCulture("de-DE")]
+    [TestCaseSource(nameof(OutOfRangeLimits))]
+    [SetCulture("de-DE"), SetUICulture("de-DE")]
     public void AnOutOfRangeLimitIgnoresACommaDecimalSeparatorCulture(string expression, string expected)
     {
         OutOfRangeLimitMessage(expression).Should().Be(expected);
     }
 
-    [Theory]
-    [MemberData(nameof(OutOfRangeLimits))]
-    [ReplaceCulture("sv-SE")]
+    [TestCaseSource(nameof(OutOfRangeLimits))]
+    [SetCulture("sv-SE"), SetUICulture("sv-SE")]
     public void AnOutOfRangeLimitIgnoresACultureWithANonAsciiMinusSign(string expression, string expected)
     {
         OutOfRangeLimitMessage(expression).Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void EveryHelperObjectIsTaggedIteratorHelper()
     {
         var engine = new Engine();
@@ -1040,7 +1016,7 @@ public class IteratorHelpersTests
             """["[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]","[object Iterator Helper]"]""");
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncHelperObjectIsTaggedAsyncIteratorHelper()
     {
         var engine = new Engine();
@@ -1055,12 +1031,11 @@ public class IteratorHelpersTests
             """["[object Async Iterator Helper]","[object Async Iterator Helper]","[object Async Iterator Helper]","[object Async Iterator Helper]"]""");
     }
 
-    [Theory]
     // The tag is a data property on the helper prototype, shadowing the accessor pair that
     // %Iterator.prototype% and %AsyncIterator.prototype% carry, with the usual toStringTag
     // attributes: { [[Writable]]: false, [[Enumerable]]: false, [[Configurable]]: true }.
-    [InlineData("Object.getPrototypeOf([1].values().map(x => x))", "Iterator Helper")]
-    [InlineData("Object.getPrototypeOf(AsyncIterator.prototype.map.call(asyncIter, x => x))", "Async Iterator Helper")]
+    [TestCase("Object.getPrototypeOf([1].values().map(x => x))", "Iterator Helper")]
+    [TestCase("Object.getPrototypeOf(AsyncIterator.prototype.map.call(asyncIter, x => x))", "Async Iterator Helper")]
     public void TheHelperToStringTagIsANonWritableConfigurableDataProperty(string prototype, string tag)
     {
         var engine = new Engine();
@@ -1086,10 +1061,9 @@ public class IteratorHelpersTests
     // (https://tc39.es/ecma262/#sec-%iteratorhelperprototype%.return), and the four tests below cover the
     // states it can be called in. Every expectation was taken from node (V8) running the same script.
 
-    [Theory]
-    [InlineData("map", "x")]
-    [InlineData("filter", "true")]
-    [InlineData("flatMap", "[x]")]
+    [TestCase("map", "x")]
+    [TestCase("filter", "true")]
+    [TestCase("flatMap", "[x]")]
     public void ReturnWhileExecutingIsATypeErrorAndClosesNothing(string method, string mapped)
     {
         // Step 6 hands an executing helper to GeneratorResumeAbrupt, whose GeneratorValidate rejects it.
@@ -1117,7 +1091,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["next","inner-TypeError","next1={\"value\":1,\"done\":false}"]""");
     }
 
-    [Fact]
+    [Test]
     public void ReturnWhileExecutingRejectsTheHelperBeingStepped()
     {
         // A helper stacked on another only makes the executing one observable from further away.
@@ -1144,7 +1118,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["next","inner-TypeError","outer-next={\"value\":1,\"done\":false}"]""");
     }
 
-    [Fact]
+    [Test]
     public void ReturnOnACompletedHelperClosesNothing()
     {
         // GeneratorResumeAbrupt answers a completed generator with a done result and resumes no body, so
@@ -1176,7 +1150,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["outer-next","inner-next","next1={\"value\":\"a\",\"done\":false}","inner-next","outer-return","next2-RangeError","return={\"done\":true}","return2={\"done\":true}"]""");
     }
 
-    [Fact]
+    [Test]
     public void ReturnBeforeTheFirstNextClosesTheUnderlyingIterator()
     {
         // Step 4's suspended-start branch: the body never ran, so the close is the whole of the work.
@@ -1198,7 +1172,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["return","return={\"done\":true}","next={\"done\":true}","return2={\"done\":true}"]""");
     }
 
-    [Fact]
+    [Test]
     public void ReturnFromInsideTheUnderlyingCloseSeesACompletedHelper()
     {
         // The state moves to completed *before* the close runs, so a "return" that re-enters the helper
@@ -1227,7 +1201,7 @@ public class IteratorHelpersTests
         result.Should().Be("""["next","next1={\"value\":1,\"done\":false}","src-return","nested={\"done\":true}","outer-return={\"done\":true}"]""");
     }
 
-    [Fact]
+    [Test]
     public void TheReceiverOfAHelperKeepsItsOwnToStringTag()
     {
         var engine = new Engine();
@@ -1246,7 +1220,7 @@ public class IteratorHelpersTests
     /// nor reads `done` off it. Those belong to IteratorNext, performed by whoever consumes the
     /// wrapper as an iterator -- which calling .next() on it directly is not.
     /// </summary>
-    [Fact]
+    [Test]
     public void WrapForValidIteratorNextHandsBackWhateverTheWrappedNextReturned()
     {
         var engine = new Engine();
@@ -1259,7 +1233,7 @@ public class IteratorHelpersTests
         result.Should().Be("[true,true,true,true,true,true]");
     }
 
-    [Fact]
+    [Test]
     public void WrapForValidIteratorNextDoesNotReadDoneOffTheResult()
     {
         var engine = new Engine();
@@ -1274,7 +1248,7 @@ public class IteratorHelpersTests
         result.Should().Be("""[true,[]]""");
     }
 
-    [Fact]
+    [Test]
     public void ConsumingAWrappedIteratorStillRequiresAnObjectResult()
     {
         var engine = new Engine();

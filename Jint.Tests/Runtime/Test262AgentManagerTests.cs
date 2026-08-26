@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime;
 
 public class Test262AgentManagerTests
 {
-    [Fact]
+    [Test]
     public void SpawnedAgentsCanUseSynchronousWait()
     {
         using var manager = new Test262AgentManager();

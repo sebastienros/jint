@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class SecurityConfigurationInternalsTests
 {
-    [Fact]
+    [Test]
     public void FirstPartyConfigurationHasUnspoofableDiagnosticProvenance()
     {
         var callbackCount = 0;

@@ -27,7 +27,7 @@ public class ScopeTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AllowsInspectionOfUninitializedGlobalBindings()
     {
         string script = @"
@@ -44,7 +44,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void AllowsInspectionOfUninitializedBlockBindings()
     {
         string script = @"
@@ -65,7 +65,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ScriptScopeIncludesGlobalConst()
     {
         string script = @"
@@ -80,7 +80,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ScriptScopeIncludesGlobalLet()
     {
         string script = @"
@@ -94,7 +94,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void GlobalScopeIncludesGlobalVar()
     {
         string script = @"
@@ -108,7 +108,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void TopLevelBlockScopeIsIdentified()
     {
         string script = @"
@@ -127,7 +127,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void NonTopLevelBlockScopeIsIdentified()
     {
         string script = @"
@@ -149,7 +149,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void BlockScopeIncludesLocalConst()
     {
         string script = @"
@@ -168,7 +168,7 @@ public class ScopeTests
             value.AsString().Should().Be("test");
         });
     }
-    [Fact]
+    [Test]
     public void BlockScopeIncludesLocalLet()
     {
         string script = @"
@@ -188,7 +188,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void LocalScopeIncludesLocalVar()
     {
         string script = @"
@@ -205,7 +205,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void LocalScopeIncludesBlockVar()
     {
         string script = @"
@@ -224,7 +224,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void BlockScopedConstIsVisibleInsideBlock()
     {
         string script = @"
@@ -240,7 +240,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void BlockScopedLetIsVisibleInsideBlock()
     {
         string script = @"
@@ -256,7 +256,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForFunction()
     {
         string script = @"
@@ -278,7 +278,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForNestedFunction()
     {
         string script = @"
@@ -306,7 +306,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForBlock()
     {
         string script = @"
@@ -333,7 +333,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForModule()
     {
         string imported = @"
@@ -365,7 +365,7 @@ public class ScopeTests
             });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForNestedBlock()
     {
         string script = @"
@@ -397,7 +397,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForCatch()
     {
         string script = @"
@@ -425,7 +425,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void HasCorrectScopeChainForWith()
     {
         string script = @"
@@ -446,7 +446,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ScopeChainIncludesNonEmptyScopes()
     {
         string script = @"
@@ -471,7 +471,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ScopeChainExcludesEmptyScopes()
     {
         string script = @"
@@ -494,7 +494,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ResolvesScopeChainsUpTheCallStack()
     {
         string script = @"
@@ -535,7 +535,7 @@ public class ScopeTests
         });
     }
 
-    [Fact]
+    [Test]
     public void InspectsModuleScopedBindings()
     {
         string main = @"const x = 1; debugger;";

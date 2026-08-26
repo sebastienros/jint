@@ -17,7 +17,7 @@ public class ArrayTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
-    [Fact]
+    [Test]
     public void FilterSkipsHoles()
     {
         var result = _engine.Evaluate("JSON.stringify([1,,3].filter(function(x) { return true; }))").AsString();
@@ -25,7 +25,7 @@ public class ArrayTests
         result.Should().Be("[1,3]");
     }
 
-    [Fact]
+    [Test]
     public void HoleReadFindsInheritedIndexOnArrayPrototype()
     {
         // The pristine-prototypes shortcut must disengage the moment Array.prototype (or
@@ -55,13 +55,12 @@ public class ArrayTests
     /// operation down a different lane.
     /// </para>
     /// </summary>
-    [Theory]
     // the reported case: Object.prototype gains index 3 while element 1 is being coerced
-    [InlineData("Object.prototype[3] = 'fnord'", "0funkyfnord")]
+    [TestCase("Object.prototype[3] = 'fnord'", "0funkyfnord")]
     // Array.prototype is the nearer link of the same chain
-    [InlineData("Array.prototype[3] = 'arr'", "0funkyarr")]
+    [TestCase("Array.prototype[3] = 'arr'", "0funkyarr")]
     // an accessor, not just a data property
-    [InlineData("Object.defineProperty(Object.prototype, '3', { configurable: true, get: function () { return 'G'; } })", "0funkyG")]
+    [TestCase("Object.defineProperty(Object.prototype, '3', { configurable: true, get: function () { return 'G'; } })", "0funkyG")]
     public void JoinResolvesAHoleAtItsOwnTurn(string sideEffect, string expected)
     {
         new Engine().Evaluate($$"""
@@ -74,7 +73,7 @@ public class ArrayTests
     /// <c>Array.prototype.toString</c> is defined as a call to <c>join</c>, so it inherits the same behaviour
     /// rather than needing its own fix.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArrayToStringResolvesAHoleAtItsOwnTurn()
     {
         new Engine().Evaluate("""
@@ -87,14 +86,13 @@ public class ArrayTests
     /// Nothing changes for an array whose prototype chain stays pristine: a hole is still the empty string and
     /// the packed lane still answers straight out of the snapshot.
     /// </summary>
-    [Theory]
-    [InlineData("[0, 'a', , ,].join('-')", "0-a--")]
-    [InlineData("[0, 'a', , ,].toString()", "0,a,,")]
-    [InlineData("[1, 2, 3].join('-')", "1-2-3")]
-    [InlineData("[].join('-')", "")]
-    [InlineData("[7].join('-')", "7")]
-    [InlineData("[null, undefined, 1].join('-')", "--1")]
-    [InlineData("new Array(3).join('-')", "--")]
+    [TestCase("[0, 'a', , ,].join('-')", "0-a--")]
+    [TestCase("[0, 'a', , ,].toString()", "0,a,,")]
+    [TestCase("[1, 2, 3].join('-')", "1-2-3")]
+    [TestCase("[].join('-')", "")]
+    [TestCase("[7].join('-')", "7")]
+    [TestCase("[null, undefined, 1].join('-')", "--1")]
+    [TestCase("new Array(3).join('-')", "--")]
     public void JoinWithPristinePrototypesIsUnchanged(string expression, string expected)
     {
         new Engine().Evaluate(expression).AsString().Should().Be(expected);
@@ -104,7 +102,7 @@ public class ArrayTests
     /// A packed array never reaches the hole path at all, so an element's side effect on the prototype chain
     /// cannot change what it joins to.
     /// </summary>
-    [Fact]
+    [Test]
     public void JoinOfAPackedArrayIgnoresPrototypePollution()
     {
         new Engine().Evaluate("""
@@ -113,7 +111,7 @@ public class ArrayTests
             """).AsString().Should().Be("0funky12");
     }
 
-    [Fact]
+    [Test]
     public void HoleReadHonorsIndexGetterOnArrayItself()
     {
         // an exotic own descriptor clears the fast-access invariant on the instance
@@ -127,7 +125,7 @@ public class ArrayTests
         result.Should().Be("got,true,true");
     }
 
-    [Fact]
+    [Test]
     public void HoleReadWalksCustomPrototypeChain()
     {
         var engine = new Engine();
@@ -142,7 +140,7 @@ public class ArrayTests
         result.Should().Be("inherited,true,true,false");
     }
 
-    [Fact]
+    [Test]
     public void FilterSubclassUsesSpecies()
     {
         var result = _engine.Evaluate("""
@@ -155,7 +153,7 @@ public class ArrayTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FilterRespectsOwnConstructorProperty()
     {
         var result = _engine.Evaluate("""
@@ -170,7 +168,7 @@ public class ArrayTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FilterThrowingCallbackLeavesEngineUsable()
     {
         Invoking(() => _engine.Evaluate("[1, 2, 3].filter(function(x) { if (x === 2) { throw new Error('boom'); } return true; })")).Should().ThrowExactly<JavaScriptException>();
@@ -179,7 +177,7 @@ public class ArrayTests
         result.Should().Be("[2,4]");
     }
 
-    [Fact]
+    [Test]
     public void FilterCallbackMutatingSource()
     {
         // elements appended during iteration are not visited (len captured up front),
@@ -197,7 +195,7 @@ public class ArrayTests
         shrink.Should().Be("[1,2]");
     }
 
-    [Fact]
+    [Test]
     public void FlatSkipsNestedHoles()
     {
         var result = _engine.Evaluate("JSON.stringify([1, [2, , 3], , [4]].flat())").AsString();
@@ -205,7 +203,7 @@ public class ArrayTests
         result.Should().Be("[1,2,3,4]");
     }
 
-    [Fact]
+    [Test]
     public void FlatInfiniteDepth()
     {
         var result = _engine.Evaluate("JSON.stringify([1, [2, [3, [4, [5]]]]].flat(Infinity))").AsString();
@@ -213,7 +211,7 @@ public class ArrayTests
         result.Should().Be("[1,2,3,4,5]");
     }
 
-    [Fact]
+    [Test]
     public void FlatSubclassUsesSpecies()
     {
         var result = _engine.Evaluate("""
@@ -226,7 +224,7 @@ public class ArrayTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FlatMapThrowingMapperLeavesEngineUsable()
     {
         Invoking(() => _engine.Evaluate("[1, 2, 3].flatMap(function(x) { if (x === 2) { throw new Error('boom'); } return [x]; })")).Should().ThrowExactly<JavaScriptException>();
@@ -235,7 +233,7 @@ public class ArrayTests
         result.Should().Be("[1,10,2,20]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatGenericSpreadableAbsentIndicesBecomeUndefinedProperties()
     {
         // mirrors the long-standing slow-path deviation: absent indices of a generic
@@ -250,7 +248,7 @@ public class ArrayTests
         result.Should().Be("[3,true,\"a\",\"c\"]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatMixedHoleyArrayAndSpreadableObject()
     {
         var result = _engine.Evaluate("""
@@ -263,7 +261,7 @@ public class ArrayTests
         result.Should().Be("[8,false,true,\"x\",1,3,\"a\",\"c\",\"tail\"]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatOwnConstructorPropertyFallsBackToSlowPath()
     {
         var result = _engine.Evaluate("""
@@ -276,7 +274,7 @@ public class ArrayTests
         result.Should().Be("[4,false,\"x\",1,3]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatSparseModeReceiverDoesNotCrash()
     {
         var result = _engine.Evaluate("""
@@ -289,7 +287,7 @@ public class ArrayTests
         result.Should().Be("[5000002,1,2,false]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatSparseModeArgumentDoesNotCrash()
     {
         var result = _engine.Evaluate("""
@@ -302,7 +300,7 @@ public class ArrayTests
         result.Should().Be("[5000002,\"x\",1,false]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromIteratorCollectsAllValues()
     {
         var result = _engine.Evaluate("""
@@ -315,7 +313,7 @@ public class ArrayTests
         result.Should().Be("[[1,2,3],[\"a\",\"b\"]]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromIteratorWithMapperPassesIndices()
     {
         var result = _engine.Evaluate("JSON.stringify(Array.from(new Set(['a', 'b']), function (v, i) { return v + i; }))").AsString();
@@ -323,7 +321,7 @@ public class ArrayTests
         result.Should().Be("[\"a0\",\"b1\"]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromThrowingMapperClosesIterator()
     {
         var result = _engine.Evaluate("""
@@ -343,7 +341,7 @@ public class ArrayTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromSubclassUsesConstructor()
     {
         var result = _engine.Evaluate("""
@@ -355,7 +353,7 @@ public class ArrayTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeToStringWithArray()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call([1,2,3]);").AsString();
@@ -363,7 +361,7 @@ public class ArrayTests
         result.Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeToStringWithNumber()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call(1);").AsString();
@@ -371,7 +369,7 @@ public class ArrayTests
         result.Should().Be("[object Number]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeToStringWithObject()
     {
         var result = _engine.Evaluate("Array.prototype.toString.call({});").AsString();
@@ -379,7 +377,7 @@ public class ArrayTests
         result.Should().Be("[object Object]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeJoinWithCircularReference()
     {
         var result = _engine.Evaluate("Array.prototype.join.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
@@ -387,7 +385,7 @@ public class ArrayTests
         result.Should().Be("1,1,,3,4,3,4");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeToLocaleStringWithCircularReference()
     {
         var result = _engine.Evaluate("Array.prototype.toLocaleString.call((c = [1, 2, 3, 4], b = [1, 2, 3, 4], b[1] = c, c[1] = b, c))").AsString();
@@ -395,7 +393,7 @@ public class ArrayTests
         result.Should().Be("1,1,,3,4,3,4");
     }
 
-    [Fact]
+    [Test]
     public void EmptyStringKey()
     {
         var result = _engine.Evaluate("var x=[];x[\"\"]=8;x[\"\"];").AsNumber();
@@ -403,7 +401,7 @@ public class ArrayTests
         result.Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void LargeArraySize()
     {
         const string code = @"
@@ -415,7 +413,7 @@ public class ArrayTests
         engine.Execute(code);
     }
 
-    [Fact]
+    [Test]
     public void ArrayLengthFromInitialState()
     {
         var engine = new Engine();
@@ -424,7 +422,7 @@ public class ArrayTests
         length.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ArraySortIsStable()
     {
         const string code = @"
@@ -464,7 +462,7 @@ public class ArrayTests
         _engine.Execute(code);
     }
 
-    [Fact]
+    [Test]
     public void ExtendingArrayAndInstanceOf()
     {
         const string script = @"
@@ -479,14 +477,14 @@ public class ArrayTests
         _engine.Evaluate("a instanceof MyArr").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IteratorShouldBeConvertibleToArray()
     {
         _engine.Evaluate("Array.from(['hello', 'again'].values()).join(';')").Should().Be("hello;again");
         _engine.Evaluate("Array.from(new Map([['hello', 'world'], ['another', 'value']]).keys()).join(';')").Should().Be("hello;another");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromShouldNotFlattenInputArray()
     {
         _engine.Evaluate("[...['a', 'b']].join(';')").Should().Be("a;b");
@@ -495,7 +493,7 @@ public class ArrayTests
         _engine.Evaluate("Array.from([[0, 'e'],[1, 'f']]).join(';')").Should().Be("0,e;1,f");
     }
 
-    [Fact]
+    [Test]
     public void ArrayEntriesShouldReturnKeyValuePairs()
     {
         _engine.Evaluate("Array.from(['hello', 'world'].entries()).join()").Should().Be("0,hello,1,world");
@@ -503,7 +501,7 @@ public class ArrayTests
         _engine.Evaluate("Array.from([,1,5,].entries()).join(';')").Should().Be("0,;1,1;2,5");
     }
 
-    [Fact]
+    [Test]
     public void IteratorsShouldHaveIteratorSymbol()
     {
         _engine.Execute("assert(!!['hello'].values()[Symbol.iterator])");
@@ -511,7 +509,7 @@ public class ArrayTests
     }
 
 
-    [Fact]
+    [Test]
     public void ArraySortDoesNotCrashInDebugMode()
     {
         var engine = new Engine(o =>
@@ -530,7 +528,7 @@ public class ArrayTests
         engine.Execute(code);
     }
 
-    [Fact]
+    [Test]
     public void ArrayConstructorFromHoles()
     {
         _engine.Evaluate("var a = Array(...[,,]);");
@@ -539,7 +537,7 @@ public class ArrayTests
         _engine.Evaluate("'' + a[0] + a[1]").Should().Be("undefinedundefined");
     }
 
-    [Fact]
+    [Test]
     public void ArrayIsSubclassable()
     {
         _engine.Evaluate("class C extends Array {}");
@@ -547,7 +545,7 @@ public class ArrayTests
         _engine.Evaluate("c.map(Boolean) instanceof C").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasProperIteratorPrototypeChain()
     {
         const string Script = @"
@@ -566,7 +564,7 @@ public class ArrayTests
         engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayFrom()
     {
         const string Script = @"
@@ -582,7 +580,7 @@ public class ArrayTests
         engine.Evaluate("get.slice(1) + ''").AsString().Should().Be("length,0,1");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromStringUsingMapping()
     {
         var engine = new Engine();
@@ -593,7 +591,7 @@ public class ArrayTests
         array[2].Should().Be((uint) 15);
     }
 
-    [Fact]
+    [Test]
     public void Iteration()
     {
         const string Script = @"
@@ -622,7 +620,7 @@ public class ArrayTests
         engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void Concat()
     {
         const string Script = @"
@@ -644,7 +642,7 @@ public class ArrayTests
         engine.Evaluate("get.length").Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void ConcatHandlesHolesCorrectly()
     {
         const string Code = """
@@ -669,7 +667,7 @@ public class ArrayTests
         a[4].Should().BeOfType<JsArray>().Which.AsEnumerable().Should().ContainInOrder("#a6611a", "#dfc27d", "#80cdc1", "#018571");
     }
 
-    [Fact]
+    [Test]
     public void Shift()
     {
         const string Script = @"
@@ -683,7 +681,7 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToInitFromArray()
     {
         var engine = new Engine();
@@ -695,7 +693,7 @@ return get + '' === ""length,0,1,2,3"";";
         propertyDescriptors[1].Value.Value.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromSortTest()
     {
         var item1 = new KeyValuePair<string, string>("Id1", "0020");
@@ -721,34 +719,33 @@ return get + '' === ""length,0,1,2,3"";";
     /// there and a plain swap cannot express that; fill may keep it, because filling makes every index
     /// in the range present. Every expectation was verified against V8.
     /// </summary>
-    [Theory]
     // reverse, fully populated: takes the fast path
-    [InlineData("[1,2,3].reverse()", "[3,2,1]len=3")]
-    [InlineData("[1,2,3,4].reverse()", "[4,3,2,1]len=4")]
-    [InlineData("[].reverse()", "[]len=0")]
-    [InlineData("[7].reverse()", "[7]len=1")]
+    [TestCase("[1,2,3].reverse()", "[3,2,1]len=3")]
+    [TestCase("[1,2,3,4].reverse()", "[4,3,2,1]len=4")]
+    [TestCase("[].reverse()", "[]len=0")]
+    [TestCase("[7].reverse()", "[7]len=1")]
     // undefined is a present value, not a hole, so it still qualifies
-    [InlineData("[1,undefined,3].reverse()", "[3,undefined,1]len=3")]
+    [TestCase("[1,undefined,3].reverse()", "[3,undefined,1]len=3")]
     // reverse with holes: must fall through and preserve them
-    [InlineData("[1,,3].reverse()", "[3,<hole>,1]len=3")]
-    [InlineData("[,,3].reverse()", "[3,<hole>,<hole>]len=3")]
-    [InlineData("new Array(3).reverse()", "[<hole>,<hole>,<hole>]len=3")]
-    [InlineData("(function(){var a=[1,2,3];a[10]=11;return a.reverse();})()", "[11,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,3,2,1]len=11")]
+    [TestCase("[1,,3].reverse()", "[3,<hole>,1]len=3")]
+    [TestCase("[,,3].reverse()", "[3,<hole>,<hole>]len=3")]
+    [TestCase("new Array(3).reverse()", "[<hole>,<hole>,<hole>]len=3")]
+    [TestCase("(function(){var a=[1,2,3];a[10]=11;return a.reverse();})()", "[11,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,<hole>,3,2,1]len=11")]
     // length shortened below the backing store
-    [InlineData("(function(){var a=[1,2,3,4,5];a.length=3;return a.reverse();})()", "[3,2,1]len=3")]
+    [TestCase("(function(){var a=[1,2,3,4,5];a.length=3;return a.reverse();})()", "[3,2,1]len=3")]
     // fill: ranges, clamping, fractional and inverted
-    [InlineData("[1,2,3,4].fill(0)", "[0,0,0,0]len=4")]
-    [InlineData("[1,2,3,4].fill(0,1,3)", "[1,0,0,4]len=4")]
-    [InlineData("[1,2,3].fill(0,-2)", "[1,0,0]len=3")]
-    [InlineData("[1,2,3].fill(0,-100,100)", "[0,0,0]len=3")]
-    [InlineData("[1,2,3].fill(0,2,1)", "[1,2,3]len=3")]
-    [InlineData("[1,2,3].fill(0,1.7,2.9)", "[1,0,3]len=3")]
-    [InlineData("[].fill(1)", "[]len=0")]
-    [InlineData("[1,2,3].fill(undefined,1)", "[1,undefined,undefined]len=3")]
+    [TestCase("[1,2,3,4].fill(0)", "[0,0,0,0]len=4")]
+    [TestCase("[1,2,3,4].fill(0,1,3)", "[1,0,0,4]len=4")]
+    [TestCase("[1,2,3].fill(0,-2)", "[1,0,0]len=3")]
+    [TestCase("[1,2,3].fill(0,-100,100)", "[0,0,0]len=3")]
+    [TestCase("[1,2,3].fill(0,2,1)", "[1,2,3]len=3")]
+    [TestCase("[1,2,3].fill(0,1.7,2.9)", "[1,0,3]len=3")]
+    [TestCase("[].fill(1)", "[]len=0")]
+    [TestCase("[1,2,3].fill(undefined,1)", "[1,undefined,undefined]len=3")]
     // fill turns holes into present values
-    [InlineData("[1,,3].fill(9,1,2)", "[1,9,3]len=3")]
-    [InlineData("new Array(3).fill(5)", "[5,5,5]len=3")]
-    [InlineData("(function(){var a=[1,2,3];a[8]=9;return a.fill(7,2,6);})()", "[1,2,7,7,7,7,<hole>,<hole>,9]len=9")]
+    [TestCase("[1,,3].fill(9,1,2)", "[1,9,3]len=3")]
+    [TestCase("new Array(3).fill(5)", "[5,5,5]len=3")]
+    [TestCase("(function(){var a=[1,2,3];a[8]=9;return a.fill(7,2,6);})()", "[1,2,7,7,7,7,<hole>,<hole>,9]len=9")]
     public void ReverseAndFillPreserveHoleSemantics(string expression, string expected)
     {
         var engine = new Engine();
@@ -762,7 +759,7 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate($"d({expression})").AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ReverseAndFillReturnTheSameObjectAndHandleArrayLikes()
     {
         var engine = new Engine();
@@ -807,27 +804,26 @@ return get + '' === ""length,0,1,2,3"";";
     /// range makes the spec delete the target index, so those cases must decline the lane. Every
     /// expectation was verified against V8.
     /// </summary>
-    [Theory]
     // copyWithin, no overlap
-    [InlineData("[1,2,3,4,5].copyWithin(0,3)", "[4,5,3,4,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(1,3)", "[1,4,5,4,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(0,3)", "[4,5,3,4,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(1,3)", "[1,4,5,4,5]len=5")]
     // copyWithin, overlapping in both directions
-    [InlineData("[1,2,3,4,5].copyWithin(3,0)", "[1,2,3,1,2]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(0,1)", "[2,3,4,5,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(1,0,3)", "[1,1,2,3,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(-2,-3,-1)", "[1,2,3,3,4]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(3,0)", "[1,2,3,1,2]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(0,1)", "[2,3,4,5,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(1,0,3)", "[1,1,2,3,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(-2,-3,-1)", "[1,2,3,3,4]len=5")]
     // no-op, empty and clamped ranges
-    [InlineData("[1,2,3,4,5].copyWithin(0,0)", "[1,2,3,4,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(2,2,2)", "[1,2,3,4,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(10,0)", "[1,2,3,4,5]len=5")]
-    [InlineData("[1,2,3,4,5].copyWithin(0,10)", "[1,2,3,4,5]len=5")]
-    [InlineData("[].copyWithin(0,0)", "[]len=0")]
-    [InlineData("[1,2,3].copyWithin(0,1.6,2.9)", "[2,2,3]len=3")]
+    [TestCase("[1,2,3,4,5].copyWithin(0,0)", "[1,2,3,4,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(2,2,2)", "[1,2,3,4,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(10,0)", "[1,2,3,4,5]len=5")]
+    [TestCase("[1,2,3,4,5].copyWithin(0,10)", "[1,2,3,4,5]len=5")]
+    [TestCase("[].copyWithin(0,0)", "[]len=0")]
+    [TestCase("[1,2,3].copyWithin(0,1.6,2.9)", "[2,2,3]len=3")]
     // a hole in the source range deletes the target index, so the lane must decline
-    [InlineData("[1,,3,4].copyWithin(0,1,3)", "[<hole>,3,3,4]len=4")]
-    [InlineData("[1,2,,4].copyWithin(1,2)", "[1,<hole>,4,4]len=4")]
-    [InlineData("(function(){var a=[1,2,3];a[8]=9;return a.copyWithin(0,7,9);})()", "[<hole>,9,3,<hole>,<hole>,<hole>,<hole>,<hole>,9]len=9")]
-    [InlineData("(function(){var a=[1,2,3,4,5];a.length=3;return a.copyWithin(0,1);})()", "[2,3,3]len=3")]
+    [TestCase("[1,,3,4].copyWithin(0,1,3)", "[<hole>,3,3,4]len=4")]
+    [TestCase("[1,2,,4].copyWithin(1,2)", "[1,<hole>,4,4]len=4")]
+    [TestCase("(function(){var a=[1,2,3];a[8]=9;return a.copyWithin(0,7,9);})()", "[<hole>,9,3,<hole>,<hole>,<hole>,<hole>,<hole>,9]len=9")]
+    [TestCase("(function(){var a=[1,2,3,4,5];a.length=3;return a.copyWithin(0,1);})()", "[2,3,3]len=3")]
     public void CopyWithinPreservesOverlapAndHoleSemantics(string expression, string expected)
     {
         var engine = new Engine();
@@ -841,27 +837,26 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate($"d({expression})").AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("[1,2,3,2,1].lastIndexOf(2)", 3)]
-    [InlineData("[1,2,3,2,1].lastIndexOf(2,2)", 1)]
-    [InlineData("[1,2,3].lastIndexOf(9)", -1)]
-    [InlineData("[1,2,3,2].lastIndexOf(2,-1)", 3)]
-    [InlineData("[1,2,3,2].lastIndexOf(2,-3)", 1)]
-    [InlineData("[1,2,3].lastIndexOf(1,-100)", -1)]
-    [InlineData("[1,2,3].lastIndexOf(3,100)", 2)]
-    [InlineData("[].lastIndexOf(1)", -1)]
-    [InlineData("[1,2,3].lastIndexOf(2,1.9)", 1)]
+    [TestCase("[1,2,3,2,1].lastIndexOf(2)", 3)]
+    [TestCase("[1,2,3,2,1].lastIndexOf(2,2)", 1)]
+    [TestCase("[1,2,3].lastIndexOf(9)", -1)]
+    [TestCase("[1,2,3,2].lastIndexOf(2,-1)", 3)]
+    [TestCase("[1,2,3,2].lastIndexOf(2,-3)", 1)]
+    [TestCase("[1,2,3].lastIndexOf(1,-100)", -1)]
+    [TestCase("[1,2,3].lastIndexOf(3,100)", 2)]
+    [TestCase("[].lastIndexOf(1)", -1)]
+    [TestCase("[1,2,3].lastIndexOf(2,1.9)", 1)]
     // a hole is not undefined
-    [InlineData("[1,,1].lastIndexOf(undefined)", -1)]
-    [InlineData("[1,undefined,1].lastIndexOf(undefined)", 1)]
+    [TestCase("[1,,1].lastIndexOf(undefined)", -1)]
+    [TestCase("[1,undefined,1].lastIndexOf(undefined)", 1)]
     // strict equality: NaN never matches, +0 matches -0, no coercion
-    [InlineData("[NaN].lastIndexOf(NaN)", -1)]
-    [InlineData("[0].lastIndexOf(-0)", 0)]
-    [InlineData("['1'].lastIndexOf(1)", -1)]
+    [TestCase("[NaN].lastIndexOf(NaN)", -1)]
+    [TestCase("[0].lastIndexOf(-0)", 0)]
+    [TestCase("['1'].lastIndexOf(1)", -1)]
     // a match beyond the dense backing store
-    [InlineData("(function(){var a=[1,2,3];a[8]=2;return a.lastIndexOf(2);})()", 8)]
+    [TestCase("(function(){var a=[1,2,3];a[8]=2;return a.lastIndexOf(2);})()", 8)]
     // length shortened below the backing store hides the trailing elements
-    [InlineData("(function(){var a=[1,2,3,4,5];a.length=2;return a.lastIndexOf(3);})()", -1)]
+    [TestCase("(function(){var a=[1,2,3,4,5];a.length=2;return a.lastIndexOf(3);})()", -1)]
     public void LastIndexOfMatchesStrictEqualityAndHoles(string expression, int expected)
     {
         new Engine().Evaluate(expression).AsNumber().Should().Be(expected);
@@ -873,7 +868,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// did nothing, unlike reverse next to it. Verified against V8: frozen throws, sealed succeeds (its
     /// existing elements stay writable).
     /// </summary>
-    [Fact]
+    [Test]
     public void FillThrowsWhenAnElementCannotBeWritten()
     {
         var engine = new Engine();
@@ -903,21 +898,20 @@ return get + '' === ""length,0,1,2,3"";";
     /// property inherited from <c>Array.prototype</c>, a sparse array whose length exceeds its backing
     /// store, and a non-array array-like. Expected values match V8.
     /// </summary>
-    [Theory]
-    [InlineData("[1,2,3].toReversed()", "[3,2,1]len=3")]
-    [InlineData("[].toReversed()", "[]len=0")]
-    [InlineData("[1].toReversed()", "[1]len=1")]
-    [InlineData("[1,,3].toReversed()", "[3,undefined,1]len=3")]
-    [InlineData("(function(){var a=[1,2];a[5]=6;return a.toReversed();})()", "[6,undefined,undefined,undefined,2,1]len=6")]
-    [InlineData("Array.prototype.toReversed.call({length:3, 0:'a', 2:'c'})", "[c,undefined,a]len=3")]
-    [InlineData("(function(){Array.prototype[1]='p';try{return [0,,2].toReversed();}finally{delete Array.prototype[1];}})()", "[2,p,0]len=3")]
-    [InlineData("[1,2,3,4].with(1,'X')", "[1,X,3,4]len=4")]
-    [InlineData("[1,2,3,4].with(-1,'X')", "[1,2,3,X]len=4")]
-    [InlineData("[1,,3].with(0,'X')", "[X,undefined,3]len=3")]
-    [InlineData("[1,,3].with(1,'X')", "[1,X,3]len=3")]
-    [InlineData("(function(){var a=[1,2];a[4]=5;return a.with(0,'X');})()", "[X,2,undefined,undefined,5]len=5")]
-    [InlineData("Array.prototype.with.call({length:3, 0:'a', 2:'c'}, 1, 'X')", "[a,X,c]len=3")]
-    [InlineData("(function(){Array.prototype[1]='p';try{return [0,,2].with(0,'X');}finally{delete Array.prototype[1];}})()", "[X,p,2]len=3")]
+    [TestCase("[1,2,3].toReversed()", "[3,2,1]len=3")]
+    [TestCase("[].toReversed()", "[]len=0")]
+    [TestCase("[1].toReversed()", "[1]len=1")]
+    [TestCase("[1,,3].toReversed()", "[3,undefined,1]len=3")]
+    [TestCase("(function(){var a=[1,2];a[5]=6;return a.toReversed();})()", "[6,undefined,undefined,undefined,2,1]len=6")]
+    [TestCase("Array.prototype.toReversed.call({length:3, 0:'a', 2:'c'})", "[c,undefined,a]len=3")]
+    [TestCase("(function(){Array.prototype[1]='p';try{return [0,,2].toReversed();}finally{delete Array.prototype[1];}})()", "[2,p,0]len=3")]
+    [TestCase("[1,2,3,4].with(1,'X')", "[1,X,3,4]len=4")]
+    [TestCase("[1,2,3,4].with(-1,'X')", "[1,2,3,X]len=4")]
+    [TestCase("[1,,3].with(0,'X')", "[X,undefined,3]len=3")]
+    [TestCase("[1,,3].with(1,'X')", "[1,X,3]len=3")]
+    [TestCase("(function(){var a=[1,2];a[4]=5;return a.with(0,'X');})()", "[X,2,undefined,undefined,5]len=5")]
+    [TestCase("Array.prototype.with.call({length:3, 0:'a', 2:'c'}, 1, 'X')", "[a,X,c]len=3")]
+    [TestCase("(function(){Array.prototype[1]='p';try{return [0,,2].with(0,'X');}finally{delete Array.prototype[1];}})()", "[X,p,2]len=3")]
     public void ToReversedAndWithProduceADenseResultWhateverTheSource(string expression, string expected)
     {
         var engine = new Engine();
@@ -939,7 +933,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// backing store, whose capacity still covers those indices, would hand back the stale elements
     /// instead. Expected values match V8.
     /// </summary>
-    [Fact]
+    [Test]
     public void WithReadsTheLiveSourceWhenArgumentCoercionShrinksTheArray()
     {
         var engine = new Engine();
@@ -967,7 +961,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// making it sparse, or by moving an index property onto the prototype) must not be read through a
     /// reference the lane captured beforehand.
     /// </summary>
-    [Fact]
+    [Test]
     public void WithReadsTheLiveSourceWhenArgumentCoercionDeoptimizesTheArray()
     {
         var engine = new Engine();
@@ -990,7 +984,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// backing store does not, and would leave own index properties at or beyond <c>length</c> — a state
     /// an Array can never reach through the spec. Expected values match V8.
     /// </summary>
-    [Fact]
+    [Test]
     public void CopyWithinRestoresLengthWhenArgumentCoercionShrinksTheArray()
     {
         var engine = new Engine();
@@ -1014,7 +1008,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// twin: https://tc39.es/ecma262/#sec-array.prototype.fill captures <c>len</c> at step 3 and coerces
     /// start/end at steps 4 and 6, then writes each index with <c>Set(O, Pk, value, true)</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void FillRestoresLengthWhenArgumentCoercionShrinksTheArray()
     {
         var engine = new Engine();
@@ -1042,9 +1036,8 @@ return get + '' === ""length,0,1,2,3"";";
     /// strictness — both modes are pinned here.
     /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("")]
-    [InlineData("'use strict';")]
+    [TestCase("")]
+    [TestCase("'use strict';")]
     public void FillThrowsWhenItWouldCreateAnElementOnANonExtensibleArray(string prologue)
     {
         var engine = new Engine();
@@ -1060,9 +1053,8 @@ return get + '' === ""length,0,1,2,3"";";
             .AsString().Should().Be("9,9,9");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("'use strict';")]
+    [TestCase("")]
+    [TestCase("'use strict';")]
     public void CopyWithinThrowsWhenItWouldCreateAnElementOnANonExtensibleArray(string prologue)
     {
         var engine = new Engine();
@@ -1086,17 +1078,16 @@ return get + '' === ""length,0,1,2,3"";";
     /// the dense scan then indexes the backing array at −1 and escapes as a CLR
     /// <see cref="IndexOutOfRangeException"/> that no JavaScript <c>try</c> can catch.
     /// </summary>
-    [Theory]
-    [InlineData("[1,2,3].includes(1, 1e20)", false)]
-    [InlineData("[1,2,3].includes(1, 9e18)", false)]
-    [InlineData("[1,2,3].includes(1, 2147483648)", false)]
-    [InlineData("[1,2,3].includes(undefined, 1e20)", false)]
-    [InlineData("[1,2,3].includes(1, -1e20)", true)]
-    [InlineData("[1,2,3].includes(1, Infinity)", false)]
-    [InlineData("[1,2,3].includes(1, -Infinity)", true)]
-    [InlineData("[1,2,3].includes(3, 2)", true)]
-    [InlineData("[1,2,3].includes(1, 3)", false)]
-    [InlineData("[1,2,3].includes(1, -3)", true)]
+    [TestCase("[1,2,3].includes(1, 1e20)", false)]
+    [TestCase("[1,2,3].includes(1, 9e18)", false)]
+    [TestCase("[1,2,3].includes(1, 2147483648)", false)]
+    [TestCase("[1,2,3].includes(undefined, 1e20)", false)]
+    [TestCase("[1,2,3].includes(1, -1e20)", true)]
+    [TestCase("[1,2,3].includes(1, Infinity)", false)]
+    [TestCase("[1,2,3].includes(1, -Infinity)", true)]
+    [TestCase("[1,2,3].includes(3, 2)", true)]
+    [TestCase("[1,2,3].includes(1, 3)", false)]
+    [TestCase("[1,2,3].includes(1, -3)", true)]
     public void IncludesClampsAnOutOfRangeFromIndexInsteadOfNarrowingIt(string expression, bool expected)
     {
         new Engine().Evaluate(expression).AsBoolean().Should().Be(expected);
@@ -1105,7 +1096,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// <summary>
     /// The same shape on a non-dense receiver, so the generic loop is covered too.
     /// </summary>
-    [Fact]
+    [Test]
     public void IncludesClampsAnOutOfRangeFromIndexOnArrayLikes()
     {
         var engine = new Engine();
@@ -1119,7 +1110,7 @@ return get + '' === ""length,0,1,2,3"";";
     /// <em>before</em> the iteration begins, so an empty array is no excuse to skip the check. Every one
     /// of every's siblings already got this right; only <c>every</c> short-circuited on length first.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryValidatesTheCallbackEvenWhenThereIsNothingToIterate()
     {
         var engine = new Engine();
@@ -1139,18 +1130,17 @@ return get + '' === ""length,0,1,2,3"";";
     /// <summary>
     /// The siblings, pinned as the control: they already validated first, and must keep doing so.
     /// </summary>
-    [Theory]
-    [InlineData("[].some(null)")]
-    [InlineData("[].forEach(null)")]
-    [InlineData("[].map(null)")]
-    [InlineData("[].filter(null)")]
-    [InlineData("[].find(null)")]
-    [InlineData("[].findIndex(null)")]
-    [InlineData("[].findLast(null)")]
-    [InlineData("[].findLastIndex(null)")]
-    [InlineData("[].flatMap(null)")]
-    [InlineData("[].reduce(null, 0)")]
-    [InlineData("[].reduceRight(null, 0)")]
+    [TestCase("[].some(null)")]
+    [TestCase("[].forEach(null)")]
+    [TestCase("[].map(null)")]
+    [TestCase("[].filter(null)")]
+    [TestCase("[].find(null)")]
+    [TestCase("[].findIndex(null)")]
+    [TestCase("[].findLast(null)")]
+    [TestCase("[].findLastIndex(null)")]
+    [TestCase("[].flatMap(null)")]
+    [TestCase("[].reduce(null, 0)")]
+    [TestCase("[].reduceRight(null, 0)")]
     public void EmptyArrayCallbackMethodsValidateTheCallback(string expression)
     {
         var engine = new Engine();
@@ -1158,7 +1148,7 @@ return get + '' === ""length,0,1,2,3"";";
         Invoking(() => engine.Evaluate(expression)).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void SortIsStableForEqualElements()
     {
         // ES2019 requires Array.prototype.sort to be stable. The element count matters: List<T>.Sort
@@ -1178,13 +1168,12 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate(Script).AsString().Should().Be(string.Join(",", Enumerable.Range(0, 32)));
     }
 
-    [Theory]
-    [InlineData("items.sort(cmp).length", "a === 1 ? -1 : 1")]
-    [InlineData("items.toSorted(cmp).length", "a === 1 ? -1 : 1")]
-    [InlineData("new Int32Array(items).sort(cmp).length", "a === 1 ? -1 : 1")]
-    [InlineData("items.sort(cmp).length", "-1")]
-    [InlineData("items.toSorted(cmp).length", "-1")]
-    [InlineData("new Int32Array(items).sort(cmp).length", "-1")]
+    [TestCase("items.sort(cmp).length", "a === 1 ? -1 : 1")]
+    [TestCase("items.toSorted(cmp).length", "a === 1 ? -1 : 1")]
+    [TestCase("new Int32Array(items).sort(cmp).length", "a === 1 ? -1 : 1")]
+    [TestCase("items.sort(cmp).length", "-1")]
+    [TestCase("items.toSorted(cmp).length", "-1")]
+    [TestCase("new Int32Array(items).sort(cmp).length", "-1")]
     public void SortTerminatesWithAnInconsistentComparator(string expression, string comparisonResult)
     {
         // A comparison function that never returns 0 and is not antisymmetric is legal JavaScript: the
@@ -1204,7 +1193,7 @@ return get + '' === ""length,0,1,2,3"";";
         engine.Evaluate(expression).AsNumber().Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void PopWrappedGenericList()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);

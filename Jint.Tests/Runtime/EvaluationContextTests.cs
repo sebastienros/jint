@@ -2,7 +2,7 @@
 
 public class EvaluationContextTests
 {
-    [Fact]
+    [Test]
     public void ShouldThrowJavaScriptException()
     {
         var mockedEngine = new Engine();

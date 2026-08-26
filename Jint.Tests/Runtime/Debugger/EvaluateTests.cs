@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime.Debugger;
 
 public class EvaluateTests
 {
-    [Fact]
+    [Test]
     public void EvalutesInCurrentContext()
     {
         var script = @"
@@ -27,7 +27,7 @@ public class EvaluateTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ThrowsIfNoCurrentContext()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
@@ -35,7 +35,7 @@ public class EvaluateTests
         exception.InnerException.Should().BeNull(); // Not a JavaScript or parser exception
     }
 
-    [Fact]
+    [Test]
     public void ThrowsOnRuntimeError()
     {
         var script = @"
@@ -55,7 +55,7 @@ public class EvaluateTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ThrowsOnExecutionError()
     {
         var script = @"
@@ -76,7 +76,7 @@ public class EvaluateTests
         });
     }
 
-    [Fact]
+    [Test]
     public void RestoresStackAfterEvaluation()
     {
         var script = @"

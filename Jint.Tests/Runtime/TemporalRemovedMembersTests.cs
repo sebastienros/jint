@@ -12,7 +12,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class TemporalRemovedMembersTests
 {
-    [Fact]
+    [Test]
     public void PlainDateTimePrototypeExposesExactlyTheMembersTheProposalDefines()
     {
         new Engine().Evaluate("Object.getOwnPropertyNames(Temporal.PlainDateTime.prototype).sort().join()")
@@ -23,7 +23,7 @@ public class TemporalRemovedMembersTests
                 "until,valueOf,weekOfYear,with,withCalendar,withPlainTime,year,yearOfWeek");
     }
 
-    [Fact]
+    [Test]
     public void ZonedDateTimePrototypeExposesExactlyTheMembersTheProposalDefines()
     {
         new Engine().Evaluate("Object.getOwnPropertyNames(Temporal.ZonedDateTime.prototype).sort().join()")
@@ -36,12 +36,11 @@ public class TemporalRemovedMembersTests
                 "withPlainTime,withTimeZone,year,yearOfWeek");
     }
 
-    [Theory]
-    [InlineData("Temporal.PlainDateTime", "withPlainDate")]
-    [InlineData("Temporal.ZonedDateTime", "epochSeconds")]
-    [InlineData("Temporal.ZonedDateTime", "epochMicroseconds")]
-    [InlineData("Temporal.ZonedDateTime", "toPlainYearMonth")]
-    [InlineData("Temporal.ZonedDateTime", "toPlainMonthDay")]
+    [TestCase("Temporal.PlainDateTime", "withPlainDate")]
+    [TestCase("Temporal.ZonedDateTime", "epochSeconds")]
+    [TestCase("Temporal.ZonedDateTime", "epochMicroseconds")]
+    [TestCase("Temporal.ZonedDateTime", "toPlainYearMonth")]
+    [TestCase("Temporal.ZonedDateTime", "toPlainMonthDay")]
     public void DoesNotExposeTheRemovedMembers(string type, string removed)
     {
         var engine = new Engine();
@@ -50,7 +49,7 @@ public class TemporalRemovedMembersTests
         engine.Evaluate($"{type}.prototype.{removed} === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void StillAnswersThroughTheSurvivingMembers()
     {
         new Engine().Evaluate("""

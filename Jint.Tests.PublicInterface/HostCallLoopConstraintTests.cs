@@ -120,7 +120,7 @@ public class HostCallLoopConstraintTests
     /// </summary>
     private static readonly TimeSpan AttributionSlack = TimeSpan.FromMilliseconds(1);
 
-    [Fact]
+    [Test]
     public void MaxStatementsIsRefundedOnEveryHostCallSoAHostLoopSpendsItOverAndOver()
     {
         // Budget generously above what a single invocation costs, and far below what the whole loop does.
@@ -141,7 +141,7 @@ public class HostCallLoopConstraintTests
         (HostCalls * StatementsPerInvocation()).Should().BeGreaterThan(budget * 10);
     }
 
-    [Fact]
+    [Test]
     public void MaxStatementsBoundsTheIdenticalWorkWhenTheLoopLivesInsideTheScript()
     {
         // ...and the identical work, driven from inside one script instead, is bounded as documented.
@@ -152,7 +152,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => engine.Execute(EquivalentScript)).Should().Throw<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIsRearmedOnEveryHostCallSoItNeverFiresAcrossAHostLoop()
     {
         // The case an embedder is most likely to get wrong: a wall-clock timeout reads as protection
@@ -174,13 +174,15 @@ public class HostCallLoopConstraintTests
         // iteration of PausePerCall, which RunOneHostLoopIteration has already refused above. Seeing none
         // of them therefore means the runner stalled every late iteration past the whole interval, which
         // is a machine this run cannot learn anything from. See RunHostLoop.
-        Assert.SkipWhen(
-            outcome.CompletionsAfterTheIntervalHadPassed == 0,
-            "the runner stalled every iteration past the whole interval, so this run observed no entry "
-            + "completing after the loop had outlived it");
+        if (outcome.CompletionsAfterTheIntervalHadPassed == 0)
+        {
+            Assert.Ignore(
+                "the runner stalled every iteration past the whole interval, so this run observed no entry "
+                + "completing after the loop had outlived it");
+        }
     }
 
-    [Fact]
+    [Test]
     public void APauseLongerThanTheTimeoutFiresInsideTheOneHostCallThatCausedIt()
     {
         // The control the two accumulation tests need: time spent inside a host call really is charged
@@ -195,7 +197,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => work.Call(1)).Should().Throw<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutBoundsTheIdenticalWorkWhenTheLoopLivesInsideTheScript()
     {
         var engine = new Engine(o => o.LimitExecutionTime(TimeSpan.FromMilliseconds(250)));
@@ -204,7 +206,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => engine.Execute("while (true) { work(1); }")).Should().Throw<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void MemoryLimitIsRebaselinedOnEveryHostCallSoAHostLoopCanAllocateWithoutBound()
     {
         // 2000 small objects per call — comfortably under the limit on its own, many times over it in total.
@@ -231,7 +233,7 @@ public class HostCallLoopConstraintTests
         }).Should().NotThrow("each host call re-reads the allocation baseline, so only one call's allocations are ever counted");
     }
 
-    [Fact]
+    [Test]
     public void MemoryLimitBoundsTheIdenticalWorkWhenTheLoopLivesInsideTheScript()
     {
         const string AllocatingFunction = """
@@ -251,7 +253,7 @@ public class HostCallLoopConstraintTests
             .Should().Throw<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void EngineInvokeRefundsTheBudgetExactlyLikeJsValueCallDoes()
     {
         // Engine.Invoke is the same top-level entry as JsValue.Call: neither accumulates.
@@ -268,7 +270,7 @@ public class HostCallLoopConstraintTests
         }).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void EveryTopLevelHostEntryResetsRegisteredCustomConstraintsTwice()
     {
         // The mechanism, observed from the public surface: Engine.ExecuteWithConstraints resets before
@@ -298,7 +300,7 @@ public class HostCallLoopConstraintTests
         constraint.Resets.Should().Be(2, "only the outermost entry resets");
     }
 
-    [Fact]
+    [Test]
     public void ACancelledTokenIsObservedAcrossAHostLoopOfCallsShorterThanTheAmortizationInterval()
     {
         // Cancellation is the one constraint whose Reset() is a no-op, so the cancelled state survives
@@ -330,7 +332,7 @@ public class HostCallLoopConstraintTests
         calls.Should().BeLessThanOrEqualTo(64);
     }
 
-    [Fact]
+    [Test]
     public void ACancelledTokenIsObservedOnceASingleHostCallRunsPastTheAmortizationInterval()
     {
         // The contrast that proves the previous test is about the check cadence and not about the token:
@@ -345,7 +347,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => work.Call(1)).Should().Throw<ExecutionCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void ConstraintsCheckFromTheHostLoopDoesNotAccumulateEitherForATimeout()
     {
         // The public escape hatch does not close the gap on its own: TimeConstraint re-arms its deadline
@@ -367,13 +369,15 @@ public class HostCallLoopConstraintTests
         // The host-loop check measures the time since the last entry returned and re-armed the deadline,
         // not the age of the loop, so entries keep completing however long the loop has been running.
         // Observing none of them is a stalled runner rather than a verdict; see the sibling above.
-        Assert.SkipWhen(
-            outcome.CompletionsAfterTheIntervalHadPassed == 0,
-            "the runner stalled every iteration past the whole interval, so this run observed no entry "
-            + "completing after the loop had outlived it");
+        if (outcome.CompletionsAfterTheIntervalHadPassed == 0)
+        {
+            Assert.Ignore(
+                "the runner stalled every iteration past the whole interval, so this run observed no entry "
+                + "completing after the loop had outlived it");
+        }
     }
 
-    [Fact]
+    [Test]
     public void AUserConstraintThatDeclinesToResetItselfDoesBoundTheWholeHostLoop()
     {
         // The one thing an embedder can do today without any engine change: a user-derived Constraint
@@ -394,7 +398,7 @@ public class HostCallLoopConstraintTests
         }).Should().Throw<BudgetExhaustedException>("a constraint that does not reset itself accumulates across host calls");
     }
 
-    [Fact]
+    [Test]
     public void AnAmortizableUserConstraintIsReachedByAHostLoopOfCallsShorterThanTheCheckInterval()
     {
         // The generalisation of the cancellation case above, for a user-derived constraint: declaring
@@ -450,7 +454,7 @@ public class HostCallLoopConstraintTests
     /// <summary>The smallest budget that still arms a deadline: positive, and gone by the first check.</summary>
     private static readonly TimeSpan ExhaustedBudget = TimeSpan.FromTicks(1);
 
-    [Fact]
+    [Test]
     public void ADeadlineSpansAHostLoopOfShortCallsAndFailsItOnceTheBudgetIsGone()
     {
         // The scenario the per-entry reset defeats, and the one this constraint exists for: every call
@@ -503,7 +507,7 @@ public class HostCallLoopConstraintTests
         calls.Should().BeLessThanOrEqualTo(60, "the deadline must be noticed promptly, not eventually");
     }
 
-    [Fact]
+    [Test]
     public void AnEntryEnteredAfterTheOperationsBudgetHasElapsedInheritsItRatherThanAFreshOne()
     {
         // The spanning claim of the test above, pinned without a race. Every top-level entry invites its
@@ -539,7 +543,7 @@ public class HostCallLoopConstraintTests
         Invoking(() => work.Call(1)).Should().NotThrow("End() disarmed the constraint");
     }
 
-    [Fact]
+    [Test]
     public void EndingAnOperationDisarmsTheInstanceAndAFreshBeginArmsItAgain()
     {
         // The pooled shape: one engine and one constraint serve operation after operation. Deterministic
@@ -587,7 +591,7 @@ public class HostCallLoopConstraintTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ACancelledTokenSurfacesAsAnOperationCanceledExceptionCarryingThatToken()
     {
         // Cancellation the host asked for must be distinguishable from a script failure. Jint's own
@@ -632,7 +636,7 @@ public class HostCallLoopConstraintTests
         calls.Should().BeLessThan(HostCalls, "cancellation stops the loop rather than being noticed after it");
     }
 
-    [Fact]
+    [Test]
     public void AConstraintThatWasNeverArmedBoundsNothing()
     {
         // The disarmed state has to be genuinely inert, because a pooled engine carries the constraint
@@ -655,7 +659,7 @@ public class HostCallLoopConstraintTests
         engine.Constraints.Find<OperationDeadlineConstraint>().Should().BeSameAs(deadline);
     }
 
-    [Fact]
+    [Test]
     public void AnEnormousBudgetIsClampedInsteadOfOverflowingIntoThePast()
     {
         // The bug this class exists to stop an embedder writing themselves: converting the budget to
@@ -684,8 +688,7 @@ public class HostCallLoopConstraintTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(BudgetsMeaningNoTimeLimit))]
+    [TestCaseSource(nameof(BudgetsMeaningNoTimeLimit))]
     public void ANonPositiveBudgetAsksForNoTimeLimitRatherThanOneAlreadySpent(TimeSpan budget)
     {
         // Timeout.InfiniteTimeSpan is -1ms, and TimeoutInterval registers no constraint at all for a
@@ -712,10 +715,10 @@ public class HostCallLoopConstraintTests
         }
     }
 
-    public static TheoryData<TimeSpan> BudgetsMeaningNoTimeLimit() =>
+    public static TestCases<TimeSpan> BudgetsMeaningNoTimeLimit() =>
         [Timeout.InfiniteTimeSpan, TimeSpan.Zero, TimeSpan.FromSeconds(-5)];
 
-    [Fact]
+    [Test]
     public void ANonPositiveBudgetStillObservesTheOperationsToken()
     {
         // The cancellation-only shape: no wall-clock bound, but the request can still be abandoned.

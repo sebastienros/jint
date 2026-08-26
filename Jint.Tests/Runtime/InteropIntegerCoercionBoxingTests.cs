@@ -63,13 +63,13 @@ public class InteropIntegerCoercionBoxingTests
     /// The coercion helper is the origin of the boxed value; assert its runtime type directly,
     /// because every downstream consumer that widens hides a wrong one.
     /// </summary>
-    [Fact]
+    [Test]
     public void CoercionBoxesIntegerAsTheDeclaredMemberType()
     {
-        Assert.True(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(long), ValueCoercionType.None, JsNumber.Create(42), out var asLong));
+        Assert.That(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(long), ValueCoercionType.None, JsNumber.Create(42), out var asLong));
         asLong.Should().BeOfType<long>().And.Be(42L);
 
-        Assert.True(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(int), ValueCoercionType.None, JsNumber.Create(42), out var asInt));
+        Assert.That(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(int), ValueCoercionType.None, JsNumber.Create(42), out var asInt));
         asInt.Should().BeOfType<int>().And.Be(42);
     }
 
@@ -78,14 +78,14 @@ public class InteropIntegerCoercionBoxingTests
     /// <c>typeof(int)</c>/<c>typeof(long)</c> nor CLR-numeric-coercible) and keep converting through
     /// the general <c>ToObject</c> + type-converter path.
     /// </summary>
-    [Fact]
+    [Test]
     public void CoercionDeclinesNullableIntegerMemberTypes()
     {
-        Assert.False(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(long?), ValueCoercionType.All, JsNumber.Create(42), out _));
-        Assert.False(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(int?), ValueCoercionType.All, JsNumber.Create(42), out _));
+        Assert.That(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(long?), ValueCoercionType.All, JsNumber.Create(42), out _), Is.False);
+        Assert.That(ReflectionExtensions.TryConvertViaTypeCoercion(typeof(int?), ValueCoercionType.All, JsNumber.Create(42), out _), Is.False);
     }
 
-    [Fact]
+    [Test]
     public void CanAssignIntegerToLongField()
     {
         var host = new Host();
@@ -98,7 +98,7 @@ public class InteropIntegerCoercionBoxingTests
         host.IntField.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void CanAssignIntegerToLongProperty()
     {
         var host = new Host();
@@ -111,7 +111,7 @@ public class InteropIntegerCoercionBoxingTests
         host.IntProperty.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void CanPassIntegerToLongParameter()
     {
         var host = new Host();
@@ -124,7 +124,7 @@ public class InteropIntegerCoercionBoxingTests
         host.LastParameterType.Should().Be(typeof(int));
     }
 
-    [Fact]
+    [Test]
     public void CanPassIntegerToLongDelegateParameter()
     {
         Type? observed = null;
@@ -139,7 +139,7 @@ public class InteropIntegerCoercionBoxingTests
         observed.Should().Be(typeof(int));
     }
 
-    [Fact]
+    [Test]
     public void CanAssignIntegerToGenericListOfLongElement()
     {
         var host = new CollectionHost();
@@ -152,7 +152,7 @@ public class InteropIntegerCoercionBoxingTests
         host.Ints[0].Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void CanAppendIntegerToGenericListOfLong()
     {
         var host = new CollectionHost();
@@ -169,7 +169,7 @@ public class InteropIntegerCoercionBoxingTests
     /// Array.prototype operations write elements back through the same element-conversion path as a
     /// direct index assignment on a fixed-size view, so they need the element type just as much.
     /// </summary>
-    [Fact]
+    [Test]
     public void CanFillGenericListOfLong()
     {
         var host = new CollectionHost();
@@ -182,7 +182,7 @@ public class InteropIntegerCoercionBoxingTests
         host.Ints.Should().Equal(42, 42);
     }
 
-    [Fact]
+    [Test]
     public void CanAssignIntegerToLongArrayElement()
     {
         var host = new CollectionHost();
@@ -205,7 +205,7 @@ public class InteropIntegerCoercionBoxingTests
     /// so the field and property writes below really do take the coercion path (and then the
     /// reflection setter, which widens either way).
     /// </summary>
-    [Fact]
+    [Test]
     public void CanAssignIntegerToLongMemberWithCustomTypeConverter()
     {
         var host = new Host();

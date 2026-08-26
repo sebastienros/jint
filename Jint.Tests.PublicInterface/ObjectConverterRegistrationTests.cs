@@ -77,8 +77,8 @@ public class ObjectConverterRegistrationTests
     /// <summary>
     /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
     /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
-    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
-    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Static so
+    /// <see cref="IgnoreUnlessAttribute" /> can read it while the test tree is built.
     /// </summary>
     public static bool Verifying => HostContractVerificationSwitch.Enabled;
 
@@ -155,7 +155,7 @@ public class ObjectConverterRegistrationTests
 
     #region 1. registration surface
 
-    [Fact]
+    [Test]
     public void RegistrationWithoutDeclaredTypesIsUnchanged()
     {
         var converter = new NeverConverter();
@@ -166,7 +166,7 @@ public class ObjectConverterRegistrationTests
         options.Interop.ObjectConverters.Should().ContainSingle().Which.Should().BeSameAs(converter);
     }
 
-    [Fact]
+    [Test]
     public void RegistrationRequiresAtLeastOneDeclaredType()
     {
         var options = new Options();
@@ -174,7 +174,7 @@ public class ObjectConverterRegistrationTests
         act.Should().Throw<ArgumentException>().WithParameterName("handledTypes");
     }
 
-    [Fact]
+    [Test]
     public void RegistrationRejectsNullDeclaredType()
     {
         var options = new Options();
@@ -182,7 +182,7 @@ public class ObjectConverterRegistrationTests
         act.Should().Throw<ArgumentException>().WithParameterName("handledTypes");
     }
 
-    [Fact]
+    [Test]
     public void RegistrationRejectsNullConverter()
     {
         var options = new Options();
@@ -194,7 +194,7 @@ public class ObjectConverterRegistrationTests
 
     #region 2. behavior of a declared converter
 
-    [Fact]
+    [Test]
     public void UndeclaredConverterSeesEveryMember()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter()));
@@ -203,7 +203,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.EnumValue").Should().Be("One");
     }
 
-    [Fact]
+    [Test]
     public void ConverterDeclaringOnlyUnrelatedTypesDoesNotSeeTheMember()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
@@ -214,7 +214,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.Text").Should().Be("text");
     }
 
-    [Fact]
+    [Test]
     public void ConverterDeclaringTheMemberTypeStillSeesIt()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(bool)));
@@ -222,7 +222,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.Flag").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void DeclaringEnumLeavesOtherMembersOnTheFastLane()
     {
         // the case this feature exists for: a converter registered purely to render enums keeps doing so,
@@ -234,7 +234,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.Number").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ObjectTypedMemberIsAlwaysOfferedToConverters()
     {
         var recorder = new RecordingConverter();
@@ -246,7 +246,7 @@ public class ObjectConverterRegistrationTests
         recorder.Seen.Should().Contain(true);
     }
 
-    [Fact]
+    [Test]
     public void OneUndeclaredConverterDisablesTheNarrowing()
     {
         var engine = CreateEngine(new Host(), options => options
@@ -256,7 +256,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.Flag").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void SharedAccessorsStillFollowEachEnginesOwnConverters()
     {
         // the accessor for Host.Flag is resolved once and reused by both engines; the converter decision is
@@ -287,7 +287,7 @@ public class ObjectConverterRegistrationTests
     /// <see cref="double"/>, <see cref="bool"/>, <see cref="string"/>) is sealed, so the value handed to
     /// <c>FromObjectWithType</c> has exactly that runtime type — the very type the filter was asked about.
     /// </summary>
-    [Fact]
+    [Test]
     public void UndeclaredConverterSeesEveryReturnValue()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter()));
@@ -296,7 +296,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.GetEnumValue()").Should().Be("One");
     }
 
-    [Fact]
+    [Test]
     public void ConverterDeclaringOnlyUnrelatedTypesDoesNotSeeTheReturnValue()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(Guid)));
@@ -306,7 +306,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.GetText()").Should().Be("text");
     }
 
-    [Fact]
+    [Test]
     public void ConverterDeclaringTheReturnTypeStillSeesIt()
     {
         var engine = CreateEngine(new Host(), options => options.AddObjectConverter(new MeddlingConverter(), typeof(bool)));
@@ -314,7 +314,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.GetFlag()").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void ReturnTypesOutsideTheLaneAlwaysReachTheConverter()
     {
         // an enum return type is not one the compiled invoker can produce, so the whole call keeps the
@@ -329,7 +329,7 @@ public class ObjectConverterRegistrationTests
         recorder.Seen.Should().Contain(true);
     }
 
-    [Fact]
+    [Test]
     public void OneUndeclaredConverterDisablesTheNarrowingForReturnValuesToo()
     {
         var engine = CreateEngine(new Host(), options => options
@@ -343,7 +343,7 @@ public class ObjectConverterRegistrationTests
 
     #region 4. writes
 
-    [Fact]
+    [Test]
     public void ASharedAccessorAnswersTheConverterQuestionPerFilterNotOnce()
     {
         // Same shape as above, but both engines have a converter - only one of them declares bool. The
@@ -376,7 +376,7 @@ public class ObjectConverterRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ASharedMethodDescriptorAnswersTheConverterQuestionPerFilterNotOnce()
     {
         // The method-invoker twin of the accessor memo test above: descriptors are shared through
@@ -407,7 +407,7 @@ public class ObjectConverterRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DeclaredConverterDoesNotAffectWrites()
     {
         var host = new Host();
@@ -434,7 +434,7 @@ public class ObjectConverterRegistrationTests
     /// that cannot produce the declared types — so the new case is silently skipped on exactly those members,
     /// and works everywhere else. With host-contract verification on, converting an undeclared type says so.
     /// </summary>
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationCatchesAConverterConvertingAnUndeclaredType()
     {
         // Boxed is declared `object`, so no declaration can exclude it and the converter is always offered its
@@ -449,7 +449,7 @@ public class ObjectConverterRegistrationTests
             .WithMessage("*MeddlingConverter*Boolean*Guid*");
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationIsSilentForAConverterThatStaysInsideItsDeclaration()
     {
         var engine = CreateEngine(
@@ -461,7 +461,7 @@ public class ObjectConverterRegistrationTests
         engine.Evaluate("host.EnumValue").Should().Be("One");
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationLeavesAnUndeclaredRegistrationAlone()
     {
         // registering without declared types claims everything, so nothing can be out of scope
@@ -475,7 +475,7 @@ public class ObjectConverterRegistrationTests
     /// be wide enough to reach it, and is skipped on the rest. Pinned so the damage is on the record — the
     /// inconsistency is invisible from script and from the host.
     /// </summary>
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void WithoutVerificationADriftedDeclarationIsSilentlyInconsistent()
     {
         var engine = CreateEngine(

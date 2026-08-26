@@ -113,26 +113,26 @@ public class InterfaceTests
             ;
     }
 
-    [Fact]
+    [Test]
     public void CallSuperPropertyFromInterface()
     {
         _engine.Evaluate("holder.I1.NameI0").Should().Be(holder.I1.NameI0);
     }
 
-    [Fact]
+    [Test]
     public void CallOverloadSuperMethod()
     {
         _engine.Evaluate("holder.I1.OverloadSuperMethod(1)").Should().Be(holder.I1.OverloadSuperMethod(1));
         _engine.Evaluate("holder.I1.OverloadSuperMethod()").Should().Be(holder.I1.OverloadSuperMethod());
     }
 
-    [Fact]
+    [Test]
     public void CallSubPropertySuperMethod_SubProperty()
     {
         _engine.Evaluate("holder.I1.SubPropertySuperMethod").Should().Be(holder.I1.SubPropertySuperMethod);
     }
 
-    [Fact]
+    [Test]
     public void CallSubPropertySuperMethod_SuperMethod()
     {
         var ex = Invoking(() =>

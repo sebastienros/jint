@@ -29,7 +29,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class HostOptionsReadOnlyTests
 {
-    [Fact]
+    [Test]
     public void AnEngineMakesTheOptionsItWasBuiltFromReadOnly()
     {
         var options = new Options();
@@ -40,7 +40,7 @@ public class HostOptionsReadOnlyTests
         options.IsReadOnly.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheRefusalNamesTheSettingAndIsAnInvalidOperation()
     {
         var options = new Options();
@@ -55,7 +55,7 @@ public class HostOptionsReadOnlyTests
     /// The write that motivated all of this: <c>Interop.AllowWrite</c> is read on every projected write, so
     /// setting it after construction used to hand a running engine the ability to mutate host objects.
     /// </summary>
-    [Fact]
+    [Test]
     public void GrantingClrWritesToALiveEngineIsRefused()
     {
         var options = new Options();
@@ -73,8 +73,7 @@ public class HostOptionsReadOnlyTests
         target.Value.Should().Be(0, "and the refused write cannot have granted the engine anything");
     }
 
-    [Theory]
-    [MemberData(nameof(EveryGroup))]
+    [TestCaseSource(nameof(EveryGroup))]
     public void EveryOptionGroupRefusesAWrite(string name, Action<Options> write)
     {
         var options = new Options();
@@ -85,9 +84,9 @@ public class HostOptionsReadOnlyTests
             .WithMessage($"{name} cannot be changed*");
     }
 
-    public static TheoryData<string, Action<Options>> EveryGroup()
+    public static TestCases<string, Action<Options>> EveryGroup()
     {
-        var data = new TheoryData<string, Action<Options>>
+        var data = new TestCases<string, Action<Options>>
         {
             { "Options.Strict", static o => o.Strict = true },
             { "Options.Culture", static o => o.Culture = CultureInfo.InvariantCulture },
@@ -133,7 +132,7 @@ public class HostOptionsReadOnlyTests
     /// be the one that creates a fresh, mutable group — and the engine reads <c>Intl</c> and <c>Temporal</c>
     /// lazily, long after construction, so the write would have landed.
     /// </summary>
-    [Fact]
+    [Test]
     public void AGroupMaterializedAfterTheFreezeIsBornFrozen()
     {
         var options = new Options();
@@ -148,8 +147,7 @@ public class HostOptionsReadOnlyTests
     /// A registry is the half of the configuration that grows, and a plain <see cref="List{T}"/> cannot
     /// refuse. Every <c>Add*</c> verb and every list behind one has to say no as loudly as an assignment.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(EveryRegistryMutation))]
+    [TestCaseSource(nameof(EveryRegistryMutation))]
     public void EveryRegistryRefusesAChange(string description, Action<Options> mutate)
     {
         var options = new Options();
@@ -159,9 +157,9 @@ public class HostOptionsReadOnlyTests
             .Should().Throw<InvalidOperationException>($"{description} changes a frozen Options");
     }
 
-    public static TheoryData<string, Action<Options>> EveryRegistryMutation()
+    public static TestCases<string, Action<Options>> EveryRegistryMutation()
     {
-        var data = new TheoryData<string, Action<Options>>
+        var data = new TestCases<string, Action<Options>>
         {
             { "AddConstraint(instance)", static o => o.AddConstraint(new NoopConstraint()) },
             { "AddConstraint(factory)", static o => o.AddConstraint(static () => new NoopConstraint()) },
@@ -206,7 +204,7 @@ public class HostOptionsReadOnlyTests
     /// Sharing one configured <see cref="Options"/> between engines is a documented embedding pattern, so a
     /// second freeze has to be a no-op rather than a refusal.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheSameOptionsInstanceStillBuildsASecondEngine()
     {
         var options = new Options();
@@ -221,7 +219,7 @@ public class HostOptionsReadOnlyTests
         options.IsReadOnly.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MakeReadOnlyIsIdempotentAndAvailableToTheHost()
     {
         var options = new Options();
@@ -245,7 +243,7 @@ public class HostOptionsReadOnlyTests
     /// engine has read it — and the caller's own object is frozen too, so that "an engine makes the options
     /// you handed it read-only" needs no exception for the profiled case.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUntrustedProfileStillAppliesAndBothInstancesEndUpReadOnly()
     {
         var options = new Options();
@@ -280,7 +278,7 @@ public class HostOptionsReadOnlyTests
     /// instance is not written to at all; <see cref="HostWebApiOptionsIsolationTests"/> is where that is
     /// pinned from the outside.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheLiveWebApiDoorSuspendsTheGuardForTheGroupItIsConfiguringAndNothingElse()
     {
         var other = new Options();
@@ -325,7 +323,7 @@ public class HostOptionsReadOnlyTests
     /// A configuration callback runs while the engine is being built, which is before the freeze — otherwise
     /// the documented way to finish configuring an engine would have stopped working.
     /// </summary>
-    [Fact]
+    [Test]
     public void AConfigurationCallbackStillWritesWhileTheEngineIsBeingBuilt()
     {
         var options = new Options();
@@ -337,7 +335,7 @@ public class HostOptionsReadOnlyTests
         Invoking(() => options.Interop.AllowGetType = false).Should().Throw<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void ReadingIsUnaffected()
     {
         var options = new Options();

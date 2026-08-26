@@ -7,7 +7,7 @@
 /// </summary>
 public class SumOfProductsLaneTests
 {
-    [Fact]
+    [Test]
     public void MatrixKernelMatchesManualComputation()
     {
         var engine = new Engine();
@@ -31,7 +31,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("40.75,50.5;90.5,114");
     }
 
-    [Fact]
+    [Test]
     public void MinusTermsAndConstantsAndScalarsWork()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("0.5,2.75,-3"); // 1.5-1=0.5; 0.75+2=2.75; 4-9+2=-3
     }
 
-    [Fact]
+    [Test]
     public void SpecialValuesFlowThroughIeeeSemantics()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("NaN,Infinity,NaN,0");
     }
 
-    [Fact]
+    [Test]
     public void IntegerLeavesStayExact()
     {
         var engine = new Engine();
@@ -86,7 +86,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("164,13011000:true:true");
     }
 
-    [Fact]
+    [Test]
     public void NonNumericLeafDeclinesWithSingleEvaluation()
     {
         var engine = new Engine();
@@ -105,7 +105,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("NaN,10");
     }
 
-    [Fact]
+    [Test]
     public void GetterBaseDeclinesAndFiresExactlyOnce()
     {
         var engine = new Engine();
@@ -125,7 +125,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("23:2");
     }
 
-    [Fact]
+    [Test]
     public void HoleyAndOutOfRangeReadsDecline()
     {
         var engine = new Engine();
@@ -142,7 +142,7 @@ public class SumOfProductsLaneTests
         result.Should().Be("NaN,NaN");
     }
 
-    [Fact]
+    [Test]
     public void NegativeZeroProductsFollowSpec()
     {
         var engine = new Engine();

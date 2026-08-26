@@ -6,7 +6,7 @@ namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void CanAccessExpandoObject()
     {
         var engine = new Engine();
@@ -16,7 +16,7 @@ public partial class InteropTests
         engine.Evaluate("expando.Name").ToString().Should().Be("test");
     }
 
-    [Fact]
+    [Test]
     public void DebugView()
     {
         // allows displaying different local variables under debugger
@@ -46,7 +46,7 @@ public partial class InteropTests
         dictionaryNet[GlobalSymbolRegistry.ToStringTag] = "Object";
     }
 
-    [Fact]
+    [Test]
     public void CanAccessMemberNamedItemThroughExpando()
     {
         var parent = (IDictionary<string, object>) new ExpandoObject();
@@ -61,7 +61,7 @@ public partial class InteropTests
         _engine.Evaluate("parent.child.item.title").Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnExpandoObject()
     {
         dynamic o = new ExpandoObject();
@@ -75,7 +75,7 @@ public partial class InteropTests
         result.Should().Be("a,1b,2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertObjectInstanceToExpando()
     {
         _engine.Evaluate("var o = {a: 1, b: 'foo'}");
@@ -92,7 +92,7 @@ public partial class InteropTests
         dic["b"].Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void CanAccessDynamicObject()
     {
         var test = new DynamicClass();
@@ -114,7 +114,7 @@ public partial class InteropTests
         engine.Evaluate("test.ContainsKey('c')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAccessCustomDynamicObjectProperties()
     {
         var t = new DynamicType

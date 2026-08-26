@@ -21,12 +21,11 @@ public class InteropDisposeTests
 #endif
     }
 
-    [Theory]
-    [InlineData("{ using temp = getSync(); }")]
-    [InlineData("(function x() { using temp = getSync(); })()")]
-    [InlineData("class X { constructor() { using temp = getSync(); } } new X();")]
-    [InlineData("class X { static { using temp = getSync(); } } new X();")]
-    [InlineData("for (let i = 0; i < 1; i++) { using temp = getSync(); }")]
+    [TestCase("{ using temp = getSync(); }")]
+    [TestCase("(function x() { using temp = getSync(); })()")]
+    [TestCase("class X { constructor() { using temp = getSync(); } } new X();")]
+    [TestCase("class X { static { using temp = getSync(); } } new X();")]
+    [TestCase("for (let i = 0; i < 1; i++) { using temp = getSync(); }")]
     public void ShouldSyncDispose(string program)
     {
         _engine.Execute(program);
@@ -44,8 +43,7 @@ public class InteropDisposeTests
     }
 
 #if NETCOREAPP
-    [Theory]
-    [InlineData("(async function x() { await using temp = getAsync(); })();")]
+    [TestCase("(async function x() { await using temp = getAsync(); })();")]
     public void ShouldAsyncDispose(string program)
     {
         _engine.Evaluate(program).UnwrapIfPromise();
@@ -57,7 +55,7 @@ public class InteropDisposeTests
     /// EvaluateAsync + IAsyncDisposable obtained via an awaited Task must complete,
     /// not deadlock. Previously hung for 10s and threw a timeout PromiseRejectedException.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeAfterAwait_EvaluateAsync()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -79,7 +77,7 @@ public class InteropDisposeTests
     /// synchronously-completed ValueTasks happen to work. Uses Task.Delay so
     /// the dispose await crosses a real async boundary.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeWithGenuinelyAsyncTask()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -99,7 +97,7 @@ public class InteropDisposeTests
     /// <summary>
     /// Two await-using declarations in the same block dispose LIFO across two suspensions.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeMultipleResourcesLifoOrder()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -120,7 +118,7 @@ public class InteropDisposeTests
     /// <summary>
     /// Nested async functions: dispose suspension must work across function boundaries.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeNestedAcrossAsyncFunctions()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -144,7 +142,7 @@ public class InteropDisposeTests
     /// <summary>
     /// Body throws AND dispose rejects: completion must be a SuppressedError per spec.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeChainsSuppressedError()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -175,7 +173,7 @@ public class InteropDisposeTests
     /// await using at top level of an async function body — exercises
     /// JintFunctionDefinition.AsyncBlockStart's Pattern B dispose path.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeAtAsyncFunctionExit()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -195,7 +193,7 @@ public class InteropDisposeTests
     /// Async function body throws — dispose must still run, and the resulting
     /// rejection must carry the original throw (no SuppressedError since dispose succeeds).
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeAfterUnhandledThrow()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -226,7 +224,7 @@ public class InteropDisposeTests
     /// Mirrors built-ins/AsyncDisposableStack/prototype/disposeAsync/
     /// explicit-await-for-null.js from Test262.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposableStackConsumeAwaitTickForNull()
     {
         var engine = new Engine();
@@ -250,7 +248,7 @@ public class InteropDisposeTests
     /// Top-level `await using` in a module — exercises the Pattern B refactor in
     /// SourceTextModuleRecord's TLA execution path.
     /// </summary>
-    [Fact]
+    [Test]
     public Task ShouldAsyncDisposeInTopLevelAwaitModule() => DedicatedThread.RunAsync(() =>
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -269,7 +267,7 @@ public class InteropDisposeTests
     /// the Promise.then callbacks don't run with the module context still on the
     /// engine stack.
     /// </summary>
-    [Fact]
+    [Test]
     public Task ShouldAsyncDisposeInTopLevelAwaitModuleWithGenuinelyAsyncTask() => DedicatedThread.RunAsync(() =>
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -287,7 +285,7 @@ public class InteropDisposeTests
     /// DisposeAsync, single iteration. Exercises JintForInForOfStatement's
     /// per-iteration dispose state-machine drive.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeInForOfWithGenuinelyAsyncTask_SingleIteration()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -311,7 +309,7 @@ public class InteropDisposeTests
     /// state-machine drive — the spec-mandated Await between iterations must
     /// consume a real microtask tick and must not deadlock the way #2477 did.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeInForOfWithGenuinelyAsyncTask()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -334,7 +332,7 @@ public class InteropDisposeTests
     /// the rejection from a per-iteration dispose surfaces as the loop's
     /// rejection and stops further iterations.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeInForOfPropagatesRejection()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -362,7 +360,7 @@ public class InteropDisposeTests
     /// `await using` inside an async generator body — exercises the Pattern B
     /// refactor in AsyncGeneratorInstance.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ShouldAsyncDisposeInAsyncGenerator()
     {
         var engine = new Engine(o => o.ExperimentalFeatures = ExperimentalFeature.TaskInterop);

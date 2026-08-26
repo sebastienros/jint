@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class SetTests
 {
-    [Fact]
+    [Test]
     public void ConConstructSet()
     {
         var engine = new Engine();

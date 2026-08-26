@@ -39,7 +39,7 @@ public class HostCanonicalLoopTests
     /// Pumping an engine that has nothing scheduled is legal and does nothing — the shape a host loop takes
     /// on its very first iteration, before any script has run.
     /// </summary>
-    [Fact]
+    [Test]
     public void PumpingAnEngineWithNothingScheduledIsANoOp()
     {
         using var engine = new Engine();
@@ -55,7 +55,7 @@ public class HostCanonicalLoopTests
     /// and give the engine the turn it needs to run it. Nothing else in the public surface runs that
     /// callback.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheCanonicalHostLoopRunsATimerCallback()
     {
         var ran = false;
@@ -84,7 +84,7 @@ public class HostCanonicalLoopTests
     /// The same claim as its contrapositive, because that is the one that costs embedders an afternoon: an
     /// engine nobody pumps never runs the callback, however far past the deadline the host gets.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineNobodyPumpsNeverRunsTheCallback()
     {
         var ran = false;

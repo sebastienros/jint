@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiUrlTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoUrlGlobals()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class WebApiUrlTests
         console.Evaluate("typeof URL").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheUrlFlagInstallsEveryInterfaceOfTheStandardFamily()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -48,7 +48,7 @@ public class WebApiUrlTests
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesUrl()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -59,7 +59,7 @@ public class WebApiUrlTests
         WebApiFeatures.Default.Should().HaveFlag(WebApiFeatures.Url);
     }
 
-    [Fact]
+    [Test]
     public void GivesEachGlobalTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -75,7 +75,7 @@ public class WebApiUrlTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own URL");
@@ -91,7 +91,7 @@ public class WebApiUrlTests
         engine.Evaluate("typeof URLSearchParams").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -102,7 +102,7 @@ public class WebApiUrlTests
         engine.Evaluate("typeof URL").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -118,7 +118,7 @@ public class WebApiUrlTests
         engine.Evaluate("new URL('https://other.example/').href").AsString().Should().Be("https://other.example/");
     }
 
-    [Fact]
+    [Test]
     public void IsUsableFromTheHostSide()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -135,7 +135,7 @@ public class WebApiUrlTests
         url.Get("href").AsString().Should().Be("https://example.com:8443/a/b?y=2#f");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Url);
@@ -153,7 +153,7 @@ public class WebApiUrlTests
         first.Evaluate("URL").Should().NotBeSameAs(second.Evaluate("URL"));
     }
 
-    [Fact]
+    [Test]
     public void ParsesTheHardCasesTheStandardIsFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -184,7 +184,7 @@ public class WebApiUrlTests
         engine.Evaluate("URL.canParse('https://09/')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void MatchesUrlsWithUrlPatternFromTheHostSide()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));
@@ -208,7 +208,7 @@ public class WebApiUrlTests
         Assert.Throws<Jint.Runtime.JavaScriptException>(() => engine.Evaluate("new URLPattern({ protocol: 'http{' })"));
     }
 
-    [Fact]
+    [Test]
     public void UrlPatternSurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));

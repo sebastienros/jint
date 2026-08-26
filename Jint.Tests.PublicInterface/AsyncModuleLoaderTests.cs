@@ -165,7 +165,7 @@ public class AsyncModuleLoaderTests
             => Task.FromException<string>(failure);
     }
 
-    [Fact]
+    [Test]
     public async Task CanImportAModuleWhoseSourceArrivesAsynchronously()
     {
         var loader = new DelayedModuleLoader(new Dictionary<string, string>
@@ -182,7 +182,7 @@ public class AsyncModuleLoaderTests
         loader.Loads.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void DirectResultLimitFromLoaderRemainsFatal()
     {
         var failure = CreateResultLimitFailure();
@@ -193,7 +193,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void SettledResultLimitFromLoaderRemainsFatal()
     {
         var failure = CreateResultLimitFailure();
@@ -228,7 +228,7 @@ public class AsyncModuleLoaderTests
     // If a change ever makes the two paths agree, both tests must be updated to say so. Deleting one as a
     // duplicate throws away the asymmetry the pair exists to record.
 
-    [Fact]
+    [Test]
     public void AResultLimitSettledInsideTheLoadCallStaysFatalOnTheImportingStack()
     {
         var failure = CreateResultLimitFailure();
@@ -244,7 +244,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AResultLimitSettledAfterTheLoadCallReturnedStaysFatalOnThePumpInstead()
     {
         var failure = CreateResultLimitFailure();
@@ -279,7 +279,7 @@ public class AsyncModuleLoaderTests
             .Should().ThrowExactly<ResultLimitExceededException>().Which;
     }
 
-    [Fact]
+    [Test]
     public async Task StaticImportsInsideAnAsynchronouslyLoadedModuleResolveTheSameWay()
     {
         // The load phase is recursive: a module fetched asynchronously has its own static imports fetched the
@@ -300,7 +300,7 @@ public class AsyncModuleLoaderTests
         loader.Loads.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public async Task ADiamondDependencyIsFetchedOnce()
     {
         var loader = new DelayedModuleLoader(new Dictionary<string, string>
@@ -321,7 +321,7 @@ public class AsyncModuleLoaderTests
         loader.Loads.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public async Task ALoaderFailureBecomesARejectedPromise()
     {
         var loader = new DelayedModuleLoader(new Dictionary<string, string>
@@ -337,7 +337,7 @@ public class AsyncModuleLoaderTests
         clrException.Should().BeOfType<FileNotFoundException>().Which.Message.Should().Contain("404 ./missing.js");
     }
 
-    [Fact]
+    [Test]
     public void ADynamicImportKeepsTheEngineRunningWhileTheLoadIsInFlight()
     {
         // The point of the whole exercise: evaluation returns, the script goes on, and nothing is blocked
@@ -356,7 +356,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("after-import,loaded:7");
     }
 
-    [Fact]
+    [Test]
     public void ADynamicImportRejectsWhenTheHostFailsTheLoad()
     {
         var loader = new DeferredModuleLoader();
@@ -372,7 +372,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("outcome").AsString().Should().Be("Could not load module.");
     }
 
-    [Fact]
+    [Test]
     public Task AHostCanFinishALoadFromAnotherThread() => DedicatedThread.RunAsync(() =>
     {
         var loader = new DeferredModuleLoader();
@@ -393,7 +393,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("value").AsNumber().Should().Be(99);
     });
 
-    [Fact]
+    [Test]
     public void TheLoaderIsAskedOncePerReferrerAndSpecifier()
     {
         // https://tc39.es/ecma262/#sec-HostLoadImportedModule: "each time this operation is called with a
@@ -416,7 +416,7 @@ public class AsyncModuleLoaderTests
         loader.AskedFor("./twice.js").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void OneSpecifierImportedAtTwoPhasesIsStillOneRecordAndOneFetch()
     {
         // https://tc39.es/ecma262/#sec-InnerModuleLoading dispatches HostLoadImportedModule for every entry
@@ -440,7 +440,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("globalThis.depEvaluations").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SettlingALoadTwiceIsIgnored()
     {
         var loader = new DeferredModuleLoader();
@@ -459,7 +459,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("value").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncLoaderCanAnswerWithAModuleItBuiltItself()
     {
         var loader = new DeferredModuleLoader();
@@ -477,7 +477,7 @@ public class AsyncModuleLoaderTests
         import.GetResult().Get("value").AsString().Should().Be("built");
     }
 
-    [Fact]
+    [Test]
     public Task StartImportIsDrivenByTheHostsOwnPump() => DedicatedThread.RunAsync(() =>
     {
         // The game-loop shape: start the import, then hand the engine a turn per frame and watch the operation.
@@ -507,7 +507,7 @@ public class AsyncModuleLoaderTests
         frames.Should().BeGreaterThan(1, "the load should not have completed on the turn that started it");
     });
 
-    [Fact]
+    [Test]
     public void AFailedPumpedImportReportsTheErrorRatherThanThrowingOutOfThePump()
     {
         var loader = new DeferredModuleLoader();
@@ -524,7 +524,7 @@ public class AsyncModuleLoaderTests
         Invoking(() => import.GetResult()).Should().Throw<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void AskingAPumpedImportForItsResultTooEarlyIsAnActionableError()
     {
         var loader = new DeferredModuleLoader();
@@ -536,7 +536,7 @@ public class AsyncModuleLoaderTests
             .WithMessage("*ProcessTasks*ImportAsync*");
     }
 
-    [Fact]
+    [Test]
     public async Task AsynchronouslyLoadedModulesSupportTopLevelAwait()
     {
         var loader = new DelayedModuleLoader(new Dictionary<string, string>
@@ -551,7 +551,7 @@ public class AsyncModuleLoaderTests
         ns.Get("value").AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public async Task AModuleRegisteredWithAddIsNeverHandedToTheLoader()
     {
         var loader = new DelayedModuleLoader(new Dictionary<string, string>
@@ -568,7 +568,7 @@ public class AsyncModuleLoaderTests
         loader.Loads.Should().Be(1, "'lib' is registered with the engine, so only './main.js' is fetched");
     }
 
-    [Fact]
+    [Test]
     public void ASyntaxErrorInARegisteredModuleReachedThroughAnAsyncGraphRejectsInsteadOfStrandingTheLoad()
     {
         // The builder branch of LoadImportedModule can run from inside a load-completion job - an
@@ -591,7 +591,7 @@ public class AsyncModuleLoaderTests
         import.Error!.Get("name").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void ASyntaxErrorInAsynchronouslyDeliveredSourceRejectsTheImport()
     {
         var loader = new DeferredModuleLoader();
@@ -607,7 +607,7 @@ public class AsyncModuleLoaderTests
         import.Error!.Get("name").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void ALoaderThrowingInsteadOfSettlingRejectsTheImport()
     {
         // IAsyncModuleLoader.LoadModuleAsync is supposed to settle the completion, but a loader that throws
@@ -639,7 +639,7 @@ public class AsyncModuleLoaderTests
             => throw new InvalidOperationException("transport exploded");
     }
 
-    [Fact]
+    [Test]
     public void TheEnginesCancellationTokenReachesTheLoadersFetch()
     {
         // A host that registered options.ObserveCancellation(token) means it for the loader's I/O too:
@@ -654,7 +654,7 @@ public class AsyncModuleLoaderTests
         loader.CapturedToken.Should().Be(cts.Token);
     }
 
-    [Fact]
+    [Test]
     public Task ACanceledFetchIsAnOrdinarySanitizedLoadFailure() => DedicatedThread.RunAsync(() =>
     {
         // This token belongs to the transport, not the engine operation. It is therefore an ordinary load
@@ -688,7 +688,7 @@ public class AsyncModuleLoaderTests
     /// test its vacuity, which is why the engine comes through <see cref="CreateEngine"/>: the budget it
     /// sets is what keeps the tightened assertion honest instead of flaky.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ACanceledFetchSettlesWhileImportAsyncOwnsTheEngine()
     {
         var loader = new TokenCapturingLoader();
@@ -724,7 +724,7 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public async Task ImportAsyncHonoursItsCancellationToken()
     {
         // The loader never answers; the await must still be escapable. This is the caller abandoning the
@@ -739,7 +739,7 @@ public class AsyncModuleLoaderTests
         await Invoking(() => importTask).Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void AJsonModuleImportedFromAnAsynchronouslyLoadedModuleIsBuiltAsJson()
     {
         // Import attributes travel with the request through the asynchronous path, so the source the host
@@ -758,7 +758,7 @@ public class AsyncModuleLoaderTests
         import.GetResult().Get("message").AsString().Should().Be("hello");
     }
 
-    [Fact]
+    [Test]
     public void BytesDeliveredForABytesImportStayBytes()
     {
         // SetSource(byte[]) hands raw content over; with { type: 'bytes' } must receive it untouched rather
@@ -774,7 +774,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("result").AsString().Should().Be("2:200,7");
     }
 
-    [Fact]
+    [Test]
     public Task TheSynchronousImportIsWokenByASettleFromABackgroundThread() => DedicatedThread.RunAsync(() =>
     {
         // The blocking Import drains the event loop while the load is in flight; a settle arriving from
@@ -808,7 +808,7 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AWarmAnswerServesTheBlockingImportSynchronously()
     {
         // A loader whose answer is already at hand settles the completion before LoadModuleAsync returns,
@@ -825,7 +825,7 @@ public class AsyncModuleLoaderTests
         engine.Modules.Import("./root.js").Get("value").AsString().Should().Be("root+dep");
     }
 
-    [Fact]
+    [Test]
     public void AWarmAnswerServesTheBlockingImportEvenWhereDrainingIsImpossible()
     {
         // The strongest form of "continues synchronously": inside an event-loop job the re-entrancy guard
@@ -852,7 +852,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("result").AsString().Should().Be("root+dep");
     }
 
-    [Fact]
+    [Test]
     public void AnInlineFailureStillReachesTheBlockingImportAsAnError()
     {
         var loader = new InlineFailingLoader();
@@ -862,7 +862,7 @@ public class AsyncModuleLoaderTests
             .Should().Throw<JavaScriptException>().WithMessage("*not in the bundle*");
     }
 
-    [Fact]
+    [Test]
     public Task AGraphMixingWarmAndTrulyAsynchronousAnswersStillLoadsThroughTheBlockingImport() => DedicatedThread.RunAsync(() =>
     {
         // The root settles inline on the import's own stack; its dependency arrives from the thread pool
@@ -923,7 +923,7 @@ public class AsyncModuleLoaderTests
             => completion.SetError($"'{resolved.ModuleRequest.Specifier}' is not in the bundle.");
     }
 
-    [Fact]
+    [Test]
     public async Task ResolutionStillSeesTheReferringModulesLocation()
     {
         // The shape a dev server needs: specifiers inside a fetched module are relative to where that module
@@ -942,7 +942,7 @@ public class AsyncModuleLoaderTests
         ns.Get("value").AsString().Should().Be("base/util");
     }
 
-    [Fact]
+    [Test]
     public async Task ADynamicImportInsideAnAsynchronouslyLoadedModuleResolvesRelativeToIt()
     {
         var loader = new UriModuleLoader(new Dictionary<string, string>
@@ -1010,7 +1010,7 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheSynchronousLoaderInterfaceIsUnaffected()
     {
         // The whole point of making async opt-in: an IModuleLoader that only loads synchronously behaves
@@ -1034,7 +1034,7 @@ public class AsyncModuleLoaderTests
         };
     }
 
-    [Fact]
+    [Test]
     public void LinkingBeforeTheGraphHasLoadedIsRefusedWithAnActionableError()
     {
         // A host driving a module by hand has to run the load phase first. With a synchronous loader Link()
@@ -1048,7 +1048,7 @@ public class AsyncModuleLoaderTests
             .WithMessage("*still loading*LoadRequestedModules*ImportAsync*");
     }
 
-    [Fact]
+    [Test]
     public void AHostCanDriveTheLoadPhaseItselfBeforeLinking()
     {
         // LoadRequestedModules is the specification's load phase as a primitive: run it to completion, and the
@@ -1069,7 +1069,7 @@ public class AsyncModuleLoaderTests
         ModuleRecord.GetModuleNamespace(module).Get("value").AsNumber().Should().Be(11);
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmModuleDeliveredAsynchronouslyEvaluatesInTheShadowRealm()
     {
         // ShadowRealm.importValue enters the shadow realm's execution context only around the synchronous
@@ -1094,7 +1094,7 @@ public class AsyncModuleLoaderTests
         engine.Evaluate("sandbox.evaluate(\"typeof globalThis.leak\")").AsString().Should().Be("string", "the module's top-level code belongs to the shadow realm");
     }
 
-    [Fact]
+    [Test]
     public void AResolutionFailureInsideAnAsyncGraphRejectsEveryWaitingImportInsteadOfStrandingThem()
     {
         // ModuleLoader.Resolve is allowed to refuse a specifier with ModuleResolutionException — a sibling of
@@ -1125,7 +1125,7 @@ public class AsyncModuleLoaderTests
         second.IsFaulted.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AConstraintExceptionFromTheLoaderPropagatesAndLeavesNoPoisonedLoadBehind()
     {
         // Constraint exceptions exist to bound execution; flattened into a rejection they no longer bound
@@ -1163,7 +1163,7 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public Task AThrowingModuleSourceHookRejectsTheImportInsteadOfStrandingIt() => DedicatedThread.RunAsync(() =>
     {
         // GetModuleSource is a host hook that runs inside the queued build of an asynchronously delivered
@@ -1203,7 +1203,7 @@ public class AsyncModuleLoaderTests
             => throw new InvalidOperationException("source hook failed");
     }
 
-    [Fact]
+    [Test]
     public void ABuilderRegisteredWhileAFetchOfTheSameKeyIsInFlightDoesNotForkTheModule()
     {
         // Modules.Add of a key whose fetch is already airborne must not produce two live module records —
@@ -1224,7 +1224,7 @@ public class AsyncModuleLoaderTests
         loader.AskedFor("lib").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ASyntaxErrorReachesTheBlockingImportWithItsOriginalLocation()
     {
         // The failure travels from the queued build to the blocking importer as a promise rejection, which
@@ -1246,7 +1246,7 @@ public class AsyncModuleLoaderTests
         ex.Location.SourceFile.Should().Be("./broken.js");
     }
 
-    [Fact]
+    [Test]
     public Task AResolutionFailureReachesTheBlockingImportThroughTheDisclosurePolicy() => DedicatedThread.RunAsync(() =>
     {
         // The refusal happens inside the queued build of './mid.js', two loads deep. Once it crosses that
@@ -1318,7 +1318,7 @@ public class AsyncModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AFailedBlockingImportRaisesNoUnhandledRejectionEvent()
     {
         // The load-phase promise is engine-internal plumbing the host never sees; its rejection is delivered
@@ -1333,7 +1333,7 @@ public class AsyncModuleLoaderTests
         events.Should().BeEmpty("the failure was delivered as an exception, and no host-observable promise was involved");
     }
 
-    [Fact]
+    [Test]
     public void StartImportDeliversAResolutionFailureThroughTheOperation()
     {
         // The single most common failure — the loader refusing to resolve — must arrive through the
@@ -1353,7 +1353,7 @@ public class AsyncModuleLoaderTests
         import.Error!.Get("message").AsString().Should().Be("Could not load module.");
     }
 
-    [Fact]
+    [Test]
     public void ABlockingImportThatCannotProgressInsideAJobFailsFastWithTheActualReason()
     {
         // Inside an event-loop job the re-entrancy guard makes queued work unrunnable, so a blocking import
@@ -1372,7 +1372,7 @@ public class AsyncModuleLoaderTests
             .WithMessage("*event-loop job*StartImport*");
     }
 
-    [Fact]
+    [Test]
     public void TheSynchronousEntryOfAnAsyncLoaderExplainsTheMisuseInsteadOfClaimingAMissingModule()
     {
         // AsyncModuleLoader.LoadModuleContents throws NotSupportedException with guidance on how to reach the

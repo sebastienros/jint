@@ -5,7 +5,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class ClrTypeResolutionSecurityTests
 {
-    [Fact]
+    [Test]
     public void NarrowAssemblyListDeniesUnlistedRuntimeCapabilities()
     {
         var engine = new Engine(options => options.AllowClr(typeof(AllowedClrHost).Assembly));
@@ -16,7 +16,7 @@ public class ClrTypeResolutionSecurityTests
         engine.Evaluate("System.Reflection.Assembly").Should().NotBeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void EmptyComputedAssemblyListFailsClosed()
     {
         Assembly[] assemblies = [];
@@ -25,7 +25,7 @@ public class ClrTypeResolutionSecurityTests
         engine.Evaluate("System.Object").Should().NotBeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void NarrowAssemblyListRetainsExplicitlyAllowedTypes()
     {
         var engine = new Engine(options => options.AllowClr(typeof(AllowedClrHost).Assembly));
@@ -36,7 +36,7 @@ public class ClrTypeResolutionSecurityTests
             .Be(42);
     }
 
-    [Fact]
+    [Test]
     public void MemberFilterAppliesToNamespaceAndNestedTypeResolution()
     {
         var resolver = new TypeResolver
@@ -82,7 +82,7 @@ public class ClrTypeResolutionSecurityTests
             .NotBeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void ExplicitTypeReferencesRemainCapabilitiesOutsideAssemblyList()
     {
         var engine = new Engine(options => options.AllowClr(typeof(AllowedClrHost).Assembly));
@@ -92,7 +92,7 @@ public class ClrTypeResolutionSecurityTests
         engine.Evaluate("System.String").Should().NotBeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void ExplicitTypeReferenceRoundTripsOutsideAssemblyList()
     {
         var engine = new Engine(options =>
@@ -108,7 +108,7 @@ public class ClrTypeResolutionSecurityTests
             .Which.ReferenceType.Should().Be(typeof(DeniedClrHost));
     }
 
-    [Fact]
+    [Test]
     public void ExplicitTypeCapabilityDoesNotTransferToAnUnrelatedWrapper()
     {
         var engine = new Engine(options =>
@@ -126,7 +126,7 @@ public class ClrTypeResolutionSecurityTests
             .WithMessage("*not allowed*");
     }
 
-    [Fact]
+    [Test]
     public void ParameterlessAllowClrIsCoreAssemblyCompatibilityMode()
     {
         var engine = new Engine(options => options.AllowClr());
@@ -137,7 +137,7 @@ public class ClrTypeResolutionSecurityTests
             .NotBeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void GenericDefinitionUsesAllowedAssemblyAndExplicitTypeArgument()
     {
         var engine = new Engine(options => options.AllowClr(typeof(AllowedClrHost).Assembly));
@@ -153,7 +153,7 @@ public class ClrTypeResolutionSecurityTests
             .Be("safe");
     }
 
-    [Fact]
+    [Test]
     public void AllowGetTypeDoesNotExposeStaticTypeLookup()
     {
         var engine = new Engine(options =>
@@ -167,7 +167,7 @@ public class ClrTypeResolutionSecurityTests
         engine.Evaluate("typeof System.Type.GetType").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperCannotWidenOutsideAssemblyPolicy()
     {
         var engine = new Engine(options =>
@@ -188,7 +188,7 @@ public class ClrTypeResolutionSecurityTests
             .WithMessage("*not allowed*");
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperUnwrapCannotRevealUnlistedConcreteType()
     {
         var engine = new Engine(options =>
@@ -205,7 +205,7 @@ public class ClrTypeResolutionSecurityTests
             .WithMessage("*not allowed*");
     }
 
-    [Fact]
+    [Test]
     public void ReflectionNamespaceRequiresExplicitOptIn()
     {
         var restricted = new Engine(options => options.AllowClr(typeof(object).Assembly));
@@ -219,7 +219,7 @@ public class ClrTypeResolutionSecurityTests
         permissive.Evaluate("System.Reflection.Assembly").Should().BeOfType<TypeReference>();
     }
 
-    [Fact]
+    [Test]
     public void DeniedMemberErrorsAreSanitizedAcrossColdAndWarmCacheReads()
     {
         var resolver = new TypeResolver { MemberFilter = static member => member.Name != nameof(AllowedClrInstance.Secret) };
@@ -241,7 +241,7 @@ public class ClrTypeResolutionSecurityTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DetailedDeniedMemberErrorsRetainCompatibilityMessage()
     {
         var resolver = new TypeResolver { MemberFilter = static member => member.Name != nameof(AllowedClrInstance.Secret) };
@@ -260,7 +260,7 @@ public class ClrTypeResolutionSecurityTests
             .WithMessage($"*{nameof(AllowedClrInstance.Secret)}*{nameof(AllowedClrInstance)}*");
     }
 
-    [Fact]
+    [Test]
     public void GenericTypeBindingErrorsFollowResolutionDisclosurePolicy()
     {
         static Engine CreateEngine(bool exposeDetails)

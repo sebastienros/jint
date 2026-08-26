@@ -40,7 +40,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- opting in and out
 
-    [Fact]
+    [Test]
     public void NotCollectedByDefault()
     {
         Engine.PrepareScript("uuid();").ReferencedGlobals.Should().BeNull();
@@ -52,7 +52,7 @@ public class ReferencedGlobalsTests
             .ReferencedGlobals.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void NullIsDistinguishableFromEmpty()
     {
         Engine.PrepareScript("var x = 1;").ReferencedGlobals.Should().BeNull();
@@ -62,7 +62,7 @@ public class ReferencedGlobalsTests
         collected.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void DefaultPreparedInstanceHasNoReferencedGlobals()
     {
         default(Prepared<Script>).ReferencedGlobals.Should().BeNull();
@@ -70,43 +70,43 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- free reads, writes, typeof
 
-    [Fact]
+    [Test]
     public void FreeReadIsReported()
     {
         Collect("uuid();").Should().BeEquivalentTo(["uuid"]);
     }
 
-    [Fact]
+    [Test]
     public void HostShapedExpressionReportsBothRoots()
     {
         Collect("variables.Foo + libX.y").Should().BeEquivalentTo(["libX", "variables"]);
     }
 
-    [Fact]
+    [Test]
     public void SloppyWriteToUndeclaredNameIsReported()
     {
         Collect("undeclared = 1;").Should().BeEquivalentTo(["undeclared"]);
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignmentAndUpdateAreReported()
     {
         Collect("a += 1; b++; --c;").Should().BeEquivalentTo(["a", "b", "c"]);
     }
 
-    [Fact]
+    [Test]
     public void TypeofGuardIsReported()
     {
         Collect("typeof x === 'undefined'").Should().BeEquivalentTo(["x"]);
     }
 
-    [Fact]
+    [Test]
     public void DeleteOperandIsReported()
     {
         Collect("delete x;").Should().BeEquivalentTo(["x"]);
     }
 
-    [Fact]
+    [Test]
     public void StrictModeScriptsAreAnalysedToo()
     {
         Collect("'use strict'; typeof x; y.z;", strict: true).Should().BeEquivalentTo(["x", "y"]);
@@ -115,88 +115,88 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- per-site binding resolution
 
-    [Fact]
+    [Test]
     public void ParameterElsewhereDoesNotHideFreeTopLevelUse()
     {
         // the precision case: a "declared anywhere" set difference would wrongly drop `x`
         Collect("function f(x) { return x; } x;").Should().BeEquivalentTo(["x"]);
     }
 
-    [Fact]
+    [Test]
     public void FunctionDeclarationNameIsBoundAndNotReported()
     {
         Collect("function f() { return 1; } f();").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ForwardFunctionReferenceIsNotReported()
     {
         Collect("f(); function f() {}").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void VarHoistsOutOfBlocks()
     {
         Collect("{ var v = 1; } v;").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void BlockLetShadowsInsideButNotOutside()
     {
         Collect("{ let z; z; } z;").Should().BeEquivalentTo(["z"]);
     }
 
-    [Fact]
+    [Test]
     public void CatchParameterBindsOnlyInsideTheClause()
     {
         Collect("try { } catch (e) { e; } e;").Should().BeEquivalentTo(["e"]);
     }
 
-    [Fact]
+    [Test]
     public void ForLoopBindingBindsOnlyInsideTheLoop()
     {
         Collect("for (let i = 0; i < n; i++) { i; } i;").Should().BeEquivalentTo(["i", "n"]);
     }
 
-    [Fact]
+    [Test]
     public void ForOfAndForInBindingsAreDeclarations()
     {
         Collect("for (const item of list) { item; } for (var k in obj) { k; }")
             .Should().BeEquivalentTo(["list", "obj"]);
     }
 
-    [Fact]
+    [Test]
     public void ClassDeclarationNameIsBound()
     {
         Collect("class C extends B { m() { return C; } } new C();").Should().BeEquivalentTo(["B"]);
     }
 
-    [Fact]
+    [Test]
     public void ClassExpressionSelfNameIsBoundInsideOnly()
     {
         Collect("var k = class D { m() { return D; } }; D;").Should().BeEquivalentTo(["D"]);
     }
 
-    [Fact]
+    [Test]
     public void FunctionExpressionSelfNameIsBoundInsideOnly()
     {
         Collect("var f = function foo() { return foo(); }; foo;").Should().BeEquivalentTo(["foo"]);
     }
 
-    [Fact]
+    [Test]
     public void StaticBlockBindingsAreScopedToTheBlock()
     {
         Collect("class F { static { let sb; sb; } } sb;").Should().BeEquivalentTo(["sb"]);
     }
 
-    [Fact]
+    [Test]
     public void SwitchCaseBindingDoesNotShadowTheDiscriminant()
     {
         // the switch scope covers the cases, not the discriminant
         Collect("switch (y) { case 1: let y; break; }").Should().BeEquivalentTo(["y"]);
     }
 
-    [Fact]
+    [Test]
     public void NestedFunctionsResolveAgainstTheirOwnChain()
     {
         const string Code = """
@@ -211,7 +211,7 @@ public class ReferencedGlobalsTests
         Collect(Code).Should().BeEquivalentTo(["c", "d"]);
     }
 
-    [Fact]
+    [Test]
     public void ArrowParametersBindInsideTheArrow()
     {
         // arrow parameters are parsed before the arrow's scope is entered; they must still bind
@@ -219,7 +219,7 @@ public class ReferencedGlobalsTests
         Collect("x => y => x + y + z;").Should().BeEquivalentTo(["z"]);
     }
 
-    [Fact]
+    [Test]
     public void ParameterDefaultsAreReferencePositions()
     {
         Collect("function g(a = x, { b: bb = y } = {}) { return a + bb; }")
@@ -228,81 +228,81 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- positions
 
-    [Fact]
+    [Test]
     public void NonComputedMemberPropertyNameIsNotAReference()
     {
         Collect("a.b.c;").Should().BeEquivalentTo(["a"]);
     }
 
-    [Fact]
+    [Test]
     public void ComputedMemberKeyIsAReference()
     {
         Collect("a[b];").Should().BeEquivalentTo(["a", "b"]);
     }
 
-    [Fact]
+    [Test]
     public void ObjectLiteralKeysAreNotReferencesButValuesAndComputedKeysAre()
     {
         Collect("var o = { a, b: c, [d]: e };").Should().BeEquivalentTo(["a", "c", "d", "e"]);
     }
 
-    [Fact]
+    [Test]
     public void AccessorKeysAreNotReferences()
     {
         Collect("var o = { get g() { return 1; }, set s(v) { v; } };").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ClassMemberKeysFollowTheSameRule()
     {
         Collect("class E { m() {} [f]() {} static [g] = h; p = i; }")
             .Should().BeEquivalentTo(["f", "g", "h", "i"]);
     }
 
-    [Fact]
+    [Test]
     public void DestructuringDeclarationTargetsAreDeclarations()
     {
         Collect("var { p, [q]: r, s = t } = o;").Should().BeEquivalentTo(["o", "q", "t"]);
     }
 
-    [Fact]
+    [Test]
     public void DestructuringAssignmentTargetsAreReferences()
     {
         Collect("({ p, [q]: r } = o); [s] = arr;").Should().BeEquivalentTo(["arr", "o", "p", "q", "r", "s"]);
     }
 
-    [Fact]
+    [Test]
     public void ArrayPatternDeclarationTargetsAreDeclarations()
     {
         Collect("var [head, ...tail] = list; head; tail;").Should().BeEquivalentTo(["list"]);
     }
 
-    [Fact]
+    [Test]
     public void LabelsAreNotReferences()
     {
         Collect("outer: for (;;) { break outer; } inner: while (c) { continue inner; }")
             .Should().BeEquivalentTo(["c"]);
     }
 
-    [Fact]
+    [Test]
     public void TemplateLiteralTagsAndInterpolationsAreReferences()
     {
         Collect("tag`x${y}z`; `${a}${b.c}`;").Should().BeEquivalentTo(["a", "b", "tag", "y"]);
     }
 
-    [Fact]
+    [Test]
     public void CalleesArgumentsAndSpreadAreReferences()
     {
         Collect("fn(a, ...rest); new Ctor(b);").Should().BeEquivalentTo(["a", "b", "Ctor", "fn", "rest"]);
     }
 
-    [Fact]
+    [Test]
     public void MetaPropertiesAreNotReferences()
     {
         Collect("function f() { return new.target; }").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ThisAndSuperAndPrivateNamesNeverAppear()
     {
         Collect("class C extends B { #p = 1; m() { return super.m() + this.#p; } }")
@@ -311,7 +311,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- arguments
 
-    [Fact]
+    [Test]
     public void ArgumentsIsBoundInsideANonArrowFunction()
     {
         Collect("function f() { return arguments; }").Should().BeEmpty();
@@ -319,14 +319,14 @@ public class ReferencedGlobalsTests
         Collect("var o = { m() { return arguments; } };").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsIsFreeAtTopLevelAndInsideTopLevelArrows()
     {
         Collect("arguments;").Should().BeEquivalentTo(["arguments"]);
         Collect("(() => arguments);").Should().BeEquivalentTo(["arguments"]);
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsInsideAnArrowNestedInAFunctionIsBound()
     {
         Collect("function f() { return () => arguments; }").Should().BeEmpty();
@@ -334,7 +334,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- with
 
-    [Fact]
+    [Test]
     public void WithStatementOverApproximates()
     {
         // `x` may resolve on `o` at run time, but it is lexically free and is reported
@@ -343,7 +343,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- eval
 
-    [Fact]
+    [Test]
     public void DirectEvalIsFlagged()
     {
         var collected = Collect("eval('1 + 1');");
@@ -351,13 +351,13 @@ public class ReferencedGlobalsTests
         collected.Should().BeEquivalentTo(["eval"]);
     }
 
-    [Fact]
+    [Test]
     public void OptionalDirectEvalCallIsFlagged()
     {
         Collect("eval?.('1 + 1');").HasDirectEvalCall.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IndirectEvalIsNotFlaggedButAppearsInTheSet()
     {
         var collected = Collect("(0, eval)('1 + 1');");
@@ -365,7 +365,7 @@ public class ReferencedGlobalsTests
         collected.Should().BeEquivalentTo(["eval"]);
     }
 
-    [Fact]
+    [Test]
     public void FunctionConstructorIsNotFlaggedButAppearsInTheSet()
     {
         var collected = Collect("new Function('return 1;')();");
@@ -373,7 +373,7 @@ public class ReferencedGlobalsTests
         collected.Should().BeEquivalentTo(["Function"]);
     }
 
-    [Fact]
+    [Test]
     public void ProgramWithoutEvalIsNotFlagged()
     {
         Collect("evaluate(); o.eval();").HasDirectEvalCall.Should().BeFalse();
@@ -381,7 +381,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- Annex B
 
-    [Fact]
+    [Test]
     public void AnnexBBlockFunctionFollowsTheParserScopeModel()
     {
         // sloppy-mode Annex B also creates a global `var fb`, so this over-approximates, which is the safe direction
@@ -391,19 +391,19 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- modules
 
-    [Fact]
+    [Test]
     public void ImportBindingsAreDeclarationsAndImportedNamesAreNotReferences()
     {
         CollectModule("import d, { a as b } from 'm'; d; b; g;").Should().BeEquivalentTo(["g"]);
     }
 
-    [Fact]
+    [Test]
     public void NamespaceImportIsADeclaration()
     {
         CollectModule("import * as ns from 'm'; ns.thing;").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ExportedAliasesAreNotReferencesButLocalsAre()
     {
         // `export { b as c }` requires `b` to be declared, so the local always resolves; what matters is that the
@@ -413,20 +413,20 @@ public class ReferencedGlobalsTests
         CollectModule("export { a as b } from 'm';").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ExportedDeclarationsBindTheirNames()
     {
         CollectModule("export const value = compute(); value;").Should().BeEquivalentTo(["compute"]);
         CollectModule("export default function local() { return local; } local;").Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void DynamicImportArgumentIsAReference()
     {
         CollectModule("import(specifier);").Should().BeEquivalentTo(["specifier"]);
     }
 
-    [Fact]
+    [Test]
     public void ImportMetaIsNotAReference()
     {
         CollectModule("var u = import.meta.url;").Should().BeEmpty();
@@ -434,7 +434,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- collection semantics
 
-    [Fact]
+    [Test]
     public void NamesAreOrdinalSortedAndDeduplicated()
     {
         var collected = Collect("b; a; B; a; A; b;");
@@ -443,7 +443,7 @@ public class ReferencedGlobalsTests
         collected.Count.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void ContainsIsOrdinal()
     {
         var collected = Collect("uuid();");
@@ -454,7 +454,7 @@ public class ReferencedGlobalsTests
         Invoking(() => collected.Contains(null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void NonGenericEnumerationWorks()
     {
         var collected = Collect("b; a;");
@@ -468,7 +468,7 @@ public class ReferencedGlobalsTests
         names.Should().Equal("a", "b");
     }
 
-    [Fact]
+    [Test]
     public void SameSourceProducesTheSameSet()
     {
         const string Code = "variables.Foo + libX.y + (function (p) { return p + q; })(r);";
@@ -478,7 +478,7 @@ public class ReferencedGlobalsTests
 
     // ---------------------------------------------------------------- sharing
 
-    [Fact]
+    [Test]
     public void OnePreparedScriptCanDriveManyEngines()
     {
         var prepared = Engine.PrepareScript("host.value + extra;", options: new ScriptPreparationOptions
@@ -508,7 +508,7 @@ public class ReferencedGlobalsTests
     /// The motivating end-to-end pattern: a host with a large ambient API prepares the script once, intersects the
     /// referenced names with its registry, and builds only the intersection.
     /// </summary>
-    [Fact]
+    [Test]
     public void HostRegistersOnlyTheIntersectionOfItsRegistryAndTheReferencedNames()
     {
         var built = new List<string>();
@@ -558,7 +558,7 @@ public class ReferencedGlobalsTests
         built.Should().BeEquivalentTo(["libX", "variables"]);
     }
 
-    [Fact]
+    [Test]
     public void DirectEvalTellsAHostToInstallEverything()
     {
         var prepared = Engine.PrepareScript("eval('unlisted');", options: new ScriptPreparationOptions

@@ -27,12 +27,11 @@ public class TypedArrayDefinePropertyTests
         .Evaluate($"(function () {{ try {{ {source}; return 'did not throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
         .AsString();
 
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{ configurable: true }")]
-    [InlineData("{ enumerable: true }")]
-    [InlineData("{ writable: true }")]
-    [InlineData("{ configurable: true, enumerable: true, writable: true }")]
+    [TestCase("{}")]
+    [TestCase("{ configurable: true }")]
+    [TestCase("{ enumerable: true }")]
+    [TestCase("{ writable: true }")]
+    [TestCase("{ configurable: true, enumerable: true, writable: true }")]
     public void ADescriptorWithoutAValueSucceedsAndLeavesTheElementAlone(string descriptor)
     {
         _engine.Evaluate($$"""
@@ -46,29 +45,27 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("ta[1]").AsNumber().Should().Be(0);
     }
 
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{ configurable: true }")]
-    [InlineData("{ enumerable: true }")]
-    [InlineData("{ writable: true }")]
+    [TestCase("{}")]
+    [TestCase("{ configurable: true }")]
+    [TestCase("{ enumerable: true }")]
+    [TestCase("{ writable: true }")]
     public void ReflectDefinePropertyReportsSuccessForADescriptorWithoutAValue(string descriptor)
     {
         _engine.Evaluate($"Reflect.defineProperty(new Int32Array(2), 0, {descriptor})").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("Int8Array")]
-    [InlineData("Uint8Array")]
-    [InlineData("Uint8ClampedArray")]
-    [InlineData("Int16Array")]
-    [InlineData("Uint16Array")]
-    [InlineData("Int32Array")]
-    [InlineData("Uint32Array")]
-    [InlineData("Float16Array")]
-    [InlineData("Float32Array")]
-    [InlineData("Float64Array")]
-    [InlineData("BigInt64Array")]
-    [InlineData("BigUint64Array")]
+    [TestCase("Int8Array")]
+    [TestCase("Uint8Array")]
+    [TestCase("Uint8ClampedArray")]
+    [TestCase("Int16Array")]
+    [TestCase("Uint16Array")]
+    [TestCase("Int32Array")]
+    [TestCase("Uint32Array")]
+    [TestCase("Float16Array")]
+    [TestCase("Float32Array")]
+    [TestCase("Float64Array")]
+    [TestCase("BigInt64Array")]
+    [TestCase("BigUint64Array")]
     public void EveryElementTypeAcceptsADescriptorWithoutAValue(string constructor)
     {
         // The BigInt element types matter on their own: their value conversion is ToBigInt rather than
@@ -76,19 +73,18 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate($"Reflect.defineProperty(new {constructor}(2), 0, {{}})").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("{ configurable: false }")]
-    [InlineData("{ enumerable: false }")]
-    [InlineData("{ writable: false }")]
-    [InlineData("{ get: function () { return 1; } }")]
-    [InlineData("{ set: function () { } }")]
+    [TestCase("{ configurable: false }")]
+    [TestCase("{ enumerable: false }")]
+    [TestCase("{ writable: false }")]
+    [TestCase("{ get: function () { return 1; } }")]
+    [TestCase("{ set: function () { } }")]
     public void TheFlagRejectionsStillApplyWhenNoValueIsSupplied(string descriptor)
     {
         _engine.Evaluate($"Reflect.defineProperty(new Int32Array(2), 0, {descriptor})").AsBoolean().Should().BeFalse();
         ThrownErrorName($"Object.defineProperty(new Int32Array(2), 0, {descriptor})").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AnAccessorDescriptorIsRejectedBeforeTheValueStep()
     {
         // The accessor rejection sits between the enumerable and writable ones, so a descriptor that is an
@@ -103,7 +99,7 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("ta[0]").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void ADescriptorWithAValueStillWritesTheElement()
     {
         _engine.Evaluate("""
@@ -115,7 +111,7 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("ta[0]").AsNumber().Should().Be(18);
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitUndefinedValueIsAValueAndIsConverted()
     {
         // { value: undefined } does have a [[Value]] field, so the element is written with
@@ -130,26 +126,24 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("ta[0]").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ADescriptorWithAValueStillReportsAConversionFailure()
     {
         ThrownErrorName("Object.defineProperty(new Int32Array(2), 0, { value: Symbol() })").Should().Be("TypeError");
     }
 
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{ value: 1 }")]
-    [InlineData("{ configurable: true }")]
+    [TestCase("{}")]
+    [TestCase("{ value: 1 }")]
+    [TestCase("{ configurable: true }")]
     public void AnOutOfBoundsIndexIsRejectedBeforeAnythingElse(string descriptor)
     {
         _engine.Evaluate($"Reflect.defineProperty(new Int32Array(2), 5, {descriptor})").AsBoolean().Should().BeFalse();
         _engine.Evaluate($"Reflect.defineProperty(new Int32Array(2), -1, {descriptor})").AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("{}")]
-    [InlineData("{ value: 1 }")]
-    [InlineData("{ configurable: true }")]
+    [TestCase("{}")]
+    [TestCase("{ value: 1 }")]
+    [TestCase("{ configurable: true }")]
     public void ADetachedBufferIsRejectedBeforeAnythingElse(string descriptor)
     {
         _engine.Evaluate($$"""
@@ -161,7 +155,7 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("result").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AShrunkResizableBufferPutsTheLaterIndexOutOfBounds()
     {
         _engine.Evaluate("""
@@ -176,7 +170,7 @@ public class TypedArrayDefinePropertyTests
         _engine.Evaluate("outOfBounds").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ANonIndexKeyKeepsTheOrdinaryBehaviour()
     {
         _engine.Evaluate("""

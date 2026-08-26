@@ -20,7 +20,7 @@ public class WebApiStructuredCloneTests
         public int Count { get; set; } = 1;
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoStructuredClone()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class WebApiStructuredCloneTests
         engine.Evaluate("'structuredClone' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureFlagInstallsIt()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
@@ -41,7 +41,7 @@ public class WebApiStructuredCloneTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesIt()
     {
         WebApiFeatures.Default.Should().HaveFlag(WebApiFeatures.StructuredClone);
@@ -49,7 +49,7 @@ public class WebApiStructuredCloneTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof structuredClone").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own structuredClone");
@@ -62,7 +62,7 @@ public class WebApiStructuredCloneTests
         engine.Evaluate("structuredClone").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void HasTheAttributesWebIdlGivesAGlobalOperation()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
@@ -77,7 +77,7 @@ public class WebApiStructuredCloneTests
         engine.Evaluate("structuredClone.name").AsString().Should().Be("structuredClone");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAWrappedClrObject()
     {
         var engine = new Engine(options => options
@@ -98,7 +98,7 @@ public class WebApiStructuredCloneTests
         result.Should().Be("DataCloneError/true/25");
     }
 
-    [Fact]
+    [Test]
     public void ClonesAHostSuppliedObjectGraph()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
@@ -119,7 +119,7 @@ public class WebApiStructuredCloneTests
         engine.Evaluate("clone.count").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEngines()
     {
         var options = new Options().UseWebApis(WebApiFeatures.StructuredClone);
@@ -135,7 +135,7 @@ public class WebApiStructuredCloneTests
         second.Evaluate("typeof structuredClone").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TransfersAnArrayBufferForAHost()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));

@@ -9,7 +9,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class NewExpressionCacheTests
 {
-    [Fact]
+    [Test]
     public void RepeatedNewDateUsesRealmPrototype()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class NewExpressionCacheTests
         result.Should().Be(1000);
     }
 
-    [Fact]
+    [Test]
     public void ReassignedDateConstructorIsPickedUpAtWarmCallSite()
     {
         var engine = new Engine();
@@ -51,7 +51,7 @@ public class NewExpressionCacheTests
         result.Should().Be("true:42");
     }
 
-    [Fact]
+    [Test]
     public void SubclassedDateGetsSubclassPrototype()
     {
         var engine = new Engine();
@@ -67,7 +67,7 @@ public class NewExpressionCacheTests
         result.Should().Be("true:true");
     }
 
-    [Fact]
+    [Test]
     public void SharedPreparedScriptConstructsAgainstOwnRealm()
     {
         // one prepared script executed by two engines: the call-site cache must re-resolve per
@@ -86,7 +86,7 @@ public class NewExpressionCacheTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CustomTimeSystemStillServesNewDate()
     {
         // a custom ITimeSystem disables the leaf fast path (exact-type gate); constructs run the
@@ -105,7 +105,7 @@ public class NewExpressionCacheTests
         result.Should().Be(100);
     }
 
-    [Fact]
+    [Test]
     public void ThrowingCustomTimeSystemSurfacesExceptionPerConstruct()
     {
         var engine = new Engine(options => options.TimeSystem = new ThrowingTimeSystem());

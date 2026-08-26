@@ -22,7 +22,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class HostContractVerificationSwitchTests
 {
-    [Fact]
+    [Test]
     public void TheHarnessSwitchAgreesWithJintsOwnGate()
     {
         HostContractVerificationSwitch.Enabled.Should().Be(
@@ -30,7 +30,7 @@ public class HostContractVerificationSwitchTests
             "the module initializer must set the AppContext switch before Jint's gate reads it");
     }
 
-    [Fact]
+    [Test]
     public void AskingForVerificationIsWhatTurnsItOnOutsideDebug()
     {
 #if DEBUG

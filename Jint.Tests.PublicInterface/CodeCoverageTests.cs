@@ -37,7 +37,7 @@ public class CodeCoverageTests
 
     // ---- reachability ----
 
-    [Fact]
+    [Test]
     public void TheOptionAndTheReadoutAreReachableFromOutsideTheJintAssembly()
     {
         var engine = new Engine(options =>
@@ -52,7 +52,7 @@ public class CodeCoverageTests
         engine.Diagnostics.ResetCoverage();
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineCollectsNothingAndSaysSo()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ public class CodeCoverageTests
 
     // ---- the report a host actually consumes ----
 
-    [Fact]
+    [Test]
     public void ARunReportsEveryStatementItExecutedAndHowOftenItRanIt()
     {
         const string Code =
@@ -95,7 +95,7 @@ public class CodeCoverageTests
         functionEntries[0].Hits.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void APositionCarriesLineColumnAndIndex()
     {
         const string Code = "var a = 1;\nvar b = 2;";
@@ -116,7 +116,7 @@ public class CodeCoverageTests
         entries[1].Start.Index.Should().Be(11);
     }
 
-    [Fact]
+    [Test]
     public void ANeverExecutedStatementHasNoEntry()
     {
         const string Code = "if (false) { var unreachable = 1; }";
@@ -129,7 +129,7 @@ public class CodeCoverageTests
             .Should().NotContain("var unreachable = 1;");
     }
 
-    [Fact]
+    [Test]
     public void FunctionGranularityReportsFunctionBodiesOnly()
     {
         const string Code = "function f() { var x = 1; return x; } f(); f(); f();";
@@ -141,7 +141,7 @@ public class CodeCoverageTests
             ("{ var x = 1; return x; }", CoverageEntryKind.Function, 3L));
     }
 
-    [Fact]
+    [Test]
     public void ResetStartsAFreshMeasurement()
     {
         const string Code = "var a = 1;";
@@ -155,7 +155,7 @@ public class CodeCoverageTests
         Rows(Code, engine.Diagnostics.GetCoverage()).Should().Equal(("var a = 1;", CoverageEntryKind.Statement, 2L));
     }
 
-    [Fact]
+    [Test]
     public void EachSourceIsReportedUnderTheNameItWasParsedWith()
     {
         var engine = CreateEngine();
@@ -173,7 +173,7 @@ public class CodeCoverageTests
     /// <see cref="Options"/> is documented as shareable across engines, so the coverage option has to be too:
     /// each engine gets its own counters and one engine's report never contains another's executions.
     /// </summary>
-    [Fact]
+    [Test]
     public void OneOptionsInstanceGivesEveryEngineItsOwnCounters()
     {
         const string Code = "var a = 1;";
@@ -197,7 +197,7 @@ public class CodeCoverageTests
     /// engines: the prepared AST is shared, the counts are not. One engine collecting coverage must not see the
     /// executions of the engines that are not, and must not disturb them either.
     /// </summary>
-    [Fact]
+    [Test]
     public void APreparedScriptSharedAcrossEnginesKeepsItsCountsPerEngine()
     {
         const string Code = "function add(a, b) { return a + b; } add(1, 2);";
@@ -227,7 +227,7 @@ public class CodeCoverageTests
     /// Coverage rides the same per-statement lane the execution constraints use, so the two have to keep
     /// working together: a budgeted run still gets counted, and the budget still applies.
     /// </summary>
-    [Fact]
+    [Test]
     public void CoverageAndExecutionConstraintsCoexist()
     {
         var engine = new Engine(options =>

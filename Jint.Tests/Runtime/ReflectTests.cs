@@ -10,7 +10,7 @@ public class ReflectTests
     // downstream operation (IsConstructor check, [[Set]] receiver-not-Object branch, accessor
     // `this`).
 
-    [Fact]
+    [Test]
     public void ReflectConstructExplicitUndefinedNewTargetThrows()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class ReflectTests
         ex.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ReflectSetExplicitUndefinedReceiverReturnsFalse()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class ReflectTests
         engine.Evaluate("Reflect.set({}, 'p', 1, undefined)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectGetExplicitUndefinedReceiverPropagatesToAccessor()
     {
         var engine = new Engine();

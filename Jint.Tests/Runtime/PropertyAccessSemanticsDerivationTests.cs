@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class PropertyAccessSemanticsDerivationTests
 {
-    [Fact]
+    [Test]
     public void TheTypeIsProbedOnceHoweverManyInstancesAreBuilt()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class PropertyAccessSemanticsDerivationTests
         ObjectInstance.AccessSemanticsProbeCount(typeof(ProbedOrdinaryHost)).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EachTypeIsProbedSeparately()
     {
         var engine = new Engine();
@@ -52,7 +52,7 @@ public class PropertyAccessSemanticsDerivationTests
         ObjectInstance.AccessSemanticsProbeCount(typeof(ProbedDerivedExoticHost)).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void OverridingGetIsWhatMakesAHostExotic()
     {
         // The behavioural half of the same rule: the exotic host's Get is consulted for a name that resolves on

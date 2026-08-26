@@ -77,7 +77,7 @@ public class StatementLimitThrowPointTests
         return outcome + "|" + string.Join(",", sink);
     }
 
-    public static TheoryData<string> LoopShapes() =>
+    public static TestCases<string> LoopShapes() =>
     [
         // for: block with several statements (routes through JintStatementList, which charges for the block)
         "for (var i = 0; i < 4; i++) { log('a' + i); log('b' + i); }",
@@ -108,8 +108,7 @@ public class StatementLimitThrowPointTests
         "for (var i = 0; i < 3; i++) { for (var j = 0; j < 3; j++) { log(i + '' + j); } }",
     ];
 
-    [Theory]
-    [MemberData(nameof(LoopShapes))]
+    [TestCaseSource(nameof(LoopShapes))]
     public void ThrowPointIsIdenticalWithAndWithoutTheTightLane(string body)
     {
         // sweep the whole interesting range: every limit between "throws on the first statement" and
@@ -123,7 +122,7 @@ public class StatementLimitThrowPointTests
         }
     }
 
-    [Fact]
+    [Test]
     public void StatementLimitStillTripsInsideTightLoops()
     {
         var engine = new Engine(options => options.LimitStatements(50));
@@ -132,7 +131,7 @@ public class StatementLimitThrowPointTests
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void StatementLimitCountsAcrossEvaluationsAsBefore()
     {
         var engine = new Engine(options => options.LimitStatements(20));
@@ -146,7 +145,7 @@ public class StatementLimitThrowPointTests
         engine.Evaluate("b").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void UnlimitedStatementConstraintDoesNotThrow()
     {
         // MaxStatements <= 0 means unlimited; the inline charge must reproduce that short-circuit
@@ -156,7 +155,7 @@ public class StatementLimitThrowPointTests
             .AsNumber().Should().Be(10000);
     }
 
-    [Fact]
+    [Test]
     public void AmortizableUserConstraintKeepsTheTightLaneAndTheStatementLimitExact()
     {
         var tripwire = new AmortizableTripwire();
@@ -179,7 +178,7 @@ public class StatementLimitThrowPointTests
         ("limit|" + string.Join(",", sink)).Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void AmortizableUserConstraintIsStillCheckedInsideATightLoop()
     {
         var tripwire = new AmortizableTripwire();
@@ -194,7 +193,7 @@ public class StatementLimitThrowPointTests
         tripwire.Checks.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void NonAmortizableUserConstraintKeepsPerStatementCadence()
     {
         var counting = new CountingConstraint();

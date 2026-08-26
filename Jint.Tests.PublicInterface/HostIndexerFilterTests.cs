@@ -31,7 +31,7 @@ public class HostIndexerFilterTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void AMemberFilterExcludingTheIndexerHidesIndexedReads()
     {
         var engine = BuildEngine(allowIndexer: false);
@@ -40,7 +40,7 @@ public class HostIndexerFilterTests
         engine.Evaluate("host[0]").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AMemberFilterExcludingTheIndexerKeepsNamedMembersReachable()
     {
         var engine = BuildEngine(allowIndexer: false);
@@ -48,7 +48,7 @@ public class HostIndexerFilterTests
         engine.Evaluate("host.Name").AsString().Should().Be("host");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultConfigurationServesTheIndexer()
     {
         var engine = BuildEngine(allowIndexer: true);
@@ -56,7 +56,7 @@ public class HostIndexerFilterTests
         engine.Evaluate("host[3]").AsNumber().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void AMemberFilterExcludingTheIndexerBlocksIndexedWrites()
     {
         var engine = BuildEngine(allowIndexer: false);

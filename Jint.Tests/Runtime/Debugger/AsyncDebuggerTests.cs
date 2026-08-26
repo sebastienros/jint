@@ -44,7 +44,7 @@ run(gate);";
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBreakPointFiresAfterAnAwaitResumedFromTheHost()
     {
         var engine = CreateEngine(out var gate);
@@ -65,7 +65,7 @@ run(gate);";
         hits.Should().Be(1, "the resumed frame's breakpoint condition must be evaluated, not swallowed");
     }
 
-    [Fact]
+    [Test]
     public void ConditionalBreakPointAfterAnAwaitStillHonoursAFalseCondition()
     {
         var engine = CreateEngine(out var gate);
@@ -84,7 +84,7 @@ run(gate);";
         hits.Should().Be(0, "a condition that evaluates to false must not break");
     }
 
-    [Fact]
+    [Test]
     public void WatchExpressionResolvesInAFrameResumedFromTheHost()
     {
         var engine = CreateEngine(out var gate);
@@ -104,7 +104,7 @@ run(gate);";
         observed.AsNumber().Should().Be(1, "the watch expression resolves against the resumed frame");
     }
 
-    [Fact]
+    [Test]
     public void BreakPointFiresInsideAThenCallbackReachedFromADrain()
     {
         // 1 var value = 41;
@@ -134,7 +134,7 @@ value = value + 1;
         hits.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AsyncGeneratorResumeFromTheHostCanEvaluateAWatchExpression()
     {
         // 1 var seen = 0;
@@ -173,7 +173,7 @@ it.next();";
         observed.AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void AnIdleEngineStillRefusesToEvaluate()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);

@@ -58,35 +58,33 @@ public class JsAccessibleAccessorSelectionTests
             MemberResolutionRequirement.None);
     }
 
-    [Theory]
-    [InlineData("Score")]
-    [InlineData("score")]
-    [InlineData("Name")]
-    [InlineData("Payload")]
-    [InlineData("Field")]
-    [InlineData("ReadOnly")]
+    [TestCase("Score")]
+    [TestCase("score")]
+    [TestCase("Name")]
+    [TestCase("Payload")]
+    [TestCase("Field")]
+    [TestCase("ReadOnly")]
     public void AnAnnotatedMemberResolvesToTheGeneratedAccessor(string member)
     {
         Resolve<Annotated>(member).Should().BeOfType<GeneratedMemberAccessor>();
     }
 
-    [Fact]
+    [Test]
     public void AnAnnotatedMethodResolvesToTheGeneratedAccessor()
     {
         Resolve<Annotated>("Echo").Should().BeOfType<GeneratedMethodAccessor>();
     }
 
-    [Theory]
     // a non-JsValue parameter is a conversion the generator will not reproduce
-    [InlineData("Shout")]
+    [TestCase("Shout")]
     // an overloaded name is what MethodInfoFunction exists for
-    [InlineData("Overloaded")]
+    [TestCase("Overloaded")]
     public void AMemberTheGeneratorDeclinesKeepsItsReflectedAccessor(string member)
     {
         Resolve<Annotated>(member).Should().BeOfType<MethodAccessor>();
     }
 
-    [Fact]
+    [Test]
     public void AnUnannotatedTypeIsUntouched()
     {
         Resolve<NotAnnotated>("Score").Should().BeOfType<PropertyAccessor>();
@@ -99,10 +97,9 @@ public class JsAccessibleAccessorSelectionTests
     /// swapped in for whatever it landed on. What the host configured decides which member that is; the lane
     /// it is read through is unaffected.
     /// </summary>
-    [Theory]
-    [InlineData("Score")]
-    [InlineData("Field")]
-    [InlineData("Echo")]
+    [TestCase("Score")]
+    [TestCase("Field")]
+    [TestCase("Echo")]
     public void AMemberAHostFilterAllowsKeepsItsGeneratedAccessor(string member)
     {
         var resolver = new TypeResolver { MemberFilter = static _ => true };
@@ -111,7 +108,7 @@ public class JsAccessibleAccessorSelectionTests
         (accessor is GeneratedMemberAccessor or GeneratedMethodAccessor).Should().BeTrue("{0} resolved to {1}", member, accessor.GetType().Name);
     }
 
-    [Fact]
+    [Test]
     public void AMemberAHostFilterHidesResolvesToNothingRatherThanToItsGeneratedAccessor()
     {
         var resolver = new TypeResolver { MemberFilter = static m => !string.Equals(m.Name, "Score", StringComparison.Ordinal) };
@@ -120,7 +117,7 @@ public class JsAccessibleAccessorSelectionTests
         Resolve<Annotated>("Name", resolver).Should().BeOfType<GeneratedMemberAccessor>();
     }
 
-    [Fact]
+    [Test]
     public void AHostNameCreatorRenamesTheGeneratedMemberRatherThanRemovingIt()
     {
         var resolver = new TypeResolver { MemberNameCreator = static m => ["js_" + m.Name] };
@@ -130,7 +127,7 @@ public class JsAccessibleAccessorSelectionTests
         Resolve<Annotated>("Score", resolver).Should().BeSameAs(ConstantValueAccessor.NullAccessor);
     }
 
-    [Fact]
+    [Test]
     public void AHostNameComparerDecidesWhichNamesReachTheGeneratedMember()
     {
         var resolver = new TypeResolver { MemberNameComparer = StringComparer.Ordinal };
@@ -145,7 +142,7 @@ public class JsAccessibleAccessorSelectionTests
     /// Binding flags that no longer report a member hide it from both lanes — and cost nothing to the lanes
     /// they do not narrow, which is what the blanket skip used to get wrong.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANarrowedPropertyBindingProfileHidesThePropertiesAndLeavesTheFieldsAlone()
     {
         static Action<Options> NonPublicPropertiesOnly()

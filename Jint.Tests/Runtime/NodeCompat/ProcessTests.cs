@@ -21,7 +21,7 @@ public class ProcessTests
     private static Engine ProcessEngine(Action<NodeProcessOptions>? configure = null)
         => new(options => options.UseNodeProcess(configure));
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoProcess()
     {
         var engine = new Engine();
@@ -30,7 +30,7 @@ public class ProcessTests
         engine.Evaluate("'process' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void InstallsAnUnmaterializedLazyDescriptor()
     {
         var engine = ProcessEngine();
@@ -50,7 +50,7 @@ public class ProcessTests
         descriptor.Configurable.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = ProcessEngine();
@@ -59,7 +59,7 @@ public class ProcessTests
         engine.Evaluate("typeof process").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestoreAndForgetsWhatTheScriptWroteIntoEnv()
     {
         var engine = ProcessEngine(p => p.EnvironmentOverrides = new Dictionary<string, string> { ["A"] = "1" });
@@ -80,7 +80,7 @@ public class ProcessTests
         engine.Evaluate("typeof process.env.SCRIBBLE").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EnvIsShapedSoARepeatedReadStaysMonomorphic()
     {
         var engine = ProcessEngine(p =>
@@ -94,7 +94,7 @@ public class ProcessTests
         engine.Advanced.HasSharedShape(env).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EnvExposesNothingByDefault()
     {
         var engine = ProcessEngine();
@@ -103,7 +103,7 @@ public class ProcessTests
         engine.Evaluate("Object.keys(process.env).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void EnvKeepsTheHostsOrderAndDropsDuplicates()
     {
         var engine = ProcessEngine(p =>
@@ -115,7 +115,7 @@ public class ProcessTests
         engine.Evaluate("Object.keys(process.env).join(',')").AsString().Should().Be("B,A");
     }
 
-    [Fact]
+    [Test]
     public void EnvIsMaterializedOnceAndDoesNotFollowTheRealEnvironment()
     {
         const string Name = "JINT_TEST_PROCESS_ENV_LIVE";
@@ -138,7 +138,7 @@ public class ProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NextTickRunsAfterTheCurrentScriptAndForwardsItsArguments()
     {
         var engine = ProcessEngine();
@@ -153,7 +153,7 @@ public class ProcessTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("script,tick:12");
     }
 
-    [Fact]
+    [Test]
     public void NextTickSharesOneQueueWithPromiseReactions()
     {
         var engine = ProcessEngine();
@@ -170,7 +170,7 @@ public class ProcessTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("promise,tick");
     }
 
-    [Fact]
+    [Test]
     public void NextTickRequiresACallableAndDoesNotQueueAnythingWithoutOne()
     {
         var engine = ProcessEngine();
@@ -185,7 +185,7 @@ public class ProcessTests
         engine.Evaluate("log.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void HrtimeBigIntIsAMonotonicBigInt()
     {
         var engine = ProcessEngine();
@@ -201,7 +201,7 @@ public class ProcessTests
         engine.Evaluate("typeof process.hrtime").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void TheProcessObjectIsIdenticalOnEveryRead()
     {
         var engine = ProcessEngine();
@@ -209,7 +209,7 @@ public class ProcessTests
         engine.Evaluate("process === process && process.env === process.env").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExposesTheMembersItDocumentsAndNoOthers()
     {
         var engine = ProcessEngine();
@@ -225,7 +225,7 @@ public class ProcessTests
         }
     }
 
-    [Fact]
+    [Test]
     public void FunctionsCarryTheirNodeNamesAndArity()
     {
         var engine = ProcessEngine();
@@ -237,7 +237,7 @@ public class ProcessTests
         engine.Evaluate("process.hrtime.bigint.name").AsString().Should().Be("bigint");
     }
 
-    [Fact]
+    [Test]
     public void ArgvIsAnEmptyArray()
     {
         var engine = ProcessEngine();
@@ -247,7 +247,7 @@ public class ProcessTests
         engine.Evaluate("process.argv.slice(2).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void LeavesAProcessGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own");
@@ -258,7 +258,7 @@ public class ProcessTests
         engine.Evaluate("process").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void LeavesAHostLazyGlobalUnmaterialized()
     {
         var built = 0;
@@ -272,7 +272,7 @@ public class ProcessTests
         built.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AHostGlobalRegisteredAfterwardsWinsToo()
     {
         var marker = new JsString("host's own");

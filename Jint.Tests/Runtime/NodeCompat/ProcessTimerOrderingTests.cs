@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime.NodeCompat;
 /// </summary>
 public class ProcessTimerOrderingTests
 {
-    [Fact]
+    [Test]
     public void NextTickRunsBeforeATimerThatIsAlreadyDue()
     {
         var engine = new Engine(options => options.UseNodeProcess().UseWebApis(WebApiFeatures.Timers));
@@ -27,7 +27,7 @@ public class ProcessTimerOrderingTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("tick,timeout");
     }
 
-    [Fact]
+    [Test]
     public void ATimerCallbackCanQueueANextTickThatRunsBeforeTheNextTimer()
     {
         var engine = new Engine(options => options.UseNodeProcess().UseWebApis(WebApiFeatures.Timers));

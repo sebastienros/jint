@@ -32,7 +32,7 @@ public class HostStackGuardThreadHopTests
     private const string RecurseThenProbe =
         "function recurse(n) { return n === 0 ? probe(n) : recurse(n - 1) + 0; }";
 
-    [Fact]
+    [Test]
     public void AHostCallbackReachedAcrossTheHopCanReEnterTheEngine()
     {
         DedicatedThread.Run(
@@ -74,7 +74,7 @@ public class HostStackGuardThreadHopTests
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void AMemoryLimitedScriptSurvivesTheHopWithNoHostCallbackAtAll()
     {
         DedicatedThread.Run(
@@ -93,7 +93,7 @@ public class HostStackGuardThreadHopTests
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void TheMemoryOperationIsChargedOnBothSidesOfTheHop()
     {
         DedicatedThread.Run(
@@ -136,7 +136,7 @@ public class HostStackGuardThreadHopTests
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void AnUnrelatedThreadIsStillRefusedWhileTheHopHoldsTheEngine()
     {
         DedicatedThread.Run(

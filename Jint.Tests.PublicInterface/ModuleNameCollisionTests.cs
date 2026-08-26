@@ -22,7 +22,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class ModuleNameCollisionTests
 {
-    [Fact]
+    [Test]
     public void AHostCanNameBothModuleTypesWithoutAnAlias()
     {
         var loader = new PreparingModuleLoader();

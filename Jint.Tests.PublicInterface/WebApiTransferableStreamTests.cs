@@ -86,7 +86,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- a ReadableStream across engines
 
-    [Fact]
+    [Test]
     public void AReadableStreamTransferredToAnotherEngineDeliversItsChunksThere()
     {
         var (host, worker) = ConnectedPair();
@@ -107,7 +107,7 @@ public class WebApiTransferableStreamTests
         worker.Evaluate("log.join(',')").AsString().Should().Be("got:a,got:b,got:done");
     }
 
-    [Fact]
+    [Test]
     public void TheStreamArrivesAsAReadableStreamOfTheReceivingRealm()
     {
         var (host, worker) = ConnectedPair();
@@ -126,7 +126,7 @@ public class WebApiTransferableStreamTests
         worker.Evaluate("portCount").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void NothingCrossesToAnEngineThatIsNeverPumped()
     {
         var (host, worker) = ConnectedPair();
@@ -152,7 +152,7 @@ public class WebApiTransferableStreamTests
         Log(worker).Should().Be("got:a,got:done");
     }
 
-    [Fact]
+    [Test]
     public void ChunksAreClonesOfTheReceivingRealmRatherThanSharedObjects()
     {
         var (host, worker) = ConnectedPair();
@@ -186,7 +186,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- backpressure across the boundary
 
-    [Fact]
+    [Test]
     public void TheSendingEngineDoesNotRunAheadOfTheReceivingOne()
     {
         var (host, worker) = ConnectedPair();
@@ -230,7 +230,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- errors and closing, both directions
 
-    [Fact]
+    [Test]
     public void AnErrorOnTheSendingSideReachesTheReceivingStream()
     {
         var (host, worker) = ConnectedPair();
@@ -260,7 +260,7 @@ public class WebApiTransferableStreamTests
         Log(worker).Should().Be("rejected:RangeError:the source failed");
     }
 
-    [Fact]
+    [Test]
     public void CancellingOnTheReceivingSideCancelsTheSourceOnTheSendingSide()
     {
         var (host, worker) = ConnectedPair();
@@ -284,7 +284,7 @@ public class WebApiTransferableStreamTests
         Log(host).Should().Be("source cancelled: not interested");
     }
 
-    [Fact]
+    [Test]
     public void ClosingTheSourcePropagatesForwardAcrossEngines()
     {
         var (host, worker) = ConnectedPair();
@@ -309,7 +309,7 @@ public class WebApiTransferableStreamTests
         Log(worker).Should().Be("got:only,got:done");
     }
 
-    [Fact]
+    [Test]
     public void ACloseAlreadyQueuedIsNotMistakenForALostChannel()
     {
         var (host, worker) = ConnectedPair();
@@ -344,7 +344,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- a WritableStream across engines
 
-    [Fact]
+    [Test]
     public void AWritableStreamTransferredToAnotherEngineDeliversWritesBackToItsSink()
     {
         var (host, worker) = ConnectedPair();
@@ -374,7 +374,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- a TransformStream across engines
 
-    [Fact]
+    [Test]
     public void ATransformStreamRoundTripsAcrossEngines()
     {
         var (host, worker) = ConnectedPair();
@@ -409,7 +409,7 @@ public class WebApiTransferableStreamTests
 
     // ---------------------------------------------------------------- what a restore does to the pipe
 
-    [Fact]
+    [Test]
     public void ARestoreOnTheSendingEngineEndsTheReceivingStream()
     {
         var (host, worker) = ConnectedPair();
@@ -441,7 +441,7 @@ public class WebApiTransferableStreamTests
         Log(worker).Should().Be("rejected:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ARestoreOnTheReceivingEngineEndsTheSendersPipe()
     {
         var (host, worker) = ConnectedPair();
@@ -483,7 +483,7 @@ public class WebApiTransferableStreamTests
         host.Evaluate("pulls").AsNumber().Should().Be(pullsAtTheEnd);
     }
 
-    [Fact]
+    [Test]
     public void DisposingTheReceivingEngineEndsTheSendersPipeTheSameWay()
     {
         var host = TransferEngine();

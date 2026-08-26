@@ -60,7 +60,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- a ReadableStream
 
-    [Fact]
+    [Test]
     public void ATransferredReadableStreamDeliversItsChunksToTheClone()
     {
         var engine = StreamEngine();
@@ -75,7 +75,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("got:a,got:b,got:done");
     }
 
-    [Fact]
+    [Test]
     public void TheCloneIsARealReadableStreamOfThisRealm()
     {
         var engine = StreamEngine();
@@ -91,7 +91,7 @@ public class TransferableStreamTests
         engine.Evaluate("moved.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheOriginalIsLockedAndDisturbedAfterwards()
     {
         var engine = StreamEngine();
@@ -112,7 +112,7 @@ public class TransferableStreamTests
         ((JsReadableStream) engine.Evaluate("rs").AsObject()).Disturbed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ALockedReadableStreamIsADataCloneError()
     {
         var engine = StreamEngine();
@@ -125,7 +125,7 @@ public class TransferableStreamTests
         ((JsReadableStream) engine.Evaluate("rs").AsObject()).Detached.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TransferringTheSameStreamTwiceIsADataCloneError()
     {
         var engine = StreamEngine();
@@ -140,7 +140,7 @@ public class TransferableStreamTests
         Err(engine, "structuredClone(rs, { transfer: [rs] });").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void AStreamInTheMessageButNotInTheTransferListIsADataCloneError()
     {
         var engine = StreamEngine();
@@ -152,7 +152,7 @@ public class TransferableStreamTests
         Err(engine, "structuredClone({ inner: new ReadableStream() });").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ADuplicateInTheTransferListIsADataCloneError()
     {
         var engine = StreamEngine();
@@ -161,7 +161,7 @@ public class TransferableStreamTests
         Err(engine, "structuredClone(rs, { transfer: [rs, rs] });").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void AStreamReachedFromTheMessageResolvesToTheTransferredOne()
     {
         var engine = StreamEngine();
@@ -180,7 +180,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- close and error propagation
 
-    [Fact]
+    [Test]
     public void ClosingTheSourceClosesTheTransferredStream()
     {
         var engine = StreamEngine();
@@ -202,7 +202,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("got:one,got:done");
     }
 
-    [Fact]
+    [Test]
     public void ACloseStillOnTheQueueIsNotMistakenForALostChannel()
     {
         var engine = StreamEngine();
@@ -225,7 +225,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("1:only,2:undefined:true");
     }
 
-    [Fact]
+    [Test]
     public void ErroringTheSourceErrorsTheTransferredStreamWithTheSameReason()
     {
         var engine = StreamEngine();
@@ -247,7 +247,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("rejected:RangeError:from the source");
     }
 
-    [Fact]
+    [Test]
     public void CancellingTheTransferredStreamCancelsTheOriginalSource()
     {
         var engine = StreamEngine();
@@ -266,7 +266,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("source cancelled: no longer wanted");
     }
 
-    [Fact]
+    [Test]
     public void AChunkThatCannotBeClonedFailsTheTransferredStream()
     {
         var engine = StreamEngine();
@@ -288,7 +288,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- backpressure
 
-    [Fact]
+    [Test]
     public void TheSenderDoesNotRunAheadOfTheReceiver()
     {
         var engine = StreamEngine();
@@ -323,7 +323,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- a WritableStream
 
-    [Fact]
+    [Test]
     public void ATransferredWritableStreamDeliversWritesToTheOriginalSink()
     {
         var engine = StreamEngine();
@@ -346,7 +346,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("wrote:a,wrote:b,closed");
     }
 
-    [Fact]
+    [Test]
     public void TheOriginalWritableStreamIsLockedAfterwards()
     {
         var engine = StreamEngine();
@@ -357,7 +357,7 @@ public class TransferableStreamTests
         Err(engine, "ws.getWriter();").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ALockedWritableStreamIsADataCloneError()
     {
         var engine = StreamEngine();
@@ -366,7 +366,7 @@ public class TransferableStreamTests
         Err(engine, "structuredClone(ws, { transfer: [ws] });").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void AbortingTheTransferredWritableStreamAbortsTheOriginalSink()
     {
         var engine = StreamEngine();
@@ -381,7 +381,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("aborted:give up");
     }
 
-    [Fact]
+    [Test]
     public void ErroringTheOriginalSinkErrorsTheTransferredWritableStream()
     {
         var engine = StreamEngine();
@@ -403,7 +403,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- a TransformStream
 
-    [Fact]
+    [Test]
     public void ATransferredTransformStreamStillTransforms()
     {
         var engine = StreamEngine();
@@ -424,7 +424,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("got:A,got:B,got:done");
     }
 
-    [Fact]
+    [Test]
     public void ATransferredTransformStreamLeavesBothOriginalSidesLocked()
     {
         var engine = StreamEngine();
@@ -438,7 +438,7 @@ public class TransferableStreamTests
         engine.Evaluate("moved.writable instanceof WritableStream").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ATransformStreamWithALockedSideIsADataCloneError()
     {
         var readableLocked = StreamEngine();
@@ -454,7 +454,7 @@ public class TransferableStreamTests
         writableLocked.Evaluate("ts.readable.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ATransformStreamAndOneOfItsSidesInOneTransferListIsADataCloneError()
     {
         // The four combinations of streams/transferable/transform-stream-members.any.js, which the corpus
@@ -472,7 +472,7 @@ public class TransferableStreamTests
             .Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void OneSideOfATransformStreamCanBeTransferredOnItsOwn()
     {
         var engine = StreamEngine();
@@ -491,7 +491,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- the port underneath
 
-    [Fact]
+    [Test]
     public void TheChannelAStreamTransferCreatesIsNotExposedAsAPort()
     {
         var engine = StreamEngine(WebApiFeatures.Default);
@@ -510,7 +510,7 @@ public class TransferableStreamTests
         engine.Evaluate("seen.data.stream instanceof ReadableStream").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AStreamAndAPortInOneTransferListEachArriveWhereTheyBelong()
     {
         var engine = StreamEngine(WebApiFeatures.Default);
@@ -535,7 +535,7 @@ public class TransferableStreamTests
         Log(engine).Should().Be("ports=1,side:through the side channel,got:a,got:done");
     }
 
-    [Fact]
+    [Test]
     public void TransferringAStreamNeedsNoMessagingGlobals()
     {
         // The channel a transfer creates is engine-internal: it never reaches script, so it needs the
@@ -555,7 +555,7 @@ public class TransferableStreamTests
 
     // ---------------------------------------------------------------- stranding
 
-    [Fact]
+    [Test]
     public void AStreamTransferredIntoAClosedPortStrandsAndTheSourceIsCancelled()
     {
         var engine = StreamEngine(WebApiFeatures.Default);
@@ -583,7 +583,7 @@ public class TransferableStreamTests
         engine.Evaluate("pulls").AsNumber().Should().Be(pullsAfterStranding, "no pipe may be left running against a stranded side");
     }
 
-    [Fact]
+    [Test]
     public void AStreamStrandedByAThrowLaterInTheTransferListIsEndedToo()
     {
         var engine = StreamEngine(WebApiFeatures.Default);
@@ -612,7 +612,7 @@ public class TransferableStreamTests
         engine.Evaluate("pulls").AsNumber().Should().Be(pullsAfterStranding);
     }
 
-    [Fact]
+    [Test]
     public void AStreamWhoseUndeliveredMessageIsDiscardedIsEndedToo()
     {
         var engine = StreamEngine(WebApiFeatures.Default);

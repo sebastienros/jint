@@ -84,7 +84,7 @@ public class HostPrototypeStateTests
 
     // ---- the capability ----
 
-    [Fact]
+    [Test]
     public void AMemberImplementationReachesTheStateAttachedToItsPrototype()
     {
         var engine = new Engine();
@@ -99,7 +99,7 @@ public class HostPrototypeStateTests
         (JsObjectShape.GetHostState(prototype) as NodeTypeInfo)!.InterfaceName.Should().Be("Node");
     }
 
-    [Fact]
+    [Test]
     public void StateMayHoldEngineAffineValuesAttachedAfterTheObjectExists()
     {
         // The ordering the API is shaped around: the constructor cannot exist before the prototype, because
@@ -119,7 +119,7 @@ public class HostPrototypeStateTests
         engine.Evaluate("el.ctorName()").Should().Be("Node");
     }
 
-    [Fact]
+    [Test]
     public void StateIsPerInstanceAndIsolatedBetweenEngines()
     {
         var engineA = new Engine();
@@ -144,7 +144,7 @@ public class HostPrototypeStateTests
         (JsObjectShape.GetHostState(second) as NodeTypeInfo)!.InterfaceName.Should().Be("Second");
     }
 
-    [Fact]
+    [Test]
     public void TheWalkFindsTheNearestPrototypeCarryingState()
     {
         // A deep prototype chain, only some levels of which carry state — the shape a host gets once it stops
@@ -171,7 +171,7 @@ public class HostPrototypeStateTests
         JsObjectShape.GetHostState(middle).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void OnlyTheInstantiatedObjectCarriesState()
     {
         var engine = new Engine();
@@ -185,7 +185,7 @@ public class HostPrototypeStateTests
         JsObjectShape.GetHostState(inheriting).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void StateCanBeReplacedAndDetached()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class HostPrototypeStateTests
         JsObjectShape.GetHostState(prototype).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void StateSurvivesTheFallbackToTheOrdinaryRepresentation()
     {
         // Deleting a declared member drops the object out of the shared layout. The representation is an
@@ -229,7 +229,7 @@ public class HostPrototypeStateTests
 
     // ---- what it refuses ----
 
-    [Fact]
+    [Test]
     public void GetHostStateAnswersNullForEverythingItDoesNotOwn()
     {
         var engine = new Engine();
@@ -241,7 +241,7 @@ public class HostPrototypeStateTests
         JsObjectShape.GetHostState(new PlainHostObject(engine)).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void SetHostStateRejectsAnObjectItCannotHold()
     {
         var engine = new Engine();

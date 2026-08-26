@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 
 public class PromiseTests
 {
-    [Fact]
+    [Test]
     public void RegisterPromise_CalledWithinExecute_ResolvesCorrectly()
     {
         Action<JsValue> resolveFunc = null;
@@ -29,7 +29,7 @@ public class PromiseTests
         promise.UnwrapIfPromise().Should().Be(66);
     }
 
-    [Fact]
+    [Test]
     public void RegisterPromise_CalledWithinExecute_RejectsCorrectly()
     {
         Action<JsValue> rejectFunc = null;
@@ -53,7 +53,7 @@ public class PromiseTests
         ex.RejectedValue.AsString().Should().Be("oops!");
     }
 
-    [Fact]
+    [Test]
     public void RegisterPromise_UsedWithRace_WorksFlawlessly()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class PromiseTests
         completion.UnwrapIfPromise().Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void Execute_ConcurrentNormalExecuteCall_WorksFine()
     {
         var engine = new Engine();
@@ -98,7 +98,7 @@ public class PromiseTests
         engine.Evaluate(" 1 + 1 === 2").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PromiseCtorWithNoResolver_Throws()
     {
         var engine = new Engine();
@@ -106,7 +106,7 @@ public class PromiseTests
         Invoking(() => { engine.Execute("new Promise();"); }).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseCtorWithInvalidResolver_Throws()
     {
         var engine = new Engine();
@@ -114,7 +114,7 @@ public class PromiseTests
         Invoking(() => { engine.Execute("new Promise({});"); }).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseCtorWithValidResolver_DoesNotThrow()
     {
         var engine = new Engine();
@@ -122,7 +122,7 @@ public class PromiseTests
         engine.Execute("new Promise((resolve, reject)=>{});");
     }
 
-    [Fact]
+    [Test]
     public void PromiseCtor_ReturnsPromiseJsValue()
     {
         var engine = new Engine();
@@ -131,7 +131,7 @@ public class PromiseTests
         promise.Should().BeOfType<JsPromise>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseResolveViaResolver_ReturnsCorrectValue()
     {
         var engine = new Engine();
@@ -139,14 +139,14 @@ public class PromiseTests
         res.Should().Be(66);
     }
 
-    [Fact]
+    [Test]
     public void PromiseResolveViaStatic_ReturnsCorrectValue()
     {
         var engine = new Engine();
         engine.Evaluate("Promise.resolve(66);").UnwrapIfPromise().Should().Be(66);
     }
 
-    [Fact]
+    [Test]
     public void PromiseRejectViaResolver_ThrowsPromiseRejectedException()
     {
         var engine = new Engine();
@@ -159,7 +159,7 @@ public class PromiseTests
         ex.RejectedValue.AsString().Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseRejectViaStatic_ThrowsPromiseRejectedException()
     {
         var engine = new Engine();
@@ -172,7 +172,7 @@ public class PromiseTests
         ex.RejectedValue.AsString().Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThen_HandlerCalledWithCorrectValue()
     {
         var engine = new Engine();
@@ -183,7 +183,7 @@ public class PromiseTests
         res.Should().Be(44);
     }
 
-    [Fact]
+    [Test]
     public void PromiseThen_ReturnsNewPromiseInstance()
     {
         var engine = new Engine();
@@ -193,7 +193,7 @@ public class PromiseTests
         res.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void PromiseThen_CalledCorrectlyOnResolve()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class PromiseTests
         res.Should().Be(66);
     }
 
-    [Fact]
+    [Test]
     public void PromiseResolveChainedWithHandler_ResolvedAsUndefined()
     {
         var engine = new Engine();
@@ -211,7 +211,7 @@ public class PromiseTests
         engine.Evaluate("Promise.resolve(33).then(() => {});").UnwrapIfPromise().Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThenWithUndefinedCallback_PassesThroughValueCorrectly()
     {
         var engine = new Engine();
@@ -221,7 +221,7 @@ public class PromiseTests
         res.Should().Be(66);
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThenWithCallbackReturningUndefined_PassesThroughUndefinedCorrectly()
     {
         var engine = new Engine();
@@ -231,7 +231,7 @@ public class PromiseTests
         res.Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThenThrowsError_ChainedCallsCatchWithThrownError()
     {
         var engine = new Engine();
@@ -241,7 +241,7 @@ public class PromiseTests
         res.Should().Be("Thrown Error");
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThenReturnsResolvedPromise_ChainedCallsThenWithPromiseValue()
     {
         var engine = new Engine();
@@ -251,7 +251,7 @@ public class PromiseTests
         res.Should().Be(55);
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedThenReturnsRejectedPromise_ChainedCallsCatchWithPromiseValue()
     {
         var engine = new Engine();
@@ -261,7 +261,7 @@ public class PromiseTests
         res.Should().Be("Error Message");
     }
 
-    [Fact]
+    [Test]
     public void PromiseCatch_CalledCorrectlyOnReject()
     {
         var engine = new Engine();
@@ -271,7 +271,7 @@ public class PromiseTests
         res.Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseThenWithCatch_CalledCorrectlyOnReject()
     {
         var engine = new Engine();
@@ -281,14 +281,14 @@ public class PromiseTests
         res.Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedWithHandler_ResolvedAsUndefined()
     {
         var engine = new Engine();
         engine.Evaluate("Promise.reject('error').catch(() => {});").UnwrapIfPromise().Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedCatchThen_ThenCallWithUndefined()
     {
         var engine = new Engine();
@@ -298,7 +298,7 @@ public class PromiseTests
         res.Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedCatchWithUndefinedHandler_CatchChainedCorrectly()
     {
         var engine = new Engine();
@@ -308,7 +308,7 @@ public class PromiseTests
         res.Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseChainedFinally_HandlerCalled()
     {
         var engine = new Engine();
@@ -318,7 +318,7 @@ public class PromiseTests
         res.Should().Be(16);
     }
 
-    [Fact]
+    [Test]
     public void PromiseFinally_ReturnsNewPromiseInstance()
     {
         var engine = new Engine();
@@ -328,21 +328,21 @@ public class PromiseTests
         res.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void PromiseFinally_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
         engine.Evaluate("Promise.resolve(2).finally(() => {})").UnwrapIfPromise().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void PromiseFinallyWithNoCallback_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
         engine.Evaluate("Promise.resolve(2).finally()").UnwrapIfPromise().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void PromiseFinallyChained_ResolvesWithCorrectValue()
     {
         var engine = new Engine();
@@ -350,7 +350,7 @@ public class PromiseTests
         engine.Evaluate("Promise.resolve(2).finally(() => 6).finally(() => 9);").UnwrapIfPromise().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void PromiseFinallyWhichThrows_ResolvesWithError()
     {
         var engine = new Engine();
@@ -360,7 +360,7 @@ public class PromiseTests
         res.Should().Be("Could not connect");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAll_BadIterable_Rejects()
     {
         var engine = new Engine();
@@ -368,7 +368,7 @@ public class PromiseTests
     }
 
 
-    [Fact]
+    [Test]
     public void PromiseAll_ArgsAreNotPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -377,7 +377,7 @@ public class PromiseTests
             .BeEquivalentTo(new object[] { 1d, 2d, 3d }, static options => options.WithStrictOrdering());
     }
 
-    [Fact]
+    [Test]
     public void PromiseAll_MixturePromisesNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -385,7 +385,7 @@ public class PromiseTests
             .BeEquivalentTo(new object[] { 1d, 2d, 3d }, static options => options.WithStrictOrdering());
     }
 
-    [Fact]
+    [Test]
     public void PromiseAll_MixturePromisesNoPromisesOneRejects_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -396,7 +396,7 @@ public class PromiseTests
         }).Should().ThrowExactly<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseRace_NoArgs_Rejects()
     {
         var engine = new Engine();
@@ -404,7 +404,7 @@ public class PromiseTests
         Invoking(() => { engine.Evaluate("Promise.race();").UnwrapIfPromise(); }).Should().ThrowExactly<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseRace_InvalidIterator_Rejects()
     {
         var engine = new Engine();
@@ -412,7 +412,7 @@ public class PromiseTests
         Invoking(() => { engine.Evaluate("Promise.race({});").UnwrapIfPromise(); }).Should().ThrowExactly<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseRaceNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -420,7 +420,7 @@ public class PromiseTests
         engine.Evaluate("Promise.race([12,2,3]);").UnwrapIfPromise().ToObject().Should().Be(12d);
     }
 
-    [Fact]
+    [Test]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly()
     {
         var engine = new Engine();
@@ -428,7 +428,7 @@ public class PromiseTests
         engine.Evaluate("Promise.race([12,Promise.resolve(2),3]);").UnwrapIfPromise().ToObject().Should().Be(12d);
     }
 
-    [Fact]
+    [Test]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly2()
     {
         var engine = new Engine();
@@ -436,7 +436,7 @@ public class PromiseTests
         engine.Evaluate("Promise.race([Promise.resolve(2),6,3]);").UnwrapIfPromise().ToObject().Should().Be(2d);
     }
 
-    [Fact]
+    [Test]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly3()
     {
         var engine = new Engine();
@@ -445,7 +445,7 @@ public class PromiseTests
         res.ToObject().Should().Be(55d);
     }
 
-    [Fact]
+    [Test]
     public void PromiseRaceMixturePromisesNoPromises_ResolvesCorrectly4()
     {
         var engine = new Engine();
@@ -457,7 +457,7 @@ public class PromiseTests
         }).Should().ThrowExactly<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void PromiseRegression_SingleElementArrayWithClrDictionaryInPromiseAll()
     {
         var engine = new Engine();
@@ -481,7 +481,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result[0].Should().BeOfType<Dictionary<string, object>>();
     }
 
-    [Fact]
+    [Test]
     public void ManualPromise_HasCorrectStackTrace()
     {
         using var engine = new Engine();
@@ -500,7 +500,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         (logMessage?.Trim()).Should().Be("at <anonymous>:1:56");
     }
 
-    [Fact]
+    [Test]
     public void WithResolvers_calling_resolve_resolves_promise()
     {
         // Arrange
@@ -526,7 +526,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         logMessages.Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void WithResolvers_calling_reject_rejects_promise()
     {
         // Arrange
@@ -552,7 +552,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         logMessages.Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void UnwrapIfPromise_WithCancellationToken_ResolvesCorrectly()
     {
         Action<JsValue> resolveFunc = null!;
@@ -572,7 +572,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         promise.UnwrapIfPromise(cts.Token).Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public Task UnwrapIfPromise_WithCancellationToken_ThrowsOperationCanceledException() => DedicatedThread.RunAsync(() =>
     {
         // Same race as the async variant below: the promise never settles, so only the token or the
@@ -593,7 +593,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         Invoking(() => promise.UnwrapIfPromise(cts.Token)).Should().ThrowExactly<OperationCanceledException>();
     });
 
-    [Fact]
+    [Test]
     public void UnwrapIfPromise_WithCancellationToken_NonPromiseReturnsValue()
     {
         var engine = new Engine();
@@ -603,7 +603,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.UnwrapIfPromise(cts.Token).Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void UnwrapIfPromise_WithCancellationToken_RejectsCorrectly()
     {
         Action<JsValue> rejectFunc = null!;
@@ -625,7 +625,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         ex.RejectedValue.AsString().Should().Be("error!");
     }
 
-    [Fact]
+    [Test]
     public async Task UnwrapIfPromiseAsync_ResolvesCorrectly()
     {
         Action<JsValue> resolveFunc = null!;
@@ -645,7 +645,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task UnwrapIfPromiseAsync_RejectsCorrectly()
     {
         Action<JsValue> rejectFunc = null!;
@@ -666,7 +666,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         ex.RejectedValue.AsString().Should().Be("error!");
     }
 
-    [Fact]
+    [Test]
     public async Task UnwrapIfPromiseAsync_NonPromiseReturnsValue()
     {
         var engine = new Engine();
@@ -676,7 +676,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         unwrapped.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task UnwrapIfPromiseAsync_WithCancellationToken_ThrowsOperationCanceledException()
     {
         // The promise never settles, so the unwrap can end two ways: the token below, or the engine's
@@ -698,7 +698,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         await Awaiting(async () => await promise.UnwrapIfPromiseAsync(cts.Token)).Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public async Task UnwrapIfPromiseAsync_WithIOBoundTask_DoesNotBlockCallerThread()
     {
         var engine = new Engine();
@@ -742,7 +742,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
     // adoption, species subclassing, and resolving-function observability.
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void AwaitAndThenInterleaveInSpecMicrotaskOrder()
     {
         // Classic resolved-await vs then interleaving. `await` costs one microtask tick,
@@ -770,7 +770,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         log.Select(x => x.AsString()).ToArray().Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void AwaitOfPrimitiveStillCostsExactlyOneTick()
     {
         // The primitive-await fast path must not skip the microtask: `await 1` interleaves
@@ -798,7 +798,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         log.Select(x => x.AsString()).ToArray().Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void AwaitedRejectionCaughtInsideAsyncFunctionIsTrackedThenHandled()
     {
         var engine = new Engine();
@@ -825,7 +825,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         operations.Should().Equal([PromiseRejectionOperation.Reject, PromiseRejectionOperation.Handle]);
     }
 
-    [Fact]
+    [Test]
     public void UncaughtAwaitedRejectionRejectsTheAsyncFunctionsPromise()
     {
         var engine = new Engine();
@@ -840,7 +840,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         ex.RejectedValue.AsString().Should().Be("propagated");
     }
 
-    [Fact]
+    [Test]
     public void AwaitAdoptsThenableViaResolve()
     {
         // Awaiting a non-promise thenable must run PromiseResolve (read .then, adopt it),
@@ -855,7 +855,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.UnwrapIfPromise().AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ThenGetterThrowIsCaughtAsRejectionOfAwait()
     {
         // The .then read during PromiseResolve can throw (a getter); that must reject,
@@ -876,7 +876,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.GetValue("caught").AsString().Should().Be("getter-boom");
     }
 
-    [Fact]
+    [Test]
     public void ThenOnSubclassUsesSpeciesConstructorForResultCapability()
     {
         // Promise.prototype.then goes through SpeciesConstructor; a subclass must NOT hit the
@@ -895,7 +895,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.GetValue("subVal").AsInteger().Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void ExecutorResolveFunctionsAreCallableIdempotentAndObservable()
     {
         // `new Promise(executor)` must still hand the executor real resolving functions
@@ -920,7 +920,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         settled.UnwrapIfPromise().AsInteger().Should().Be(11);
     }
 
-    [Fact]
+    [Test]
     public void WithResolversExposesCallableIdempotentResolvingFunctions()
     {
         // Promise.withResolvers goes through NewPromiseCapability on the intrinsic (fast path);
@@ -940,7 +940,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.GetValue("wr").AsObject().Get("promise").UnwrapIfPromise().AsString().Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAllMixesResolvedPromisesAndPlainValues()
     {
         var engine = new Engine();
@@ -951,7 +951,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.UnwrapIfPromise().AsString().Should().Be("1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void PromiseTryWithNoArgumentsRejectsInsteadOfThrowingClrException()
     {
         // The fully-cached argument-list lane hands a callee an object[] reinterpreted as JsValue[], so
@@ -963,7 +963,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PromiseTryReturnsAMatchingPromiseWithoutWrappingIt()
     {
         // https://github.com/tc39/ecma262/pull/3883 — the normal path goes through PromiseResolve, so a
@@ -987,7 +987,7 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         result.AsString().Should().Be("true,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void LongAwaitLoopAccumulatesCorrectly()
     {
         // Exercises the resolved-promise await fast path at volume (the AwaitResolvedLoop shape).

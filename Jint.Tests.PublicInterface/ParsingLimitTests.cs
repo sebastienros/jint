@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class ParsingLimitTests
 {
-    [Fact]
+    [Test]
     public void ExecuteAndEvaluateEnforceEngineSourceLength()
     {
         var engine = CreateEngine(maxSourceLength: 1);
@@ -24,7 +24,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate("00"), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void SourceLengthCountsUtf16CodeUnits()
     {
         var engine = CreateEngine(maxSourceLength: 4);
@@ -35,7 +35,7 @@ public class ParsingLimitTests
         exception.Kind.Should().Be(ParsingLimitKind.SourceLength);
     }
 
-    [Fact]
+    [Test]
     public void SourceOffsetPaddingCountsBeforeItIsAllocated()
     {
         var options = new ScriptParsingOptions
@@ -53,7 +53,7 @@ public class ParsingLimitTests
         exception.Kind.Should().Be(ParsingLimitKind.SourceLength);
     }
 
-    [Fact]
+    [Test]
     public void PerCallOptionsCannotRelaxEngineLimits()
     {
         var engine = CreateEngine(maxSourceLength: 1);
@@ -62,7 +62,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate("00", parsingOptions: parsingOptions), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void PerCallOptionsCanTightenEngineLimits()
     {
         var engine = CreateEngine(maxSourceLength: 100);
@@ -71,7 +71,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate("00", parsingOptions: parsingOptions), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void PerCallLimitsFlowIntoEvalAndCannotReuseALooserCacheEntry()
     {
         var payload = string.Join(";", Enumerable.Repeat("0", 30));
@@ -85,7 +85,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate("eval(payload)", parsingOptions: tight), 20, payload.Length);
     }
 
-    [Fact]
+    [Test]
     public void PerCallLimitsFlowIntoFunctionConstructors()
     {
         var payload = new string(' ', 30);
@@ -97,7 +97,7 @@ public class ParsingLimitTests
             .Which.Kind.Should().Be(ParsingLimitKind.SourceLength);
     }
 
-    [Fact]
+    [Test]
     public void NodeCountBoundaryIsExactAndResetsForEveryParse()
     {
         var engine = CreateEngine(maxNodeCount: 3);
@@ -112,7 +112,7 @@ public class ParsingLimitTests
         exception.Actual.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void ZeroLimitsHaveDeterministicBoundaries()
     {
         var sourceLimited = CreateEngine(maxSourceLength: 0);
@@ -127,9 +127,8 @@ public class ParsingLimitTests
         exception.Actual.Should().Be(1);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void PrepareScriptEnforcesSourceAndNodeLimits(bool staticAnalysis)
     {
         var sourceOptions = new ScriptPreparationOptions
@@ -148,9 +147,8 @@ public class ParsingLimitTests
             .Which.Kind.Should().Be(ParsingLimitKind.NodeCount);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void PrepareModuleEnforcesSourceAndNodeLimits(bool staticAnalysis)
     {
         var sourceOptions = new ModulePreparationOptions
@@ -169,7 +167,7 @@ public class ParsingLimitTests
             .Which.Kind.Should().Be(ParsingLimitKind.NodeCount);
     }
 
-    [Fact]
+    [Test]
     public void PreparedCodeIsNotRecheckedButNestedEvalIs()
     {
         var oversized = Engine.PrepareScript("'source longer than five'");
@@ -180,7 +178,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate(nestedEval), 5, 23);
     }
 
-    [Fact]
+    [Test]
     public void PreparationLimitsFlowIntoNestedEval()
     {
         var preparationOptions = new ScriptPreparationOptions
@@ -194,7 +192,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate(prepared), 20, payload.Length);
     }
 
-    [Fact]
+    [Test]
     public void EscapedFunctionKeepsItsPreparationLimits()
     {
         var preparationOptions = new ScriptPreparationOptions
@@ -211,9 +209,8 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Invoke("saved"), 40, payload.Length);
     }
 
-    [Theory]
-    [InlineData("return (0, eval)(payload)")]
-    [InlineData("return Function(payload)()")]
+    [TestCase("return (0, eval)(payload)")]
+    [TestCase("return Function(payload)()")]
     public void LeafFunctionKeepsItsPreparationLimits(string body)
     {
         var preparationOptions = new ScriptPreparationOptions
@@ -234,7 +231,7 @@ public class ParsingLimitTests
         exception.Actual.Should().BeGreaterThanOrEqualTo(payload.Length);
     }
 
-    [Fact]
+    [Test]
     public void EvalLimitCannotBeCaughtByJavaScript()
     {
         var prepared = Engine.PrepareScript("""
@@ -249,7 +246,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate(prepared), 5, 23);
     }
 
-    [Fact]
+    [Test]
     public void FunctionConstructorsCountGeneratedSource()
     {
         var prepared = Engine.PrepareScript("new Function('return 1')");
@@ -261,7 +258,7 @@ public class ParsingLimitTests
         exception.Actual.Should().BeGreaterThan(20);
     }
 
-    [Fact]
+    [Test]
     public void ShadowRealmHostEvaluationEnforcesLimits()
     {
         var engine = CreateEngine(maxSourceLength: 1);
@@ -271,7 +268,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => shadowRealm.Evaluate("00"), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void ShadowRealmHostEvaluationHonorsPerCallLimits()
     {
         var shadowRealm = new Engine().Intrinsics.ShadowRealm.Construct();
@@ -280,7 +277,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => shadowRealm.Evaluate("00", parsingOptions), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentShadowRealmParsingAndEvaluationIsRejected()
     {
         using var entered = new ManualResetEventSlim();
@@ -308,7 +305,7 @@ public class ParsingLimitTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public void ShadowRealmJavaScriptEvaluationEnforcesLimits()
     {
         var prepared = Engine.PrepareScript("new ShadowRealm().evaluate('00')");
@@ -317,7 +314,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate(prepared), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void DebuggerEvaluationEnforcesLimits()
     {
         var engine = CreateEngine(maxSourceLength: 1);
@@ -325,7 +322,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Debugger.Evaluate("00"), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void DebuggerEvaluationHonorsPerCallLimits()
     {
         var engine = new Engine();
@@ -334,7 +331,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Debugger.Evaluate("00", parsingOptions), 1, 2);
     }
 
-    [Fact]
+    [Test]
     public void PreparedDebuggerEvaluationKeepsItsLimitsAndFatalException()
     {
         var preparationOptions = new ScriptPreparationOptions
@@ -353,7 +350,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Execute("debugger;"), 20, 30);
     }
 
-    [Fact]
+    [Test]
     public void ClosureCreatedByPreparedDebuggerEvaluationKeepsItsLimits()
     {
         var prepared = Engine.PrepareScript(
@@ -375,7 +372,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Evaluate("debugClosure()"), 50, 60);
     }
 
-    [Fact]
+    [Test]
     public void SynchronousModuleLoaderSourceEnforcesLimits()
     {
         var loader = new SourceModuleLoader("export const value = 1;");
@@ -388,7 +385,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Modules.Import("main"), 5, 23);
     }
 
-    [Fact]
+    [Test]
     public void AsynchronousModuleLoaderSourceEnforcesLimits()
     {
         var loader = new ImmediateAsyncModuleLoader("export const value = 1;");
@@ -401,7 +398,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Modules.Import("main"), 5, 23);
     }
 
-    [Fact]
+    [Test]
     public void AsynchronousLoaderParsingLimitFaultIsNotARejection()
     {
         var engine = new Engine(options => options.UseModules(new ParsingFaultAsyncModuleLoader()));
@@ -410,7 +407,7 @@ public class ParsingLimitTests
             .Should().ThrowExactly<ParsingLimitException>();
     }
 
-    [Fact]
+    [Test]
     public async Task AsyncModuleCompletionCarriesParsingAndMemoryStateAcrossAThreadHop()
     {
         var loader = new DeferredAsyncModuleLoader();
@@ -429,7 +426,7 @@ public class ParsingLimitTests
         engine.Evaluate(prepared);
         await Task.Run(() => loader.Deliver("export const value = 1;"));
 
-        var failure = await Record.ExceptionAsync(() => Task.Run(engine.Tasks.ProcessTasks));
+        var failure = await Caught.ExceptionAsync(() => Task.Run(engine.Tasks.ProcessTasks));
         var parsingFailure = failure.Should().BeOfType<ParsingLimitException>().Subject;
         parsingFailure.Limit.Should().Be(20);
         parsingFailure.Actual.Should().Be(23);
@@ -437,7 +434,7 @@ public class ParsingLimitTests
         engine.Evaluate("1").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public async Task ImportAsyncParsingFailureReleasesOwnershipMemoryAndPendingLoad()
     {
         var loader = new RetriableAsyncModuleLoader();
@@ -474,7 +471,7 @@ public class ParsingLimitTests
         memory.IsOperationActive.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeferredDependencyKeepsOriginatingLimitsDuringNestedDrain()
     {
         var loader = new RetriableAsyncModuleLoader();
@@ -502,7 +499,7 @@ public class ParsingLimitTests
         loader.Fetches.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ModuleFactoryHonorsPerCallLimits()
     {
         var engine = new Engine();
@@ -515,7 +512,7 @@ public class ParsingLimitTests
             2);
     }
 
-    [Fact]
+    [Test]
     public void DefaultModuleLoaderStopsReadingAfterTheLimit()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -565,7 +562,7 @@ public class ParsingLimitTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DefaultModuleLoaderAcceptsIntMaxValueLimit()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -590,7 +587,7 @@ public class ParsingLimitTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ModuleBuilderChecksCombinedSourceBeforeJoining()
     {
         var engine = CreateEngine(maxSourceLength: 2);
@@ -603,7 +600,7 @@ public class ParsingLimitTests
         exception.Actual.Should().Be(2 + Environment.NewLine.Length);
     }
 
-    [Fact]
+    [Test]
     public void JsonModuleSourceEnforcesSourceLength()
     {
         var engine = CreateEngine(maxSourceLength: 2);
@@ -613,7 +610,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => ModuleFactory.BuildJsonModule(engine, resolved, "{} "), 2, 3);
     }
 
-    [Fact]
+    [Test]
     public void PreparedModuleIsNotRechecked()
     {
         var prepared = Engine.PrepareModule("export const value = 'source longer than five';", "main");
@@ -623,7 +620,7 @@ public class ParsingLimitTests
         engine.Modules.Import("main").Get("value").Should().Be("source longer than five");
     }
 
-    [Fact]
+    [Test]
     public void ModulePreparationLimitsFlowIntoNestedEval()
     {
         var preparationOptions = new ModulePreparationOptions
@@ -638,9 +635,8 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Modules.Import("main"), 20, payload.Length);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void ModulePreparationLimitsFlowIntoStaticDependencies(bool asynchronous)
     {
         var preparationOptions = new ModulePreparationOptions
@@ -657,7 +653,7 @@ public class ParsingLimitTests
         AssertSourceLimit(() => engine.Modules.Import("root"), 20, 23);
     }
 
-    [Fact]
+    [Test]
     public void NullLimitsPreserveUnboundedParsing()
     {
         var source = "/*" + new string('x', 100_000) + "*/ 42";
@@ -668,7 +664,7 @@ public class ParsingLimitTests
         Engine.PrepareModule(source).Program.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ExplicitDefaultParsingOptionsKeepEngineSourceRetention()
     {
         var engine = new Engine(options => options.RetainFunctionSourceText = true);
@@ -687,12 +683,11 @@ public class ParsingLimitTests
             .AsString().Should().Contain("return 5");
     }
 
-    [Theory]
-    [InlineData("eval(payload)", false, false)]
-    [InlineData("Function(payload)", false, false)]
-    [InlineData("new ShadowRealm().evaluate(payload)", false, false)]
-    [InlineData("", true, false)]
-    [InlineData("", true, true)]
+    [TestCase("eval(payload)", false, false)]
+    [TestCase("Function(payload)", false, false)]
+    [TestCase("new ShadowRealm().evaluate(payload)", false, false)]
+    [TestCase("", true, false)]
+    [TestCase("", true, true)]
     public void DynamicCompilationLimitsSurviveGuardedHostCallbackReentry(
         string source,
         bool hostReentry,
@@ -725,7 +720,7 @@ public class ParsingLimitTests
         failure.Actual.Should().BeGreaterThan(40);
     }
 
-    [Fact]
+    [Test]
     public void ParsingLimitCannotBeCaughtAsAClrException()
     {
         var prepared = Engine.PrepareScript(
@@ -741,7 +736,7 @@ public class ParsingLimitTests
         engine.GetValue("caught").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void DefaultDynamicParsingRetainsSourceUnderActiveLimits()
     {
         var prepared = Engine.PrepareScript(
@@ -765,7 +760,7 @@ public class ParsingLimitTests
         result.Should().Be("function inner(){ return 4 }");
     }
 
-    [Fact]
+    [Test]
     public void EscapedFunctionUsesItsOwningParserOptions()
     {
         var engine = new Engine();
@@ -779,7 +774,7 @@ public class ParsingLimitTests
             .Should().Be("function inner(){ return 4 }");
     }
 
-    [Fact]
+    [Test]
     public void NegativeLimitsAreRejected()
     {
         Invoking(() => new Engine(options => options.Parsing.MaxSourceLength = -1))
@@ -794,7 +789,7 @@ public class ParsingLimitTests
             .Should().ThrowExactly<ArgumentOutOfRangeException>();
     }
 
-    [Fact]
+    [Test]
     public void ExistingParsingOptionsInterfaceRemainsImplementable()
     {
         IParsingOptions options = new ExternalParsingOptions();

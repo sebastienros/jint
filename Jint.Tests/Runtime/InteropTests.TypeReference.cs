@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void DelegateWithDefaultValueParametersCanBeInvoked()
     {
         var instance = new A();
@@ -29,7 +29,7 @@ public partial class InteropTests
             ");
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptClassCanExtendClrType()
     {
         _engine.SetValue("TestClass", TypeReference.CreateTypeReference<TestClass>(_engine));
@@ -52,7 +52,7 @@ public partial class InteropTests
         // _engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(new MyExtendedType()))").Should().Be("[\"a\",\"b\"]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowMethodsOnClrExtendedTypes()
     {
         _engine.SetValue("ClrBaseType", TypeReference.CreateTypeReference<TestClass>(_engine));
@@ -91,7 +91,7 @@ public partial class InteropTests
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldBeInstanceOfTypeReferenceType()
     {
         _engine.SetValue("A", typeof(A));
@@ -102,7 +102,7 @@ public partial class InteropTests
     }
 
 
-    [Fact]
+    [Test]
     public void IntegerEnumResolutionShouldWork()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -111,7 +111,7 @@ public partial class InteropTests
         engine.Evaluate("a.testFunc(E.a);").AsString().Should().Be("integer-enum");
     }
 
-    [Fact]
+    [Test]
     public void UnsignedIntegerEnumResolutionShouldWork()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -120,7 +120,7 @@ public partial class InteropTests
     }
 
 
-    [Fact]
+    [Test]
     public void ExceptionFromConstructorShouldPropagate()
     {
         _engine.SetValue("Class", TypeReference.CreateTypeReference(_engine, typeof(MemberExceptionTest)));
@@ -129,7 +129,7 @@ public partial class InteropTests
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldScoreDoubleToDoubleParameterMatchHigherThanDoubleToFloat()
     {
         var engine = new Engine();
@@ -141,7 +141,7 @@ public partial class InteropTests
         result.Should().Be(5.56d);
     }
 
-    [Fact]
+    [Test]
     public void TypeReferenceShouldGetIntermediaryPrototype()
     {
         var engine = new Engine();
@@ -161,7 +161,7 @@ public partial class InteropTests
         string.Join("#", calls).Should().Be("called#5#20");
     }
 
-    [Fact]
+    [Test]
     public void CanConfigureCustomInstanceCreator()
     {
         var collection = new ServiceCollection();
@@ -181,7 +181,7 @@ public partial class InteropTests
         engine.Evaluate("new Injectable(123, 'abc').getInjectedValue();").Should().Be("Hello world");
     }
 
-    [Fact]
+    [Test]
     public void ToStringTagShouldReflectType()
     {
         var reference = TypeReference.CreateTypeReference<Dependency>(_engine);

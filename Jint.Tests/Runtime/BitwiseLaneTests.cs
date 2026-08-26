@@ -7,7 +7,7 @@
 /// </summary>
 public class BitwiseLaneTests
 {
-    [Fact]
+    [Test]
     public void AllOperatorsMatchGenericSemanticsOverSlotNumbers()
     {
         var engine = new Engine();
@@ -48,7 +48,7 @@ public class BitwiseLaneTests
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void NonInt32OperandsDeclineToGenericConversion()
     {
         var engine = new Engine();
@@ -71,7 +71,7 @@ public class BitwiseLaneTests
         result.Should().Be("6,-8,5,5,5,2,6,2");
     }
 
-    [Fact]
+    [Test]
     public void NegativeZeroBehavesLikePositiveZero()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class BitwiseLaneTests
         result.Should().Be("7:Infinity");
     }
 
-    [Fact]
+    [Test]
     public void BigIntOperandsKeepBigIntSemantics()
     {
         var engine = new Engine();
@@ -107,7 +107,7 @@ public class BitwiseLaneTests
         mixEx.Message.Should().Contain("BigInt");
     }
 
-    [Fact]
+    [Test]
     public void ValueOfCoercionRunsExactlyOncePerEvaluation()
     {
         var engine = new Engine();
@@ -129,7 +129,7 @@ public class BitwiseLaneTests
         result.Should().Be("5:5");
     }
 
-    [Fact]
+    [Test]
     public void StringOperandsCoerceThroughGenericPath()
     {
         var engine = new Engine();
@@ -144,7 +144,7 @@ public class BitwiseLaneTests
         result.Should().Be("6:24");
     }
 
-    [Fact]
+    [Test]
     public void LetConstAndGlobalShapesAllCompute()
     {
         var engine = new Engine();

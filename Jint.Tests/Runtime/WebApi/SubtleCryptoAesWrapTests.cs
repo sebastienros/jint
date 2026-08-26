@@ -75,22 +75,21 @@ public class SubtleCryptoAesWrapTests
     // AES-CBC — NIST SP 800-38A Appendix F.2
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // The ciphertext is the four blocks of F.2.1 / F.2.3 / F.2.5 followed by one more: the Web Cryptography
     // API always adds PKCS#7 padding, and a plaintext that is already a whole number of blocks gains a whole
     // block of 0x10 octets. That fifth block is the one figure here NIST does not publish — see the remarks
     // on this class for how it was computed.
-    [InlineData(
+    [TestCase(
         Key128,
         "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b2"
         + "73bed6b8e3c1743b7116e69e222295163ff1caa1681fac09120eca307586e1a7"
         + "8cb82807230e1321d3fae00d18cc2012")]
-    [InlineData(
+    [TestCase(
         Key192,
         "4f021db243bc633d7178183a9fa071e8b4d9ada9ad7dedf4e5e738763f69145a"
         + "571b242012fb7ae07fa9baac3df102e008b0e27988598881d920a9e64f5615cd"
         + "612ccd79224b350935d45dd6a98f8176")]
-    [InlineData(
+    [TestCase(
         Key256,
         "f58c4c04d6e5f1ba779eabfb5f7bfbd69cfc4e967edb808d679f777bc6702c7d"
         + "39f23369a9d9bacfa530e26304231461b2eb05e2c39be9fcda6c19078c6a9d1b"
@@ -111,14 +110,13 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected + "|true|" + PlaintextBlocks);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(15)]
-    [InlineData(16)]
-    [InlineData(17)]
-    [InlineData(31)]
-    [InlineData(32)]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(15)]
+    [TestCase(16)]
+    [TestCase(17)]
+    [TestCase(31)]
+    [TestCase(32)]
     public void PadsEveryPlaintextLengthToTheNextWholeBlockAndRecoversIt(int length)
     {
         // "Let paddedPlaintext be the result of adding padding octets to plaintext according to the procedure
@@ -150,7 +148,6 @@ public class SubtleCryptoAesWrapTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
     // Steps 4 and 5: "Let p be the value of the last octet of paddedPlaintext. If p is zero or greater than
     // 16, or if any of the last p octets of paddedPlaintext have a value which is not p, then throw an
     // OperationError." Each of the three ways that can fail is constructed rather than stumbled on, which is
@@ -162,14 +159,14 @@ public class SubtleCryptoAesWrapTests
     //   index 0, xor 0x01  — the padding's first octet becomes 0x11 while the last stays 0x10, so p is a
     //                        perfectly good 16 and one of the octets it claims is not 16. Only a check that
     //                        reads all p octets catches this one.
-    [InlineData(0, "0x01")]
+    [TestCase(0, "0x01")]
     //   index 15, xor 0x10 — the last octet becomes 0x00, which is "p is zero".
-    [InlineData(15, "0x10")]
+    [TestCase(15, "0x10")]
     //   index 15, xor 0x80 — the last octet becomes 0x90, which is "p is greater than 16".
-    [InlineData(15, "0x80")]
+    [TestCase(15, "0x80")]
     //   ... and a byte of the padding block itself, which randomizes the whole block and its padding with it.
-    [InlineData(16, "0x01")]
-    [InlineData(31, "0x01")]
+    [TestCase(16, "0x01")]
+    [TestCase(31, "0x01")]
     public void RefusesACiphertextWhosePaddingIsWrong(int index, string mask)
     {
         // The failure is the one message every other CBC failure gives: a decrypt that can tell "the padding
@@ -195,10 +192,9 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("32|OperationError:the data could not be decrypted.");
     }
 
-    [Theory]
-    [InlineData("repeat(0, 15)")]
-    [InlineData("repeat(0, 17)")]
-    [InlineData("new Uint8Array(0)")]
+    [TestCase("repeat(0, 15)")]
+    [TestCase("repeat(0, 17)")]
+    [TestCase("new Uint8Array(0)")]
     public void RefusesAnAesCbcIvThatIsNotOneBlock(string iv)
     {
         var engine = WebEngine();
@@ -215,11 +211,10 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(15)]
-    [InlineData(17)]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(15)]
+    [TestCase(17)]
     public void RefusesAnAesCbcCiphertextThatIsNotAWholeNumberOfBlocks(int length)
     {
         // "If the length of ciphertext is zero or is not a multiple of 16 bytes, then throw an
@@ -240,19 +235,18 @@ public class SubtleCryptoAesWrapTests
     // AES-CTR — NIST SP 800-38A Appendix F.5
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // F.5.1, F.5.3 and F.5.5, whose counter is the whole 128-bit block (m = 128) and whose plaintext is the
     // same four blocks. There is no padding: CTR is a stream cipher, so the ciphertext is the length of the
     // plaintext exactly.
-    [InlineData(
+    [TestCase(
         Key128,
         "874d6191b620e3261bef6864990db6ce9806f66b7970fdff8617187bb9fffdff"
         + "5ae4df3edbd5d35e5b4f09020db03eab1e031dda2fbe03d1792170a0f3009cee")]
-    [InlineData(
+    [TestCase(
         Key192,
         "1abc932417521ca24f2b0459fe7e6e0b090339ec0aa6faefd5ccc2c6f4ce8e94"
         + "1e36b26bd1ebc670d1bd1d665620abf74f78a7f6d29809585a97daec58c6b050")]
-    [InlineData(
+    [TestCase(
         Key256,
         "601ec313775789a5b7a7f504bbf3d228f443e3ca4d62b59aca84e990cacaf5c5"
         + "2b0930daa23de94ce87017ba2d84988ddfc9c58db67aada613c2dd08457941a6")]
@@ -272,7 +266,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected + "|" + PlaintextBlocks);
     }
 
-    [Fact]
+    [Test]
     public void IncrementsOnlyTheRightmostLengthBitsAndWrapsThemModuloTwoToTheLength()
     {
         // The case the specification points at Appendix B.1 of [NIST-SP800-38A] for: with length 32 the
@@ -294,17 +288,16 @@ public class SubtleCryptoAesWrapTests
                 + "a715b99567eaea4806b3a91c785f11cc");
     }
 
-    [Theory]
     // length 4 puts the whole counter in the low nibble of the last byte: 0x1f becomes 0x10 and then 0x11, so
     // the nibble wraps and the *nonce* nibble above it keeps its value. The deliberate choice here is a nonce
     // nibble that is not 0xf — with 0xff a carry out of the nibble happens to land on bits that were already
     // set, and an implementation that forgot to mask the increment would give the same answer by luck.
-    [InlineData("000102030405060708090a0b0c0d0e1f", 4,
+    [TestCase("000102030405060708090a0b0c0d0e1f", 4,
         "d382e6e0f67d3973b51ef9c0321691e3af218e4e87e393aada314be47bf7a35f96ea8f8905839042b9ce80980c8d2630")]
     // length 12 straddles a byte boundary: the counter is all of the last byte and the low nibble of the one
     // before it, so 0x1fff becomes 0x1000 — a carry out of a whole byte into a partial one, with four bits of
     // nonce immediately above the carry.
-    [InlineData("000102030405060708090a0b0c0d1fff", 12,
+    [TestCase("000102030405060708090a0b0c0d1fff", 12,
         "8250c610f6a654214a55c545382342f66cd367d6b58575858b44a7cbac0431fa51367ca1f0054dc9088d431c6c41ee1f")]
     public void WrapsACounterFieldThatDoesNotEndOnAByteBoundary(string counter, int length, string expected)
     {
@@ -319,7 +312,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void WrapsTheWholeBlockWhenTheCounterFieldIsAllOfIt()
     {
         // length 128 and a counter block of all ones: the whole block wraps to zero, and the carry out of the
@@ -334,18 +327,17 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("8af2860142f786f409307c1a3f7eaaac7df76b0c1ab899b33e42f047b91b546f");
     }
 
-    [Theory]
-    [InlineData("repeat(0, 15)", "128", "OperationError")]
-    [InlineData("repeat(0, 17)", "128", "OperationError")]
-    [InlineData("repeat(0, 16)", "0", "OperationError")]
-    [InlineData("repeat(0, 16)", "129", "OperationError")]
-    [InlineData("repeat(0, 16)", "255", "OperationError")]
+    [TestCase("repeat(0, 15)", "128", "OperationError")]
+    [TestCase("repeat(0, 17)", "128", "OperationError")]
+    [TestCase("repeat(0, 16)", "0", "OperationError")]
+    [TestCase("repeat(0, 16)", "129", "OperationError")]
+    [TestCase("repeat(0, 16)", "255", "OperationError")]
     // The member's IDL type is `octet`, so a value outside 0..255 fails the [EnforceRange] conversion during
     // normalization, before a single step of the operation runs — a TypeError, not an OperationError.
-    [InlineData("repeat(0, 16)", "256", "TypeError")]
-    [InlineData("repeat(0, 16)", "-1", "TypeError")]
-    [InlineData("repeat(0, 16)", "1", "ok")]
-    [InlineData("repeat(0, 16)", "128", "ok")]
+    [TestCase("repeat(0, 16)", "256", "TypeError")]
+    [TestCase("repeat(0, 16)", "-1", "TypeError")]
+    [TestCase("repeat(0, 16)", "1", "ok")]
+    [TestCase("repeat(0, 16)", "128", "ok")]
     public void EnforcesTheAesCtrCounterAndLengthMatrix(string counter, string length, string expected)
     {
         Run($$"""
@@ -359,7 +351,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void EncryptsTheEmptyMessageToTheEmptyCiphertext()
     {
         // CTR needs no keystream at all for a zero-length message, and a stream cipher's ciphertext is the
@@ -379,21 +371,20 @@ public class SubtleCryptoAesWrapTests
     // AES-KW — RFC 3394 section 4
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // https://www.rfc-editor.org/rfc/rfc3394#section-4, all six combinations. The key data of each vector is
     // itself a valid AES key length, so it is imported as an AES-CBC key and wrapped in the `raw` format —
     // which makes the bytes handed to the wrap operation exactly the vector's "Key Data".
-    [InlineData("000102030405060708090A0B0C0D0E0F", "00112233445566778899AABBCCDDEEFF",
+    [TestCase("000102030405060708090A0B0C0D0E0F", "00112233445566778899AABBCCDDEEFF",
         "1fa68b0a8112b447aef34bd8fb5a7b829d3e862371d2cfe5")]
-    [InlineData("000102030405060708090A0B0C0D0E0F1011121314151617", "00112233445566778899AABBCCDDEEFF",
+    [TestCase("000102030405060708090A0B0C0D0E0F1011121314151617", "00112233445566778899AABBCCDDEEFF",
         "96778b25ae6ca435f92b5b97c050aed2468ab8a17ad84e5d")]
-    [InlineData("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF",
+    [TestCase("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF",
         "64e8c3f9ce0f5ba263e9777905818a2a93c8191e7d6e8ae7")]
-    [InlineData("000102030405060708090A0B0C0D0E0F1011121314151617", "00112233445566778899AABBCCDDEEFF0001020304050607",
+    [TestCase("000102030405060708090A0B0C0D0E0F1011121314151617", "00112233445566778899AABBCCDDEEFF0001020304050607",
         "031d33264e15d33268f24ec260743edce1c6c7ddee725a936ba814915c6762d2")]
-    [InlineData("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF0001020304050607",
+    [TestCase("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF0001020304050607",
         "a8f9bc1612c68b3ff6e6f4fbe30e71e4769c8b80a32cb8958cd5d17d6b254da1")]
-    [InlineData("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F",
+    [TestCase("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F", "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F",
         "28c9f404c4b810f4cbccb35cfb87f8263f5786e2d80ed326cbc7f0e71a99f43bfb988b9b7a02dd21")]
     public void WrapsAndUnwrapsThePublishedRfc3394Vectors(string kekHex, string keyDataHex, string expected)
     {
@@ -412,7 +403,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected + "|" + keyDataHex.ToLowerInvariant());
     }
 
-    [Fact]
+    [Test]
     public void RefusesAWrappedPayloadThatIsNotAWholeNumberOfBlocks()
     {
         // "If plaintext is not a multiple of 64 bits in length, then throw an OperationError." An HMAC key of
@@ -437,7 +428,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAWrappedKeyWhoseIntegrityCheckFailsWithAnIndistinguishableMessage()
     {
         // "If the Key Unwrap operation returns an error, then throw an OperationError." Every way the unwrap
@@ -472,12 +463,11 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("1|OperationError:the key could not be unwrapped.|true");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(8)]
-    [InlineData(16)]
-    [InlineData(20)]
-    [InlineData(25)]
+    [TestCase(0)]
+    [TestCase(8)]
+    [TestCase(16)]
+    [TestCase(20)]
+    [TestCase(25)]
     public void RefusesAnAesKwCiphertextOfTheWrongShape(int length)
     {
         // A wrapped payload is (n + 1) blocks for n of at least two, so anything under three blocks — or not
@@ -499,18 +489,17 @@ public class SubtleCryptoAesWrapTests
     // The shared AES key management, at the three names that are new
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("AES-CTR", 128, "A128CTR")]
-    [InlineData("AES-CTR", 192, "A192CTR")]
-    [InlineData("AES-CTR", 256, "A256CTR")]
-    [InlineData("AES-CBC", 128, "A128CBC")]
-    [InlineData("AES-CBC", 192, "A192CBC")]
-    [InlineData("AES-CBC", 256, "A256CBC")]
-    [InlineData("AES-GCM", 128, "A128GCM")]
-    [InlineData("AES-GCM", 256, "A256GCM")]
-    [InlineData("AES-KW", 128, "A128KW")]
-    [InlineData("AES-KW", 192, "A192KW")]
-    [InlineData("AES-KW", 256, "A256KW")]
+    [TestCase("AES-CTR", 128, "A128CTR")]
+    [TestCase("AES-CTR", 192, "A192CTR")]
+    [TestCase("AES-CTR", 256, "A256CTR")]
+    [TestCase("AES-CBC", 128, "A128CBC")]
+    [TestCase("AES-CBC", 192, "A192CBC")]
+    [TestCase("AES-CBC", 256, "A256CBC")]
+    [TestCase("AES-GCM", 128, "A128GCM")]
+    [TestCase("AES-GCM", 256, "A256GCM")]
+    [TestCase("AES-KW", 128, "A128KW")]
+    [TestCase("AES-KW", 192, "A192KW")]
+    [TestCase("AES-KW", 256, "A256KW")]
     public void ExportsAndReimportsAJsonWebKeyWithTheAlgorithmsOwnAlgField(string name, int length, string alg)
     {
         // https://www.rfc-editor.org/rfc/rfc7518#section-4.7 for the ciphers and #section-4.4 for AES-KW —
@@ -533,7 +522,7 @@ public class SubtleCryptoAesWrapTests
                 alg + "|oct|true|" + usages.Trim('[', ']').Replace("'", "") + "|" + name + "|" + length + "|true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAJsonWebKeyWhoseAlgNamesAnotherAesMode()
     {
         var engine = WebEngine();
@@ -552,17 +541,16 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Theory]
     // The three ciphers take all four usages; AES-KW's registration names only the two wrapping ones, so
     // encrypt and decrypt are the SyntaxError step 1 raises.
-    [InlineData("AES-CTR", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
-    [InlineData("AES-CBC", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
-    [InlineData("AES-GCM", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
-    [InlineData("AES-KW", "['wrapKey', 'unwrapKey']", "ok")]
-    [InlineData("AES-KW", "['encrypt']", "SyntaxError")]
-    [InlineData("AES-KW", "['wrapKey', 'decrypt']", "SyntaxError")]
-    [InlineData("AES-CBC", "['sign']", "SyntaxError")]
-    [InlineData("AES-CTR", "['deriveBits']", "SyntaxError")]
+    [TestCase("AES-CTR", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
+    [TestCase("AES-CBC", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
+    [TestCase("AES-GCM", "['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']", "ok")]
+    [TestCase("AES-KW", "['wrapKey', 'unwrapKey']", "ok")]
+    [TestCase("AES-KW", "['encrypt']", "SyntaxError")]
+    [TestCase("AES-KW", "['wrapKey', 'decrypt']", "SyntaxError")]
+    [TestCase("AES-CBC", "['sign']", "SyntaxError")]
+    [TestCase("AES-CTR", "['deriveBits']", "SyntaxError")]
     public void EnforcesEachAesAlgorithmsOwnUsageSet(string name, string usages, string expected)
     {
         var engine = WebEngine();
@@ -578,10 +566,9 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("AES-CTR")]
-    [InlineData("AES-CBC")]
-    [InlineData("AES-KW")]
+    [TestCase("AES-CTR")]
+    [TestCase("AES-CBC")]
+    [TestCase("AES-KW")]
     public void DerivesEachAesModeThroughDeriveKey(string name)
     {
         // All four AES algorithms register `get key length`, so any of them may be a deriveKey
@@ -606,7 +593,7 @@ public class SubtleCryptoAesWrapTests
     // wrapKey and unwrapKey
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void WrapsARawAesKeyUnderAesKwAndUnwrapsItIntact()
     {
         // The shape AES-KW exists for, end to end: a content key wrapped for transport under a
@@ -631,7 +618,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("24|the message|false|decrypt");
     }
 
-    [Fact]
+    [Test]
     public void WrapsAJsonWebKeyUnderAesGcmThroughTheEncryptFallback()
     {
         // AES-GCM registers `encrypt` and never `wrapKey`, so this is the second normalization of step 2
@@ -661,7 +648,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("true|verify|false|true");
     }
 
-    [Fact]
+    [Test]
     public void PadsAJsonWebKeyToAWholeNumberOfBlocksWhenTheWrappingAlgorithmIsAesKw()
     {
         // The convention the web-platform tests compute their expectation with, in
@@ -700,7 +687,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("true|0|true|true|true|true");
     }
 
-    [Fact]
+    [Test]
     public void SerializesAJsonWebKeyInTheExportLayoutsOwnOrder()
     {
         // The member order is the export layout's, which is what makes the wrapped bytes deterministic for
@@ -719,7 +706,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("alg,ext,k,key_ops,kty|true");
     }
 
-    [Fact]
+    [Test]
     public void WrapsAnAesKeyUnderRsaOaepThroughTheEncryptFallback()
     {
         // The other half of the fallback: an asymmetric wrapping key, so the wrap and the unwrap are done
@@ -744,7 +731,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("encrypt+wrapKey|decrypt+unwrapKey|256|true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToWrapAKeyThatIsNotExtractable()
     {
         // "Because the wrapKey method effectively exports the key, only keys marked as extractable may be
@@ -763,7 +750,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("InvalidAccessError/true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAWrappingKeyWithoutTheWrapKeyUsage()
     {
         // Steps 7 and 8, and their mirrors in unwrapKey: the wrapping key was made for this algorithm, and it
@@ -792,7 +779,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("InvalidAccessError,InvalidAccessError,InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void ReportsAnUnwrappedJwkThatIsNotOneThroughTheImportTaxonomy()
     {
         // Everything after the unwrapping is an import failure in the taxonomy that already exists — except
@@ -835,7 +822,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("DataError,DataError,SyntaxError,SyntaxError,unwrapped");
     }
 
-    [Fact]
+    [Test]
     public void ParsesTheJwkBeforeItRunsTheImportStepsAtAll()
     {
         // "Parse a JWK" is step 12 and the import operation is step 13, and the last thing the parse does is
@@ -866,7 +853,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("DataError:true,DataError:true");
     }
 
-    [Fact]
+    [Test]
     public void HonoursAnExtFalseJsonWebKeyOnTheWayBackIn()
     {
         // The asymmetry the specification's own note describes: wrapKey cannot produce a JWK marked
@@ -901,7 +888,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("extractable=false,DataError");
     }
 
-    [Fact]
+    [Test]
     public void NormalizesForWrapKeyFirstAndForTheCipherOperationSecond()
     {
         // Step 2 of both methods: normalize for wrapKey and, "if an error occurred", for encrypt instead. The
@@ -939,7 +926,7 @@ public class SubtleCryptoAesWrapTests
     // Feature detection: twelve of twelve
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ExposesAllTwelveOperationsWithTheirIdlNameAndArity()
     {
         var engine = WebEngine();
@@ -969,18 +956,17 @@ public class SubtleCryptoAesWrapTests
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
     // AES-KW registers wrapKey, unwrapKey, generateKey, importKey, exportKey and get key length — and nothing
     // else, so every cipher and signature operation is a NotSupportedError.
-    [InlineData("sign", "'AES-KW'")]
-    [InlineData("verify", "'AES-KW'")]
-    [InlineData("encrypt", "'AES-KW'")]
-    [InlineData("decrypt", "'AES-KW'")]
-    [InlineData("deriveBits", "'AES-KW'")]
+    [TestCase("sign", "'AES-KW'")]
+    [TestCase("verify", "'AES-KW'")]
+    [TestCase("encrypt", "'AES-KW'")]
+    [TestCase("decrypt", "'AES-KW'")]
+    [TestCase("deriveBits", "'AES-KW'")]
     // ... and the three ciphers are the reverse: they encrypt and decrypt and never wrap.
-    [InlineData("sign", "'AES-CBC'")]
-    [InlineData("verify", "'AES-CTR'")]
-    [InlineData("deriveBits", "'AES-CBC'")]
+    [TestCase("sign", "'AES-CBC'")]
+    [TestCase("verify", "'AES-CTR'")]
+    [TestCase("deriveBits", "'AES-CBC'")]
     public void RefusesAnOperationTheAesAlgorithmIsNotRegisteredFor(string operation, string algorithm)
     {
         var engine = WebEngine();
@@ -1001,14 +987,13 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("NotSupportedError/9");
     }
 
-    [Theory]
     // Only AES-KW is registered for wrapKey and unwrapKey, so a name in neither that registry nor the
     // encrypt/decrypt one is a NotSupportedError — HMAC and the signature algorithms cannot wrap.
-    [InlineData("'HMAC'")]
-    [InlineData("'RSASSA-PKCS1-v1_5'")]
-    [InlineData("'ECDSA'")]
-    [InlineData("'PBKDF2'")]
-    [InlineData("'AES-XTS'")]
+    [TestCase("'HMAC'")]
+    [TestCase("'RSASSA-PKCS1-v1_5'")]
+    [TestCase("'ECDSA'")]
+    [TestCase("'PBKDF2'")]
+    [TestCase("'AES-XTS'")]
     public void RefusesAWrappingAlgorithmThatIsInNeitherRegistry(string algorithm)
     {
         var engine = WebEngine();
@@ -1026,7 +1011,7 @@ public class SubtleCryptoAesWrapTests
     // Nothing erupts
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void NoAesOperationEverThrowsSynchronouslyOrLeaksACryptographicException()
     {
         var engine = WebEngine();
@@ -1066,7 +1051,7 @@ public class SubtleCryptoAesWrapTests
             """).AsString().Should().Be("DataError,DataError,OperationError,TypeError,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RunsEveryArgumentConversionBeforeAnyStepOfTheMethod()
     {
         var engine = WebEngine();

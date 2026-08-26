@@ -13,28 +13,28 @@ public class IntlTests
         _engine = new Engine();
     }
 
-    [Fact]
+    [Test]
     public void IntlObjectExists()
     {
         var result = _engine.Evaluate("typeof Intl");
         result.AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void IntlHasGetCanonicalLocales()
     {
         var result = _engine.Evaluate("typeof Intl.getCanonicalLocales");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void IntlHasSupportedValuesOf()
     {
         var result = _engine.Evaluate("typeof Intl.supportedValuesOf");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void GetCanonicalLocalesWithUndefined()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales(undefined)");
@@ -42,7 +42,7 @@ public class IntlTests
         result.AsArray().Length.Should().Be((uint) 0);
     }
 
-    [Fact]
+    [Test]
     public void GetCanonicalLocalesWithString()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales('en-US')");
@@ -52,7 +52,7 @@ public class IntlTests
         array[0].AsString().Should().Be("en-US");
     }
 
-    [Fact]
+    [Test]
     public void GetCanonicalLocalesWithArray()
     {
         var result = _engine.Evaluate("Intl.getCanonicalLocales(['en-US', 'de-DE'])");
@@ -61,7 +61,7 @@ public class IntlTests
         array.Length.Should().Be((uint) 2);
     }
 
-    [Fact]
+    [Test]
     public void GetCanonicalLocalesCanonicalizesCase()
     {
         // Should canonicalize 'en-us' to 'en-US'
@@ -73,7 +73,7 @@ public class IntlTests
         array[0].AsString().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfCalendar()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('calendar')");
@@ -82,7 +82,7 @@ public class IntlTests
         array.Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfCurrency()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('currency')");
@@ -91,7 +91,7 @@ public class IntlTests
         array.Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfUnit()
     {
         var result = _engine.Evaluate("Intl.supportedValuesOf('unit')");
@@ -108,14 +108,14 @@ public class IntlTests
         units.Should().Contain("second");
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfInvalidKeyThrows()
     {
         Invoking(() =>
             _engine.Evaluate("Intl.supportedValuesOf('invalid')")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void IntlToStringTag()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(Intl)");
@@ -123,14 +123,14 @@ public class IntlTests
     }
 
     // Intl.Locale tests
-    [Fact]
+    [Test]
     public void LocaleConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.Locale");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void LocaleCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US')");
@@ -138,91 +138,91 @@ public class IntlTests
         result.IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LocaleRequiresNew()
     {
         Invoking(() =>
             _engine.Evaluate("Intl.Locale('en-US')")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void LocaleToStringReturnsTag()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').toString()");
         result.AsString().Should().Be("en-US");
     }
 
-    [Fact]
+    [Test]
     public void LocaleLanguageProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').language");
         result.AsString().Should().Be("en");
     }
 
-    [Fact]
+    [Test]
     public void LocaleRegionProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').region");
         result.AsString().Should().Be("US");
     }
 
-    [Fact]
+    [Test]
     public void LocaleScriptProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('zh-Hans-CN').script");
         result.AsString().Should().Be("Hans");
     }
 
-    [Fact]
+    [Test]
     public void LocaleBaseNameProperty()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').baseName");
         result.AsString().Should().Be("en-US");
     }
 
-    [Fact]
+    [Test]
     public void LocaleWithCalendarOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { calendar: 'gregory' }).calendar");
         result.AsString().Should().Be("gregory");
     }
 
-    [Fact]
+    [Test]
     public void LocaleWithHourCycleOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { hourCycle: 'h12' }).hourCycle");
         result.AsString().Should().Be("h12");
     }
 
-    [Fact]
+    [Test]
     public void LocaleWithNumericOption()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US', { numeric: true }).numeric");
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LocaleToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.Locale('en-US'))");
         result.AsString().Should().Be("[object Intl.Locale]");
     }
 
-    [Fact]
+    [Test]
     public void LocaleMinimize()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US').minimize().toString()");
         result.AsString().Should().Be("en");
     }
 
-    [Fact]
+    [Test]
     public void LocaleWithUnicodeExtension()
     {
         var result = _engine.Evaluate("new Intl.Locale('en-US-u-ca-gregory').calendar");
         result.AsString().Should().Be("gregory");
     }
 
-    [Fact]
+    [Test]
     public void LocaleInvalidTagThrows()
     {
         Invoking(() =>
@@ -230,14 +230,14 @@ public class IntlTests
     }
 
     // Intl.Collator tests
-    [Fact]
+    [Test]
     public void CollatorConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.Collator");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void CollatorCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.Collator('en-US')");
@@ -245,21 +245,21 @@ public class IntlTests
         result.IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CollatorToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.Collator('en-US'))");
         result.AsString().Should().Be("[object Intl.Collator]");
     }
 
-    [Fact]
+    [Test]
     public void CollatorCompareReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.Collator('en-US').compare");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void CollatorCompareSortsStrings()
     {
         var result = _engine.Evaluate(@"
@@ -270,7 +270,7 @@ public class IntlTests
         result.AsNumber().Should().BeLessThan(0);
     }
 
-    [Fact]
+    [Test]
     public void CollatorCompareWithCaseSensitivity()
     {
         var result = _engine.Evaluate(@"
@@ -281,7 +281,7 @@ public class IntlTests
         result.AsNumber().Should().NotBe(0);
     }
 
-    [Fact]
+    [Test]
     public void CollatorCompareWithBaseSensitivity()
     {
         var result = _engine.Evaluate(@"
@@ -292,7 +292,7 @@ public class IntlTests
         result.AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CollatorResolvedOptions()
     {
         var result = _engine.Evaluate(@"
@@ -302,14 +302,14 @@ public class IntlTests
         result.AsString().Should().Be("search");
     }
 
-    [Fact]
+    [Test]
     public void CollatorSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.Collator.supportedLocalesOf(['en-US', 'de-DE'])");
         result.IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CollatorSortingWithCompare()
     {
         var result = _engine.Evaluate(@"
@@ -320,27 +320,26 @@ public class IntlTests
         result.AsString().Should().Be("a,b,c,z");
     }
 
-    [Theory]
     // Empty, and the two lengths below the three-character minimum.
-    [InlineData("")]
-    [InlineData("a")]
-    [InlineData("ab")]
+    [TestCase("")]
+    [TestCase("a")]
+    [TestCase("ab")]
     // Nine characters, one past the maximum, alone and as the second subtag.
-    [InlineData("abcdefghi")]
-    [InlineData("abc-abcdefghi")]
+    [TestCase("abcdefghi")]
+    [TestCase("abc-abcdefghi")]
     // Characters outside alphanum, ASCII and not.
-    [InlineData("!invalid!")]
-    [InlineData("de-DE!")]
-    [InlineData("phonebké")]
-    [InlineData("phonebkсорт")]
+    [TestCase("!invalid!")]
+    [TestCase("de-DE!")]
+    [TestCase("phonebké")]
+    [TestCase("phonebkсорт")]
     // A separator with nothing on one side of it, so a subtag is empty.
-    [InlineData("-phonebk-")]
-    [InlineData("phonebk-")]
-    [InlineData("phonebk--")]
+    [TestCase("-phonebk-")]
+    [TestCase("phonebk-")]
+    [TestCase("phonebk--")]
     // A two-character subtag among well-formed ones.
-    [InlineData("phonebk-nu")]
-    [InlineData("phonebk-nu-")]
-    [InlineData("phonebk-nu-latn")]
+    [TestCase("phonebk-nu")]
+    [TestCase("phonebk-nu-")]
+    [TestCase("phonebk-nu-latn")]
     public void CollatorRejectsACollationOptionTheTypeNonterminalCannotMatch(string collation)
     {
         // ResolveOptions (9.2.8) step 6.d.ii throws a RangeError for a resolution option value that
@@ -353,15 +352,14 @@ public class IntlTests
             .AsString().Should().Be("RangeError");
     }
 
-    [Theory]
     // The lengths the nonterminal admits, and the digits it admits alongside letters.
-    [InlineData("abc")]
-    [InlineData("abcdefgh")]
-    [InlineData("12345678")]
-    [InlineData("1234abcd")]
-    [InlineData("1234abcd-abc123")]
+    [TestCase("abc")]
+    [TestCase("abcdefgh")]
+    [TestCase("12345678")]
+    [TestCase("1234abcd")]
+    [TestCase("1234abcd-abc123")]
     // Well formed and no locale reports it: a syntax check is not a lookup.
-    [InlineData("zzzzz")]
+    [TestCase("zzzzz")]
     public void CollatorAcceptsACollationOptionTheTypeNonterminalMatches(string collation)
     {
         // Only the syntax check of 9.2.8 step 6.d.ii throws. A well-formed value the locale's [[co]]
@@ -371,9 +369,8 @@ public class IntlTests
             .AsString().Should().Be("default");
     }
 
-    [Theory]
-    [InlineData("PHONEBK")]
-    [InlineData("Phonebk")]
+    [TestCase("PHONEBK")]
+    [TestCase("Phonebk")]
     public void CollatorDoesNotReadCasingInACollationOptionAsASyntaxError(string collation)
     {
         // The "type" nonterminal is built from alphanum, [0-9 A-Z a-z], and Unicode locale
@@ -385,11 +382,10 @@ public class IntlTests
             .AsString().Should().Be("no throw");
     }
 
-    [Theory]
-    [InlineData("phonebk")]
-    [InlineData("PHONEBK")]
-    [InlineData("Phonebk")]
-    [InlineData("pHoNeBk")]
+    [TestCase("phonebk")]
+    [TestCase("PHONEBK")]
+    [TestCase("Phonebk")]
+    [TestCase("pHoNeBk")]
     public void CollatorCanonicalizesACollationOptionBeforeMatchingIt(string collation)
     {
         // https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 10 runs an option value through
@@ -402,7 +398,7 @@ public class IntlTests
             .AsString().Should().Be("phonebk");
     }
 
-    [Fact]
+    [Test]
     public void CollatorKeepsAnOptionSourcedCollationOutOfTheResolvedLocale()
     {
         // ResolveLocale only copies a keyword onto [[locale]] when the value came from the requested
@@ -413,14 +409,14 @@ public class IntlTests
     }
 
     // Intl.NumberFormat tests
-    [Fact]
+    [Test]
     public void NumberFormatConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.NumberFormat");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US')");
@@ -428,21 +424,21 @@ public class IntlTests
         result.IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.NumberFormat('en-US'))");
         result.AsString().Should().Be("[object Intl.NumberFormat]");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.NumberFormat('en-US').format");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatFormatsDecimal()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format(1234.567)");
@@ -450,7 +446,7 @@ public class IntlTests
         result.AsString().Should().Contain("234");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatFormatsCurrency()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(1234.56)");
@@ -458,7 +454,7 @@ public class IntlTests
         result.AsString().Should().Contain("1");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatFormatsPercent()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'percent' }).format(0.5)");
@@ -466,7 +462,7 @@ public class IntlTests
         result.AsString().Should().Contain("50");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatResolvedOptions()
     {
         var result = _engine.Evaluate(@"
@@ -476,7 +472,7 @@ public class IntlTests
         result.AsString().Should().Be("EUR");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatResolvedOptionsStyle()
     {
         var result = _engine.Evaluate(@"
@@ -486,14 +482,14 @@ public class IntlTests
         result.AsString().Should().Be("percent");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.NumberFormat.supportedLocalesOf(['en-US', 'de-DE'])");
         result.IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatWithUnit()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'unit', unit: 'kilometer' }).format(100)");
@@ -501,14 +497,14 @@ public class IntlTests
         result.AsString().Should().Contain("km");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatCurrencyRequiresCurrency()
     {
         Invoking(() =>
             _engine.Evaluate("new Intl.NumberFormat('en-US', { style: 'currency' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void NumberFormatUnitRequiresUnit()
     {
         Invoking(() =>
@@ -516,14 +512,14 @@ public class IntlTests
     }
 
     // Intl.DateTimeFormat tests
-    [Fact]
+    [Test]
     public void DateTimeFormatConstructorExists()
     {
         var result = _engine.Evaluate("typeof Intl.DateTimeFormat");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatCanBeConstructed()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US')");
@@ -531,21 +527,21 @@ public class IntlTests
         result.IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatToStringTagIsCorrect()
     {
         var result = _engine.Evaluate("Object.prototype.toString.call(new Intl.DateTimeFormat('en-US'))");
         result.AsString().Should().Be("[object Intl.DateTimeFormat]");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatReturnsFunction()
     {
         var result = _engine.Evaluate("typeof new Intl.DateTimeFormat('en-US').format");
         result.AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatsDate()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format(new Date(2024, 0, 15, 12, 0, 0))");
@@ -556,7 +552,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithDateStyle()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US', { dateStyle: 'short' }).format(new Date(2024, 0, 15))");
@@ -564,7 +560,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithTimeStyle()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeStyle: 'short' }).format(new Date(2024, 0, 15, 14, 30, 0))");
@@ -572,7 +568,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatResolvedOptions()
     {
         var result = _engine.Evaluate(@"
@@ -582,7 +578,7 @@ public class IntlTests
         result.AsString().Should().Be("full");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatResolvedOptionsLocale()
     {
         var result = _engine.Evaluate(@"
@@ -593,7 +589,7 @@ public class IntlTests
         result.AsString().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatResolvedOptionsCalendar()
     {
         var result = _engine.Evaluate(@"
@@ -604,14 +600,14 @@ public class IntlTests
         result.AsString().Should().Be("gregory");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatSupportedLocalesOf()
     {
         var result = _engine.Evaluate("Intl.DateTimeFormat.supportedLocalesOf(['en-US', 'de-DE'])");
         result.IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithYearMonthDay()
     {
         var result = _engine.Evaluate(@"
@@ -624,7 +620,7 @@ public class IntlTests
         result.AsString().Should().Contain("2024");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithHourMinute()
     {
         var result = _engine.Evaluate(@"
@@ -637,7 +633,7 @@ public class IntlTests
         (result.AsString().Contains("30") || result.AsString().Contains(":")).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatToParts()
     {
         var result = _engine.Evaluate(@"
@@ -647,7 +643,7 @@ public class IntlTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatToPartsHasTypeAndValue()
     {
         var result = _engine.Evaluate(@"
@@ -657,7 +653,7 @@ public class IntlTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithWeekday()
     {
         var result = _engine.Evaluate(@"
@@ -672,7 +668,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(10);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithHourCycle()
     {
         var result = _engine.Evaluate(@"
@@ -685,7 +681,7 @@ public class IntlTests
         result.AsString().Should().Be("h23");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithTimeZone()
     {
         var result = _engine.Evaluate(@"
@@ -697,14 +693,14 @@ public class IntlTests
         result.AsString().Should().Be("UTC");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatInvalidTimeZoneThrows()
     {
         Invoking(() =>
             _engine.Evaluate("new Intl.DateTimeFormat('en-US', { timeZone: 'Invalid/TimeZone' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatsUndefinedAsNow()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format()");
@@ -713,7 +709,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatFormatsTimestamp()
     {
         var result = _engine.Evaluate("new Intl.DateTimeFormat('en-US').format(1705363200000)"); // Jan 15, 2024 UTC
@@ -721,7 +717,7 @@ public class IntlTests
         result.AsString().Length.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatWithMonth2Digit()
     {
         var result = _engine.Evaluate(@"
@@ -735,14 +731,14 @@ public class IntlTests
         result.AsString().Should().Contain("01"); // Month
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatInvalidDateStyleThrows()
     {
         Invoking(() =>
             _engine.Evaluate("new Intl.DateTimeFormat('en-US', { dateStyle: 'invalid' })")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatInvalidWeekdayThrows()
     {
         Invoking(() =>
@@ -754,21 +750,21 @@ public class IntlTests
     // so a regression in TryParseLargeInteger / TryParseHighPrecisionDecimal is caught even when
     // test262 isn't running.
 
-    [Fact]
+    [Test]
     public void NumberFormat_LargeIntegerString_PreservesAllDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('987654321987654321')");
         result.AsString().Should().Be("987,654,321,987,654,321");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_NegativeLargeIntegerString_PreservesAllDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US').format('-987654321987654321')");
         result.AsString().Should().Be("-987,654,321,987,654,321");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_LargeIntegerString_BelowThreshold_StaysOnDoublePath()
     {
         // 16 digits — under the 17-digit boundary; goes through TypeConverter.ToNumber and
@@ -778,14 +774,14 @@ public class IntlTests
         result.AsString().Should().Be("1,000,000,000,000,000");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_HighPrecisionDecimal_PreservesAllFractionDigits()
     {
         var result = _engine.Evaluate("new Intl.NumberFormat('en-US', {maximumFractionDigits: 20}).format('1.0000000000000001')");
         result.AsString().Should().Be("1.0000000000000001");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_HighPrecisionDecimal_BelowThreshold_StaysOnDoublePath()
     {
         // 15 total digits — under the 16-digit precision boundary; format result still matches
@@ -794,7 +790,7 @@ public class IntlTests
         result.AsString().Should().Be("1.23");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_NegativeTinyDecimalRoundsToZero_KeepsMinus()
     {
         // -1.23e-30 with maxFracDigits:3 rounds to -0.000 (displayed minimumFractionDigits=3).
@@ -805,7 +801,7 @@ public class IntlTests
         result.AsString().Should().Be("-0.000");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_SignificantDigitsOnHugeInteger_RoundsHalfExpand()
     {
         var result = _engine.Evaluate(
@@ -814,7 +810,7 @@ public class IntlTests
         result.AsString().Should().Be("12345000000000000000000000000000000");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_FormatRange_StringInputs_PreservePrecision()
     {
         var result = _engine.Evaluate(
@@ -822,14 +818,14 @@ public class IntlTests
         result.AsString().Should().Be("987,654,321,987,654,321–987,654,321,987,654,322");
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_FormatRange_NaN_Throws()
     {
         Invoking(() =>
             _engine.Evaluate("new Intl.NumberFormat('en-US').formatRange(NaN, 5)")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void NumberFormat_FormatRange_PrefixCurrencyCollapse_TightSeparator()
     {
         var result = _engine.Evaluate(
@@ -838,25 +834,24 @@ public class IntlTests
         result.AsString().Should().Be("+$2.90–3.10");
     }
 
-    [Theory]
     // a tag matching no available locale falls back to the hardcoded root collations
-    [InlineData("und", """["emoji","eor"]""")]
-    [InlineData("und-Latn-US", """["emoji","eor"]""")]
-    [InlineData("qtz-CN", """["emoji","eor"]""")]
+    [TestCase("und", """["emoji","eor"]""")]
+    [TestCase("und-Latn-US", """["emoji","eor"]""")]
+    [TestCase("qtz-CN", """["emoji","eor"]""")]
     // a matched locale reports the root collations plus its own, in code unit order
-    [InlineData("tr", """["emoji","eor"]""")]
-    [InlineData("de", """["emoji","eor","phonebk"]""")]
-    [InlineData("ko", """["emoji","eor","searchjl","unihan"]""")]
+    [TestCase("tr", """["emoji","eor"]""")]
+    [TestCase("de", """["emoji","eor","phonebk"]""")]
+    [TestCase("ko", """["emoji","eor","searchjl","unihan"]""")]
     // an explicitly requested collation is the whole answer, however it was requested
-    [InlineData("de-u-co-phonebk", """["phonebk"]""")]
-    [InlineData("und-u-co-pinyin", """["pinyin"]""")]
+    [TestCase("de-u-co-phonebk", """["phonebk"]""")]
+    [TestCase("und-u-co-pinyin", """["pinyin"]""")]
     public void LocaleGetCollations(string tag, string expected)
     {
         var result = _engine.Evaluate($"JSON.stringify(new Intl.Locale('{tag}').getCollations())");
         result.AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void LocaleGetCollationsNeverReportsStandardOrSearch()
     {
         var result = _engine.Evaluate("""
@@ -871,7 +866,7 @@ public class IntlTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CollatorAcceptsEveryCollationGetCollationsReports()
     {
         // ECMA-402 gives a locale one [[co]] list: CollationsOfLocale (15.5.10 step 3.c) reports it,
@@ -896,30 +891,29 @@ public class IntlTests
         result.AsString().Should().Be("[]");
     }
 
-    [Theory]
     // The thirteen locales whose getCollations() advertised the root "emoji" collation while
     // Intl.Collator refused it: the eleven carrying a collation table of their own besides "en",
     // plus "tr" and "fr", which carry none.
-    [InlineData("ar")]
-    [InlineData("da")]
-    [InlineData("de")]
-    [InlineData("es")]
-    [InlineData("hi")]
-    [InlineData("ja")]
-    [InlineData("ko")]
-    [InlineData("ln")]
-    [InlineData("si")]
-    [InlineData("sv")]
-    [InlineData("zh")]
-    [InlineData("tr")]
-    [InlineData("fr")]
+    [TestCase("ar")]
+    [TestCase("da")]
+    [TestCase("de")]
+    [TestCase("es")]
+    [TestCase("hi")]
+    [TestCase("ja")]
+    [TestCase("ko")]
+    [TestCase("ln")]
+    [TestCase("si")]
+    [TestCase("sv")]
+    [TestCase("zh")]
+    [TestCase("tr")]
+    [TestCase("fr")]
     // ...plus the two that were already consistent, so the row keeps watching them too.
-    [InlineData("en")]
-    [InlineData("und")]
+    [TestCase("en")]
+    [TestCase("und")]
     // ...plus the three languages CLDR gives a collation of their own that the table used to omit.
-    [InlineData("fi")]
-    [InlineData("vi")]
-    [InlineData("yue")]
+    [TestCase("fi")]
+    [TestCase("vi")]
+    [TestCase("yue")]
     public void CollatorAcceptsTheRootCollationsForEveryLocale(string tag)
     {
         var result = _engine.Evaluate($$"""
@@ -931,14 +925,13 @@ public class IntlTests
         result.AsString().Should().Be("emoji/emoji eor/eor");
     }
 
-    [Theory]
-    [InlineData("de", "phonebk")]
-    [InlineData("es", "trad")]
-    [InlineData("ko", "searchjl")]
-    [InlineData("zh", "pinyin")]
-    [InlineData("fi", "trad")]
-    [InlineData("sv", "trad")]
-    [InlineData("vi", "trad")]
+    [TestCase("de", "phonebk")]
+    [TestCase("es", "trad")]
+    [TestCase("ko", "searchjl")]
+    [TestCase("zh", "pinyin")]
+    [TestCase("fi", "trad")]
+    [TestCase("sv", "trad")]
+    [TestCase("vi", "trad")]
     public void CollatorStillAcceptsLocaleSpecificCollations(string tag, string collation)
     {
         _engine.Evaluate($"new Intl.Collator('{tag}', {{ collation: '{collation}' }}).resolvedOptions().collation")
@@ -947,7 +940,7 @@ public class IntlTests
             .AsString().Should().Be(collation);
     }
 
-    [Fact]
+    [Test]
     public void CollatorRefusesACollationTheLocaleDoesNotReport()
     {
         // The acceptance set is the reported list, not the union of every collation identifier that
@@ -960,7 +953,7 @@ public class IntlTests
             .AsString().Should().Be("default");
     }
 
-    [Fact]
+    [Test]
     public void CollatorAcceptsDefaultAsARequestThatNoLocaleEverReports()
     {
         // "default" is how Intl.Collator (10.1.1) spells a null resolved [[co]], so it stays a
@@ -976,9 +969,8 @@ public class IntlTests
             .AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("standard")]
-    [InlineData("search")]
+    [TestCase("standard")]
+    [TestCase("search")]
     public void CollatorRejectsTheCollationsNoLocaleDataMayContain(string collation)
     {
         // ECMA-402 10.2.3: "standard" and "search" must not be used as elements in any
@@ -992,7 +984,7 @@ public class IntlTests
             .AsString().Should().Be("de");
     }
 
-    [Fact]
+    [Test]
     public void CollatorReflectsAResolvedCollationExtensionInTheResolvedLocale()
     {
         // ResolveLocale (9.2.7 step 10) inserts the keyword back into the locale only when it came
@@ -1006,43 +998,41 @@ public class IntlTests
             .AsString().Should().Be("de");
     }
 
-    [Theory]
     // Every language CLDR gives a collation of its own, plus four that carry none. The expected list
     // is what common/collation/<language>.xml defines, minus the "standard" and "search" types those
     // files carry and the "private-" types CLDR keeps only for [import], plus the "emoji" and "eor"
     // that common/collation/root.xml contributes to every locale, in code unit order.
-    [InlineData("ar", "compat,emoji,eor")]
-    [InlineData("da", "emoji,eor")]
-    [InlineData("de", "emoji,eor,phonebk")]
-    [InlineData("en", "emoji,eor")]
-    [InlineData("es", "emoji,eor,trad")]
-    [InlineData("fi", "emoji,eor,trad")]
-    [InlineData("fr", "emoji,eor")]
-    [InlineData("hi", "emoji,eor")]
-    [InlineData("ja", "emoji,eor,unihan")]
-    [InlineData("ko", "emoji,eor,searchjl,unihan")]
-    [InlineData("ln", "emoji,eor,phonetic")]
-    [InlineData("si", "dict,emoji,eor")]
-    [InlineData("sv", "emoji,eor,trad")]
-    [InlineData("tr", "emoji,eor")]
-    [InlineData("vi", "emoji,eor,trad")]
-    [InlineData("zh", "emoji,eor,pinyin,stroke,unihan,zhuyin")]
+    [TestCase("ar", "compat,emoji,eor")]
+    [TestCase("da", "emoji,eor")]
+    [TestCase("de", "emoji,eor,phonebk")]
+    [TestCase("en", "emoji,eor")]
+    [TestCase("es", "emoji,eor,trad")]
+    [TestCase("fi", "emoji,eor,trad")]
+    [TestCase("fr", "emoji,eor")]
+    [TestCase("hi", "emoji,eor")]
+    [TestCase("ja", "emoji,eor,unihan")]
+    [TestCase("ko", "emoji,eor,searchjl,unihan")]
+    [TestCase("ln", "emoji,eor,phonetic")]
+    [TestCase("si", "dict,emoji,eor")]
+    [TestCase("sv", "emoji,eor,trad")]
+    [TestCase("tr", "emoji,eor")]
+    [TestCase("vi", "emoji,eor,trad")]
+    [TestCase("zh", "emoji,eor,pinyin,stroke,unihan,zhuyin")]
     public void LocaleReportsTheCollationsCldrDefinesForTheLanguage(string tag, string expected)
     {
         _engine.Evaluate($"new Intl.Locale('{tag}').getCollations().join(',')")
             .AsString().Should().Be(expected);
     }
 
-    [Theory]
     // Deprecated in common/bcp47/collation.xml, which is what makes them unavailable rather than
     // merely absent, and defined by no locale in common/collation.
-    [InlineData("zh", "big5han")]
-    [InlineData("hi", "direct")]
-    [InlineData("zh", "gb2312")]
-    [InlineData("sv", "reformed")]
+    [TestCase("zh", "big5han")]
+    [TestCase("hi", "direct")]
+    [TestCase("zh", "gb2312")]
+    [TestCase("sv", "reformed")]
     // Registered and current in common/bcp47/collation.xml, but no locale defines it and CLDR ships
     // no data for it, so it is in no locale's [[co]] list either.
-    [InlineData("en", "ducet")]
+    [TestCase("en", "ducet")]
     public void CollatorRefusesACollationCldrShipsNoDataFor(string tag, string collation)
     {
         _engine.Evaluate($"new Intl.Locale('{tag}').getCollations().includes('{collation}')")
@@ -1061,7 +1051,7 @@ public class IntlTests
             .AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void LocaleWithoutACollationRowStaysConsistentWithTheCollator()
     {
         // CLDR does give yue zh's collations, through the collation parent zh_Hant that
@@ -1082,7 +1072,7 @@ public class IntlTests
         }
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfCollationIsTheUnionOfEveryLocalesCollations()
     {
         // AvailableCanonicalCollations (https://tc39.es/ecma402/#sec-availablecanonicalcollations)
@@ -1109,7 +1099,7 @@ public class IntlTests
         supported.AsString().Should().Be(result.AsString());
     }
 
-    [Fact]
+    [Test]
     public void SupportedValuesOfCollationIsSortedUniqueAndFreeOfTheUnrequestableTypes()
     {
         // The three properties intl402/Intl/supportedValuesOf/collations.js checks, restated here so
@@ -1126,17 +1116,16 @@ public class IntlTests
             "true true true compat,dict,emoji,eor,phonebk,phonetic,pinyin,searchjl,stroke,trad,unihan,zhuyin");
     }
 
-    [Theory]
     // Case folding alone.
-    [InlineData("de", "collation", "PHONEBK", "de-u-co-phonebk")]
-    [InlineData("en", "calendar", "GREGORY", "en-u-ca-gregory")]
-    [InlineData("en", "numberingSystem", "LATN", "en-u-nu-latn")]
+    [TestCase("de", "collation", "PHONEBK", "de-u-co-phonebk")]
+    [TestCase("en", "calendar", "GREGORY", "en-u-ca-gregory")]
+    [TestCase("en", "numberingSystem", "LATN", "en-u-nu-latn")]
     // Alias substitution, which already worked, kept here so a regression in either half shows.
-    [InlineData("en", "calendar", "islamicc", "en-u-ca-islamic-civil")]
-    [InlineData("en", "calendar", "ethiopic-amete-alem", "en-u-ca-ethioaa")]
+    [TestCase("en", "calendar", "islamicc", "en-u-ca-islamic-civil")]
+    [TestCase("en", "calendar", "ethiopic-amete-alem", "en-u-ca-ethioaa")]
     // Both at once: the fold has to happen before the alias lookup, not instead of it.
-    [InlineData("en", "calendar", "ISLAMICC", "en-u-ca-islamic-civil")]
-    [InlineData("en", "calendar", "Ethiopic-Amete-Alem", "en-u-ca-ethioaa")]
+    [TestCase("en", "calendar", "ISLAMICC", "en-u-ca-islamic-civil")]
+    [TestCase("en", "calendar", "Ethiopic-Amete-Alem", "en-u-ca-ethioaa")]
     public void LocaleCanonicalizesAUnicodeExtensionOptionValue(string tag, string option, string value, string expected)
     {
         // https://tc39.es/ecma402/#sec-makelocalerecord (15.1.3) sets the keyword's value to
@@ -1147,7 +1136,7 @@ public class IntlTests
             .AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void LocaleReportsACanonicalizedOptionValueFromItsAccessors()
     {
         // The accessors read the same [[Collation]]/[[NumberingSystem]] slots MakeLocaleRecord filled,
@@ -1160,17 +1149,16 @@ public class IntlTests
         _engine.Evaluate("new Intl.Locale('en', { calendar: 'GREGORY' }).calendar").AsString().Should().Be("gregory");
     }
 
-    [Theory]
-    [InlineData("latn", "latn")]
-    [InlineData("LATN", "latn")]
-    [InlineData("Latn", "latn")]
-    [InlineData("arab", "arab")]
-    [InlineData("ARAB", "arab")]
+    [TestCase("latn", "latn")]
+    [TestCase("LATN", "latn")]
+    [TestCase("Latn", "latn")]
+    [TestCase("arab", "arab")]
+    [TestCase("ARAB", "arab")]
     // Well formed by the "type" nonterminal and matched by no numbering system: 9.2.7 step 10 only
     // replaces the resolved value when keyLocaleData contains the canonicalized option, so this has
     // to fall back to the locale's default rather than throw.
-    [InlineData("abc-def", "latn")]
-    [InlineData("zzzzz", "latn")]
+    [TestCase("abc-def", "latn")]
+    [TestCase("zzzzz", "latn")]
     public void NumberFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
     {
         // The validator here was stricter than the grammar it was standing in for: it required
@@ -1181,48 +1169,45 @@ public class IntlTests
             .AsString().Should().Be(expected);
     }
 
-    [Theory]
     // The invalid list of intl402/NumberFormat/constructor-options-numberingSystem-invalid.js: what
     // relaxing the validator must not start accepting.
-    [InlineData("")]
-    [InlineData("a")]
-    [InlineData("ab")]
-    [InlineData("abcdefghi")]
-    [InlineData("abc-abcdefghi")]
-    [InlineData("!invalid!")]
-    [InlineData("-latn-")]
-    [InlineData("latn-")]
-    [InlineData("latn--")]
-    [InlineData("latn-ca")]
-    [InlineData("latn-ca-")]
-    [InlineData("latn-ca-gregory")]
+    [TestCase("")]
+    [TestCase("a")]
+    [TestCase("ab")]
+    [TestCase("abcdefghi")]
+    [TestCase("abc-abcdefghi")]
+    [TestCase("!invalid!")]
+    [TestCase("-latn-")]
+    [TestCase("latn-")]
+    [TestCase("latn--")]
+    [TestCase("latn-ca")]
+    [TestCase("latn-ca-")]
+    [TestCase("latn-ca-gregory")]
     public void NumberFormatRejectsANumberingSystemOptionTheTypeNonterminalDoesNotMatch(string numberingSystem)
     {
         _engine.Evaluate($"(() => {{ try {{ new Intl.NumberFormat('en', {{ numberingSystem: '{numberingSystem}' }}); return 'no throw'; }} catch (e) {{ return e.constructor.name; }} }})()")
             .AsString().Should().Be("RangeError");
     }
 
-    [Theory]
-    [InlineData("LATN", "latn")]
-    [InlineData("ARAB", "arab")]
-    [InlineData("arab", "arab")]
+    [TestCase("LATN", "latn")]
+    [TestCase("ARAB", "arab")]
+    [TestCase("arab", "arab")]
     public void DurationFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
     {
         _engine.Evaluate($"new Intl.DurationFormat('en', {{ numberingSystem: '{numberingSystem}' }}).resolvedOptions().numberingSystem")
             .AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("LATN", "latn")]
-    [InlineData("ARAB", "arab")]
-    [InlineData("arab", "arab")]
+    [TestCase("LATN", "latn")]
+    [TestCase("ARAB", "arab")]
+    [TestCase("arab", "arab")]
     public void RelativeTimeFormatCanonicalizesANumberingSystemOption(string numberingSystem, string expected)
     {
         _engine.Evaluate($"new Intl.RelativeTimeFormat('en', {{ numberingSystem: '{numberingSystem}' }}).resolvedOptions().numberingSystem")
             .AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatCanonicalizesItsUnicodeExtensionOptions()
     {
         // DateTimeFormat already adopted the canonical spelling, because it matches an option against
@@ -1234,15 +1219,14 @@ public class IntlTests
             .AsString().Should().Be("gregory");
     }
 
-    [Theory]
     // The maximum time value: 275760-09-13T00:00:00.000Z.
-    [InlineData(8640000000000000L, "9/13/275760")]
+    [TestCase(8640000000000000L, "9/13/275760")]
     // The minimum time value: -271821-04-20T00:00:00.000Z.
-    [InlineData(-8640000000000000L, "4/20/-271821")]
+    [TestCase(-8640000000000000L, "4/20/-271821")]
     // One millisecond past what DateTime can hold: +010000-01-01T00:00:00.001Z.
-    [InlineData(253402300800001L, "1/1/10000")]
+    [TestCase(253402300800001L, "1/1/10000")]
     // One millisecond before it: 0000-12-31T23:59:59.999Z.
-    [InlineData(-62135596800001L, "12/31/0")]
+    [TestCase(-62135596800001L, "12/31/0")]
     public void DateTimeFormatKeepsEveryDateFieldOfAValueOutsideDateTimeRange(long timeValue, string expected)
     {
         // The conversion clamped an out-of-range time value to DateTime.MinValue/MaxValue and carried
@@ -1254,7 +1238,7 @@ public class IntlTests
             .AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatKeepsTheTimeFieldsOfAValueOutsideDateTimeRange()
     {
         // The year was re-inserted as a quoted literal, and BuildFormatString classifies a part whose
@@ -1276,7 +1260,7 @@ public class IntlTests
             """).AsString().Should().Be("12/31/0, 11:59:59 PM");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatToPartsReportsTheRealFieldsOfAValueOutsideDateTimeRange()
     {
         _engine.Evaluate("""
@@ -1287,7 +1271,7 @@ public class IntlTests
             """).AsString().Should().Be("""["month=9","day=13","year=275760"]""");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatCarriesTheRealYearThroughDateStyle()
     {
         // FormatStyleToParts took originalYear and dropped it on the floor, so a styled format of an
@@ -1304,7 +1288,7 @@ public class IntlTests
             .AsString().Should().Be("Saturday, September 13, 275760, 12:00 AM");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeFormatStillAgreesWithItselfInsideDateTimeRange()
     {
         // The control: nothing above may move a date the platform can hold.
@@ -1322,11 +1306,10 @@ public class IntlTests
     /// accepted in silence — the one assertion in
     /// <c>staging/sm/extensions/quote-string-for-nul-character.js</c> that Jint failed.
     /// </summary>
-    [Theory]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'lookup\0cookie' })")]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'nonsense' })")]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'Lookup' })")]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: '' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: 'lookup\0cookie' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: 'nonsense' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: 'Lookup' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: '' })")]
     public void PluralRulesRejectsAnInvalidLocaleMatcher(string script)
     {
         Invoking(() => _engine.Evaluate(script))
@@ -1337,11 +1320,10 @@ public class IntlTests
     /// <summary>
     /// The control: both accepted values, and the absent option, still construct.
     /// </summary>
-    [Theory]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'lookup' })")]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: 'best fit' })")]
-    [InlineData("new Intl.PluralRules('en', { localeMatcher: undefined })")]
-    [InlineData("new Intl.PluralRules('en')")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: 'lookup' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: 'best fit' })")]
+    [TestCase("new Intl.PluralRules('en', { localeMatcher: undefined })")]
+    [TestCase("new Intl.PluralRules('en')")]
     public void PluralRulesAcceptsAValidLocaleMatcher(string script)
     {
         _engine.Evaluate($"typeof {script}").AsString().Should().Be("object");
@@ -1351,12 +1333,11 @@ public class IntlTests
     /// The option is read exactly once. It used to be read twice by <c>Intl.Collator</c> — once to validate
     /// it and once inside <c>ResolveLocale</c> — which a user-supplied getter can see.
     /// </summary>
-    [Theory]
-    [InlineData("Collator")]
-    [InlineData("PluralRules")]
-    [InlineData("DateTimeFormat")]
-    [InlineData("NumberFormat")]
-    [InlineData("RelativeTimeFormat")]
+    [TestCase("Collator")]
+    [TestCase("PluralRules")]
+    [TestCase("DateTimeFormat")]
+    [TestCase("NumberFormat")]
+    [TestCase("RelativeTimeFormat")]
     public void TheLocaleMatcherGetterRunsOnce(string constructor)
     {
         var script = $$"""
@@ -1382,7 +1363,7 @@ public class IntlTests
     /// <c>DateTimeFormatInfo</c> behind them. Should the default provider ever start answering with names of
     /// its own, this fails, and the identity check in <c>DateTimeFormatConstructor</c> is then wrong.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames()
     {
         var provider = DefaultCldrProvider.Instance;
@@ -1423,7 +1404,7 @@ public class IntlTests
     /// unconfigured engine that has to be the same set <c>Intl.supportedValuesOf('numberingSystem')</c>
     /// reports, or a host can be told about a system no constructor will take.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryAdvertisedNumberingSystemHasDigitsAndIsAccepted()
     {
         var provider = DefaultCldrProvider.Instance;

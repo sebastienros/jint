@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class AnnexBBlockFunctionTests
 {
-    [Fact]
+    [Test]
     public void TheVarAliasIsUndefinedUntilTheDeclarationIsEvaluated()
     {
         var engine = new Engine();
@@ -22,7 +22,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("undefined,function");
     }
 
-    [Fact]
+    [Test]
     public void TheVarAliasTakesTheBlockBindingsCurrentValueNotTheDeclarationsOwn()
     {
         var engine = new Engine();
@@ -35,7 +35,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("2,2,2,2");
     }
 
-    [Fact]
+    [Test]
     public void TheVarAliasIsWrittenToTheVariableEnvironmentNotThroughTheScopeChain()
     {
         var engine = new Engine();
@@ -46,7 +46,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("string-f,fun-f");
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalVarAliasExistsBeforeTheDeclarationIsEvaluated()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("undefined,true,true,false");
     }
 
-    [Fact]
+    [Test]
     public void ABlockFunctionNamedArgumentsAssignsOverTheArgumentsObject()
     {
         var engine = new Engine();
@@ -72,7 +72,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AFormalParameterNamedArgumentsStillBlocksTheAlias()
     {
         var engine = new Engine();
@@ -83,7 +83,7 @@ public class AnnexBBlockFunctionTests
         engine.Evaluate("(function(f){ { function f(){} } return f; })(1)").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ALabelledBlockFunctionIsScopedToTheBlockAndStillGetsTheAlias()
     {
         var engine = new Engine();
@@ -97,7 +97,7 @@ public class AnnexBBlockFunctionTests
             .AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ALabelledFunctionAtTheTopLevelOfAFunctionBodyStillHoists()
     {
         var engine = new Engine();
@@ -108,7 +108,7 @@ public class AnnexBBlockFunctionTests
             .AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ACaseClauseFunctionGetsTheAliasWhenItsClauseIsReached()
     {
         var engine = new Engine();
@@ -121,7 +121,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ALexicalDeclarationOfTheSameNameSuppressesTheAlias()
     {
         var engine = new Engine();
@@ -137,7 +137,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void AnEvalIntroducedAliasSurvivesADeleteOfTheBindingItCreated()
     {
         var engine = new Engine();
@@ -149,7 +149,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("true,1");
     }
 
-    [Fact]
+    [Test]
     public void AnEvalAliasTargetsTheVariableEnvironmentThroughAWith()
     {
         var engine = new Engine();
@@ -167,7 +167,7 @@ public class AnnexBBlockFunctionTests
             """).AsString().Should().Be("eval-g,with-g");
     }
 
-    [Fact]
+    [Test]
     public void ADestructuredCatchParameterSuppressesTheEvalAlias()
     {
         var engine = new Engine();
@@ -182,7 +182,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AStrictBlockFunctionGetsNoAlias()
     {
         var engine = new Engine();
@@ -191,7 +191,7 @@ public class AnnexBBlockFunctionTests
             .AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AGeneratorOrAsyncBlockDeclarationGetsNoAlias()
     {
         var engine = new Engine();

@@ -22,12 +22,11 @@ public class ArrayFromConstructorTests
     private const string ConciseMethod = "({ m() {} }).m";
     private const string BoundNonConstructor = "Math.sin.bind(null)";
 
-    [Theory]
-    [InlineData(ArrowFunction)]
-    [InlineData(GeneratorFunction)]
-    [InlineData(AsyncFunction)]
-    [InlineData(ConciseMethod)]
-    [InlineData(BoundNonConstructor)]
+    [TestCase(ArrowFunction)]
+    [TestCase(GeneratorFunction)]
+    [TestCase(AsyncFunction)]
+    [TestCase(ConciseMethod)]
+    [TestCase(BoundNonConstructor)]
     public void ArrayFromFallsBackToArrayCreateForANonConstructorThisOnTheIteratorPath(string nonConstructor)
     {
         var engine = new Engine();
@@ -40,12 +39,11 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,2,1,2]");
     }
 
-    [Theory]
-    [InlineData(ArrowFunction)]
-    [InlineData(GeneratorFunction)]
-    [InlineData(AsyncFunction)]
-    [InlineData(ConciseMethod)]
-    [InlineData(BoundNonConstructor)]
+    [TestCase(ArrowFunction)]
+    [TestCase(GeneratorFunction)]
+    [TestCase(AsyncFunction)]
+    [TestCase(ConciseMethod)]
+    [TestCase(BoundNonConstructor)]
     public void ArrayFromFallsBackToArrayCreateForANonConstructorThisOnTheArrayLikePath(string nonConstructor)
     {
         var engine = new Engine();
@@ -59,12 +57,11 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,2,1,2]");
     }
 
-    [Theory]
-    [InlineData(ArrowFunction)]
-    [InlineData(GeneratorFunction)]
-    [InlineData(AsyncFunction)]
-    [InlineData(ConciseMethod)]
-    [InlineData(BoundNonConstructor)]
+    [TestCase(ArrowFunction)]
+    [TestCase(GeneratorFunction)]
+    [TestCase(AsyncFunction)]
+    [TestCase(ConciseMethod)]
+    [TestCase(BoundNonConstructor)]
     public void ArrayFromAsyncFallsBackToArrayCreateForANonConstructorThis(string nonConstructor)
     {
         var engine = new Engine();
@@ -78,12 +75,11 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,2,1,2]");
     }
 
-    [Theory]
-    [InlineData(ArrowFunction)]
-    [InlineData(GeneratorFunction)]
-    [InlineData(AsyncFunction)]
-    [InlineData(ConciseMethod)]
-    [InlineData(BoundNonConstructor)]
+    [TestCase(ArrowFunction)]
+    [TestCase(GeneratorFunction)]
+    [TestCase(AsyncFunction)]
+    [TestCase(ConciseMethod)]
+    [TestCase(BoundNonConstructor)]
     public void ArrayFromAsyncFallsBackToArrayCreateForANonConstructorThisOnTheArrayLikePath(string nonConstructor)
     {
         var engine = new Engine();
@@ -97,7 +93,7 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,2,1,2]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayOfFallsBackToArrayCreateForANonConstructorThis()
     {
         // Array.of already asked the right question; pinned here so the two stay in step.
@@ -111,7 +107,7 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,3,1,3]");
     }
 
-    [Fact]
+    [Test]
     public void ABoundNonConstructorIsStillCallableAndStillNotConstructable()
     {
         var engine = new Engine();
@@ -122,7 +118,7 @@ public class ArrayFromConstructorTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromStillConstructsAGenuineConstructorThis()
     {
         var engine = new Engine();
@@ -136,7 +132,7 @@ public class ArrayFromConstructorTests
         result.Should().Be("[false,true,true,2,1,2]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromPassesTheLengthToAGenuineConstructorOnTheArrayLikePath()
     {
         var engine = new Engine();
@@ -151,7 +147,7 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,1,2,2,\"a\",\"b\"]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromConstructsAClassAndABoundConstructor()
     {
         var engine = new Engine();
@@ -170,7 +166,7 @@ public class ArrayFromConstructorTests
             """).AsString().Should().Be("[true,1,1]");
     }
 
-    [Fact]
+    [Test]
     public void TypedArrayFromIsUnaffected()
     {
         var engine = new Engine();
@@ -187,7 +183,7 @@ public class ArrayFromConstructorTests
             """).AsString().Should().Be("[true,3,1,3]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromWithATypedArrayConstructorThrowsOnTheUnwritableLength()
     {
         var engine = new Engine();
@@ -209,7 +205,7 @@ public class ArrayFromConstructorTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromThrowsWhenTheConstructedObjectHasAnUnwritableLength()
     {
         var engine = new Engine();
@@ -227,7 +223,7 @@ public class ArrayFromConstructorTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeGenericsThrowOnATypedArraysUnwritableLength()
     {
         var engine = new Engine();
@@ -248,7 +244,7 @@ public class ArrayFromConstructorTests
         }
     }
 
-    [Fact]
+    [Test]
     public void FilterDoesNotWriteALengthTheSpecNeverWrites()
     {
         var engine = new Engine();
@@ -266,7 +262,7 @@ public class ArrayFromConstructorTests
         result.Should().Be("[true,0]");
     }
 
-    [Fact]
+    [Test]
     public void FilterStillFixesUpTheLengthOfARealArrayResult()
     {
         var engine = new Engine();

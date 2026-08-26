@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class TypeDescriptorTests
 {
-    [Fact]
+    [Test]
     public void AnalyzesBclCollectionTypesCorrectly()
     {
         AssertInformation(typeof(ICollection), isArrayLike: true, iterable: true, isIntegerIndexedArray: false, shouldHaveLength: true);

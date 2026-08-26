@@ -70,10 +70,9 @@ public class ReadOnlyClrMemberWriteTests
     // instance members, write before any read (the resolution lane that produced the original defect)
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("Computed")]
-    [InlineData("ReadOnlyField")]
+    [TestCase("GetterOnly")]
+    [TestCase("Computed")]
+    [TestCase("ReadOnlyField")]
     public void SloppyWriteToReadOnlyMemberIsSilentlyIgnored(string member)
     {
         var host = new Host();
@@ -87,10 +86,9 @@ public class ReadOnlyClrMemberWriteTests
         host.ReadOnlyField.Should().Be(Initial);
     }
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("Computed")]
-    [InlineData("ReadOnlyField")]
+    [TestCase("GetterOnly")]
+    [TestCase("Computed")]
+    [TestCase("ReadOnlyField")]
     public void StrictWriteToReadOnlyMemberThrowsTypeErrorNamingTheMember(string member)
     {
         var host = new Host();
@@ -104,10 +102,9 @@ public class ReadOnlyClrMemberWriteTests
         host.ReadOnlyField.Should().Be(Initial);
     }
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("Computed")]
-    [InlineData("ReadOnlyField")]
+    [TestCase("GetterOnly")]
+    [TestCase("Computed")]
+    [TestCase("ReadOnlyField")]
     public void RefusedWriteLeavesNoShadowingOwnProperty(string member)
     {
         var engine = CreateEngine(new Host());
@@ -126,10 +123,9 @@ public class ReadOnlyClrMemberWriteTests
             .AsNumber().Should().Be(1);
     }
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("Computed")]
-    [InlineData("ReadOnlyField")]
+    [TestCase("GetterOnly")]
+    [TestCase("Computed")]
+    [TestCase("ReadOnlyField")]
     public void ReflectSetReportsFailureForReadOnlyMember(string member)
     {
         var engine = CreateEngine(new Host());
@@ -138,10 +134,9 @@ public class ReadOnlyClrMemberWriteTests
         engine.Evaluate($"host.{member}").AsString().Should().Be(Initial);
     }
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("Computed")]
-    [InlineData("ReadOnlyField")]
+    [TestCase("GetterOnly")]
+    [TestCase("Computed")]
+    [TestCase("ReadOnlyField")]
     public void WriteBeforeAnyReadBehavesLikeWriteAfterRead(string member)
     {
         var writeFirst = CreateEngine(new Host());
@@ -156,7 +151,7 @@ public class ReadOnlyClrMemberWriteTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusedWriteDoesNotDisturbReadsOnOtherWrappersOfTheSameType()
     {
         var engine = new Engine()
@@ -171,7 +166,7 @@ public class ReadOnlyClrMemberWriteTests
         engine.Evaluate("first.GetterOnly").AsString().Should().Be(Initial);
     }
 
-    [Fact]
+    [Test]
     public void ReadOfWriteOnlyMemberDoesNotDisturbLaterWrites()
     {
         var host = new SetterOnlyHost();
@@ -190,7 +185,7 @@ public class ReadOnlyClrMemberWriteTests
     // indexers
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void SloppyWriteThroughIndexerWithoutSetterIsSilentlyIgnored()
     {
         var host = new IndexerWithoutSetter();
@@ -202,7 +197,7 @@ public class ReadOnlyClrMemberWriteTests
         host["a"].Should().Be(Initial);
     }
 
-    [Fact]
+    [Test]
     public void StrictWriteThroughIndexerWithoutSetterThrowsTypeError()
     {
         var host = new IndexerWithoutSetter();
@@ -218,10 +213,9 @@ public class ReadOnlyClrMemberWriteTests
     // static members exposed through a type reference
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("ReadOnlyField")]
-    [InlineData("Constant")]
+    [TestCase("GetterOnly")]
+    [TestCase("ReadOnlyField")]
+    [TestCase("Constant")]
     public void SloppyWriteToReadOnlyStaticMemberIsSilentlyIgnored(string member)
     {
         var engine = new Engine();
@@ -234,10 +228,9 @@ public class ReadOnlyClrMemberWriteTests
         StaticHost.ReadOnlyField.Should().Be(Initial);
     }
 
-    [Theory]
-    [InlineData("GetterOnly")]
-    [InlineData("ReadOnlyField")]
-    [InlineData("Constant")]
+    [TestCase("GetterOnly")]
+    [TestCase("ReadOnlyField")]
+    [TestCase("Constant")]
     public void StrictWriteToReadOnlyStaticMemberThrowsTypeError(string member)
     {
         var engine = new Engine();
@@ -254,7 +247,7 @@ public class ReadOnlyClrMemberWriteTests
     // array-like and dictionary-backed wrappers use the same lane
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void SloppyWriteToReadOnlyMemberOfArrayLikeWrapperIsSilentlyIgnored()
     {
         var list = new List<int> { 1, 2, 3 };
@@ -266,7 +259,7 @@ public class ReadOnlyClrMemberWriteTests
         list.Should().Equal(1, 2, 3);
     }
 
-    [Fact]
+    [Test]
     public void StrictWriteToReadOnlyMemberOfArrayLikeWrapperThrowsTypeError()
     {
         var list = new List<int> { 1, 2, 3 };
@@ -278,7 +271,7 @@ public class ReadOnlyClrMemberWriteTests
         list.Should().Equal(1, 2, 3);
     }
 
-    [Fact]
+    [Test]
     public void SloppyWriteToReadOnlyMemberOfCollectionWrapperIsSilentlyIgnored()
     {
         var set = new HashSet<int> { 1, 2, 3 };
@@ -290,7 +283,7 @@ public class ReadOnlyClrMemberWriteTests
         set.Count.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void DictionaryBackedWrapperKeepsWritingEntries()
     {
         var dictionary = new Dictionary<string, int>(StringComparer.Ordinal) { ["a"] = 1 };
@@ -306,7 +299,7 @@ public class ReadOnlyClrMemberWriteTests
     // controls: nothing about writable members or wrapper extension may change
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void WritableMemberIsStillWritten()
     {
         var host = new Host();
@@ -322,7 +315,7 @@ public class ReadOnlyClrMemberWriteTests
         host.Writable.Should().Be("reflected");
     }
 
-    [Fact]
+    [Test]
     public void PropertyWithNonPublicSetterIsStillWritten()
     {
         // a property whose setter exists but is not public still reports CanWrite, so the write
@@ -335,7 +328,7 @@ public class ReadOnlyClrMemberWriteTests
         host.PrivateSetter.Should().Be("written");
     }
 
-    [Fact]
+    [Test]
     public void UnknownMemberStillExtendsTheWrapper()
     {
         var engine = CreateEngine(new Host());
@@ -347,7 +340,7 @@ public class ReadOnlyClrMemberWriteTests
         engine.Evaluate("host.alsoNew").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyKeepsItsExistingAnswers()
     {
         var host = new Host();
@@ -365,7 +358,7 @@ public class ReadOnlyClrMemberWriteTests
         engine.Evaluate("host.extra").AsString().Should().Be("defined");
     }
 
-    [Fact]
+    [Test]
     public void DefaultConfigurationRefusesWritableMembers()
     {
         var host = new Host();
@@ -378,7 +371,7 @@ public class ReadOnlyClrMemberWriteTests
         host.Writable.Should().Be(Initial);
     }
 
-    [Fact]
+    [Test]
     public void ThrowOnUnresolvedMemberOnlyFiresForGenuinelyUnknownNames()
     {
         var host = new Host();

@@ -32,7 +32,7 @@ public class WebApiPerformanceTests
         internal void Advance(int milliseconds) => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoPerformance()
     {
         var engine = new Engine();
@@ -41,7 +41,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("'performance' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsPerformance()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -53,7 +53,7 @@ public class WebApiPerformanceTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Performance);
     }
 
-    [Fact]
+    [Test]
     public void AskingForConsoleAloneDoesNotBringPerformance()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -62,7 +62,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("typeof performance").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void MeasuresElapsedTimeAgainstTheHostsClock()
     {
         var clock = new ManualClock();
@@ -80,7 +80,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("performance.timeOrigin + performance.now()").AsNumber().Should().Be(1500);
     }
 
-    [Fact]
+    [Test]
     public void OneHostClockDrivesTheTimersAndTheReadingsTogether()
     {
         var clock = new ManualClock();
@@ -98,7 +98,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("firedAt").AsNumber().Should().Be(200);
     }
 
-    [Fact]
+    [Test]
     public void WorksOnAnEngineThatEnabledNoTimers()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -107,7 +107,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("typeof performance.now()").AsString().Should().Be("number");
     }
 
-    [Fact]
+    [Test]
     public void TimeOriginNamesTheMomentTheEngineWasBuilt()
     {
         var before = (DateTimeOffset.UtcNow - DateTimeOffset.UnixEpoch).TotalMilliseconds;
@@ -121,7 +121,7 @@ public class WebApiPerformanceTests
         origin.Should().BeGreaterThanOrEqualTo(before).And.BeLessThanOrEqualTo(after);
     }
 
-    [Fact]
+    [Test]
     public void ReadingsAreMonotonicOnTheDefaultClock()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -133,7 +133,7 @@ public class WebApiPerformanceTests
         first.Should().BeGreaterThanOrEqualTo(0);
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredPerformanceGlobalWins()
     {
         var marker = new JsString("the host's own performance");
@@ -145,7 +145,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("performance").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void IsAnEnumerableDataPropertyOfTheGlobal()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -156,7 +156,7 @@ public class WebApiPerformanceTests
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -165,7 +165,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("typeof performance").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void MarksAndMeasuresRunOnTheHostsClockToo()
     {
         var clock = new ManualClock();
@@ -186,7 +186,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("performance.getEntriesByType('measure')[0] === m").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheEntryInterfacesAreReachableFromScript()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -198,7 +198,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheTimelineIsBoundedSoALoopCannotGrowItForever()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -212,7 +212,7 @@ public class WebApiPerformanceTests
         engine.Evaluate("performance.mark('over') instanceof PerformanceMark").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceGivesEachEngineItsOwnTimeOrigin()
     {
         var clock = new ManualClock();

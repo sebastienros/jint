@@ -7,7 +7,7 @@ namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void ArrayPrototypeFindWithInteropJsonArray()
     {
         var engine = GetEngine();
@@ -19,7 +19,7 @@ public partial class InteropTests
         engine.Evaluate("array.find((x) => x === 'B')").Should().Be('B');
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypePushWithInteropJsonArray()
     {
         var engine = GetEngine();
@@ -33,7 +33,7 @@ public partial class InteropTests
         engine.Evaluate("array.lastIndexOf('D')").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypePopWithInteropJsonArray()
     {
         var engine = GetEngine();
@@ -48,7 +48,7 @@ public partial class InteropTests
         engine.Evaluate("array.lastIndexOf('C')").Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void AccessingJsonNodeShouldWork()
     {
         const string Json = """
@@ -154,7 +154,7 @@ public partial class InteropTests
         engine.Evaluate("variables.employees.other == 'def'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AccessingSystemTextJsonNumericTypes()
     {
         var engine = GetEngine();

@@ -34,7 +34,7 @@ public class ShadowRealmSetValueTests
     /// The mirror itself, asserted rather than described: same overloads, same type parameters, same
     /// <c>[DynamicallyAccessedMembers]</c> and <c>[RequiresUnreferencedCode]</c>, same messages.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheOverloadSetAndItsTrimmingAnnotationsMirrorTheEngines()
     {
         var shadowRealm = DescribeSetValueOverloads(typeof(Native.ShadowRealm.ShadowRealm));
@@ -55,7 +55,7 @@ public class ShadowRealmSetValueTests
 #endif
     }
 
-    [Fact]
+    [Test]
     public void ATypedHostObjectIsProjectedIntoTheShadowRealmAndNowhereElse()
     {
         var engine = new Engine();
@@ -68,7 +68,7 @@ public class ShadowRealmSetValueTests
         engine.Evaluate("typeof company").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AnUntypedHostObjectStillProjects()
     {
         var engine = new Engine();
@@ -84,7 +84,7 @@ public class ShadowRealmSetValueTests
     /// The array overload exists so the annotation lands on the element type; what an embedder can observe
     /// is that the elements' own members are the ones script reaches.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnArrayIsProjectedByItsElementType()
     {
         var engine = new Engine();
@@ -96,7 +96,7 @@ public class ShadowRealmSetValueTests
         shadowRealm.Evaluate("companies[1].Name").Should().Be("initech");
     }
 
-    [Fact]
+    [Test]
     public void ATypeIsProjectedAsAConstructorScriptCanName()
     {
         var engine = new Engine();
@@ -112,7 +112,7 @@ public class ShadowRealmSetValueTests
     /// <c>ShadowRealm</c> took <c>string</c> and <c>object</c> where the engine took <c>string?</c> and
     /// <c>object?</c>, so the two disagreed about a registration a host can plausibly make.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANullValueRegistersAsNullOnBothSurfaces()
     {
         var engine = new Engine();
@@ -132,7 +132,7 @@ public class ShadowRealmSetValueTests
     /// which is what ECMA-262 §17 gives a built-in global function, while every other overload installs the
     /// ordinary enumerable data property.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADelegateIsInstalledNonEnumerableAndEverythingElseIsNot()
     {
         var engine = new Engine();
@@ -151,7 +151,7 @@ public class ShadowRealmSetValueTests
     /// is why each of them casts its <c>JsNumber</c> / <c>JsBoolean</c> to <c>JsValue</c> before handing it
     /// on, exactly as the engine's do.
     /// </summary>
-    [Fact]
+    [Test]
     public void ThePrimitiveOverloadsKeepTheirTypes()
     {
         var engine = new Engine();

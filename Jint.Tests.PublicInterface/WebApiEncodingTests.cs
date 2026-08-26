@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class WebApiEncodingTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNeitherInterface()
     {
         var engine = new Engine();
@@ -22,7 +22,7 @@ public class WebApiEncodingTests
         engine.Evaluate("'TextEncoder' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureFlagInstallsBoth()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
@@ -38,7 +38,7 @@ public class WebApiEncodingTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesIt()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -47,7 +47,7 @@ public class WebApiEncodingTests
         engine.Evaluate("typeof TextDecoder").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AnotherFeatureAloneDoesNotInstallThem()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Base64));
@@ -56,7 +56,7 @@ public class WebApiEncodingTests
         engine.Evaluate("typeof TextDecoder").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void GivesTheInterfaceObjectsTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
@@ -74,7 +74,7 @@ public class WebApiEncodingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own TextEncoder");
@@ -90,7 +90,7 @@ public class WebApiEncodingTests
         engine.Evaluate("typeof TextDecoder").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void EncodesAndDecodesForTheHost()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
@@ -99,7 +99,7 @@ public class WebApiEncodingTests
         engine.Evaluate("new TextDecoder().decode(new Uint8Array([71, 114, 195, 188, 195, 159, 101]))").AsString().Should().Be("Grüße");
     }
 
-    [Fact]
+    [Test]
     public void DecodesTheLegacyEncodingsForTheHost()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Encoding));
@@ -130,7 +130,7 @@ public class WebApiEncodingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEngines()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Encoding);

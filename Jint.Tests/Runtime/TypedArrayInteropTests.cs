@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class TypedArrayInteropTests
 {
-    [Fact]
+    [Test]
     public void CanInteropWithInt8()
     {
         var engine = new Engine();
@@ -17,7 +17,7 @@ public class TypedArrayInteropTests
         fromEngine.AsInt8Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithUint8()
     {
         var engine = new Engine();
@@ -30,7 +30,7 @@ public class TypedArrayInteropTests
         fromEngine.AsUint8Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithUint8Clamped()
     {
         var engine = new Engine();
@@ -43,7 +43,7 @@ public class TypedArrayInteropTests
         fromEngine.AsUint8ClampedArray().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithInt16()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class TypedArrayInteropTests
         fromEngine.AsInt16Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithUint16()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class TypedArrayInteropTests
         fromEngine.AsUint16Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithInt32()
     {
         var engine = new Engine();
@@ -82,7 +82,7 @@ public class TypedArrayInteropTests
         fromEngine.AsInt32Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithUint32()
     {
         var engine = new Engine();
@@ -96,7 +96,7 @@ public class TypedArrayInteropTests
         fromEngine.AsUint32Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithBigInt64()
     {
         var engine = new Engine();
@@ -109,7 +109,7 @@ public class TypedArrayInteropTests
         fromEngine.AsBigInt64Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithBigUint64()
     {
         var engine = new Engine();
@@ -123,7 +123,7 @@ public class TypedArrayInteropTests
     }
 
 #if NET6_0_OR_GREATER
-        [Fact]
+        [Test]
         public void CanInteropWithFloat16()
         {
             var engine = new Engine();
@@ -141,7 +141,7 @@ public class TypedArrayInteropTests
         }
 #endif
 
-    [Fact]
+    [Test]
     public void CanInteropWithFloat32()
     {
         var engine = new Engine();
@@ -155,7 +155,7 @@ public class TypedArrayInteropTests
         fromEngine.AsFloat32Array().Should().Equal(source);
     }
 
-    [Fact]
+    [Test]
     public void CanInteropWithFloat64()
     {
         var engine = new Engine();

@@ -46,7 +46,7 @@ public class WorkerTests
     // The termination token
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsRegisterTheTerminationTokenAsAConstraint()
     {
         using var cts = new CancellationTokenSource();
@@ -69,7 +69,7 @@ public class WorkerTests
     // Constraints: factories replay, instances never copy
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsReplayTheParentsConstraintFactories()
     {
         var parentOptions = new Options().LimitStatements(100);
@@ -90,7 +90,7 @@ public class WorkerTests
         workerConstraint.Should().NotBeSameAs(parentConstraint);
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsDoNotCopyConstraintInstances()
     {
         var instance = new CountingConstraint();
@@ -116,7 +116,7 @@ public class WorkerTests
     // Security posture: restrictions travel
     // ---------------------------------------------------------------------------------------------------
 
-    public static TheoryData<string> CopiedSettings =>
+    public static TestCases<string> CopiedSettings =>
     [
         "Constraints.MaxRecursionDepth",
         "Constraints.MaxExecutionStackCount",
@@ -141,8 +141,7 @@ public class WorkerTests
     /// One case per copied setting, so that dropping a single line of
     /// <c>Options.CopySecurityPosture</c> fails exactly the case that names it.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(CopiedSettings))]
+    [TestCaseSource(nameof(CopiedSettings))]
     public void TheDefaultOptionsCopyTheParentsSecurityPosture(string setting)
     {
         var parentOptions = Hardened();
@@ -221,7 +220,7 @@ public class WorkerTests
     /// and that expansion clears the constraint registrations, including the termination token a worker's
     /// <c>terminate()</c> depends on. See <c>Options.CopySecurityPosture</c>'s remarks.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUntrustedCodeProfileParentHardensItsWorkerWithoutTheMarker()
     {
         var limits = new UntrustedCodeLimits(
@@ -263,14 +262,13 @@ public class WorkerTests
     // Features: grants never travel by implication
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData(WebApiFeatures.Fetch)]
-    [InlineData(WebApiFeatures.EventSource)]
-    [InlineData(WebApiFeatures.WebSocket)]
-    [InlineData(WebApiFeatures.Storage)]
-    [InlineData(WebApiFeatures.CacheApi)]
-    [InlineData(WebApiFeatures.FetchEvents)]
-    [InlineData(WebApiFeatures.Workers)]
+    [TestCase(WebApiFeatures.Fetch)]
+    [TestCase(WebApiFeatures.EventSource)]
+    [TestCase(WebApiFeatures.WebSocket)]
+    [TestCase(WebApiFeatures.Storage)]
+    [TestCase(WebApiFeatures.CacheApi)]
+    [TestCase(WebApiFeatures.FetchEvents)]
+    [TestCase(WebApiFeatures.Workers)]
     public void TheDefaultOptionsSubtractNetworkStorageRoutingAndWorkers(WebApiFeatures granted)
     {
         var parent = new Engine(options => options.UseWebApis(WebApiFeatures.Default | granted));
@@ -281,7 +279,7 @@ public class WorkerTests
         (features & granted).Should().Be(WebApiFeatures.None, "a worker gets strictly fewer capabilities than its creator");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsForceMessagingAndGlobalEvents()
     {
         var parent = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -293,7 +291,7 @@ public class WorkerTests
         (features & WebApiFeatures.Console).Should().Be(WebApiFeatures.Console, "what the parent had, and is not a grant, travels");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsDoNotCopyTheProvider()
     {
         var provider = new TestWorkerProvider();
@@ -305,7 +303,7 @@ public class WorkerTests
         (workerOptions.WebApi.Features & WebApiFeatures.Workers).Should().Be(WebApiFeatures.None);
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultOptionsInstallTheNullSink()
     {
         var parent = new Engine();
@@ -317,7 +315,7 @@ public class WorkerTests
             "it is what flips a worker's callbacks to report-and-continue, and what the error relay reads");
     }
 
-    [Fact]
+    [Test]
     public void EveryCallToCreateDefaultOptionsReturnsAFreshInstance()
     {
         var parentOptions = new Options();
@@ -339,7 +337,7 @@ public class WorkerTests
     // UseWorkers
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void UseWorkersSetsFlagAndProviderTogether()
     {
         var provider = new TestWorkerProvider();
@@ -373,7 +371,7 @@ public class WorkerTests
     /// <c>End()</c> fails the test instead of hanging the run.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void WorkerConnectionEndIsIdempotentUnderConcurrentCallers()
     {
         const int Rounds = 64;
@@ -444,7 +442,7 @@ public class WorkerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AConnectionThatEndedFaultedCarriesTheCLRErrorAndStaysEnded()
     {
         var failure = new InvalidOperationException("the specifier did not resolve");
@@ -467,7 +465,7 @@ public class WorkerTests
         connection.Error.Should().BeSameAs(failure);
     }
 
-    [Fact]
+    [Test]
     public void HostStateIsCarriedAndTheEngineNeverReadsIt()
     {
         var connection = new WorkerConnection(new Engine(), new Engine(), "w", onEnded: null, default);

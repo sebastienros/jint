@@ -54,55 +54,51 @@ public class CrossRealmAttributionTests
         return engine.Evaluate(source).AsString();
     }
 
-    [Theory]
     // Array.prototype.{toSorted,toReversed,with,toSpliced} all reach ValidateArrayLength.
-    [InlineData("otherGlobal.Array.prototype.toSorted.call(tooLong)", "other RangeError")]
-    [InlineData("otherGlobal.Array.prototype.toReversed.call(tooLong)", "other RangeError")]
-    [InlineData("otherGlobal.Array.prototype.with.call(tooLong, 0, 0)", "other RangeError")]
-    [InlineData("otherGlobal.Array.prototype.toSpliced.call(tooLong, 0, 0)", "other RangeError")]
+    [TestCase("otherGlobal.Array.prototype.toSorted.call(tooLong)", "other RangeError")]
+    [TestCase("otherGlobal.Array.prototype.toReversed.call(tooLong)", "other RangeError")]
+    [TestCase("otherGlobal.Array.prototype.with.call(tooLong, 0, 0)", "other RangeError")]
+    [TestCase("otherGlobal.Array.prototype.toSpliced.call(tooLong, 0, 0)", "other RangeError")]
     // Controls: these two already used the callee realm before the fix.
-    [InlineData("otherGlobal.Array.prototype.with.call([0, 1, 2], 3, 7)", "other RangeError")]
-    [InlineData("otherGlobal.Array.prototype.toSorted.call([], 5)", "other TypeError")]
+    [TestCase("otherGlobal.Array.prototype.with.call([0, 1, 2], 3, 7)", "other RangeError")]
+    [TestCase("otherGlobal.Array.prototype.toSorted.call([], 5)", "other TypeError")]
     public void ArrayChangeByCopyErrorsComeFromTheCalleeRealm(string call, string expected)
     {
         Evaluate("classify(() => " + call + ")").Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("otherGlobal.Array.prototype.with.call([1, 2, 3], 1, 3)")]
-    [InlineData("otherGlobal.Array.prototype.toSpliced.call([1, 2, 3], 0, 1, 4, 5)")]
-    [InlineData("otherGlobal.Array.prototype.toReversed.call([1, 2, 3])")]
-    [InlineData("otherGlobal.Array.prototype.toSorted.call([1, 2, 3], (x, y) => y > x)")]
+    [TestCase("otherGlobal.Array.prototype.with.call([1, 2, 3], 1, 3)")]
+    [TestCase("otherGlobal.Array.prototype.toSpliced.call([1, 2, 3], 0, 1, 4, 5)")]
+    [TestCase("otherGlobal.Array.prototype.toReversed.call([1, 2, 3])")]
+    [TestCase("otherGlobal.Array.prototype.toSorted.call([1, 2, 3], (x, y) => y > x)")]
     // The empty-source early returns build a result array too.
-    [InlineData("otherGlobal.Array.prototype.toReversed.call([])")]
-    [InlineData("otherGlobal.Array.prototype.toSorted.call([])")]
+    [TestCase("otherGlobal.Array.prototype.toReversed.call([])")]
+    [TestCase("otherGlobal.Array.prototype.toSorted.call([])")]
     public void ArrayChangeByCopyResultsUseTheCalleeRealmPrototype(string call)
     {
         Evaluate("realmOf(" + call + ")").Should().Be("other");
     }
 
-    [Theory]
     // `this` is the other realm's Array constructor, so the result is constructed through it.
-    [InlineData("otherGlobal.Array.from([1, 2, 3])", "other")]
+    [TestCase("otherGlobal.Array.from([1, 2, 3])", "other")]
     // `this` is undefined, so Array.from falls back to ArrayCreate in the *callee's* realm.
-    [InlineData("(0, otherGlobal.Array.from)([1, 2, 3])", "other")]
+    [TestCase("(0, otherGlobal.Array.from)([1, 2, 3])", "other")]
     // ...and the reverse still holds: an explicit constructor wins over the callee's realm.
-    [InlineData("otherGlobal.Array.from.call(Array, [1, 2, 3])", "main")]
-    [InlineData("Array.from.call(otherGlobal.Array, [1, 2, 3])", "other")]
+    [TestCase("otherGlobal.Array.from.call(Array, [1, 2, 3])", "main")]
+    [TestCase("Array.from.call(otherGlobal.Array, [1, 2, 3])", "other")]
     public void ArrayFromUsesTheCalleeRealm(string call, string expected)
     {
         Evaluate("realmOf(" + call + ")").Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("map")]
-    [InlineData("filter")]
-    [InlineData("flatMap")]
-    [InlineData("reduce")]
-    [InlineData("forEach")]
-    [InlineData("some")]
-    [InlineData("every")]
-    [InlineData("find")]
+    [TestCase("map")]
+    [TestCase("filter")]
+    [TestCase("flatMap")]
+    [TestCase("reduce")]
+    [TestCase("forEach")]
+    [TestCase("some")]
+    [TestCase("every")]
+    [TestCase("find")]
     public void IteratorHelperArgumentTypeErrorsComeFromTheCalleeRealm(string method)
     {
         // Every one of these throws because the callback argument is missing, i.e. not callable.
@@ -110,13 +106,13 @@ public class CrossRealmAttributionTests
             .Should().Be("other TypeError");
     }
 
-    [Fact]
+    [Test]
     public void IteratorHelperArgumentTypeErrorsStillComeFromTheMainRealm()
     {
         Evaluate("classify(() => [].values().every())").Should().Be("main TypeError");
     }
 
-    [Fact]
+    [Test]
     public void IteratorFromComparesAgainstTheCalleeRealmIterator()
     {
         // The main realm's array iterator is an instance of the main %Iterator%, so the main
@@ -132,7 +128,7 @@ public class CrossRealmAttributionTests
             .Should().BeFalse("the other realm's %Iterator% is a different intrinsic");
     }
 
-    [Fact]
+    [Test]
     public void IteratorFromWrapperUsesTheCalleeRealmPrototype()
     {
         // %WrapForValidIteratorPrototype%'s own [[Prototype]] is that realm's %Iterator.prototype%,
@@ -148,35 +144,33 @@ public class CrossRealmAttributionTests
             """).Should().Be("other");
     }
 
-    [Fact]
+    [Test]
     public void IteratorToArrayCreatesInTheCalleeRealm()
     {
         Evaluate("realmOf([1, 2, 3].values().toArray())").Should().Be("main");
         Evaluate("realmOf(otherGlobal.Iterator.prototype.toArray.call([1, 2, 3].values()))").Should().Be("other");
     }
 
-    [Theory]
-    [InlineData("otherGlobal.Function('\\'use strict\\'; var yield = 3;')", "other SyntaxError")]
-    [InlineData("otherGlobal.Function('return }')", "other SyntaxError")]
-    [InlineData("Function('return }')", "main SyntaxError")]
+    [TestCase("otherGlobal.Function('\\'use strict\\'; var yield = 3;')", "other SyntaxError")]
+    [TestCase("otherGlobal.Function('return }')", "other SyntaxError")]
+    [TestCase("Function('return }')", "main SyntaxError")]
     public void DynamicFunctionSyntaxErrorsComeFromTheCalleeRealm(string call, string expected)
     {
         Evaluate("classify(() => " + call + ")").Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DynamicFunctionAcceptsYieldAsIdentifierInSloppyMode()
     {
         Evaluate("classify(() => otherGlobal.Function('var yield = 3;'))").Should().Be("no throw");
     }
 
-    [Theory]
     // ToString(Symbol) throws a realm-less TypeError that the callee has to attribute to itself.
-    [InlineData("otherGlobal.JSON.rawJSON(Symbol('123'))", "other TypeError")]
-    [InlineData("JSON.rawJSON(Symbol('123'))", "main TypeError")]
+    [TestCase("otherGlobal.JSON.rawJSON(Symbol('123'))", "other TypeError")]
+    [TestCase("JSON.rawJSON(Symbol('123'))", "main TypeError")]
     // Controls: rawJSON's own SyntaxErrors already used the callee realm.
-    [InlineData("otherGlobal.JSON.rawJSON('')", "other SyntaxError")]
-    [InlineData("otherGlobal.JSON.rawJSON('\\t123')", "other SyntaxError")]
+    [TestCase("otherGlobal.JSON.rawJSON('')", "other SyntaxError")]
+    [TestCase("otherGlobal.JSON.rawJSON('\\t123')", "other SyntaxError")]
     public void JsonRawJsonErrorsComeFromTheCalleeRealm(string call, string expected)
     {
         Evaluate("classify(() => " + call + ")").Should().Be(expected);

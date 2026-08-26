@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class WebApiBase64Tests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNeitherFunction()
     {
         var engine = new Engine();
@@ -22,7 +22,7 @@ public class WebApiBase64Tests
         engine.Evaluate("'btoa' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureFlagInstallsBoth()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Base64));
@@ -35,7 +35,7 @@ public class WebApiBase64Tests
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesIt()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -44,7 +44,7 @@ public class WebApiBase64Tests
         engine.Evaluate("typeof btoa").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void GivesTheFunctionsTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Base64));
@@ -62,7 +62,7 @@ public class WebApiBase64Tests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own btoa");
@@ -75,7 +75,7 @@ public class WebApiBase64Tests
         engine.Evaluate("typeof atob").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void ReportsAFailureAsADomExceptionAHostCanRead()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Base64));
@@ -91,7 +91,7 @@ public class WebApiBase64Tests
         engine.Evaluate("typeof thrown.stack").AsString().Should().Be("string");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Base64));

@@ -53,25 +53,24 @@ public class SubtleCryptoKeyTests
     // HMAC: the published vectors
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // https://www.rfc-editor.org/rfc/rfc2202 section 3, test cases 1 to 4.
-    [InlineData("SHA-1", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "b617318655057264e28bc0b6fb378c8ef146be00")]
-    [InlineData("SHA-1", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79")]
-    [InlineData("SHA-1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "125d7342b9ac11cd91a39af48aa17b4f63f175d3")]
-    [InlineData("SHA-1", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "4c9007f4026250c6bc8414f9bf50c86c2d7235da")]
+    [TestCase("SHA-1", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "b617318655057264e28bc0b6fb378c8ef146be00")]
+    [TestCase("SHA-1", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79")]
+    [TestCase("SHA-1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "125d7342b9ac11cd91a39af48aa17b4f63f175d3")]
+    [TestCase("SHA-1", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "4c9007f4026250c6bc8414f9bf50c86c2d7235da")]
     // https://www.rfc-editor.org/rfc/rfc4231 section 4, test cases 1 to 4.
-    [InlineData("SHA-256", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7")]
-    [InlineData("SHA-256", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843")]
-    [InlineData("SHA-256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe")]
-    [InlineData("SHA-256", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b")]
-    [InlineData("SHA-384", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59cfaea9ea9076ede7f4af152e8b2fa9cb6")]
-    [InlineData("SHA-384", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8e2240ca5e69e2c78b3239ecfab21649")]
-    [InlineData("SHA-384", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "88062608d3e6ad8a0aa2ace014c8a86f0aa635d947ac9febe83ef4e55966144b2a5ab39dc13814b94e3ab6e101a34f27")]
-    [InlineData("SHA-384", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "3e8a69b7783c25851933ab6290af6ca77a9981480850009cc5577c6e1f573b4e6801dd23c4a7d679ccf8a386c674cffb")]
-    [InlineData("SHA-512", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854")]
-    [InlineData("SHA-512", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737")]
-    [InlineData("SHA-512", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "fa73b0089d56a284efb0f0756c890be9b1b5dbdd8ee81a3655f83e33b2279d39bf3e848279a722c806b485a47e67c807b946a337bee8942674278859e13292fb")]
-    [InlineData("SHA-512", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "b0ba465637458c6990e5a8c5f61d4af7e576d97ff94b872de76f8050361ee3dba91ca5c11aa25eb4d679275cc5788063a5f19741120c4f2de2adebeb10a298dd")]
+    [TestCase("SHA-256", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7")]
+    [TestCase("SHA-256", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843")]
+    [TestCase("SHA-256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe")]
+    [TestCase("SHA-256", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b")]
+    [TestCase("SHA-384", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59cfaea9ea9076ede7f4af152e8b2fa9cb6")]
+    [TestCase("SHA-384", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8e2240ca5e69e2c78b3239ecfab21649")]
+    [TestCase("SHA-384", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "88062608d3e6ad8a0aa2ace014c8a86f0aa635d947ac9febe83ef4e55966144b2a5ab39dc13814b94e3ab6e101a34f27")]
+    [TestCase("SHA-384", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "3e8a69b7783c25851933ab6290af6ca77a9981480850009cc5577c6e1f573b4e6801dd23c4a7d679ccf8a386c674cffb")]
+    [TestCase("SHA-512", "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b", "4869205468657265", "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854")]
+    [TestCase("SHA-512", "4a656665", "7768617420646f2079612077616e7420666f72206e6f7468696e673f", "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737")]
+    [TestCase("SHA-512", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "fa73b0089d56a284efb0f0756c890be9b1b5dbdd8ee81a3655f83e33b2279d39bf3e848279a722c806b485a47e67c807b946a337bee8942674278859e13292fb")]
+    [TestCase("SHA-512", "0102030405060708090a0b0c0d0e0f10111213141516171819", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd", "b0ba465637458c6990e5a8c5f61d4af7e576d97ff94b872de76f8050361ee3dba91ca5c11aa25eb4d679275cc5788063a5f19741120c4f2de2adebeb10a298dd")]
     public void SignsThePublishedHmacVectors(string hash, string keyHex, string dataHex, string expected)
     {
         Run($$"""
@@ -80,7 +79,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void VerifiesWhatItSignedAndRefusesAnythingElse()
     {
         Run("""
@@ -99,7 +98,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("true,false,false,false,false");
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesEachMintTheirOwnKeys()
     {
         // A CryptoKey holds a hard reference to the realm that built it, and the brand check is by CLR type,
@@ -125,18 +124,17 @@ public class SubtleCryptoKeyTests
     // AES-GCM: the published vectors
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // The NIST CAVP AES-GCM vectors (gcmEncryptExtIV*.rsp), as vendored by Go's crypto/cipher tests. Each
     // `expected` is the specification's own `ciphertext || tag` layout with a 128-bit tag, so it is what
     // encrypt must answer with byte for byte. At least two per key length, plus two carrying additionalData.
-    [InlineData("11754cd72aec309bf52f7687212e8957", "3c819d9a9bed087615030b65", "", "", "250327c674aaf477aef2675748cf6971")]
-    [InlineData("7fddb57453c241d03efbed3ac44e371c", "ee283a3fc75575e33efd4887", "d5de42b461646c255c87bd2962d3b9a2", "", "2ccda4a5415cb91e135c2a0f78c9b2fdb36d1df9b9d5e596f83e8b7f52971cb3")]
-    [InlineData("fbe3467cc254f81be8e78d765a2e6333", "c6697351ff4aec29cdbaabf2", "", "67", "3659cdc25288bf499ac736c03bfc1159")]
-    [InlineData("fe47fcce5fc32665d2ae399e4eec72ba", "5adb9609dbaeb58cbd6e7275", "7c0e88c88899a779228465074797cd4c2e1498d259b54390b85e3eef1c02df60e743f1b840382c4bccaf3bafb4ca8429bea063", "88319d6e1d3ffa5f987199166c8a9b56c2aeba5a", "98f4826f05a265e6dd2be82db241c0fbbbf9ffb1c173aa83964b7cf5393043736365253ddbc5db8778371495da76d269e5db3e291ef1982e4defedaa2249f898556b47")]
-    [InlineData("e2e001a36c60d2bf40d69ff5b2b1161ea218db263be16a4e", "3c819d9a9bed087615030b65", "", "", "c7b8da1fe2e3dccc4071ba92a0a57ba8")]
-    [InlineData("feffe9928665731c6d6a8f9467308308feffe9928665731c", "54cc7dc2c37ec006bcc6d1da", "007c5e5b3e59df24a7c355584fc1518d", "", "7bd53594c28b6c6596feb240199cad4c9badb907fd65bde541b8df3bd444d3a8")]
-    [InlineData("5394e890d37ba55ec9d5f327f15680f6a63ef5279c79331643ad0af6d2623525", "3c819d9a9bed087615030b65", "", "", "d9b260d4bc4630733ffb642f5ce45726")]
-    [InlineData("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308", "54cc7dc2c37ec006bcc6d1da", "007c5e5b3e59df24a7c355584fc1518d", "", "d50b9e252b70945d4240d351677eb10f937cdaef6f2822b6a3191654ba41b197")]
+    [TestCase("11754cd72aec309bf52f7687212e8957", "3c819d9a9bed087615030b65", "", "", "250327c674aaf477aef2675748cf6971")]
+    [TestCase("7fddb57453c241d03efbed3ac44e371c", "ee283a3fc75575e33efd4887", "d5de42b461646c255c87bd2962d3b9a2", "", "2ccda4a5415cb91e135c2a0f78c9b2fdb36d1df9b9d5e596f83e8b7f52971cb3")]
+    [TestCase("fbe3467cc254f81be8e78d765a2e6333", "c6697351ff4aec29cdbaabf2", "", "67", "3659cdc25288bf499ac736c03bfc1159")]
+    [TestCase("fe47fcce5fc32665d2ae399e4eec72ba", "5adb9609dbaeb58cbd6e7275", "7c0e88c88899a779228465074797cd4c2e1498d259b54390b85e3eef1c02df60e743f1b840382c4bccaf3bafb4ca8429bea063", "88319d6e1d3ffa5f987199166c8a9b56c2aeba5a", "98f4826f05a265e6dd2be82db241c0fbbbf9ffb1c173aa83964b7cf5393043736365253ddbc5db8778371495da76d269e5db3e291ef1982e4defedaa2249f898556b47")]
+    [TestCase("e2e001a36c60d2bf40d69ff5b2b1161ea218db263be16a4e", "3c819d9a9bed087615030b65", "", "", "c7b8da1fe2e3dccc4071ba92a0a57ba8")]
+    [TestCase("feffe9928665731c6d6a8f9467308308feffe9928665731c", "54cc7dc2c37ec006bcc6d1da", "007c5e5b3e59df24a7c355584fc1518d", "", "7bd53594c28b6c6596feb240199cad4c9badb907fd65bde541b8df3bd444d3a8")]
+    [TestCase("5394e890d37ba55ec9d5f327f15680f6a63ef5279c79331643ad0af6d2623525", "3c819d9a9bed087615030b65", "", "", "d9b260d4bc4630733ffb642f5ce45726")]
+    [TestCase("feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308", "54cc7dc2c37ec006bcc6d1da", "007c5e5b3e59df24a7c355584fc1518d", "", "d50b9e252b70945d4240d351677eb10f937cdaef6f2822b6a3191654ba41b197")]
     public void EncryptsAndDecryptsThePublishedAesGcmVectors(string keyHex, string ivHex, string plaintextHex, string aadHex, string expected)
     {
         Run($$"""
@@ -167,10 +165,13 @@ public class SubtleCryptoKeyTests
         return sizes.SkipSize == 0 || (tagBytes - sizes.MinSize) % sizes.SkipSize == 0;
     }
 
-    [Fact]
+    [Test]
     public void ATruncatedTagIsThePrefixOfTheFullOne()
     {
-        Assert.SkipUnless(PlatformSupportsTagBits(96), "this platform's AES-GCM produces only 128-bit tags");
+        if (!PlatformSupportsTagBits(96))
+        {
+            Assert.Ignore("this platform's AES-GCM produces only 128-bit tags");
+        }
 
         // NIST SP 800-38D defines a t-bit tag as MSB_t of the 128-bit one, and the ciphertext does not depend
         // on t at all — so the whole output for tagLength 96 is the first twelve bytes shorter. Checking it
@@ -191,12 +192,11 @@ public class SubtleCryptoKeyTests
                 + "d5de42b461646c255c87bd2962d3b9a2");
     }
 
-    [Theory]
-    [InlineData(96)]
-    [InlineData(104)]
-    [InlineData(112)]
-    [InlineData(120)]
-    [InlineData(128)]
+    [TestCase(96)]
+    [TestCase(104)]
+    [TestCase(112)]
+    [TestCase(120)]
+    [TestCase(128)]
     public void RoundTripsEveryTagLengthThePlatformSupports(int tagLength)
     {
         if (!PlatformSupportsTagBits(tagLength))
@@ -227,7 +227,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(tagLength + ":hello");
     }
 
-    [Fact]
+    [Test]
     public void EveryWayTheDecryptionCanFailIsTheSameOperationError()
     {
         // The one thing an authenticated cipher promises is that a ciphertext, a tag, an iv or an
@@ -277,10 +277,9 @@ public class SubtleCryptoKeyTests
                 "OperationError/Failed to execute 'decrypt' on 'SubtleCrypto': the ciphertext is 32 bits long, which is shorter than the 128-bit authentication tag it must end with."));
     }
 
-    [Theory]
-    [InlineData(128)]
-    [InlineData(192)]
-    [InlineData(256)]
+    [TestCase(128)]
+    [TestCase(192)]
+    [TestCase(256)]
     public void GeneratesAnAesKeyOfEachLength(int length)
     {
         Run($$"""
@@ -294,7 +293,7 @@ public class SubtleCryptoKeyTests
     // CryptoKey
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AKeyExposesTheFourAttributesAndNothingElse()
     {
         Run("""
@@ -317,7 +316,7 @@ public class SubtleCryptoKeyTests
                 "secret|true|sign,verify|{\"name\":\"HMAC\",\"hash\":{\"name\":\"SHA-384\"},\"length\":1024}|name,hash,length|[]|[object CryptoKey]|true");
     }
 
-    [Fact]
+    [Test]
     public void DuplicateUsagesCollapseAndOrderIsCanonical()
     {
         // "The normalized value of a usages list" is the usage intersection with the recognized values, and
@@ -328,7 +327,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("sign,verify");
     }
 
-    [Fact]
+    [Test]
     public void TheAlgorithmAndUsagesObjectsAreCachedAndCannotChangeTheKey()
     {
         // https://w3c.github.io/webcrypto/#dfn-cached-ecmascript-object — one object per slot, built on the
@@ -354,7 +353,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("true|InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceObjectRefusesToConstructAnything()
     {
         var engine = WebEngine();
@@ -373,7 +372,7 @@ public class SubtleCryptoKeyTests
         engine.Evaluate("CryptoKey.prototype[Symbol.toStringTag]").AsString().Should().Be("CryptoKey");
     }
 
-    [Fact]
+    [Test]
     public void EveryAttributeBrandChecksItsReceiver()
     {
         var engine = WebEngine();
@@ -395,7 +394,7 @@ public class SubtleCryptoKeyTests
             .AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AKeyIsBuiltInTheRealmsOwnPrototype()
     {
         Run("""
@@ -413,7 +412,7 @@ public class SubtleCryptoKeyTests
     // Key material never escapes except through exportKey
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ANonExtractableKeyCannotBeExportedInAnyFormat()
     {
         Run("""
@@ -433,7 +432,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("InvalidAccessError/true|InvalidAccessError/true|32");
     }
 
-    [Fact]
+    [Test]
     public void WhatWasExportedIsACopyOfTheKeyAndNotTheKey()
     {
         // The exported buffer crosses into script, where it is mutable. If it aliased the key material, a
@@ -452,7 +451,7 @@ public class SubtleCryptoKeyTests
                 "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b|b617318655057264e28bc0b6fb378c8ef146be00|true");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsAGeneratedKeyThroughEveryFormat()
     {
         // The shape a script actually writes: generate, export, import somewhere else, and get the same MAC.
@@ -476,7 +475,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("true|true|256|256");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsAnAesKeyThroughJwkAndDecryptsWithIt()
     {
         Run("""
@@ -496,7 +495,7 @@ public class SubtleCryptoKeyTests
     // JSON Web Key
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ExportsAJwkWithTheFieldsAndTheOrderWebIdlGivesIt()
     {
         // A dictionary is converted to an object member by member in lexicographical order —
@@ -510,11 +509,10 @@ public class SubtleCryptoKeyTests
                 "alg,ext,k,key_ops,kty|{\"alg\":\"HS256\",\"ext\":true,\"k\":\"CwsLCwsLCwsLCwsLCwsLCwsLCws\",\"key_ops\":[\"sign\",\"verify\"],\"kty\":\"oct\"}");
     }
 
-    [Theory]
-    [InlineData("SHA-1", "HS1")]
-    [InlineData("SHA-256", "HS256")]
-    [InlineData("SHA-384", "HS384")]
-    [InlineData("SHA-512", "HS512")]
+    [TestCase("SHA-1", "HS1")]
+    [TestCase("SHA-256", "HS256")]
+    [TestCase("SHA-384", "HS384")]
+    [TestCase("SHA-512", "HS512")]
     public void TheJwkAlgorithmNamesTheInnerHash(string hash, string alg)
     {
         Run($$"""
@@ -525,10 +523,9 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(alg + "|" + hash);
     }
 
-    [Theory]
-    [InlineData(128, "A128GCM")]
-    [InlineData(192, "A192GCM")]
-    [InlineData(256, "A256GCM")]
+    [TestCase(128, "A128GCM")]
+    [TestCase(192, "A192GCM")]
+    [TestCase(256, "A256GCM")]
     public void TheJwkAlgorithmNamesTheAesKeyLength(int length, string alg)
     {
         Run($$"""
@@ -538,7 +535,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(alg + "|encrypt|true");
     }
 
-    [Fact]
+    [Test]
     public void ImportsAJwkWrittenByHand()
     {
         // The shape a script reads out of a configuration file: a plain object literal, base64url without
@@ -555,32 +552,31 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("b617318655057264e28bc0b6fb378c8ef146be00");
     }
 
-    [Theory]
     // The kty must be "oct" for a symmetric key, and it must be there at all.
-    [InlineData("{ k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
-    [InlineData("{ kty: 'RSA', k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
-    [InlineData("{ kty: 'OCT', k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
+    [TestCase("{ k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
+    [TestCase("{ kty: 'RSA', k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
+    [TestCase("{ kty: 'OCT', k: 'AAAAAAAAAAAAAAAAAAAAAA' }", "DataError")]
     // Section 6.4.1 of JSON Web Algorithms: "This member MUST be present."
-    [InlineData("{ kty: 'oct' }", "DataError")]
+    [TestCase("{ kty: 'oct' }", "DataError")]
     // k must be base64url: no padding, no + or /, no whitespace, and no length that decodes to a fraction of
     // a byte.
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws=' }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'Cws+CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'Cws/CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'Cws CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'CwsLC' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws=' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'Cws+CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'Cws/CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'Cws CwsLCwsLCwsLCwsLCwsLCws' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLC' }", "DataError")]
     // An empty key is an empty key, whichever way it is spelled.
-    [InlineData("{ kty: 'oct', k: '' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: '' }", "DataError")]
     // The alg field must agree with the hash the import asks for.
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', alg: 'HS512' }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', alg: 'A128GCM' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', alg: 'HS512' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', alg: 'A128GCM' }", "DataError")]
     // "If usages is non-empty and the use field of jwk is present and is not 'sig', throw a DataError."
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', use: 'enc' }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', use: 'enc' }", "DataError")]
     // key_ops must be valid JSON Web Key and must cover the requested usages.
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', key_ops: ['verify'] }", "DataError")]
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', key_ops: ['sign', 'sign'] }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', key_ops: ['verify'] }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', key_ops: ['sign', 'sign'] }", "DataError")]
     // "If the ext field of jwk is present and has the value false and extractable is true, throw a DataError."
-    [InlineData("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', ext: false }", "DataError")]
+    [TestCase("{ kty: 'oct', k: 'CwsLCwsLCwsLCwsLCwsLCwsLCws', ext: false }", "DataError")]
     public void RefusesAMalformedJwkWithADataError(string jwk, string expected)
     {
         var engine = WebEngine();
@@ -593,7 +589,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(expected + "/true");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsTheJwkFieldsThatDoAgree()
     {
         // The mirror image of the rows above: each field, present and correct, imports.
@@ -610,7 +606,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("sign|true|160");
     }
 
-    [Fact]
+    [Test]
     public void AnExtFalseJwkImportsWhenTheKeyIsNotAskedToBeExtractable()
     {
         // The check is about the pair: a key marked non-extractable may be imported, as long as it stays
@@ -626,7 +622,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("false|sign");
     }
 
-    [Fact]
+    [Test]
     public void AJwkUseFieldIsIgnoredWhenNothingIsAskedOfTheKey()
     {
         // "If usages is non-empty and the use field …" — but an empty usages list cannot reach the check,
@@ -640,7 +636,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheJwkFieldsInWebIdlsOwnOrderAndOnlyOnce()
     {
         // A dictionary's members are converted in lexicographical order, each read exactly once. A second
@@ -661,7 +657,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("alg,ext,k,key_ops,kty,use");
     }
 
-    [Fact]
+    [Test]
     public void TheJwkIsReadBeforeTheAlgorithmIsNormalized()
     {
         // WebIDL converts every argument before a single step of the method body runs, and the JsonWebKey
@@ -685,14 +681,13 @@ public class SubtleCryptoKeyTests
     // The usage matrix
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // A key must permit the operation being asked of it, or the answer is an InvalidAccessError — never a
     // silent success and never a TypeError.
-    [InlineData("sign", "['verify']", "InvalidAccessError")]
-    [InlineData("verify", "['sign']", "InvalidAccessError")]
-    [InlineData("sign", "['sign']", "ok")]
-    [InlineData("verify", "['verify']", "ok")]
-    [InlineData("sign", "['sign', 'verify']", "ok")]
+    [TestCase("sign", "['verify']", "InvalidAccessError")]
+    [TestCase("verify", "['sign']", "InvalidAccessError")]
+    [TestCase("sign", "['sign']", "ok")]
+    [TestCase("verify", "['verify']", "ok")]
+    [TestCase("sign", "['sign', 'verify']", "ok")]
     public void EnforcesTheHmacUsageMatrix(string operation, string usages, string expected)
     {
         var call = string.Equals(operation, "sign", StringComparison.Ordinal)
@@ -710,13 +705,12 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("encrypt", "['decrypt']", "InvalidAccessError")]
-    [InlineData("decrypt", "['encrypt']", "InvalidAccessError")]
-    [InlineData("encrypt", "['encrypt']", "ok")]
-    [InlineData("decrypt", "['decrypt']", "ok")]
-    [InlineData("encrypt", "['wrapKey']", "InvalidAccessError")]
-    [InlineData("decrypt", "['encrypt', 'decrypt']", "ok")]
+    [TestCase("encrypt", "['decrypt']", "InvalidAccessError")]
+    [TestCase("decrypt", "['encrypt']", "InvalidAccessError")]
+    [TestCase("encrypt", "['encrypt']", "ok")]
+    [TestCase("decrypt", "['decrypt']", "ok")]
+    [TestCase("encrypt", "['wrapKey']", "InvalidAccessError")]
+    [TestCase("decrypt", "['encrypt', 'decrypt']", "ok")]
     public void EnforcesTheAesGcmUsageMatrix(string operation, string usages, string expected)
     {
         // The same key material is imported twice - once with the usages under test and once as an encryptor
@@ -739,7 +733,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void AKeyMadeForOneAlgorithmRefusesAnother()
     {
         Run("""
@@ -764,11 +758,10 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("InvalidAccessError,InvalidAccessError,NotSupportedError,NotSupportedError");
     }
 
-    [Theory]
-    [InlineData("{ name: 'HMAC', hash: 'SHA-256' }", "['encrypt']")]
-    [InlineData("{ name: 'HMAC', hash: 'SHA-256' }", "['sign', 'deriveKey']")]
-    [InlineData("{ name: 'AES-GCM', length: 128 }", "['sign']")]
-    [InlineData("{ name: 'AES-GCM', length: 128 }", "['encrypt', 'verify']")]
+    [TestCase("{ name: 'HMAC', hash: 'SHA-256' }", "['encrypt']")]
+    [TestCase("{ name: 'HMAC', hash: 'SHA-256' }", "['sign', 'deriveKey']")]
+    [TestCase("{ name: 'AES-GCM', length: 128 }", "['sign']")]
+    [TestCase("{ name: 'AES-GCM', length: 128 }", "['encrypt', 'verify']")]
     public void RefusesAUsageTheAlgorithmDoesNotSupportWithASyntaxError(string algorithm, string usages)
     {
         var engine = WebEngine();
@@ -784,7 +777,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASecretKeyWithNoUsagesAtAll()
     {
         var engine = WebEngine();
@@ -801,7 +794,7 @@ public class SubtleCryptoKeyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnUnrecognizedUsageIsATypeErrorRatherThanASyntaxError()
     {
         var engine = WebEngine();
@@ -822,9 +815,8 @@ public class SubtleCryptoKeyTests
     // Formats and algorithms that are not there
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("spki")]
-    [InlineData("pkcs8")]
+    [TestCase("spki")]
+    [TestCase("pkcs8")]
     public void RefusesAnAsymmetricKeyFormatWithANotSupportedError(string format)
     {
         var engine = WebEngine();
@@ -843,12 +835,11 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Theory]
-    [InlineData("'RAW'")]
-    [InlineData("'pem'")]
-    [InlineData("''")]
-    [InlineData("undefined")]
-    [InlineData("42")]
+    [TestCase("'RAW'")]
+    [TestCase("'pem'")]
+    [TestCase("''")]
+    [TestCase("undefined")]
+    [TestCase("42")]
     public void RefusesAFormatOutsideTheEnumerationWithATypeError(string format)
     {
         var engine = WebEngine();
@@ -861,21 +852,20 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Theory]
-    [InlineData("sign", "'X25519'")]
-    [InlineData("verify", "'Ed25519'")]
-    [InlineData("encrypt", "'AES-XTS'")]
-    [InlineData("decrypt", "{ name: 'ChaCha20-Poly1305' }")]
-    [InlineData("generateKey", "'HKDF'")]
-    [InlineData("importKey", "'X25519'")]
+    [TestCase("sign", "'X25519'")]
+    [TestCase("verify", "'Ed25519'")]
+    [TestCase("encrypt", "'AES-XTS'")]
+    [TestCase("decrypt", "{ name: 'ChaCha20-Poly1305' }")]
+    [TestCase("generateKey", "'HKDF'")]
+    [TestCase("importKey", "'X25519'")]
     // An algorithm that is registered, but not for this operation: RSA-OAEP encrypts and never signs,
     // RSASSA-PKCS1-v1_5 signs and never encrypts, ECDH derives and never signs, and PBKDF2 — whose keys
     // this engine imports — does nothing but derive.
-    [InlineData("sign", "'RSA-OAEP'")]
-    [InlineData("encrypt", "'RSASSA-PKCS1-v1_5'")]
-    [InlineData("sign", "'ECDH'")]
-    [InlineData("encrypt", "'ECDSA'")]
-    [InlineData("sign", "'PBKDF2'")]
+    [TestCase("sign", "'RSA-OAEP'")]
+    [TestCase("encrypt", "'RSASSA-PKCS1-v1_5'")]
+    [TestCase("sign", "'ECDH'")]
+    [TestCase("encrypt", "'ECDSA'")]
+    [TestCase("sign", "'PBKDF2'")]
     public void RefusesAnUnregisteredAlgorithmWithANotSupportedError(string operation, string algorithm)
     {
         var engine = WebEngine();
@@ -897,7 +887,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("NotSupportedError/9");
     }
 
-    [Fact]
+    [Test]
     public void OnlyTheOperationsThisEngineImplementsExist()
     {
         var engine = WebEngine();
@@ -916,7 +906,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("wrapKey,unwrapKey");
     }
 
-    [Fact]
+    [Test]
     public void EveryOperationHasTheIdlArityAndTheAttributesOfABuiltInMethod()
     {
         var engine = WebEngine();
@@ -940,10 +930,9 @@ public class SubtleCryptoKeyTests
     // Normalization, argument conversion, and the order the failures come in
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("'hmac'")]
-    [InlineData("'Hmac'")]
-    [InlineData("{ name: 'hMaC' }")]
+    [TestCase("'hmac'")]
+    [TestCase("'Hmac'")]
+    [TestCase("{ name: 'hMaC' }")]
     public void MatchesTheRegisteredAlgorithmNameCaseInsensitively(string algorithm)
     {
         // "If registeredAlgorithms contains a key that is a case-insensitive string match for algName: set
@@ -957,7 +946,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("b617318655057264e28bc0b6fb378c8ef146be00|HMAC|SHA-1");
     }
 
-    [Fact]
+    [Test]
     public void TheHashMemberIsNormalizedAsADigestAlgorithm()
     {
         var engine = WebEngine();
@@ -984,7 +973,7 @@ public class SubtleCryptoKeyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheAesKeyLengthIsARequiredMember()
     {
         var engine = WebEngine();
@@ -1013,7 +1002,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheHmacKeyLengthFollowsTheHashBlockSizeUnlessItIsGiven()
     {
         Run("""
@@ -1029,7 +1018,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("512:64,512:64,1024:128,1024:128,128:16");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToGenerateAnHmacKeyItCannotRepresent()
     {
         var engine = WebEngine();
@@ -1048,7 +1037,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheImportedHmacLengthMustNameTheBytesThatArrived()
     {
         var engine = WebEngine();
@@ -1083,11 +1072,10 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(8)]
-    [InlineData(17)]
-    [InlineData(64)]
+    [TestCase(0)]
+    [TestCase(8)]
+    [TestCase(17)]
+    [TestCase(64)]
     public void RefusesAnAesKeyOfTheWrongSizeWithADataError(int bytes)
     {
         var engine = WebEngine();
@@ -1098,17 +1086,16 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Theory]
     // The tag lengths the specification lists but this platform's AES-GCM cannot produce.
-    [InlineData("32", "OperationError")]
-    [InlineData("64", "OperationError")]
+    [TestCase("32", "OperationError")]
+    [TestCase("64", "OperationError")]
     // A value that is not in the list at all.
-    [InlineData("8", "OperationError")]
-    [InlineData("100", "OperationError")]
-    [InlineData("255", "OperationError")]
+    [TestCase("8", "OperationError")]
+    [TestCase("100", "OperationError")]
+    [TestCase("255", "OperationError")]
     // ... and one outside `octet`, which fails the [EnforceRange] conversion first.
-    [InlineData("256", "TypeError")]
-    [InlineData("-8", "TypeError")]
+    [TestCase("256", "TypeError")]
+    [TestCase("-8", "TypeError")]
     public void RefusesATagLengthItCannotProduce(string tagLength, string expected)
     {
         var engine = WebEngine();
@@ -1120,12 +1107,11 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(8)]
-    [InlineData(11)]
-    [InlineData(13)]
-    [InlineData(16)]
+    [TestCase(0)]
+    [TestCase(8)]
+    [TestCase(11)]
+    [TestCase(13)]
+    [TestCase(16)]
     public void RefusesAnIvThePlatformCannotUse(int ivLength)
     {
         var engine = WebEngine();
@@ -1139,7 +1125,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheIvIsARequiredMemberOfAesGcmParams()
     {
         var engine = WebEngine();
@@ -1154,7 +1140,7 @@ public class SubtleCryptoKeyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheAesGcmParamsMembersInWebIdlsOwnOrder()
     {
         // "Let members be the result of ... ordered by the unicode codepoint order of their keys" —
@@ -1178,7 +1164,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("name,additionalData,iv,tagLength");
     }
 
-    [Fact]
+    [Test]
     public void ABufferSourceMemberIsCopiedWhenItIsRead()
     {
         // "If member is of the type BufferSource and is present: set the dictionary member … to the result of
@@ -1199,7 +1185,7 @@ public class SubtleCryptoKeyTests
                 "2ccda4a5415cb91e135c2a0f78c9b2fdb36d1df9b9d5e596f83e8b7f52971cb3|ffffffffffffffffffffffff");
     }
 
-    [Fact]
+    [Test]
     public void TheDataArgumentIsCopiedAfterTheAlgorithmIsNormalized()
     {
         // Argument conversion and the method steps are two different times. Converting `data` to a
@@ -1216,7 +1202,7 @@ public class SubtleCryptoKeyTests
                 "e84c538e7fe250730ef62de220c40dfa808d3008c0cdb437181564b88b8714b8|212121");
     }
 
-    [Fact]
+    [Test]
     public void ADataArgumentTransferredDuringNormalizationIsDigestedAsEmpty()
     {
         // The same step 4, with the getter detaching the buffer rather than rewriting it. "Get a copy of the
@@ -1230,7 +1216,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 
-    [Fact]
+    [Test]
     public void TheDataArgumentIsNotReReadOnceTheCopyStepHasRun()
     {
         // The other half of the same step, and the one that was never in question: once step 4 has taken the
@@ -1246,7 +1232,7 @@ public class SubtleCryptoKeyTests
                 "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad|212121");
     }
 
-    [Fact]
+    [Test]
     public void VerifyCopiesBothOfItsBuffersAfterTheAlgorithmIsNormalized()
     {
         // verify is the only method with two BufferSource parameters, and the specification gives each its
@@ -1268,7 +1254,7 @@ public class SubtleCryptoKeyTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void VerifyOverBuffersTransferredDuringNormalizationDoesNotVerify()
     {
         // The same two steps with the getter detaching each buffer instead: both copies are empty, and an
@@ -1283,7 +1269,7 @@ public class SubtleCryptoKeyTests
             """).AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void EncryptCopiesItsDataAfterTheAlgorithmIsNormalized()
     {
         // encrypt's step 4, made visible the same way: the plaintext is zeroed before the call and repaired
@@ -1305,7 +1291,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("6a3f7ea3473ed63281298b3e7c216409");
     }
 
-    [Fact]
+    [Test]
     public void DecryptOverACiphertextTransferredDuringNormalizationFails()
     {
         // decrypt's step 4, with the getter detaching: the copy is the empty byte sequence, and AES-CBC's own
@@ -1324,7 +1310,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheKeyDataIsCopiedAfterTheAlgorithmIsNormalized()
     {
         // importKey's step 4 carries both the format check and, for the BufferSource arm alone, "Let keyData
@@ -1343,7 +1329,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("000102030405060708090a0b0c0d0e0f");
     }
 
-    [Fact]
+    [Test]
     public void TheWrappedKeyIsCopiedAfterBothOfUnwrapKeysAlgorithmsAreNormalized()
     {
         // unwrapKey normalizes twice — the unwrap algorithm at step 2 and the unwrapped key's own at step 4 —
@@ -1366,7 +1352,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("101112131415161718191a1b1c1d1e1f");
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsAreConvertedLeftToRightBeforeTheBodyRuns()
     {
         var engine = WebEngine();
@@ -1389,7 +1375,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAKeyDataThatIsNeitherABufferSourceNorAJwk()
     {
         var engine = WebEngine();
@@ -1416,7 +1402,7 @@ public class SubtleCryptoKeyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesABufferSourceBackedByASharedArrayBuffer()
     {
         var engine = WebEngine();
@@ -1441,7 +1427,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsEveryShapeOfBufferSourceForTheKeyAndTheMessage()
     {
         // `BufferSource` is "an ArrayBuffer, or any view over one" — the element type of a view is not
@@ -1464,7 +1450,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("1|b617318655057264e28bc0b6fb378c8ef146be00");
     }
 
-    [Fact]
+    [Test]
     public void ADetachedBufferIsTheEmptyByteSequence()
     {
         var engine = WebEngine();
@@ -1486,7 +1472,7 @@ public class SubtleCryptoKeyTests
     // Promises, rejections and the receiver
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void NoOperationEverThrowsSynchronously()
     {
         var engine = WebEngine();
@@ -1512,7 +1498,7 @@ public class SubtleCryptoKeyTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EveryOperationBrandChecksItsReceiverAsARejection()
     {
         var engine = WebEngine();
@@ -1535,7 +1521,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("secret");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorFromAGetterBecomesTheRejection()
     {
         var engine = WebEngine();
@@ -1554,7 +1540,7 @@ public class SubtleCryptoKeyTests
             """).AsString().Should().Be("EvalError: from the jwk");
     }
 
-    [Fact]
+    [Test]
     public void EveryOperationSettlesOnAMicrotaskTurn()
     {
         var engine = WebEngine();
@@ -1572,7 +1558,7 @@ public class SubtleCryptoKeyTests
             """).UnwrapIfPromise().AsString().Should().Be("sync,generateKey,digest");
     }
 
-    [Fact]
+    [Test]
     public void AFailureIsCatchableInScript()
     {
         Run("""
@@ -1590,7 +1576,7 @@ public class SubtleCryptoKeyTests
     // Installation
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void CryptoKeyRidesTheCryptoFlagAndNeverReachesAShadowRealm()
     {
         var engine = WebEngine();
@@ -1613,7 +1599,7 @@ public class SubtleCryptoKeyTests
         new Engine().Evaluate("typeof CryptoKey").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AKeyIsNotStructuredCloneable()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto | WebApiFeatures.StructuredClone));

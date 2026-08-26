@@ -57,11 +57,11 @@ public class HostReadOnlyCollectionTests
         nameof(ArrayList),
     ];
 
-    public static TheoryData<string> ReadOnlyShapes
+    public static TestCases<string> ReadOnlyShapes
     {
         get
         {
-            var data = new TheoryData<string>();
+            var data = new TestCases<string>();
             foreach (var shape in _readOnlyShapes)
             {
                 data.Add(shape);
@@ -116,11 +116,11 @@ public class HostReadOnlyCollectionTests
     /// <c>Sort</c>/<c>Reverse</c> member of their own, and a wrapped member wins over the prototype, so
     /// <c>host.sort(…)</c> would measure member resolution rather than the refusal.
     /// </summary>
-    public static TheoryData<string, string> ThrowingOperations
+    public static TestCases<string, string> ThrowingOperations
     {
         get
         {
-            var data = new TheoryData<string, string>();
+            var data = new TestCases<string, string>();
             foreach (var shape in _readOnlyShapes)
             {
                 data.Add(shape, "host.push(4)");
@@ -137,11 +137,11 @@ public class HostReadOnlyCollectionTests
     /// <summary>
     /// The assignments, which the specification refuses differently: silently in sloppy mode.
     /// </summary>
-    public static TheoryData<string, string> AssigningOperations
+    public static TestCases<string, string> AssigningOperations
     {
         get
         {
-            var data = new TheoryData<string, string>();
+            var data = new TestCases<string, string>();
             foreach (var shape in _readOnlyShapes)
             {
                 data.Add(shape, "host[0] = 9");
@@ -155,8 +155,7 @@ public class HostReadOnlyCollectionTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(ThrowingOperations))]
+    [TestCaseSource(nameof(ThrowingOperations))]
     public void AnArrayGenericThatMustGrowAReadOnlyCollectionThrowsACatchableTypeError(string shape, string operation)
     {
         var (host, read) = CreateReadOnlyShape(shape);
@@ -174,8 +173,7 @@ public class HostReadOnlyCollectionTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(AssigningOperations))]
+    [TestCaseSource(nameof(AssigningOperations))]
     public void AnAssignmentToAReadOnlyCollectionIsRefusedSilentlyInSloppyModeAndThrowsInStrictMode(string shape, string operation)
     {
         var (host, read) = CreateReadOnlyShape(shape);
@@ -195,8 +193,7 @@ public class HostReadOnlyCollectionTests
     /// message, which is the point: the refusal happens in <c>[[Set]]</c>, before the collection is
     /// reached at all.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(ReadOnlyShapes))]
+    [TestCaseSource(nameof(ReadOnlyShapes))]
     public void TheRefusalIsTheOrdinaryReadOnlyPropertyTypeError(string shape)
     {
         var (host, _) = CreateReadOnlyShape(shape);
@@ -207,7 +204,7 @@ public class HostReadOnlyCollectionTests
         message.Should().Contain("read only property '3'");
     }
 
-    [Fact]
+    [Test]
     public void AGrowableListStillGrows()
     {
         // the control: nothing above may be bought by refusing writes that were always legitimate
@@ -224,7 +221,7 @@ public class HostReadOnlyCollectionTests
     /// <see langword="true"/> to mean it cannot grow, the same lie <c>T[]</c> tells through the same
     /// interface, so it must be treated as fixed-size and keep its element writes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnArraySegmentIsFixedSizeRatherThanReadOnly()
     {
         var array = new[] { 1, 2, 3 };

@@ -48,7 +48,7 @@ public class HostEngineStateTests
 
     // ---- the slot itself ----
 
-    [Fact]
+    [Test]
     public void StateRoundTripsThroughTheEngine()
     {
         var engine = new Engine();
@@ -60,14 +60,14 @@ public class HostEngineStateTests
         (engine.HostDefined as RequestScope)!.Tenant.Should().Be("alpha");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultIsNull()
     {
         new Engine().HostDefined.Should().BeNull();
         new Engine(options => options.Strict = true).HostDefined.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void StateCanBeReplacedAndDetached()
     {
         var engine = new Engine();
@@ -86,7 +86,7 @@ public class HostEngineStateTests
         engine.HostDefined.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesHoldTheirOwnState()
     {
         var engineA = new Engine();
@@ -105,7 +105,7 @@ public class HostEngineStateTests
 
     // ---- what does not clear it ----
 
-    [Fact]
+    [Test]
     public void StateSurvivesAGlobalSnapshotRestore()
     {
         // The pooling case: an engine reused across requests captures once and restores between them. The
@@ -132,7 +132,7 @@ public class HostEngineStateTests
 
     // ---- the case it exists for ----
 
-    [Fact]
+    [Test]
     public void ASharedOptionsLazyGlobalResolvesThroughTheEngineState()
     {
         // Registered once, for the process. The factory is static: it captures nothing, which is what makes
@@ -171,7 +171,7 @@ public class HostEngineStateTests
         unusedScope.Reads.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ThePerEngineLazyGlobalReachesItToo()
     {
         // The per-engine registration could have closed over the state directly; reading it back through the
@@ -185,7 +185,7 @@ public class HostEngineStateTests
 
     // ---- why the principal realm and not the current one ----
 
-    [Fact]
+    [Test]
     public void TheSameStateIsVisibleFromInsideAShadowRealm()
     {
         // A ShadowRealm evaluation runs against a Realm Record of its own, whose [[HostDefined]] the
@@ -212,7 +212,7 @@ public class HostEngineStateTests
         engine.Evaluate("readTenant() + '/' + (typeof outerOnly)").Should().Be("alpha/string");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmGetsItsOwnEmptySlotAndTheHostHookCanFillIt()
     {
         // The other half of the rule, and the reason the paragraph above is a design rather than a

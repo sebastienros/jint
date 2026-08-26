@@ -68,7 +68,7 @@ public class HostWebApiOptionsIsolationTests
     /// The second engine is constructed <em>before</em> the first is configured and enables its own web APIs
     /// <em>after</em>, so the assertion covers both directions in time across the shared instance.
     /// </remarks>
-    [Fact]
+    [Test]
     public void APolicyConfiguredThroughTheLiveDoorDoesNotGovernAnotherDefaultBuiltEngine()
     {
         var tenantHandler = new RecordingHandler();
@@ -108,7 +108,7 @@ public class HostWebApiOptionsIsolationTests
     /// The same, for two engines a host deliberately built from one <see cref="Options"/> instance — the
     /// pooled shape, where the sharing is written down and the leak is no more wanted for it.
     /// </summary>
-    [Fact]
+    [Test]
     public void APolicyConfiguredThroughTheLiveDoorDoesNotGovernASiblingBuiltFromTheSameOptions()
     {
         var tenantHandler = new RecordingHandler();
@@ -136,7 +136,7 @@ public class HostWebApiOptionsIsolationTests
     /// A setting read live rather than at enable time leaks the same way, and an engine that passed no
     /// callback at all is enough to show it: its <c>console</c> output must not reach another engine's sink.
     /// </summary>
-    [Fact]
+    [Test]
     public void AConsoleSinkConfiguredThroughTheLiveDoorDoesNotCaptureAnotherEnginesOutput()
     {
         var sink = new RecordingSink();
@@ -158,7 +158,7 @@ public class HostWebApiOptionsIsolationTests
     /// The engine's copy starts as a copy: what the host configured on the options up front is still in force
     /// after the live door has written one setting of its own.
     /// </summary>
-    [Fact]
+    [Test]
     public void WhatTheHostConfiguredUpFrontSurvivesALiveConfiguration()
     {
         var handler = new RecordingHandler();
@@ -182,7 +182,7 @@ public class HostWebApiOptionsIsolationTests
     /// Two live configurations on the same engine accumulate, so the copy is the engine's from the first call
     /// onwards rather than being taken afresh from the shared instance each time.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASecondLiveConfigurationSeesWhatTheFirstOneWrote()
     {
         var handler = new RecordingHandler();

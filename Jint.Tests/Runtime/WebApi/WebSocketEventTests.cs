@@ -14,7 +14,7 @@ public class WebSocketEventTests
 {
     private static Engine WebEngine() => new(options => options.UseWebSocket());
 
-    [Fact]
+    [Test]
     public void CloseEventDefaultsEveryMemberOfItsDictionary()
     {
         var engine = WebEngine();
@@ -30,7 +30,7 @@ public class WebSocketEventTests
         engine.Evaluate("Object.getPrototypeOf(CloseEvent) === Event").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CloseEventReadsItsDictionary()
     {
         var engine = WebEngine();
@@ -44,11 +44,10 @@ public class WebSocketEventTests
     /// <c>code</c> is a plain <c>unsigned short</c>, so https://webidl.spec.whatwg.org/#js-unsigned-short
     /// wraps rather than clamping — unlike <c>close()</c>'s own <c>[Clamp]</c> argument.
     /// </summary>
-    [Theory]
-    [InlineData("65536", 0)]
-    [InlineData("-1", 65535)]
-    [InlineData("NaN", 0)]
-    [InlineData("1000.9", 1000)]
+    [TestCase("65536", 0)]
+    [TestCase("-1", 65535)]
+    [TestCase("NaN", 0)]
+    [TestCase("1000.9", 1000)]
     public void CloseEventWrapsItsCode(string code, double expected)
     {
         var engine = WebEngine();
@@ -56,16 +55,16 @@ public class WebSocketEventTests
         engine.Evaluate($"new CloseEvent('close', {{ code: {code} }}).code").AsNumber().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void CloseEventRequiresAType()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CloseEvent()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CloseEvent()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void MessageEventDefaultsEveryMemberOfItsDictionary()
     {
         var engine = WebEngine();
@@ -80,7 +79,7 @@ public class WebSocketEventTests
         engine.Evaluate("Object.prototype.toString.call(e)").AsString().Should().Be("[object MessageEvent]");
     }
 
-    [Fact]
+    [Test]
     public void MessageEventCarriesAnyValueAsItsData()
     {
         var engine = WebEngine();
@@ -95,14 +94,14 @@ public class WebSocketEventTests
     /// <summary>
     /// Both interfaces' attributes are accessors that brand-check, as WebIDL specifies.
     /// </summary>
-    [Fact]
+    [Test]
     public void ThePrototypesAreNotInstances()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CloseEvent.prototype.code"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("CloseEvent.prototype.code"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("MessageEvent.prototype.data"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("MessageEvent.prototype.data"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // …so the only own property either instance carries is the one WebIDL puts there: `Event`'s
@@ -114,7 +113,7 @@ public class WebSocketEventTests
     /// Both are dispatchable like any other event, which is what makes them usable from script for something
     /// other than a socket.
     /// </summary>
-    [Fact]
+    [Test]
     public void BothCanBeDispatchedAtAnyEventTarget()
     {
         var engine = WebEngine();

@@ -40,7 +40,7 @@ public class SuspendedJumpCompletionTests
 
     // ---------------------------------------------------------------- generators
 
-    [Fact]
+    [Test]
     public void UnlabelledBreakThroughAYieldingFinally()
     {
         Run($$"""
@@ -56,7 +56,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakThroughAYieldingFinally()
     {
         Run($$"""
@@ -75,7 +75,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void UnlabelledContinueThroughAYieldingFinally()
     {
         Run($$"""
@@ -92,7 +92,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|end");
     }
 
-    [Fact]
+    [Test]
     public void LabelledContinueThroughAYieldingFinally()
     {
         Run($$"""
@@ -112,7 +112,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|end");
     }
 
-    [Fact]
+    [Test]
     public void BreakOutOfALabelledBlockThroughAYieldingFinally()
     {
         Run($$"""
@@ -131,7 +131,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void ABreakTargetingAnInnerLabelIsNotConsumedByAnOuterLoopAcrossAYield()
     {
         // The label has to survive the suspension in the other direction too: an inner target read
@@ -153,7 +153,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|after-inner,after-inner,end");
     }
 
-    [Fact]
+    [Test]
     public void ALabelledBreakAcrossThreeLevelsThroughAYieldingFinally()
     {
         Run($$"""
@@ -175,7 +175,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void AJumpInTheFinallyOverridesThePendingJump()
     {
         // Step 3 keeps B only when F is a normal completion; an abrupt finalizer wins outright.
@@ -192,7 +192,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|end");
     }
 
-    [Fact]
+    [Test]
     public void AReturnInTheFinallyOverridesThePendingJump()
     {
         Run($$"""
@@ -210,7 +210,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|R|true|");
     }
 
-    [Fact]
+    [Test]
     public void ABreakThroughTwoNestedYieldingFinallyBlocks()
     {
         Run($$"""
@@ -228,7 +228,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("inner,outer|end");
     }
 
-    [Fact]
+    [Test]
     public void ABreakThroughAYieldingFinallyInsideASwitch()
     {
         Run($$"""
@@ -248,7 +248,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void AnUnlabelledBreakInsideASwitchStillBreaksTheSwitchOnlyAcrossAYield()
     {
         Run($$"""
@@ -268,7 +268,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|after-switch,after-switch,end");
     }
 
-    [Fact]
+    [Test]
     public void AContinueThroughAYieldingFinallyInAWhileLoop()
     {
         Run($$"""
@@ -287,7 +287,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|end");
     }
 
-    [Fact]
+    [Test]
     public void ABreakThroughAYieldingFinallyInAForOfLoop()
     {
         Run($$"""
@@ -311,7 +311,7 @@ public class SuspendedJumpCompletionTests
     // single slot got wrong: the inner park consumed the outer's, which cost the outer jump its
     // target and silently swallowed a pending return or throw.
 
-    [Fact]
+    [Test]
     public void AFinallyContainingAnotherParkingTryKeepsItsOwnPendingBreak()
     {
         Run($$"""
@@ -332,7 +332,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("x|end");
     }
 
-    [Fact]
+    [Test]
     public void AFinallyContainingAnotherParkingTryKeepsItsOwnPendingReturn()
     {
         Run("""
@@ -351,7 +351,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("x|R|true");
     }
 
-    [Fact]
+    [Test]
     public void AFinallyContainingAnotherParkingTryKeepsItsOwnPendingThrow()
     {
         Run("""
@@ -373,7 +373,7 @@ public class SuspendedJumpCompletionTests
 
     // ------------------------------------------------------- async functions
 
-    [Fact]
+    [Test]
     public void UnlabelledBreakThroughAnAwaitingFinally()
     {
         RunAsync("""
@@ -388,7 +388,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,end");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakThroughAnAwaitingFinally()
     {
         RunAsync("""
@@ -406,7 +406,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,end");
     }
 
-    [Fact]
+    [Test]
     public void UnlabelledContinueThroughAnAwaitingFinally()
     {
         RunAsync("""
@@ -422,7 +422,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f,end");
     }
 
-    [Fact]
+    [Test]
     public void LabelledContinueThroughAnAwaitingFinally()
     {
         RunAsync("""
@@ -441,7 +441,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f,end");
     }
 
-    [Fact]
+    [Test]
     public void AJumpInAnAwaitingFinallyOverridesThePendingJump()
     {
         RunAsync("""
@@ -456,7 +456,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f,end");
     }
 
-    [Fact]
+    [Test]
     public void ABreakThroughAnAwaitingFinallyInAForAwaitLoop()
     {
         RunAsync("""
@@ -476,7 +476,7 @@ public class SuspendedJumpCompletionTests
 
     // ------------------------------------------------------ async generators
 
-    [Fact]
+    [Test]
     public void UnlabelledBreakThroughAYieldingFinallyInAnAsyncGenerator()
     {
         RunAsync("""
@@ -498,7 +498,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakThroughAYieldingFinallyInAnAsyncGenerator()
     {
         RunAsync("""
@@ -523,7 +523,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|end");
     }
 
-    [Fact]
+    [Test]
     public void ContinueThroughAYieldingFinallyInAnAsyncGenerator()
     {
         RunAsync("""
@@ -546,7 +546,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,f|end");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInAFinallyOfAnAsyncGeneratorStillCarriesTheJump()
     {
         RunAsync("""
@@ -576,7 +576,7 @@ public class SuspendedJumpCompletionTests
     // Return and Throw were already parked across a suspension, and the non-suspending jump was
     // fixed separately (LabelledJumpTests). These pin that widening the park changed neither.
 
-    [Fact]
+    [Test]
     public void APendingReturnStillSurvivesAYieldingFinally()
     {
         Run("""
@@ -588,7 +588,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|R|true");
     }
 
-    [Fact]
+    [Test]
     public void APendingThrowStillSurvivesAYieldingFinally()
     {
         Run("""
@@ -601,7 +601,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f|T");
     }
 
-    [Fact]
+    [Test]
     public void APendingReturnStillSurvivesAnAwaitingFinally()
     {
         RunAsync("""
@@ -614,7 +614,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,R");
     }
 
-    [Fact]
+    [Test]
     public void APendingThrowStillSurvivesAnAwaitingFinally()
     {
         RunAsync("""
@@ -627,7 +627,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f,caught:T");
     }
 
-    [Fact]
+    [Test]
     public void AYieldInsideACatchFollowedByABreakIsUnchanged()
     {
         Run($$"""
@@ -644,7 +644,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("c|end");
     }
 
-    [Fact]
+    [Test]
     public void TheNonSuspendingLabelledBreakThroughANonEmptyFinallyIsUnchanged()
     {
         Run("""
@@ -659,7 +659,7 @@ public class SuspendedJumpCompletionTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void AYieldBeforeTheTryStatementIsUnchanged()
     {
         // The jump is not parked at all here: the suspension is outside the finalizer, so the

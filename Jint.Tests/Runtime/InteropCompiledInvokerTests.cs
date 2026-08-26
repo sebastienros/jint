@@ -64,7 +64,7 @@ public class InteropCompiledInvokerTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void FastLane_IntArgsAndReturn()
     {
         var engine = CreateEngine();
@@ -73,14 +73,14 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.AddInt(-4, 3)").AsNumber().Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void FastLane_LongArgsAndReturn()
     {
         var engine = CreateEngine();
         engine.Evaluate("host.AddLong(3, 4)").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void FastLane_DoubleArgsAndReturn()
     {
         var engine = CreateEngine();
@@ -89,7 +89,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.AddDouble(2, 3)").AsNumber().Should().Be(5.0);
     }
 
-    [Fact]
+    [Test]
     public void FastLane_BoolArgsAndReturn()
     {
         var engine = CreateEngine();
@@ -97,14 +97,14 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void FastLane_StringArgsAndReturn()
     {
         var engine = CreateEngine();
         engine.Evaluate("host.Concat('a', 'b')").AsString().Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void FastLane_JsValuePassthrough()
     {
         var engine = CreateEngine();
@@ -113,14 +113,14 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.Echo(true)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FastLane_StaticMethod()
     {
         var engine = CreateEngine();
         engine.Evaluate("host.StaticAdd(4, 5)").AsNumber().Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void FastLane_VoidReturnsNull()
     {
         var engine = CreateEngine();
@@ -133,7 +133,7 @@ public class InteropCompiledInvokerTests
         host.VoidCalled.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HostExceptionSurfacesAsSameClrException()
     {
         var engine = CreateEngine();
@@ -141,7 +141,7 @@ public class InteropCompiledInvokerTests
         ex.Message.Should().Be("boom from host");
     }
 
-    [Fact]
+    [Test]
     public void Fallback_FractionalNumberToIntParam()
     {
         var engine = CreateEngine();
@@ -151,7 +151,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.TimesTwo(2.5)").AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void Fallback_StringToIntParam()
     {
         var engine = CreateEngine();
@@ -160,7 +160,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.TimesTwo('5')").AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void Fallback_OverloadedMethod()
     {
         var engine = CreateEngine();
@@ -168,14 +168,14 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.Over('hi')").AsString().Should().Be("hi!");
     }
 
-    [Fact]
+    [Test]
     public void Fallback_ParamsMethod()
     {
         var engine = CreateEngine();
         engine.Evaluate("host.SumParams(1, 2, 3)").AsNumber().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void OptionalArgMethod()
     {
         // the values here predate the lane covering optional parameters: whichever lane runs, an elided
@@ -188,7 +188,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.WithOptional(5.5)").AsNumber().Should().Be(16);
     }
 
-    [Fact]
+    [Test]
     public void Fallback_OptionalArgOfANonLaneType()
     {
         var engine = CreateEngine();
@@ -198,7 +198,7 @@ public class InteropCompiledInvokerTests
 
 #if NET8_0_OR_GREATER
 
-    [Fact]
+    [Test]
     public void CompiledInvokerIsBuiltForAMethodWithAnOptionalParameter()
     {
         // the engagement probe: the behavioral assertions above pass either way, only this says the
@@ -215,7 +215,7 @@ public class InteropCompiledInvokerTests
         supplied.AsNumber().Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void CompiledInvokerDeclinesWhenTheDefaultIsOutsideTheLane()
     {
         var descriptor = new Jint.Runtime.Interop.MethodDescriptor(typeof(Host).GetMethod(nameof(Host.WithDecimalOptional))!);
@@ -225,7 +225,7 @@ public class InteropCompiledInvokerTests
 
 #endif
 
-    [Fact]
+    [Test]
     public void CustomObjectConverterStillSeesReturnValue()
     {
         // when a custom object converter is registered the fast lane is bypassed so the converter
@@ -279,7 +279,7 @@ public class InteropCompiledInvokerTests
         public string ReturnsString() => "raw";
     }
 
-    [Fact]
+    [Test]
     public void ObjectConverterNeverSeesVoidOrJsValueReturns()
     {
         // A converter can only ever observe a return value that FromObjectWithType actually hands
@@ -307,7 +307,7 @@ public class InteropCompiledInvokerTests
         recorder.Seen.Should().ContainSingle().Which.Should().Be("raw");
     }
 
-    [Fact]
+    [Test]
     public void ObjectConverterStillSeesEveryPrimitiveReturnType()
     {
         // the narrowing must not let int/long/double/bool/string slip past the converter chain
@@ -325,7 +325,7 @@ public class InteropCompiledInvokerTests
         recorder.Seen.Should().Equal(5, 7L, 3.75d, true, "ab");
     }
 
-    [Fact]
+    [Test]
     public void VoidAndJsValueLaneStaysConsistentAcrossConverterPolicies()
     {
         // the compiled invoker is cached process-wide; registering a converter in one engine must
@@ -367,7 +367,7 @@ public class InteropCompiledInvokerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ByRefParameterMethodsBehaveIdenticallyUnderEveryConverterPolicy()
     {
         // out/ref parameter types are ByRef types (Int32&) which never equal any supported
@@ -387,7 +387,7 @@ public class InteropCompiledInvokerTests
     }
 
 #if NET8_0_OR_GREATER
-    [Fact]
+    [Test]
     public void ReturnTypeVisibilityPredicateMatchesFromObjectWithTypeShortCircuits()
     {
         static bool Invisible(Type? t) => Jint.Runtime.Interop.CompiledMethodInvoker.ReturnValueIsInvisibleToObjectConverters(t);
@@ -415,7 +415,7 @@ public class InteropCompiledInvokerTests
     }
 #endif
 
-    [Fact]
+    [Test]
     public void CustomTypeConverterStillIntercepts()
     {
         // a user-installed ClrTypeConverter participates in some exact-type argument conversions on
@@ -448,7 +448,7 @@ public class InteropCompiledInvokerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void WrongTypedThisSurfacesCatchableTypeError()
     {
         // an extracted method invoked with a foreign CLR receiver must decline the fast lane so the
@@ -518,7 +518,7 @@ public class InteropCompiledInvokerTests
         public int Unwrap(Box box) => box.Value;
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_SameMethodsFromTwoIndependentEngines()
     {
         var first = CreateEngine();
@@ -537,7 +537,7 @@ public class InteropCompiledInvokerTests
         second.Evaluate("host.StaticAdd(4, 5)").AsNumber().Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_CustomTypeConverterEngineCreatedAfterDefaultEngine()
     {
         // default engine first: it populates the shared compiled-invoker entry for And
@@ -557,7 +557,7 @@ public class InteropCompiledInvokerTests
         plain.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_DefaultEngineCreatedAfterCustomTypeConverterEngine()
     {
         // reverse order: the custom-converter engine runs first and never builds a compiled invoker
@@ -579,7 +579,7 @@ public class InteropCompiledInvokerTests
             .Which.Message.Should().Contain("No public methods");
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_ObjectConverterPolicyDoesNotLeakBetweenEngines()
     {
         var converting = new Engine(options => options.Interop.ObjectConverters.Add(new PlusOneIntConverter()));
@@ -594,7 +594,7 @@ public class InteropCompiledInvokerTests
         plain.Evaluate("host.AddInt(2, 3)").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_ThrowingHostMethodFromTwoEngines()
     {
         var first = CreateEngine();
@@ -614,7 +614,7 @@ public class InteropCompiledInvokerTests
             .Which.Message.Should().Be("boom from host");
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_IneligibleMethodsFromTwoEngines()
     {
         // exercises the null "known ineligible" sentinel in the shared cache: params, generic methods, a
@@ -646,47 +646,44 @@ public class InteropCompiledInvokerTests
         }
     }
 
-    [Theory]
     // exact integers, including the int boundaries and negative zero, are exact-type hits
-    [InlineData("host.IdentityInt(0)", 0)]
-    [InlineData("host.IdentityInt(-0)", 0)]
-    [InlineData("host.IdentityInt(1)", 1)]
-    [InlineData("host.IdentityInt(-1)", -1)]
-    [InlineData("host.IdentityInt(2147483647)", int.MaxValue)]
-    [InlineData("host.IdentityInt(-2147483648)", int.MinValue)]
+    [TestCase("host.IdentityInt(0)", 0)]
+    [TestCase("host.IdentityInt(-0)", 0)]
+    [TestCase("host.IdentityInt(1)", 1)]
+    [TestCase("host.IdentityInt(-1)", -1)]
+    [TestCase("host.IdentityInt(2147483647)", int.MaxValue)]
+    [TestCase("host.IdentityInt(-2147483648)", int.MinValue)]
     public void IntBoundaryValuesBindExactly(string script, int expected)
     {
         var engine = CreateEngine();
         engine.Evaluate(script).AsNumber().Should().Be(expected);
     }
 
-    [Theory]
     // non-integral values are declined by the fast lane and rounded by the fallback converter
     // (banker's rounding) exactly as before the fast lane existed
-    [InlineData("host.IdentityInt(1.5)", 2)]
-    [InlineData("host.IdentityInt(2.5)", 2)]
-    [InlineData("host.IdentityInt(-1.5)", -2)]
-    [InlineData("host.IdentityInt(-0.5)", 0)]
-    [InlineData("host.IdentityInt(0.5)", 0)]
+    [TestCase("host.IdentityInt(1.5)", 2)]
+    [TestCase("host.IdentityInt(2.5)", 2)]
+    [TestCase("host.IdentityInt(-1.5)", -2)]
+    [TestCase("host.IdentityInt(-0.5)", 0)]
+    [TestCase("host.IdentityInt(0.5)", 0)]
     public void NonIntegralIntArgumentsFallBackToRoundingConversion(string script, int expected)
     {
         var engine = CreateEngine();
         engine.Evaluate(script).AsNumber().Should().Be(expected);
     }
 
-    [Theory]
     // out-of-range and non-finite numbers are declined by the fast lane AND rejected by the
     // fallback conversion, which surfaces the resolution error
-    [InlineData("host.IdentityInt(2147483648)")]
-    [InlineData("host.IdentityInt(-2147483649)")]
-    [InlineData("host.IdentityInt(NaN)")]
-    [InlineData("host.IdentityInt(Infinity)")]
-    [InlineData("host.IdentityInt(-Infinity)")]
-    [InlineData("host.IdentityLong(NaN)")]
-    [InlineData("host.IdentityLong(Infinity)")]
-    [InlineData("host.IdentityLong(-Infinity)")]
+    [TestCase("host.IdentityInt(2147483648)")]
+    [TestCase("host.IdentityInt(-2147483649)")]
+    [TestCase("host.IdentityInt(NaN)")]
+    [TestCase("host.IdentityInt(Infinity)")]
+    [TestCase("host.IdentityInt(-Infinity)")]
+    [TestCase("host.IdentityLong(NaN)")]
+    [TestCase("host.IdentityLong(Infinity)")]
+    [TestCase("host.IdentityLong(-Infinity)")]
     // (double) long.MaxValue rounds up to 2^63, which overflows long - the upper bound is exclusive
-    [InlineData("host.IdentityLong(9223372036854775808)")]
+    [TestCase("host.IdentityLong(9223372036854775808)")]
     public void OutOfRangeOrNonFiniteIntegerArgumentsAreRejected(string script)
     {
         var engine = CreateEngine();
@@ -694,22 +691,21 @@ public class InteropCompiledInvokerTests
         ex.Message.Should().Contain("No public methods");
     }
 
-    [Theory]
-    [InlineData("host.IdentityLong(0)", 0d)]
-    [InlineData("host.IdentityLong(-0)", 0d)]
-    [InlineData("host.IdentityLong(1)", 1d)]
+    [TestCase("host.IdentityLong(0)", 0d)]
+    [TestCase("host.IdentityLong(-0)", 0d)]
+    [TestCase("host.IdentityLong(1)", 1d)]
     // a very large integral double still binds exactly
-    [InlineData("host.IdentityLong(1e18)", 1e18)]
-    [InlineData("host.IdentityLong(-1e18)", -1e18)]
+    [TestCase("host.IdentityLong(1e18)", 1e18)]
+    [TestCase("host.IdentityLong(-1e18)", -1e18)]
     // long.MinValue is exactly representable as a double, so it is still in range
-    [InlineData("host.IdentityLong(-9223372036854775808)", -9223372036854775808d)]
+    [TestCase("host.IdentityLong(-9223372036854775808)", -9223372036854775808d)]
     public void LongBoundaryValuesBindExactly(string script, double expected)
     {
         var engine = CreateEngine();
         engine.Evaluate(script).AsNumber().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DoubleParameterAcceptsEveryNumberIncludingNonFinite()
     {
         var engine = CreateEngine();
@@ -743,7 +739,7 @@ public class InteropCompiledInvokerTests
         double.NaN, double.PositiveInfinity, double.NegativeInfinity,
     ];
 
-    [Fact]
+    [Test]
     public void IsIntegralNumberMatchesRemainderFormulation()
     {
         // the Math.Floor(v) == v formulation must agree with the v % 1 == 0 one it replaced on every
@@ -755,7 +751,7 @@ public class InteropCompiledInvokerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_OverloadResolutionFromTwoEngines()
     {
         var first = CreateEngine();
@@ -767,7 +763,7 @@ public class InteropCompiledInvokerTests
         second.Evaluate("host.Over(5)").AsNumber().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void SharedInvokerCache_ConstructorInvokerFromTwoEngines()
     {
         static Engine Create()
@@ -785,7 +781,7 @@ public class InteropCompiledInvokerTests
         first.Evaluate("new Box(5).Value").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void IsIntegralNumberEquivalenceIsObservableThroughBigIntConversion()
     {
         // BigInt(number) is a JS-visible consumer of IsIntegralNumber: it throws a RangeError for
@@ -800,7 +796,7 @@ public class InteropCompiledInvokerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CustomTypeConverterInstalledAfterConstructionDisablesFastLane()
     {
         // the fast lane gates on the filter derived from the installed converter; swapping the converter
@@ -825,7 +821,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.And(true, true)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DefaultEngineUsesTheStockTypeConverterFastLane()
     {
         var engine = CreateEngine();
@@ -834,7 +830,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("host.And(true, false)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void StaticAndInstanceMethodsDispatchThroughCachedReflectionFacts()
     {
         var engine = CreateEngine();
@@ -850,7 +846,7 @@ public class InteropCompiledInvokerTests
         engine.Evaluate("var h = host.StaticIdentityInt; h.call(other, 11)").AsNumber().Should().Be(11);
     }
 
-    [Fact]
+    [Test]
     public void ExtractedInstanceMethodWithWrongReceiverSurfacesCatchableTypeError()
     {
         // same guarantee as WrongTypedThisSurfacesCatchableTypeError, but for a method whose

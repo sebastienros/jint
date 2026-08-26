@@ -28,7 +28,7 @@ public class HostGeneratedInteropTests
         JsAccessibleRegistration.RegisterAll();
     }
 
-    [Fact]
+    [Test]
     public void TheGeneratedRegistrationEntryPointIsPublicAndIdempotent()
     {
         JsAccessibleRegistration.RegisterAll();
@@ -44,7 +44,7 @@ public class HostGeneratedInteropTests
     /// function object with its own <c>length</c>, where a reflected one reports the arity it inherits from
     /// <c>Function.prototype</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void AGeneratedMethodReportsItsArityWhereAReflectedOneDoesNot()
     {
         Probe(new GeneratedModel(), "model.Describe.length").Should().Be("number|2");
@@ -54,80 +54,78 @@ public class HostGeneratedInteropTests
         Probe(new ReflectedModel(), "model.Describe.hasOwnProperty('length')").Should().Be("boolean|false");
     }
 
-    [Theory]
-    [InlineData("model.Score")]
-    [InlineData("model.score")]
-    [InlineData("typeof model.Score")]
-    [InlineData("model.Ticks")]
-    [InlineData("model.Ratio")]
-    [InlineData("model.Active")]
-    [InlineData("model.Name")]
-    [InlineData("model.Payload")]
-    [InlineData("model.Tag")]
-    [InlineData("model.Tags")]
-    [InlineData("model.Tags[1]")]
-    [InlineData("model.Tags.length")]
-    [InlineData("model.Doubled")]
-    [InlineData("model.Counter")]
-    [InlineData("model.Stamped")]
-    [InlineData("model.Missing")]
-    [InlineData("JSON.stringify(model.Tags)")]
-    [InlineData("Object.keys(model).indexOf('Score') >= 0")]
-    [InlineData("'Score' in model")]
-    [InlineData("model.hasOwnProperty('Score')")]
+    [TestCase("model.Score")]
+    [TestCase("model.score")]
+    [TestCase("typeof model.Score")]
+    [TestCase("model.Ticks")]
+    [TestCase("model.Ratio")]
+    [TestCase("model.Active")]
+    [TestCase("model.Name")]
+    [TestCase("model.Payload")]
+    [TestCase("model.Tag")]
+    [TestCase("model.Tags")]
+    [TestCase("model.Tags[1]")]
+    [TestCase("model.Tags.length")]
+    [TestCase("model.Doubled")]
+    [TestCase("model.Counter")]
+    [TestCase("model.Stamped")]
+    [TestCase("model.Missing")]
+    [TestCase("JSON.stringify(model.Tags)")]
+    [TestCase("Object.keys(model).indexOf('Score') >= 0")]
+    [TestCase("'Score' in model")]
+    [TestCase("model.hasOwnProperty('Score')")]
     public void ReadsAreIndistinguishable(string script)
     {
         AssertSame(script);
     }
 
-    [Theory]
     // the divergence the MVP shipped: TypeConverter.ToString(value) stored the string "null"
-    [InlineData("model.Name = null; String(model.Name) + '|' + (model.Name === null)")]
-    [InlineData("model.Name = undefined; String(model.Name) + '|' + (model.Name === null)")]
-    [InlineData("model.Name = 'set'; model.Name")]
-    [InlineData("model.Name = 42; model.Name")]
-    [InlineData("model.Name = true; model.Name")]
-    [InlineData("model.Name = {}; model.Name")]
-    [InlineData("model.Score = 5; model.Score")]
-    [InlineData("model.Score = 5.5; model.Score")]
-    [InlineData("model.Score = '7'; model.Score")]
-    [InlineData("model.Score = NaN; model.Score")]
-    [InlineData("model.Score = Infinity; model.Score")]
-    [InlineData("model.Score = 1e30; model.Score")]
-    [InlineData("model.Score = -2147483648; model.Score")]
-    [InlineData("model.Score = 2147483648; model.Score")]
-    [InlineData("model.Score = true; model.Score")]
-    [InlineData("model.Score = null; model.Score")]
-    [InlineData("model.Ticks = 9007199254740991; model.Ticks")]
-    [InlineData("model.Ticks = 1.5; model.Ticks")]
-    [InlineData("model.Ratio = 1.5; model.Ratio")]
-    [InlineData("model.Ratio = '2.5'; model.Ratio")]
-    [InlineData("model.Ratio = NaN; String(model.Ratio)")]
-    [InlineData("model.Active = true; model.Active")]
-    [InlineData("model.Active = 1; model.Active")]
-    [InlineData("model.Active = ''; model.Active")]
-    [InlineData("model.Payload = 'x'; model.Payload")]
-    [InlineData("model.Payload = null; String(model.Payload)")]
-    [InlineData("model.Payload = undefined; String(model.Payload)")]
-    [InlineData("model.Payload = {a:1}; model.Payload.a")]
-    [InlineData("model.Counter = 3; model.Counter")]
-    [InlineData("model.Doubled = 9; model.Doubled")]
-    [InlineData("model.Echoed = 9; model.Score")]
-    [InlineData("String(model.Echoed)")]
-    [InlineData("model.Stamped = 'other'; model.Stamped")]
-    [InlineData("model.Tags = ['a','b']; model.Tags[0]")]
-    [InlineData("model.Tags = 'notanarray'; String(model.Tags)")]
+    [TestCase("model.Name = null; String(model.Name) + '|' + (model.Name === null)")]
+    [TestCase("model.Name = undefined; String(model.Name) + '|' + (model.Name === null)")]
+    [TestCase("model.Name = 'set'; model.Name")]
+    [TestCase("model.Name = 42; model.Name")]
+    [TestCase("model.Name = true; model.Name")]
+    [TestCase("model.Name = {}; model.Name")]
+    [TestCase("model.Score = 5; model.Score")]
+    [TestCase("model.Score = 5.5; model.Score")]
+    [TestCase("model.Score = '7'; model.Score")]
+    [TestCase("model.Score = NaN; model.Score")]
+    [TestCase("model.Score = Infinity; model.Score")]
+    [TestCase("model.Score = 1e30; model.Score")]
+    [TestCase("model.Score = -2147483648; model.Score")]
+    [TestCase("model.Score = 2147483648; model.Score")]
+    [TestCase("model.Score = true; model.Score")]
+    [TestCase("model.Score = null; model.Score")]
+    [TestCase("model.Ticks = 9007199254740991; model.Ticks")]
+    [TestCase("model.Ticks = 1.5; model.Ticks")]
+    [TestCase("model.Ratio = 1.5; model.Ratio")]
+    [TestCase("model.Ratio = '2.5'; model.Ratio")]
+    [TestCase("model.Ratio = NaN; String(model.Ratio)")]
+    [TestCase("model.Active = true; model.Active")]
+    [TestCase("model.Active = 1; model.Active")]
+    [TestCase("model.Active = ''; model.Active")]
+    [TestCase("model.Payload = 'x'; model.Payload")]
+    [TestCase("model.Payload = null; String(model.Payload)")]
+    [TestCase("model.Payload = undefined; String(model.Payload)")]
+    [TestCase("model.Payload = {a:1}; model.Payload.a")]
+    [TestCase("model.Counter = 3; model.Counter")]
+    [TestCase("model.Doubled = 9; model.Doubled")]
+    [TestCase("model.Echoed = 9; model.Score")]
+    [TestCase("String(model.Echoed)")]
+    [TestCase("model.Stamped = 'other'; model.Stamped")]
+    [TestCase("model.Tags = ['a','b']; model.Tags[0]")]
+    [TestCase("model.Tags = 'notanarray'; String(model.Tags)")]
     // the typed write lane's decline rules: only an exact JavaScript type takes it, everything else has to
     // fall through to the engine's conversion and land in the same place
-    [InlineData("model.Score = -0; model.Score")]
-    [InlineData("model.Ratio = 1; model.Ratio")]
-    [InlineData("model.Ticks = 1e30; model.Ticks")]
-    [InlineData("model.Ticks = -1e30; model.Ticks")]
-    [InlineData("model.Name = new String('boxed'); model.Name")]
-    [InlineData("model.Active = new Boolean(false); model.Active")]
-    [InlineData("model.Score = new Number(5); model.Score")]
-    [InlineData("model.Payload = model; model.Payload === model")]
-    [InlineData("model.Counter = 2.5; model.Counter")]
+    [TestCase("model.Score = -0; model.Score")]
+    [TestCase("model.Ratio = 1; model.Ratio")]
+    [TestCase("model.Ticks = 1e30; model.Ticks")]
+    [TestCase("model.Ticks = -1e30; model.Ticks")]
+    [TestCase("model.Name = new String('boxed'); model.Name")]
+    [TestCase("model.Active = new Boolean(false); model.Active")]
+    [TestCase("model.Score = new Number(5); model.Score")]
+    [TestCase("model.Payload = model; model.Payload === model")]
+    [TestCase("model.Counter = 2.5; model.Counter")]
     public void WritesAreIndistinguishable(string script)
     {
         AssertSame(script);
@@ -137,12 +135,11 @@ public class HostGeneratedInteropTests
     /// And the same with writes off, which is the v5 default: a generated member's descriptor must decline
     /// the write exactly as the reflected one does, rather than reaching the CLR member behind the setting.
     /// </summary>
-    [Theory]
-    [InlineData("model.Score = 5; model.Score")]
-    [InlineData("model.Name = 'set'; model.Name")]
-    [InlineData("model.Payload = 'x'; String(model.Payload)")]
-    [InlineData("model.Counter = 3; model.Counter")]
-    [InlineData("'use strict'; try { model.Score = 5 } catch (e) { 'caught ' + (e instanceof TypeError) }")]
+    [TestCase("model.Score = 5; model.Score")]
+    [TestCase("model.Name = 'set'; model.Name")]
+    [TestCase("model.Payload = 'x'; String(model.Payload)")]
+    [TestCase("model.Counter = 3; model.Counter")]
+    [TestCase("'use strict'; try { model.Score = 5 } catch (e) { 'caught ' + (e instanceof TypeError) }")]
     public void AllowWriteIsHonoured(string script)
     {
         AssertSame(script, allowWrite: false);
@@ -166,36 +163,34 @@ public class HostGeneratedInteropTests
     /// path first. This suite's job is to say the two agree.
     /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("model.Tag = 'text'; String(model.Tag)")]
-    [InlineData("model.Tag = 42; String(model.Tag)")]
-    [InlineData("model.Tag = null; String(model.Tag)")]
-    [InlineData("model.Tag = {}; String(model.Tag)")]
+    [TestCase("model.Tag = 'text'; String(model.Tag)")]
+    [TestCase("model.Tag = 42; String(model.Tag)")]
+    [TestCase("model.Tag = null; String(model.Tag)")]
+    [TestCase("model.Tag = {}; String(model.Tag)")]
     public void AJsValueSubtypeMemberIsWrittenByTheEnginesConversionOnBothPaths(string script)
     {
         AssertSame(script);
     }
 
-    [Theory]
-    [InlineData("String(model.Echo('a'))")]
-    [InlineData("String(model.Echo(1))")]
-    [InlineData("String(model.Echo(null))")]
-    [InlineData("model.Count()")]
-    [InlineData("model.Describe('a', 'b')")]
-    [InlineData("model.Touch('t'); String(model.Touched)")]
-    [InlineData("String(model.Touch('t'))")]
-    [InlineData("typeof model.Echo")]
-    [InlineData("typeof model.Count")]
+    [TestCase("String(model.Echo('a'))")]
+    [TestCase("String(model.Echo(1))")]
+    [TestCase("String(model.Echo(null))")]
+    [TestCase("model.Count()")]
+    [TestCase("model.Describe('a', 'b')")]
+    [TestCase("model.Touch('t'); String(model.Touched)")]
+    [TestCase("String(model.Touch('t'))")]
+    [TestCase("typeof model.Echo")]
+    [TestCase("typeof model.Count")]
     // arity: a single candidate with no optional parameters binds only for an exact argument count
-    [InlineData("model.Describe('a')")]
-    [InlineData("model.Describe('a', 'b', 'c')")]
-    [InlineData("model.Count(1)")]
-    [InlineData("model.Echo()")]
+    [TestCase("model.Describe('a')")]
+    [TestCase("model.Describe('a', 'b', 'c')")]
+    [TestCase("model.Count(1)")]
+    [TestCase("model.Echo()")]
     // receiver derivation
-    [InlineData("var f = model.Echo; String(f('detached'))")]
-    [InlineData("String(model.Echo.call(model, 'called'))")]
-    [InlineData("String(model.Echo.call({}, 'foreign'))")]
-    [InlineData("String(Object.create(model).Echo('inherited'))")]
+    [TestCase("var f = model.Echo; String(f('detached'))")]
+    [TestCase("String(model.Echo.call(model, 'called'))")]
+    [TestCase("String(model.Echo.call({}, 'foreign'))")]
+    [TestCase("String(Object.create(model).Echo('inherited'))")]
     public void MethodCallsAreIndistinguishable(string script)
     {
         AssertSame(script);
@@ -208,7 +203,7 @@ public class HostGeneratedInteropTests
     /// writes <c>default(T)</c> rather than refusing. The generated writer has to do the same, and would
     /// have thrown a <see cref="NullReferenceException"/> out of an unbox if it did not.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANullWrittenToAValueTypeMemberBecomesTheDefaultAsTheBinderWouldHaveIt()
     {
         Probe(new GeneratedModel { Score = 3 }, "model.Score = null; model.Score").Should().Be("number|0");
@@ -219,18 +214,17 @@ public class HostGeneratedInteropTests
     /// Shapes the generator declines. They are not a gap in this suite, they are the point of it: an
     /// annotated type's un-expressible members must resolve exactly as they did before anyone annotated it.
     /// </summary>
-    [Theory]
-    [InlineData("model.Add(1)")]
-    [InlineData("model.Add(1, 2)")]
-    [InlineData("model.Shout('quiet')")]
-    [InlineData("model.SetHidden(4); model.Hidden")]
-    [InlineData("model.Hidden = 9; model.Hidden")]
+    [TestCase("model.Add(1)")]
+    [TestCase("model.Add(1, 2)")]
+    [TestCase("model.Shout('quiet')")]
+    [TestCase("model.SetHidden(4); model.Hidden")]
+    [TestCase("model.Hidden = 9; model.Hidden")]
     public void MembersTheGeneratorDeclinesKeepTheReflectionPath(string script)
     {
         AssertSame(script);
     }
 
-    [Fact]
+    [Test]
     public void ANestedAnnotatedTypeAndItsTopLevelNamesakeAreBothGenerated()
     {
         // The MVP derived a hint name from {Namespace}.{Name}, so these two collided and the generator threw
@@ -239,7 +233,7 @@ public class HostGeneratedInteropTests
         Probe(new Player { Name = "top" }, "model.Name").Should().Be("string|top");
     }
 
-    [Fact]
+    [Test]
     public void EveryPartOfAPartialTypeIsGenerated()
     {
         var model = new PartiallyAnnotated { First = 1, Second = 2 };
@@ -251,7 +245,7 @@ public class HostGeneratedInteropTests
     /// second half is what a blanket "any filter turns the feature off" answer got wrong: honouring a filter
     /// by abandoning the feature is safe, and is still not what the host asked for.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostMemberFilterHidesAMemberInBothLanes()
     {
         var generated = Contained(new GeneratedModel { Score = 3, Ticks = 9 }, resolver => resolver.MemberFilter = HidesScore);
@@ -272,7 +266,7 @@ public class HostGeneratedInteropTests
     /// A host name creator renames a generated member exactly as it renames a reflected one — the old name
     /// stops resolving, the new one starts, and the lane behind it is still the generated one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostNameCreatorRenamesAMemberInBothLanes()
     {
         var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameCreator = Prefixes);
@@ -294,7 +288,7 @@ public class HostGeneratedInteropTests
     /// differs in the first character is nil — that is what the default comparer already does — so what this
     /// says is that the whole feature survives installing it, which is what the blanket skip cost.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACamelCaseNameCreatorKeepsTheGeneratedLane()
     {
         var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameCreator = CamelCases);
@@ -313,7 +307,7 @@ public class HostGeneratedInteropTests
     /// A host name comparer decides which names reach a member, generated or reflected. The default one
     /// ignores the first character's casing; an ordinal one does not, and both lanes have to say so.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostNameComparerDecidesWhichNamesReachAMemberInBothLanes()
     {
         var generated = Contained(new GeneratedModel { Score = 3 }, resolver => resolver.MemberNameComparer = StringComparer.Ordinal);
@@ -331,7 +325,7 @@ public class HostGeneratedInteropTests
     /// Binding flags that no longer report a member hide it from both lanes — and leave the lanes they do
     /// not narrow alone, which one setting taking the whole feature off could not express.
     /// </summary>
-    [Fact]
+    [Test]
     public void NarrowedPropertyBindingFlagsHideThePropertiesInBothLanes()
     {
         static Engine Host(object model)
@@ -364,7 +358,7 @@ public class HostGeneratedInteropTests
     /// denies an annotated type exactly what it denies an un-annotated one — <c>GetType</c>, writes, the
     /// namespace globals — and allows it exactly what it allows one, through the generated lanes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHardenedEngineContainsAnAnnotatedTypeTheWayItContainsAnyOther()
     {
         static Engine Host(object model)
@@ -408,24 +402,23 @@ public class HostGeneratedInteropTests
     /// has to come out identical there too — which is the whole claim, made where it used to be untestable
     /// because the feature turned itself off rather than run through the policy.
     /// </summary>
-    [Theory]
-    [InlineData("model.score")]
-    [InlineData("typeof model.missing")]
-    [InlineData("model.name = 'set'; model.name")]
-    [InlineData("model.name = null; String(model.name) + '|' + (model.name === null)")]
-    [InlineData("model.score = 5.5; model.score")]
-    [InlineData("model.counter = 3; model.counter")]
-    [InlineData("model.tags = ['a','b']; model.tags[0]")]
-    [InlineData("model.doubled")]
-    [InlineData("model.stamped")]
-    [InlineData("String(model.tag)")]
-    [InlineData("String(model.echo('a'))")]
-    [InlineData("model.describe('a', 'b')")]
-    [InlineData("model.describe('a')")]
-    [InlineData("model.add(1, 2)")]
-    [InlineData("model.shout('quiet')")]
-    [InlineData("model.setHidden(4); model.hidden")]
-    [InlineData("Object.keys(model).length")]
+    [TestCase("model.score")]
+    [TestCase("typeof model.missing")]
+    [TestCase("model.name = 'set'; model.name")]
+    [TestCase("model.name = null; String(model.name) + '|' + (model.name === null)")]
+    [TestCase("model.score = 5.5; model.score")]
+    [TestCase("model.counter = 3; model.counter")]
+    [TestCase("model.tags = ['a','b']; model.tags[0]")]
+    [TestCase("model.doubled")]
+    [TestCase("model.stamped")]
+    [TestCase("String(model.tag)")]
+    [TestCase("String(model.echo('a'))")]
+    [TestCase("model.describe('a', 'b')")]
+    [TestCase("model.describe('a')")]
+    [TestCase("model.add(1, 2)")]
+    [TestCase("model.shout('quiet')")]
+    [TestCase("model.setHidden(4); model.hidden")]
+    [TestCase("Object.keys(model).length")]
     public void TheWholeMatrixIsStillIndistinguishableUnderAHostNamePolicy(string script)
     {
         AssertSame(script, configureResolver: static resolver => resolver.MemberNameCreator = CamelCases);
@@ -436,13 +429,12 @@ public class HostGeneratedInteropTests
     /// un-annotated one does: the indexer wins where it answers, the declared member wins where it does not,
     /// and the generated lanes never reorder the two.
     /// </summary>
-    [Theory]
-    [InlineData("model.Name = 'declared'; model.Name")]
-    [InlineData("model.Put('Name', 'from-indexer'); model.Name")]
-    [InlineData("model.Name = 'declared'; model.Put('Name', 'from-indexer'); model.Name")]
-    [InlineData("model.Put('other', 'value'); model.other")]
-    [InlineData("String(model.missing)")]
-    [InlineData("String(model.Put('k', 'v'))")]
+    [TestCase("model.Name = 'declared'; model.Name")]
+    [TestCase("model.Put('Name', 'from-indexer'); model.Name")]
+    [TestCase("model.Name = 'declared'; model.Put('Name', 'from-indexer'); model.Name")]
+    [TestCase("model.Put('other', 'value'); model.other")]
+    [TestCase("String(model.missing)")]
+    [TestCase("String(model.Put('k', 'v'))")]
     public void AnIndexerAndASameNamedMemberResolveIdentically(string script)
     {
         var generated = Probe(new GeneratedIndexed(), script);
@@ -483,7 +475,7 @@ public class HostGeneratedInteropTests
     /// constructor and a process-wide registry has no undo — so it is tested on the observable that says the
     /// caches were dropped: resolving before and after a registration gives the same answer.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALateRegistrationDropsWhatWasResolvedBeforeIt()
     {
         var model = new GeneratedModel { Score = 11 };
@@ -500,7 +492,7 @@ public class HostGeneratedInteropTests
     /// applies the same test the run-time compiled lane does — the converter's declared type set — so a
     /// converter that claims <see cref="string"/> is consulted for the string member and for nothing else.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARegisteredObjectConverterIsConsultedForTheMemberTypesItClaims()
     {
         static Engine Host(object model)
@@ -525,7 +517,7 @@ public class HostGeneratedInteropTests
     /// A host-installed <see cref="ClrTypeConverter"/> is consulted by the fallback conversion for some member
     /// types, so the typed write lane declines outright while one is present — on both paths.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostTypeConverterTakesTheTypedWriteLaneOutOfPlay()
     {
         static string Write(object model)

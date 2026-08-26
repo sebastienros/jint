@@ -52,7 +52,7 @@ public class MethodAmbiguityTests : IDisposable
 
     public class ChildTestClass : TestClass { }
 
-    [Fact]
+    [Test]
     public void BestMatchingMethodShouldBeCalled()
     {
         RunTest(@"
@@ -75,7 +75,7 @@ public class MethodAmbiguityTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void IndexerCachesMethodsCorrectly()
     {
         RunTest(@"
@@ -85,7 +85,7 @@ public class MethodAmbiguityTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldFavorOtherOverloadsOverObjectParameter()
     {
         var engine = new Engine(cfg => cfg.Interop.AllowOperatorOverloading = true);
@@ -101,7 +101,7 @@ public class MethodAmbiguityTests : IDisposable
         engine.Evaluate("Class2.Print(() => '');").Should().Be("Class2.Object");
     }
 
-    [Fact]
+    [Test]
     public void ShouldMatchCorrectConstructors()
     {
         Engine engine = new Engine();
@@ -117,7 +117,7 @@ public class MethodAmbiguityTests : IDisposable
 			");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSelectTypeReferenceOverloadCorrectly()
     {
         var engine = new Engine(cfg => cfg.AllowClr());
@@ -136,7 +136,7 @@ public class MethodAmbiguityTests : IDisposable
         instanceResult.AsString().Should().Be("DamageClass");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSelectCorrectExtensionMethodOverloadForTypeReference()
     {
         var engine = new Engine(cfg => cfg

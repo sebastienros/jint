@@ -28,14 +28,14 @@ public class FixedLayoutObjectTests
 
     // ---- layout validation ----
 
-    [Fact]
+    [Test]
     public void LayoutRejectsNullNameCollection()
     {
         Invoking(() => new JsObjectLayout((string[]) null)).Should().Throw<ArgumentNullException>();
         Invoking(() => new JsObjectLayout((IReadOnlyList<string>) null)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void LayoutRejectsDuplicateNames()
     {
         Invoking(() => new JsObjectLayout("a", "b", "a"))
@@ -43,18 +43,17 @@ public class FixedLayoutObjectTests
             .WithMessage("*Duplicate property name 'a' at index 2*");
     }
 
-    [Fact]
+    [Test]
     public void LayoutRejectsNullOrEmptyNames()
     {
         Invoking(() => new JsObjectLayout("a", null)).Should().Throw<ArgumentException>().WithMessage("*index 1*");
         Invoking(() => new JsObjectLayout("a", "")).Should().Throw<ArgumentException>().WithMessage("*index 1*");
     }
 
-    [Theory]
-    [InlineData("0")]
-    [InlineData("42")]
-    [InlineData("1x")]
-    [InlineData("0abc")]
+    [TestCase("0")]
+    [TestCase("42")]
+    [TestCase("1x")]
+    [TestCase("0abc")]
     public void LayoutRejectsIntegerIndexLikeNames(string name)
     {
         // Such a key must enumerate in ascending numeric order ahead of the string keys, which a fixed
@@ -64,10 +63,9 @@ public class FixedLayoutObjectTests
             .WithMessage("*starts with a digit*");
     }
 
-    [Theory]
-    [InlineData("３ｄ")]  // FULLWIDTH DIGIT THREE + FULLWIDTH LATIN SMALL LETTER D
-    [InlineData("٣x")]       // ARABIC-INDIC DIGIT THREE
-    [InlineData("৩")]        // BENGALI DIGIT THREE
+    [TestCase("３ｄ")]  // FULLWIDTH DIGIT THREE + FULLWIDTH LATIN SMALL LETTER D
+    [TestCase("٣x")]       // ARABIC-INDIC DIGIT THREE
+    [TestCase("৩")]        // BENGALI DIGIT THREE
     public void LayoutAcceptsNamesStartingWithANonAsciiDigit(string name)
     {
         // Only ASCII digits can begin a canonical array index, so a name like "３ｄ" enumerates
@@ -80,7 +78,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("a," + name);
     }
 
-    [Fact]
+    [Test]
     public void LayoutAcceptsUpToSixtyFourNamesAndRejectsMore()
     {
         var sixtyFour = new string[64];
@@ -103,7 +101,7 @@ public class FixedLayoutObjectTests
             .WithMessage("*at most 64 properties*");
     }
 
-    [Fact]
+    [Test]
     public void LayoutExposesCountAndIndexOf()
     {
         Layout.Count.Should().Be(3);
@@ -114,7 +112,7 @@ public class FixedLayoutObjectTests
         Layout.IndexOf(null).Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void WideLayoutIndexOfUsesTheIndexedPath()
     {
         // Past the linear-scan cutover IndexOf switches to a built index; the answers must not change.
@@ -133,7 +131,7 @@ public class FixedLayoutObjectTests
         layout.IndexOf("field40").Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void CreateRejectsArityMismatchAndNullArguments()
     {
         var engine = new Engine();
@@ -151,7 +149,7 @@ public class FixedLayoutObjectTests
 
     // ---- shape of the produced object ----
 
-    [Fact]
+    [Test]
     public void CreatedObjectReadsWritesAndReportsPresenceLikeALiteral()
     {
         var engine = EngineWithSample(out _);
@@ -179,7 +177,7 @@ public class FixedLayoutObjectTests
         descriptor.Should().Be("1,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void CreatedObjectOwnKeyOrderMatchesAnEquivalentLiteral()
     {
         var engine = EngineWithSample(out _);
@@ -198,7 +196,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("JSON.stringify(Object.entries(o))").Should().Be("""[["id",1],["name","jint"],["active",true]]""");
     }
 
-    [Fact]
+    [Test]
     public void EmptyLayoutCreatesAnEmptyObject()
     {
         var engine = new Engine();
@@ -211,7 +209,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("o.x = 1; o.x").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void LayoutWiderThanTheInlineSlotCapacityKeepsOrderAndValues()
     {
         var engine = new Engine();
@@ -227,7 +225,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("o.g = 70; o.a = 10; o.a + ',' + o.g").Should().Be("10,70");
     }
 
-    [Fact]
+    [Test]
     public void NullValuesBecomeUndefined()
     {
         var engine = new Engine();
@@ -241,7 +239,7 @@ public class FixedLayoutObjectTests
 
     // ---- degradation: every trigger must leave a correct ordinary object behind ----
 
-    [Fact]
+    [Test]
     public void AddingAPropertyKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -251,7 +249,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("o.id + '|' + o.extra").Should().Be("1|x");
     }
 
-    [Fact]
+    [Test]
     public void DeletingAPropertyKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -266,7 +264,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("o.name = 're-added'; Object.keys(o).join()").Should().Be("id,active,name");
     }
 
-    [Fact]
+    [Test]
     public void FreezingKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -289,7 +287,7 @@ public class FixedLayoutObjectTests
             .Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SealingKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -302,7 +300,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("id,name,active");
     }
 
-    [Fact]
+    [Test]
     public void DefiningAnAccessorKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -326,7 +324,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("id,name,active,label");
     }
 
-    [Fact]
+    [Test]
     public void DefiningANonEnumerablePropertyKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -338,7 +336,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("JSON.stringify(o)").Should().Be("""{"id":1,"name":"jint","active":true}""");
     }
 
-    [Fact]
+    [Test]
     public void SettingThePrototypeKeepsEverythingCorrect()
     {
         var engine = EngineWithSample(out _);
@@ -355,7 +353,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("id,name,active");
     }
 
-    [Fact]
+    [Test]
     public void SymbolKeysCoexistWithTheLayout()
     {
         var engine = EngineWithSample(out _);
@@ -367,7 +365,7 @@ public class FixedLayoutObjectTests
 
     // ---- cross engine ----
 
-    [Fact]
+    [Test]
     public void TheSameLayoutWorksAcrossEnginesWithoutLeakingState()
     {
         var first = new Engine();
@@ -390,7 +388,7 @@ public class FixedLayoutObjectTests
         Layout.Count.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ManyObjectsFromOneLayoutBehaveIdentically()
     {
         var engine = new Engine();
@@ -409,7 +407,7 @@ public class FixedLayoutObjectTests
 
     // ---- CreateFromEntries ----
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesKeepsInsertionOrder()
     {
         var engine = new Engine();
@@ -427,7 +425,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys({ ...o }).join()").Should().Be("zebra,apple,mango");
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesAcceptsAnArrayAndAnEnumerable()
     {
         var engine = new Engine();
@@ -455,7 +453,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("fromDictionary.a + fromDictionary.b").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesRejectsNullArguments()
     {
         var engine = new Engine();
@@ -468,7 +466,7 @@ public class FixedLayoutObjectTests
             .Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesEmptyProducesAnOrdinaryEmptyObject()
     {
         var engine = new Engine();
@@ -478,7 +476,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("o.x = 1; JSON.stringify(o)").Should().Be("""{"x":1}""");
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesDuplicateKeyKeepsFirstPositionAndLastValue()
     {
         var engine = new Engine();
@@ -492,7 +490,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("JSON.stringify(o)").Should().Be("""{"a":3,"b":2}""");
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesWithIntegerLikeKeysUsesSpecOrder()
     {
         var engine = new Engine();
@@ -517,7 +515,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.keys(p).join()").Should().Be("0,z");
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesPastTheHiddenClassPropertyLimitKeepsEveryEntry()
     {
         var engine = new Engine();
@@ -540,7 +538,7 @@ public class FixedLayoutObjectTests
             """).Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesResultDegradesCorrectly()
     {
         var engine = new Engine();
@@ -556,7 +554,7 @@ public class FixedLayoutObjectTests
         engine.Evaluate("Object.freeze(o); Object.isFrozen(o)").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void CreateFromEntriesWithVaryingKeySetsStaysCorrect()
     {
         // A host feeding wildly varying key sets must keep getting correct objects; the engine bounds how

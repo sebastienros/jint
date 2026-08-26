@@ -20,7 +20,7 @@ public class WebApiTransformStreamTests
     private static readonly string[] _textGlobals = ["TextEncoderStream", "TextDecoderStream"];
     private static readonly string[] _compressionGlobals = ["CompressionStream", "DecompressionStream"];
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoTransformStreamGlobals()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class WebApiTransformStreamTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheTextStreamsNeedBothEncodingAndStreams()
     {
         foreach (var name in _textGlobals)
@@ -51,7 +51,7 @@ public class WebApiTransformStreamTests
             .Evaluate("typeof TextEncoder + ',' + typeof TextDecoder").AsString().Should().Be("function,function");
     }
 
-    [Fact]
+    [Test]
     public void TheCompressionStreamsNeedBothCompressionAndStreams()
     {
         foreach (var name in _compressionGlobals)
@@ -65,7 +65,7 @@ public class WebApiTransformStreamTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesCompression()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -81,7 +81,7 @@ public class WebApiTransformStreamTests
         ((int) WebApiFeatures.Compression).Should().Be(1 << 20);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -96,7 +96,7 @@ public class WebApiTransformStreamTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own CompressionStream");
@@ -109,7 +109,7 @@ public class WebApiTransformStreamTests
         engine.Evaluate("typeof DecompressionStream").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmDoesNotGetThem()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -119,7 +119,7 @@ public class WebApiTransformStreamTests
         engine.Evaluate("typeof CompressionStream").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostCanRoundTripDataThroughTheOrdinaryPromiseSurface()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -145,7 +145,7 @@ public class WebApiTransformStreamTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ACorruptStreamIsATypeErrorTheScriptCanCatch()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -169,7 +169,7 @@ public class WebApiTransformStreamTests
         outcome.AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -183,7 +183,7 @@ public class WebApiTransformStreamTests
         engine.Evaluate("new TextEncoderStream().encoding").AsString().Should().Be("utf-8");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebApis();

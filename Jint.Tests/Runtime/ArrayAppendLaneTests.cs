@@ -6,7 +6,7 @@
 /// </summary>
 public class ArrayAppendLaneTests
 {
-    [Fact]
+    [Test]
     public void AppendsBuildDenseArraysWithCorrectLength()
     {
         var engine = new Engine();
@@ -26,7 +26,7 @@ public class ArrayAppendLaneTests
         result.Should().Be("0,2,4,6,8,10,12,14,16,18|10|4|undefined|ab");
     }
 
-    [Fact]
+    [Test]
     public void NonExtensibleAndNonWritableLengthStillThrowInStrictMode()
     {
         var engine = new Engine();
@@ -49,7 +49,7 @@ public class ArrayAppendLaneTests
         result.Should().Be("true,true,true|1|1|0");
     }
 
-    [Fact]
+    [Test]
     public void HoleFillAndOutOfOrderWritesKeepSpecBehavior()
     {
         var engine = new Engine();
@@ -66,7 +66,7 @@ public class ArrayAppendLaneTests
         result.Should().Be("3|a|c|hole");
     }
 
-    [Fact]
+    [Test]
     public void AppendAfterCapacityGrowthKeepsElements()
     {
         var engine = new Engine();

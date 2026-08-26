@@ -38,15 +38,14 @@ namespace Jint.Tests.Runtime;
 /// that same function-level context on every resume.
 /// </summary>
 /// <remarks>
-/// Its own non-parallel collection, because the failure mode it targets is an uninterruptible spin.
+/// Non-parallel, because the failure mode it targets is an uninterruptible spin.
 /// <see cref="DedicatedThread"/> caps the join and drops the runaway thread's priority, but nothing
 /// can stop it, so it keeps a core busy until the process exits. Running this class alone means a
 /// regression cannot land that load on top of unrelated tests — which is the condition the suite's
 /// known wall-clock flakes fail under. Against the unfixed engine a large fraction of these shapes
 /// leave a spinning thread behind, so the load is a real quantity, not a hypothetical one.
 /// </remarks>
-[CollectionDefinition(nameof(ForLoopIterationEnvironmentAwaitTests), DisableParallelization = true)]
-[Collection(nameof(ForLoopIterationEnvironmentAwaitTests))]
+[NonParallelizable]
 public class ForLoopIterationEnvironmentAwaitTests
 {
     /// <summary>
@@ -57,7 +56,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// infinite walk in <c>ExecutionContext.GetThisEnvironment()</c>, and a <c>TimeoutInterval</c>
     /// constraint cannot stop it — Jint does not evaluate constraints for event-loop jobs, so it
     /// cannot interrupt a continuation. Without this, a single regression wedges the whole test
-    /// class (xUnit runs a class's tests sequentially) and CI hangs instead of reporting.
+    /// class (the runner runs a fixture's tests sequentially) and CI hangs instead of reporting.
     /// </para>
     /// </summary>
     private static JsValue RunAsync(string script)
@@ -74,7 +73,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         return result;
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingAfterAwaitingLoopWithBlockScopedDeclaration()
     {
         var result = RunAsync("""
@@ -92,7 +91,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenDeclarationPrecedesTheAwait()
     {
         var result = RunAsync("""
@@ -110,7 +109,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWithLetDeclarationInBody()
     {
         var result = RunAsync("""
@@ -128,7 +127,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenAwaitIsNestedDeeperThanTheDeclaration()
     {
         var result = RunAsync("""
@@ -145,7 +144,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenDeclarationAndAwaitShareANestedBlock()
     {
         var result = RunAsync("""
@@ -168,7 +167,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// continuation, which is precisely the case here. The evaluation therefore runs on its own
     /// background thread and the test fails on a join timeout instead of hanging the run.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldReadThisAfterAwaitingLoopWithBlockScopedDeclaration()
     {
         var result = RunAsync("""
@@ -189,7 +188,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveLoopVariableSemanticsAcrossAwait()
     {
         // Every iteration's body must observe the value the header reached for that trip. This does
@@ -213,7 +212,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0,2,4");
     }
 
-    [Fact]
+    [Test]
     public void ShouldStillCaptureDistinctBindingsPerIterationWhenBodyAwaits()
     {
         // The reuse optimisation exists to avoid allocating an environment per iteration when
@@ -234,7 +233,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0:0,1:1,2:2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleNestedForLoopsWhereOnlyTheInnerOneAwaits()
     {
         var result = RunAsync("""
@@ -254,7 +253,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingAfterAForAwaitOfInsideAForLoopBody()
     {
         // `for await...of` carries an implicit await, so it suspends the body the same way.
@@ -280,7 +279,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// environment on exit, leaving the block's own bindings resolvable afterwards. Asserting
     /// only "it did not throw" passes over this, which is why it is asserted directly.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotLeakBlockScopedDeclarationPastTheLoopWhenAClosureMasksTheThrow()
     {
         var result = RunAsync("""
@@ -300,7 +299,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakBlockScopedDeclarationPastTheLoopWithoutAClosure()
     {
         var result = RunAsync("""
@@ -324,7 +323,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// iteration environment) as its outer one, and restored it on exit. That leaves the loop
     /// variable itself resolvable afterwards.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopVariableWhenTheTestExpressionAwaits()
     {
         var result = RunAsync("""
@@ -338,7 +337,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopVariableWhenTheUpdateExpressionAwaits()
     {
         var result = RunAsync("""
@@ -356,7 +355,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// The loop must restore its outer environment across more than one suspension — the saved
     /// outer environment has to stay stable when it is re-saved on each subsequent await.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldRestoreTheOuterEnvironmentAcrossManyIterationsThatEachAwait()
     {
         var result = RunAsync("""
@@ -380,7 +379,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// after the loop: the restored environment has to be the loop's real outer environment, not
     /// merely some environment that happens to reach the global one.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldSeeAnEnclosingBlockBindingAfterTheLoop()
     {
         var result = RunAsync("""
@@ -406,7 +405,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// iteration environment on resume — instead of resuming into the one the suspension left —
     /// stranded the closure on the old environment and silently lost the write. Node returns 42.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldSeeAPostAwaitWriteThroughAClosureCapturedBeforeTheAwait()
     {
         var result = RunAsync("""
@@ -429,7 +428,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// closure after the await must end the loop. Before the fix the write went to an abandoned
     /// environment, the loop's own test kept reading the live one, and it ran the full four trips.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldEndTheLoopWhenAClosureWritesTheLoopVariableAfterTheAwait()
     {
         var result = RunAsync("""
@@ -453,7 +452,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// Creating one anyway forks away from the environment the body already captured, so closures
     /// pushed on either side of the await must still agree on the iteration they belong to.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldKeepClosuresOnBothSidesOfTheAwaitInTheSameIteration()
     {
         var result = RunAsync("""
@@ -473,7 +472,7 @@ public class ForLoopIterationEnvironmentAwaitTests
 
     // ---- shapes that already worked; kept so a fix cannot regress them ----
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenLoopBodyHasNoDeclaration()
     {
         var result = RunAsync("""
@@ -487,7 +486,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenDeclarationBlockClosesBeforeTheAwait()
     {
         var result = RunAsync("""
@@ -504,7 +503,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWithVarInitialiser()
     {
         var result = RunAsync("""
@@ -522,7 +521,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingWhenBodyContainsAClosure()
     {
         var result = RunAsync("""
@@ -540,7 +539,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeOuterBindingFromAGeneratorLoopThatYields()
     {
         var result = RunAsync("""
@@ -583,7 +582,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     // crossed with whether the body awaits at all, since the defect does not need a body await.
     // ---------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameAfterAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -602,7 +601,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// init suspension alone is enough — this shape threw before the iteration-environment work
     /// too, which is why it is a fix rather than a regression guard.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameWhenOnlyTheInitAwaits()
     {
         var result = RunAsync("""
@@ -616,7 +615,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakADestructuredArrayHeadAfterAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -630,7 +629,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakADestructuredObjectHeadAfterAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -644,7 +643,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheAwaitedDeclaratorOfAMultiDeclaratorHead()
     {
         var result = RunAsync("""
@@ -663,7 +662,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// the repair happens at the read: the first resume writes its own oldEnv back into the
     /// suspend data, so an entry left poisoned would be handed straight to the next resume.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameAfterTwoAwaitsInTheInit()
     {
         var result = RunAsync("""
@@ -677,7 +676,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakAConstHeadAfterAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -691,7 +690,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameAfterBreakingOutOfAnAwaitingInitLoop()
     {
         var result = RunAsync("""
@@ -705,7 +704,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameWhenTheAwaitingInitLoopIsInsideTry()
     {
         var result = RunAsync("""
@@ -726,7 +725,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// shadows it instead of throwing, so the loop's private counter is what a later read sees —
     /// a wrong value rather than an error, which is the shape an embedder would never notice.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotShadowASameNamedOuterBindingAfterAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -741,7 +740,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotShadowASameNamedOuterBindingWhenOnlyTheInitAwaits()
     {
         var result = RunAsync("""
@@ -756,7 +755,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("outer-visible");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotShadowASameNamedOuterBindingAfterADestructuredAwaitingInit()
     {
         var result = RunAsync("""
@@ -775,7 +774,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// The loop still has to compute the right answer: the environment repair must not cost the
     /// header its identity across resumes, or the trip count changes.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldRunTheCorrectTripCountWithAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -790,7 +789,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAccumulateAcrossAnAwaitingInitLoopWithABodyDeclaration()
     {
         var result = RunAsync("""
@@ -809,7 +808,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// Per-iteration bindings still fork correctly when the head awaits: each closure must see
     /// its own iteration's value, not the last one.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldGivePerIterationClosuresTheirOwnBindingWithAnAwaitingInit()
     {
         var result = RunAsync("""
@@ -824,7 +823,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0,1,2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReadThisAfterAnAwaitingInitLoop()
     {
         var result = RunAsync("""
@@ -884,7 +883,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         }
         """;
 
-    [Fact]
+    [Test]
     public void ShouldSettleAnInitAwaitFollowingAnAwaitingForLoop()
     {
         var result = RunAsync($$"""
@@ -899,7 +898,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("1,1,10");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSettleAnInitAwaitFollowingAnAwaitingWhileLoop()
     {
         var result = RunAsync($$"""
@@ -915,7 +914,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("1,1,10");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSettleAnInitAwaitFollowingAnAwaitingForOfLoop()
     {
         var result = RunAsync($$"""
@@ -930,7 +929,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("1,1,10");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSettleAnInitAwaitFollowingAnAwaitingForAwaitOfLoop()
     {
         var result = RunAsync($$"""
@@ -945,7 +944,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("1,1,10");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSettleTwoConsecutiveInitAwaitLoops()
     {
         var result = RunAsync($$"""
@@ -966,7 +965,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// accumulator declared before the loops was re-initialized part-way through, so only the
     /// trailing iterations survived in it.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotResetFunctionLocalsWhenANestedInitAwaits()
     {
         var result = RunAsync("""
@@ -983,7 +982,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0:0 0:1 1:0 1:1");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotResetFunctionLocalsAcrossAnInitAwaitLoopThatFollowsAnother()
     {
         var result = RunAsync("""
@@ -999,7 +998,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("a0,a1,b0,b1");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRunEveryIterationOfNestedInitAwaitLoops()
     {
         var result = RunAsync("""
@@ -1023,7 +1022,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// generator does execute, which is why a <c>yield</c> in a for-init failed and a
     /// <c>yield</c> in the body never did.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotLeakTheLoopHeaderNameAfterAGeneratorYieldsInTheInit()
     {
         var result = RunAsync("""
@@ -1039,7 +1038,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotShadowASameNamedOuterBindingAfterAGeneratorYieldsInTheInit()
     {
         var result = RunAsync("""
@@ -1068,7 +1067,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// froze one iteration early. Keying the guard on the restored environment instead covers all
     /// three positions, since a restored environment means an iteration is already in progress.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotStrandClosuresCreatedInTheTestBeforeAnAwait()
     {
         var result = RunAsync("""
@@ -1082,7 +1081,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("1,2,2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStrandClosuresCreatedInTheTestWhenTheLoopHasAnUpdate()
     {
         var result = RunAsync("""
@@ -1096,7 +1095,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0,1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ShouldKeepClosuresFromBothSidesOfATestAwaitInTheirOwnIterations()
     {
         // A closure made in the test and one made in the body of the same iteration must observe
@@ -1120,7 +1119,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// through into the body, running one extra iteration per resume. A <c>yield</c> in the test
     /// showed it as a loop variable incremented twice between two yields (0, 1, 3, …).
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotRunAnExtraIterationWhenTheTestSuspendsWhileTruthy()
     {
         var result = RunAsync("""
@@ -1140,7 +1139,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("0,1,2 / 1,2,2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRunTheBodyExactlyOncePerIterationWhenTheTestAwaits()
     {
         var result = RunAsync("""
@@ -1162,7 +1161,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// sees 42; without the save it is stranded on an abandoned environment and reports the stale 0.
     /// Pins the field against being guarded on the suspendable being an async function.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotStrandAGeneratorClosureOverTheIterationEnvironment()
     {
         var result = RunAsync("""
@@ -1181,7 +1180,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// the finally when the init had not finished initializing them yet. Those saved values had no
     /// reader, so the read is gone rather than merely guarded.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldCompleteAGeneratorThatYieldsInTheForInit()
     {
         var result = RunAsync("""
@@ -1203,7 +1202,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// <see cref="JavaScriptException"/>, so an embedder took an unhandled crash out of
     /// <c>Evaluate</c> instead of a rejected promise.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldResumeIntoTheSameWithEnvironmentItSuspendedIn()
     {
         var result = RunAsync("""
@@ -1221,7 +1220,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("V/0,V/1,post:V");
     }
 
-    [Fact]
+    [Test]
     public void ShouldKeepTheWithEnvironmentLiveForAForOfBodyThatAwaits()
     {
         var result = RunAsync("""
@@ -1239,7 +1238,7 @@ public class ForLoopIterationEnvironmentAwaitTests
         result.Should().Be("V1,V2,post:V");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeIntoNestedWithEnvironments()
     {
         var result = RunAsync("""
@@ -1262,7 +1261,7 @@ public class ForLoopIterationEnvironmentAwaitTests
     /// The <c>with</c> object expression can itself suspend. Building the environment over the
     /// placeholder value would run the body before the object is known, and again on resume.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldHandleAnAwaitInTheWithObjectExpression()
     {
         var result = RunAsync("""

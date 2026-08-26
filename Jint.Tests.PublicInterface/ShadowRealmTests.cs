@@ -5,7 +5,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class ShadowRealmTests
 {
-    [Fact]
+    [Test]
     public void CanUseViaEngineMethods()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -29,7 +29,7 @@ public class ShadowRealmTests
         result.Should().Be("John Doe");
     }
 
-    [Fact]
+    [Test]
     public void MultipleShadowRealmsDoNotInterfere()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -51,7 +51,7 @@ public class ShadowRealmTests
         shadowRealm2.Evaluate("hello();").Should().Be("realm 2");
     }
 
-    [Fact]
+    [Test]
     public void MultipleShadowRealm_SettingGlobalVariable_DoNotInterfere()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -72,7 +72,7 @@ public class ShadowRealmTests
         shadowRealm2.Evaluate("message").Should().Be("hello realm 2");
     }
 
-    [Fact]
+    [Test]
     public void CanReuseScriptWithShadowRealm()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -92,7 +92,7 @@ public class ShadowRealmTests
         shadowRealm2.Evaluate(script).Should().Be("hello realm 2");
     }
 
-    [Fact]
+    [Test]
     public void CanEvaluateScriptWithSuperInsideClassAndObjectMethods()
     {
         // https://github.com/sebastienros/jint/issues/2569
@@ -141,7 +141,7 @@ public class ShadowRealmTests
             """).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanEvaluatePreparedScriptWithSuperInsideClassMethods()
     {
         var engine = new Engine();
@@ -152,7 +152,7 @@ public class ShadowRealmTests
         shadowRealm.Evaluate(script).Should().Be("hi!");
     }
 
-    [Fact]
+    [Test]
     public void EvaluateThrowsSyntaxErrorForTopLevelSuperAndNewTarget()
     {
         var engine = new Engine();

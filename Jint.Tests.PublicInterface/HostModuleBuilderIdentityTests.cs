@@ -33,7 +33,7 @@ public class HostModuleBuilderIdentityTests
             => throw new InvalidOperationException("the loader was asked to load " + resolved.Key);
     }
 
-    [Fact]
+    [Test]
     public void ARegisteredModuleIsFoundWhenTheLoaderCanonicalizesItsName()
     {
         // `new Uri("http://localhost").AbsoluteUri` is "http://localhost/", so the registration name and the
@@ -46,7 +46,7 @@ public class HostModuleBuilderIdentityTests
         engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("from the builder");
     }
 
-    [Fact]
+    [Test]
     public void ARegisteredModuleIsFoundUnderTheCanonicalSpellingToo()
     {
         // The direction a raw-specifier fallback cannot reach: the import is written the way an import map or a
@@ -59,7 +59,7 @@ public class HostModuleBuilderIdentityTests
         engine.Modules.Import("http://localhost/").Get("value").AsString().Should().Be("from the builder");
     }
 
-    [Fact]
+    [Test]
     public void EitherSpellingReachesTheSameModuleInstance()
     {
         // Both spellings resolve to one key, so they are one module - not two, and not one plus a failure once
@@ -74,7 +74,7 @@ public class HostModuleBuilderIdentityTests
         second.Should().BeSameAs(first);
     }
 
-    [Fact]
+    [Test]
     public void ARegisteredRelativeNameIsNotHandedToAnUnrelatedImportSpellingTheSameText()
     {
         // The negative fact, and the reason the raw ModuleRequest.Specifier cannot be the match key: `./dep.js`
@@ -106,7 +106,7 @@ public class HostModuleBuilderIdentityTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ARegistrationIsConsumedUnderTheNameItWasFiledUnder()
     {
         // Pins the other half: LoadFromBuilder removes the registration, and it has to remove the entry that is
@@ -126,7 +126,7 @@ public class HostModuleBuilderIdentityTests
         engine.Modules.Import("http://localhost").Get("value").AsString().Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void ARegisteredModuleResolvesItsOwnRelativeImportAgainstItsResolvedKey()
     {
         // A builder module's location is the key it resolved to, not the name it was registered under, because
@@ -183,7 +183,7 @@ public class HostModuleBuilderIdentityTests
                 : throw new InvalidOperationException("no module at " + resolved.Key);
     }
 
-    [Fact]
+    [Test]
     public void ARegistrationTheLoaderRefusesToResolveDoesNotBreakAnUnrelatedImport()
     {
         // Resolution is lazy and per-registration, so a specifier DefaultModuleLoader rejects - a directory
@@ -209,7 +209,7 @@ public class HostModuleBuilderIdentityTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RegisteringAModuleDoesNotRequireModulesToBeEnabled()
     {
         // Add stays independent of the loader, which is why the resolution is lazy: with modules disabled the
@@ -219,7 +219,7 @@ public class HostModuleBuilderIdentityTests
         Invoking(() => engine.Modules.Add("lib", "export const value = 1;")).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void ALaterRegistrationIsIndexedToo()
     {
         // The index is built lazily, so a registration added after an earlier import already triggered it has
@@ -233,7 +233,7 @@ public class HostModuleBuilderIdentityTests
         engine.Modules.Import("http://elsewhere").Get("value").AsString().Should().Be("second");
     }
 
-    [Fact]
+    [Test]
     public void TwoRegistrationsResolvingToTheSameKeyFailLoudly()
     {
         // Both spellings canonicalize to http://localhost/, so whichever registration lost would be silently
@@ -249,7 +249,7 @@ public class HostModuleBuilderIdentityTests
             .Should().Throw<InvalidOperationException>().WithMessage("*resolve to the same specifier*");
     }
 
-    [Fact]
+    [Test]
     public void ARegistrationCollidingWithOneFiledUnderTheCanonicalNameFailsLoudlyToo()
     {
         // The other collision shape: the earlier registration already carries the canonical spelling, so it is
@@ -263,7 +263,7 @@ public class HostModuleBuilderIdentityTests
             .Should().Throw<InvalidOperationException>().WithMessage("*resolve to the same specifier*");
     }
 
-    [Fact]
+    [Test]
     public void CancellationInsideTheIndexingPassIsNotSwallowed()
     {
         // A refusal is the loader rejecting one name; cancellation is the host calling off the whole
@@ -278,7 +278,7 @@ public class HostModuleBuilderIdentityTests
             .Should().Throw<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void CancellationInsideTheIndexingPassCanBeRetried()
     {
         var engine = new Engine(options => options.UseModules(new CancelOnceResolveLoader()));
@@ -332,7 +332,7 @@ public class HostModuleBuilderIdentityTests
             => throw new InvalidOperationException("The registered module should satisfy the load.");
     }
 
-    [Fact]
+    [Test]
     public void ALoaderHandingBackANullKeyDoesNotBreakAnUnrelatedImport()
     {
         // A loader compiled without nullable annotations can hand back a null key instead of throwing. That is
@@ -367,7 +367,7 @@ public class HostModuleBuilderIdentityTests
             => throw new InvalidOperationException("the loader was asked to load " + resolved.Key);
     }
 
-    [Fact]
+    [Test]
     public void APreCompiledModuleResolvesItsRelativeImportsAgainstItsPrepareTimeName()
     {
         // A pre-compiled module cannot be renamed by the registration - the AST is the host's - so its

@@ -19,16 +19,15 @@ public class CryptoTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Crypto));
 
-    [Theory]
-    [InlineData("Int8Array")]
-    [InlineData("Uint8Array")]
-    [InlineData("Uint8ClampedArray")]
-    [InlineData("Int16Array")]
-    [InlineData("Uint16Array")]
-    [InlineData("Int32Array")]
-    [InlineData("Uint32Array")]
-    [InlineData("BigInt64Array")]
-    [InlineData("BigUint64Array")]
+    [TestCase("Int8Array")]
+    [TestCase("Uint8Array")]
+    [TestCase("Uint8ClampedArray")]
+    [TestCase("Int16Array")]
+    [TestCase("Uint16Array")]
+    [TestCase("Int32Array")]
+    [TestCase("Uint32Array")]
+    [TestCase("BigInt64Array")]
+    [TestCase("BigUint64Array")]
     public void FillsEveryIntegerViewTypeTheAlgorithmAccepts(string type)
     {
         var engine = WebEngine();
@@ -45,7 +44,7 @@ public class CryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReturnsTheVeryArrayItWasGiven()
     {
         var engine = WebEngine();
@@ -55,7 +54,7 @@ public class CryptoTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void WritesOnlyIntoTheViewsOwnSlice()
     {
         var engine = WebEngine();
@@ -74,11 +73,10 @@ public class CryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("new Float16Array(4)")]
-    [InlineData("new Float32Array(4)")]
-    [InlineData("new Float64Array(4)")]
-    [InlineData("new DataView(new ArrayBuffer(8))")]
+    [TestCase("new Float16Array(4)")]
+    [TestCase("new Float32Array(4)")]
+    [TestCase("new Float64Array(4)")]
+    [TestCase("new DataView(new ArrayBuffer(8))")]
     public void RejectsAViewThatIsNotAnIntegerArrayWithATypeMismatchError(string expression)
     {
         var engine = WebEngine();
@@ -94,26 +92,25 @@ public class CryptoTests
             """).AsString().Should().Be("true|TypeMismatchError|17");
     }
 
-    [Theory]
-    [InlineData("[1, 2, 3]")]
-    [InlineData("{}")]
-    [InlineData("42")]
-    [InlineData("null")]
-    [InlineData("undefined")]
-    [InlineData("'not a view'")]
-    [InlineData("new ArrayBuffer(8)")]
+    [TestCase("[1, 2, 3]")]
+    [TestCase("{}")]
+    [TestCase("42")]
+    [TestCase("null")]
+    [TestCase("undefined")]
+    [TestCase("'not a view'")]
+    [TestCase("new ArrayBuffer(8)")]
     public void RejectsSomethingThatIsNotAViewAtAllWithATypeError(string expression)
     {
         var engine = WebEngine();
 
         // The IDL is getRandomValues(ArrayBufferView array): anything that is not a view fails WebIDL's own
         // conversion, which is a TypeError and never a DOMException. An ArrayBuffer is not a view.
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Evaluate($"crypto.getRandomValues({expression})"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Evaluate($"crypto.getRandomValues({expression})"))!;
         thrown.Error.Get("name").AsString().Should().Be("TypeError");
         thrown.Message.Should().Contain("ArrayBufferView");
     }
 
-    [Fact]
+    [Test]
     public void RejectsAViewOntoASharedArrayBufferWithATypeError()
     {
         var engine = WebEngine();
@@ -121,13 +118,13 @@ public class CryptoTests
         // https://webidl.spec.whatwg.org/#es-arraybufferview — a shared view is accepted only where the
         // operation declares [AllowShared], and the Crypto IDL does not.
         var thrown = Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("crypto.getRandomValues(new Uint8Array(new SharedArrayBuffer(8)))"));
+            () => engine.Evaluate("crypto.getRandomValues(new Uint8Array(new SharedArrayBuffer(8)))"))!;
 
         thrown.Error.Get("name").AsString().Should().Be("TypeError");
         thrown.Message.Should().Contain("SharedArrayBuffer");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsExactlyTheQuotaAndRefusesOneByteMore()
     {
         var engine = WebEngine();
@@ -158,7 +155,7 @@ public class CryptoTests
             """).AsString().Should().Be("true|true|true|QuotaExceededError|22|null|null");
     }
 
-    [Fact]
+    [Test]
     public void CountsTheQuotaInBytesRatherThanInElements()
     {
         var engine = WebEngine();
@@ -175,7 +172,7 @@ public class CryptoTests
             """).AsString().Should().Be("QuotaExceededError");
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyViewIsReturnedUntouched()
     {
         var engine = WebEngine();
@@ -184,7 +181,7 @@ public class CryptoTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ADetachedViewIsReturnedUntouched()
     {
         var engine = WebEngine();
@@ -201,7 +198,7 @@ public class CryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnOutOfBoundsLengthTrackingViewIsReturnedUntouched()
     {
         var engine = WebEngine();
@@ -218,7 +215,7 @@ public class CryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesToWriteIntoAnImmutableBuffer()
     {
         var engine = WebEngine();
@@ -231,13 +228,13 @@ public class CryptoTests
         // raises, because this is an ordinary write into the same bytes.
         var thrown = Assert.Throws<JavaScriptException>(() => engine.Evaluate("""
             crypto.getRandomValues(new Uint8Array(new ArrayBuffer(8).transferToImmutable()))
-            """));
+            """))!;
 
         thrown.Error.Get("name").AsString().Should().Be("TypeError");
         thrown.Message.Should().Contain("immutable");
     }
 
-    [Fact]
+    [Test]
     public void ProducesAVersion4LowercaseUuid()
     {
         var engine = WebEngine();
@@ -255,7 +252,7 @@ public class CryptoTests
             """).AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void ProducesADifferentUuidEveryTime()
     {
         var engine = WebEngine();
@@ -264,15 +261,15 @@ public class CryptoTests
             .AsNumber().Should().Be(500);
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksBothOperations()
     {
         var engine = WebEngine();
 
         // The WebIDL brand check: an extracted operation cannot be called on anything but a Crypto object.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("crypto.getRandomValues.call({}, new Uint8Array(4))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("crypto.getRandomValues.call({}, new Uint8Array(4))"))!
             .Message.Should().Contain("Crypto");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("crypto.randomUUID.call(undefined)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("crypto.randomUUID.call(undefined)"))!
             .Message.Should().Contain("Crypto");
 
         // ... and still works when the receiver is the real one, however it was reached.
@@ -280,7 +277,7 @@ public class CryptoTests
             .AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void HasASubtleCryptoCarryingTheOperationsThisEngineImplements()
     {
         var engine = WebEngine();
@@ -302,7 +299,7 @@ public class CryptoTests
             """).AsString().Should().Be("function,function");
     }
 
-    [Fact]
+    [Test]
     public void IsOneStableObjectWithTheInterfacesToStringTag()
     {
         var engine = WebEngine();
@@ -312,7 +309,7 @@ public class CryptoTests
         engine.Evaluate("crypto[Symbol.toStringTag]").AsString().Should().Be("Crypto");
     }
 
-    [Fact]
+    [Test]
     public void GivesItsMembersTheAttributesWebIdlGivesAnOperation()
     {
         var engine = WebEngine();
@@ -338,7 +335,7 @@ public class CryptoTests
             .Should().Be("[\"getRandomValues\",\"randomUUID\",\"subtle\"]");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArities()
     {
         var engine = WebEngine();
@@ -350,7 +347,7 @@ public class CryptoTests
         engine.Evaluate("crypto.randomUUID.name").AsString().Should().Be("randomUUID");
     }
 
-    [Fact]
+    [Test]
     public void IsNotInstalledWithoutItsFlag()
     {
         new Engine(options => options.UseWebApis(WebApiFeatures.Console))

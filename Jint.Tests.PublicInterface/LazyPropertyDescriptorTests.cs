@@ -54,7 +54,7 @@ public class LazyPropertyDescriptorTests
         return (engine, () => calls);
     }
 
-    [Fact]
+    [Test]
     public void FactoryRunsOnTheFirstReadOnly()
     {
         var (engine, calls) = HostWith("report", "built");
@@ -70,7 +70,7 @@ public class LazyPropertyDescriptorTests
         calls().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ExistenceAndEnumerationDoNotMaterialize()
     {
         var (engine, calls) = HostWith("report", "built");
@@ -95,7 +95,7 @@ public class LazyPropertyDescriptorTests
     /// <em>shape</em> decision that precedes it is made from the attributes alone, so a non-enumerable one is
     /// skipped without the factory running.
     /// </summary>
-    [Fact]
+    [Test]
     public void JsonStringifySkipsANonEnumerableLazyPropertyWithoutMaterializingIt()
     {
         var calls = 0;
@@ -120,7 +120,7 @@ public class LazyPropertyDescriptorTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NonEnumerableFlagsAreHonouredAndTheValueIsStillReadable()
     {
         var (engine, calls) = HostWith("hidden", "value", PropertyFlag.NonEnumerable);
@@ -134,7 +134,7 @@ public class LazyPropertyDescriptorTests
         calls().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NonWritableLazyPropertyRefusesAssignmentAndStillReads()
     {
         var (engine, calls) = HostWith("readonly", "value", PropertyFlag.NonWritable);
@@ -153,7 +153,7 @@ public class LazyPropertyDescriptorTests
     /// the default, <c>ValidateAndApplyPropertyDescriptor</c> compares against the current value first, which
     /// reads it — the same documented behaviour <c>AddLazyGlobal</c> has.
     /// </summary>
-    [Fact]
+    [Test]
     public void WriteBeforeFirstReadNeverRunsTheFactory()
     {
         var (engine, calls) = HostWith("report", "built", PropertyFlag.NonEnumerable);
@@ -166,7 +166,7 @@ public class LazyPropertyDescriptorTests
         calls().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void StateOverloadPassesItsStateThroughWithoutCapturing()
     {
         var engine = new Engine();
@@ -185,7 +185,7 @@ public class LazyPropertyDescriptorTests
         engine.Evaluate("host.count").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void NullStateIsAllowed()
     {
         var engine = new Engine();
@@ -196,7 +196,7 @@ public class LazyPropertyDescriptorTests
         engine.Evaluate("host.value").AsString().Should().Be("fallback");
     }
 
-    [Fact]
+    [Test]
     public void NullFactoryResultBecomesUndefinedRatherThanReRunning()
     {
         var calls = 0;
@@ -219,7 +219,7 @@ public class LazyPropertyDescriptorTests
     /// stands between a host's delegate and the descriptor, so it is the descriptor that has to read a
     /// <see langword="null"/> return as <c>undefined</c> rather than as "not resolved yet".
     /// </summary>
-    [Fact]
+    [Test]
     public void NullFactoryResultFromTheStateOverloadBecomesUndefinedRatherThanReRunning()
     {
         var calls = 0;
@@ -241,7 +241,7 @@ public class LazyPropertyDescriptorTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingFactoryPropagatesAndLeavesThePropertyUnmaterialized()
     {
         var calls = 0;
@@ -264,7 +264,7 @@ public class LazyPropertyDescriptorTests
         calls.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void NullFactoriesAreRejected()
     {
         Invoking(() => PropertyDescriptor.CreateLazy(null!))
@@ -273,11 +273,10 @@ public class LazyPropertyDescriptorTests
             .Should().Throw<ArgumentNullException>();
     }
 
-    [Theory]
-    [InlineData(PropertyFlag.CustomJsValue)]
-    [InlineData(PropertyFlag.NonData)]
-    [InlineData(PropertyFlag.MutableBinding)]
-    [InlineData(PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.CustomJsValue)]
+    [TestCase(PropertyFlag.CustomJsValue)]
+    [TestCase(PropertyFlag.NonData)]
+    [TestCase(PropertyFlag.MutableBinding)]
+    [TestCase(PropertyFlag.ConfigurableEnumerableWritable | PropertyFlag.CustomJsValue)]
     public void FlagsReservedForTheEngineAreRejected(PropertyFlag flags)
     {
         Invoking(() => PropertyDescriptor.CreateLazy(static () => JsValue.Undefined, flags))
@@ -290,7 +289,7 @@ public class LazyPropertyDescriptorTests
     // A global the host installs itself, rather than through AddLazyGlobal
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AHostInstalledLazyGlobalIsReadCorrectlyByAWarmedSite()
     {
         var calls = 0;
@@ -317,7 +316,7 @@ public class LazyPropertyDescriptorTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AHostInstalledLazyGlobalCanBeOverwrittenByScript()
     {
         var engine = new Engine();
@@ -341,7 +340,7 @@ public class LazyPropertyDescriptorTests
     /// A lazy property on a host <em>prototype</em>: the receiver is an ordinary script object, so the read
     /// resolves through the prototype chain and the value is shared by every instance, materialized once.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALazyPropertyOnAPrototypeMaterializesOnceForEveryInstance()
     {
         var calls = 0;

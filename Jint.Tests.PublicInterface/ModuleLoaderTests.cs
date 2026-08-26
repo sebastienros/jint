@@ -10,7 +10,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class ModuleLoaderTests
 {
-    [Fact]
+    [Test]
     public void CustomModuleLoaderWithUriModuleLocations()
     {
         // Dummy module store which shows that different protocols can be
@@ -46,7 +46,7 @@ public class ModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CustomModuleLoaderWithCachingSupport()
     {
         // Different engines use the same module loader.
@@ -68,7 +68,7 @@ public class ModuleLoaderTests
         sharedModules.ModulesParsed.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CustomModuleLoaderCanWorkWithJsonModules()
     {
         var store = new ModuleStore(new Dictionary<string, string>()
@@ -267,7 +267,7 @@ public class ModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ModulesCanBeRegisteredFromAConfigurationCallback()
     {
         var engine = new Engine(options => options.Configure(e => e.Modules.Add("lib", "export const answer = 42;")));
@@ -281,7 +281,7 @@ public class ModuleLoaderTests
     /// A <c>file:</c> uri is the one case where the module's name is not the loader's key: it is reduced to
     /// <see cref="Uri.LocalPath"/>, which is exactly the rule a host preparing modules itself has to match.
     /// </summary>
-    [Fact]
+    [Test]
     public void LocationOfNamesTheBuiltModuleForAnAbsoluteFileUri()
     {
         var uri = new Uri("file:///lib/a.js");
@@ -297,7 +297,7 @@ public class ModuleLoaderTests
     /// Every other scheme leaves the loader's key alone, uri or no uri - the uri is consulted for nothing but
     /// the "is this a file?" question.
     /// </summary>
-    [Fact]
+    [Test]
     public void LocationOfNamesTheBuiltModuleByItsKeyForANonFileUri()
     {
         var uri = new Uri("app:///x.js");
@@ -314,7 +314,7 @@ public class ModuleLoaderTests
         LocationOfShouldNameTheBuiltModule(divergent);
     }
 
-    [Fact]
+    [Test]
     public void LocationOfNamesTheBuiltModuleByItsKeyWhenTheLoaderReturnsNoUri()
     {
         var resolved = new ResolvedSpecifier(new ModuleRequest("____main____", []), "____main____", null, SpecifierType.Bare);
@@ -337,7 +337,7 @@ public class ModuleLoaderTests
     /// the name has to be the one the engine would have derived - it is what the module's own relative
     /// imports are resolved against.
     /// </summary>
-    [Fact]
+    [Test]
     public void PreparedModulesNamedByLocationOfResolveTheirRelativeImports()
     {
         var loader = new SharedPreparedModuleLoader(new Dictionary<string, string>

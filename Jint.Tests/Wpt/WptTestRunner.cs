@@ -1306,156 +1306,118 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> FetchResponseSuiteFiles() => Cases("fetch/api/response");
 
-    [Theory]
-    [MemberData(nameof(UrlSuiteFiles))]
+    [TestCaseSource(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(EncodingSuiteFiles))]
+    [TestCaseSource(nameof(EncodingSuiteFiles))]
     public void RunsTheEncodingSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoSuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoSuiteFiles))]
     public void RunsTheWebCryptoSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoDeriveSuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoDeriveSuiteFiles))]
     public void RunsTheWebCryptoDeriveSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoDigestSuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoDigestSuiteFiles))]
     public void RunsTheWebCryptoDigestSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoEncryptSuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoEncryptSuiteFiles))]
     public void RunsTheWebCryptoEncryptDecryptSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoGenerateKeySuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoGenerateKeySuiteFiles))]
     public void RunsTheWebCryptoGenerateKeySuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoImportExportSuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoImportExportSuiteFiles))]
     public void RunsTheWebCryptoImportExportSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoSignVerifySuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoSignVerifySuiteFiles))]
     public void RunsTheWebCryptoSignVerifySuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WebCryptoWrapKeySuiteFiles))]
+    [TestCaseSource(nameof(WebCryptoWrapKeySuiteFiles))]
     public void RunsTheWebCryptoWrapKeySuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(StreamsSuiteFiles))]
+    [TestCaseSource(nameof(StreamsSuiteFiles))]
     public void RunsTheStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(ReadableStreamsSuiteFiles))]
+    [TestCaseSource(nameof(ReadableStreamsSuiteFiles))]
     public void RunsTheReadableStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(ReadableByteStreamsSuiteFiles))]
+    [TestCaseSource(nameof(ReadableByteStreamsSuiteFiles))]
     public void RunsTheReadableByteStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WritableStreamsSuiteFiles))]
+    [TestCaseSource(nameof(WritableStreamsSuiteFiles))]
     public void RunsTheWritableStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(TransformStreamsSuiteFiles))]
+    [TestCaseSource(nameof(TransformStreamsSuiteFiles))]
     public void RunsTheTransformStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(StreamsPipingSuiteFiles))]
+    [TestCaseSource(nameof(StreamsPipingSuiteFiles))]
     public void RunsTheStreamsPipingSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(TransferableStreamsSuiteFiles))]
+    [TestCaseSource(nameof(TransferableStreamsSuiteFiles))]
     public void RunsTheTransferableStreamsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(CompressionSuiteFiles))]
+    [TestCaseSource(nameof(CompressionSuiteFiles))]
     public void RunsTheCompressionSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(UrlPatternSuiteFiles))]
+    [TestCaseSource(nameof(UrlPatternSuiteFiles))]
     public void RunsTheUrlPatternSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FileApiSuiteFiles))]
+    [TestCaseSource(nameof(FileApiSuiteFiles))]
     public void RunsTheFileApiSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FileApiBlobSuiteFiles))]
+    [TestCaseSource(nameof(FileApiBlobSuiteFiles))]
     public void RunsTheFileApiBlobSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FileApiFileSuiteFiles))]
+    [TestCaseSource(nameof(FileApiFileSuiteFiles))]
     public void RunsTheFileApiFileSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WorkersSuiteFiles))]
+    [TestCaseSource(nameof(WorkersSuiteFiles))]
     public void RunsTheWorkersSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WorkerGlobalScopeSuiteFiles))]
+    [TestCaseSource(nameof(WorkerGlobalScopeSuiteFiles))]
     public void RunsTheWorkerGlobalScopeSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(WorkerModulesSuiteFiles))]
+    [TestCaseSource(nameof(WorkerModulesSuiteFiles))]
     public void RunsTheWorkerModulesSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(MultipleWorkersSuiteFiles))]
+    [TestCaseSource(nameof(MultipleWorkersSuiteFiles))]
     public void RunsTheMultipleWorkersSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(HrTimeSuiteFiles))]
+    [TestCaseSource(nameof(HrTimeSuiteFiles))]
     public void RunsTheHrTimeSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(UserTimingSuiteFiles))]
+    [TestCaseSource(nameof(UserTimingSuiteFiles))]
     public void RunsTheUserTimingSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(TimersSuiteFiles))]
+    [TestCaseSource(nameof(TimersSuiteFiles))]
     public void RunsTheTimersSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(MicrotaskQueuingSuiteFiles))]
+    [TestCaseSource(nameof(MicrotaskQueuingSuiteFiles))]
     public void RunsTheMicrotaskQueuingSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(StructuredCloneSuiteFiles))]
+    [TestCaseSource(nameof(StructuredCloneSuiteFiles))]
     public void RunsTheStructuredCloneSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(DomEventsSuiteFiles))]
+    [TestCaseSource(nameof(DomEventsSuiteFiles))]
     public void RunsTheDomEventsSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(DomAbortSuiteFiles))]
+    [TestCaseSource(nameof(DomAbortSuiteFiles))]
     public void RunsTheDomAbortSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FetchBasicSuiteFiles))]
+    [TestCaseSource(nameof(FetchBasicSuiteFiles))]
     public void RunsTheFetchBasicSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FetchBodySuiteFiles))]
+    [TestCaseSource(nameof(FetchBodySuiteFiles))]
     public void RunsTheFetchBodySuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FetchHeadersSuiteFiles))]
+    [TestCaseSource(nameof(FetchHeadersSuiteFiles))]
     public void RunsTheFetchHeadersSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FetchRedirectSuiteFiles))]
+    [TestCaseSource(nameof(FetchRedirectSuiteFiles))]
     public void RunsTheFetchRedirectSuite(string file) => RunSuiteFile(file);
 
-    [Theory]
-    [MemberData(nameof(FetchResponseSuiteFiles))]
+    [TestCaseSource(nameof(FetchResponseSuiteFiles))]
     public void RunsTheFetchResponseSuite(string file) => RunSuiteFile(file);
 
     /// <summary>
@@ -1467,7 +1429,7 @@ public class WptTestRunner
     /// declared to be held to anything — and one that arrives against a <see cref="_notVendored"/> reason
     /// would quietly go red for a cause somebody already decided about.
     /// </remarks>
-    [Fact]
+    [Test]
     public void EveryVendoredFileIsAccountedFor()
     {
         var problems = new List<string>();
@@ -1552,49 +1514,47 @@ public class WptTestRunner
     }
 
     /// <summary>
-    /// Every vendored <c>.any.js</c> is reached by exactly one theory, and every theory reaches only
-    /// vendored files.
+    /// Every vendored <c>.any.js</c> is reached by exactly one test-case source, and every source reaches
+    /// only vendored files.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The check above proves a file is <i>declared</i> — that it has a minimum-test entry and belongs to a
     /// suite in one of the suite arrays. It cannot prove anything <i>runs</i> it: those arrays are prose
-    /// until a <c>[Theory]</c> with a matching <c>[MemberData]</c> exists, and deleting the theory (or its
-    /// attribute, or renaming the member it names) would leave a whole standard silently unrun with the
-    /// whole inventory still green. So this walks the theories themselves and holds their union to the
+    /// until a <c>[TestCaseSource]</c> naming a member that produces them exists, and deleting the test (or
+    /// its attribute, or renaming the member it names) would leave a whole standard silently unrun with the
+    /// whole inventory still green. So this walks the sources themselves and holds their union to the
     /// corpus.
     /// </para>
     /// <para>
-    /// It is also what stops two theories overlapping. Suites are directories and
-    /// <see cref="WptCorpus.TestFiles"/> never descends, so a file belongs to exactly one — a second theory
+    /// It is also what stops two sources overlapping. Suites are directories and
+    /// <see cref="WptCorpus.TestFiles"/> never descends, so a file belongs to exactly one — a second source
     /// covering it would double every one of its cases and, worse, make an exclusion that is stale in one
-    /// theory look live because the other still matched it.
+    /// test look live because the other still matched it.
     /// </para>
     /// </remarks>
-    [Fact]
-    public void EveryVendoredTestFileIsReachedByExactlyOneTheory()
+    [Test]
+    public void EveryVendoredTestFileIsReachedByExactlyOneSource()
     {
         var reachedBy = new Dictionary<string, string>(StringComparer.Ordinal);
-        var theories = 0;
+        var sources = 0;
 
         foreach (var method in typeof(WptTestRunner).GetMethods(BindingFlags.Public | BindingFlags.Instance))
         {
-            var memberData = method.GetCustomAttributes<MemberDataAttribute>().ToArray();
-            if (memberData.Length == 0)
+            var testCaseSources = method.GetCustomAttributes<TestCaseSourceAttribute>().ToArray();
+            if (testCaseSources.Length == 0)
             {
                 continue;
             }
 
-            method.GetCustomAttribute<TheoryAttribute>()
-                .Should().NotBeNull($"{method.Name} carries [MemberData] and so must be a [Theory]");
-            theories++;
+            sources++;
 
-            foreach (var attribute in memberData)
+            foreach (var attribute in testCaseSources)
             {
                 var member = typeof(WptTestRunner).GetMethod(
-                    attribute.MemberName,
+                    attribute.SourceName!,
                     BindingFlags.Public | BindingFlags.Static);
-                member.Should().NotBeNull($"{method.Name} names \"{attribute.MemberName}\"");
+                member.Should().NotBeNull($"{method.Name} names \"{attribute.SourceName}\"");
 
                 var rows = (IEnumerable<object[]>) member!.Invoke(null, null)!;
                 var any = false;
@@ -1607,13 +1567,13 @@ public class WptTestRunner
                     reachedBy[file] = method.Name;
                 }
 
-                any.Should().BeTrue($"{attribute.MemberName} must produce cases");
+                any.Should().BeTrue($"{attribute.SourceName} must produce cases");
             }
         }
 
         // A floor rather than an equality, so adding a standard needs no edit here — but low enough to be
         // meaningless only if most of the file were deleted, which is the failure this number guards.
-        theories.Should().BeGreaterThanOrEqualTo(20, "each vendored suite is one theory");
+        sources.Should().BeGreaterThanOrEqualTo(20, "each vendored suite is one test-case source");
 
         var vendored = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var path in WptCorpus.Paths)
@@ -1625,7 +1585,7 @@ public class WptTestRunner
         }
 
         reachedBy.Keys.Should().BeEquivalentTo(vendored,
-            "every vendored .any.js must be reached by a theory, and a theory must reach nothing else");
+            "every vendored .any.js must be reached by a source, and a source must reach nothing else");
     }
 
     /// <summary>
@@ -1654,7 +1614,7 @@ public class WptTestRunner
     /// are meant to, and a corpus bump that adds another has to say so too.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void EveryWorkerLaneFileIsAWorkersFile()
     {
         var problems = new List<string>();
@@ -1710,7 +1670,7 @@ public class WptTestRunner
     /// directory — would move that boundary without anything saying so.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheServerLaneHoldsExactlyTheFilesItNames()
     {
         var named = WptHarness.ServerBackedFiles.ToArray();
@@ -1739,7 +1699,7 @@ public class WptTestRunner
         }
     }
 
-    [Fact]
+    [Test]
     public void TheHarnessShimAndItsHelpersAreEmbedded()
     {
         WptCorpus.Prelude.Should().Contain("__wpt", "the driver reads its results back through that object");

@@ -14,7 +14,7 @@ public class DeclarationScopeTests
     // A ClassStaticBlockBody is its own var scope, hoisted as a function body of its own by
     // ClassStaticBlockDefinitionEvaluation, so nothing it declares reaches the enclosing scope.
 
-    [Fact]
+    [Test]
     public void AFunctionDeclaredInAStaticBlockDoesNotReachTheEnclosingScope()
     {
         var engine = new Engine();
@@ -22,7 +22,7 @@ public class DeclarationScopeTests
         engine.Evaluate("class C { static { function f() {} } } typeof f;").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AVarDeclaredInAStaticBlockDoesNotReachTheEnclosingScope()
     {
         var engine = new Engine();
@@ -35,7 +35,7 @@ public class DeclarationScopeTests
         engine.Evaluate("typeof sv;").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AStaticBlockOfAClassExpressionDoesNotLeakEither()
     {
         var engine = new Engine();
@@ -44,7 +44,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("undefined undefined");
     }
 
-    [Fact]
+    [Test]
     public void AStaticBlockInsideAFunctionDoesNotReachThatFunctionsScope()
     {
         var engine = new Engine();
@@ -53,7 +53,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("undefined undefined");
     }
 
-    [Fact]
+    [Test]
     public void AStaticBlockStillHoistsWithinItself()
     {
         // The control: not reaching the enclosing scope must not mean not being hoisted at all. Both
@@ -70,7 +70,7 @@ public class DeclarationScopeTests
     // B.3.2.1 skips the var-hoisting of a block-level function declaration when the name is already
     // lexically declared in the function body - and a class declaration is a lexical declaration.
 
-    [Fact]
+    [Test]
     public void AClassNameBlocksAnnexBHoistingOfASameNamedBlockFunction()
     {
         var engine = new Engine();
@@ -79,7 +79,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("class");
     }
 
-    [Fact]
+    [Test]
     public void ALetNameBlocksAnnexBHoistingOfASameNamedBlockFunction()
     {
         // The `let` analogue was always correct: the variable-declaration branch of the walk collected the
@@ -90,7 +90,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("lex");
     }
 
-    [Fact]
+    [Test]
     public void AClassNameAtGlobalScopeAlreadyBlockedAnnexBHoisting()
     {
         // The second control, and why this only ever showed up inside a function: the script path asks
@@ -102,7 +102,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("class");
     }
 
-    [Fact]
+    [Test]
     public void AnnexBStillHoistsABlockFunctionWhoseNameIsFree()
     {
         // The third control: the conflict filter must not have become a blanket refusal.
@@ -112,7 +112,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("hoisted");
     }
 
-    [Fact]
+    [Test]
     public void AClassDeclarationDoesNotSuppressTheArgumentsObject()
     {
         // The collected lexical names have a second reader: FunctionDeclarationInstantiation skips creating the
@@ -128,7 +128,7 @@ public class DeclarationScopeTests
             .WithMessage("Unexpected eval or arguments in strict mode*");
     }
 
-    [Fact]
+    [Test]
     public void APreparedModulesCachedScopeAgreesWithTheModuleWalk()
     {
         // An Acornima Module reports NodeType.Program, but preparing one no longer caches a scope on the root at
@@ -153,7 +153,7 @@ public class DeclarationScopeTests
     // skipped those names entirely, so the var resolved to the parameter environment's binding and a
     // write to it was visible to a closure created in the parameter list.
 
-    [Fact]
+    [Test]
     public void AVarNamedLikeAParameterIsReboundInTheBodyWhenParametersHaveExpressions()
     {
         var engine = new Engine();
@@ -162,7 +162,7 @@ public class DeclarationScopeTests
             .AsString().Should().Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void AVarNamedArgumentsIsReboundInTheBodyWhenParametersHaveExpressions()
     {
         var engine = new Engine();
@@ -179,7 +179,7 @@ public class DeclarationScopeTests
             .AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AVarNamedLikeAParameterIsNotReboundWhenTheParameterListIsSimple()
     {
         var engine = new Engine();

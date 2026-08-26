@@ -36,13 +36,13 @@ public class OperatorOverloadingConfigurationTests
         return engine.Evaluate("(a + b).Value");
     }
 
-    [Fact]
+    [Test]
     public void TheConstructorConfigureDelegateEnablesIt()
     {
         Add(new Engine(options => options.Interop.AllowOperatorOverloading = true)).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void AnOptionsInstanceConfiguredBeforeConstructionEnablesIt()
     {
         var options = new Options();
@@ -51,7 +51,7 @@ public class OperatorOverloadingConfigurationTests
         Add(new Engine(options)).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void AConfigureCallbackEnablesIt()
     {
         // Configure callbacks run from Options.Apply, i.e. later in the constructor than the point
@@ -63,13 +63,13 @@ public class OperatorOverloadingConfigurationTests
         Add(new Engine(options)).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ItIsOffByDefault()
     {
         Add(new Engine()).Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void ADisablingConfigureCallbackWinsOverAnEarlierEnable()
     {
         // The reading is taken once, at the end of construction, so the last writer before that wins
@@ -81,7 +81,7 @@ public class OperatorOverloadingConfigurationTests
         Add(new Engine(options)).Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void MutatingTheOptionsAfterConstructionIsRefused()
     {
         // One Options instance is meant to be shared by many engines, including concurrently running

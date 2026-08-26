@@ -31,8 +31,8 @@ public class HostExtensibilityContractTests
     /// <summary>
     /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
     /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
-    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
-    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Static so
+    /// <see cref="IgnoreUnlessAttribute" /> can read it while the test tree is built.
     /// </summary>
     public static bool Verifying => HostContractVerificationSwitch.Enabled;
 
@@ -78,7 +78,7 @@ public class HostExtensibilityContractTests
     /// have had to override is not virtual, and the setter that used to be left behind by such an override is
     /// not public. <c>public override bool Extensible =&gt; true;</c> is therefore CS0506 for an embedder.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheExtensibleGetterCannotBeOverriddenByAHostSubclass()
     {
         var extensible = typeof(ObjectInstance).GetProperty(nameof(ObjectInstance.Extensible), BindingFlags.Public | BindingFlags.Instance);
@@ -93,7 +93,7 @@ public class HostExtensibilityContractTests
             .IsVirtual.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryHostSubclassIsPreventedSealedAndFrozenLikeAnyOtherObject()
     {
         var engine = new Engine();
@@ -116,7 +116,7 @@ public class HostExtensibilityContractTests
     /// The migration target for Squidex's shape, observed from script. The object stays extensible forever,
     /// and every route that would have reported a success that did not happen now fails loudly instead.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostThatRefusesToBecomeNonExtensibleIsVisiblyRefusing()
     {
         var engine = new Engine();
@@ -149,11 +149,11 @@ public class HostExtensibilityContractTests
     /// Every script-visible route into <c>[[PreventExtensions]]</c> is verified, not just
     /// <c>Object.preventExtensions</c>.
     /// </summary>
-    [Theory(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
-    [InlineData("Object.preventExtensions(host)")]
-    [InlineData("Object.seal(host)")]
-    [InlineData("Object.freeze(host)")]
-    [InlineData("Reflect.preventExtensions(host)")]
+    [IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
+    [TestCase("Object.preventExtensions(host)")]
+    [TestCase("Object.seal(host)")]
+    [TestCase("Object.freeze(host)")]
+    [TestCase("Reflect.preventExtensions(host)")]
     public void APreventExtensionsThatReportsSuccessWithoutTakingEffectIsReported(string script)
     {
         var engine = new Engine();
@@ -168,7 +168,7 @@ public class HostExtensibilityContractTests
     /// The verifier is opt-in, so with it off the lie is silent — which is the whole reason the getter had to
     /// stop being overridable rather than merely being checked.
     /// </summary>
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void WithVerificationOffTheSameLieCostsNothingAndIsNotReported()
     {
         var engine = new Engine();
@@ -184,7 +184,7 @@ public class HostExtensibilityContractTests
     /// where reading extensibility runs a user <c>isExtensible</c> trap and a verifier that did so would be an
     /// observable side effect.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProxyIsNotSweptUpByTheVerifier()
     {
         var engine = new Engine();

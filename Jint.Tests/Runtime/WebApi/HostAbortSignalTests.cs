@@ -26,7 +26,7 @@ public class HostAbortSignalTests
     /// creation runs on the engine's thread, which is the only thread that may abort a signal, so there is
     /// nothing to defer.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAlreadyCancelledTokenYieldsAnAlreadyAbortedSignal()
     {
         using var engine = EventsEngine();
@@ -52,7 +52,7 @@ public class HostAbortSignalTests
     /// algorithms — the engine's own CLR-side cancellation among them — run before the <c>abort</c> event, so
     /// an in-flight CLR operation is stopped before any script observes the abort.
     /// </summary>
-    [Fact]
+    [Test]
     public void CancellationAbortsTheSignalAndItsClrTokenOnTheNextPump()
     {
         using var engine = EventsEngine();
@@ -83,7 +83,7 @@ public class HostAbortSignalTests
     /// A token that can never be cancelled — <see cref="CancellationToken.None"/>, or a struct default — still
     /// produces a usable signal; it simply never aborts, and nothing is registered on the host's side.
     /// </summary>
-    [Fact]
+    [Test]
     public void ATokenThatCanNeverBeCancelledYieldsASignalThatNeverAborts()
     {
         using var engine = EventsEngine();
@@ -103,7 +103,7 @@ public class HostAbortSignalTests
     /// The signal belongs to the principal realm's <c>AbortSignal</c>, so everything script does with it — the
     /// <c>instanceof</c>, the listeners, handing it to an API that takes a signal — works.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheSignalIsAnOrdinaryAbortSignalOfThePrincipalRealm()
     {
         using var engine = EventsEngine();
@@ -122,7 +122,7 @@ public class HostAbortSignalTests
     /// <c>RestoreGlobalSnapshot</c> ends the cycle, and the bridge is released with everything else that cycle
     /// registered.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreReleasesTheBridge()
     {
         using var engine = EventsEngine();
@@ -144,12 +144,12 @@ public class HostAbortSignalTests
     /// did not ask for it is told which feature to enable rather than silently handed an object whose interface
     /// object no script can name.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheEventsFeatureIsRefused()
     {
         using var engine = new Engine();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.WebApi.CreateAbortSignal(CancellationToken.None));
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.WebApi.CreateAbortSignal(CancellationToken.None))!;
         exception.Message.Should().Contain("WebApiFeatures.Events");
 
         // Enabling some other feature is not enough either.

@@ -88,7 +88,7 @@ public class HostModuleLocationTests
         options.UseHostFactory(_ => new ImportMetaUrlHost());
     });
 
-    [Fact]
+    [Test]
     public void LoadedModuleKnowsItselfByTheNameItsLoaderChose()
     {
         // Both keys differ from what Uri.AbsoluteUri would produce for the same uri — it strips a default
@@ -107,7 +107,7 @@ public class HostModuleLocationTests
             .Should().Be("http://localhost/lib/my report.js");
     }
 
-    [Fact]
+    [Test]
     public void LoadedModuleResolvesARelativeImportAgainstItsOwnUrl()
     {
         // The referrer a module's own imports are resolved against is its location, so reducing that to a
@@ -123,7 +123,7 @@ public class HostModuleLocationTests
         ns.Get("value").AsString().Should().Be("from the sibling");
     }
 
-    [Fact]
+    [Test]
     public void LoadedModuleNamesItselfByItsKeyInAStackTrace()
     {
         // The same string is the module's identity in error.stack, so a host parsing frames sees the url.
@@ -138,7 +138,7 @@ public class HostModuleLocationTests
         exception.JavaScriptStackTrace.Should().Contain("http://localhost/lib/entry.js");
     }
 
-    [Fact]
+    [Test]
     public void ADebuggerCanBreakInAModuleLoadedFromAUrl()
     {
         // BreakPointCollection keys on BreakLocation.Source, which is this same string. Nothing else covers a
@@ -166,7 +166,7 @@ public class HostModuleLocationTests
         hits.Should().ContainSingle().Which.Should().Be("http://localhost/lib/entry.js");
     }
 
-    [Fact]
+    [Test]
     public void LoadedFileModuleKnowsItselfByPath()
     {
         // A file: url is still reported as a filesystem path, which is what every host on DefaultModuleLoader
@@ -203,7 +203,7 @@ public class HostModuleLocationTests
     private static ResolvedSpecifier Resolved(string key, Uri? uri)
         => new ResolvedSpecifier(new ModuleRequest(key, []), key, uri, SpecifierType.Bare);
 
-    public static TheoryData<string, Uri?> UnusableUris => new TheoryData<string, Uri?>
+    public static TestCases<string, Uri?> UnusableUris => new TestCases<string, Uri?>
     {
         { "no uri at all", null },
         { "a relative uri", new Uri("lib/dep.js", UriKind.Relative) },
@@ -215,8 +215,7 @@ public class HostModuleLocationTests
     /// to throw <see cref="InvalidOperationException"/> out of <see cref="Uri.LocalPath"/>; a null uri is the
     /// case that used to produce a null location for three of the four.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(UnusableUris))]
+    [TestCaseSource(nameof(UnusableUris))]
     public void AModuleWhoseUriCannotNameItKnowsItselfByItsKey(string because, Uri? uri)
     {
         because.Should().NotBeEmpty();
@@ -232,7 +231,7 @@ public class HostModuleLocationTests
             .Location.Should().Be("blob.bin");
     }
 
-    [Fact]
+    [Test]
     public void AModuleLoadedFromAFileUriKnowsItselfByPathThroughEveryFactory()
     {
         // The file: exception is not confined to source text: the same rule has to hold for the synthetic

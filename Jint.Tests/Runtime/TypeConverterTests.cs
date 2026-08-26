@@ -7,17 +7,17 @@ public class TypeConverterTests
 {
     private readonly Engine _engine;
 
-    public TypeConverterTests(ITestOutputHelper output)
+    public TypeConverterTests()
     {
         _engine = new Engine()
-                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
+                .SetValue("log", new Action<object>(o => TestContext.Out.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
             ;
     }
 
-    public static readonly TheoryData<double, int> ConvertNumberToInt32AndUint32TestData = new()
+    public static readonly TestCases<double, int> ConvertNumberToInt32AndUint32TestData = new()
     {
         { 0.0, 0 },
         { -0.0, 0 },
@@ -70,8 +70,7 @@ public class TypeConverterTests
         { double.NaN, 0 },
     };
 
-    [Theory]
-    [MemberData(nameof(ConvertNumberToInt32AndUint32TestData))]
+    [TestCaseSource(nameof(ConvertNumberToInt32AndUint32TestData))]
     public void ConvertNumberToInt32AndUint32(double value, int expectedResult)
     {
         JsValue jsval = value;
@@ -79,7 +78,7 @@ public class TypeConverterTests
         TypeConverter.ToUint32(jsval).Should().Be((uint)expectedResult);
     }
 
-    [Fact]
+    [Test]
     public void ToPrimitiveShouldEvaluateOnlyOnceDuringInExpression()
     {
         _engine.Execute(@"

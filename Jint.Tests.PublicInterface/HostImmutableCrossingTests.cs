@@ -61,7 +61,7 @@ public class HostImmutableCrossingTests
         return (engine, root, leaf);
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredTypeIsReadOncePerKeyHoweverOftenScriptAsks()
     {
         var (engine, root, leaf) = CreateGraph();
@@ -73,7 +73,7 @@ public class HostImmutableCrossingTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void WithoutTheDeclarationEveryReadReachesTheHost()
     {
         var leaf = new CountingDictionary(("country", "FI"));
@@ -87,7 +87,7 @@ public class HostImmutableCrossingTests
         leaf.Probes.Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void TheDeclarationSupersedesTheRecentWrapperRing()
     {
         // the ring is the mechanism the declaration exists to replace for nested walks, so turning it off
@@ -100,7 +100,7 @@ public class HostImmutableCrossingTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EnumerationStaysLiveFromTheTarget()
     {
         var inner = new Dictionary<string, object>(StringComparer.Ordinal) { ["a"] = 1 };
@@ -115,7 +115,7 @@ public class HostImmutableCrossingTests
         engine.Evaluate("JSON.stringify(record)").AsString().Should().Be("""{"a":1,"b":2}""");
     }
 
-    [Fact]
+    [Test]
     public void AWriteThroughTheWrapperEvictsThatKeysMemo()
     {
         var inner = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
@@ -134,7 +134,7 @@ public class HostImmutableCrossingTests
         inner["country"].Should().Be("SE");
     }
 
-    [Fact]
+    [Test]
     public void EachEngineMemoizesForItself()
     {
         var target = new CountingDictionary(("country", "FI"));
@@ -152,7 +152,7 @@ public class HostImmutableCrossingTests
         target.Probes.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceCanServeSeveralEngines()
     {
         var options = new Options().AddImmutableCrossing(typeof(IReadOnlyDictionary<string, object>));
@@ -172,7 +172,7 @@ public class HostImmutableCrossingTests
         second.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RegistrationValidatesItsArguments()
     {
         var noTypes = () => new Options().AddImmutableCrossing();
@@ -182,7 +182,7 @@ public class HostImmutableCrossingTests
         nullEntry.Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredTypesAreVisibleOnTheOptions()
     {
         var options = new Options().AddImmutableCrossing(typeof(Uri), typeof(IReadOnlyDictionary<string, object>));
@@ -190,7 +190,7 @@ public class HostImmutableCrossingTests
         options.Interop.ImmutableCrossingTypes.Should().Equal(typeof(Uri), typeof(IReadOnlyDictionary<string, object>));
     }
 
-    [Fact]
+    [Test]
     public void ASystemTextJsonGraphReadsTheSameDeclaredOrNot()
     {
         const string Source = """{"value":{"customer":{"country":"FI","city":"Tampere"},"amount":42}}""";
@@ -216,7 +216,7 @@ public class HostImmutableCrossingTests
         // declared graph is pinned on the plain-dictionary and Newtonsoft cases instead.
     }
 
-    [Fact]
+    [Test]
     public void ANewtonsoftGraphReadsTheSameDeclaredOrNot()
     {
         const string Source = """{"value":{"customer":{"country":"FI"},"amount":42}}""";

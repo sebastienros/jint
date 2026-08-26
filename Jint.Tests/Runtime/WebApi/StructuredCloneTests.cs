@@ -33,7 +33,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- the function itself
 
-    [Fact]
+    [Test]
     public void IsAWebIdlOperationOnTheGlobal()
     {
         var engine = WebEngine();
@@ -46,7 +46,7 @@ public class StructuredCloneTests
         Err(engine, "new structuredClone(1)").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RequiresTheValueArgument()
     {
         var engine = WebEngine();
@@ -59,13 +59,12 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- primitives
 
-    [Theory]
-    [InlineData("undefined")]
-    [InlineData("null")]
-    [InlineData("true")]
-    [InlineData("42")]
-    [InlineData("'text'")]
-    [InlineData("123456789012345678901234567890n")]
+    [TestCase("undefined")]
+    [TestCase("null")]
+    [TestCase("true")]
+    [TestCase("42")]
+    [TestCase("'text'")]
+    [TestCase("123456789012345678901234567890n")]
     public void ReturnsAPrimitiveAsItself(string expression)
     {
         var engine = WebEngine();
@@ -74,7 +73,7 @@ public class StructuredCloneTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PreservesNegativeZeroAndNaN()
     {
         var engine = WebEngine();
@@ -84,7 +83,7 @@ public class StructuredCloneTests
         engine.Evaluate("structuredClone(Infinity)").AsNumber().Should().Be(double.PositiveInfinity);
     }
 
-    [Fact]
+    [Test]
     public void RefusesASymbol()
     {
         var engine = WebEngine();
@@ -95,7 +94,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- ordinary objects
 
-    [Fact]
+    [Test]
     public void ClonesTheOwnEnumerableStringKeyedProperties()
     {
         var engine = WebEngine();
@@ -117,7 +116,7 @@ public class StructuredCloneTests
         engine.Evaluate("Object.getOwnPropertySymbols(clone).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RecreatesEveryPropertyAsAPlainDataProperty()
     {
         var engine = WebEngine();
@@ -134,7 +133,7 @@ public class StructuredCloneTests
         engine.Evaluate("descriptor.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GivesEveryCloneTheCurrentRealmsObjectPrototype()
     {
         var engine = WebEngine();
@@ -151,7 +150,7 @@ public class StructuredCloneTests
         engine.Evaluate("bareClone.a").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void InvokesGettersAndClonesWhatTheyReturn()
     {
         var engine = WebEngine();
@@ -169,7 +168,7 @@ public class StructuredCloneTests
         engine.Evaluate("calls").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void WalksDepthFirstInPropertyOrder()
     {
         var engine = WebEngine();
@@ -187,7 +186,7 @@ public class StructuredCloneTests
         engine.Evaluate("order.join(',')").AsString().Should().Be("a,inner,b");
     }
 
-    [Fact]
+    [Test]
     public void SkipsAKeyAnEarlierGetterDeleted()
     {
         var engine = WebEngine();
@@ -202,7 +201,7 @@ public class StructuredCloneTests
         engine.Evaluate("'b' in clone").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void PropagatesWhatAGetterThrows()
     {
         var engine = WebEngine();
@@ -212,7 +211,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- identity and cycles
 
-    [Fact]
+    [Test]
     public void PreservesCyclesThroughTheMemoryMap()
     {
         var engine = WebEngine();
@@ -223,7 +222,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone !== source").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PreservesSharedIdentity()
     {
         var engine = WebEngine();
@@ -235,7 +234,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.x !== shared").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GivesEachCallItsOwnMemory()
     {
         var engine = WebEngine();
@@ -244,7 +243,7 @@ public class StructuredCloneTests
         engine.Evaluate("structuredClone(source) !== structuredClone(source)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesADeeplyNestedGraphWithoutOverflowingTheStack()
     {
         var engine = WebEngine();
@@ -264,7 +263,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone !== root").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesADeeplyNestedArrayAndMapChainWithoutOverflowingTheStack()
     {
         var engine = WebEngine();
@@ -292,7 +291,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- installation
 
-    [Fact]
+    [Test]
     public void IsInstalledOnlyWhenTheFeatureIsNamed()
     {
         new Engine().Evaluate("typeof structuredClone").AsString().Should().Be("undefined");
@@ -300,7 +299,7 @@ public class StructuredCloneTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof structuredClone").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void IsAnUnmaterializedLazyGlobalWithTheWebIdlAttributes()
     {
         var engine = WebEngine();
@@ -315,7 +314,7 @@ public class StructuredCloneTests
         descriptor.Configurable.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = WebEngine();
@@ -324,7 +323,7 @@ public class StructuredCloneTests
         engine.Evaluate("typeof structuredClone").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = WebEngine();
@@ -342,7 +341,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- arrays
 
-    [Fact]
+    [Test]
     public void ClonesAnArrayWithItsLengthHolesAndExtraProperties()
     {
         var engine = WebEngine();
@@ -358,7 +357,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.extra").AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void ClonesNestedArrays()
     {
         var engine = WebEngine();
@@ -371,7 +370,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- Date, RegExp, boxed primitives
 
-    [Fact]
+    [Test]
     public void ClonesADateByItsTimeValue()
     {
         var engine = WebEngine();
@@ -381,7 +380,7 @@ public class StructuredCloneTests
         engine.Evaluate("structuredClone(new Date(0)) instanceof Date").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesARegExpBySourceAndFlagsButNotLastIndex()
     {
         var engine = WebEngine();
@@ -397,7 +396,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone instanceof RegExp").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesABoxedPrimitiveByItsDataSlot()
     {
         var engine = WebEngine();
@@ -415,7 +414,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- Map and Set
 
-    [Fact]
+    [Test]
     public void ClonesAMapWithItsEntriesInOrder()
     {
         var engine = WebEngine();
@@ -434,7 +433,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(clone.values())[1].v").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ClonesASetWithItsValuesInOrder()
     {
         var engine = WebEngine();
@@ -446,7 +445,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(clone)[2].v").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void LetsACollectionContainItself()
     {
         var engine = WebEngine();
@@ -462,14 +461,13 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- errors
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("EvalError")]
-    [InlineData("RangeError")]
-    [InlineData("ReferenceError")]
-    [InlineData("SyntaxError")]
-    [InlineData("TypeError")]
-    [InlineData("URIError")]
+    [TestCase("Error")]
+    [TestCase("EvalError")]
+    [TestCase("RangeError")]
+    [TestCase("ReferenceError")]
+    [TestCase("SyntaxError")]
+    [TestCase("TypeError")]
+    [TestCase("URIError")]
     public void KeepsAWhitelistedErrorName(string name)
     {
         var engine = WebEngine();
@@ -481,7 +479,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.message").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ReducesAnyOtherErrorNameToError()
     {
         var engine = WebEngine();
@@ -497,7 +495,7 @@ public class StructuredCloneTests
         engine.Evaluate("aggregate.errors === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CarriesOnlyTheErrorsNameMessageCauseAndStack()
     {
         var engine = WebEngine();
@@ -517,7 +515,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.stack").AsString().Should().Be(engine.Evaluate("source.stack").AsString());
     }
 
-    [Fact]
+    [Test]
     public void OmitsAnAbsentOrAccessorMessage()
     {
         var engine = WebEngine();
@@ -538,14 +536,13 @@ public class StructuredCloneTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(accessorClone, 'message') === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("EvalError")]
-    [InlineData("RangeError")]
-    [InlineData("ReferenceError")]
-    [InlineData("SyntaxError")]
-    [InlineData("TypeError")]
-    [InlineData("URIError")]
+    [TestCase("Error")]
+    [TestCase("EvalError")]
+    [TestCase("RangeError")]
+    [TestCase("ReferenceError")]
+    [TestCase("SyntaxError")]
+    [TestCase("TypeError")]
+    [TestCase("URIError")]
     public void CarriesTheErrorsCause(string name)
     {
         var engine = WebEngine();
@@ -561,7 +558,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.foo === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GivesTheCloneNoCauseWhenTheSourceHasNone()
     {
         var engine = WebEngine();
@@ -579,7 +576,7 @@ public class StructuredCloneTests
         engine.Evaluate("explicitClone.cause === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GivesTheCauseTheAttributesTheLanguageWouldHave()
     {
         var engine = WebEngine();
@@ -594,7 +591,7 @@ public class StructuredCloneTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(clone, 'cause').configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SubSerializesTheCauseThroughTheOneMemoryMap()
     {
         var engine = WebEngine();
@@ -613,7 +610,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.e.cause === clone.p").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TerminatesOnAnErrorThatIsItsOwnCause()
     {
         var engine = WebEngine();
@@ -624,7 +621,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.cause === clone").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnUncloneableCause()
     {
         var engine = WebEngine();
@@ -633,7 +630,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(new Error('boom', { cause: Symbol() }))").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ReadsCauseAsAnOwnDataPropertyOnly()
     {
         var engine = WebEngine();
@@ -655,7 +652,7 @@ public class StructuredCloneTests
         engine.Evaluate("'cause' in inheritedClone").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ClonesADomExceptionByNameAndMessage()
     {
         var engine = WebEngine();
@@ -673,7 +670,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- ArrayBuffer and views
 
-    [Fact]
+    [Test]
     public void CopiesAnArrayBuffersBytes()
     {
         var engine = WebEngine();
@@ -689,7 +686,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(new Uint8Array(clone)).join(',')").AsString().Should().Be("1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void KeepsAResizableArrayBufferResizable()
     {
         var engine = WebEngine();
@@ -703,7 +700,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.byteLength").AsNumber().Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void RefusesADetachedArrayBuffer()
     {
         var engine = WebEngine();
@@ -715,7 +712,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone({ b: buffer })").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASharedArrayBuffer()
     {
         var engine = WebEngine();
@@ -724,7 +721,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(new SharedArrayBuffer(4))").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ClonesTwoViewsOfOneBufferAsTwoViewsOfOneClonedBuffer()
     {
         var engine = WebEngine();
@@ -746,16 +743,15 @@ public class StructuredCloneTests
         engine.Evaluate("new Uint8Array(clone.tail.buffer)[0]").AsNumber().Should().Be(42);
     }
 
-    [Theory]
-    [InlineData("Int8Array")]
-    [InlineData("Uint8Array")]
-    [InlineData("Uint8ClampedArray")]
-    [InlineData("Int16Array")]
-    [InlineData("Uint16Array")]
-    [InlineData("Int32Array")]
-    [InlineData("Uint32Array")]
-    [InlineData("Float32Array")]
-    [InlineData("Float64Array")]
+    [TestCase("Int8Array")]
+    [TestCase("Uint8Array")]
+    [TestCase("Uint8ClampedArray")]
+    [TestCase("Int16Array")]
+    [TestCase("Uint16Array")]
+    [TestCase("Int32Array")]
+    [TestCase("Uint32Array")]
+    [TestCase("Float32Array")]
+    [TestCase("Float64Array")]
     public void ClonesEveryNumericTypedArrayKind(string kind)
     {
         var engine = WebEngine();
@@ -768,7 +764,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.buffer !== source.buffer").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesABigIntTypedArray()
     {
         var engine = WebEngine();
@@ -779,7 +775,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone[1] === -2n").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClonesADataViewWithItsOffsetAndLength()
     {
         var engine = WebEngine();
@@ -798,7 +794,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.buffer !== buffer").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void KeepsALengthTrackingViewTracking()
     {
         var engine = WebEngine();
@@ -815,7 +811,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.view.byteLength").AsNumber().Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAViewThatItsBufferNoLongerCovers()
     {
         var engine = WebEngine();
@@ -832,7 +828,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- transfer
 
-    [Fact]
+    [Test]
     public void TransfersAnArrayBufferInsteadOfCopyingIt()
     {
         var engine = WebEngine();
@@ -847,7 +843,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(new Uint8Array(clone.payload)).join(',')").AsString().Should().Be("1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void MapsATransferredBufferReachedFromTheValueToTheTransferredResult()
     {
         var engine = WebEngine();
@@ -863,7 +859,7 @@ public class StructuredCloneTests
         engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TransfersABufferTheValueNeverReaches()
     {
         var engine = WebEngine();
@@ -874,7 +870,7 @@ public class StructuredCloneTests
         engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void DetachesOnlyAfterTheWholeGraphHasBeenWalked()
     {
         var engine = WebEngine();
@@ -894,7 +890,7 @@ public class StructuredCloneTests
         engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesADuplicateInTheTransferList()
     {
         var engine = WebEngine();
@@ -906,7 +902,7 @@ public class StructuredCloneTests
         engine.Evaluate("buffer.byteLength").AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void RefusesANonTransferableEntry()
     {
         var engine = WebEngine();
@@ -916,7 +912,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(0, { transfer: [new SharedArrayBuffer(4)] })").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnAlreadyDetachedEntry()
     {
         var engine = WebEngine();
@@ -925,7 +921,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(0, { transfer: [buffer] })").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesABufferAGetterDetachedDuringTheWalk()
     {
         var engine = WebEngine();
@@ -939,7 +935,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(source, { transfer: [buffer] })").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ValidatesTheOptionsDictionaryBeforeCloningAnything()
     {
         var engine = WebEngine();
@@ -958,7 +954,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(1, { transfer: [1] })").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TakesTheTransferListThroughTheIteratorProtocol()
     {
         var engine = WebEngine();
@@ -974,7 +970,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- %Object.prototype%
 
-    [Fact]
+    [Test]
     public void ClonesObjectPrototypeAsAnOrdinaryObject()
     {
         var engine = WebEngine();
@@ -988,7 +984,7 @@ public class StructuredCloneTests
         engine.Evaluate("Object.getOwnPropertyNames(clone).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ObjectPrototypesCloneLosesItsImmutablePrototypeExoticness()
     {
         var engine = WebEngine();
@@ -1006,7 +1002,7 @@ public class StructuredCloneTests
         Err(engine, "Object.setPrototypeOf(Object.prototype, { })").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ReachesObjectPrototypeInsideAGraph()
     {
         var engine = WebEngine();
@@ -1022,17 +1018,16 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- refusals
 
-    [Theory]
-    [InlineData("function() {}")]
-    [InlineData("class Foo {}")]
-    [InlineData("Math.max")]
-    [InlineData("new Proxy({}, {})")]
-    [InlineData("new WeakMap()")]
-    [InlineData("new WeakSet()")]
-    [InlineData("new WeakRef({})")]
-    [InlineData("Promise.resolve(1)")]
-    [InlineData("new Map()[Symbol.iterator]()")]
-    [InlineData("(function* () {})()")]
+    [TestCase("function() {}")]
+    [TestCase("class Foo {}")]
+    [TestCase("Math.max")]
+    [TestCase("new Proxy({}, {})")]
+    [TestCase("new WeakMap()")]
+    [TestCase("new WeakSet()")]
+    [TestCase("new WeakRef({})")]
+    [TestCase("Promise.resolve(1)")]
+    [TestCase("new Map()[Symbol.iterator]()")]
+    [TestCase("(function* () {})()")]
     public void RefusesAnUncloneableObject(string expression)
     {
         var engine = WebEngine();
@@ -1041,7 +1036,7 @@ public class StructuredCloneTests
         Err(engine, $"structuredClone({{ nested: {expression} }})").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RaisesTheRefusalAsADomException()
     {
         var engine = WebEngine();
@@ -1056,7 +1051,7 @@ public class StructuredCloneTests
         engine.Evaluate("typeof caught.message").AsString().Should().Be("string");
     }
 
-    [Fact]
+    [Test]
     public void RefusesADomExceptionEvenWhenTheGlobalWasShadowed()
     {
         // The algorithm reaches the interface object through the realm's intrinsics, so a script that
@@ -1071,7 +1066,7 @@ public class StructuredCloneTests
 
     // ---------------------------------------------------------------- Blob and File
 
-    [Fact]
+    [Test]
     public void ClonesABlobsByteSequenceAndType()
     {
         var engine = FileEngine();
@@ -1087,7 +1082,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.text()").UnwrapIfPromise().AsString().Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void ClonesAnEmptyBlobAndOneWhoseBytesAreNotUtf8()
     {
         var engine = FileEngine();
@@ -1105,7 +1100,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(cloneBytes).join(',')").AsString().Should().Be("237,160,128,0");
     }
 
-    [Fact]
+    [Test]
     public void ClonesAFilesNameAndLastModifiedAsWell()
     {
         var engine = FileEngine();
@@ -1123,7 +1118,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.text()").UnwrapIfPromise().AsString().Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void DeserializesAFileSubclassAsAPlainFile()
     {
         var engine = FileEngine();
@@ -1136,7 +1131,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.name").AsString().Should().Be("n");
     }
 
-    [Fact]
+    [Test]
     public void DeserializesABlobWhoseInterfaceObjectWasDeletedFromTheGlobal()
     {
         var engine = FileEngine();
@@ -1154,7 +1149,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.size").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ReachesABlobThroughEveryContainerAndKeepsItsIdentity()
     {
         var engine = FileEngine();
@@ -1176,7 +1171,7 @@ public class StructuredCloneTests
         engine.Evaluate("clone.self === clone").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesABlobOrAFileInTheTransferList()
     {
         var engine = FileEngine();
@@ -1187,7 +1182,7 @@ public class StructuredCloneTests
         Err(engine, "structuredClone(0, { transfer: [new File(['x'], 'n')] })").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ClonesABlobWhoseSourceBufferHasSinceBeenDetached()
     {
         var engine = FileEngine();
@@ -1207,7 +1202,7 @@ public class StructuredCloneTests
         engine.Evaluate("Array.from(cloneBytes).join(',')").AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void SharesTheBlobsByteSequenceWithItsCloneRatherThanCopyingIt()
     {
         var engine = FileEngine();
@@ -1224,7 +1219,7 @@ public class StructuredCloneTests
         ReferenceEquals(sourceSegment.Array, cloneSegment.Array).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HandsEveryBroadcastDestinationItsOwnBlobOverOneRecord()
     {
         var sender = FileEngine();
@@ -1249,7 +1244,7 @@ public class StructuredCloneTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesToDeserializeABlobOnAnEngineThatDoesNotExposeTheInterface()
     {
         var sender = FileEngine();
@@ -1261,7 +1256,7 @@ public class StructuredCloneTests
         var receiver = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
         var deserializer = new Jint.WebApi.StructuredClone.StructuredDeserializer(receiver, receiver.Realm);
 
-        var thrown = Assert.Throws<Jint.Runtime.JavaScriptException>(() => deserializer.Deserialize(in record));
+        var thrown = Assert.Throws<Jint.Runtime.JavaScriptException>(() => deserializer.Deserialize(in record))!;
         thrown.Error.Get("name").AsString().Should().Be("DataCloneError");
 
         // ... while an engine that did enable it receives the blob whole.

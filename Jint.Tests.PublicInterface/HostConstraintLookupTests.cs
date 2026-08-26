@@ -32,7 +32,7 @@ public class HostConstraintLookupTests
     {
     }
 
-    [Fact]
+    [Test]
     public void AConstraintIsFoundByItsOwnType()
     {
         var engine = new Engine(options => options.LimitStatements(1000));
@@ -40,7 +40,7 @@ public class HostConstraintLookupTests
         engine.Constraints.Find<MaxStatementsConstraint>().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void AHostConstraintIsFoundThroughItsBaseType()
     {
         var registered = new HostStatementBudget();
@@ -50,7 +50,7 @@ public class HostConstraintLookupTests
         engine.Constraints.Find<HostBudget>().Should().BeSameAs(registered);
     }
 
-    [Fact]
+    [Test]
     public void TheBaseConstraintTypeMatchesAnythingRegistered()
     {
         var engine = new Engine(options => options.LimitStatements(1000));
@@ -58,7 +58,7 @@ public class HostConstraintLookupTests
         engine.Constraints.Find<Constraint>().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void NothingIsFoundOnAnEngineThatRegisteredNone()
     {
         var engine = new Engine();

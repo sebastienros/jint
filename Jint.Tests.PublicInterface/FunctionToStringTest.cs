@@ -4,7 +4,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class FunctionToStringTest
 {
-    [Fact]
+    [Test]
     public void CanRegisterCustomFunctionToString()
     {
         const string Code = "var x = 1; var y = 3; function testFunction() { return 'Something'; }; testFunction.toString(); var z = x + y;";

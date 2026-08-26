@@ -188,7 +188,7 @@ public class TypeConverterRegistrationTests
 
     #region 1. registration surface
 
-    [Fact]
+    [Test]
     public void RegistrationRequiresAtLeastOneDeclaredTargetType()
     {
         var options = new Options();
@@ -196,7 +196,7 @@ public class TypeConverterRegistrationTests
         act.Should().Throw<ArgumentException>().WithParameterName("handledTargetTypes");
     }
 
-    [Fact]
+    [Test]
     public void RegistrationRejectsNullDeclaredTargetType()
     {
         var options = new Options();
@@ -204,7 +204,7 @@ public class TypeConverterRegistrationTests
         act.Should().Throw<ArgumentException>().WithParameterName("handledTargetTypes");
     }
 
-    [Fact]
+    [Test]
     public void RegistrationRejectsNullFactory()
     {
         var options = new Options();
@@ -212,7 +212,7 @@ public class TypeConverterRegistrationTests
         act.Should().Throw<ArgumentNullException>().WithParameterName("typeConverterFactory");
     }
 
-    [Fact]
+    [Test]
     public void TheEngineHandsBackExactlyTheConverterTheFactoryProduced()
     {
         var converter = Create(out var engine, typeof(TimeSpan));
@@ -223,7 +223,7 @@ public class TypeConverterRegistrationTests
 
     #region 2. the defect: deriving from the shipped converter used to disarm the lanes
 
-    [Fact]
+    [Test]
     public void AnUndeclaredSubclassOfTheStockConverterDisarmsBothCompiledLanes()
     {
         var converter = Create(out var engine);
@@ -236,7 +236,7 @@ public class TypeConverterRegistrationTests
         converter.Targets.Should().Contain(typeof(bool));
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredSubclassOfTheStockConverterKeepsTheCompiledWriteLane()
     {
         var converter = Create(out var engine, typeof(TimeSpan));
@@ -246,7 +246,7 @@ public class TypeConverterRegistrationTests
         engine.Evaluate("host.Big").Should().Be(4294967296d);
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredSubclassOfTheStockConverterKeepsTheCompiledInvokerLane()
     {
         var converter = Create(out var engine, typeof(TimeSpan));
@@ -255,7 +255,7 @@ public class TypeConverterRegistrationTests
         ShouldBeOffTheConverter(converter, typeof(bool));
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredTargetTypeStillReachesTheConverter()
     {
         var converter = Create(out var engine, typeof(long));
@@ -269,7 +269,7 @@ public class TypeConverterRegistrationTests
         ShouldBeOffTheConverter(converter, typeof(bool));
     }
 
-    [Fact]
+    [Test]
     public void AConverterMayDeclareItsOwnTargetTypesInsteadOfBeingToldThem()
     {
         SelfDeclaringConverter? converter = null;
@@ -291,7 +291,7 @@ public class TypeConverterRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ARegistrationWidensAConverterOwnDeclarationRatherThanReplacingIt()
     {
         SelfDeclaringConverter? converter = null;
@@ -324,7 +324,7 @@ public class TypeConverterRegistrationTests
     /// itself and its subtypes and nothing above them: declaring <see cref="Enum"/> leaves a
     /// <see cref="long"/> write alone, and no downward guess is needed to stay sound.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADeclaredBaseTypeCoversEverythingUnderItAndNothingAboveIt()
     {
         // long is not an Enum and never will be, so declaring Enum leaves the long write alone
@@ -344,7 +344,7 @@ public class TypeConverterRegistrationTests
     /// covers an <see cref="object"/>-typed member either, so the converter is consulted regardless. Pinned so
     /// the two facts are not confused: the filter's precision buys a lane only where a lane exists.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnObjectTypedMemberHasNoCompiledLaneToKeep()
     {
         var converter = Create(out var engine, typeof(TimeSpan));
@@ -363,7 +363,7 @@ public class TypeConverterRegistrationTests
     /// stock siblings. The engagement probe is the resolver's own <see cref="TypeResolver.MemberFilter"/>, which
     /// is consulted only while a member is being resolved.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineWithACustomConverterSharesTheStockAccessorCache()
     {
         var calls = 0;
@@ -389,7 +389,7 @@ public class TypeConverterRegistrationTests
     /// The one artefact it still costs, and only for the engines it could actually affect: an indexer accessor
     /// bakes in a key the converter produced from the member name.
     /// </summary>
-    [Fact]
+    [Test]
     public void AConverterThatCouldKeyAnIndexerDifferentlyResolvesItsOwn()
     {
         var calls = 0;
@@ -449,7 +449,7 @@ public class TypeConverterRegistrationTests
         return engine;
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationCatchesAConverterAnsweringAnUndeclaredTargetType()
     {
         var engine = CreateMeddling(typeof(TimeSpan));
@@ -460,7 +460,7 @@ public class TypeConverterRegistrationTests
             .WithMessage("*MeddlingConverter*Single*TimeSpan*");
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationIsSilentForAConverterThatStaysInsideItsDeclaration()
     {
         var engine = CreateMeddling(typeof(float), typeof(bool));
@@ -470,7 +470,7 @@ public class TypeConverterRegistrationTests
         engine.Evaluate("host.And(true, true)").Should().Be(false, "and flips booleans, likewise declared");
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void VerificationLeavesAnUndeclaredRegistrationAlone()
     {
         // registering without declared target types claims everything, so nothing can be out of scope
@@ -485,7 +485,7 @@ public class TypeConverterRegistrationTests
     /// declaration excluded and a lane covers, and honoured everywhere else. Pinned so the damage is on the
     /// record — the inconsistency is invisible from script and from the host.
     /// </summary>
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void WithoutVerificationADriftedDeclarationIsSilentlyInconsistent()
     {
         var engine = CreateMeddling(typeof(TimeSpan));

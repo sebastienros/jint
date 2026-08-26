@@ -12,7 +12,7 @@ public class JsValueConversionTests
         _engine = new Engine();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAnArray()
     {
         var value = new JsArray(_engine);
@@ -30,7 +30,7 @@ public class JsValueConversionTests
         (value.AsArray() != null).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeABoolean()
     {
         var value = JsBoolean.True;
@@ -48,7 +48,7 @@ public class JsValueConversionTests
         value.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeADate()
     {
         var value = new JsDate(_engine, double.NaN);
@@ -66,7 +66,7 @@ public class JsValueConversionTests
         (value.AsDate() != null).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeNull()
     {
         var value = JsValue.Null;
@@ -82,7 +82,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeANumber()
     {
         var value = new JsNumber(2);
@@ -99,7 +99,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAnObject()
     {
         var value = new JsObject(_engine);
@@ -116,7 +116,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeARegExp()
     {
         var value = new JsRegExp(_engine);
@@ -133,7 +133,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAString()
     {
         var value = new JsString("a");
@@ -150,7 +150,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeUndefined()
     {
         var value = JsValue.Undefined;
@@ -166,7 +166,7 @@ public class JsValueConversionTests
         value.IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertArrayBuffer()
     {
         var value = _engine.Evaluate("new Uint8Array([102, 111, 111]).buffer");
@@ -182,7 +182,7 @@ public class JsValueConversionTests
         Invoking(JsValue.Undefined.AsArrayBuffer).Should().ThrowExactly<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertDataView()
     {
         var value = _engine.Evaluate("new DataView(new Uint8Array([102, 102, 111, 111, 111]).buffer, 1, 3)");

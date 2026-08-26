@@ -52,14 +52,14 @@ public class InteropObjectConverterFilterTests
         return ObjectConverterTypeFilter.Create([new TypedObjectConverter(new NeverConverter(), handledTypes)])!;
     }
 
-    [Fact]
+    [Test]
     public void NoConvertersMeansNoFilter()
     {
         ObjectConverterTypeFilter.Create(null).Should().BeNull();
         ObjectConverterTypeFilter.Create([]).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AnUndeclaredConverterClaimsEverything()
     {
         var filter = ObjectConverterTypeFilter.Create([new NeverConverter()])!;
@@ -69,7 +69,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(Guid)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredTypesFromAllConvertersAreUnioned()
     {
         var filter = ObjectConverterTypeFilter.Create(
@@ -83,7 +83,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(int)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ExactAndUnrelatedTypes()
     {
         var filter = Filter(typeof(string));
@@ -94,19 +94,19 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(Level)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UnknownMemberTypeIsClaimed()
     {
         Filter(typeof(string)).Claims(null).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ObjectTypedMemberIsClaimedByAnything()
     {
         Filter(typeof(Guid)).Claims(typeof(object)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConverterDeclaringObjectClaimsEverything()
     {
         var filter = Filter(typeof(object));
@@ -116,7 +116,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(Level)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredEnumClaimsConcreteEnums()
     {
         var filter = Filter(typeof(Enum));
@@ -128,7 +128,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(bool)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredInterfaceClaimsImplementers()
     {
         var filter = Filter(typeof(IMarker));
@@ -144,7 +144,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(OpenBase)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredBaseClassClaimsSubtypesAndSupertypes()
     {
         var filter = Filter(typeof(OpenBase));
@@ -159,7 +159,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(IMarker)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaredSealedTypeIsClaimedThroughABaseTypedMember()
     {
         var filter = Filter(typeof(SealedDerived));
@@ -169,7 +169,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(UnrelatedOpen)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void NullableMembersAreClaimedThroughTheirUnderlyingType()
     {
         var filter = Filter(typeof(int));
@@ -178,7 +178,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(long?)).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OpenGenericDeclarationIsTreatedAsClaimingEverything()
     {
         var filter = Filter(typeof(List<>));
@@ -187,7 +187,7 @@ public class InteropObjectConverterFilterTests
         filter.Claims(typeof(string)).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RepeatedQueriesAreStable()
     {
         var filter = Filter(typeof(Enum));

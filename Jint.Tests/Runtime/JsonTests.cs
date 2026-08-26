@@ -9,12 +9,11 @@ namespace Jint.Tests.Runtime;
 
 public class JsonTests
 {
-    [Theory]
-    [InlineData(0)]
-    [InlineData(15)]
-    [InlineData(16)]
-    [InlineData(17)]
-    [InlineData(1000)]
+    [TestCase(0)]
+    [TestCase(15)]
+    [TestCase(16)]
+    [TestCase(17)]
+    [TestCase(1000)]
     public void CanParseArraysOfAnySize(int size)
     {
         var engine = new Engine();
@@ -24,12 +23,11 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(15)]
-    [InlineData(16)]
-    [InlineData(17)]
-    [InlineData(1000)]
+    [TestCase(0)]
+    [TestCase(15)]
+    [TestCase(16)]
+    [TestCase(17)]
+    [TestCase(1000)]
     public void CanParseArraysOfAnySizeWithReviver(int size)
     {
         var engine = new Engine();
@@ -39,7 +37,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanParseNestedArrays()
     {
         var engine = new Engine();
@@ -51,14 +49,13 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData(@"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");", "abc\tdef")]
-    [InlineData(@"JSON.parse(""{\""abc\\ndef\"": \""42\""}"");", "abc\ndef")]
-    [InlineData(@"JSON.parse(""{\""abc\\fdef\"": \""42\""}"");", "abc\fdef")]
-    [InlineData(@"JSON.parse(""{\""abc\\bdef\"": \""42\""}"");", "abc\bdef")]
-    [InlineData(@"JSON.parse(""{\""abc\\rdef\"": \""42\""}"");", "abc\rdef")]
-    [InlineData(@"JSON.parse(""{\""abc\\r\\ndef\"": \""42\""}"");", "abc\r\ndef")]
-    [InlineData(@"JSON.parse(""{\""abc\\\""def\"": \""42\""}"");", "abc\"def")]
+    [TestCase(@"JSON.parse(""{\""abc\\tdef\"": \""42\""}"");", "abc\tdef")]
+    [TestCase(@"JSON.parse(""{\""abc\\ndef\"": \""42\""}"");", "abc\ndef")]
+    [TestCase(@"JSON.parse(""{\""abc\\fdef\"": \""42\""}"");", "abc\fdef")]
+    [TestCase(@"JSON.parse(""{\""abc\\bdef\"": \""42\""}"");", "abc\bdef")]
+    [TestCase(@"JSON.parse(""{\""abc\\rdef\"": \""42\""}"");", "abc\rdef")]
+    [TestCase(@"JSON.parse(""{\""abc\\r\\ndef\"": \""42\""}"");", "abc\r\ndef")]
+    [TestCase(@"JSON.parse(""{\""abc\\\""def\"": \""42\""}"");", "abc\"def")]
     public void CanParseEscapeSequencesInProperties(string script, string expectedPropertyName)
     {
         var engine = new Engine();
@@ -66,22 +63,21 @@ public class JsonTests
         obj.HasOwnProperty(expectedPropertyName).Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("{\"a\":\"\\\"\"}", "\"")] // " quotation mark
-    [InlineData("{\"a\":\"\\\\\"}", "\\")] // \ reverse solidus
-    [InlineData("{\"a\":\"\\/\"}", "/")] // / solidus
-    [InlineData("{\"a\":\"\\b\"}", "\b")] // backspace
-    [InlineData("{\"a\":\"\\f\"}", "\f")] // formfeed
-    [InlineData("{\"a\":\"\\n\"}", "\n")] // linefeed
-    [InlineData("{\"a\":\"\\r\"}", "\r")] // carriage return
-    [InlineData("{\"a\":\"\\t\"}", "\t")] // horizontal tab
-    [InlineData("{\"a\":\"\\u0000\"}", "\0")]
-    [InlineData("{\"a\":\"\\u0001\"}", "\x01")]
-    [InlineData("{\"a\":\"\\u0061\"}", "a")]
-    [InlineData("{\"a\":\"\\u003C\"}", "<")]
-    [InlineData("{\"a\":\"\\u003E\"}", ">")]
-    [InlineData("{\"a\":\"\\u003c\"}", "<")]
-    [InlineData("{\"a\":\"\\u003e\"}", ">")]
+    [TestCase("{\"a\":\"\\\"\"}", "\"")] // " quotation mark
+    [TestCase("{\"a\":\"\\\\\"}", "\\")] // \ reverse solidus
+    [TestCase("{\"a\":\"\\/\"}", "/")] // / solidus
+    [TestCase("{\"a\":\"\\b\"}", "\b")] // backspace
+    [TestCase("{\"a\":\"\\f\"}", "\f")] // formfeed
+    [TestCase("{\"a\":\"\\n\"}", "\n")] // linefeed
+    [TestCase("{\"a\":\"\\r\"}", "\r")] // carriage return
+    [TestCase("{\"a\":\"\\t\"}", "\t")] // horizontal tab
+    [TestCase("{\"a\":\"\\u0000\"}", "\0")]
+    [TestCase("{\"a\":\"\\u0001\"}", "\x01")]
+    [TestCase("{\"a\":\"\\u0061\"}", "a")]
+    [TestCase("{\"a\":\"\\u003C\"}", "<")]
+    [TestCase("{\"a\":\"\\u003E\"}", ">")]
+    [TestCase("{\"a\":\"\\u003c\"}", "<")]
+    [TestCase("{\"a\":\"\\u003e\"}", ">")]
     public void ShouldParseEscapedCharactersCorrectly(string json, string expectedCharacter)
     {
         var engine = new Engine();
@@ -92,41 +88,40 @@ public class JsonTests
         parsedCharacter.Should().Be(expectedCharacter);
     }
 
-    [Theory]
-    [InlineData("{\"a\":1", "Unexpected end of JSON input at position 6")]
-    [InlineData("{\"a\":1},", "Unexpected token ',' in JSON at position 7")]
-    [InlineData("{1}", "Unexpected number in JSON at position 1")]
-    [InlineData("{\"a\" \"a\"}", "Unexpected string in JSON at position 5")]
-    [InlineData("{true}", "Unexpected token 'true' in JSON at position 1")]
-    [InlineData("{null}", "Unexpected token 'null' in JSON at position 1")]
-    [InlineData("{:}", "Unexpected token ':' in JSON at position 1")]
-    [InlineData("\"\\uah\"", "Expected hexadecimal digit in JSON at position 4")]
-    [InlineData("0123", "Unexpected token '1' in JSON at position 1")]  // leading 0 (octal number) not allowed
-    [InlineData("1e+A", "Unexpected token 'A' in JSON at position 3")]
-    [InlineData("truE", "Unexpected token ILLEGAL in JSON at position 0")]
-    [InlineData("nul", "Unexpected token ILLEGAL in JSON at position 0")]
-    [InlineData("\"ab\t\"", "Invalid character in JSON at position 3")] // invalid char in string literal
-    [InlineData("\"\u0001abc\"", "Invalid character in JSON at position 1")] // control char right after the opening quote
-    [InlineData("\"abc\u0005def\"", "Invalid character in JSON at position 4")] // control char in the middle of a bulk run
-    [InlineData("\"ab", "Unexpected end of JSON input at position 3")] // unterminated string literal
-    [InlineData("alpha", "Unexpected token 'a' in JSON at position 0")]
-    [InlineData("[1,\na]", "Unexpected token 'a' in JSON at position 4")] // multiline
-    [InlineData("\x06", "Unexpected token '\x06' in JSON at position 0")] // control char
-    [InlineData("{\"\\v\":1}", "Unexpected token 'v' in JSON at position 3")] // invalid escape sequence
-    [InlineData("[,]", "Unexpected token ',' in JSON at position 1")]
-    [InlineData("{\"key\": ()}", "Unexpected token '(' in JSON at position 8")]
-    [InlineData(".1", "Unexpected token '.' in JSON at position 0")]
-    [InlineData("\"\\u", "Expected hexadecimal digit in JSON at position 3")] // truncated \u escape at end of input
-    [InlineData("\"\\u1\"", "Expected hexadecimal digit in JSON at position 4")] // \u with only 1 hex digit
+    [TestCase("{\"a\":1", "Unexpected end of JSON input at position 6")]
+    [TestCase("{\"a\":1},", "Unexpected token ',' in JSON at position 7")]
+    [TestCase("{1}", "Unexpected number in JSON at position 1")]
+    [TestCase("{\"a\" \"a\"}", "Unexpected string in JSON at position 5")]
+    [TestCase("{true}", "Unexpected token 'true' in JSON at position 1")]
+    [TestCase("{null}", "Unexpected token 'null' in JSON at position 1")]
+    [TestCase("{:}", "Unexpected token ':' in JSON at position 1")]
+    [TestCase("\"\\uah\"", "Expected hexadecimal digit in JSON at position 4")]
+    [TestCase("0123", "Unexpected token '1' in JSON at position 1")]  // leading 0 (octal number) not allowed
+    [TestCase("1e+A", "Unexpected token 'A' in JSON at position 3")]
+    [TestCase("truE", "Unexpected token ILLEGAL in JSON at position 0")]
+    [TestCase("nul", "Unexpected token ILLEGAL in JSON at position 0")]
+    [TestCase("\"ab\t\"", "Invalid character in JSON at position 3")] // invalid char in string literal
+    [TestCase("\"\u0001abc\"", "Invalid character in JSON at position 1")] // control char right after the opening quote
+    [TestCase("\"abc\u0005def\"", "Invalid character in JSON at position 4")] // control char in the middle of a bulk run
+    [TestCase("\"ab", "Unexpected end of JSON input at position 3")] // unterminated string literal
+    [TestCase("alpha", "Unexpected token 'a' in JSON at position 0")]
+    [TestCase("[1,\na]", "Unexpected token 'a' in JSON at position 4")] // multiline
+    [TestCase("\x06", "Unexpected token '\x06' in JSON at position 0")] // control char
+    [TestCase("{\"\\v\":1}", "Unexpected token 'v' in JSON at position 3")] // invalid escape sequence
+    [TestCase("[,]", "Unexpected token ',' in JSON at position 1")]
+    [TestCase("{\"key\": ()}", "Unexpected token '(' in JSON at position 8")]
+    [TestCase(".1", "Unexpected token '.' in JSON at position 0")]
+    [TestCase("\"\\u", "Expected hexadecimal digit in JSON at position 3")] // truncated \u escape at end of input
+    [TestCase("\"\\u1\"", "Expected hexadecimal digit in JSON at position 4")] // \u with only 1 hex digit
     // The JSON grammar has no trailing comma: a ',' must be followed by another element or member.
-    [InlineData("[1,]", "Unexpected token ']' in JSON at position 3")]
-    [InlineData("[1,2,]", "Unexpected token ']' in JSON at position 5")]
-    [InlineData("[1, ]", "Unexpected token ']' in JSON at position 4")] // whitespace does not excuse it
-    [InlineData("[[1,],2]", "Unexpected token ']' in JSON at position 4")] // nested array
-    [InlineData("{\"a\":1,}", "Unexpected token '}' in JSON at position 7")]
-    [InlineData("{\"a\":1,\"b\":2,}", "Unexpected token '}' in JSON at position 13")]
-    [InlineData("{\"a\":{\"b\":1,}}", "Unexpected token '}' in JSON at position 12")] // nested object
-    [InlineData("[{\"a\":1,}]", "Unexpected token '}' in JSON at position 8")] // object nested in an array
+    [TestCase("[1,]", "Unexpected token ']' in JSON at position 3")]
+    [TestCase("[1,2,]", "Unexpected token ']' in JSON at position 5")]
+    [TestCase("[1, ]", "Unexpected token ']' in JSON at position 4")] // whitespace does not excuse it
+    [TestCase("[[1,],2]", "Unexpected token ']' in JSON at position 4")] // nested array
+    [TestCase("{\"a\":1,}", "Unexpected token '}' in JSON at position 7")]
+    [TestCase("{\"a\":1,\"b\":2,}", "Unexpected token '}' in JSON at position 13")]
+    [TestCase("{\"a\":{\"b\":1,}}", "Unexpected token '}' in JSON at position 12")] // nested object
+    [TestCase("[{\"a\":1,}]", "Unexpected token '}' in JSON at position 8")] // object nested in an array
     public void ShouldReportHelpfulSyntaxErrorForInvalidJson(string json, string expectedMessage)
     {
         var engine = new Engine();
@@ -143,7 +138,7 @@ public class JsonTests
         error.Get("name").Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void EveryParseEntryPointRejectsATrailingCommaIdentically()
     {
         const string TrailingCommaArray = "[1,]";
@@ -183,9 +178,8 @@ public class JsonTests
         }
     }
 
-    [Theory]
-    [InlineData("[[]]", "[\n  []\n]")]
-    [InlineData("[ { a: [{ x: 0 }], b:[]} ]",
+    [TestCase("[[]]", "[\n  []\n]")]
+    [TestCase("[ { a: [{ x: 0 }], b:[]} ]",
         "[\n  {\n    \"a\": [\n      {\n        \"x\": 0\n      }\n    ],\n    \"b\": []\n  }\n]")]
     public void ShouldSerializeWithCorrectIndentation(string script, string expectedJson)
     {
@@ -197,11 +191,10 @@ public class JsonTests
         result.Should().Be(expectedJson);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(10)]
-    [InlineData(100)]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(10)]
+    [TestCase(100)]
     public void ShouldParseArrayIndependentOfLengthInSameOrder(int numberOfElements)
     {
         string json = $"[{string.Join(",", Enumerable.Range(0, numberOfElements))}]";
@@ -217,11 +210,10 @@ public class JsonTests
         }
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(10)]
-    [InlineData(20)]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(10)]
+    [TestCase(20)]
     public void ShouldParseStringIndependentOfLength(int stringLength)
     {
         string generatedString = string.Join("", Enumerable.Range(0, stringLength).Select(index => 'A' + index));
@@ -233,7 +225,7 @@ public class JsonTests
         value.Should().Be(generatedString);
     }
 
-    [Fact]
+    [Test]
     public void CanParsePrimitivesCorrectly()
     {
         var engine = new Engine();
@@ -244,7 +236,7 @@ public class JsonTests
         parser.Parse("null").Should().BeSameAs(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void CanParseNumbersWithAndWithoutSign()
     {
         var engine = new Engine();
@@ -256,7 +248,7 @@ public class JsonTests
         ((int)parser.Parse("1").AsNumber()).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DoesPreservesNumberToMaxSafeInteger()
     {
         // see https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-number.max_safe_integer
@@ -267,7 +259,7 @@ public class JsonTests
         ((long)parser.Parse("9007199254740991").AsNumber()).Should().Be(maxSafeInteger);
     }
 
-    [Fact]
+    [Test]
     public void DoesSupportFractionalNumbers()
     {
         var engine = new Engine();
@@ -278,7 +270,7 @@ public class JsonTests
         parser.Parse("-1.1").AsNumber().Should().Be(-1.1d);
     }
 
-    [Fact]
+    [Test]
     public void DoesSupportScientificNotation()
     {
         var engine = new Engine();
@@ -288,7 +280,7 @@ public class JsonTests
         parser.Parse("1E-2").AsNumber().Should().Be(0.01d);
     }
 
-    [Fact]
+    [Test]
     public void ThrowsExceptionWhenDepthLimitReachedArrays()
     {
         string json = GenerateDeepNestedArray(65);
@@ -300,7 +292,7 @@ public class JsonTests
         ex.Message.Should().Be("Max. depth level of JSON reached at position 64");
     }
 
-    [Fact]
+    [Test]
     public void ThrowsExceptionWhenDepthLimitReachedObjects()
     {
         string json = GenerateDeepNestedObject(65);
@@ -312,7 +304,7 @@ public class JsonTests
         ex.Message.Should().Be("Max. depth level of JSON reached at position 320");
     }
 
-    [Fact]
+    [Test]
     public void CanParseMultipleNestedObjects()
     {
         string objectA = GenerateDeepNestedObject(63);
@@ -327,7 +319,7 @@ public class JsonTests
         parsed["b"].IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanParseMultipleNestedArrays()
     {
         string arrayA = GenerateDeepNestedArray(63);
@@ -342,7 +334,7 @@ public class JsonTests
         parsed["b"].IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayAndObjectDepthNotCountedSeparately()
     {
         // individual depth is below the default limit, but combined
@@ -357,7 +349,7 @@ public class JsonTests
         ex.Message.Should().Be("Max. depth level of JSON reached at position 224");
     }
 
-    [Fact]
+    [Test]
     public void CustomMaxDepthOfZeroDisallowsObjects()
     {
         var engine = new Engine();
@@ -367,7 +359,7 @@ public class JsonTests
         ex.Message.Should().Be("Max. depth level of JSON reached at position 0");
     }
 
-    [Fact]
+    [Test]
     public void CustomMaxDepthOfZeroDisallowsArrays()
     {
         var engine = new Engine();
@@ -377,7 +369,7 @@ public class JsonTests
         ex.Message.Should().Be("Max. depth level of JSON reached at position 0");
     }
 
-    [Fact]
+    [Test]
     public void MaxDepthDoesNotInfluencePrimitiveValues()
     {
         var engine = new Engine();
@@ -390,7 +382,7 @@ public class JsonTests
         parsed["d"].IsString().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MaxDepthGetsUsedFromEngineOptionsConstraints()
     {
         var engine = new Engine(options => options.Json.MaxParseDepth = 0);
@@ -399,7 +391,7 @@ public class JsonTests
         Invoking(() => parser.Parse("[]")).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ParsedProtoKeyBecomesOwnDataPropertyAndDoesNotPollutePrototype()
     {
         var engine = new Engine();
@@ -415,7 +407,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ParsedProtoKeyBecomesOwnDataPropertyWithReviver()
     {
         var engine = new Engine();
@@ -431,7 +423,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DuplicateProtoKeysLastValueWins()
     {
         var engine = new Engine();
@@ -445,7 +437,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DuplicateKeysLastValueWinsAtFirstPosition()
     {
         var engine = new Engine();
@@ -459,11 +451,10 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("""{"1":"y","b":"z"}""", """["1","b"]""")]
-    [InlineData("""{"b":"z","1":"y"}""", """["1","b"]""")]
-    [InlineData("""{"0":1}""", """["0"]""")]
-    [InlineData("""{"b":1,"1abc":2,"a":3}""", """["b","1abc","a"]""")]
+    [TestCase("""{"1":"y","b":"z"}""", """["1","b"]""")]
+    [TestCase("""{"b":"z","1":"y"}""", """["1","b"]""")]
+    [TestCase("""{"0":1}""", """["0"]""")]
+    [TestCase("""{"b":1,"1abc":2,"a":3}""", """["b","1abc","a"]""")]
     public void IntegerLikeKeysEnumerateInSpecOrder(string json, string expectedKeys)
     {
         var engine = new Engine();
@@ -473,7 +464,7 @@ public class JsonTests
         keys.Should().Be(expectedKeys);
     }
 
-    [Fact]
+    [Test]
     public void CanParseObjectWithManyProperties()
     {
         // 100 properties trips the 64-own-property shape guard mid-build; the object finishes as a
@@ -496,7 +487,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReviverCanMutateAndDeleteParsedObjectProperties()
     {
         var engine = new Engine();
@@ -513,7 +504,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReviverWorksOverArrayOfRecords()
     {
         var engine = new Engine();
@@ -528,7 +519,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReviverContextSourceIsProvidedForPrimitives()
     {
         var engine = new Engine();
@@ -544,7 +535,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ParsedObjectSupportsPostParseMutation()
     {
         var engine = new Engine();
@@ -565,7 +556,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MutatingOneParsedRecordDoesNotAffectOthers()
     {
         var engine = new Engine();
@@ -586,7 +577,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ParseRemainsCorrectWhenShapeTransitionBudgetIsExhausted()
     {
         // >1024 distinct object layouts whose per-node fan-out stays below the megamorphic guard, so
@@ -615,7 +606,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ParsedRecordsFromSameDocumentShareShape()
     {
         var engine = new Engine();
@@ -627,7 +618,7 @@ public class JsonTests
         second.ShapeOf.Should().BeSameAs(first.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void ParsedRecordsRoundTripThroughStringify()
     {
         var engine = new Engine();
@@ -638,7 +629,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanParseNestedObjectsWithSharedAndDistinctLayouts()
     {
         var engine = new Engine();
@@ -653,7 +644,7 @@ public class JsonTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanBulkScanStringLiteralsWithEscapesAtEdges()
     {
         var parser = new JsonParser(new Engine());
@@ -673,7 +664,7 @@ public class JsonTests
         parser.Parse("\"plain text with spaces\"").AsString().Should().Be("plain text with spaces");
     }
 
-    [Fact]
+    [Test]
     public void CanBulkScanStringsCrossingInternalBufferBoundary()
     {
         // ValueStringBuilder starts with a 64-char stack buffer; these inputs force it to grow
@@ -706,7 +697,7 @@ public class JsonTests
         parser.Parse(json.ToString()).AsString().Should().Be(expected.ToString());
     }
 
-    [Fact]
+    [Test]
     public void UnicodeLineSeparatorsAreValidInsideStrings()
     {
         // the JSON grammar permits any code point except '"', '\' and control characters (< 0x20)
@@ -718,7 +709,7 @@ public class JsonTests
         parser.Parse("\"ab\u2029cd\"").AsString().Should().Be("ab\u2029cd");
     }
 
-    [Fact]
+    [Test]
     public void EscapedControlCharactersAreValidInPropertyKeys()
     {
         // any string is a valid member key; escaped control characters were rejected in keys
@@ -732,13 +723,12 @@ public class JsonTests
         Invoking(() => parser.Parse("{\"\u0001\":1}")).Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [InlineData("-09")]
-    [InlineData("-00")]
-    [InlineData("-01.5")]
-    [InlineData("1.")]
-    [InlineData("1.e3")]
-    [InlineData("-2.")]
+    [TestCase("-09")]
+    [TestCase("-00")]
+    [TestCase("-01.5")]
+    [TestCase("1.")]
+    [TestCase("1.e3")]
+    [TestCase("-2.")]
     public void InvalidNumberFormsAreRejected(string json)
     {
         // int = zero / (digit1-9 *DIGIT) - also after a sign; frac = decimal-point 1*DIGIT
@@ -746,12 +736,11 @@ public class JsonTests
         Invoking(() => parser.Parse(json)).Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [InlineData("-0", -0.0)]
-    [InlineData("0", 0.0)]
-    [InlineData("-0.5", -0.5)]
-    [InlineData("10.25", 10.25)]
-    [InlineData("-0e2", -0.0)]
+    [TestCase("-0", -0.0)]
+    [TestCase("0", 0.0)]
+    [TestCase("-0.5", -0.5)]
+    [TestCase("10.25", 10.25)]
+    [TestCase("-0e2", -0.0)]
     public void ValidNumberFormsKeepParsing(string json, double expected)
     {
         var parser = new JsonParser(new Engine());
@@ -766,7 +755,7 @@ public class JsonTests
     private const NumberStyles JsonNumberStyles =
         NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
 
-    [Fact]
+    [Test]
     public void NumberFastPathIsBitIdenticalToDoubleParse()
     {
         var parser = new JsonParser(new Engine());
@@ -781,28 +770,27 @@ public class JsonTests
         }
     }
 
-    [Theory]
-    [InlineData("0")]
-    [InlineData("-0")]
-    [InlineData("0.0")]
-    [InlineData("-0.0")]
-    [InlineData("0.1")]
-    [InlineData("0.2")]
-    [InlineData("0.3")]
-    [InlineData("1.005")]
-    [InlineData("-1.5")]
-    [InlineData("19.99")]
-    [InlineData("37.774929")]
-    [InlineData("3.141592653589")]     // 13 significant digits, fast path
-    [InlineData("1.23456789012345")]   // 15 total digits, fast path
-    [InlineData("123456789012.345")]   // 15 total digits, fast path
-    [InlineData("0.00000000000001")]   // tiny fraction, small numerator
-    [InlineData("0.123456789012345")]  // 16 total digit chars -> falls back to double.Parse
-    [InlineData("1234567890123456.5")] // 16 integer digits -> falls back
-    [InlineData("99999999999999.9")]   // 16 total digits -> falls back
-    [InlineData("9007199254740992")]   // 2^53 exactly (integer path)
-    [InlineData("1.7976931348623157e308")] // exponent -> falls back
-    [InlineData("5e-324")]             // exponent -> falls back
+    [TestCase("0")]
+    [TestCase("-0")]
+    [TestCase("0.0")]
+    [TestCase("-0.0")]
+    [TestCase("0.1")]
+    [TestCase("0.2")]
+    [TestCase("0.3")]
+    [TestCase("1.005")]
+    [TestCase("-1.5")]
+    [TestCase("19.99")]
+    [TestCase("37.774929")]
+    [TestCase("3.141592653589")]     // 13 significant digits, fast path
+    [TestCase("1.23456789012345")]   // 15 total digits, fast path
+    [TestCase("123456789012.345")]   // 15 total digits, fast path
+    [TestCase("0.00000000000001")]   // tiny fraction, small numerator
+    [TestCase("0.123456789012345")]  // 16 total digit chars -> falls back to double.Parse
+    [TestCase("1234567890123456.5")] // 16 integer digits -> falls back
+    [TestCase("99999999999999.9")]   // 16 total digits -> falls back
+    [TestCase("9007199254740992")]   // 2^53 exactly (integer path)
+    [TestCase("1.7976931348623157e308")] // exponent -> falls back
+    [TestCase("5e-324")]             // exponent -> falls back
     public void NumberFastPathEdgeCasesMatchDoubleParse(string json)
     {
         var parser = new JsonParser(new Engine());
@@ -811,10 +799,9 @@ public class JsonTests
         actual.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("-0")]
-    [InlineData("-0.0")]
-    [InlineData("-0.00")]
+    [TestCase("-0")]
+    [TestCase("-0.0")]
+    [TestCase("-0.00")]
     public void NumberFastPathMatchesDoubleParseForNegativeZero(string json)
     {
         // Negative zero is deliberately deferred to double.Parse so the platform-specific sign of zero
@@ -824,10 +811,9 @@ public class JsonTests
         BitConverter.DoubleToInt64Bits(parser.Parse(json).AsNumber()).Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("0")]
-    [InlineData("0.0")]
-    [InlineData("0.5")]
+    [TestCase("0")]
+    [TestCase("0.0")]
+    [TestCase("0.5")]
     public void NumberFastPathProducesPositiveZeroWhereExpected(string json)
     {
         var positiveZeroBits = BitConverter.DoubleToInt64Bits(0.0);
@@ -843,7 +829,7 @@ public class JsonTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RepeatedStringValuesShareOneInstanceAcrossArraysAndObjects()
     {
         var parser = new JsonParser(new Engine());
@@ -867,7 +853,7 @@ public class JsonTests
         root.Get("val").Should().BeSameAs(list.Get("0"));
     }
 
-    [Fact]
+    [Test]
     public void EscapedAndUnescapedValuesWithSameContentAreEqualAndInterned()
     {
         var parser = new JsonParser(new Engine());
@@ -889,7 +875,7 @@ public class JsonTests
         arr2.Get("2").AsString().Should().Be("linebreak");
     }
 
-    [Fact]
+    [Test]
     public void EmptyAndSingleCharacterValuesParseAndReuseCaches()
     {
         var parser = new JsonParser(new Engine());
@@ -905,7 +891,7 @@ public class JsonTests
         arr.Get("4").Should().NotBeSameAs(arr.Get("2"));
     }
 
-    [Fact]
+    [Test]
     public void ManyDistinctStringValuesParseCorrectlyDespiteTableThrashing()
     {
         var parser = new JsonParser(new Engine());
@@ -932,7 +918,7 @@ public class JsonTests
         }
     }
 
-    [Fact]
+    [Test]
     public void OverLongStringValuesAreNotInternedButParseCorrectly()
     {
         var parser = new JsonParser(new Engine());
@@ -946,7 +932,7 @@ public class JsonTests
         arr.Get("1").Should().NotBeSameAs(arr.Get("0"));
     }
 
-    [Fact]
+    [Test]
     public void InternTableIsResetBetweenParses()
     {
         // A value interned in one parse must not leak into the next parse's identity checks; each parse
@@ -959,18 +945,17 @@ public class JsonTests
         second.Should().NotBeSameAs(first);
     }
 
-    [Theory]
-    [InlineData("1e-323")]
-    [InlineData("123456789012345678901234567890")]
-    [InlineData("-0")]
-    [InlineData("1.7976931348623157e308")]
-    [InlineData("0")]
-    [InlineData("-0.0")]
-    [InlineData("42")]
-    [InlineData("-42")]
-    [InlineData("3.14159")]
-    [InlineData("9007199254740991")]
-    [InlineData("0.123456789012345")]
+    [TestCase("1e-323")]
+    [TestCase("123456789012345678901234567890")]
+    [TestCase("-0")]
+    [TestCase("1.7976931348623157e308")]
+    [TestCase("0")]
+    [TestCase("-0.0")]
+    [TestCase("42")]
+    [TestCase("-42")]
+    [TestCase("3.14159")]
+    [TestCase("9007199254740991")]
+    [TestCase("0.123456789012345")]
     public void SpanNumberPathIsBitIdenticalToDoubleParse(string json)
     {
         var expected = BitConverter.DoubleToInt64Bits(double.Parse(json, JsonNumberStyles, CultureInfo.InvariantCulture));
@@ -979,7 +964,7 @@ public class JsonTests
         actual.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void UnexpectedTrailingNumberTokenReportsItsRawText()
     {
         // Number tokens no longer carry an eager Text string; the diagnostic reconstructs the raw text

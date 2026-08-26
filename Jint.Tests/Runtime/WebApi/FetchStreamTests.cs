@@ -28,7 +28,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// <b>Every test that reaches the transport runs on <see cref="DedicatedThread.RunAsync"/>.</b> A network
 /// response body is pumped by a <c>Task.Run</c> loop inside <c>FetchBodyStream</c>, and every chunk it
 /// delivers — and every cancellation it observes — is a thread-pool continuation. A test body that waited
-/// for one while itself occupying an xUnit pool worker is the resource inversion described on
+/// for one while itself occupying a pool worker is the resource inversion described on
 /// <see cref="DedicatedThread.RunAsync"/>: a saturated pool injects workers at roughly one per 500 ms, so a
 /// ten-second budget stops being a check and becomes a race. That is what
 /// <see cref="TheBodyIsReadOneChunkPerReadAndNotBefore"/> lost on the windows leg of a PR that touches
@@ -232,7 +232,7 @@ public class FetchStreamTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public Task TheBodyIsReadOneChunkPerReadAndNotBefore() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -269,7 +269,7 @@ public class FetchStreamTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     });
 
-    [Fact]
+    [Test]
     public Task ForAwaitOfDrainsAStreamingBody() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -291,7 +291,7 @@ public class FetchStreamTests
         handler.Body.ReadCount.Should().Be(4);
     });
 
-    [Fact]
+    [Test]
     public Task TextOverAStreamingBodyEqualsTheBufferedAnswer() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -309,7 +309,7 @@ public class FetchStreamTests
         streamed.Should().Be(buffered).And.Be("{\"a\":1}");
     });
 
-    [Fact]
+    [Test]
     public Task JsonOverAStreamingBodyParsesAcrossChunkBoundaries() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -324,7 +324,7 @@ public class FetchStreamTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("1-2-3");
     });
 
-    [Fact]
+    [Test]
     public Task CloneTeesTheStreamAndBothHalvesAreReadable() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -354,7 +354,7 @@ public class FetchStreamTests
         handler.Body.ReadCount.Should().Be(3);
     });
 
-    [Fact]
+    [Test]
     public Task CancellingTheBodyStreamCancelsTheTransport() => DedicatedThread.RunAsync(() =>
     {
         // Nothing is emitted, so the pump parks inside a read and the only way out is the token.
@@ -382,12 +382,12 @@ public class FetchStreamTests
     });
 
     /// <remarks>
-    /// One of the two tests in this class that stays on the xUnit worker, because nothing here waits for the
+    /// One of the two tests in this class that stays on the runner's worker, because nothing here waits for the
     /// transport: no consumer ever pulls, so the read loop never leaves its demand wait, and every assertion
     /// below — including the two negative ones — is decided on the engine thread by the time
     /// <c>RestoreGlobalSnapshot</c> returns.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ARestoreErrorsALiveBodyStreamAndCancelsTheTransport()
     {
         var handler = new GatedHandler();
@@ -416,7 +416,7 @@ public class FetchStreamTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public Task ARestoreCancelsATransportThatWasAlreadyReading() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -442,7 +442,7 @@ public class FetchStreamTests
     /// The other one, and for a stronger reason: a null body status has no <c>FetchBodyStream</c> at all, so
     /// there is no transport loop to wait for and <c>r.text()</c> settles on the engine's own queue.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ANullBodyStatusStillHasNoStreamAtAll()
     {
         var handler = new NoContentHandler();
@@ -472,7 +472,7 @@ public class FetchStreamTests
     /// https://fetch.spec.whatwg.org/#dom-requestinit-duplex
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public Task AStreamingRequestBodyReachesTheTransportAsTheScriptProducesIt() => DedicatedThread.RunAsync(() =>
     {
         var handler = new UploadHandler();
@@ -519,7 +519,7 @@ public class FetchStreamTests
     /// the script's stream. Without that, a request nobody can finish would hold the socket until the
     /// deadline.
     /// </summary>
-    [Fact]
+    [Test]
     public Task ARestoreEndsAStreamingRequestBody() => DedicatedThread.RunAsync(() =>
     {
         var handler = new UploadHandler();
@@ -545,7 +545,7 @@ public class FetchStreamTests
     /// read BYOB straight off the socket, into a buffer the consumer recycles. The chunk boundary stays the
     /// transport's: one BYOB read takes one transport read, however much room the caller offered.
     /// </summary>
-    [Fact]
+    [Test]
     public Task ANetworkResponseBodyCanBeReadByob() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();

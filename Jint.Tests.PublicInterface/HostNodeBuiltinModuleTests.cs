@@ -20,7 +20,7 @@ public class HostNodeBuiltinModuleTests
     /// The plain case, and the two options a host has any reason to set: which platform <c>node:path</c>
     /// follows, and what stands in for <c>process.cwd()</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostCanEnableAndConfigureTheBuiltins()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules(o =>
@@ -42,7 +42,7 @@ public class HostNodeBuiltinModuleTests
     /// Composing with a real <c>node_modules</c> tree, which is the arrangement the feature exists for: the
     /// package resolves through <see cref="NodeStyleModuleLoader"/> and imports a builtin of its own.
     /// </summary>
-    [Fact]
+    [Test]
     public void APackageOnDiskCanImportABuiltin()
     {
         var root = Path.Combine(Path.GetTempPath(), "jint-node-builtins-public", Guid.NewGuid().ToString("N"));
@@ -68,7 +68,7 @@ public class HostNodeBuiltinModuleTests
     /// A module the host registers itself wins over the builtin, which is also how it supplies one of the
     /// modules Jint deliberately does not provide.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostRegistrationTakesPrecedence()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
@@ -85,12 +85,12 @@ public class HostNodeBuiltinModuleTests
     /// An unknown <c>node:</c> specifier fails with a message naming what is available, so a host reading the
     /// exception can tell the difference between "not implemented" and "typo".
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnknownBuiltinReportsWhatIsAvailable()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
 
-        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import("node:child_process"));
+        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import("node:child_process"))!;
 
         exception.ResolverAlgorithmError.Should().Contain("node:path");
         exception.ResolverAlgorithmError.Should().Contain("deliberately not provided");
@@ -100,12 +100,12 @@ public class HostNodeBuiltinModuleTests
     /// An engine that did not ask is unchanged, which is what makes the feature safe to add to the engine at
     /// all.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineThatDidNotOptInIsUnchanged()
     {
         var engine = new Engine();
 
-        Assert.ThrowsAny<Exception>(() => engine.Modules.Import("node:path"));
+        Assert.Catch<Exception>(() => engine.Modules.Import("node:path"));
     }
 
     private static void Write(string root, string relativePath, string contents)

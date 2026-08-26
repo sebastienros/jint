@@ -30,8 +30,7 @@ namespace Jint.Tests.PublicInterface;
 // CultureInfo.CurrentCulture is ambient state, so this class must not run beside anything else: it is
 // restored in a finally, but a test running concurrently would observe it in between. Same reasoning, and
 // the same shape, as GarbageCollectionTests over in Jint.Tests.
-[CollectionDefinition(nameof(HostCultureInvarianceTests), DisableParallelization = true)]
-[Collection(nameof(HostCultureInvarianceTests))]
+[NonParallelizable]
 public class HostCultureInvarianceTests
 {
     /// <summary>
@@ -43,7 +42,7 @@ public class HostCultureInvarianceTests
     /// </summary>
     private const string Hostile = "<hostile>";
 
-    public static TheoryData<string> Cultures() =>
+    public static TestCases<string> Cultures() =>
     [
         "en-US",
         "sv-SE",
@@ -53,8 +52,7 @@ public class HostCultureInvarianceTests
         Hostile,
     ];
 
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void JsonStringifyOfNegativeNumbersIsAscii(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -72,8 +70,7 @@ public class HostCultureInvarianceTests
         });
     }
 
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void ErrorStackLineAndColumnAreAscii(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -87,8 +84,7 @@ public class HostCultureInvarianceTests
         });
     }
 
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void ToIsoStringIsAscii(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -108,8 +104,7 @@ public class HostCultureInvarianceTests
         });
     }
 
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void ToExponentialIsAscii(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -122,8 +117,7 @@ public class HostCultureInvarianceTests
         });
     }
 
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void NumberToStringWithRadixIsAscii(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -146,8 +140,7 @@ public class HostCultureInvarianceTests
     /// the one the object resolved, though — never the host process's. So the assertion here is not that the
     /// output is ASCII, but that it does not move when the ambient culture does.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(Cultures))]
+    [TestCaseSource(nameof(Cultures))]
     public void IntlNumberFormatExponentFollowsTheResolvedLocaleNotTheAmbientOne(string cultureName)
     {
         RunUnderCulture(cultureName, engine =>
@@ -171,7 +164,7 @@ public class HostCultureInvarianceTests
         {
             if (c > 0x7e)
             {
-                throw new Xunit.Sdk.XunitException($"{what} contains the non-ASCII character U+{(int) c:X4}: {Describe(value)}");
+                throw new AssertionException($"{what} contains the non-ASCII character U+{(int) c:X4}: {Describe(value)}");
             }
         }
     }

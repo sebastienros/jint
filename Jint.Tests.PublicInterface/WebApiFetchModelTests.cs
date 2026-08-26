@@ -17,7 +17,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiFetchModelTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoFetchGlobals()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class WebApiFetchModelTests
             .Evaluate("typeof Response").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisNeverEnablesFetch()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -50,7 +50,7 @@ public class WebApiFetchModelTests
         WebApiFeatures.Default.Should().NotHaveFlag(WebApiFeatures.Fetch);
     }
 
-    [Fact]
+    [Test]
     public void UseFetchInstallsTheObjectModel()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -63,7 +63,7 @@ public class WebApiFetchModelTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void UseFetchImpliesEventsUrlAndFiles()
     {
         // fetch's own surface is built out of them: a Request always has an AbortSignal, its URL is a WHATWG
@@ -81,7 +81,7 @@ public class WebApiFetchModelTests
         engine.Evaluate("typeof setTimeout").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void UseFetchOnlyRecordsTheFetchFlag()
     {
         var options = new Options().UseFetch();
@@ -90,7 +90,7 @@ public class WebApiFetchModelTests
         options.WebApi.Features.Should().Be(WebApiFeatures.Fetch);
     }
 
-    [Fact]
+    [Test]
     public void FeatureCallsAccumulateRatherThanReplace()
     {
         var options = new Options().UseConsole(ConsoleSink.Null).UseFetch();
@@ -99,7 +99,7 @@ public class WebApiFetchModelTests
         options.WebApi.Features.Should().HaveFlag(WebApiFeatures.Fetch);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -116,7 +116,7 @@ public class WebApiFetchModelTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmDoesNotGetThem()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -125,7 +125,7 @@ public class WebApiFetchModelTests
         engine.Evaluate("typeof Response").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new Native.JsString("host's own Response");
@@ -140,7 +140,7 @@ public class WebApiFetchModelTests
         engine.Evaluate("typeof Headers").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheObjectModelIsUsableWithoutAnyNetwork()
     {
         // Everything here is offline: the object model is exactly the part of fetch a host can adopt without
@@ -156,7 +156,7 @@ public class WebApiFetchModelTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FetchOptionsCarryTheDocumentedDefaults()
     {
         var options = new Options().UseFetch();
@@ -172,7 +172,7 @@ public class WebApiFetchModelTests
         fetch.MaxConcurrentRequests.Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void UseFetchHandsTheSettingsToTheCallback()
     {
         var options = new Options().UseFetch(f =>
@@ -187,7 +187,7 @@ public class WebApiFetchModelTests
         options.WebApi.Fetch.UrlFilter(new Uri("https://evil.example/")).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseFetch();
@@ -205,7 +205,7 @@ public class WebApiFetchModelTests
         first.Evaluate("Headers").Should().NotBeSameAs(second.Evaluate("Headers"));
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseFetch());

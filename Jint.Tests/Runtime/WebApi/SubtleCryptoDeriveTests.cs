@@ -114,19 +114,18 @@ public class SubtleCryptoDeriveTests
     // PBKDF2 — RFC 6070 and RFC 7914 §11
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // https://www.rfc-editor.org/rfc/rfc6070#section-2, the PBKDF2-HMAC-SHA-1 test vectors.
-    [InlineData("password", "salt", 1, 160, "SHA-1", "0c60c80f961f0e71f3a9b524af6012062fe037a6")]
-    [InlineData("password", "salt", 2, 160, "SHA-1", "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957")]
-    [InlineData("password", "salt", 4096, 160, "SHA-1", "4b007901b765489abead49d926f721d065a429c1")]
-    [InlineData(
+    [TestCase("password", "salt", 1, 160, "SHA-1", "0c60c80f961f0e71f3a9b524af6012062fe037a6")]
+    [TestCase("password", "salt", 2, 160, "SHA-1", "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957")]
+    [TestCase("password", "salt", 4096, 160, "SHA-1", "4b007901b765489abead49d926f721d065a429c1")]
+    [TestCase(
         "passwordPASSWORDpassword", "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 200, "SHA-1",
         "3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038")]
     // https://www.rfc-editor.org/rfc/rfc7914#section-11, whose first two vectors are PBKDF2-HMAC-SHA-256.
-    [InlineData("passwd", "salt", 1, 512, "SHA-256",
+    [TestCase("passwd", "salt", 1, 512, "SHA-256",
         "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc"
         + "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783")]
-    [InlineData("Password", "NaCl", 80000, 512, "SHA-256",
+    [TestCase("Password", "NaCl", 80000, 512, "SHA-256",
         "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56"
         + "a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d")]
     public void DerivesThePublishedPbkdf2Vectors(
@@ -144,7 +143,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DerivesTheRfc6070VectorWhoseInputsContainANullByte()
     {
         // The sixth vector of https://www.rfc-editor.org/rfc/rfc6070#section-2 is P = "pass\0word" and
@@ -157,7 +156,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("56fa6aa75548099dcc37d7f03425e0c3");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnIterationCountOfZeroWithAnOperationError()
     {
         // "If the iterations member of normalizedAlgorithm is zero, then throw an OperationError" — step 2.
@@ -185,7 +184,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("OperationError/true,OperationError/true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnIterationCountAboveThisEnginesCeiling()
     {
         // PBKDF2 is a deliberately slow loop whose trip count comes from script and which happens inside one
@@ -214,7 +213,7 @@ public class SubtleCryptoDeriveTests
             """).AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void APbkdf2KeyIsImportOnlyAndNeverExtractable()
     {
         var engine = WebEngine();
@@ -250,7 +249,7 @@ public class SubtleCryptoDeriveTests
     // HKDF — RFC 5869 Appendix A
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DerivesTheRfc5869Sha256Vectors()
     {
         // https://www.rfc-editor.org/rfc/rfc5869#appendix-A — A.1 (basic), A.2 (long inputs and a
@@ -274,7 +273,7 @@ public class SubtleCryptoDeriveTests
                 + "|8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8");
     }
 
-    [Fact]
+    [Test]
     public void DerivesTheRfc5869Sha1Vectors()
     {
         // A.4 and A.6 of the same appendix, which are the SHA-1 half — HKDF's security rests on HMAC, so
@@ -294,11 +293,10 @@ public class SubtleCryptoDeriveTests
                 + "|14101530f62ccf2b30cc6d220554d8d96802825489c52c84c99342b96e018c221c71a88a4a258f71ffea");
     }
 
-    [Theory]
-    [InlineData("SHA-1", 160)]
-    [InlineData("SHA-256", 256)]
-    [InlineData("SHA-384", 384)]
-    [InlineData("SHA-512", 512)]
+    [TestCase("SHA-1", 160)]
+    [TestCase("SHA-256", 256)]
+    [TestCase("SHA-384", 384)]
+    [TestCase("SHA-512", 512)]
     public void RefusesAnHkdfLengthPastTheExpansionCeiling(string hash, int hashLength)
     {
         // "If length is greater than 255 * hashLength, then throw an OperationError" — RFC 5869's own bound,
@@ -330,7 +328,7 @@ public class SubtleCryptoDeriveTests
         result.Should().Contain($"a length of {maximum + 8} bits exceeds the {maximum} bits HKDF can expand to with {hash} (255 * {hashLength})");
     }
 
-    [Fact]
+    [Test]
     public void AnHkdfKeyIsImportOnlyAndNeverExtractable()
     {
         var engine = WebEngine();
@@ -357,9 +355,8 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Theory]
-    [InlineData("HKDF")]
-    [InlineData("PBKDF2")]
+    [TestCase("HKDF")]
+    [TestCase("PBKDF2")]
     public void ADerivationKeyCarriesTheBareKeyAlgorithmAndOnlyTheDerivationUsages(string algorithm)
     {
         // "Let algorithm be a new KeyAlgorithm object. Set the name attribute of algorithm to 'HKDF'" — and
@@ -392,7 +389,7 @@ public class SubtleCryptoDeriveTests
     // ECDH
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DerivesTheRfc5903P256SharedSecretInBothDirections()
     {
         // https://www.rfc-editor.org/rfc/rfc5903#section-8.1 supplies both private keys, both public points
@@ -408,7 +405,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be(SharedSecretHex + "|" + SharedSecretHex);
     }
 
-    [Fact]
+    [Test]
     public void ANullLengthIsTheWholeSharedSecretAndAnOmittedArgumentMeansNull()
     {
         // "If length is null: return secret." The argument is `optional … unsigned long? length = null`, so
@@ -426,7 +423,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be(string.Join("|", SharedSecretHex, SharedSecretHex, SharedSecretHex));
     }
 
-    [Fact]
+    [Test]
     public void TruncatesToTheFirstLengthBitsIncludingAPartialByte()
     {
         // "Return a byte sequence containing the first length bits of secret" — a bit count, not a byte
@@ -450,10 +447,9 @@ public class SubtleCryptoDeriveTests
                 + "|" + SharedSecretHex);
     }
 
-    [Theory]
-    [InlineData("P-256", 256)]
-    [InlineData("P-384", 384)]
-    [InlineData("P-521", 528)]
+    [TestCase("P-256", 256)]
+    [TestCase("P-384", 384)]
+    [TestCase("P-521", 528)]
     public void TheMaximumLengthIsTheCurvesFieldWidthRoundedUpToWholeOctets(string curve, int maximum)
     {
         // "Let maximumLength be the length in bits of the output of the field element to octet string
@@ -478,7 +474,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be($"{maximum / 8}|{maximum / 8}|OperationError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesEveryWrongKeyRoleWithAnInvalidAccessError()
     {
         // The five checks the ECDH derive-bits steps make, in the order they make them: the `public` member
@@ -510,7 +506,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void AMismatchedCurveIsAnInvalidAccessErrorWhateverTheLengthAsksFor()
     {
         // The one place this engine deliberately departs from the ECDH derive-bits prose, and the reason is
@@ -553,7 +549,7 @@ public class SubtleCryptoDeriveTests
                 + ",OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void ThePublicMemberIsACryptoKeyInterfaceAndCoercesNothing()
     {
         // `required CryptoKey public` is an interface type, so WebIDL accepts a platform object of that
@@ -581,7 +577,7 @@ public class SubtleCryptoDeriveTests
     // The length argument, across all three algorithms
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void HkdfAndPbkdf2RefuseANullLengthAndANonMultipleOfEight()
     {
         // "If length is null or is not a multiple of 8, then throw an OperationError" — the first step of
@@ -611,7 +607,7 @@ public class SubtleCryptoDeriveTests
                 "OperationError,OperationError,OperationError,OperationError,OperationError,OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void AZeroLengthIsTheEmptyByteSequenceForAllThree()
     {
         // PBKDF2's steps say so outright ("If length is zero, return an empty byte sequence"); HKDF's do not
@@ -631,7 +627,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("0,0,0");
     }
 
-    [Fact]
+    [Test]
     public void TheLengthArgumentIsEnforceRange()
     {
         // `[EnforceRange] unsigned long?`, so a value that is not a finite number or whose truncated value
@@ -663,7 +659,7 @@ public class SubtleCryptoDeriveTests
     // deriveKey
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DerivesAnAesGcmKeyFromAPassword()
     {
         // The shape an embedder actually reaches for. The expected key is PBKDF2-HMAC-SHA-256 over
@@ -700,7 +696,7 @@ public class SubtleCryptoDeriveTests
                 + "|attack at dawn");
     }
 
-    [Fact]
+    [Test]
     public void DerivesAnHmacKeyFromAnEcdhAgreement()
     {
         // The derived key is the first 256 bits of the RFC 5903 shared secret, and the MAC is
@@ -732,7 +728,7 @@ public class SubtleCryptoDeriveTests
                 + "|true");
     }
 
-    [Fact]
+    [Test]
     public void DerivesAnHkdfKeyFromAnEcdhAgreementAndThenBitsFromIt()
     {
         // The specification's own worked example (§35.1, written there over X25519): agree, derive the whole
@@ -748,7 +744,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("""{"name":"HKDF"}|secret|false|3bf511eebadf44c1f7b0282a1262fe4d""");
     }
 
-    [Fact]
+    [Test]
     public void ThePbkdf2ToHkdfCompositionFailsBecauseNeitherSideSuppliesALength()
     {
         // The mirror image of the test above, and the reason the null is not merely bookkeeping: HKDF's
@@ -766,7 +762,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheGetKeyLengthOperationDecidesHowManyBitsAreDerived()
     {
         // HMAC's `get key length` reads HmacImportParams: an absent length is the hash's block size, a
@@ -812,7 +808,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("128,192,256,OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void NormalizesTheDerivedKeyTypeTwiceInTheSpecifiedOrder()
     {
         // Steps 2 to 7: the algorithm is normalized for deriveBits, and the derivedKeyType is normalized
@@ -850,7 +846,7 @@ public class SubtleCryptoDeriveTests
                 + "|256");
     }
 
-    [Fact]
+    [Test]
     public void TheBaseKeyNeedsDeriveKeyForDeriveKeyAndDeriveBitsForDeriveBits()
     {
         // The two methods check *different* usages — deriveKey wants 'deriveKey' even though bits are what
@@ -874,7 +870,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("ok,InvalidAccessError,ok,InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void TheDerivedKeyIsBuiltByTheImportPathAndInheritsItsRefusals()
     {
         // deriveKey is a composition: the bits are imported through exactly the `raw` branch importKey would
@@ -907,17 +903,16 @@ public class SubtleCryptoDeriveTests
     // The registries
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
     // ECDH derives and never signs or encrypts; ECDSA is the reverse.
-    [InlineData("deriveBits", "{ name: 'ECDSA', namedCurve: 'P-256' }")]
-    [InlineData("deriveBits", "'HMAC'")]
-    [InlineData("deriveBits", "'AES-GCM'")]
-    [InlineData("deriveBits", "'RSA-OAEP'")]
+    [TestCase("deriveBits", "{ name: 'ECDSA', namedCurve: 'P-256' }")]
+    [TestCase("deriveBits", "'HMAC'")]
+    [TestCase("deriveBits", "'AES-GCM'")]
+    [TestCase("deriveBits", "'RSA-OAEP'")]
     // HKDF and PBKDF2 derive and nothing else, so every other operation is a NotSupportedError.
-    [InlineData("sign", "'HKDF'")]
-    [InlineData("encrypt", "'PBKDF2'")]
-    [InlineData("generateKey", "'HKDF'")]
-    [InlineData("generateKey", "'PBKDF2'")]
+    [TestCase("sign", "'HKDF'")]
+    [TestCase("encrypt", "'PBKDF2'")]
+    [TestCase("generateKey", "'HKDF'")]
+    [TestCase("generateKey", "'PBKDF2'")]
     public void RefusesAnAlgorithmThatIsNotRegisteredForTheOperation(string operation, string algorithm)
     {
         var engine = WebEngine();
@@ -937,7 +932,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("NotSupportedError/9");
     }
 
-    [Fact]
+    [Test]
     public void ADerivationAgainstTheWrongAlgorithmIsAnInvalidAccessError()
     {
         // "If the name member of normalizedAlgorithm is not equal to the name attribute of the [[algorithm]]
@@ -956,7 +951,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void TheHkdfAndPbkdf2ParameterMembersAreAllRequired()
     {
         // HkdfParams declares `required hash`, `required salt` and `required info`, and Pbkdf2Params
@@ -986,7 +981,7 @@ public class SubtleCryptoDeriveTests
             """).AsString().Should().Be("TypeError,TypeError,TypeError,TypeError,TypeError,TypeError,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void BufferSourceMembersAreCopiedAtNormalizationTime()
     {
         // "Set the dictionary member to the result of getting a copy of the bytes held by idlValue." The copy

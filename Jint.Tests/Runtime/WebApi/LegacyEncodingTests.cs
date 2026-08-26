@@ -37,64 +37,63 @@ public class LegacyEncodingTests
 
     #region Labels
 
-    [Theory]
     // https://encoding.spec.whatwg.org/#names-and-labels, one row per single-byte encoding. The name the
     // `encoding` getter reports is the specification's name, ASCII-lowercased.
-    [InlineData("ibm866", "ibm866")]
-    [InlineData("866", "ibm866")]
-    [InlineData("csibm866", "ibm866")]
-    [InlineData("iso-8859-2", "iso-8859-2")]
-    [InlineData("latin2", "iso-8859-2")]
-    [InlineData("l2", "iso-8859-2")]
-    [InlineData("iso_8859-2:1987", "iso-8859-2")]
-    [InlineData("iso-8859-3", "iso-8859-3")]
-    [InlineData("latin3", "iso-8859-3")]
-    [InlineData("iso-8859-4", "iso-8859-4")]
-    [InlineData("latin4", "iso-8859-4")]
-    [InlineData("iso-8859-5", "iso-8859-5")]
-    [InlineData("cyrillic", "iso-8859-5")]
-    [InlineData("iso-8859-6", "iso-8859-6")]
-    [InlineData("arabic", "iso-8859-6")]
-    [InlineData("iso-8859-7", "iso-8859-7")]
-    [InlineData("greek", "iso-8859-7")]
-    [InlineData("sun_eu_greek", "iso-8859-7")]
-    [InlineData("iso-8859-8", "iso-8859-8")]
-    [InlineData("hebrew", "iso-8859-8")]
-    [InlineData("visual", "iso-8859-8")]
-    [InlineData("iso-8859-10", "iso-8859-10")]
-    [InlineData("latin6", "iso-8859-10")]
-    [InlineData("iso-8859-13", "iso-8859-13")]
-    [InlineData("iso-8859-14", "iso-8859-14")]
-    [InlineData("iso-8859-15", "iso-8859-15")]
-    [InlineData("l9", "iso-8859-15")]
-    [InlineData("iso-8859-16", "iso-8859-16")]
-    [InlineData("koi8-r", "koi8-r")]
-    [InlineData("koi", "koi8-r")]
-    [InlineData("koi8-u", "koi8-u")]
-    [InlineData("koi8-ru", "koi8-u")]
-    [InlineData("macintosh", "macintosh")]
-    [InlineData("mac", "macintosh")]
-    [InlineData("x-mac-roman", "macintosh")]
-    [InlineData("windows-874", "windows-874")]
-    [InlineData("tis-620", "windows-874")]
-    [InlineData("iso-8859-11", "windows-874")]
-    [InlineData("windows-1250", "windows-1250")]
-    [InlineData("x-cp1250", "windows-1250")]
-    [InlineData("windows-1251", "windows-1251")]
-    [InlineData("windows-1252", "windows-1252")]
-    [InlineData("windows-1253", "windows-1253")]
-    [InlineData("windows-1254", "windows-1254")]
-    [InlineData("iso-8859-9", "windows-1254")]
-    [InlineData("latin5", "windows-1254")]
-    [InlineData("windows-1255", "windows-1255")]
-    [InlineData("windows-1256", "windows-1256")]
-    [InlineData("windows-1257", "windows-1257")]
-    [InlineData("windows-1258", "windows-1258")]
-    [InlineData("x-mac-cyrillic", "x-mac-cyrillic")]
-    [InlineData("x-mac-ukrainian", "x-mac-cyrillic")]
+    [TestCase("ibm866", "ibm866")]
+    [TestCase("866", "ibm866")]
+    [TestCase("csibm866", "ibm866")]
+    [TestCase("iso-8859-2", "iso-8859-2")]
+    [TestCase("latin2", "iso-8859-2")]
+    [TestCase("l2", "iso-8859-2")]
+    [TestCase("iso_8859-2:1987", "iso-8859-2")]
+    [TestCase("iso-8859-3", "iso-8859-3")]
+    [TestCase("latin3", "iso-8859-3")]
+    [TestCase("iso-8859-4", "iso-8859-4")]
+    [TestCase("latin4", "iso-8859-4")]
+    [TestCase("iso-8859-5", "iso-8859-5")]
+    [TestCase("cyrillic", "iso-8859-5")]
+    [TestCase("iso-8859-6", "iso-8859-6")]
+    [TestCase("arabic", "iso-8859-6")]
+    [TestCase("iso-8859-7", "iso-8859-7")]
+    [TestCase("greek", "iso-8859-7")]
+    [TestCase("sun_eu_greek", "iso-8859-7")]
+    [TestCase("iso-8859-8", "iso-8859-8")]
+    [TestCase("hebrew", "iso-8859-8")]
+    [TestCase("visual", "iso-8859-8")]
+    [TestCase("iso-8859-10", "iso-8859-10")]
+    [TestCase("latin6", "iso-8859-10")]
+    [TestCase("iso-8859-13", "iso-8859-13")]
+    [TestCase("iso-8859-14", "iso-8859-14")]
+    [TestCase("iso-8859-15", "iso-8859-15")]
+    [TestCase("l9", "iso-8859-15")]
+    [TestCase("iso-8859-16", "iso-8859-16")]
+    [TestCase("koi8-r", "koi8-r")]
+    [TestCase("koi", "koi8-r")]
+    [TestCase("koi8-u", "koi8-u")]
+    [TestCase("koi8-ru", "koi8-u")]
+    [TestCase("macintosh", "macintosh")]
+    [TestCase("mac", "macintosh")]
+    [TestCase("x-mac-roman", "macintosh")]
+    [TestCase("windows-874", "windows-874")]
+    [TestCase("tis-620", "windows-874")]
+    [TestCase("iso-8859-11", "windows-874")]
+    [TestCase("windows-1250", "windows-1250")]
+    [TestCase("x-cp1250", "windows-1250")]
+    [TestCase("windows-1251", "windows-1251")]
+    [TestCase("windows-1252", "windows-1252")]
+    [TestCase("windows-1253", "windows-1253")]
+    [TestCase("windows-1254", "windows-1254")]
+    [TestCase("iso-8859-9", "windows-1254")]
+    [TestCase("latin5", "windows-1254")]
+    [TestCase("windows-1255", "windows-1255")]
+    [TestCase("windows-1256", "windows-1256")]
+    [TestCase("windows-1257", "windows-1257")]
+    [TestCase("windows-1258", "windows-1258")]
+    [TestCase("x-mac-cyrillic", "x-mac-cyrillic")]
+    [TestCase("x-mac-ukrainian", "x-mac-cyrillic")]
     // x-user-defined is not a single-byte encoding, since its decoder is an algorithm rather than an index,
     // but it is named the same way.
-    [InlineData("x-user-defined", "x-user-defined")]
+    [TestCase("x-user-defined", "x-user-defined")]
     public void ResolvesALegacyLabelToItsEncodingName(string label, string expected)
     {
         var engine = WebEngine();
@@ -103,25 +102,24 @@ public class LegacyEncodingTests
         engine.Evaluate("new TextDecoder(label).encoding").AsString().Should().Be(expected);
     }
 
-    [Theory]
     // The classic trap: ISO-8859-1 and every one of its aliases, "ascii" and "us-ascii" included, are labels
     // for windows-1252. The Encoding Standard has no ISO-8859-1 encoding at all.
-    [InlineData("iso-8859-1")]
-    [InlineData("iso8859-1")]
-    [InlineData("iso88591")]
-    [InlineData("iso_8859-1")]
-    [InlineData("iso_8859-1:1987")]
-    [InlineData("latin1")]
-    [InlineData("l1")]
-    [InlineData("csisolatin1")]
-    [InlineData("ascii")]
-    [InlineData("us-ascii")]
-    [InlineData("ansi_x3.4-1968")]
-    [InlineData("cp819")]
-    [InlineData("ibm819")]
-    [InlineData("iso-ir-100")]
-    [InlineData("cp1252")]
-    [InlineData("x-cp1252")]
+    [TestCase("iso-8859-1")]
+    [TestCase("iso8859-1")]
+    [TestCase("iso88591")]
+    [TestCase("iso_8859-1")]
+    [TestCase("iso_8859-1:1987")]
+    [TestCase("latin1")]
+    [TestCase("l1")]
+    [TestCase("csisolatin1")]
+    [TestCase("ascii")]
+    [TestCase("us-ascii")]
+    [TestCase("ansi_x3.4-1968")]
+    [TestCase("cp819")]
+    [TestCase("ibm819")]
+    [TestCase("iso-ir-100")]
+    [TestCase("cp1252")]
+    [TestCase("x-cp1252")]
     public void MapsEveryLatin1LabelToWindows1252(string label)
     {
         var engine = WebEngine();
@@ -134,7 +132,7 @@ public class LegacyEncodingTests
         Decode(engine, label, 0x80).Should().Be("€");
     }
 
-    [Fact]
+    [Test]
     public void KeepsIso88598IApartFromIso88598()
     {
         var engine = WebEngine();
@@ -166,14 +164,13 @@ public class LegacyEncodingTests
         }
     }
 
-    [Theory]
     // "Get an encoding" strips leading and trailing ASCII whitespace and matches ASCII case-insensitively.
-    [InlineData("WINDOWS-1252")]
-    [InlineData("Windows-1252")]
-    [InlineData("  windows-1252  ")]
-    [InlineData("\t\n\f\r windows-1252 \t\n\f\r")]
-    [InlineData("LATIN1")]
-    [InlineData(" Latin1\n")]
+    [TestCase("WINDOWS-1252")]
+    [TestCase("Windows-1252")]
+    [TestCase("  windows-1252  ")]
+    [TestCase("\t\n\f\r windows-1252 \t\n\f\r")]
+    [TestCase("LATIN1")]
+    [TestCase(" Latin1\n")]
     public void TrimsAndCaseFoldsALegacyLabel(string label)
     {
         var engine = WebEngine();
@@ -182,24 +179,23 @@ public class LegacyEncodingTests
         engine.Evaluate("new TextDecoder(label).encoding").AsString().Should().Be("windows-1252");
     }
 
-    [Theory]
     // U+000B VT and U+00A0 NBSP are not ASCII whitespace, so neither is stripped, and an inner space is not
     // stripped at all.
-    [InlineData("windows-1252")]
-    [InlineData("windows-1252\u00A0")]
-    [InlineData("windows -1252")]
-    [InlineData("windows-1252x")]
-    [InlineData("windows-125")]
-    [InlineData("windows-1249")]
-    [InlineData("iso-8859-12")]
+    [TestCase("windows-1252")]
+    [TestCase("windows-1252\u00A0")]
+    [TestCase("windows -1252")]
+    [TestCase("windows-1252x")]
+    [TestCase("windows-125")]
+    [TestCase("windows-1249")]
+    [TestCase("iso-8859-12")]
     // Nor is the match anything but ASCII case-insensitive: U+017F must not fold onto 's'.
-    [InlineData("i\u017Fo-8859-2")]
+    [TestCase("i\u017Fo-8859-2")]
     public void StillRefusesALabelThatIsNotOne(string label)
     {
         var engine = WebEngine();
 
         engine.SetValue("label", label);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
@@ -207,44 +203,43 @@ public class LegacyEncodingTests
 
     #region Decoding
 
-    [Theory]
     // One vector per single-byte index, taken from the index file the specification links for it.
-    [InlineData("ibm866", 0x80, 0x0410)]
-    [InlineData("ibm866", 0xE0, 0x0440)]
-    [InlineData("iso-8859-2", 0xB1, 0x0105)]
-    [InlineData("iso-8859-2", 0xE1, 0x00E1)]
-    [InlineData("iso-8859-3", 0xA1, 0x0126)]
-    [InlineData("iso-8859-4", 0xA1, 0x0104)]
-    [InlineData("iso-8859-5", 0xB0, 0x0410)]
-    [InlineData("iso-8859-6", 0xC7, 0x0627)]
-    [InlineData("iso-8859-7", 0xE1, 0x03B1)]
-    [InlineData("iso-8859-8", 0xE0, 0x05D0)]
-    [InlineData("iso-8859-8-i", 0xE0, 0x05D0)]
-    [InlineData("iso-8859-10", 0xA1, 0x0104)]
-    [InlineData("iso-8859-13", 0xA8, 0x00D8)]
-    [InlineData("iso-8859-14", 0xA1, 0x1E02)]
-    [InlineData("iso-8859-15", 0xA4, 0x20AC)]
-    [InlineData("iso-8859-16", 0xA4, 0x20AC)]
-    [InlineData("koi8-r", 0xC1, 0x0430)]
-    [InlineData("koi8-u", 0xA4, 0x0454)]
-    [InlineData("macintosh", 0x80, 0x00C4)]
-    [InlineData("windows-874", 0xA1, 0x0E01)]
-    [InlineData("windows-874", 0x85, 0x2026)]
-    [InlineData("windows-1250", 0x8A, 0x0160)]
-    [InlineData("windows-1251", 0xC0, 0x0410)]
-    [InlineData("windows-1252", 0x80, 0x20AC)]
-    [InlineData("windows-1252", 0x92, 0x2019)]
+    [TestCase("ibm866", 0x80, 0x0410)]
+    [TestCase("ibm866", 0xE0, 0x0440)]
+    [TestCase("iso-8859-2", 0xB1, 0x0105)]
+    [TestCase("iso-8859-2", 0xE1, 0x00E1)]
+    [TestCase("iso-8859-3", 0xA1, 0x0126)]
+    [TestCase("iso-8859-4", 0xA1, 0x0104)]
+    [TestCase("iso-8859-5", 0xB0, 0x0410)]
+    [TestCase("iso-8859-6", 0xC7, 0x0627)]
+    [TestCase("iso-8859-7", 0xE1, 0x03B1)]
+    [TestCase("iso-8859-8", 0xE0, 0x05D0)]
+    [TestCase("iso-8859-8-i", 0xE0, 0x05D0)]
+    [TestCase("iso-8859-10", 0xA1, 0x0104)]
+    [TestCase("iso-8859-13", 0xA8, 0x00D8)]
+    [TestCase("iso-8859-14", 0xA1, 0x1E02)]
+    [TestCase("iso-8859-15", 0xA4, 0x20AC)]
+    [TestCase("iso-8859-16", 0xA4, 0x20AC)]
+    [TestCase("koi8-r", 0xC1, 0x0430)]
+    [TestCase("koi8-u", 0xA4, 0x0454)]
+    [TestCase("macintosh", 0x80, 0x00C4)]
+    [TestCase("windows-874", 0xA1, 0x0E01)]
+    [TestCase("windows-874", 0x85, 0x2026)]
+    [TestCase("windows-1250", 0x8A, 0x0160)]
+    [TestCase("windows-1251", 0xC0, 0x0410)]
+    [TestCase("windows-1252", 0x80, 0x20AC)]
+    [TestCase("windows-1252", 0x92, 0x2019)]
     // windows-1252 maps its five otherwise-undefined bytes to the C1 controls rather than leaving holes,
     // which is one of the places the Encoding Standard's windows-1252 differs from the vendor's CP1252.
-    [InlineData("windows-1252", 0x81, 0x0081)]
-    [InlineData("windows-1252", 0x8D, 0x008D)]
-    [InlineData("windows-1253", 0xE1, 0x03B1)]
-    [InlineData("windows-1254", 0xD0, 0x011E)]
-    [InlineData("windows-1255", 0xE0, 0x05D0)]
-    [InlineData("windows-1256", 0xC7, 0x0627)]
-    [InlineData("windows-1257", 0xC0, 0x0104)]
-    [InlineData("windows-1258", 0xC0, 0x00C0)]
-    [InlineData("x-mac-cyrillic", 0x80, 0x0410)]
+    [TestCase("windows-1252", 0x81, 0x0081)]
+    [TestCase("windows-1252", 0x8D, 0x008D)]
+    [TestCase("windows-1253", 0xE1, 0x03B1)]
+    [TestCase("windows-1254", 0xD0, 0x011E)]
+    [TestCase("windows-1255", 0xE0, 0x05D0)]
+    [TestCase("windows-1256", 0xC7, 0x0627)]
+    [TestCase("windows-1257", 0xC0, 0x0104)]
+    [TestCase("windows-1258", 0xC0, 0x00C0)]
+    [TestCase("x-mac-cyrillic", 0x80, 0x0410)]
     public void DecodesAByteThroughItsIndex(string label, int b, int expected)
     {
         var engine = WebEngine();
@@ -252,7 +247,7 @@ public class LegacyEncodingTests
         Decode(engine, label, b).Should().Be(((char) expected).ToString());
     }
 
-    [Fact]
+    [Test]
     public void PassesAsciiBytesThroughUntouched()
     {
         var engine = WebEngine();
@@ -272,17 +267,16 @@ public class LegacyEncodingTests
         }
     }
 
-    [Theory]
     // Every single-byte index with a hole in it, and one of its unmapped bytes.
-    [InlineData("iso-8859-3", 0xA5)]
-    [InlineData("iso-8859-6", 0xA1)]
-    [InlineData("iso-8859-7", 0xAE)]
-    [InlineData("iso-8859-8", 0xBF)]
-    [InlineData("iso-8859-8-i", 0xBF)]
-    [InlineData("windows-874", 0xDB)]
-    [InlineData("windows-1253", 0xAA)]
-    [InlineData("windows-1255", 0xD9)]
-    [InlineData("windows-1257", 0xA1)]
+    [TestCase("iso-8859-3", 0xA5)]
+    [TestCase("iso-8859-6", 0xA1)]
+    [TestCase("iso-8859-7", 0xAE)]
+    [TestCase("iso-8859-8", 0xBF)]
+    [TestCase("iso-8859-8-i", 0xBF)]
+    [TestCase("windows-874", 0xDB)]
+    [TestCase("windows-1253", 0xAA)]
+    [TestCase("windows-1255", 0xD9)]
+    [TestCase("windows-1257", 0xA1)]
     public void ReplacesAnUnmappedByteAndThrowsForItWhenFatal(string label, int b)
     {
         var engine = WebEngine();
@@ -292,7 +286,7 @@ public class LegacyEncodingTests
 
         engine.SetValue("label", label);
         engine.SetValue("byte", b);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label, { fatal: true }).decode(new Uint8Array([byte]))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label, { fatal: true }).decode(new Uint8Array([byte]))"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // A decoder that threw is usable again afterwards.
@@ -303,7 +297,7 @@ public class LegacyEncodingTests
             """).AsString().Should().Be("a");
     }
 
-    [Fact]
+    [Test]
     public void NeverStripsAByteOrderMarkForASingleByteEncoding()
     {
         var engine = WebEngine();
@@ -327,7 +321,7 @@ public class LegacyEncodingTests
 
     #region Streaming
 
-    [Fact]
+    [Test]
     public void StreamsASingleByteEncodingWithoutHoldingBytesOver()
     {
         var engine = WebEngine();
@@ -343,7 +337,7 @@ public class LegacyEncodingTests
             """).AsString().Should().Be("a€|\u2019|0");
     }
 
-    [Fact]
+    [Test]
     public void KeepsFatalWorkingAcrossStreamingChunks()
     {
         var engine = WebEngine();
@@ -353,14 +347,14 @@ public class LegacyEncodingTests
             const decoder = new TextDecoder(label, { fatal: true });
             decoder.decode(new Uint8Array([0x61]), { stream: true });
             decoder.decode(new Uint8Array([0xA1]), { stream: true });
-            """)).Error.Get("name").AsString().Should().Be("TypeError");
+            """))!.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
     #endregion
 
     #region x-user-defined
 
-    [Fact]
+    [Test]
     public void MapsTheUpperHalfAlgorithmicallyForXUserDefined()
     {
         var engine = WebEngine();
@@ -381,7 +375,7 @@ public class LegacyEncodingTests
         Decode(engine, "x-user-defined", 0x7F).Should().Be("\u007F");
     }
 
-    [Fact]
+    [Test]
     public void NeverFailsForXUserDefined()
     {
         var engine = WebEngine();
@@ -397,46 +391,44 @@ public class LegacyEncodingTests
 
     #region replacement and the encodings Jint does not implement
 
-    [Theory]
     // https://encoding.spec.whatwg.org/#dom-textdecoder step 2: a label for the replacement encoding is a
     // RangeError, exactly like a label that names nothing. The encoding exists to stop an attacker smuggling
     // one of these charsets past a filter, so a decoder for it is never handed out.
-    [InlineData("replacement")]
-    [InlineData("csiso2022kr")]
-    [InlineData("hz-gb-2312")]
-    [InlineData("iso-2022-cn")]
-    [InlineData("iso-2022-cn-ext")]
-    [InlineData("iso-2022-kr")]
-    [InlineData("ISO-2022-KR")]
-    [InlineData("  replacement  ")]
+    [TestCase("replacement")]
+    [TestCase("csiso2022kr")]
+    [TestCase("hz-gb-2312")]
+    [TestCase("iso-2022-cn")]
+    [TestCase("iso-2022-cn-ext")]
+    [TestCase("iso-2022-kr")]
+    [TestCase("ISO-2022-KR")]
+    [TestCase("  replacement  ")]
     public void RefusesTheReplacementEncoding(string label)
     {
         var engine = WebEngine();
 
         engine.SetValue("label", label);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
-    [Theory]
     // The legacy multi-byte encodings each need an index of their own and are not implemented; Jint reports
     // the RangeError it reports for any label it will not decode. This is a documented deviation, since a
     // conforming implementation decodes these.
-    [InlineData("gbk")]
-    [InlineData("gb18030")]
-    [InlineData("big5")]
-    [InlineData("euc-jp")]
-    [InlineData("iso-2022-jp")]
-    [InlineData("shift_jis")]
-    [InlineData("euc-kr")]
-    [InlineData("chinese")]
-    [InlineData("korean")]
+    [TestCase("gbk")]
+    [TestCase("gb18030")]
+    [TestCase("big5")]
+    [TestCase("euc-jp")]
+    [TestCase("iso-2022-jp")]
+    [TestCase("shift_jis")]
+    [TestCase("euc-kr")]
+    [TestCase("chinese")]
+    [TestCase("korean")]
     public void StillRefusesTheMultiByteEncodings(string label)
     {
         var engine = WebEngine();
 
         engine.SetValue("label", label);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
@@ -444,7 +436,7 @@ public class LegacyEncodingTests
 
     #region Exhaustive checks against the specification's own data
 
-    [Fact]
+    [Test]
     public void ResolvesEveryLabelTheSpecificationLists()
     {
         var engine = WebEngine();
@@ -502,7 +494,7 @@ public class LegacyEncodingTests
         labels.Should().Be(228);
     }
 
-    [Fact]
+    [Test]
     public void DecodesEveryByteOfEverySingleByteIndexTheWayTheIndexSays()
     {
         var engine = WebEngine();
@@ -572,7 +564,7 @@ public class LegacyEncodingTests
         checkedEncodings.Should().Be(28);
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheIndexTablesInTheAssemblysDataSection()
     {
         // The generated tables are ReadOnlySpan-valued properties, which the compiler lowers to a pointer

@@ -63,7 +63,7 @@ public class HostEventLoopFenceTests
         return false;
     }
 
-    [Fact]
+    [Test]
     public void AtomicsWaitAsyncTimeoutDoesNotSettleAfterAGlobalRestore()
     {
         var engine = new Engine();
@@ -79,7 +79,7 @@ public class HostEventLoopFenceTests
         engine.Evaluate("globalThis.settled").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AtomicsWaitAsyncTimeoutSettlesWhenNoRestoreIntervenes()
     {
         var engine = new Engine();
@@ -90,7 +90,7 @@ public class HostEventLoopFenceTests
         engine.Evaluate("globalThis.settled").AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public void AtomicsNotifyDoesNotSettleAWaitAsyncFromAnEndedCycle()
     {
         var engine = new Engine();
@@ -112,7 +112,7 @@ public class HostEventLoopFenceTests
         engine.Evaluate("globalThis.settled").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AtomicsNotifySettlesAWaitAsyncWhenNoRestoreIntervenes()
     {
         var engine = new Engine();

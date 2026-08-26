@@ -26,7 +26,7 @@ public class HostOptionalParameterTests
 
     #region 1. the default is filled in
 
-    [Fact]
+    [Test]
     public void ElidedStringDefaultIsSupplied()
     {
         var engine = CreateEngine();
@@ -37,7 +37,7 @@ public class HostOptionalParameterTests
         new Host().Greet("world").Should().Be("Hello, world");
     }
 
-    [Fact]
+    [Test]
     public void ElidedNumericDefaultsAreSupplied()
     {
         var engine = CreateEngine();
@@ -51,7 +51,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Sum(1)").AsNumber().Should().Be(11);
     }
 
-    [Fact]
+    [Test]
     public void ElidedBooleanDefaultIsSupplied()
     {
         var engine = CreateEngine();
@@ -60,7 +60,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Render('x', false)").AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void ElidedNullDefaultIsSupplied()
     {
         var engine = CreateEngine();
@@ -69,7 +69,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Describe(1, 'tag')").AsString().Should().Be("1/tag");
     }
 
-    [Fact]
+    [Test]
     public void SeveralElidedDefaultsAreSupplied()
     {
         var engine = CreateEngine();
@@ -83,7 +83,7 @@ public class HostOptionalParameterTests
 
     #region 2. the declining lane agrees
 
-    [Fact]
+    [Test]
     public void NonExactArgumentsProduceTheSameResults()
     {
         var engine = CreateEngine();
@@ -96,7 +96,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Greet(1)").AsString().Should().Be("Hello, 1");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitUndefinedIsNotTheSameAsAnElidedArgument()
     {
         var engine = CreateEngine();
@@ -108,7 +108,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Greet('world', undefined)").AsString().Should().Be(", world");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitNullReachesTheParameter()
     {
         var engine = CreateEngine();
@@ -120,7 +120,7 @@ public class HostOptionalParameterTests
 
     #region 3. shapes that keep the reflection path
 
-    [Fact]
+    [Test]
     public void AJsValueParameterKeepsReceivingNullWhenElided()
     {
         // TryCall assigns a JsValue-typed parameter the raw argument, which is null when absent - the
@@ -132,7 +132,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Bridge(undefined)").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ADefaultOfATypeTheLaneDoesNotCoverStillWorks()
     {
         // decimal is outside the compiled invoker's parameter set, so the whole method keeps the
@@ -143,7 +143,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Price(2)").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AnEnumDefaultStillWorks()
     {
         var engine = CreateEngine();
@@ -152,7 +152,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Pick(0)").AsString().Should().Be("Zero");
     }
 
-    [Fact]
+    [Test]
     public void ParamsMethodsAreUnaffected()
     {
         var engine = CreateEngine();
@@ -161,7 +161,7 @@ public class HostOptionalParameterTests
         engine.Evaluate("host.Concat('a', 'b', 'c')").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void OverloadsStillResolveWhenOneHasOptionalParameters()
     {
         var engine = CreateEngine();

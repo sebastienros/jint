@@ -74,7 +74,7 @@ public class SubtleCryptoRsaTests
     // RSASSA-PKCS1-v1_5: the published vector
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void SignsTheRfc7515Rs256Vector()
     {
         // https://www.rfc-editor.org/rfc/rfc7515#appendix-A.2 — the RSASSA-PKCS1-v1_5 SHA-256 signature over
@@ -88,7 +88,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(Rs256SignatureHex);
     }
 
-    [Fact]
+    [Test]
     public void VerifiesTheRfc7515Rs256VectorFromEveryPublicFormat()
     {
         // The same public key, described three ways, must reach the same answer — and a message that is one
@@ -112,11 +112,10 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("true,true,false,false,false");
     }
 
-    [Theory]
-    [InlineData("SHA-1")]
-    [InlineData("SHA-256")]
-    [InlineData("SHA-384")]
-    [InlineData("SHA-512")]
+    [TestCase("SHA-1")]
+    [TestCase("SHA-256")]
+    [TestCase("SHA-384")]
+    [TestCase("SHA-512")]
     public void SignsAndVerifiesWithEveryRegisteredHash(string hash)
     {
         Run($$"""
@@ -140,7 +139,7 @@ public class SubtleCryptoRsaTests
     // RSA-PSS: the published vector, and the salt-length restriction
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void VerifiesTheRfc7520Ps384Vector()
     {
         // https://www.rfc-editor.org/rfc/rfc7520#section-4.2 — a PS384 signature produced by another
@@ -160,11 +159,10 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("true,false");
     }
 
-    [Theory]
-    [InlineData("SHA-1", 20)]
-    [InlineData("SHA-256", 32)]
-    [InlineData("SHA-384", 48)]
-    [InlineData("SHA-512", 64)]
+    [TestCase("SHA-1", 20)]
+    [TestCase("SHA-256", 32)]
+    [TestCase("SHA-384", 48)]
+    [TestCase("SHA-512", 64)]
     public void RoundTripsAPssSignatureAtTheSaltLengthThePlatformProduces(string hash, int saltLength)
     {
         Run($$"""
@@ -187,12 +185,11 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("true,false");
     }
 
-    [Theory]
-    [InlineData("SHA-256", 0)]
-    [InlineData("SHA-256", 20)]
-    [InlineData("SHA-256", 31)]
-    [InlineData("SHA-256", 33)]
-    [InlineData("SHA-512", 32)]
+    [TestCase("SHA-256", 0)]
+    [TestCase("SHA-256", 20)]
+    [TestCase("SHA-256", 31)]
+    [TestCase("SHA-256", 33)]
+    [TestCase("SHA-512", 32)]
     public void RefusesAPssSaltLengthThePlatformCannotProduce(string hash, int saltLength)
     {
         var engine = WebEngine();
@@ -213,7 +210,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheSaltLengthIsARequiredMemberOfRsaPssParams()
     {
         var engine = WebEngine();
@@ -234,7 +231,7 @@ public class SubtleCryptoRsaTests
     // RSA-OAEP: the published vector, and the label restriction
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DecryptsTheRfc7520RsaOaepVector()
     {
         // https://www.rfc-editor.org/rfc/rfc7520#section-5.2 — the Encrypted Key of Figure 87, produced by
@@ -248,11 +245,10 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(OaepPlaintextHex);
     }
 
-    [Theory]
-    [InlineData("SHA-1")]
-    [InlineData("SHA-256")]
-    [InlineData("SHA-384")]
-    [InlineData("SHA-512")]
+    [TestCase("SHA-1")]
+    [TestCase("SHA-256")]
+    [TestCase("SHA-384")]
+    [TestCase("SHA-512")]
     public void RoundTripsAnOaepMessageWithEveryRegisteredHash(string hash)
     {
         Run($$"""
@@ -274,7 +270,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("512|true|false");
     }
 
-    [Fact]
+    [Test]
     public void AnAbsentOrEmptyOaepLabelWorksAndANonEmptyOneDoesNot()
     {
         // A documented divergence: RSAEncryptionPadding carries a hash and no label, so the empty label is
@@ -306,7 +302,7 @@ public class SubtleCryptoRsaTests
                 "true,true,true,OperationError,OperationError,OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void EveryWayAnOaepDecryptionCanFailIsTheSameOperationError()
     {
         // OAEP's padding check is exactly what a chosen-ciphertext attack probes, so a ciphertext that is
@@ -337,7 +333,7 @@ public class SubtleCryptoRsaTests
                 "OperationError/true/true,OperationError/true/true,OperationError/true/true,OperationError/true/true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPlaintextTooLongForTheModulusWithAnOperationError()
     {
         var engine = WebEngine();
@@ -355,7 +351,7 @@ public class SubtleCryptoRsaTests
     // Key formats
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void RoundTripsAnRsaKeyThroughEveryFormatItHas()
     {
         // The shape a script actually writes: import once, export, import somewhere else, and get the same
@@ -393,7 +389,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("true|true|true|true|true");
     }
 
-    [Fact]
+    [Test]
     public void TheSameKeyImportedFromJwkAndFromPkcs8IsTheSameKey()
     {
         // Cross-format consistency: the two import paths reach the same key material, so they export the
@@ -415,7 +411,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("true|true|true|true");
     }
 
-    [Fact]
+    [Test]
     public void AJwkWhoseIntegersCarryLeadingZeroBytesStillImports()
     {
         // JSON Web Algorithms asks for "the minimum number of octets needed to represent the value", but a
@@ -433,10 +429,9 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(Rs256SignatureHex);
     }
 
-    [Theory]
-    [InlineData("RSASSA-PKCS1-v1_5", "verify")]
-    [InlineData("RSA-PSS", "verify")]
-    [InlineData("RSA-OAEP", "encrypt")]
+    [TestCase("RSASSA-PKCS1-v1_5", "verify")]
+    [TestCase("RSA-PSS", "verify")]
+    [TestCase("RSA-OAEP", "encrypt")]
     public void RefusesTheRawFormatWithANotSupportedError(string algorithm, string usage)
     {
         var engine = WebEngine();
@@ -454,7 +449,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Fact]
+    [Test]
     public void EachDerFormatBelongsToOneKeyType()
     {
         // "If the [[type]] internal slot of key is not 'public', then throw an InvalidAccessError" — spki
@@ -475,7 +470,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("InvalidAccessError/true,InvalidAccessError/true");
     }
 
-    [Fact]
+    [Test]
     public void ANonExtractableRsaKeyCannotBeExportedInAnyFormat()
     {
         Run($$"""
@@ -498,7 +493,7 @@ public class SubtleCryptoRsaTests
     // JSON Web Key
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ExportsAnRsaJwkWithTheFieldsAndTheOrderWebIdlGivesIt()
     {
         // A dictionary is converted to an object member by member in lexicographical order —
@@ -524,19 +519,18 @@ public class SubtleCryptoRsaTests
                 "alg,d,dp,dq,e,ext,key_ops,kty,n,p,q,qi|alg,e,ext,key_ops,kty,n|RSA/RS256/true/sign|AQAB|true");
     }
 
-    [Theory]
-    [InlineData("RSASSA-PKCS1-v1_5", "SHA-1", "RS1")]
-    [InlineData("RSASSA-PKCS1-v1_5", "SHA-256", "RS256")]
-    [InlineData("RSASSA-PKCS1-v1_5", "SHA-384", "RS384")]
-    [InlineData("RSASSA-PKCS1-v1_5", "SHA-512", "RS512")]
-    [InlineData("RSA-PSS", "SHA-1", "PS1")]
-    [InlineData("RSA-PSS", "SHA-256", "PS256")]
-    [InlineData("RSA-PSS", "SHA-384", "PS384")]
-    [InlineData("RSA-PSS", "SHA-512", "PS512")]
-    [InlineData("RSA-OAEP", "SHA-1", "RSA-OAEP")]
-    [InlineData("RSA-OAEP", "SHA-256", "RSA-OAEP-256")]
-    [InlineData("RSA-OAEP", "SHA-384", "RSA-OAEP-384")]
-    [InlineData("RSA-OAEP", "SHA-512", "RSA-OAEP-512")]
+    [TestCase("RSASSA-PKCS1-v1_5", "SHA-1", "RS1")]
+    [TestCase("RSASSA-PKCS1-v1_5", "SHA-256", "RS256")]
+    [TestCase("RSASSA-PKCS1-v1_5", "SHA-384", "RS384")]
+    [TestCase("RSASSA-PKCS1-v1_5", "SHA-512", "RS512")]
+    [TestCase("RSA-PSS", "SHA-1", "PS1")]
+    [TestCase("RSA-PSS", "SHA-256", "PS256")]
+    [TestCase("RSA-PSS", "SHA-384", "PS384")]
+    [TestCase("RSA-PSS", "SHA-512", "PS512")]
+    [TestCase("RSA-OAEP", "SHA-1", "RSA-OAEP")]
+    [TestCase("RSA-OAEP", "SHA-256", "RSA-OAEP-256")]
+    [TestCase("RSA-OAEP", "SHA-384", "RSA-OAEP-384")]
+    [TestCase("RSA-OAEP", "SHA-512", "RSA-OAEP-512")]
     public void TheJwkAlgorithmNamesTheAlgorithmAndItsHash(string algorithm, string hash, string alg)
     {
         // https://www.rfc-editor.org/rfc/rfc7518#section-3.1 and #section-4.3, plus RS1 and PS1, which the
@@ -556,27 +550,26 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(alg + "|" + hash + "|" + algorithm);
     }
 
-    [Theory]
     // "If the kty field of jwk is not a case-sensitive string match to 'RSA', then throw a DataError."
-    [InlineData("delete jwk.kty", "DataError")]
-    [InlineData("jwk.kty = 'rsa'", "DataError")]
-    [InlineData("jwk.kty = 'oct'", "DataError")]
+    [TestCase("delete jwk.kty", "DataError")]
+    [TestCase("jwk.kty = 'rsa'", "DataError")]
+    [TestCase("jwk.kty = 'oct'", "DataError")]
     // Section 6.3.1 of JSON Web Algorithms: n and e are what an RSA public key is.
-    [InlineData("delete jwk.n", "DataError")]
-    [InlineData("delete jwk.e", "DataError")]
-    [InlineData("jwk.n = ''", "DataError")]
-    [InlineData("jwk.n = 'not+base64url'", "DataError")]
-    [InlineData("jwk.n = 'AAAA'", "DataError")]
+    [TestCase("delete jwk.n", "DataError")]
+    [TestCase("delete jwk.e", "DataError")]
+    [TestCase("jwk.n = ''", "DataError")]
+    [TestCase("jwk.n = 'not+base64url'", "DataError")]
+    [TestCase("jwk.n = 'AAAA'", "DataError")]
     // "If the alg field is equal to the string 'RS256' … otherwise throw a DataError", and an alg that names
     // a hash the import did not ask for is a DataError too.
-    [InlineData("jwk.alg = 'RS384'", "DataError")]
-    [InlineData("jwk.alg = 'PS256'", "DataError")]
-    [InlineData("jwk.alg = 'HS256'", "DataError")]
+    [TestCase("jwk.alg = 'RS384'", "DataError")]
+    [TestCase("jwk.alg = 'PS256'", "DataError")]
+    [TestCase("jwk.alg = 'HS256'", "DataError")]
     // The three fields every JWK import checks.
-    [InlineData("jwk.use = 'enc'", "DataError")]
-    [InlineData("jwk.key_ops = ['sign']", "DataError")]
-    [InlineData("jwk.key_ops = ['verify', 'verify']", "DataError")]
-    [InlineData("jwk.ext = false", "DataError")]
+    [TestCase("jwk.use = 'enc'", "DataError")]
+    [TestCase("jwk.key_ops = ['sign']", "DataError")]
+    [TestCase("jwk.key_ops = ['verify', 'verify']", "DataError")]
+    [TestCase("jwk.ext = false", "DataError")]
     public void RefusesAMalformedRsaJwkWithADataError(string mutation, string expected)
     {
         var engine = WebEngine();
@@ -593,7 +586,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(expected + "/true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPrivateJwkDescribedByDAloneWithADataError()
     {
         var engine = WebEngine();
@@ -622,7 +615,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Fact]
+    [Test]
     public void ReadsEveryRsaJwkFieldInWebIdlsOwnOrderAndOnlyOnce()
     {
         // A dictionary's members are converted in lexicographical order, each read exactly once. A second
@@ -648,7 +641,7 @@ public class SubtleCryptoRsaTests
     // The key-type and usage matrices
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AnOperationRefusesTheWrongHalfOfTheKeyPair()
     {
         // Step 1 of every RSA operation: sign and decrypt need a private key, verify and encrypt a public
@@ -679,16 +672,15 @@ public class SubtleCryptoRsaTests
                 "InvalidAccessError,InvalidAccessError,InvalidAccessError,InvalidAccessError");
     }
 
-    [Theory]
     // Each format's first step names the usages that format's key may carry, and anything else is a
     // SyntaxError — which is a different failure from the InvalidAccessError a usable key used wrongly gets.
-    [InlineData("spki", "RSASSA-PKCS1-v1_5", "['sign']")]
-    [InlineData("spki", "RSASSA-PKCS1-v1_5", "['verify', 'sign']")]
-    [InlineData("spki", "RSA-OAEP", "['decrypt']")]
-    [InlineData("spki", "RSA-OAEP", "['encrypt', 'unwrapKey']")]
-    [InlineData("pkcs8", "RSASSA-PKCS1-v1_5", "['verify']")]
-    [InlineData("pkcs8", "RSA-OAEP", "['encrypt']")]
-    [InlineData("pkcs8", "RSA-PSS", "['sign', 'verify']")]
+    [TestCase("spki", "RSASSA-PKCS1-v1_5", "['sign']")]
+    [TestCase("spki", "RSASSA-PKCS1-v1_5", "['verify', 'sign']")]
+    [TestCase("spki", "RSA-OAEP", "['decrypt']")]
+    [TestCase("spki", "RSA-OAEP", "['encrypt', 'unwrapKey']")]
+    [TestCase("pkcs8", "RSASSA-PKCS1-v1_5", "['verify']")]
+    [TestCase("pkcs8", "RSA-OAEP", "['encrypt']")]
+    [TestCase("pkcs8", "RSA-PSS", "['sign', 'verify']")]
     public void RefusesAUsageTheFormatDoesNotAllowWithASyntaxError(string format, string algorithm, string usages)
     {
         var engine = WebEngine();
@@ -701,7 +693,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("SyntaxError/true");
     }
 
-    [Fact]
+    [Test]
     public void TheUsagesAreCheckedBeforeTheKeyDataIsParsed()
     {
         var engine = WebEngine();
@@ -721,17 +713,16 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Theory]
     // A key must permit the operation being asked of it, or the answer is an InvalidAccessError. For a
     // signature algorithm the check can never fire — each key type's permitted usage set is exactly the one
     // operation it can perform, so a key carrying the wrong usage cannot be built in the first place. It is
     // RSA-OAEP, whose key types carry two usages each, where the check has something to do.
-    [InlineData("encrypt", "public", "['wrapKey']", "InvalidAccessError")]
-    [InlineData("encrypt", "public", "['encrypt']", "ok")]
-    [InlineData("encrypt", "public", "['encrypt', 'wrapKey']", "ok")]
-    [InlineData("decrypt", "private", "['unwrapKey']", "InvalidAccessError")]
-    [InlineData("decrypt", "private", "['decrypt']", "ok")]
-    [InlineData("decrypt", "private", "['decrypt', 'unwrapKey']", "ok")]
+    [TestCase("encrypt", "public", "['wrapKey']", "InvalidAccessError")]
+    [TestCase("encrypt", "public", "['encrypt']", "ok")]
+    [TestCase("encrypt", "public", "['encrypt', 'wrapKey']", "ok")]
+    [TestCase("decrypt", "private", "['unwrapKey']", "InvalidAccessError")]
+    [TestCase("decrypt", "private", "['decrypt']", "ok")]
+    [TestCase("decrypt", "private", "['decrypt', 'unwrapKey']", "ok")]
     public void EnforcesTheRsaOaepUsageMatrix(string operation, string keyType, string usages, string expected)
     {
         var jwk = string.Equals(keyType, "public", StringComparison.Ordinal) ? OaepPublicJwk : OaepPrivateJwk;
@@ -753,7 +744,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ASignatureKeyTypeCarriesExactlyTheOneUsageItCanPerform()
     {
         var engine = WebEngine();
@@ -770,7 +761,7 @@ public class SubtleCryptoRsaTests
         }
     }
 
-    [Fact]
+    [Test]
     public void APublicKeyMayBeImportedWithNoUsagesAtAllAndAPrivateKeyMayNot()
     {
         var engine = WebEngine();
@@ -800,7 +791,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void AKeyRemembersTheAlgorithmItWasMadeForAndRefusesAnother()
     {
         Run($$"""
@@ -830,7 +821,7 @@ public class SubtleCryptoRsaTests
     // generateKey and CryptoKeyPair
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void GeneratesASigningPairWithTheShapeTheSpecificationDescribes()
     {
         // The one place an RSA key pair is generated in this file at all, and the only place the
@@ -875,7 +866,7 @@ public class SubtleCryptoRsaTests
                 + "256|true");
     }
 
-    [Fact]
+    [Test]
     public void GeneratesAnOaepPairThatSplitsTheWrappingUsagesToo()
     {
         Run("""
@@ -897,7 +888,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("encrypt+wrapKey|decrypt+unwrapKey|RSA-OAEP|true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPairWhosePrivateHalfWouldHaveNoUsages()
     {
         var engine = WebEngine();
@@ -920,10 +911,9 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("sign/0");
     }
 
-    [Theory]
-    [InlineData("['encrypt']")]
-    [InlineData("['sign', 'deriveKey']")]
-    [InlineData("['sign', 'wrapKey']")]
+    [TestCase("['encrypt']")]
+    [TestCase("['sign', 'deriveKey']")]
+    [TestCase("['sign', 'wrapKey']")]
     public void RefusesAUsageASignatureAlgorithmDoesNotSupportWithASyntaxError(string usages)
     {
         var engine = WebEngine();
@@ -937,10 +927,9 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Theory]
-    [InlineData("new Uint8Array([3])")]
-    [InlineData("new Uint8Array([1, 0, 0, 1])")]
-    [InlineData("new Uint8Array([0, 1, 0, 1, 0, 1])")]
+    [TestCase("new Uint8Array([3])")]
+    [TestCase("new Uint8Array([1, 0, 0, 1])")]
+    [TestCase("new Uint8Array([0, 1, 0, 1, 0, 1])")]
     public void RefusesAPublicExponentOtherThan65537(string exponent)
     {
         var engine = WebEngine();
@@ -956,18 +945,17 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("OperationError/true");
     }
 
-    [Theory]
     // "If publicExponent is less than 3, is even, or is greater than or equal to 2^modulusLength - 1, then
     // throw an OperationError" — the specification's own validation, which runs before the platform's.
-    [InlineData("2048", "new Uint8Array([])")]
-    [InlineData("2048", "new Uint8Array([0])")]
-    [InlineData("2048", "new Uint8Array([1])")]
-    [InlineData("2048", "new Uint8Array([2])")]
-    [InlineData("2048", "new Uint8Array([4])")]
-    [InlineData("8", "new Uint8Array([1, 0, 1])")]
+    [TestCase("2048", "new Uint8Array([])")]
+    [TestCase("2048", "new Uint8Array([0])")]
+    [TestCase("2048", "new Uint8Array([1])")]
+    [TestCase("2048", "new Uint8Array([2])")]
+    [TestCase("2048", "new Uint8Array([4])")]
+    [TestCase("8", "new Uint8Array([1, 0, 1])")]
     // "If modulusLength is less than 4".
-    [InlineData("3", "new Uint8Array([1, 0, 1])")]
-    [InlineData("0", "new Uint8Array([1, 0, 1])")]
+    [TestCase("3", "new Uint8Array([1, 0, 1])")]
+    [TestCase("0", "new Uint8Array([1, 0, 1])")]
     public void RefusesKeyGenerationParametersTheSpecificationRejects(string modulusLength, string exponent)
     {
         var engine = WebEngine();
@@ -980,14 +968,13 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("OperationError/true");
     }
 
-    [Theory]
     // Below what any RSA implementation .NET can reach will generate, not a multiple of the platform's
     // stride, and above this engine's own ceiling.
-    [InlineData("256")]
-    [InlineData("511")]
-    [InlineData("2049")]
-    [InlineData("16384")]
-    [InlineData("65536")]
+    [TestCase("256")]
+    [TestCase("511")]
+    [TestCase("2049")]
+    [TestCase("16384")]
+    [TestCase("65536")]
     public void RefusesAModulusLengthThisEngineWillNotGenerate(string modulusLength)
     {
         var engine = WebEngine();
@@ -1001,7 +988,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("OperationError/true");
     }
 
-    [Fact]
+    [Test]
     public void TheGenerationCeilingIsExactlyTheDocumentedFigure()
     {
         var engine = WebEngine();
@@ -1020,7 +1007,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("OperationError/true");
     }
 
-    [Fact]
+    [Test]
     public void TheKeyGenerationMembersAreRequiredAndRangeChecked()
     {
         var engine = WebEngine();
@@ -1065,10 +1052,9 @@ public class SubtleCryptoRsaTests
     // Normalization and argument conversion
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("'rsassa-pkcs1-v1_5'")]
-    [InlineData("'RSASSA-PKCS1-V1_5'")]
-    [InlineData("{ name: 'rSaSsA-pKcS1-V1_5' }")]
+    [TestCase("'rsassa-pkcs1-v1_5'")]
+    [TestCase("'RSASSA-PKCS1-V1_5'")]
+    [TestCase("{ name: 'rSaSsA-pKcS1-V1_5' }")]
     public void MatchesTheRegisteredRsaNameCaseInsensitively(string algorithm)
     {
         // "Case-insensitive" is ASCII case-insensitive, and the key remembers the registered spelling rather
@@ -1082,7 +1068,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be(Rs256SignatureHex + "|RSASSA-PKCS1-v1_5|SHA-256");
     }
 
-    [Fact]
+    [Test]
     public void TheHashIsARequiredMemberOfRsaHashedImportParams()
     {
         var engine = WebEngine();
@@ -1096,7 +1082,7 @@ public class SubtleCryptoRsaTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesDerThatIsNotTheStructureTheFormatNames()
     {
         var engine = WebEngine();
@@ -1122,7 +1108,7 @@ public class SubtleCryptoRsaTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesTrailingBytesAfterAWellFormedStructure()
     {
         var engine = WebEngine();
@@ -1140,7 +1126,7 @@ public class SubtleCryptoRsaTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Fact]
+    [Test]
     public void NoRsaOperationEverThrowsSynchronouslyOrLeaksACryptographicException()
     {
         var engine = WebEngine();
@@ -1186,7 +1172,7 @@ public class SubtleCryptoRsaTests
             "DataError,DataError,imported+OperationError,OperationError");
     }
 
-    [Fact]
+    [Test]
     public void TheRsaAlgorithmsAreRegisteredForExactlyTheOperationsTheSpecificationGivesThem()
     {
         var engine = WebEngine();

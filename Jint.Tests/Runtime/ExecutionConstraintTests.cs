@@ -7,13 +7,13 @@ namespace Jint.Tests.Runtime;
 
 public class ExecutionConstraintTests
 {
-    [Fact]
+    [Test]
     public void ShouldThrowStatementCountOverflow()
     {
         Invoking(() => new Engine(cfg => cfg.LimitStatements(100)).Evaluate("while(true);")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldCountStatementsPrecisely()
     {
         var script = "var x = 0; x++; x + 5";
@@ -25,7 +25,7 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.LimitStatements(2)).Evaluate(script)).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldCountStatementsInsideFunctionLocalLoop()
     {
         // The function-local expression-body for loop is the shape that arms the interpreter's
@@ -35,7 +35,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 100000; i++) { x += 1; } return x; } f();")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void UserDefinedConstraintIsCheckedOncePerStatement()
     {
         // Per-statement call frequency is part of the Constraint contract for user-derived
@@ -55,7 +55,7 @@ public class ExecutionConstraintTests
         constraint.CheckCount.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void UserDefinedConstraintIsCheckedPerStatementInsideFunctionLocalLoop()
     {
         // A user-derived constraint must also keep the tight for-body lane disarmed: every body
@@ -80,7 +80,7 @@ public class ExecutionConstraintTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowMemoryLimitExceeded()
     {
         Invoking(() => new Engine(cfg => cfg.LimitMemory(2048)).Evaluate("a=[]; while(true){ a.push(0); }")).Should().ThrowExactly<MemoryLimitExceededException>();
@@ -101,7 +101,7 @@ public class ExecutionConstraintTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AConstraintResetThatThrowsOnTheWayOutReplacesTheScriptsOwnError()
     {
         // This is why a Reset() has to be total. ExecuteWithConstraints resets the constraints from a
@@ -113,7 +113,7 @@ public class ExecutionConstraintTests
             .Should().ThrowExactly<PlatformNotSupportedException>();
     }
 
-    [Fact]
+    [Test]
     public void MemoryLimitConstraintResetIsTotal()
     {
         // Reset is called from ExecuteWithConstraints' finally, so it must remain total. The memory
@@ -126,7 +126,7 @@ public class ExecutionConstraintTests
         Invoking(constraint.Check).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void AllocatedBytesForCurrentThreadIsReachableOnEveryExecutingTargetFramework()
     {
         // net472 resolves GC.GetAllocatedBytesForCurrentThread by reflection with the default binding
@@ -136,13 +136,13 @@ public class ExecutionConstraintTests
         allocatedBytes.Should().BePositive();
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowTimeout()
     {
         Invoking(() => new Engine(cfg => cfg.LimitExecutionTime(new TimeSpan(0, 0, 0, 0, 500))).Evaluate("while(true);")).Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIsNotObservedBeforeAnyExecutionStarts()
     {
         // The constraint is armed by Reset, which runs when a top-level execution begins. Probing
@@ -152,7 +152,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Constraints.Check()).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIsRearmedForEachTopLevelExecution()
     {
         // Each execution gets the full interval, so a sequence of short scripts separated by pauses
@@ -167,7 +167,7 @@ public class ExecutionConstraintTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIsObservedWithoutWaitingForATimerCallback()
     {
         // The deadline is compared inline, so once the interval has elapsed the very next check
@@ -179,7 +179,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Constraints.Check()).Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowTimeoutInsideFunctionLocalTightLoop()
     {
         // The function-local expression-body for loop is the shape that arms the interpreter's
@@ -189,7 +189,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Evaluate("function f() { var x = 0; for (var i = 0; i < 1; i += 0) { x += 1; } return x; } f();")).Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowMemoryLimitExceededInsideFunctionLocalTightLoop()
     {
         // Memory accounting is exact and must interrupt an allocating function-local loop.
@@ -197,7 +197,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Evaluate("function f() { var s = ''; for (var i = 0; i < 1; i += 0) { s += 'aaaaaaaaaaaaaaaa'; } return s; } f();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutConstraintDoesNotChangeFunctionLocalLoopResults()
     {
         // With only amortized constraints registered the tight for-body lane stays armed;
@@ -209,7 +209,7 @@ public class ExecutionConstraintTests
         constrained.Should().Be(200_000);
     }
 
-    [Fact]
+    [Test]
     public void OperationDeadlineConstraintIsRegisteredAsAnInstanceAndSurvivesThePerEntryReset()
     {
         // Unlike the built-in timeout there is no options extension method for this one: the host has to
@@ -236,7 +236,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Evaluate("var y = 1 + 1;")).Should().NotThrow("End() disarms the constraint again");
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowExecutionCanceled()
     {
         Invoking(() =>
@@ -297,7 +297,7 @@ public class ExecutionConstraintTests
             }).Should().ThrowExactly<ExecutionCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void CanDiscardRecursion()
     {
         var script = @"var factorial = function(n) {
@@ -312,7 +312,7 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldDiscardHiddenRecursion()
     {
         var script = @"var renamedFunc;
@@ -329,7 +329,7 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldRecognizeAndDiscardChainedRecursion()
     {
         var script = @" var funcRoot, funcA, funcB, funcC, funcD;
@@ -360,7 +360,7 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 0).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldProvideCallChainWhenDiscardRecursion()
     {
         var script = @" var funcRoot, funcA, funcB, funcC, funcD;
@@ -404,7 +404,7 @@ public class ExecutionConstraintTests
         exception.CallExpressionReference.Should().Be("funcRoot");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowShallowRecursion()
     {
         var script = @"var factorial = function(n) {
@@ -419,7 +419,7 @@ public class ExecutionConstraintTests
         new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 20).Execute(script);
     }
 
-    [Fact]
+    [Test]
     public void ShouldDiscardDeepRecursion()
     {
         var script = @"var factorial = function(n) {
@@ -434,7 +434,7 @@ public class ExecutionConstraintTests
         Invoking(() => new Engine(cfg => cfg.Constraints.MaxRecursionDepth = 20).Execute(script)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowRecursionLimitWithoutReferencedName()
     {
         const string input = @"(function () {
@@ -452,7 +452,7 @@ public class ExecutionConstraintTests
         Invoking(() => engine.Execute(input)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitRecursionWithAllFunctionInstances()
     {
         var engine = new Engine(cfg =>
@@ -474,7 +474,7 @@ myarr[0](0);
 ")).Should().ThrowExactly<RecursionDepthOverflowException>().Which;
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitRecursionWithGetters()
     {
         const string code = @"var obj = { get test() { return this.test + '2';  } }; obj.test;";
@@ -493,7 +493,7 @@ myarr[0](0);
     // the run rather than merely reporting a smaller number.
     private const int SmallStack = 1024 * 1024;
 
-    [Fact]
+    [Test]
     public void RecursionLimitFiringAtTwoHundredUnwindsToTheHost()
     {
         DedicatedThread.Run(
@@ -506,7 +506,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void RecursionLimitFiringAtAThousandUnwindsToTheHost()
     {
         // 4 MB: a thousand frames do not fit forward on 1 MB. The pre-fix unwind ceiling scales with
@@ -521,7 +521,7 @@ myarr[0](0);
             maxStackSize: 4 * 1024 * 1024);
     }
 
-    [Fact]
+    [Test]
     public void EngineStaysUsableAfterARecursionLimitUnwind()
     {
         DedicatedThread.Run(
@@ -551,7 +551,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void CancellationRaisedDeepInARecursionUnwindsToTheHost()
     {
         DedicatedThread.Run(
@@ -567,7 +567,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void StatementBudgetExhaustedDeepInARecursionUnwindsToTheHost()
     {
         DedicatedThread.Run(
@@ -581,7 +581,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void ClrExceptionFromHostCodeUnwindsADeepRecursionAndKeepsItsJavaScriptLocation()
     {
         DedicatedThread.Run(
@@ -603,7 +603,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptThrowFromADeepRecursionStillBecomesAThrowCompletion()
     {
         // The control: a JavaScript throw was never the broken case, and the filter must not change how
@@ -633,7 +633,7 @@ myarr[0](0);
     // between the two, so a regression is a dead test host rather than a smaller number.
     private const string ForOfRecursion = "var depth = 0; function f() { depth++; for (const x of [1]) { return f(); } }";
 
-    [Fact]
+    [Test]
     public void RecursionLimitFiringInsideAForOfBodyUnwindsToTheHost()
     {
         DedicatedThread.Run(
@@ -648,7 +648,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void ClrExceptionFromHostCodeUnwindsADeepForOfRecursion()
     {
         DedicatedThread.Run(
@@ -667,7 +667,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void EngineStaysUsableAfterAForOfRecursionLimitUnwind()
     {
         DedicatedThread.Run(
@@ -695,7 +695,7 @@ myarr[0](0);
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void AnExceptionUnwindingAForOfStillClosesTheIteratorWithAThrowCompletion()
     {
         // The completion the loop's finally performs IteratorClose with is what the filter has to assign
@@ -722,56 +722,56 @@ myarr[0](0);
         engine.Evaluate("returned").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForConcat()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("for (let a = [1, 2, 3];; a = a.concat(a)) ;")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForFill()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("var arr = Array(1000000000).fill(new Array(1000000000));")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForJoin()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).Constraints.MaxArraySize = 1_000_000);
         Invoking(() => engine.Evaluate("new Array(2147483647).join('*')")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitTypedArraySizeForFill()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.fill(255);")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitTypedArraySizeForCopyWithin()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr[0] = 1; arr.copyWithin(1, 0);")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitTypedArraySizeForReverse()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.reverse();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitTypedArraySizeForToReversed()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("var arr = new Uint8Array(100000000); arr.toReversed();")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitTypedArraySizeForWith()
     {
         var engine = new Engine(o => o.LimitStatements(1_000).LimitMemory(4_000_000));
@@ -779,7 +779,7 @@ myarr[0](0);
     }
 
     // https://github.com/sebastienros/jint/issues/2486
-    [Fact]
+    [Test]
     public void ShouldThrowRangeErrorWhenPadStartExceedsMaxStringLength()
     {
         // The result length (2147483647) exceeds JsString.MaxLength, so the size cap converts
@@ -790,7 +790,7 @@ myarr[0](0);
     }
 
     // https://github.com/sebastienros/jint/issues/2486
-    [Fact]
+    [Test]
     public void ShouldLimitStringSizeForPadEnd()
     {
         // The result is exactly at the size cap rather than past it, so it must be built incrementally
@@ -800,21 +800,21 @@ myarr[0](0);
     }
 
     // https://github.com/sebastienros/jint/issues/2486
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForArrayFrom()
     {
         var engine = new Engine(o => o.LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("Array.from({ length: 50000000 });")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitStringSizeForStringRaw()
     {
         var engine = new Engine(o => o.LimitMemory(4_000_000));
         Invoking(() => engine.Evaluate("String.raw({ raw: { length: 50000000 } });")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForSort()
     {
         // The element-collection loop in sort is interruptible: a low statement budget aborts it.
@@ -822,7 +822,7 @@ myarr[0](0);
         Invoking(() => engine.Evaluate("new Array(50000000).sort();")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArraySizeForForEach()
     {
         // forEach over a huge (sparse) array must be interruptible even though the callback never
@@ -832,7 +832,7 @@ myarr[0](0);
         Invoking(() => engine.Evaluate("new Array(50000000).forEach(function () {});")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void PadStartAndPadEndProduceCorrectResults()
     {
         var engine = new Engine();
@@ -847,7 +847,7 @@ myarr[0](0);
         engine.Evaluate("'abc'.padEnd(10, '123')").AsString().Should().Be("abc1231231");
     }
 
-    [Fact]
+    [Test]
     public void PadStartEvaluatesFillStringAfterLengthCheck()
     {
         // Per spec (https://tc39.es/ecma262/#sec-stringpad) the fillString is resolved only after the
@@ -861,7 +861,7 @@ myarr[0](0);
         result.AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void JoinReleasesJoinStackWhenInterrupted()
     {
         // Regression: when a constraint interrupts a large join mid-loop, the array must not be left
@@ -881,7 +881,7 @@ myarr[0](0);
         engine.Evaluate("a.join(',')").AsString().Should().StartWith("0,1,2,3,");
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitArrayFromWithNativeIterator()
     {
         // Array.from over a native (statement-free) string iterator must be interruptible via the
@@ -895,7 +895,7 @@ myarr[0](0);
         Invoking(() => engine.Evaluate("Array.from(s);")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitObjectKeysForLargeArray()
     {
         // Object.keys is a pure native enumeration with no JS callback to self-throttle; it must be
@@ -909,7 +909,7 @@ myarr[0](0);
         Invoking(() => engine.Evaluate("Object.keys(a);")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldLimitMapForEachWithNativeCallback()
     {
         // A native (CLR) callback does not self-throttle via statement checks, so Map.prototype.forEach
@@ -923,7 +923,7 @@ myarr[0](0);
         Invoking(() => engine.Evaluate("m.forEach(Math.max);")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldConsiderConstraintsWhenCallingInvoke()
     {
         var engine = new Engine(options =>
@@ -944,7 +944,7 @@ myarr[0](0);
         }
     }
 
-    [Fact]
+    [Test]
     public void ResetConstraints()
     {
         void ExecuteAction(Engine engine) => engine.Execute("recursion()");
@@ -972,7 +972,7 @@ myarr[0](0);
         RunLoop(e4, InvokeAction).Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowScriptPreparationExceptionForDeeplyNestedScript()
     {
         // Generate a script with more than MaxDepth (256) levels of AST nesting.
@@ -1008,7 +1008,7 @@ myarr[0](0);
         hostCallCount().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowHostDelegateCalls()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1019,7 +1019,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { work(); }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowHostDelegateCallsInFunctionLocalTightLoop()
     {
         // the function-local expression-body loop shape arms the interpreter's tight for-body lane
@@ -1031,7 +1031,7 @@ myarr[0](0);
         }, "function f() { for (var i = 0; i < 40; i++) { work(); } } f();");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowClrMethodCalls()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1043,7 +1043,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { probe.method(); }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowClrPropertyReads()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1055,7 +1055,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { var x = probe.value; }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowClrPropertyWrites()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1067,7 +1067,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { probe.value = i; }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowClrConstructorCalls()
     {
         try
@@ -1086,7 +1086,7 @@ myarr[0](0);
         }
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowDictionaryReads()
     {
         // wrapped IDictionary<string, T> reads bypass ReflectionAccessor and route through
@@ -1100,7 +1100,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { var v = cfg.someKey; }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowEnumerableIterations()
     {
         // for-of over a wrapped IEnumerable drives the user's IEnumerator.MoveNext directly
@@ -1113,7 +1113,7 @@ myarr[0](0);
         }, "for (const x of items) { }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationDuringLoneHostCallIsObservedAtItsReturn()
     {
         // isolates the post-invoke check: no further host call or 64-statement countdown
@@ -1128,7 +1128,7 @@ myarr[0](0);
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void HostSideAccessToWrappedObjectDoesNotObserveCancellationAfterExecution()
     {
         // constraint state is only meaningful inside an Execute/Invoke window; cancelling the
@@ -1145,7 +1145,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void HostSideAccessToWrappedObjectDoesNotObserveExpiredTimeoutAfterExecution()
     {
         // the time constraint's CTS is re-armed at the end of every run and keeps counting while
@@ -1162,7 +1162,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIsObservedAtHostCallReturn()
     {
         // TimeConstraint coverage for the boundary mechanism. The host call waits until the
@@ -1193,7 +1193,7 @@ myarr[0](0);
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedInHostDrivenAsyncContinuationHostCalls()
     {
         // resolving a promise from the host drains the async continuation outside any
@@ -1215,7 +1215,7 @@ myarr[0](0);
         calls.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowNonStringKeyedDictionaryReads()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1228,7 +1228,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { var v = cfg[5]; }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowNonStringKeyedDictionaryWrites()
     {
         AssertCancelledDuringThirdHostCall((cts, engine) =>
@@ -1240,7 +1240,7 @@ myarr[0](0);
         }, "for (var i = 0; i < 40; i++) { cfg[5] = i; }");
     }
 
-    [Fact]
+    [Test]
     public void CancellationIsObservedBetweenSlowMemberAccessorCallbacks()
     {
         using var cts = new CancellationTokenSource();
@@ -1266,7 +1266,7 @@ myarr[0](0);
         accesses.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void DebugModeExecutionStillObservesCancellationAtHostBoundaries()
     {
         // debug mode must not weaken constraint enforcement during normal full-speed execution;
@@ -1281,7 +1281,7 @@ myarr[0](0);
         calls.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void DebuggerExpressionEvaluationIsExemptFromHostBoundaryChecks()
     {
         // a watch-style evaluation with a pending cancellation must still be able to read
@@ -1303,7 +1303,7 @@ myarr[0](0);
         probe.Accesses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ConstraintThrowInsideGeneratorResumeDoesNotPoisonHostBoundaryGate()
     {
         // a raw constraint exception thrown inside a resumed generator frame used to skip the
@@ -1323,7 +1323,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ConstraintThrowInsideAsyncResumeDoesNotPoisonHostBoundaryGate()
     {
         using var cts = new CancellationTokenSource();
@@ -1342,7 +1342,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ConstraintThrowInsideAsyncGeneratorResumeDoesNotPoisonHostBoundaryGate()
     {
         using var cts = new CancellationTokenSource();
@@ -1358,7 +1358,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ShadowRealmImportFailureDoesNotPoisonHostBoundaryGate()
     {
         // module resolution failures surface as ModuleResolutionException (not JavaScriptException);
@@ -1376,7 +1376,7 @@ myarr[0](0);
         wrapper.Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void NestedEngineReentryDoesNotResetOuterConstraints()
     {
         // a host callback calling back into the engine re-enters ExecuteWithConstraints; the nested
@@ -1398,7 +1398,7 @@ myarr[0](0);
         calls.Should().BeLessThan(5000);
     }
 
-    [Fact]
+    [Test]
     public void SequentialTopLevelExecutionsStillResetConstraints()
     {
         // the nested-entry guard must not affect sequential top-level runs: each gets a fresh budget

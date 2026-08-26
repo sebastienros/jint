@@ -23,7 +23,7 @@ public class WebApiStreamsTests
         "WritableStreamDefaultController", "TransformStreamDefaultController",
     ];
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoStreamGlobals()
     {
         var engine = new Engine();
@@ -43,7 +43,7 @@ public class WebApiStreamsTests
             .Evaluate("typeof ReadableStream").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheStreamsFlagInstallsEveryInterfaceTheStandardDeclares()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -57,7 +57,7 @@ public class WebApiStreamsTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void EachHelperInterfaceGlobalIsWhatItsInstancesInheritFrom()
     {
         // The eight a script never constructs by name are globals too, as they are in a browser, and each is
@@ -87,7 +87,7 @@ public class WebApiStreamsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ByteStreamsWorkFromOutsideTheAssembly()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -113,7 +113,7 @@ public class WebApiStreamsTests
             .AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesStreams()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -125,7 +125,7 @@ public class WebApiStreamsTests
         ((int) WebApiFeatures.Streams).Should().Be(1 << 12);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -142,7 +142,7 @@ public class WebApiStreamsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own ReadableStream");
@@ -158,7 +158,7 @@ public class WebApiStreamsTests
         engine.Evaluate("typeof TransformStream").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmDoesNotGetThem()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -170,7 +170,7 @@ public class WebApiStreamsTests
         engine.Evaluate("typeof ReadableStream").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -183,7 +183,7 @@ public class WebApiStreamsTests
         engine.Evaluate("new ReadableStream({ start(c) { c.enqueue('y'); } }).locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Streams);
@@ -202,7 +202,7 @@ public class WebApiStreamsTests
         second.Evaluate("s.getReader().read()").UnwrapIfPromise().AsObject().Get("value").AsString().Should().Be("second");
     }
 
-    [Fact]
+    [Test]
     public void AHostCanDriveAStreamToCompletionThroughTheOrdinaryPromiseSurface()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams));
@@ -225,7 +225,7 @@ public class WebApiStreamsTests
         result.AsString().Should().Be("AB");
     }
 
-    [Fact]
+    [Test]
     public void StreamsAreUsableWithoutTheEventsFeature()
     {
         // The writable controller's `signal` is an AbortSignal, and pipeTo() accepts one — but neither
@@ -247,7 +247,7 @@ public class WebApiStreamsTests
         name.AsString().Should().Be("AbortSignal:true:stop");
     }
 
-    [Fact]
+    [Test]
     public void TheEventsFeatureIsWhatMakesAbortSignalReachableForPipeTo()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Streams | WebApiFeatures.Events));

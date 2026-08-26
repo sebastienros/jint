@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Diagnostics;
-using Xunit.Sdk;
 
 namespace Jint.Tests;
 
@@ -137,14 +136,14 @@ internal sealed class TopLevelPark
             {
                 // Deliberately not `await Completed`: that throws whatever stopped the park and loses the
                 // sentence saying what was being waited for, which is the whole of what a reader needs here.
-                throw new XunitException(
+                throw new AssertionException(
                     "the park returned without ever owning the engine: " + Describe(),
                     Completed.Exception?.GetBaseException());
             }
 
             if (elapsed.Elapsed > TestBudgets.WedgeCeiling)
             {
-                throw new XunitException($"the park did not claim the engine within {TestBudgets.WedgeCeiling}");
+                throw new AssertionException($"the park did not claim the engine within {TestBudgets.WedgeCeiling}");
             }
 
             Thread.Sleep(ProbeInterval);

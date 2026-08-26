@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostLocaleProviderTests
 {
-    [Fact]
+    [Test]
     public void OverridingOneCldrDatumLeavesTheOtherEighteenMembersInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrencyName());
@@ -36,7 +36,7 @@ public class HostLocaleProviderTests
         engine.Evaluate("Intl.supportedValuesOf('unit').length").AsNumber().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneCurrencyReachesNumberFormat()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrency());
@@ -60,7 +60,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("$12.50");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneWeekInfoReachesIntlLocale()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new SundayIsTheWeekend());
@@ -72,7 +72,7 @@ public class HostLocaleProviderTests
         engine.Evaluate("new Intl.Locale('en-US-u-fw-mon').getWeekInfo().firstDay").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneListPatternLeavesTheRestOfTheCldrDataInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new GermanLists());
@@ -87,7 +87,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("5 m");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneTimeZoneDatumLeavesTheOtherEightMembersInherited()
     {
         var engine = new Engine(options => options.Temporal.TimeZoneProvider = new FixedDefaultZone());
@@ -104,7 +104,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("UTC");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneCalendarLeavesTheOtherTenInherited()
     {
         var engine = new Engine(options => options.Temporal.CalendarProvider = new ShiftedHebrewEra());
@@ -129,7 +129,7 @@ public class HostLocaleProviderTests
                 stock.Evaluate("Temporal.PlainDate.from({ year: 1445, monthCode: 'M08', day: 25, calendar: 'islamic-civil' }).toString()").AsString());
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneNumberingSystemsDigitsMakesItUsable()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new AlphabetDigits());
@@ -150,7 +150,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("123");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneMonthNameReachesDateTimeFormat()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new RevolutionaryMonths());
@@ -169,7 +169,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("Monday");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneWeekdayNameReachesDateTimeFormat()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new PlanetaryWeekdays());
@@ -186,7 +186,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("January");
     }
 
-    [Fact]
+    [Test]
     public void OverridingOneDayPeriodReachesDateTimeFormat()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new NauticalDayPeriods());
@@ -203,7 +203,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("January");
     }
 
-    [Fact]
+    [Test]
     public void AddingACalendarTheEngineHasNeverSeenIsThreeOverrides()
     {
         var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
@@ -244,7 +244,7 @@ public class HostLocaleProviderTests
     /// refusal is a <c>RangeError</c> a script can catch, rather than a <see cref="NotSupportedException"/>
     /// escaping <c>Engine.Evaluate</c> as it did before.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostCalendarHasNoArithmeticAndSaysSoInJavaScript()
     {
         var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
@@ -265,7 +265,7 @@ public class HostLocaleProviderTests
             .AsString().Should().Be(new Engine().Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('hebrew').add({ months: 1 }).toString()").AsString());
     }
 
-    [Fact]
+    [Test]
     public void AnEngineThatConfiguresNothingStillReadsTheSharedSingletons()
     {
         var options = new Options();

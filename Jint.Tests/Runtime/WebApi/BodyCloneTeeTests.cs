@@ -54,21 +54,20 @@ public class BodyCloneTeeTests
     /// Every chunk kind <c>fetch/api/response/response-clone.any.js</c> covers. The assertions are the
     /// corpus's own: identity, not merely equal content.
     /// </summary>
-    [Theory]
-    [InlineData("new Int8Array(arrayBuffer, 1)")]
-    [InlineData("new Int16Array(arrayBuffer, 2, 2)")]
-    [InlineData("new Int32Array(arrayBuffer)")]
-    [InlineData("arrayBuffer")]
-    [InlineData("new Uint8Array(arrayBuffer)")]
-    [InlineData("new Uint8ClampedArray(arrayBuffer)")]
-    [InlineData("new Uint16Array(arrayBuffer, 2)")]
-    [InlineData("new Uint32Array(arrayBuffer)")]
-    [InlineData("new BigInt64Array(arrayBuffer)")]
-    [InlineData("new BigUint64Array(arrayBuffer)")]
-    [InlineData("new Float16Array(arrayBuffer)")]
-    [InlineData("new Float32Array(arrayBuffer)")]
-    [InlineData("new Float64Array(arrayBuffer)")]
-    [InlineData("new DataView(arrayBuffer, 2, 8)")]
+    [TestCase("new Int8Array(arrayBuffer, 1)")]
+    [TestCase("new Int16Array(arrayBuffer, 2, 2)")]
+    [TestCase("new Int32Array(arrayBuffer)")]
+    [TestCase("arrayBuffer")]
+    [TestCase("new Uint8Array(arrayBuffer)")]
+    [TestCase("new Uint8ClampedArray(arrayBuffer)")]
+    [TestCase("new Uint16Array(arrayBuffer, 2)")]
+    [TestCase("new Uint32Array(arrayBuffer)")]
+    [TestCase("new BigInt64Array(arrayBuffer)")]
+    [TestCase("new BigUint64Array(arrayBuffer)")]
+    [TestCase("new Float16Array(arrayBuffer)")]
+    [TestCase("new Float32Array(arrayBuffer)")]
+    [TestCase("new Float64Array(arrayBuffer)")]
+    [TestCase("new DataView(arrayBuffer, 2, 8)")]
     public void TheClonedResponseGetsAStructuredCloneOfEveryChunk(string chunk)
     {
         var engine = FetchEngine();
@@ -97,7 +96,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be(AllTrue);
     }
 
-    [Fact]
+    [Test]
     public void TheClonedRequestGetsAStructuredCloneOfEveryChunkToo()
     {
         // https://fetch.spec.whatwg.org/#dom-request-clone runs the very same clone-a-body algorithm, so the
@@ -129,7 +128,7 @@ public class BodyCloneTeeTests
             .Should().Be("first-is-the-original:true,second-is-not:true,different-buffer:true,same-bytes:true");
     }
 
-    [Fact]
+    [Test]
     public void WritingThroughOneBodysChunkIsInvisibleToTheOther()
     {
         // The whole reason the standard clones: a consumer of one branch may not reach the bytes the other
@@ -152,7 +151,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be("1:99");
     }
 
-    [Fact]
+    [Test]
     public void TheCloneStillClonesOnAnEngineWithNoStructuredCloneGlobal()
     {
         // UseFetch() expands to Events | Url | Files | Streams and pointedly not StructuredClone, so the
@@ -176,7 +175,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AChunkTheSerializerRefusesErrorsBothBodiesWithADataCloneError()
     {
         // https://streams.spec.whatwg.org/#readable-stream-default-tee step 3.2 of the chunk steps: the
@@ -200,7 +199,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be("DataCloneError,DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void TeeItselfIsUntouchedAndStillHandsBothBranchesOneChunk()
     {
         // https://streams.spec.whatwg.org/#rs-tee passes cloneForBranch2 false, and that is normative: the
@@ -219,7 +218,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be("true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void ARequestBuiltFromARequestProxiesItsBodyAndDoesNotCloneTheChunks()
     {
         // https://fetch.spec.whatwg.org/#dom-request step 42 is "create a proxy for inputBody", which
@@ -246,7 +245,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be("true,true");
     }
 
-    [Fact]
+    [Test]
     public void ANetworkStyleByteStreamBodyWasAlreadyCloningAndStillIs()
     {
         // A body whose stream is a byte stream reaches ReadableByteStreamTee, which clones every chunk for
@@ -265,7 +264,7 @@ public class BodyCloneTeeTests
             """).UnwrapIfPromise().AsString().Should().Be("true,true,1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void CloningTwiceGivesThreeIndependentBuffers()
     {
         // clone() replaces the original's stream with the tee's first branch, so a second clone() tees that

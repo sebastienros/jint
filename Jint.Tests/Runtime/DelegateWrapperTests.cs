@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class DelegateWrapperTests
 {
-    [Fact]
+    [Test]
     public void ShouldSpreadParameters()
     {
         var engine = new Engine();

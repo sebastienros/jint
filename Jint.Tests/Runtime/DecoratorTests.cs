@@ -11,7 +11,7 @@ public class DecoratorTests
         _engine = new Engine();
     }
 
-    [Fact]
+    [Test]
     public void MethodDecoratorCanWrapMethod()
     {
         var result = _engine.Evaluate("""
@@ -32,7 +32,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ClassDecoratorCanAddProperty()
     {
         var result = _engine.Evaluate("""
@@ -50,7 +50,7 @@ public class DecoratorTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FieldDecoratorCanTransformInitialValue()
     {
         var result = _engine.Evaluate("""
@@ -71,7 +71,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(50);
     }
 
-    [Fact]
+    [Test]
     public void AutoAccessorDecoratorCanAddLogging()
     {
         var result = _engine.Evaluate("""
@@ -107,7 +107,7 @@ public class DecoratorTests
         result.AsString().Should().Be("[\"init x\",\"get x\",\"set x\"]");
     }
 
-    [Fact]
+    [Test]
     public void AddInitializerCallbackRunsOnInstantiation()
     {
         var result = _engine.Evaluate("""
@@ -128,7 +128,7 @@ public class DecoratorTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MultipleDecoratorsAppliedInCorrectOrder()
     {
         var result = _engine.Evaluate("""
@@ -163,7 +163,7 @@ public class DecoratorTests
         json.Should().Contain("\"order\":[\"eval_first\",\"eval_second\",\"apply_second\",\"apply_first\"]");
     }
 
-    [Fact]
+    [Test]
     public void DecoratorContextHasCorrectProperties()
     {
         var result = _engine.Evaluate("""
@@ -194,7 +194,7 @@ public class DecoratorTests
         json.Should().Contain("\"hasAddInitializer\":true");
     }
 
-    [Fact]
+    [Test]
     public void StaticMethodDecoratorContextHasStaticTrue()
     {
         var result = _engine.Evaluate("""
@@ -214,7 +214,7 @@ public class DecoratorTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClassDecoratorCanReplaceClass()
     {
         var result = _engine.Evaluate("""
@@ -237,7 +237,7 @@ public class DecoratorTests
         result.AsString().Should().Contain("\"extra\":99");
     }
 
-    [Fact]
+    [Test]
     public void GetterDecoratorCanWrapGetter()
     {
         var result = _engine.Evaluate("""
@@ -259,7 +259,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void SetterDecoratorCanWrapSetter()
     {
         var result = _engine.Evaluate("""
@@ -284,7 +284,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void DecoratorReturningUndefinedKeepsOriginal()
     {
         var result = _engine.Evaluate("""
@@ -303,7 +303,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void PublicAutoAccessorBasic()
     {
         _engine.Execute("""
@@ -321,7 +321,7 @@ public class DecoratorTests
         _engine.Evaluate("c.x").AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void StaticAutoAccessor()
     {
         var result = _engine.Evaluate("""
@@ -337,7 +337,7 @@ public class DecoratorTests
         result.AsString().Should().Contain("\"after\":99");
     }
 
-    [Fact]
+    [Test]
     public void PrivateAutoAccessor()
     {
         var result = _engine.Evaluate("""
@@ -356,7 +356,7 @@ public class DecoratorTests
         result.AsString().Should().Contain("\"after\":42");
     }
 
-    [Fact]
+    [Test]
     public void StaticAutoAccessorDerivedClassThrows()
     {
         var result = _engine.Evaluate("""
@@ -373,7 +373,7 @@ public class DecoratorTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FieldDecoratorWithMultipleDecorators()
     {
         var result = _engine.Evaluate("""
@@ -398,7 +398,7 @@ public class DecoratorTests
         result.AsInteger().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void StaticAddInitializerRunsOnClassConstruction()
     {
         var result = _engine.Evaluate("""
@@ -419,7 +419,7 @@ public class DecoratorTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ComputedKeysOfDecoratedElementsAreEvaluatedExactlyOnce()
     {
         // The decorator bookkeeping used to re-call GetKey after the element was defined, re-running

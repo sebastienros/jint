@@ -61,7 +61,7 @@ public class HostModuleImportOperationTests
 
     private static HandOffModuleLoader Loader() => new(new Dictionary<string, string> { ["m"] = "export const v = 1;" });
 
-    [Fact]
+    [Test]
     public void AnImportStillInFlightAtAGlobalRestoreFaultsItsOperation()
     {
         var engine = CreateEngine(Loader());
@@ -78,7 +78,7 @@ public class HostModuleImportOperationTests
         Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void AnImportDeliveredBeforeAnyRestoreCompletesNormally()
     {
         var loader = Loader();
@@ -95,7 +95,7 @@ public class HostModuleImportOperationTests
         operation.GetResult().Get("v").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AnImportThatFinishedKeepsItsResultAcrossALaterRestore()
     {
         var loader = Loader();
@@ -113,7 +113,7 @@ public class HostModuleImportOperationTests
         operation.GetResult().Get("v").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheHostCanStartTheAbandonedImportAgainOnTheRestoredEngine()
     {
         var loader = Loader();

@@ -32,7 +32,7 @@ public class Uint8ArrayBase64Tests
 
     private static string Literal(byte[] bytes) => "new Uint8Array([" + string.Join(",", bytes.Select(b => b.ToString())) + "])";
 
-    [Fact]
+    [Test]
     public void EncodesWhatTheBclEncodes()
     {
         foreach (var bytes in Inputs)
@@ -49,7 +49,7 @@ public class Uint8ArrayBase64Tests
         }
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsThroughEveryAlphabetAndPaddingCombination()
     {
         string[] optionSets = ["{}", "{ omitPadding: true }", "{ alphabet: 'base64url' }", "{ alphabet: 'base64url', omitPadding: true }"];
@@ -75,9 +75,8 @@ public class Uint8ArrayBase64Tests
     /// <summary>
     /// The alphabets stay separate: the characters one uses are rejected by the other.
     /// </summary>
-    [Theory]
-    [InlineData("'+/8='", "{ alphabet: 'base64url' }")]
-    [InlineData("'-_8='", "{}")]
+    [TestCase("'+/8='", "{ alphabet: 'base64url' }")]
+    [TestCase("'-_8='", "{}")]
     public void RejectsTheOtherAlphabetsCharacters(string input, string options)
     {
         Invoking(() => _engine.Evaluate($"Uint8Array.fromBase64({input}, {options})"))

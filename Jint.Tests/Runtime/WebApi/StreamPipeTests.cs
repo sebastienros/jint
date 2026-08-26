@@ -39,7 +39,7 @@ public class StreamPipeTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void PipesEveryChunkAndThenClosesTheDestination()
     {
         var engine = StreamEngine();
@@ -50,7 +50,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("dest:a,dest:b,dest:close,piped");
     }
 
-    [Fact]
+    [Test]
     public void LocksBothStreamsForTheDurationAndReleasesThemAtTheEnd()
     {
         var engine = StreamEngine();
@@ -65,7 +65,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("locked:true:true,dest:a,dest:close,released:false:false");
     }
 
-    [Fact]
+    [Test]
     public void RefusesALockedSourceOrDestination()
     {
         var engine = StreamEngine();
@@ -83,7 +83,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("source:TypeError,dest:TypeError,type:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PreventCloseLeavesTheDestinationOpen()
     {
         var engine = StreamEngine();
@@ -99,7 +99,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("dest:a,piped:false,dest:later");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorInTheSourceAbortsTheDestination()
     {
         var engine = StreamEngine();
@@ -115,7 +115,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("dest:a,dest:abort:Error: source failed,piped:source failed");
     }
 
-    [Fact]
+    [Test]
     public void PreventAbortLeavesTheDestinationAloneWhenTheSourceFails()
     {
         var engine = StreamEngine();
@@ -131,7 +131,7 @@ public class StreamPipeTests
         engine.Evaluate("to.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AnErrorInTheDestinationCancelsTheSource()
     {
         var engine = StreamEngine();
@@ -149,7 +149,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("source:cancel:Error: dest failed,piped:dest failed");
     }
 
-    [Fact]
+    [Test]
     public void PreventCancelLeavesTheSourceAloneWhenTheDestinationFails()
     {
         var engine = StreamEngine();
@@ -161,7 +161,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("piped:dest failed");
     }
 
-    [Fact]
+    [Test]
     public void PipingToAnAlreadyClosingDestinationCancelsTheSource()
     {
         var engine = StreamEngine();
@@ -178,7 +178,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("source:cancel:TypeError: The destination writable stream closed before all data could be piped to it,dest:close,piped:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EnforcesTheDestinationsBackpressure()
     {
         // "While WritableStreamDefaultWriterGetDesiredSize(writer) is ≤ 0 or is null, the user agent must
@@ -206,7 +206,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:chunk1,pulls:1,write:chunk2,pulls:2");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotWaitForAWriteBeforeReadingAgain()
     {
         // "An implementation that waits for each write to successfully complete before proceeding to the
@@ -228,7 +228,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:chunk1,pulls:3");
     }
 
-    [Fact]
+    [Test]
     public void AnAbortSignalStopsThePipeAndShutsBothStreamsDown()
     {
         var engine = StreamEngine();
@@ -254,7 +254,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:a,write:b,abort:AbortError,cancel:AbortError,piped:AbortError");
     }
 
-    [Fact]
+    [Test]
     public void AnAlreadyAbortedSignalStopsThePipeBeforeItReadsAnything()
     {
         var engine = StreamEngine();
@@ -266,7 +266,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("dest:abort:nope,source:cancel:nope,piped:nope");
     }
 
-    [Fact]
+    [Test]
     public void HonoursPreventAbortAndPreventCancelWhenTheSignalFires()
     {
         var engine = StreamEngine();
@@ -285,7 +285,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("dest:a,piped:AbortError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesANonAbortSignalOption()
     {
         var engine = StreamEngine();
@@ -297,7 +297,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("piped:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PipeThroughReturnsTheReadableSideAndThrowsRatherThanRejecting()
     {
         var engine = StreamEngine();
@@ -311,13 +311,13 @@ public class StreamPipeTests
         Log(engine).Should().Be("same:true,read:A");
 
         // Unlike pipeTo, pipeThrough returns a stream rather than a promise, so its failures throw.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['x']).pipeThrough({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['x']).pipeThrough({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['x']).pipeThrough({ readable: new ReadableStream(), writable: 5 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['x']).pipeThrough({ readable: new ReadableStream(), writable: 5 })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PipeThroughRefusesALockedPair()
     {
         var engine = StreamEngine();
@@ -326,15 +326,15 @@ public class StreamPipeTests
             ts.writable.getWriter();
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['a']).pipeThrough(ts)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("source(['a']).pipeThrough(ts)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("var from = source(['a']); from.getReader();");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("from.pipeThrough(new TransformStream())"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("from.pipeThrough(new TransformStream())"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PipeToWaitsForOutstandingWritesBeforeShuttingDown()
     {
         // "Wait until every chunk that has been read has been written (i.e. the corresponding promises have
@@ -362,7 +362,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:a,abort:boom,piped:boom");
     }
 
-    [Fact]
+    [Test]
     public void EnqueueingIntoAPipedSourceDoesNotReachTheSinkSynchronously()
     {
         // A read request's chunk steps run inside ReadableStreamFulfillReadRequest, i.e. on the stack of
@@ -388,7 +388,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:a");
     }
 
-    [Fact]
+    [Test]
     public void TheDeferredWriteStillCountsAgainstBackpressureBeforeTheNextRead()
     {
         // The deferral moves the whole of the chunk steps, so the write is charged to the destination's
@@ -417,7 +417,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:a,write:b,write:c");
     }
 
-    [Fact]
+    [Test]
     public void ADeferredWriteIsStillWaitedForByAShutdownThatStartsInTheSameTurn()
     {
         // "Shutdown must stop activity … and must only perform writes of already-read chunks": a chunk
@@ -443,7 +443,7 @@ public class StreamPipeTests
         Log(engine).Should().Be("write:a,abort:boom,piped:boom");
     }
 
-    [Fact]
+    [Test]
     public void AChunkThatArrivesAsThePipeFinalizesIsDroppedRatherThanWrittenThroughAReleasedWriter()
     {
         // The deferral opens a window the synchronous chunk steps did not have: the pipe can finalize —
@@ -475,7 +475,7 @@ public class StreamPipeTests
         engine.Evaluate("ws.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void PipingKeepsWorkingThroughAChainOfTransforms()
     {
         // pipeThrough is pipeTo, so the deferral applies once per hop; the chain must still deliver every

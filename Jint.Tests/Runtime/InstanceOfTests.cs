@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class InstanceOfTests
 {
-    [Fact]
+    [Test]
     public void ShouldSupportInheritanceChainUnderInterop()
     {
         var engine = new Engine();

@@ -4,7 +4,7 @@ namespace Jint.Tests.Parsing;
 
 public class JavascriptParserTests
 {
-    [Fact]
+    [Test]
     public void ShouldParseThis()
     {
         var program = new Parser().ParseScript("this");
@@ -14,7 +14,7 @@ public class JavascriptParserTests
         body.First().As<ExpressionStatement>().Expression.Type.Should().Be(NodeType.ThisExpression);
     }
 
-    [Fact]
+    [Test]
     public void ShouldParseNull()
     {
         var program = new Parser().ParseScript("null");
@@ -26,7 +26,7 @@ public class JavascriptParserTests
         body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw.Should().Be("null");
     }
 
-    [Fact]
+    [Test]
     public void ShouldParseNumeric()
     {
         var code = @"
@@ -41,7 +41,7 @@ public class JavascriptParserTests
         body.First().As<ExpressionStatement>().Expression.As<Literal>().Raw.Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void ShouldParseBinaryExpression()
     {
         BinaryExpression binary;
@@ -58,26 +58,25 @@ public class JavascriptParserTests
         binary.Left.As<BinaryExpression>().Operator.Should().Be(Operator.Addition);
     }
 
-    [Theory]
-    [InlineData(0, "0")]
-    [InlineData(42, "42")]
-    [InlineData(0.14, "0.14")]
-    [InlineData(3.14159, "3.14159")]
-    [InlineData(6.02214179e+23, "6.02214179e+23")]
-    [InlineData(1.492417830e-10, "1.492417830e-10")]
-    [InlineData(0, "0x0")]
-    [InlineData(0, "0x0;")]
-    [InlineData(0xabc, "0xabc")]
-    [InlineData(0xdef, "0xdef")]
-    [InlineData(0X1A, "0X1A")]
-    [InlineData(0x10, "0x10")]
-    [InlineData(0x100, "0x100")]
-    [InlineData(0X04, "0X04")]
-    [InlineData(02, "02")]
-    [InlineData(10, "012")]
-    [InlineData(10, "0012")]
-    [InlineData(1.189008226412092e+38, "0x5973772948c653ac1971f1576e03c4d4")]
-    [InlineData(18446744073709552000d, "0xffffffffffffffff")]
+    [TestCase(0, "0")]
+    [TestCase(42, "42")]
+    [TestCase(0.14, "0.14")]
+    [TestCase(3.14159, "3.14159")]
+    [TestCase(6.02214179e+23, "6.02214179e+23")]
+    [TestCase(1.492417830e-10, "1.492417830e-10")]
+    [TestCase(0, "0x0")]
+    [TestCase(0, "0x0;")]
+    [TestCase(0xabc, "0xabc")]
+    [TestCase(0xdef, "0xdef")]
+    [TestCase(0X1A, "0X1A")]
+    [TestCase(0x10, "0x10")]
+    [TestCase(0x100, "0x100")]
+    [TestCase(0X04, "0X04")]
+    [TestCase(02, "02")]
+    [TestCase(10, "012")]
+    [TestCase(10, "0012")]
+    [TestCase(1.189008226412092e+38, "0x5973772948c653ac1971f1576e03c4d4")]
+    [TestCase(18446744073709552000d, "0xffffffffffffffff")]
     public void ShouldParseNumericLiterals(object expected, string code)
     {
         Literal literal;
@@ -90,13 +89,12 @@ public class JavascriptParserTests
         Convert.ToDouble(literal.Value).Should().Be(Convert.ToDouble(expected));
     }
 
-    [Theory]
-    [InlineData("Hello", @"'Hello'")]
-    [InlineData("\n\r\t\v\b\f\\\'\"\0", @"'\n\r\t\v\b\f\\\'\""\0'")]
-    [InlineData("\u0061", @"'\u0061'")]
-    [InlineData("\x61", @"'\x61'")]
-    [InlineData("Hello\nworld", @"'Hello\nworld'")]
-    [InlineData("Hello\\\nworld", @"'Hello\\\nworld'")]
+    [TestCase("Hello", @"'Hello'")]
+    [TestCase("\n\r\t\v\b\f\\\'\"\0", @"'\n\r\t\v\b\f\\\'\""\0'")]
+    [TestCase("\u0061", @"'\u0061'")]
+    [TestCase("\x61", @"'\x61'")]
+    [TestCase("Hello\nworld", @"'Hello\nworld'")]
+    [TestCase("Hello\\\nworld", @"'Hello\\\nworld'")]
     public void ShouldParseStringLiterals(string expected, string code)
     {
         Literal literal;
@@ -109,37 +107,36 @@ public class JavascriptParserTests
         literal.Value.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData(@"{ x
+    [TestCase(@"{ x
                       ++y }")]
-    [InlineData(@"{ x
+    [TestCase(@"{ x
                       --y }")]
-    [InlineData(@"var x /* comment */;
+    [TestCase(@"var x /* comment */;
                       { var x = 14, y = 3
                       z; }")]
-    [InlineData(@"while (true) { continue
+    [TestCase(@"while (true) { continue
                       there; }")]
-    [InlineData(@"while (true) { continue // Comment
+    [TestCase(@"while (true) { continue // Comment
                       there; }")]
-    [InlineData(@"while (true) { continue /* Multiline
+    [TestCase(@"while (true) { continue /* Multiline
                       Comment */there; }")]
-    [InlineData(@"while (true) { break
+    [TestCase(@"while (true) { break
                       there; }")]
-    [InlineData(@"while (true) { break // Comment
+    [TestCase(@"while (true) { break // Comment
                       there; }")]
-    [InlineData(@"while (true) { break /* Multiline
+    [TestCase(@"while (true) { break /* Multiline
                       Comment */there; }")]
-    [InlineData(@"(function(){ return
+    [TestCase(@"(function(){ return
                       x; })")]
-    [InlineData(@"(function(){ return // Comment
+    [TestCase(@"(function(){ return // Comment
                       x; })")]
-    [InlineData(@"(function(){ return/* Multiline
+    [TestCase(@"(function(){ return/* Multiline
                       Comment */x; })")]
-    [InlineData(@"{ throw error
+    [TestCase(@"{ throw error
                       error; }")]
-    [InlineData(@"{ throw error// Comment
+    [TestCase(@"{ throw error// Comment
                       error; }")]
-    [InlineData(@"{ throw error/* Multiline
+    [TestCase(@"{ throw error/* Multiline
                       Comment */error; }")]
 
     public void ShouldInsertSemicolons(string code)
@@ -147,7 +144,7 @@ public class JavascriptParserTests
         new Parser().ParseScript(code);
     }
 
-    [Fact]
+    [Test]
     public void ShouldProvideLocationForMultiLinesStringLiterals()
     {
         const string Code = @"'\
@@ -162,7 +159,7 @@ public class JavascriptParserTests
         expr.Location.End.Column.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowErrorForInvalidLeftHandOperation()
     {
         var ex = Invoking(() => new Engine().Execute("~ (WE0=1)--- l('1');")).Should().ThrowExactly<JavaScriptException>().Which;
@@ -170,11 +167,10 @@ public class JavascriptParserTests
     }
 
 
-    [Theory]
-    [InlineData("....")]
-    [InlineData("while")]
-    [InlineData("var")]
-    [InlineData("-.-")]
+    [TestCase("....")]
+    [TestCase("while")]
+    [TestCase("var")]
+    [TestCase("-.-")]
     public void ShouldThrowParseErrorExceptionForInvalidCode(string code)
     {
         Invoking(() => new Parser().ParseScript(code)).Should().ThrowExactly<Acornima.SyntaxErrorException>();

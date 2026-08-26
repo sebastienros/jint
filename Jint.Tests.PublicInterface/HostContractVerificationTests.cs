@@ -52,7 +52,7 @@ public class HostContractVerificationTests
         return (bool) enabled!.GetValue(null)!;
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultIsOnForADebugBuildAndOffForTheShippedRelease()
     {
         // Reading it here also forces this process's copy to initialize while the switch is still whatever the
@@ -81,7 +81,7 @@ public class HostContractVerificationTests
     /// running. A `true` here means Jint read the switch this harness set, and read it in time — the whole
     /// contract of a <c>static readonly</c> gate.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheHarnessSetsTheSwitchEarlyEnoughForJintToObserveIt()
     {
         var engine = new Engine();
@@ -129,7 +129,7 @@ public class HostContractVerificationTests
     }
 
 #if NET8_0_OR_GREATER && !DEBUG
-    [Fact]
+    [Test]
     public void TheSwitchTurnsVerificationOnInAReleaseBuild()
     {
         var requested = HostContractVerificationSwitch.RequestedByTheEnvironment();

@@ -30,14 +30,13 @@ public class HostRaisedErrorTests
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "not an error constructor"),
     };
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("EvalError")]
-    [InlineData("RangeError")]
-    [InlineData("ReferenceError")]
-    [InlineData("SyntaxError")]
-    [InlineData("TypeError")]
-    [InlineData("URIError")]
+    [TestCase("Error")]
+    [TestCase("EvalError")]
+    [TestCase("RangeError")]
+    [TestCase("ReferenceError")]
+    [TestCase("SyntaxError")]
+    [TestCase("TypeError")]
+    [TestCase("URIError")]
     public void AHostFunctionCanRaiseEveryErrorTypeTheSpecDefines(string name)
     {
         var engine = new Engine();
@@ -76,14 +75,13 @@ public class HostRaisedErrorTests
         caught.Get("stringForm").AsString().Should().Be($"{name}: boom");
     }
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("EvalError")]
-    [InlineData("RangeError")]
-    [InlineData("ReferenceError")]
-    [InlineData("SyntaxError")]
-    [InlineData("TypeError")]
-    [InlineData("URIError")]
+    [TestCase("Error")]
+    [TestCase("EvalError")]
+    [TestCase("RangeError")]
+    [TestCase("ReferenceError")]
+    [TestCase("SyntaxError")]
+    [TestCase("TypeError")]
+    [TestCase("URIError")]
     public void AnUncaughtHostErrorReachesTheHostAsThatErrorType(string name)
     {
         var engine = new Engine();
@@ -103,7 +101,7 @@ public class HostRaisedErrorTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheErrorBelongsToThePrincipalRealmEvenAfterAnotherRealmExists()
     {
         // Intrinsics is per-realm, and a ShadowRealm builds a second set. An error a host raises through
@@ -118,7 +116,7 @@ public class HostRaisedErrorTests
             .AsBoolean().Should().BeTrue("engine.Intrinsics is the principal realm's, whatever was created after it");
     }
 
-    [Fact]
+    [Test]
     public void TheIntrinsicIsTheObjectTheScriptSeesAsThatGlobal()
     {
         var engine = new Engine();
@@ -129,7 +127,7 @@ public class HostRaisedErrorTests
         engine.Evaluate("rangeError === globalThis.RangeError").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ARangeErrorCanCarryTheClrExceptionThatCausedIt()
     {
         var engine = new Engine();
@@ -144,7 +142,7 @@ public class HostRaisedErrorTests
         clrException.Should().BeSameAs(cause);
     }
 
-    [Fact]
+    [Test]
     public void AHostErrorConstructorAlsoBuildsAPlainErrorObject()
     {
         // ErrorConstructor.Construct is the value-producing half of the same capability: a host that wants to

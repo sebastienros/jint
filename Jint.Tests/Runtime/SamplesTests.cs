@@ -21,7 +21,7 @@ public class SamplesTests : IDisposable
         _engine.Execute(source);
     }
 
-    [Fact]
+    [Test]
     public void GithubReadme1()
     {
         var square = new Engine()

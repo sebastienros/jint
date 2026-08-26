@@ -14,7 +14,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class GlobalPrototypeBindingTests
 {
-    [Fact]
+    [Test]
     public void MembersOnTheGlobalPrototypeResolveAsBareIdentifiers()
     {
         var engine = new Engine();
@@ -26,7 +26,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("fn()").AsBoolean().Should().BeTrue("a sloppy-mode call through a global binding coerces this to globalThis");
     }
 
-    [Fact]
+    [Test]
     public void MembersTwoLevelsUpTheChainResolveToo()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("(function () { return deep; })()").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void ObjectPrototypeMembersAreVisibleAtGlobalScope()
     {
         // Object.prototype is the global object's default prototype, so this holds without any setup
@@ -46,7 +46,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("toString()").AsString().Should().Be("[object Undefined]", "the this value of an environment-record reference is undefined");
     }
 
-    [Fact]
+    [Test]
     public void GenuinelyAbsentNamesStillBehaveAsBefore()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class GlobalPrototypeBindingTests
         Invoking(() => engine.Evaluate("'use strict'; missingName")).Should().ThrowExactly<JavaScriptException>().WithMessage("missingName is not defined");
     }
 
-    [Fact]
+    [Test]
     public void InheritedAccessorGetsTheGlobalAsReceiver()
     {
         var engine = new Engine();
@@ -70,7 +70,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("deepSelf === globalThis").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OwnAndDeclaredBindingsShadowInheritedOnes()
     {
         var engine = new Engine();
@@ -84,7 +84,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("let lx = 2; lx").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void DeleteOfAnInheritedNameSucceedsWithoutTouchingThePrototype()
     {
         var engine = new Engine();
@@ -94,7 +94,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("d").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AssignmentToAnInheritedNameFollowsOrdinarySetSemantics()
     {
         var engine = new Engine();
@@ -122,7 +122,7 @@ public class GlobalPrototypeBindingTests
     private static PropertyFlag GlobalPropertyFlags(Engine engine, string name)
         => engine.Realm.GlobalObject.GetOwnProperty(name).Flags;
 
-    [Fact]
+    [Test]
     public void ShadowingAnInheritedNameCreatesAMutableBindingLikeAVarDeclarationDoes()
     {
         // Assigning to a name that resolves on the global's prototype shadows it, and the shadow is a
@@ -141,7 +141,7 @@ public class GlobalPrototypeBindingTests
         shadowed.Should().Be(GlobalPropertyFlags(engine, "declared"));
     }
 
-    [Fact]
+    [Test]
     public void TheMutableBindingMarkerDoesNotChangeHowAShadowedGlobalBehaves()
     {
         var engine = new Engine();
@@ -171,7 +171,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("w").AsNumber().Should().Be(1, "the inherited property is visible again");
     }
 
-    [Fact]
+    [Test]
     public void AssigningToAnUnresolvableNameCreatesAMutableBindingLikeAVarDeclarationDoes()
     {
         // The sibling route, and the same shortfall reached by a different expression shape. A name that
@@ -190,7 +190,7 @@ public class GlobalPrototypeBindingTests
         assigned.Should().Be(GlobalPropertyFlags(engine, "declared"));
     }
 
-    [Fact]
+    [Test]
     public void TheMutableBindingMarkerDoesNotChangeHowAnUnresolvableAssignmentGlobalBehaves()
     {
         var engine = new Engine();
@@ -219,7 +219,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("typeof u").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AFailedUnresolvableAssignmentMarksNothing()
     {
         // [[Set]] can decline: a non-extensible global has nowhere to put the new property, and the
@@ -233,7 +233,7 @@ public class GlobalPrototypeBindingTests
     }
 
 #if NET
-    [Fact]
+    [Test]
     public void RepeatedWritesToAShadowedGlobalStoreInPlace()
     {
         // A destructuring assignment target has no per-site write cache, so every iteration goes through
@@ -263,7 +263,7 @@ public class GlobalPrototypeBindingTests
         perWrite.Should().BeLessThan(130, $"writing a shadowed global allocated {perWrite} bytes per write");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedWritesToAGlobalCreatedByUnresolvableAssignmentStoreInPlace()
     {
         // The same measurement for the other creation route: this global exists only because a sloppy
@@ -294,7 +294,7 @@ public class GlobalPrototypeBindingTests
     }
 #endif
 
-    [Fact]
+    [Test]
     public void ProtoAssignmentAtGlobalScopeStillRunsTheInheritedSetter()
     {
         // __proto__ lives on Object.prototype, i.e. on the global's prototype chain: the bare
@@ -305,7 +305,7 @@ public class GlobalPrototypeBindingTests
         engine.Evaluate("marker").AsNumber().Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void NoCacheServesStalePrototypeValues()
     {
         var engine = new Engine();
@@ -324,7 +324,7 @@ public class GlobalPrototypeBindingTests
         result.Should().Be("1,2,undefined,3");
     }
 
-    [Fact]
+    [Test]
     public void DirectEvalResolvesInheritedNames()
     {
         var engine = new Engine();
@@ -356,7 +356,7 @@ public class GlobalPrototypeBindingTests
         return (double) allocated / InheritedNameProbeIterations;
     }
 
-    [Fact]
+    [Test]
     public void ReadingAnInheritedNameDoesNotBuildItsNameStringPerRead()
     {
         // typeof and a call both resolve the identifier to a Reference and read it back through
@@ -387,7 +387,7 @@ public class GlobalPrototypeBindingTests
         callBytes.Should().BeLessThan(4, $"calling an inherited global allocated {callBytes} bytes per call");
     }
 
-    [Fact]
+    [Test]
     public void ProbingAnInheritedNameDoesNotBuildItsNameStringPerProbe()
     {
         // A destructuring assignment target goes through ResolveBinding, which walks the chain with a

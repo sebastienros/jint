@@ -55,7 +55,7 @@ public class AbortTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void AControllerStartsWithAFreshUnabortedSignal()
     {
         var engine = WebEngine();
@@ -68,7 +68,7 @@ public class AbortTests
         engine.Evaluate("controller.signal instanceof EventTarget").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AbortWithoutAReasonGivesAnAbortErrorDomException()
     {
         var engine = WebEngine();
@@ -84,7 +84,7 @@ public class AbortTests
         engine.Evaluate("second.signal.reason.name").AsString().Should().Be("AbortError");
     }
 
-    [Fact]
+    [Test]
     public void AbortCarriesTheGivenReason()
     {
         var engine = WebEngine();
@@ -97,7 +97,7 @@ public class AbortTests
         engine.Evaluate("nulled.signal.aborted").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FiresTheAbortEventExactlyOnce()
     {
         var engine = WebEngine();
@@ -116,7 +116,7 @@ public class AbortTests
         engine.Evaluate("controller.signal.reason.name").AsString().Should().Be("AbortError");
     }
 
-    [Fact]
+    [Test]
     public void ThrowIfAbortedThrowsTheReasonItself()
     {
         var engine = WebEngine();
@@ -143,7 +143,7 @@ public class AbortTests
         engine.Evaluate("caughtPrimitive").AsString().Should().Be("plain string");
     }
 
-    [Fact]
+    [Test]
     public void AnAbortListenerThatThrowsEruptsFromAbortButTheAbortIsComplete()
     {
         // The same choice dispatchEvent makes: with no DiagnosticsSink there is nowhere to report to, so the
@@ -160,7 +160,7 @@ public class AbortTests
             controller.signal.addEventListener('abort', function () { throw new Error('listener blew up'); });
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("controller.abort('reason')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("controller.abort('reason')"))!
             .Message.Should().Be("listener blew up");
 
         engine.Evaluate("controller.signal.aborted").AsBoolean().Should().BeTrue();
@@ -171,7 +171,7 @@ public class AbortTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void OnAbortTakesItsTurnInRegistrationOrder()
     {
         var engine = WebEngine();
@@ -188,7 +188,7 @@ public class AbortTests
         Log(engine).Should().Be("first,handler,last");
     }
 
-    [Fact]
+    [Test]
     public void ReassigningOnAbortKeepsThePositionAndClearingItRemovesTheListener()
     {
         var engine = WebEngine();
@@ -215,7 +215,7 @@ public class AbortTests
         Log(engine).Should().Be("two,other");
     }
 
-    [Fact]
+    [Test]
     public void OnAbortReadsBackWhatWasAssignedAndIgnoresNonObjects()
     {
         var engine = WebEngine();
@@ -231,7 +231,7 @@ public class AbortTests
         engine.Evaluate("signal.onabort").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RemoveEventListenerCannotRemoveTheOnAbortHandler()
     {
         var engine = WebEngine();
@@ -249,7 +249,7 @@ public class AbortTests
         Log(engine).Should().Be("handler");
     }
 
-    [Fact]
+    [Test]
     public void StaticAbortReturnsAnAlreadyAbortedSignal()
     {
         var engine = WebEngine();
@@ -260,7 +260,7 @@ public class AbortTests
         engine.Evaluate("AbortSignal.abort() instanceof AbortSignal").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ASignalOptionRemovesTheListenerWhenItAborts()
     {
         var engine = WebEngine();
@@ -277,7 +277,7 @@ public class AbortTests
         Log(engine).Should().Be("ping");
     }
 
-    [Fact]
+    [Test]
     public void AnAlreadyAbortedSignalOptionNeverAddsTheListener()
     {
         var engine = WebEngine();
@@ -291,13 +291,13 @@ public class AbortTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASignalOptionThatIsNotAnAbortSignal()
     {
         var engine = WebEngine();
 
         engine.Execute("var target = new EventTarget();");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping', function () {}, { signal: {} })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping', function () {}, { signal: {} })"))!
             .Message.Should().Contain("AbortSignal");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping', function () {}, { signal: null })"));
 
@@ -306,7 +306,7 @@ public class AbortTests
         Log(engine).Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void AnyAbortsWithWhicheverSourceAbortsFirst()
     {
         var engine = WebEngine();
@@ -327,7 +327,7 @@ public class AbortTests
         Log(engine).Should().Be("aborted");
     }
 
-    [Fact]
+    [Test]
     public void AnyIsAlreadyAbortedWhenASourceIs()
     {
         var engine = WebEngine();
@@ -346,7 +346,7 @@ public class AbortTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void AnyFlattensADependentSourceIntoItsOwnSources()
     {
         var engine = WebEngine();
@@ -363,7 +363,7 @@ public class AbortTests
         engine.Evaluate("outer.reason").AsString().Should().Be("root");
     }
 
-    [Fact]
+    [Test]
     public void AnyOverNoSignalsNeverAborts()
     {
         var engine = WebEngine();
@@ -371,12 +371,12 @@ public class AbortTests
         engine.Evaluate("AbortSignal.any([]).aborted").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AnyRequiresASequenceOfAbortSignals()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.any([{}])"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.any([{}])"))!
             .Message.Should().Contain("AbortSignal");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.any(42)"));
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.any()"));
@@ -385,7 +385,7 @@ public class AbortTests
         engine.Evaluate("AbortSignal.any(new Set([AbortSignal.abort('s')])).reason").AsString().Should().Be("s");
     }
 
-    [Fact]
+    [Test]
     public void TimeoutAbortsOnlyOnceTheEngineIsPumpedPastTheDueTime()
     {
         var (engine, clock) = TimeoutEngine();
@@ -410,7 +410,7 @@ public class AbortTests
         Log(engine).Should().Be("TimeoutError");
     }
 
-    [Fact]
+    [Test]
     public void TimeoutNeverFiresOnAnEngineNobodyPumps()
     {
         var (engine, clock) = TimeoutEngine();
@@ -427,12 +427,12 @@ public class AbortTests
         signal.Aborted.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TimeoutEnforcesTheRangeOfItsArgument()
     {
         var (engine, _) = TimeoutEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.timeout(-1)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.timeout(-1)"))!
             .Message.Should().Contain("range");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.timeout(NaN)"));
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.timeout(Infinity)"));
@@ -442,7 +442,7 @@ public class AbortTests
         engine.Execute("AbortSignal.timeout(1.9);");
     }
 
-    [Fact]
+    [Test]
     public void TimeoutCountsAgainstTheTimerBudget()
     {
         var (engine, _) = TimeoutEngine(maxActiveTimers: 1);
@@ -461,16 +461,16 @@ public class AbortTests
         engine.Evaluate("caught instanceof QuotaExceededError && caught instanceof DOMException").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ASignalCannotBeConstructedDirectly()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new AbortSignal()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new AbortSignal()"))!
             .Message.Should().Contain("Illegal constructor");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlShape()
     {
         var engine = WebEngine();
@@ -490,7 +490,7 @@ public class AbortTests
         engine.Evaluate("Object.prototype.toString.call(new AbortController().signal)").AsString().Should().Be("[object AbortSignal]");
     }
 
-    [Fact]
+    [Test]
     public void ExposesItsAttributesAsPrototypeAccessors()
     {
         var engine = WebEngine();
@@ -509,19 +509,19 @@ public class AbortTests
         engine.Evaluate($"typeof {onabort}.set").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReceiverThatIsNotTheRightInterface()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.prototype.aborted"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortSignal.prototype.aborted"))!
             .Message.Should().Contain("AbortSignal");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortController.prototype.signal"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortController.prototype.signal"))!
             .Message.Should().Contain("AbortController");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("AbortController.prototype.abort.call(new AbortController().signal)"));
     }
 
-    [Fact]
+    [Test]
     public void SupportsBeingSubclassed()
     {
         var engine = WebEngine();

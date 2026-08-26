@@ -55,7 +55,7 @@ body:
     attributes:
       label: C# host code
       description: |
-        `Engine` setup, `Options` configuration, interop registrations, or a small xUnit test against
+        `Engine` setup, `Options` configuration, interop registrations, or a small NUnit test against
         `main`. Required when the bug only reproduces with specific host configuration (CLR interop,
         modules, constraints, custom converters, etc.).
       render: csharp

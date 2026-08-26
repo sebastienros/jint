@@ -37,7 +37,7 @@ public class WebApiTests
         public override void Write(ConsoleLogLevel level, string message) => Target.Write(level, message);
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoWebGlobals()
     {
         var engine = new Engine();
@@ -54,7 +54,7 @@ public class WebApiTests
         untouched.Evaluate("typeof console").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsTheDefaultSet()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -70,7 +70,7 @@ public class WebApiTests
         engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void UseConsoleWritesToATextWriter()
     {
         var writer = new StringWriter();
@@ -81,7 +81,7 @@ public class WebApiTests
         writer.ToString().Should().Be("hello world" + Environment.NewLine + "g" + Environment.NewLine + "  inner" + Environment.NewLine);
     }
 
-    [Fact]
+    [Test]
     public void AHostSinkReceivesEveryRecordWithItsLevel()
     {
         var sink = new RecordingSink();
@@ -95,7 +95,7 @@ public class WebApiTests
         sink.Records[2].Should().Be((ConsoleLogLevel.Debug, "c"));
     }
 
-    [Fact]
+    [Test]
     public void UseConsoleImpliesTheConsoleFeature()
     {
         var options = new Options().UseConsole(ConsoleSink.Null);
@@ -104,7 +104,7 @@ public class WebApiTests
         new Engine(options).Evaluate("typeof console").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void FeatureCallsAccumulateRatherThanReplace()
     {
         var options = new Options()
@@ -114,7 +114,7 @@ public class WebApiTests
         options.WebApi.Features.Should().HaveFlag(WebApiFeatures.Console);
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSinkDiscardsEverything()
     {
         var options = new Options().UseWebApis();
@@ -126,7 +126,7 @@ public class WebApiTests
         engine.Execute("console.log('nothing to see'); console.error('nor this');");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own console");
@@ -140,7 +140,7 @@ public class WebApiTests
         engine.Evaluate("console").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var sink = new RecordingSink();
@@ -162,7 +162,7 @@ public class WebApiTests
     /// The forwarding sink is two lines, and unlike the option write it cannot reach a second engine that
     /// happens to share the same options.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASwappedSinkTakesEffectOnTheNextRecord()
     {
         var first = new RecordingSink();
@@ -180,7 +180,7 @@ public class WebApiTests
         second.Records[0].Message.Should().Be("two");
     }
 
-    [Fact]
+    [Test]
     public void WritingTheSinkOnAnEnginesOptionsIsRefused()
     {
         var options = new Options().UseConsole(new RecordingSink());
@@ -191,7 +191,7 @@ public class WebApiTests
             .WithMessage("*Options.WebApi.Console.Sink*");
     }
 
-    [Fact]
+    [Test]
     public void DomExceptionIsUsableFromScriptAndFromTheHost()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -204,7 +204,7 @@ public class WebApiTests
         engine.Evaluate("new DOMException('gone', 'AbortError') instanceof Error").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ErrorIsErrorAnswersTrueForADomException()
     {
         var engine = new Engine(options => options.UseWebApis());

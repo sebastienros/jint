@@ -37,7 +37,7 @@ public class WebApiSchedulerTests
         internal void Advance(int milliseconds) => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoScheduler()
     {
         var engine = new Engine();
@@ -49,7 +49,7 @@ public class WebApiSchedulerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsTheScheduler()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -67,7 +67,7 @@ public class WebApiSchedulerTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Scheduler);
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureCanBeAskedForOnItsOwn()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Scheduler));
@@ -82,7 +82,7 @@ public class WebApiSchedulerTests
         console.Evaluate("typeof scheduler").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AGlobalTheHostRegisteredItselfWins()
     {
         var engine = new Engine(options => options
@@ -92,7 +92,7 @@ public class WebApiSchedulerTests
         engine.Evaluate("scheduler").AsString().Should().Be("host's own");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmHasNoScheduler()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -103,7 +103,7 @@ public class WebApiSchedulerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TasksRunInPriorityOrderOnTheHostsOwnPump()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -121,7 +121,7 @@ public class WebApiSchedulerTests
         order.Should().Equal("blocking", "visible", "background");
     }
 
-    [Fact]
+    [Test]
     public void AHostSuppliedClockDrivesTheDelayOption()
     {
         var clock = new ManualClock();
@@ -142,7 +142,7 @@ public class WebApiSchedulerTests
         ran.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AHostsOwnLoopIsEnoughToRunAChainOfTasks()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -169,7 +169,7 @@ public class WebApiSchedulerTests
         done.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void APostedTaskIsAnOrdinaryPromiseAHostCanUnwrap()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -177,7 +177,7 @@ public class WebApiSchedulerTests
         engine.Evaluate("scheduler.postTask(() => 6 * 7)").UnwrapIfPromise().AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task APostedTaskCanBeAwaitedThroughEvaluateAsync()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -193,7 +193,7 @@ public class WebApiSchedulerTests
         result.AsString().Should().Be("ready");
     }
 
-    [Fact]
+    [Test]
     public void PostTaskReportsEveryFailureAsARejection()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -213,11 +213,11 @@ public class WebApiSchedulerTests
             })()
             """);
 
-        var exception = Assert.Throws<PromiseRejectedException>(() => aborted.UnwrapIfPromise());
+        var exception = Assert.Throws<PromiseRejectedException>(() => aborted.UnwrapIfPromise())!;
         exception.RejectedValue.AsString().Should().Be("stopped");
     }
 
-    [Fact]
+    [Test]
     public void ATaskScheduledBeforeARestoreNeverRunsAfterIt()
     {
         var clock = new ManualClock();
@@ -246,7 +246,7 @@ public class WebApiSchedulerTests
         ran.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceGivesEachEngineItsOwnQueues()
     {
         var options = new Options().UseWebApis();
@@ -265,7 +265,7 @@ public class WebApiSchedulerTests
         order.Should().Equal("first:a", "second:b");
     }
 
-    [Fact]
+    [Test]
     public void AControllerTheHostKeepsCanStopScriptScheduledWorkLater()
     {
         var clock = new ManualClock();

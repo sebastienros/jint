@@ -66,7 +66,7 @@ public class SubtleCryptoEcTests
     // The published vectors
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void VerifiesTheRfc7515Es256VectorFromEveryPublicFormat()
     {
         // https://www.rfc-editor.org/rfc/rfc7515#appendix-A.3 — the ECDSA P-256 SHA-256 signature over that
@@ -96,7 +96,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("true,true,true,false,false,false,false");
     }
 
-    [Fact]
+    [Test]
     public void VerifiesTheRfc7515Es512VectorOnP521()
     {
         // https://www.rfc-editor.org/rfc/rfc7515#appendix-A.4 — ES512, which is ECDSA over **P-521** with
@@ -117,7 +117,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("132|true|false|P-521");
     }
 
-    [Fact]
+    [Test]
     public void VerifiesTheRfc6979P384Vector()
     {
         // https://www.rfc-editor.org/rfc/rfc6979#appendix-A.2.6 — the (r, s) pair that document's own
@@ -140,10 +140,9 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("96|true|false|false");
     }
 
-    [Theory]
-    [InlineData("P-256", 64)]
-    [InlineData("P-384", 96)]
-    [InlineData("P-521", 132)]
+    [TestCase("P-256", 64)]
+    [TestCase("P-384", 96)]
+    [TestCase("P-521", 132)]
     public void RoundTripsASignatureAtTheCurvesOwnFixedWidth(string namedCurve, int signatureLength)
     {
         // The signature is r || s at the field width — 32, 48 and 66 bytes per integer — which is
@@ -170,13 +169,12 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be(signatureLength + "|true|true|false");
     }
 
-    [Theory]
-    [InlineData("P-256", "SHA-1", 64)]
-    [InlineData("P-256", "SHA-256", 64)]
-    [InlineData("P-256", "SHA-384", 64)]
-    [InlineData("P-256", "SHA-512", 64)]
-    [InlineData("P-521", "SHA-1", 132)]
-    [InlineData("P-521", "SHA-256", 132)]
+    [TestCase("P-256", "SHA-1", 64)]
+    [TestCase("P-256", "SHA-256", 64)]
+    [TestCase("P-256", "SHA-384", 64)]
+    [TestCase("P-256", "SHA-512", 64)]
+    [TestCase("P-521", "SHA-1", 132)]
+    [TestCase("P-521", "SHA-256", 132)]
     public void EveryHashIsLegalOnEveryCurveAndTheKeyRemembersNeither(string namedCurve, string hash, int signatureLength)
     {
         // The hash belongs to the EcdsaParams of each call and the curve to the key, so P-256 with SHA-512
@@ -199,7 +197,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be(signatureLength + "|true|name,namedCurve|true");
     }
 
-    [Fact]
+    [Test]
     public void ASignatureMadeUnderOneHashDoesNotVerifyUnderAnother()
     {
         // The corollary of the hash living on the call rather than on the key: the same key and the same
@@ -223,9 +221,8 @@ public class SubtleCryptoEcTests
     // Key formats
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("ECDSA")]
-    [InlineData("ECDH")]
+    [TestCase("ECDSA")]
+    [TestCase("ECDH")]
     public void RoundTripsAnEcKeyThroughAllFourFormats(string algorithm)
     {
         // Both algorithms export to every format an EC key has — and the DER a key exports is the DER it was
@@ -262,7 +259,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("true|true|true|true|true|P-256/EC/" + algorithm);
     }
 
-    [Fact]
+    [Test]
     public void ARawPointAndAJwkDescribingItReachTheSameKey()
     {
         // The uncompressed point 04||X||Y and a JSON Web Key carrying the same X and Y are two spellings of
@@ -285,7 +282,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("true|true|true|true");
     }
 
-    [Fact]
+    [Test]
     public void EachFormatBelongsToOneKeyType()
     {
         // "If the [[type]] internal slot of key is not 'public', then throw an InvalidAccessError" — spki
@@ -305,7 +302,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("InvalidAccessError/true,InvalidAccessError/true,InvalidAccessError/true");
     }
 
-    [Fact]
+    [Test]
     public void ANonExtractableEcKeyCannotBeExportedInAnyFormat()
     {
         Run($$"""
@@ -324,22 +321,21 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("InvalidAccessError|InvalidAccessError|64");
     }
 
-    [Theory]
     // A compressed point, which this engine does not support and the step anticipates by name — at the
     // length a compressed point actually has, and at the length an uncompressed one has.
-    [InlineData("'02' + '{{X}}'", "compressed")]
-    [InlineData("'03' + '{{X}}'", "compressed")]
-    [InlineData("'02' + '{{BODY}}'", "compressed")]
+    [TestCase("'02' + '{{X}}'", "compressed")]
+    [TestCase("'03' + '{{X}}'", "compressed")]
+    [TestCase("'02' + '{{BODY}}'", "compressed")]
     // The point at infinity, which is "an identity point".
-    [InlineData("'00'", "0x04")]
+    [TestCase("'00'", "0x04")]
     // A full-length point whose leading byte names no format at all: it is the marker rather than the
     // length that refuses this one.
-    [InlineData("'05' + '{{BODY}}'", "0x04")]
-    [InlineData("'ff' + '{{BODY}}'", "0x04")]
+    [TestCase("'05' + '{{BODY}}'", "0x04")]
+    [TestCase("'ff' + '{{BODY}}'", "0x04")]
     // Wrong lengths.
-    [InlineData("'04' + '{{X}}'", "0x04")]
-    [InlineData("'{{RAW}}' + '00'", "0x04")]
-    [InlineData("''", "0x04")]
+    [TestCase("'04' + '{{X}}'", "0x04")]
+    [TestCase("'{{RAW}}' + '00'", "0x04")]
+    [TestCase("''", "0x04")]
     public void RefusesARawPointThatIsNotAnUncompressedOne(string expression, string expectedFragment)
     {
         var engine = WebEngine();
@@ -355,7 +351,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError/true/true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesDerThatIsNotTheStructureTheFormatNames()
     {
         var engine = WebEngine();
@@ -388,7 +384,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsAPkcs8ThatRepeatsItsCurveInsideAndReExportsTheCanonicalOne()
     {
         // RFC 5915's ECPrivateKey may carry the curve a second time, in its own optional parameters field,
@@ -409,7 +405,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("false|true|64");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPkcs8WhoseInnerStructureContradictsItsOuterOne()
     {
         var engine = WebEngine();
@@ -427,7 +423,7 @@ public class SubtleCryptoEcTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesTrailingBytesAfterAWellFormedStructure()
     {
         var engine = WebEngine();
@@ -445,11 +441,10 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Theory]
-    [InlineData("spki", "P-384", "['verify']")]
-    [InlineData("spki", "P-521", "['verify']")]
-    [InlineData("pkcs8", "P-384", "['sign']")]
-    [InlineData("pkcs8", "P-521", "['sign']")]
+    [TestCase("spki", "P-384", "['verify']")]
+    [TestCase("spki", "P-521", "['verify']")]
+    [TestCase("pkcs8", "P-384", "['sign']")]
+    [TestCase("pkcs8", "P-521", "['sign']")]
     public void RefusesADerStructureWhoseCurveIsNotTheOneRequested(string format, string namedCurve, string usages)
     {
         var engine = WebEngine();
@@ -470,7 +465,7 @@ public class SubtleCryptoEcTests
     // JSON Web Key
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ExportsAnEcJwkWithTheFieldsAndTheOrderWebIdlGivesIt()
     {
         // A dictionary is converted to an object member by member in lexicographical order —
@@ -496,7 +491,7 @@ public class SubtleCryptoEcTests
                 "crv,d,ext,key_ops,kty,x,y|crv,ext,key_ops,kty,x,y|false|EC/P-256/true/sign|true");
     }
 
-    [Fact]
+    [Test]
     public void AJwkCoordinateKeepsALeadingZeroByteOnBothDirections()
     {
         // Section 6.2.1.2 of JSON Web Algorithms: "The length of this octet string MUST be the full size of
@@ -521,12 +516,11 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("true|true|true|133/4/0");
     }
 
-    [Theory]
     // A minimally encoded coordinate, which is exactly what an RSA field would be — the two encodings are
     // deliberately not interchangeable, so this is a DataError rather than something to left-pad.
-    [InlineData("P-256", "x", Es256ShortX)]
-    [InlineData("P-256", "x", Es256LongX)]
-    [InlineData("P-521", "y", MinimalEs512Y)]
+    [TestCase("P-256", "x", Es256ShortX)]
+    [TestCase("P-256", "x", Es256LongX)]
+    [TestCase("P-521", "y", MinimalEs512Y)]
     public void RefusesAJwkCoordinateThatIsNotTheCurvesFullWidth(string namedCurve, string field, string value)
     {
         var engine = WebEngine();
@@ -541,31 +535,30 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Theory]
     // "If the kty field of jwk is not 'EC', then throw a DataError."
-    [InlineData("delete jwk.kty")]
-    [InlineData("jwk.kty = 'ec'")]
-    [InlineData("jwk.kty = 'RSA'")]
+    [TestCase("delete jwk.kty")]
+    [TestCase("jwk.kty = 'ec'")]
+    [TestCase("jwk.kty = 'RSA'")]
     // "Let namedCurve be … the crv field of jwk. If namedCurve is not equal to the namedCurve member of
     // normalizedAlgorithm, throw a DataError."
-    [InlineData("delete jwk.crv")]
-    [InlineData("jwk.crv = 'P-384'")]
-    [InlineData("jwk.crv = 'p-256'")]
+    [TestCase("delete jwk.crv")]
+    [TestCase("jwk.crv = 'P-384'")]
+    [TestCase("jwk.crv = 'p-256'")]
     // Section 6.2.1 of JSON Web Algorithms: x and y are what an EC public key is.
-    [InlineData("delete jwk.x")]
-    [InlineData("delete jwk.y")]
-    [InlineData("jwk.x = ''")]
-    [InlineData("jwk.y = 'not+base64url'")]
+    [TestCase("delete jwk.x")]
+    [TestCase("delete jwk.y")]
+    [TestCase("jwk.x = ''")]
+    [TestCase("jwk.y = 'not+base64url'")]
     // The alg table, and an alg naming a curve the key does not carry.
-    [InlineData("jwk.alg = 'ES384'")]
-    [InlineData("jwk.alg = 'ES512'")]
-    [InlineData("jwk.alg = 'RS256'")]
-    [InlineData("jwk.alg = 'es256'")]
+    [TestCase("jwk.alg = 'ES384'")]
+    [TestCase("jwk.alg = 'ES512'")]
+    [TestCase("jwk.alg = 'RS256'")]
+    [TestCase("jwk.alg = 'es256'")]
     // The three fields every JWK import checks.
-    [InlineData("jwk.use = 'enc'")]
-    [InlineData("jwk.key_ops = ['sign']")]
-    [InlineData("jwk.key_ops = ['verify', 'verify']")]
-    [InlineData("jwk.ext = false")]
+    [TestCase("jwk.use = 'enc'")]
+    [TestCase("jwk.key_ops = ['sign']")]
+    [TestCase("jwk.key_ops = ['verify', 'verify']")]
+    [TestCase("jwk.ext = false")]
     public void RefusesAMalformedEcdsaJwkWithADataError(string mutation)
     {
         var engine = WebEngine();
@@ -582,12 +575,11 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError/true");
     }
 
-    [Theory]
-    [InlineData("P-256", "ES256")]
-    [InlineData("P-384", "ES384")]
+    [TestCase("P-256", "ES256")]
+    [TestCase("P-384", "ES384")]
     // The row that cannot be derived from the curve's name: ES512 is the SHA-512 pairing, and its curve is
     // P-521 — https://www.rfc-editor.org/rfc/rfc7518#section-3.4.
-    [InlineData("P-521", "ES512")]
+    [TestCase("P-521", "ES512")]
     public void TheJwkAlgorithmNamesTheCurveByItsHashPairing(string namedCurve, string alg)
     {
         // The import table is honoured and the export deliberately writes no alg back, which is the one
@@ -608,7 +600,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be(namedCurve + "|false|" + namedCurve);
     }
 
-    [Fact]
+    [Test]
     public void AnEcdhJwkNeitherRequiresNorChecksTheAlgField()
     {
         var engine = WebEngine();
@@ -656,7 +648,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Fact]
+    [Test]
     public void ReadsEveryEcJwkFieldInWebIdlsOwnOrderAndOnlyOnce()
     {
         // A dictionary's members are converted in lexicographical order, each read exactly once — so crv
@@ -683,16 +675,15 @@ public class SubtleCryptoEcTests
     // Curves
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("ECDSA", "'P-192'")]
-    [InlineData("ECDSA", "'p-256'")]
-    [InlineData("ECDSA", "'secp256k1'")]
-    [InlineData("ECDSA", "'P-256 '")]
-    [InlineData("ECDSA", "'Ed25519'")]
-    [InlineData("ECDH", "'X25519'")]
-    [InlineData("ECDH", "'P-224'")]
-    [InlineData("ECDH", "42")]
-    [InlineData("ECDH", "null")]
+    [TestCase("ECDSA", "'P-192'")]
+    [TestCase("ECDSA", "'p-256'")]
+    [TestCase("ECDSA", "'secp256k1'")]
+    [TestCase("ECDSA", "'P-256 '")]
+    [TestCase("ECDSA", "'Ed25519'")]
+    [TestCase("ECDH", "'X25519'")]
+    [TestCase("ECDH", "'P-224'")]
+    [TestCase("ECDH", "42")]
+    [TestCase("ECDH", "null")]
     public void RefusesACurveThisEngineDoesNotImplementWithANotSupportedError(string algorithm, string namedCurve)
     {
         var engine = WebEngine();
@@ -711,7 +702,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Fact]
+    [Test]
     public void TheCurveIsCheckedBeforeAnythingElseAboutTheRequest()
     {
         var engine = WebEngine();
@@ -735,7 +726,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("DataError");
     }
 
-    [Fact]
+    [Test]
     public void TheNamedCurveIsARequiredMemberOfBothEcDictionaries()
     {
         var engine = WebEngine();
@@ -756,7 +747,7 @@ public class SubtleCryptoEcTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheHashIsARequiredMemberOfEcdsaParams()
     {
         var engine = WebEngine();
@@ -783,7 +774,7 @@ public class SubtleCryptoEcTests
     // Points that are not on the curve
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void RefusesAPointThatIsNotOnTheCurveWithADataError()
     {
         var engine = WebEngine();
@@ -825,7 +816,7 @@ public class SubtleCryptoEcTests
     // The key-type and usage matrices
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AnOperationRefusesTheWrongHalfOfTheKeyPair()
     {
         // Step 1 of both ECDSA operations: sign needs a private key and verify a public one. It is an
@@ -846,7 +837,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("InvalidAccessError,InvalidAccessError");
     }
 
-    [Fact]
+    [Test]
     public void AnEcdsaKeyTypeCarriesExactlyTheOneUsageItCanPerform()
     {
         var engine = WebEngine();
@@ -871,7 +862,7 @@ public class SubtleCryptoEcTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnEcdhPublicKeyCarriesNoUsagesAtAll()
     {
         var engine = WebEngine();
@@ -903,7 +894,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void AnEcdhPrivateKeyCarriesTheDerivationUsagesAndNoOthers()
     {
         var engine = WebEngine();
@@ -927,7 +918,7 @@ public class SubtleCryptoEcTests
         }
     }
 
-    [Fact]
+    [Test]
     public void APrivateKeyMustBeImportedWithAtLeastOneUsageAndAPublicKeyNeedNot()
     {
         var engine = WebEngine();
@@ -951,7 +942,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("public/0");
     }
 
-    [Fact]
+    [Test]
     public void AKeyRemembersTheAlgorithmItWasMadeForAndRefusesAnother()
     {
         // The name check comes before everything the algorithm itself does, and it is an InvalidAccessError
@@ -979,10 +970,9 @@ public class SubtleCryptoEcTests
     // generateKey and CryptoKeyPair
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("P-256", 64)]
-    [InlineData("P-384", 96)]
-    [InlineData("P-521", 132)]
+    [TestCase("P-256", 64)]
+    [TestCase("P-384", 96)]
+    [TestCase("P-521", 132)]
     public void GeneratesAnEcdsaPairWithTheShapeTheSpecificationDescribes(string namedCurve, int signatureLength)
     {
         Run($$"""
@@ -1019,7 +1009,7 @@ public class SubtleCryptoEcTests
                 + signatureLength + "|true");
     }
 
-    [Fact]
+    [Test]
     public void GeneratesAnEcdhPairWhosePublicHalfCarriesNoUsages()
     {
         // "Set the [[usages]] internal slot of publicKey to be the empty list" — flatly, not as an
@@ -1044,7 +1034,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("deriveKey+deriveBits|0|ECDH/P-384|97|true");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPairWhosePrivateHalfWouldHaveNoUsages()
     {
         var engine = WebEngine();
@@ -1069,13 +1059,12 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("sign/0");
     }
 
-    [Theory]
-    [InlineData("ECDSA", "['encrypt']")]
-    [InlineData("ECDSA", "['sign', 'deriveKey']")]
-    [InlineData("ECDSA", "['sign', 'wrapKey']")]
-    [InlineData("ECDH", "['sign']")]
-    [InlineData("ECDH", "['deriveBits', 'verify']")]
-    [InlineData("ECDH", "['encrypt', 'decrypt']")]
+    [TestCase("ECDSA", "['encrypt']")]
+    [TestCase("ECDSA", "['sign', 'deriveKey']")]
+    [TestCase("ECDSA", "['sign', 'wrapKey']")]
+    [TestCase("ECDH", "['sign']")]
+    [TestCase("ECDH", "['deriveBits', 'verify']")]
+    [TestCase("ECDH", "['encrypt', 'decrypt']")]
     public void RefusesAUsageAnEcAlgorithmDoesNotSupportWithASyntaxError(string algorithm, string usages)
     {
         var engine = WebEngine();
@@ -1087,7 +1076,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("SyntaxError/true");
     }
 
-    [Fact]
+    [Test]
     public void TheUsageCheckPrecedesTheCurveCheckInGenerateKey()
     {
         var engine = WebEngine();
@@ -1109,10 +1098,9 @@ public class SubtleCryptoEcTests
     // Normalization and the registry
     // ---------------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("ecdsa")]
-    [InlineData("EcDsA")]
-    [InlineData("ECDSA")]
+    [TestCase("ecdsa")]
+    [TestCase("EcDsA")]
+    [TestCase("ECDSA")]
     public void MatchesTheRegisteredEcNameCaseInsensitivelyButNotTheCurve(string spelling)
     {
         // "Case-insensitive" is ASCII case-insensitive, and the key remembers the registered spelling rather
@@ -1137,7 +1125,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Fact]
+    [Test]
     public void TheEcAlgorithmsAreRegisteredForExactlyTheOperationsTheSpecificationGivesThem()
     {
         var engine = WebEngine();
@@ -1184,7 +1172,7 @@ public class SubtleCryptoEcTests
             """).AsString().Should().Be("NotSupportedError,ok");
     }
 
-    [Fact]
+    [Test]
     public void NoEcOperationEverThrowsSynchronouslyOrLeaksACryptographicException()
     {
         var engine = WebEngine();

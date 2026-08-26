@@ -85,7 +85,7 @@ public class GlobalErrorEventTests
 
     // The globals themselves
 
-    [Fact]
+    [Test]
     public void SelfIsGlobalThis()
     {
         var (engine, _) = Silent();
@@ -114,7 +114,7 @@ public class GlobalErrorEventTests
     /// (https://html.spec.whatwg.org/multipage/workers.html#dom-workerglobalscope-self) — so making this one
     /// read-only too would be wrong, and would break shadowing a script may rely on.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheTopLevelSelfIsReplaceable()
     {
         var (sloppy, _) = Silent();
@@ -126,7 +126,7 @@ public class GlobalErrorEventTests
         strict.Evaluate("self").AsString().Should().Be("shadowed");
     }
 
-    [Fact]
+    [Test]
     public void TheThreeOperationsAreWebIdlOperations()
     {
         var (engine, _) = Silent();
@@ -143,7 +143,7 @@ public class GlobalErrorEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalObjectItselfIsNotAnEventTarget()
     {
         var (engine, _) = Silent();
@@ -154,11 +154,11 @@ public class GlobalErrorEventTests
 
         // And EventTarget.prototype's own methods still refuse it, because it is not one.
         Assert.Throws<JavaScriptException>(() =>
-            engine.Execute("EventTarget.prototype.addEventListener.call(globalThis, 'x', function () {})"))
+            engine.Execute("EventTarget.prototype.addEventListener.call(globalThis, 'x', function () {})"))!
             .Message.Should().Contain("not an EventTarget");
     }
 
-    [Fact]
+    [Test]
     public void DispatchesToTheGlobalScopeWithTheGlobalObjectAsTarget()
     {
         var (engine, _) = Silent();
@@ -176,7 +176,7 @@ public class GlobalErrorEventTests
         engine.Evaluate("result").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RemoveEventListenerMatchesOnIdentity()
     {
         var (engine, _) = Silent();
@@ -191,7 +191,7 @@ public class GlobalErrorEventTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void TheOperationsAreReachableThroughSelfAndGlobalThisAlike()
     {
         var (engine, _) = Silent();
@@ -208,7 +208,7 @@ public class GlobalErrorEventTests
 
     // error — HTML's report an exception, step 5
 
-    [Fact]
+    [Test]
     public void AnUncaughtTimerErrorFiresATrustedErrorEvent()
     {
         var (engine, sink, clock) = Reporting();
@@ -232,12 +232,12 @@ public class GlobalErrorEventTests
         engine.Evaluate("seen.colno > 0").AsBoolean().Should().BeTrue();
 
         // And the sink still hears it — the event feeds it, it does not replace it.
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
     }
 
-    [Fact]
+    [Test]
     public void AnUncaughtListenerErrorFiresATrustedErrorEvent()
     {
         var (engine, sink, _) = Reporting();
@@ -252,10 +252,10 @@ public class GlobalErrorEventTests
 
         // Inner invoke reports and carries on, and reporting is what fires the global error event.
         Log(engine).Should().Be("global:inner,second");
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
     }
 
-    [Fact]
+    [Test]
     public void AnUncaughtIdleCallbackErrorFiresATrustedErrorEvent()
     {
         // requestIdleCallback invokes its callback with "report" too, so the same report an idle failure makes
@@ -270,10 +270,10 @@ public class GlobalErrorEventTests
             """);
 
         Log(engine).Should().Be("global:idle,second");
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorFiresTheErrorEventAndStillFeedsTheSink()
     {
         var (engine, sink, _) = Reporting();
@@ -290,10 +290,10 @@ public class GlobalErrorEventTests
         engine.Evaluate("seen.message").AsString().Should().Be("boom");
         engine.Evaluate("seen.isTrusted").AsBoolean().Should().BeTrue();
 
-        Assert.Single(sink.Reports).Kind.Should().Be(DiagnosticEventKind.ReportedError);
+        sink.Reports.Should().ContainSingle().Which.Kind.Should().Be(DiagnosticEventKind.ReportedError);
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorFiresTheErrorEventWithNoSinkAtAll()
     {
         // reportError is itself the request to report, so unlike a callback failure it does not need the
@@ -310,7 +310,7 @@ public class GlobalErrorEventTests
         engine.Evaluate("seen.error").AsString().Should().Be("a string");
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorDescribesAnObjectWithoutRunningScript()
     {
         // Rendering an arbitrary object would mean calling its own toString, which is exactly the hazard
@@ -329,7 +329,7 @@ public class GlobalErrorEventTests
         engine.Evaluate("messages[1]").AsString().Should().Be("real message");
     }
 
-    [Fact]
+    [Test]
     public void PreventDefaultDoesNotStarveTheSink()
     {
         var (engine, sink, clock) = Reporting();
@@ -351,7 +351,7 @@ public class GlobalErrorEventTests
         sink.Reports[1].Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingErrorListenerDoesNotReDispatch()
     {
         var (engine, sink, _) = Reporting();
@@ -376,7 +376,7 @@ public class GlobalErrorEventTests
         sink.Reports[1].Exception!.Message.Should().Be("original");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorListenerNeverSeesAConstraintFailure()
     {
         // Only a JavaScriptException is ever dispatched or reported. A budget that a listener could observe
@@ -397,7 +397,7 @@ public class GlobalErrorEventTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AnUncaughtTimerErrorStillEruptsWithoutASink()
     {
         // The sink is what turns an uncaught callback failure into a *report*, and report an exception is the
@@ -411,14 +411,14 @@ public class GlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks()).Message.Should().Be("boom");
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!.Message.Should().Be("boom");
 
         Log(engine).Should().Be("");
     }
 
     // unhandledrejection / rejectionhandled
 
-    [Fact]
+    [Test]
     public void AnUnhandledRejectionFiresAPromiseRejectionEvent()
     {
         var (engine, sink, _) = Reporting();
@@ -435,10 +435,10 @@ public class GlobalErrorEventTests
         engine.Evaluate("seen.promise === p").AsBoolean().Should().BeTrue();
         engine.Evaluate("seen.reason === reason").AsBoolean().Should().BeTrue();
 
-        Assert.Single(sink.Reports).RejectionHandled.Should().BeFalse();
+        sink.Reports.Should().ContainSingle().Which.RejectionHandled.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AHandlerAttachedLaterFiresRejectionHandled()
     {
         var (engine, _) = Silent();
@@ -455,7 +455,7 @@ public class GlobalErrorEventTests
         Log(engine).Should().Be("unhandled,handled:false");
     }
 
-    [Fact]
+    [Test]
     public void CancellingUnhandledRejectionDoesNotStarveTheSink()
     {
         var (engine, sink, _) = Reporting();
@@ -465,12 +465,12 @@ public class GlobalErrorEventTests
             Promise.reject(new Error('nope'));
             """);
 
-        Assert.Single(sink.Reports).Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
+        sink.Reports.Should().ContainSingle().Which.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
     }
 
     // Gating and lifetime
 
-    [Fact]
+    [Test]
     public void TheGlobalsAreAbsentWithoutTheFlag()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.Timers | WebApiFeatures.Reporting));
@@ -481,7 +481,7 @@ public class GlobalErrorEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheFlagFiresNothingAndPaysNothing()
     {
         // The hook sites are null-guarded on the synthetic target, which only the three global operations can
@@ -499,10 +499,10 @@ public class GlobalErrorEventTests
         clock.Advance(5);
         engine.Tasks.ProcessTasks();
 
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoneOfIt()
     {
         var engine = new Engine();
@@ -513,7 +513,7 @@ public class GlobalErrorEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ARestoreDropsTheListeners()
     {
         var (engine, _) = Silent();
@@ -536,7 +536,7 @@ public class GlobalErrorEventTests
         engine.Evaluate("seen").AsString().Should().Be("after");
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureCanBeEnabledOnALiveEngine()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));

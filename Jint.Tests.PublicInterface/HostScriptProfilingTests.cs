@@ -32,18 +32,18 @@ public class HostScriptProfilingTests
         root();
         """;
 
-    [Fact]
+    [Test]
     public void ADefaultEngineRefusesToProfile()
     {
         var engine = new Engine();
 
         engine.Diagnostics.IsProfiling.Should().BeFalse();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling());
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling())!;
         exception.Message.Should().Contain("Options.Profiling.Enabled");
     }
 
-    [Fact]
+    [Test]
     public void AHostCanProfileAnEngineItBuiltForIt()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
@@ -61,7 +61,7 @@ public class HostScriptProfilingTests
         profile.DurationNanoseconds.Should().BeGreaterThanOrEqualTo(0);
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesManyEnginesIndependently()
     {
         // Options are meant to be shared; a session belongs to the engine, not to the options it came from.
@@ -82,7 +82,7 @@ public class HostScriptProfilingTests
         second.Diagnostics.StopProfiling().Frames.Select(static f => f.Name).Should().Equal("b");
     }
 
-    [Fact]
+    [Test]
     public void MaxEventsBoundsWhatASessionCanCost()
     {
         var engine = new Engine(options =>
@@ -99,7 +99,7 @@ public class HostScriptProfilingTests
         profile.Events.Count.Should().BeLessThanOrEqualTo(50);
     }
 
-    [Fact]
+    [Test]
     public void TheExportedDocumentIsAValidSpeedscopeEventedProfile()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
@@ -154,7 +154,7 @@ public class HostScriptProfilingTests
     /// a function, an AST or an <see cref="Engine"/>. A host that profiles a pooled or per-request engine and
     /// keeps the profiles must not thereby keep the engines.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProfileDoesNotRetainTheEngineThatProducedIt()
     {
         const int Count = 10;
@@ -189,7 +189,7 @@ public class HostScriptProfilingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void StoppingWithoutStartingIsAnError()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
@@ -197,7 +197,7 @@ public class HostScriptProfilingTests
         Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
-    [Fact]
+    [Test]
     public void MaxEventsRejectsANonPositiveBudget()
     {
         var options = new Options();

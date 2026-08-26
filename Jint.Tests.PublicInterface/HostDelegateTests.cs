@@ -24,7 +24,7 @@ public class HostDelegateTests
 
     private static string Join(string separator, params object[] parts) => string.Join(separator, parts);
 
-    [Fact]
+    [Test]
     public void ZeroArgumentDelegate()
     {
         var engine = new Engine();
@@ -35,7 +35,7 @@ public class HostDelegateTests
         engine.Evaluate("f(1, 2)").AsString().Should().Be("zero");
     }
 
-    [Fact]
+    [Test]
     public void SingleArgumentDelegate()
     {
         var engine = new Engine();
@@ -47,7 +47,7 @@ public class HostDelegateTests
             .AsNumber().Should().Be(90);
     }
 
-    [Fact]
+    [Test]
     public void TwoAndThreeArgumentDelegates()
     {
         var engine = new Engine();
@@ -58,7 +58,7 @@ public class HostDelegateTests
         engine.Evaluate("three(1, 2, 3)").AsString().Should().Be("1/2/3");
     }
 
-    [Fact]
+    [Test]
     public void OverSuppliedArgumentsAreIgnored()
     {
         var engine = new Engine();
@@ -67,7 +67,7 @@ public class HostDelegateTests
         engine.Evaluate("f(1, 99, 100)").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void UnderSuppliedArgumentsGetClrDefaults()
     {
         var engine = new Engine();
@@ -81,7 +81,7 @@ public class HostDelegateTests
         engine.Evaluate("two(7)").AsString().Should().Be("7/0");
     }
 
-    [Fact]
+    [Test]
     public void OptionalClrParametersAreNotSubstituted()
     {
         // A delegate over a method with an optional parameter is still bound positionally: the elided
@@ -98,7 +98,7 @@ public class HostDelegateTests
         static string WithOptional(int a, int b = 5) => $"{a}/{b}";
     }
 
-    [Fact]
+    [Test]
     public void ParamsArrayDelegate()
     {
         var engine = new Engine();
@@ -109,7 +109,7 @@ public class HostDelegateTests
         engine.Evaluate("sum(1, 2, 3, 4)").AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void ParamsArrayDelegateWithLeadingParameter()
     {
         var engine = new Engine();
@@ -129,7 +129,7 @@ public class HostDelegateTests
         return string.Join(",", parts);
     }
 
-    [Fact]
+    [Test]
     public void ParamsJsValueArrayDelegatePassesEveryArgumentThrough()
     {
         // A `params JsValue[]` tail is the one params shape whose elements need no conversion at all, so
@@ -146,7 +146,7 @@ public class HostDelegateTests
             .Should().Be("String,Number");
     }
 
-    [Fact]
+    [Test]
     public void ValueReferenceAndVoidReturnTypes()
     {
         var engine = new Engine();
@@ -167,7 +167,7 @@ public class HostDelegateTests
         sideEffects.Should().Equal(3, -1);
     }
 
-    [Fact]
+    [Test]
     public void NumericParametersOfEveryWidthBind()
     {
         // The numeric parameter shapes whose boxed representation does not simply follow from the
@@ -185,7 +185,7 @@ public class HostDelegateTests
         engine.Evaluate("asNullable(null)").AsString().Should().Be("none");
     }
 
-    [Fact]
+    [Test]
     public void JsValueParametersArePassedThroughUnconverted()
     {
         var engine = new Engine();
@@ -195,7 +195,7 @@ public class HostDelegateTests
         engine.Evaluate("describe(undefined, null)").AsString().Should().Be("Undefined/Null");
     }
 
-    [Fact]
+    [Test]
     public void AJsValueParameterNarrowerThanItsArgumentKeepsTheBinderError()
     {
         // A JsValue-typed parameter takes its argument straight through unconverted, so nothing before
@@ -216,7 +216,7 @@ public class HostDelegateTests
         public void Record(object value) => Values.Add(value);
     }
 
-    [Fact]
+    [Test]
     public void AVarianceRelaxedDelegateKeepsTheBinderError()
     {
         // Relaxed delegate binding lets the target's parameter be a base type of the delegate's own, so an
@@ -236,7 +236,7 @@ public class HostDelegateTests
         Invoking(() => engine.Execute("f(1);")).Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void AnOpenInstanceDelegateIsNotMisbound()
     {
         // The delegate type's Invoke declares the receiver as its first parameter while the target
@@ -253,7 +253,7 @@ public class HostDelegateTests
         Invoking(() => engine.Execute("len('abcd');")).Should().Throw<TargetParameterCountException>();
     }
 
-    [Fact]
+    [Test]
     public void ThrowingDelegateBubblesTheClrException()
     {
         var engine = new Engine();
@@ -268,7 +268,7 @@ public class HostDelegateTests
         exception.StackTrace.Should().Contain(nameof(ThrowingDelegateBubblesTheClrException));
     }
 
-    [Fact]
+    [Test]
     public void ThrowingDelegateIsCatchableWhenClrExceptionsAreCaught()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -278,7 +278,7 @@ public class HostDelegateTests
             .AsString().Should().Be("A host operation failed.");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingDelegateKeepsTheJavaScriptStackTrace()
     {
         var engine = new Engine();
@@ -297,7 +297,7 @@ public class HostDelegateTests
         jsException.Message.Should().Be("inner");
     }
 
-    [Fact]
+    [Test]
     public void AwaitableResultsBecomePromises()
     {
         var engine = new Engine();
@@ -307,7 +307,7 @@ public class HostDelegateTests
         promise.UnwrapIfPromise().AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void TheSameDelegateInstanceWorksOnTwoEngines()
     {
         var shared = new Func<int, int>(x => x * 3);
@@ -322,7 +322,7 @@ public class HostDelegateTests
         first.Evaluate("f(4)").AsNumber().Should().Be(12);
     }
 
-    [Fact]
+    [Test]
     public void CapturedStateIsPerDelegateNotPerTargetMethod()
     {
         // Both lambdas compile to the same MethodInfo, which is the metadata cache key - registering
@@ -338,7 +338,7 @@ public class HostDelegateTests
         second.Evaluate("f(10)").AsNumber().Should().Be(110);
     }
 
-    [Fact]
+    [Test]
     public void DirectInvokeAgreesWithTheInterpretedCallSite()
     {
         // Engine.Invoke always takes the array-based entry point while a repeated interpreted call site
@@ -364,7 +364,7 @@ public class HostDelegateTests
     // once a site has dispatched at least once — is the one under test. Each has an unwarmed twin above;
     // together they pin that the specialized lane answers identically.
 
-    [Fact]
+    [Test]
     public void AWarmedSiteConvertsAndReturnsExactlyAsAColdOne()
     {
         var engine = new Engine();
@@ -385,7 +385,7 @@ public class HostDelegateTests
         engine.Evaluate("callNullable(null)").AsString().Should().Be("none");
     }
 
-    [Fact]
+    [Test]
     public void AWarmedVarianceRelaxedSiteKeepsTheBinderError()
     {
         // The unwarmed twin is AVarianceRelaxedDelegateKeepsTheBinderError. The specialized lane declines
@@ -402,7 +402,7 @@ public class HostDelegateTests
         Invoking(() => engine.Execute("call(1);")).Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void AWarmedJsValueParameterNarrowerThanItsArgumentKeepsTheBinderError()
     {
         var engine = new Engine();
@@ -413,7 +413,7 @@ public class HostDelegateTests
         Invoking(() => engine.Execute("call(1);")).Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void AWarmedSiteKeepsTheHostExceptionAndItsThrowSite()
     {
         var engine = new Engine();
@@ -428,7 +428,7 @@ public class HostDelegateTests
         exception.StackTrace.Should().Contain(nameof(AWarmedSiteKeepsTheHostExceptionAndItsThrowSite));
     }
 
-    [Fact]
+    [Test]
     public void AWarmedSiteStillConvertsAnAwaitableResult()
     {
         var engine = new Engine();

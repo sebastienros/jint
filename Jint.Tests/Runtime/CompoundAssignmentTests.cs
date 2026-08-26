@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class CompoundAssignmentTests
 {
-    [Fact]
+    [Test]
     public void StringAppendLoopInFunction()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -17,7 +17,7 @@ public class CompoundAssignmentTests
         result.Should().Be(string.Concat(Enumerable.Repeat("ab", 100)));
     }
 
-    [Fact]
+    [Test]
     public void RightSideReassignmentPinsCurrentInPlaceAppendBehavior()
     {
         // The materialized lane skips the write-back when the rope was mutated in place,
@@ -29,7 +29,7 @@ public class CompoundAssignmentTests
         result.Should().Be("z");
     }
 
-    [Fact]
+    [Test]
     public void RightSideReassignmentOnNumberSlot()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -38,7 +38,7 @@ public class CompoundAssignmentTests
         result.Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignToConstThrowsTypeError()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -47,7 +47,7 @@ public class CompoundAssignmentTests
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignInTemporalDeadZoneThrowsReferenceError()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -56,7 +56,7 @@ public class CompoundAssignmentTests
         ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NumberSlotWithStringRightHandSide()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -65,7 +65,7 @@ public class CompoundAssignmentTests
         result.Should().Be("2x");
     }
 
-    [Fact]
+    [Test]
     public void RightSideReassignmentPinnedInEvalBody()
     {
         // eval bodies have completion-value semantics, so their expression statements take the
@@ -76,7 +76,7 @@ public class CompoundAssignmentTests
         result.Should().Be("z");
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignmentIsTheEvalCompletionValue()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -85,7 +85,7 @@ public class CompoundAssignmentTests
         engine.Evaluate("eval(\"var q = 'a'; var t = (q += 'b'); t + '|' + q;\")").AsString().Should().Be("ab|ab");
     }
 
-    [Fact]
+    [Test]
     public void ConstCompoundAssignInEvalThrowsTypeError()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -94,7 +94,7 @@ public class CompoundAssignmentTests
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void StringAppendLoopInsideEval()
     {
         var engine = new Engine(static options => options.Strict = true);

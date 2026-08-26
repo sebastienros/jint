@@ -14,15 +14,14 @@ public class Base64Tests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Base64));
 
-    [Theory]
-    [InlineData("", "")]
-    [InlineData("f", "Zg==")]
-    [InlineData("fo", "Zm8=")]
-    [InlineData("foo", "Zm9v")]
-    [InlineData("foob", "Zm9vYg==")]
-    [InlineData("fooba", "Zm9vYmE=")]
-    [InlineData("foobar", "Zm9vYmFy")]
-    [InlineData("hello world", "aGVsbG8gd29ybGQ=")]
+    [TestCase("", "")]
+    [TestCase("f", "Zg==")]
+    [TestCase("fo", "Zm8=")]
+    [TestCase("foo", "Zm9v")]
+    [TestCase("foob", "Zm9vYg==")]
+    [TestCase("fooba", "Zm9vYmE=")]
+    [TestCase("foobar", "Zm9vYmFy")]
+    [TestCase("hello world", "aGVsbG8gd29ybGQ=")]
     public void BtoaEncodesTheRfc4648Vectors(string input, string expected)
     {
         var engine = WebEngine();
@@ -31,7 +30,7 @@ public class Base64Tests
         engine.Evaluate("btoa(input)").AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void BtoaTakesOneByteFromEachCodeUnit()
     {
         var engine = WebEngine();
@@ -41,19 +40,18 @@ public class Base64Tests
         engine.Evaluate("btoa('\\u0000\\u0001\\u00fe\\u00ff')").AsString().Should().Be("AAH+/w==");
     }
 
-    [Theory]
-    [InlineData("\\u0100")]
-    [InlineData("a\\u0100b")]
-    [InlineData("€")]
+    [TestCase("\\u0100")]
+    [TestCase("a\\u0100b")]
+    [TestCase("€")]
     // btoa takes a DOMString, not a USVString, so a lone surrogate is not replaced by U+FFFD first — it
     // is simply a code unit above U+00FF.
-    [InlineData("\\ud800")]
-    [InlineData("😀")]
+    [TestCase("\\ud800")]
+    [TestCase("😀")]
     public void BtoaRefusesACodeUnitAboveLatin1(string input)
     {
         var engine = WebEngine();
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate($"btoa('{input}')"));
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate($"btoa('{input}')"))!;
 
         exception.Error.Get("name").AsString().Should().Be("InvalidCharacterError");
         exception.Error.Get("code").AsNumber().Should().Be(5);
@@ -61,16 +59,15 @@ public class Base64Tests
         engine.Evaluate("thrown instanceof DOMException").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("", "")]
-    [InlineData("Zg==", "f")]
-    [InlineData("Zm8=", "fo")]
-    [InlineData("Zm9v", "foo")]
-    [InlineData("aGVsbG8gd29ybGQ=", "hello world")]
+    [TestCase("", "")]
+    [TestCase("Zg==", "f")]
+    [TestCase("Zm8=", "fo")]
+    [TestCase("Zm9v", "foo")]
+    [TestCase("aGVsbG8gd29ybGQ=", "hello world")]
     // Unpadded input is accepted: this is where "forgiving" starts.
-    [InlineData("Zg", "f")]
-    [InlineData("Zm8", "fo")]
-    [InlineData("Zm9vYg", "foob")]
+    [TestCase("Zg", "f")]
+    [TestCase("Zm8", "fo")]
+    [TestCase("Zm9vYg", "foob")]
     public void AtobDecodes(string input, string expected)
     {
         var engine = WebEngine();
@@ -79,13 +76,12 @@ public class Base64Tests
         engine.Evaluate("atob(input)").AsString().Should().Be(expected);
     }
 
-    [Theory]
     // Step 1 removes ASCII whitespace from anywhere, not just the ends.
-    [InlineData(" Zm9v ")]
-    [InlineData("Zm\n9v")]
-    [InlineData("Z m 9 v")]
-    [InlineData("\tZ\rm\f9v")]
-    [InlineData("Zm9v\n")]
+    [TestCase(" Zm9v ")]
+    [TestCase("Zm\n9v")]
+    [TestCase("Z m 9 v")]
+    [TestCase("\tZ\rm\f9v")]
+    [TestCase("Zm9v\n")]
     public void AtobStripsAsciiWhitespaceAnywhere(string input)
     {
         var engine = WebEngine();
@@ -94,39 +90,38 @@ public class Base64Tests
         engine.Evaluate("atob(input)").AsString().Should().Be("foo");
     }
 
-    [Theory]
     // A code point outside the alphabet.
-    [InlineData("a*bc")]
-    [InlineData("ab-c")]
-    [InlineData("ab_c")]
-    [InlineData("Zm9v!")]
+    [TestCase("a*bc")]
+    [TestCase("ab-c")]
+    [TestCase("ab_c")]
+    [TestCase("Zm9v!")]
     // U+000B VT is not ASCII whitespace, so it is a stray code point rather than something to strip.
-    [InlineData("Zm\u000B9v")]
+    [TestCase("Zm\u000B9v")]
     // Step 3: a length that leaves a remainder of one.
-    [InlineData("a")]
-    [InlineData("abcde")]
+    [TestCase("a")]
+    [TestCase("abcde")]
     // Padding is only removed when the length already divides by four, so these keep their '=' and then
     // fail the alphabet check.
-    [InlineData("Zg=")]
-    [InlineData("Zg===")]
-    [InlineData("=")]
-    [InlineData("==")]
-    [InlineData("====")]
-    [InlineData("Zm9vYg====")]
+    [TestCase("Zg=")]
+    [TestCase("Zg===")]
+    [TestCase("=")]
+    [TestCase("==")]
+    [TestCase("====")]
+    [TestCase("Zm9vYg====")]
     // '=' in the middle is never removed.
-    [InlineData("Z=9v")]
+    [TestCase("Z=9v")]
     public void AtobRefusesWhatForgivingBase64CallsFailure(string input)
     {
         var engine = WebEngine();
 
         engine.SetValue("input", input);
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("atob(input)"));
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("atob(input)"))!;
 
         exception.Error.Get("name").AsString().Should().Be("InvalidCharacterError");
         exception.Error.Get("code").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void AtobRemovesAtMostTwoPaddingCodePoints()
     {
         var engine = WebEngine();
@@ -141,7 +136,7 @@ public class Base64Tests
         engine.Evaluate("atob('Zm9vYg= =')").AsString().Should().Be("foob");
     }
 
-    [Fact]
+    [Test]
     public void AtobProducesAByteString()
     {
         var engine = WebEngine();
@@ -153,7 +148,7 @@ public class Base64Tests
             """).AsString().Should().Be("4,0,1,254,255");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsEveryByteValue()
     {
         var engine = WebEngine();
@@ -165,7 +160,7 @@ public class Base64Tests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CoercesItsArgumentToAString()
     {
         var engine = WebEngine();
@@ -179,7 +174,7 @@ public class Base64Tests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("atob(undefined)"));
     }
 
-    [Fact]
+    [Test]
     public void AreOrdinaryGlobalFunctions()
     {
         var engine = WebEngine();

@@ -42,7 +42,7 @@ public class InteropWrapperMemberCacheTests
         public int Fixed => 42;
     }
 
-    [Fact]
+    [Test]
     public void PropertyReadsAndWritesInLoopStayLive()
     {
         var host = new CountingHost();
@@ -64,7 +64,7 @@ public class InteropWrapperMemberCacheTests
         host.WrittenValues.Should().Equal(Enumerable.Range(0, 10));
     }
 
-    [Fact]
+    [Test]
     public void ClrSideMutationsBetweenIterationsAreVisible()
     {
         var host = new CountingHost();
@@ -85,7 +85,7 @@ public class InteropWrapperMemberCacheTests
         host.Reads.Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyOnWrapperMidLoopInvalidatesReadCache()
     {
         var engine = CreateEngine().SetValue("host", new CountingHost());
@@ -105,7 +105,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be("first,first,first,redefined,redefined,redefined");
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyOnWrapperMidLoopInvalidatesMethodCallCache()
     {
         var engine = CreateEngine().SetValue("host", new CountingHost());
@@ -124,7 +124,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be("5,5,5,6,6,6");
     }
 
-    [Fact]
+    [Test]
     public void AlternatingWrapperInstancesAtOneCallSiteDoNotCrossContaminate()
     {
         var first = new CountingHost();
@@ -153,7 +153,7 @@ public class InteropWrapperMemberCacheTests
         second.value.Should().Be(32);
     }
 
-    [Fact]
+    [Test]
     public void AlternatingWrapperAndPlainObjectAtOneCallSiteKeepsCorrectValues()
     {
         var host = new CountingHost();
@@ -173,7 +173,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be("7,p,7,p,7,p");
     }
 
-    [Fact]
+    [Test]
     public void DictionaryBackedWrapperMembersStayDynamic()
     {
         var dictionary = new Dictionary<string, object>();
@@ -199,7 +199,7 @@ public class InteropWrapperMemberCacheTests
         dictionary.ContainsKey("key").Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyClrPropertyWriteIsIgnoredInSloppyMode()
     {
         var engine = CreateEngine().SetValue("host", new ReadOnlyHost());
@@ -217,7 +217,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be("42,42,42,42,42,42");
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyClrPropertyWriteThrowsTypeErrorInStrictMode()
     {
         var engine = CreateEngine().SetValue("host", new ReadOnlyHost());
@@ -243,7 +243,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be("42,42,true,true,true,42");
     }
 
-    [Fact]
+    [Test]
     public void FastLaneAgreesWithForcedSlowLaneAcrossMutations()
     {
         var host = new CountingHost();
@@ -268,7 +268,7 @@ public class InteropWrapperMemberCacheTests
         result.Should().Be(string.Join(",", Enumerable.Repeat("true", 10)));
     }
 
-    [Fact]
+    [Test]
     public void CustomMemberAccessorMembersAreNotCached()
     {
         var calls = 0;

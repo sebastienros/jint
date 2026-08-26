@@ -45,10 +45,9 @@ public class StringIterationTests
     /// V itself as the receiver, and the wrapper carries no own <c>@@iterator</c>, so the lane never has to
     /// build one.
     /// </summary>
-    [Theory]
-    [InlineData(ArrayFromBody)]
-    [InlineData(SpreadBody)]
-    [InlineData(ForOfBody)]
+    [TestCase(ArrayFromBody)]
+    [TestCase(SpreadBody)]
+    [TestCase(ForOfBody)]
     public void IteratingAPrimitiveStringReadsTheIteratorOnce(string consume)
     {
         Probe("String.prototype", "'hi'", consume)
@@ -63,17 +62,16 @@ public class StringIterationTests
     /// (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization). node reports <c>this</c> as
     /// "string", and so does Jint now — which also means the string lane is entered here as it is everywhere else.
     /// </summary>
-    [Fact]
+    [Test]
     public void DestructuringAPrimitiveStringReadsTheIteratorOnce()
     {
         Probe("String.prototype", "'hi'", "var [a, b] = v; return [a, b];")
             .Should().Be("""reads=1 this=string result=["h","i"]""");
     }
 
-    [Theory]
-    [InlineData(ArrayFromBody)]
-    [InlineData(SpreadBody)]
-    [InlineData(ForOfBody)]
+    [TestCase(ArrayFromBody)]
+    [TestCase(SpreadBody)]
+    [TestCase(ForOfBody)]
     public void IteratingABoxedStringReadsTheIteratorOnce(string consume)
     {
         Probe("String.prototype", "new String('hi')", consume)
@@ -83,10 +81,9 @@ public class StringIterationTests
     /// <summary>
     /// A receiver with no fast lane behind it was already reading once; it must stay that way.
     /// </summary>
-    [Theory]
-    [InlineData(ArrayFromBody)]
-    [InlineData(SpreadBody)]
-    [InlineData(ForOfBody)]
+    [TestCase(ArrayFromBody)]
+    [TestCase(SpreadBody)]
+    [TestCase(ForOfBody)]
     public void IteratingANumberReadsTheIteratorOnce(string consume)
     {
         new Engine().Evaluate($$"""
@@ -107,7 +104,7 @@ public class StringIterationTests
     /// resolve <c>@@iterator</c> itself (spread, for-of) and the one handed an already-resolved method
     /// (<c>Array.from</c>, <c>Iterator.from</c>), which reaches the lane by identity and reads nothing at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUntouchedStringPrototypeKeepsTheDirectIterationLane()
     {
         var engine = new Engine();
@@ -126,7 +123,7 @@ public class StringIterationTests
     /// And the converse: once <c>@@iterator</c> is something else, the lane must not engage — a fast path that
     /// cannot be turned off is a correctness bug rather than an optimization.
     /// </summary>
-    [Fact]
+    [Test]
     public void AReplacedStringIteratorLeavesTheDirectLane()
     {
         var engine = new Engine();
@@ -145,7 +142,7 @@ public class StringIterationTests
         engine.Evaluate("JSON.stringify(Array.from('hi'))").AsString().Should().Be("""["X","Y"]""");
     }
 
-    [Fact]
+    [Test]
     public void ANonCallableStringIteratorIsATypeError()
     {
         var engine = new Engine();
@@ -159,7 +156,7 @@ public class StringIterationTests
     /// With <c>@@iterator</c> gone a string is not iterable, but <c>Array.from</c> still has the array-like
     /// fallback to fall back on.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADeletedStringIteratorMakesTheStringNonIterable()
     {
         var engine = new Engine();
@@ -172,10 +169,9 @@ public class StringIterationTests
     /// <summary>
     /// The direct lane iterates by code point, not by UTF-16 code unit.
     /// </summary>
-    [Theory]
-    [InlineData(ArrayFromBody)]
-    [InlineData(SpreadBody)]
-    [InlineData(ForOfBody)]
+    [TestCase(ArrayFromBody)]
+    [TestCase(SpreadBody)]
+    [TestCase(ForOfBody)]
     public void TheDirectLaneIteratesBySurrogatePair(string consume)
     {
         new Engine().Evaluate($$"""JSON.stringify((function (v) { {{consume}} })('a\u{1F600}b'))""")
@@ -189,7 +185,7 @@ public class StringIterationTests
     /// implementation, which asks for <c>@@asyncIterator</c> first as
     /// https://tc39.es/ecma262/#sec-getiterator prescribes.
     /// </summary>
-    [Fact]
+    [Test]
     public void ForAwaitOverAStringHonoursAnAsyncIterator()
     {
         var engine = new Engine();
@@ -212,7 +208,7 @@ public class StringIterationTests
     /// <summary>
     /// Without one, <c>for await</c> still walks the string, through the sync-to-async adapter.
     /// </summary>
-    [Fact]
+    [Test]
     public void ForAwaitOverAStringFallsBackToTheSyncIterator()
     {
         var engine = new Engine();
@@ -234,7 +230,7 @@ public class StringIterationTests
     /// primitive string whose <c>HasOriginalIterator</c> answered true, which routed array destructuring of it
     /// through the array-like shortcut rather than through an iterator.
     /// </summary>
-    [Fact]
+    [Test]
     public void StringPrototypeIteratesAsTheEmptyString()
     {
         var engine = new Engine();

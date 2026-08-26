@@ -47,7 +47,7 @@ public class GlobalSnapshotTests
     /// surface can touch — not deleting the global, not re-setting it, not removing an own property. This
     /// stays true with the feature in place; it is the reason the feature exists.
     /// </summary>
-    [Fact]
+    [Test]
     public void TopLevelLetCannotBeClearedByAnyOtherPublicMeans()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ public class GlobalSnapshotTests
             .WithMessage("*already been declared*");
     }
 
-    [Fact]
+    [Test]
     public void RestoreClearsTopLevelLexicalDeclarationsSoTheSameScriptRunsAgain()
     {
         var engine = new Engine();
@@ -82,7 +82,7 @@ public class GlobalSnapshotTests
         engine.Evaluate(script).AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void RestoreLeavesLexicalNamesRedeclarableAsAnyKind()
     {
         var engine = new Engine();
@@ -98,7 +98,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("var shared = 3; shared").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void LexicalDeclarationsPresentAtCaptureTimeAreRestored()
     {
         var engine = new Engine();
@@ -118,7 +118,7 @@ public class GlobalSnapshotTests
     // Global object own properties
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void RestoreRemovesScriptAddedGlobals()
     {
         var engine = new Engine();
@@ -138,7 +138,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("typeof globalThis.assigned").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RestoreRemovesScriptAddedSymbolKeyedGlobals()
     {
         var engine = new Engine();
@@ -156,7 +156,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("Object.prototype.toString.call(globalThis)").AsString().Should().Be(pristineTag);
     }
 
-    [Fact]
+    [Test]
     public void RestoreReinstatesADeletedBuiltinGlobal()
     {
         var engine = new Engine();
@@ -171,7 +171,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("parseInt('42')").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsAnOverwrittenBuiltinGlobal()
     {
         var engine = new Engine();
@@ -186,7 +186,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("Math.max(1, 2)").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsAnOverwrittenHostGlobalWrittenByAssignment()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("hostFn()").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsAFlagsOnlyDefinePropertyFlip()
     {
         var engine = new Engine();
@@ -222,7 +222,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("hostValue = 42; hostValue").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsADefinePropertyValueOverwriteOfABuiltin()
     {
         var engine = new Engine();
@@ -236,7 +236,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("JSON.stringify(1)").AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsAnAccessorDefinedOnTheGlobal()
     {
         var engine = new Engine();
@@ -251,7 +251,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("'trap' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsAnAccessorDefinedOverAnExistingHostGlobal()
     {
         var engine = new Engine();
@@ -267,7 +267,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(globalThis, 'hostValue').get === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RestoreRevertsThePrototypeAndExtensibilityOfTheGlobal()
     {
         var engine = new Engine();
@@ -284,7 +284,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("var afterRestore = 1; afterRestore").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RestorePreservesTheIdentityOfTheGlobalObject()
     {
         var engine = new Engine();
@@ -298,7 +298,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("globalThis === this").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RestoreKeepsTheGlobalInItsSharedBuiltinLayoutAfterADeopt()
     {
         var engine = new Engine();
@@ -317,7 +317,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("JSON.stringify([Math.max(1, 2), parseInt('3')])").AsString().Should().Be("[2,3]");
     }
 
-    [Fact]
+    [Test]
     public void ASecondScriptSeesThePristineEnvironment()
     {
         var engine = new Engine();
@@ -344,7 +344,7 @@ public class GlobalSnapshotTests
     /// them to push the global's overflow storage past its small-table cutover, so the rebuild is exercised
     /// on both representations, and the own-key order has to come back exactly as captured.
     /// </summary>
-    [Fact]
+    [Test]
     public void RestoreRebuildsAWideGlobalSurfaceInItsCapturedOrder()
     {
         var engine = new Engine();
@@ -376,7 +376,7 @@ public class GlobalSnapshotTests
     // Cleared carry-over
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void RestoreDiscardsPendingPromiseContinuations()
     {
         static Engine Arrange()
@@ -412,7 +412,7 @@ public class GlobalSnapshotTests
     /// B's global surface. Deterministic: <c>RegisterPromise</c>'s resolve enqueues and drains synchronously
     /// on the calling thread, so there is no scheduling to wait on.
     /// </summary>
-    [Fact]
+    [Test]
     public void APromiseRegisteredBeforeARestoreDoesNotResumeItsContinuationAfterwards()
     {
         static (Engine Engine, ManualPromise Handle) Arrange()
@@ -450,7 +450,7 @@ public class GlobalSnapshotTests
     /// so only the pending-operation count can tell restore that an evaluation the host still holds is in
     /// flight.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task RestoringWhileAnAsyncEvaluationIsOutstandingIsRejected()
     {
         var engine = new Engine();
@@ -472,7 +472,7 @@ public class GlobalSnapshotTests
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
     }
 
-    [Fact]
+    [Test]
     public void RestoreClearsTheRegExpLegacyStatics()
     {
         var engine = new Engine();
@@ -492,7 +492,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("RegExp.rightContext").AsString().Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void RestoreDropsExpandosLeftOnAWrappedHostObject()
     {
         var config = new Config();
@@ -512,7 +512,7 @@ public class GlobalSnapshotTests
     // Lazily materialized globals
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void CaptureDoesNotMaterializeALazyGlobal()
     {
         var calls = 0;
@@ -526,7 +526,7 @@ public class GlobalSnapshotTests
         calls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RestoreReturnsAnOverwrittenLazyGlobalToItsUnmaterializedState()
     {
         var calls = 0;
@@ -581,7 +581,7 @@ public class GlobalSnapshotTests
     /// anyway would not restore the property — it would only make the field disagree with the value reads
     /// resolve to, which is a worse failure than the documented one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostDescriptorHoldingItsValueOutsideTheEngineIsNotReverted()
     {
         var engine = new Engine();
@@ -605,7 +605,7 @@ public class GlobalSnapshotTests
     /// <summary>
     /// The flag half is still reverted: attributes are the engine's own state, wherever the value lives.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostDescriptorsAttributeFlagsAreStillReverted()
     {
         var engine = new Engine();
@@ -642,7 +642,7 @@ public class GlobalSnapshotTests
     /// see both halves quietly no-op, and every restore would report success while the script's changes stayed
     /// in place.
     /// </summary>
-    [Fact]
+    [Test]
     public void CapturingAGlobalThatResolvesItsOwnPropertiesIsRefused()
     {
         var engine = new Engine(options => options.UseHostFactory(_ => new ProjectingGlobalHost()));
@@ -656,7 +656,7 @@ public class GlobalSnapshotTests
     // Lifecycle and misuse
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ASnapshotFromAnotherEngineIsRejected()
     {
         var a = new Engine();
@@ -668,14 +668,14 @@ public class GlobalSnapshotTests
             .WithMessage("*different engine*");
     }
 
-    [Fact]
+    [Test]
     public void ANullSnapshotIsRejected()
     {
         var engine = new Engine();
         Invoking(() => engine.Advanced.RestoreGlobalSnapshot(null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void RestoringDuringAnEvaluationIsRejected()
     {
         var engine = new Engine();
@@ -699,7 +699,7 @@ public class GlobalSnapshotTests
         caught.Should().BeOfType<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void RestoringFromInsideAHostCallWithNoScriptOnTheStackIsRejected()
     {
         // The sibling above re-enters from a callback invoked BY script, so the engine has an
@@ -727,7 +727,7 @@ public class GlobalSnapshotTests
         caught.Should().BeOfType<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void RestoringAfterEveryHostCallHasReturnedIsAllowed()
     {
         // The counterpart to the two above: once the entry has unwound the engine is idle again and
@@ -745,7 +745,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("marker").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RestoringTwiceInARowIsANoOpTheSecondTime()
     {
         var engine = new Engine();
@@ -763,7 +763,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("let l = 5; l").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void CaptureRestoreCaptureLayersCorrectly()
     {
         var engine = new Engine();
@@ -786,7 +786,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("stage").AsString().Should().Be("one");
     }
 
-    [Fact]
+    [Test]
     public void RestoreWithAnImmediatelyTakenSnapshotDegradesToClearingLexicalDeclarations()
     {
         // the narrower "clear the let/const bindings only" primitive, for free
@@ -810,7 +810,7 @@ public class GlobalSnapshotTests
     /// intrinsic graph, which is re-creating the realm — i.e. <c>new Engine</c>. Asserted here so the
     /// contract cannot drift silently in either direction.
     /// </summary>
-    [Fact]
+    [Test]
     public void ObjectPrototypePollutionSurvivesRestore()
     {
         var engine = new Engine();
@@ -823,7 +823,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("[7].first()").AsNumber().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void AFrozenPrototypeStaysFrozenAcrossRestore()
     {
         var engine = new Engine();
@@ -835,7 +835,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("Object.isFrozen(Object.prototype)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ADeletedPrototypeMethodStaysDeletedAcrossRestore()
     {
         var engine = new Engine();
@@ -851,7 +851,7 @@ public class GlobalSnapshotTests
     /// Restore reverts the global's own property <em>table</em>, never the contents of the values in it: a
     /// binding is put back pointing at the same object, mutations and all.
     /// </summary>
-    [Fact]
+    [Test]
     public void MutationsInsideAnObjectGraphBehindARestoredBindingSurvive()
     {
         var engine = new Engine();
@@ -868,7 +868,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("holder.added").AsString().Should().Be("new");
     }
 
-    [Fact]
+    [Test]
     public void HostClrStateChangedThroughInteropSurvivesRestore()
     {
         var config = new Config();
@@ -884,7 +884,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("config.X").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void TheSymbolForRegistrySurvivesRestore()
     {
         var engine = new Engine();
@@ -896,7 +896,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("Symbol.keyFor(Symbol.for('shared'))").AsString().Should().Be("shared");
     }
 
-    [Fact]
+    [Test]
     public void RegisteredModulesSurviveRestore()
     {
         var engine = new Engine();
@@ -928,7 +928,7 @@ public class GlobalSnapshotTests
     /// a second time after the restore, but it answers with the object it kept — so the next cycle sees the
     /// previous cycle's mutations. This is the shape every in-box lazy global has.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALazyGlobalWhoseFactoryMemoizesHandsBackTheSameObjectAfterRestore()
     {
         var runs = 0;
@@ -961,7 +961,7 @@ public class GlobalSnapshotTests
     /// cycle a genuinely fresh object. Jint's own <c>process</c> shim is the one in-box global of this
     /// shape; everything else memoizes.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALazyGlobalWhoseFactoryConstructsHandsBackAFreshObjectAfterRestore()
     {
         var runs = 0;
@@ -992,7 +992,7 @@ public class GlobalSnapshotTests
     /// again, whatever it would have answered. Which is why the documented recipe is to capture after host
     /// configuration and before evaluating anything.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALazyGlobalCapturedAfterItsFirstReadIsReinstatedRatherThanRebuilt()
     {
         var runs = 0;
@@ -1022,7 +1022,7 @@ public class GlobalSnapshotTests
     /// intrinsic — structurally the same global as <c>console</c>, and the reason the answer for the web
     /// APIs cannot be different from the answer here without the engine contradicting itself.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnIntrinsicNamespaceObjectIsTheSameObjectAfterRestoreAndKeepsWhatWasWrittenOnIt()
     {
         var engine = new Engine();
@@ -1051,7 +1051,7 @@ public class GlobalSnapshotTests
     /// live on the realm and come back unchanged. Asserting both here is the point — the difference is not
     /// about laziness, it is about whether anything but the slot is holding the value.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ABuiltInFunctionSlotOnTheGlobalObjectIsRebuiltByARestore()
     {
         var engine = new Engine();
@@ -1076,7 +1076,7 @@ public class GlobalSnapshotTests
     // The point of the feature: host configuration is what survives
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void HostConfigurationSurvivesEveryKindOfScriptDamage()
     {
         var engine = new Engine(o => o.AllowClr());
@@ -1114,7 +1114,7 @@ public class GlobalSnapshotTests
     // the part that is easy to leave out, and leaving it out is invisible until a script throws: the
     // globals that evaluation declared are then handed to the next caller.
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsRestoresAfterNormalCompletion()
     {
         var engine = new Engine();
@@ -1132,7 +1132,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsRestoresWhenTheActionThrowsAndTheExceptionPropagates()
     {
         var engine = new Engine();
@@ -1151,7 +1151,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsRestoresWhenTheSCRIPTThrows()
     {
         var engine = new Engine();
@@ -1164,7 +1164,7 @@ public class GlobalSnapshotTests
         engine.Evaluate("let lexical = 3; lexical").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsRunsTheRestoreExactlyOnce()
     {
         var engine = new Engine();
@@ -1179,7 +1179,7 @@ public class GlobalSnapshotTests
         engine.Advanced.WithRestoredGlobals(snapshot, () => engine.Evaluate("let a = 1;"));
     }
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsRejectsNullArguments()
     {
         var engine = new Engine();
@@ -1189,7 +1189,7 @@ public class GlobalSnapshotTests
         Invoking(() => engine.Advanced.WithRestoredGlobals(snapshot, null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void WithRestoredGlobalsLetsTheRestoresOwnGuardsSpeak()
     {
         var a = new Engine();

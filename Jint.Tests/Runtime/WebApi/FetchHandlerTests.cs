@@ -49,7 +49,7 @@ public class FetchHandlerTests
             Content = new StringContent(body, Encoding.UTF8, mediaType),
         };
 
-    [Fact]
+    [Test]
     public void TheRequestIsARealRequestWithTheWholeBodyMixin()
     {
         var engine = Handler("""
@@ -72,7 +72,7 @@ public class FetchHandlerTests
         Answer(engine, Post("{\"n\":7}")).Should().Be("true,true,false,true,7");
     }
 
-    [Fact]
+    [Test]
     public void ASecondReadOfTheBodyRejectsTheWayItWouldInABrowser()
     {
         var engine = Handler("""
@@ -92,7 +92,7 @@ public class FetchHandlerTests
         Answer(engine, Post("{}")).Should().Be("TypeError: Body has already been consumed");
     }
 
-    [Fact]
+    [Test]
     public void AContentWithNoBytesIsANullBodyRatherThanAnEmptyOne()
     {
         var engine = Handler("""
@@ -116,7 +116,7 @@ public class FetchHandlerTests
         Answer(engine, request).Should().Be("false,true,true");
     }
 
-    [Fact]
+    [Test]
     public void TheRequestSignalIsAnAbortSignalThatNothingFires()
     {
         var engine = Handler("""
@@ -139,7 +139,7 @@ public class FetchHandlerTests
         Answer(engine, Post("{}")).Should().Be("true,false,false");
     }
 
-    [Fact]
+    [Test]
     public void EquallyNamedHeadersCombineTheWayTheStandardCombinesThem()
     {
         var engine = Handler("globalThis.handler = request => new Response(request.headers.get('X-Trace') + '|' + [...request.headers.keys()].join(','));");
@@ -154,7 +154,7 @@ public class FetchHandlerTests
         Answer(engine, request).Should().Be("a, b|accept,x-trace");
     }
 
-    [Fact]
+    [Test]
     public void TheRequestCanBeCopiedTheWayTheConstructorCopiesOne()
     {
         var engine = Handler("""
@@ -171,7 +171,7 @@ public class FetchHandlerTests
         Answer(engine, Post("payload", "text/plain")).Should().Be("https://example.org/|PUT|payload");
     }
 
-    [Fact]
+    [Test]
     public void AHandlerCanAnswerWithTheResponseStatics()
     {
         var engine = Handler("globalThis.handler = () => Response.json({ ok: true }, { status: 202 });");
@@ -183,7 +183,7 @@ public class FetchHandlerTests
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/json");
     }
 
-    [Fact]
+    [Test]
     public void TheHandlerIsNotVisibleAsAGlobalAndNeitherIsFetch()
     {
         var engine = Handler("globalThis.handler = () => new Response('x');");
@@ -198,7 +198,7 @@ public class FetchHandlerTests
         engine.Evaluate("new ShadowRealm().evaluate('typeof Response')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheHandlerRunsWithTheEnginesOwnGlobals()
     {
         var engine = new Engine(options => options

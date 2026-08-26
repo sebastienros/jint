@@ -18,7 +18,7 @@ public class LazyDescriptorInternalsTests
     private static readonly PropertyFlag CachedByTheWriteFastPath =
         PropertyFlag.NonData | PropertyFlag.CustomJsValue | PropertyFlag.Writable;
 
-    [Fact]
+    [Test]
     public void FlagIsSetBeforeTheFirstReadAndClearedAfterIt()
     {
         var calls = 0;
@@ -48,7 +48,7 @@ public class LazyDescriptorInternalsTests
     /// finds a non-null value. Leaving the flag set would keep the descriptor out of the write fast path and
     /// the global-identifier cache for the rest of its life, for laziness that no longer exists.
     /// </summary>
-    [Fact]
+    [Test]
     public void WriteBeforeFirstReadClearsTheFlagAndSkipsTheFactory()
     {
         var calls = 0;
@@ -72,7 +72,7 @@ public class LazyDescriptorInternalsTests
     /// <c>_value</c> field directly, without going through the <c>CustomValue</c> setter — so the flag has to
     /// be cleared on the read side as well, not only on the write side.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReadOfAnExternallyStoredValueClearsTheFlagWithoutRunningTheFactory()
     {
         var calls = 0;
@@ -96,7 +96,7 @@ public class LazyDescriptorInternalsTests
     /// descriptor carrying <see cref="PropertyFlag.CustomJsValue"/>. After materialization the descriptor must
     /// pass exactly the masks those two lanes test.
     /// </summary>
-    [Fact]
+    [Test]
     public void MaterializedDescriptorPassesTheCacheGates()
     {
         var engine = new Engine();
@@ -117,7 +117,7 @@ public class LazyDescriptorInternalsTests
         descriptor.Writable.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GlobalWrittenBeforeFirstReadRejoinsTheIdentifierCache()
     {
         var calls = 0;
@@ -143,7 +143,7 @@ public class LazyDescriptorInternalsTests
     /// state, which is what lets a snapshot restore put a materialized descriptor back to unmaterialized by
     /// writing both. Clearing the flag on a write must not break that: the restore rewrites the flag too.
     /// </summary>
-    [Fact]
+    [Test]
     public void SnapshotRestoreReArmsADescriptorMaterializedByAWrite()
     {
         var calls = 0;

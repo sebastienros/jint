@@ -69,7 +69,7 @@ public class OptionsSecurityPostureTests
         return names;
     }
 
-    [Fact]
+    [Test]
     public void EverySecurityShapedOptionIsClassified()
     {
         var inherited = new HashSet<string>(Options.SecurityPostureInherited, StringComparer.Ordinal);
@@ -91,7 +91,7 @@ public class OptionsSecurityPostureTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NoSettingIsClassifiedBothWays()
     {
         var inherited = new HashSet<string>(Options.SecurityPostureInherited, StringComparer.Ordinal);
@@ -102,7 +102,7 @@ public class OptionsSecurityPostureTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NeitherClassificationNamesASettingThatNoLongerExists()
     {
         var settings = new HashSet<string>(ValueSettings(), StringComparer.Ordinal);
@@ -122,7 +122,7 @@ public class OptionsSecurityPostureTests
     /// The wholesale exclusions are stated in code rather than left implicit, so an option group added later
     /// fails this until it is either scanned or argued away.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryOptionGroupIsEitherScannedOrExcludedInWriting()
     {
         var scanned = new HashSet<string>(StringComparer.Ordinal);

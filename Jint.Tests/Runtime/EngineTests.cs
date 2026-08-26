@@ -53,10 +53,10 @@ public partial class EngineTests : IDisposable
         }
     }
 
-    public EngineTests(ITestOutputHelper output)
+    public EngineTests()
     {
         _engine = new Engine()
-                .SetValue("log", new Action<object>(o => output.WriteLine(o.ToString())))
+                .SetValue("log", new Action<object>(o => TestContext.Out.WriteLine(o.ToString())))
                 .SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()))
                 .SetValue("equal", new Action<object, object>(static (expected, actual) =>
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())))
@@ -85,9 +85,8 @@ public partial class EngineTests : IDisposable
         return sr.ReadToEnd();
     }
 
-    [Theory]
-    [InlineData(42d, "42")]
-    [InlineData("Hello", "'Hello'")]
+    [TestCase(42d, "42")]
+    [TestCase("Hello", "'Hello'")]
     public void ShouldInterpretLiterals(object expected, string source)
     {
         var engine = new Engine();
@@ -96,7 +95,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ShouldInterpretVariableDeclaration()
     {
         var engine = new Engine();
@@ -107,17 +106,16 @@ public partial class EngineTests : IDisposable
         result.Should().Be("bar");
     }
 
-    [Theory]
-    [InlineData(4d, "1 + 3")]
-    [InlineData(-2d, "1 - 3")]
-    [InlineData(3d, "1 * 3")]
-    [InlineData(2d, "6 / 3")]
-    [InlineData(9d, "15 & 9")]
-    [InlineData(15d, "15 | 9")]
-    [InlineData(6d, "15 ^ 9")]
-    [InlineData(36d, "9 << 2")]
-    [InlineData(2d, "9 >> 2")]
-    [InlineData(4d, "19 >>> 2")]
+    [TestCase(4d, "1 + 3")]
+    [TestCase(-2d, "1 - 3")]
+    [TestCase(3d, "1 * 3")]
+    [TestCase(2d, "6 / 3")]
+    [TestCase(9d, "15 & 9")]
+    [TestCase(15d, "15 | 9")]
+    [TestCase(6d, "15 ^ 9")]
+    [TestCase(36d, "9 << 2")]
+    [TestCase(2d, "9 >> 2")]
+    [TestCase(4d, "19 >>> 2")]
     public void ShouldInterpretBinaryExpression(object expected, string source)
     {
         var engine = new Engine();
@@ -126,9 +124,8 @@ public partial class EngineTests : IDisposable
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData(-59d, "~58")]
-    [InlineData(58d, "~~58")]
+    [TestCase(-59d, "~58")]
+    [TestCase(58d, "~~58")]
     public void ShouldInterpretUnaryExpression(object expected, string source)
     {
         var engine = new Engine();
@@ -137,7 +134,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHaveProperReferenceErrorMessage()
     {
         RunTest(@"
@@ -153,7 +150,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHaveProperNotAFunctionErrorMessage()
     {
         RunTest(@"
@@ -168,7 +165,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateHasOwnProperty()
     {
         RunTest(@"
@@ -178,14 +175,14 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowNullAsStringValue()
     {
         var engine = new Engine().SetValue("name", (string) null);
         engine.Evaluate("name").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FunctionConstructorsShouldCreateNewObjects()
     {
         RunTest(@"
@@ -195,7 +192,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsInheritFunctionConstructorProperties()
     {
         RunTest(@"
@@ -207,7 +204,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeFunctionIsInherited()
     {
         RunTest(@"
@@ -228,7 +225,7 @@ public partial class EngineTests : IDisposable
     }
 
 
-    [Fact]
+    [Test]
     public void FunctionConstructorCall()
     {
         RunTest(@"
@@ -241,7 +238,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrowFunctionCall()
     {
         RunTest(@"
@@ -254,7 +251,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrowFunctionExpressionCall()
     {
         RunTest(@"
@@ -265,7 +262,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrowFunctionScope()
     {
         RunTest(@"
@@ -280,7 +277,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsShouldUsePrivateProperties()
     {
         RunTest(@"
@@ -292,7 +289,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void FunctionConstructorsShouldDefinePrototypeChain()
     {
         RunTest(@"
@@ -302,7 +299,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsConstructorIsObject()
     {
         RunTest(@"
@@ -311,7 +308,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsIntanceOfConstructorObject()
     {
         RunTest(@"
@@ -320,7 +317,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsConstructorShouldBeConstructorObject()
     {
         RunTest(@"
@@ -330,7 +327,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NewObjectsIntanceOfConstructorFunction()
     {
         RunTest(@"
@@ -340,7 +337,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateForLoops()
     {
         RunTest(@"
@@ -352,7 +349,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateRecursiveFunctions()
     {
         RunTest(@"
@@ -367,7 +364,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAccessObjectProperties()
     {
         RunTest(@"
@@ -380,7 +377,7 @@ public partial class EngineTests : IDisposable
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldConstructArray()
     {
         RunTest(@"
@@ -389,7 +386,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPushShouldIncrementLength()
     {
         RunTest(@"
@@ -399,7 +396,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFunctionInitializesLength()
     {
         RunTest(@"
@@ -408,7 +405,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayIndexerIsAssigned()
     {
         RunTest(@"
@@ -420,7 +417,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DenseArrayTurnsToSparseArrayWhenSizeGrowsTooMuch()
     {
         RunTest(@"
@@ -432,7 +429,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DenseArrayTurnsToSparseArrayWhenSparseIndexed()
     {
         RunTest(@"
@@ -442,7 +439,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPopShouldDecrementLength()
     {
         RunTest(@"
@@ -453,7 +450,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayConstructor()
     {
         RunTest(@"
@@ -462,7 +459,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateConstructor()
     {
         RunTest(@"
@@ -472,7 +469,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateConstructorWithInvalidParameters()
     {
         RunTest(@"
@@ -481,7 +478,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertDateToNumber()
     {
         RunTest(@"
@@ -489,7 +486,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void MathObjectIsDefined()
     {
         RunTest(@"
@@ -498,7 +495,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void VoidShouldReturnUndefined()
     {
         RunTest(@"
@@ -512,7 +509,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void TypeofObjectShouldReturnString()
     {
         RunTest(@"
@@ -525,7 +522,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void MathAbsReturnsAbsolute()
     {
         RunTest(@"
@@ -533,7 +530,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NaNIsNan()
     {
         RunTest(@"
@@ -543,23 +540,21 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Theory]
-    [InlineData(2147483647, 1, 2147483648)]
-    [InlineData(-2147483647, -2, -2147483649)]
+    [TestCase(2147483647, 1, 2147483648)]
+    [TestCase(-2147483647, -2, -2147483649)]
     public void IntegerAdditionShouldNotOverflow(int lhs, int rhs, long result)
     {
         RunTest($"assert({lhs} + {rhs} == {result})");
     }
 
-    [Theory]
-    [InlineData(2147483647, -1, 2147483648)]
-    [InlineData(-2147483647, 2, -2147483649)]
+    [TestCase(2147483647, -1, 2147483648)]
+    [TestCase(-2147483647, 2, -2147483649)]
     public void IntegerSubtractionShouldNotOverflow(int lhs, int rhs, long result)
     {
         RunTest($"assert({lhs} - {rhs} == {result})");
     }
 
-    [Fact]
+    [Test]
     public void ToNumberHandlesStringObject()
     {
         RunTest(@"
@@ -569,7 +564,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void FunctionScopesAreChained()
     {
         RunTest(@"
@@ -588,7 +583,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void EvalFunctionParseAndExecuteCode()
     {
         RunTest(@"
@@ -597,7 +592,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void EvalFunctionWithTargetNewParse()
     {
         RunTest(@"
@@ -612,7 +607,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ForInStatement()
     {
         var engine = new Engine();
@@ -626,7 +621,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be("xystrz");
     }
 
-    [Fact]
+    [Test]
     public void ForInStatementEnumeratesKeys()
     {
         RunTest(@"
@@ -636,7 +631,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void WithStatement()
     {
         RunTest(@"
@@ -646,7 +641,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ObjectExpression()
     {
         RunTest(@"
@@ -655,7 +650,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void StringFunctionCreatesString()
     {
         RunTest(@"
@@ -663,7 +658,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ScopeChainInWithStatement()
     {
         RunTest(@"
@@ -684,7 +679,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void TryCatchBlockStatement()
     {
         RunTest(@"
@@ -710,7 +705,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void FunctionsCanBeAssigned()
     {
         RunTest(@"
@@ -719,7 +714,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void FunctionArgumentsIsDefined()
     {
         RunTest(@"
@@ -731,7 +726,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void PrimitiveValueFunctions()
     {
         RunTest(@"
@@ -740,8 +735,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Theory]
-    [InlineData(true, "'ab' == 'a' + 'b'")]
+    [TestCase(true, "'ab' == 'a' + 'b'")]
     public void OperatorsPrecedence(object expected, string source)
     {
         var engine = new Engine();
@@ -750,7 +744,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void FunctionPrototypeShouldHaveApplyMethod()
     {
         RunTest(@"
@@ -760,15 +754,14 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Theory]
-    [InlineData(double.NaN, "parseInt(NaN)")]
-    [InlineData(double.NaN, "parseInt(null)")]
-    [InlineData(double.NaN, "parseInt(undefined)")]
-    [InlineData(double.NaN, "parseInt(new Boolean(true))")]
-    [InlineData(double.NaN, "parseInt(Infinity)")]
-    [InlineData(-1d, "parseInt(-1)")]
-    [InlineData(-1d, "parseInt('-1')")]
-    [InlineData(double.NaN, "parseInt(new Array(100000).join('Z'))")]
+    [TestCase(double.NaN, "parseInt(NaN)")]
+    [TestCase(double.NaN, "parseInt(null)")]
+    [TestCase(double.NaN, "parseInt(undefined)")]
+    [TestCase(double.NaN, "parseInt(new Boolean(true))")]
+    [TestCase(double.NaN, "parseInt(Infinity)")]
+    [TestCase(-1d, "parseInt(-1)")]
+    [TestCase(-1d, "parseInt('-1')")]
+    [TestCase(double.NaN, "parseInt(new Array(100000).join('Z'))")]
     public void ShouldEvaluateParseInt(object expected, string source)
     {
         var engine = new Engine();
@@ -777,13 +770,13 @@ public partial class EngineTests : IDisposable
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotExecuteDebuggerStatement()
     {
         new Engine().Evaluate("debugger");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertDoubleToStringWithoutLosingPrecision()
     {
         RunTest(@"
@@ -798,7 +791,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldWriteNumbersUsingBases()
     {
         RunTest(@"
@@ -812,7 +805,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldWriteLargeNumbersUsingBasesWithoutOverflow()
     {
         // Values above long.MaxValue (~9.22e18) previously overflowed when cast to long,
@@ -847,7 +840,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotAlterSlashesInRegex()
     {
         RunTest(@"
@@ -855,7 +848,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleEscapedSlashesInRegex()
     {
         RunTest(@"
@@ -865,14 +858,14 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldComputeFractionInBase()
     {
         NumberPrototype.ToFractionBase(0.375, 2).Should().Be("011");
         NumberPrototype.ToFractionBase(0.375, 5).Should().Be("14141414141414141414141414141414141414141414141414");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInvokeAFunctionValue()
     {
         RunTest(@"
@@ -884,7 +877,7 @@ public partial class EngineTests : IDisposable
         _engine.Invoke(add, 1, 2).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowInvokeAFunctionValueWithNullValueAsArgument()
     {
         RunTest(@"
@@ -897,7 +890,7 @@ public partial class EngineTests : IDisposable
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldNotInvokeNonFunctionValue()
     {
         RunTest(@"
@@ -910,7 +903,7 @@ public partial class EngineTests : IDisposable
         exception.Message.Should().Be("Can only invoke functions");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInvokeAFunctionValueThatBelongsToAnObject()
     {
         RunTest(@"
@@ -923,7 +916,7 @@ public partial class EngineTests : IDisposable
         _engine.Invoke(getFoo, obj, new object[] { 7 }).AsString().Should().Be("foo is 5, bar is 7");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotInvokeNonFunctionValueThatBelongsToAnObject()
     {
         RunTest(@"
@@ -936,7 +929,7 @@ public partial class EngineTests : IDisposable
         Invoking(() => _engine.Invoke(foo, obj, new object[] { })).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotAllowModifyingSharedUndefinedDescriptor()
     {
         var e = new Engine();
@@ -946,20 +939,19 @@ public partial class EngineTests : IDisposable
         Invoking(() => pd.Value = "oh no, assigning this breaks things").Should().ThrowExactly<InvalidOperationException>();
     }
 
-    [Theory]
-    [InlineData("0", 0, 16)]
-    [InlineData("1", 1, 16)]
-    [InlineData("100", 100, 10)]
-    [InlineData("1100100", 100, 2)]
-    [InlineData("2s", 100, 36)]
-    [InlineData("2qgpckvng1s", 10000000000000000L, 36)]
+    [TestCase("0", 0, 16)]
+    [TestCase("1", 1, 16)]
+    [TestCase("100", 100, 10)]
+    [TestCase("1100100", 100, 2)]
+    [TestCase("2s", 100, 36)]
+    [TestCase("2qgpckvng1s", 10000000000000000L, 36)]
     public void ShouldConvertNumbersToDifferentBase(string expected, long number, int radix)
     {
         var result = NumberPrototype.ToBase(number, radix);
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void JsonParserShouldParseNegativeNumber()
     {
         RunTest(@"
@@ -971,7 +963,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void JsonParserShouldUseToString()
     {
         RunTest(@"
@@ -1020,7 +1012,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void JsonParserShouldDetectInvalidNegativeNumberSyntax()
     {
         RunTest(@"
@@ -1044,7 +1036,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void JsonParserShouldUseReviverFunction()
     {
         RunTest(@"
@@ -1067,15 +1059,15 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void JsonParserShouldHandleEmptyString()
     {
         var ex = Invoking(() => _engine.Evaluate("JSON.parse('');")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().Be("Unexpected end of JSON input at position 0");
     }
 
-    [Fact]
-    [ReplaceCulture("fr-FR")]
+    [Test]
+    [SetCulture("fr-FR"), SetUICulture("fr-FR")]
     public void ShouldBeCultureInvariant()
     {
         // decimals in french are separated by commas
@@ -1088,7 +1080,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(3.3d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldGetParseErrorLocation()
     {
         var engine = new Engine();
@@ -1104,7 +1096,7 @@ public partial class EngineTests : IDisposable
         }
     }
     #region DateParsingAndStrings
-    [Fact]
+    [Test]
     public void ParseShouldReturnNumber()
     {
         var engine = new Engine();
@@ -1113,7 +1105,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TimeWithinDayShouldHandleNegativeValues()
     {
         RunTest(@"
@@ -1124,7 +1116,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void LocalDateTimeShouldNotLoseTimezone()
     {
         var date = new DateTime(2016, 1, 1, 13, 0, 0, DateTimeKind.Local);
@@ -1134,7 +1126,7 @@ public partial class EngineTests : IDisposable
         actual.ToLocalTime().Should().Be(date.ToLocalTime());
     }
 
-    [Fact]
+    [Test]
     public void UtcShouldUseUtc()
     {
         var customTimeZone = _tongaTimeZone;
@@ -1145,7 +1137,7 @@ public partial class EngineTests : IDisposable
         result.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseLocalTimeZoneOverride()
     {
         const string customName = "Custom Time";
@@ -1169,26 +1161,25 @@ public partial class EngineTests : IDisposable
         epochToUTCString.Should().Be("Thu, 01 Jan 1970 00:00:00 GMT");
     }
 
-    [Theory]
-    [InlineData("1970")]
-    [InlineData("1970-01")]
-    [InlineData("1970-01-01")]
-    [InlineData("1970-01-01T00:00Z")]
-    [InlineData("1970-01-01T00:00:00Z")]
-    [InlineData("1970-01-01T00:00:00.000Z")]
-    [InlineData("1970Z")]
-    [InlineData("1970-1Z")]
-    [InlineData("1970-1-1Z")]
-    [InlineData("1970-1-1T0:0Z")]
-    [InlineData("1970-1-1T0:0:0Z")]
-    [InlineData("1970-1-1T0:0:0.0Z")]
-    [InlineData("1970/1Z")]
-    [InlineData("1970/1/1Z")]
-    [InlineData("1970/1/1 0:0Z")]
-    [InlineData("1970/1/1 0:0:0Z")]
-    [InlineData("1970/1/1 0:0:0.0Z")]
-    [InlineData("January 1, 1970 GMT")]
-    [InlineData("1970-01-01T00:00:00.000-00:00")]
+    [TestCase("1970")]
+    [TestCase("1970-01")]
+    [TestCase("1970-01-01")]
+    [TestCase("1970-01-01T00:00Z")]
+    [TestCase("1970-01-01T00:00:00Z")]
+    [TestCase("1970-01-01T00:00:00.000Z")]
+    [TestCase("1970Z")]
+    [TestCase("1970-1Z")]
+    [TestCase("1970-1-1Z")]
+    [TestCase("1970-1-1T0:0Z")]
+    [TestCase("1970-1-1T0:0:0Z")]
+    [TestCase("1970-1-1T0:0:0.0Z")]
+    [TestCase("1970/1Z")]
+    [TestCase("1970/1/1Z")]
+    [TestCase("1970/1/1 0:0Z")]
+    [TestCase("1970/1/1 0:0:0Z")]
+    [TestCase("1970/1/1 0:0:0.0Z")]
+    [TestCase("January 1, 1970 GMT")]
+    [TestCase("1970-01-01T00:00:00.000-00:00")]
     public void ShouldParseAsUtc(string date)
     {
         var customTimeZone = _tongaTimeZone;
@@ -1200,26 +1191,25 @@ public partial class EngineTests : IDisposable
         result.Should().Be(0);
     }
 
-    [Theory]
-    [InlineData("1970-01-01T00:00")]
-    [InlineData("1970-01-01T00:00:00")]
-    [InlineData("1970-01-01T00:00:00.000")]
-    [InlineData("1970/01")]
-    [InlineData("1970/01/01")]
-    [InlineData("1970/01/01T00:00")]
-    [InlineData("1970/01/01 00:00")]
-    [InlineData("1970-1")]
-    [InlineData("1970-1-1")]
-    [InlineData("1970-1-1T0:0")]
-    [InlineData("1970-1-1 0:0")]
-    [InlineData("1970/1")]
-    [InlineData("1970/1/1")]
-    [InlineData("1970/1/1T0:0")]
-    [InlineData("1970/1/1 0:0")]
-    [InlineData("01-1970")]
-    [InlineData("01-01-1970")]
-    [InlineData("January 1, 1970")]
-    [InlineData("1970-01-01T00:00:00.000+00:11")]
+    [TestCase("1970-01-01T00:00")]
+    [TestCase("1970-01-01T00:00:00")]
+    [TestCase("1970-01-01T00:00:00.000")]
+    [TestCase("1970/01")]
+    [TestCase("1970/01/01")]
+    [TestCase("1970/01/01T00:00")]
+    [TestCase("1970/01/01 00:00")]
+    [TestCase("1970-1")]
+    [TestCase("1970-1-1")]
+    [TestCase("1970-1-1T0:0")]
+    [TestCase("1970-1-1 0:0")]
+    [TestCase("1970/1")]
+    [TestCase("1970/1/1")]
+    [TestCase("1970/1/1T0:0")]
+    [TestCase("1970/1/1 0:0")]
+    [TestCase("01-1970")]
+    [TestCase("01-01-1970")]
+    [TestCase("January 1, 1970")]
+    [TestCase("1970-01-01T00:00:00.000+00:11")]
     public void ShouldParseAsLocalTime(string date)
     {
         const int timespanMinutes = 11;
@@ -1234,10 +1224,10 @@ public partial class EngineTests : IDisposable
     }
 
     /// <summary>
-    /// Wall-clock readings in the Pacific zone, carried as text rather than as <see cref="DateTime"/>.
-    /// xUnit serializes a theory's <see cref="DateTime"/> argument through <see cref="DateTime.ToUniversalTime"/>,
-    /// which reinterprets a <see cref="DateTimeKind.Unspecified"/> value as the runner machine's local time and
-    /// shifts it, so the value arriving here would depend on where the suite ran.
+    /// Wall-clock readings in the Pacific zone, carried as text rather than as <see cref="DateTime"/>, so
+    /// that nothing between the source and the test method can reinterpret a
+    /// <see cref="DateTimeKind.Unspecified"/> value as the runner machine's local time and shift it. A
+    /// test-case argument that survives as text is one the runner cannot round-trip differently.
     /// </summary>
     public static System.Collections.Generic.IEnumerable<object[]> TestDates
     {
@@ -1255,7 +1245,7 @@ public partial class EngineTests : IDisposable
     private static DateTime ParseTestDate(string testDate)
         => DateTime.ParseExact(testDate, "yyyy-MM-dd'T'HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
-    [Theory, MemberData(nameof(TestDates))]
+    [TestCaseSource(nameof(TestDates))]
     public void TestDateToISOStringFormat(string testDate)
     {
         var customTimeZone = _pacificTimeZone;
@@ -1268,7 +1258,7 @@ public partial class EngineTests : IDisposable
         engine.Evaluate("d.toISOString();").ToString().Should().Be(testDateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture));
     }
 
-    [Theory, MemberData(nameof(TestDates))]
+    [TestCaseSource(nameof(TestDates))]
     public void TestDateToStringFormat(string testDate)
     {
         var customTimeZone = _pacificTimeZone;
@@ -1291,7 +1281,7 @@ public partial class EngineTests : IDisposable
     #endregion
 
     //DateParsingAndStrings
-    [Fact]
+    [Test]
     public void EmptyStringShouldMatchRegex()
     {
         RunTest(@"
@@ -1300,7 +1290,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteHandlebars()
     {
         var content = GetEmbeddedFile("handlebars.js");
@@ -1317,7 +1307,7 @@ public partial class EngineTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecutePrism()
     {
         var content = GetEmbeddedFile("prism.js");
@@ -1340,7 +1330,7 @@ public partial class EngineTests : IDisposable
         RunTest("Prism.highlight(input, Prism.languages.csharp, lang);");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteDromaeoBase64()
     {
         RunTest(@"
@@ -1354,7 +1344,7 @@ var prep = function (fn) { fn(); };
         RunTest(content);
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteKnockoutWithoutErrorWhetherTolerantOrIntolerant()
     {
         var content = GetEmbeddedFile("knockout-3.4.0.js");
@@ -1362,7 +1352,7 @@ var prep = function (fn) { fn(); };
         _engine.Execute(content, parsingOptions: new ScriptParsingOptions { Tolerant = false });
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowProtoProperty()
     {
         var code = "if({ __proto__: [] } instanceof Array) {}";
@@ -1371,7 +1361,7 @@ var prep = function (fn) { fn(); };
         _engine.Execute($"new Function('{code}')");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotAllowDuplicateProtoProperty()
     {
         var code = "if({ __proto__: [], __proto__:[] } instanceof Array) {}";
@@ -1386,7 +1376,7 @@ var prep = function (fn) { fn(); };
         ex.Message.Should().Contain("Duplicate __proto__ fields are not allowed in object literals");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteLodash()
     {
         var content = GetEmbeddedFile("lodash.min.js");
@@ -1394,7 +1384,7 @@ var prep = function (fn) { fn(); };
         RunTest(content);
     }
 
-    [Fact]
+    [Test]
     public void DateParseReturnsNaN()
     {
         RunTest(@"
@@ -1403,7 +1393,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldIgnoreHtmlComments()
     {
         RunTest(@"
@@ -1412,7 +1402,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateShouldAllowEntireDotNetDateRange()
     {
         var engine = new Engine();
@@ -1428,7 +1418,7 @@ var prep = function (fn) { fn(); };
         maxValue.Should().Be(new DateTime(9999, 12, 31, 23, 59, 59, 999, DateTimeKind.Utc));
     }
 
-    [Fact]
+    [Test]
     public void ShouldConstructNewArrayWithInteger()
     {
         RunTest(@"
@@ -1440,7 +1430,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConstructNewArrayWithString()
     {
         RunTest(@"
@@ -1450,7 +1440,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowRangeExceptionWhenConstructedWithNonInteger()
     {
         RunTest(@"
@@ -1466,7 +1456,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInitializeArrayWithSingleIngegerValue()
     {
         RunTest(@"
@@ -1476,7 +1466,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInitializeJsonObjectArrayWithSingleIntegerValue()
     {
         RunTest(@"
@@ -1486,7 +1476,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInitializeJsonArrayWithSingleIntegerValue()
     {
         RunTest(@"
@@ -1496,7 +1486,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnTrueForEmptyIsNaNStatement()
     {
         RunTest(@"
@@ -1504,16 +1494,15 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Theory]
-    [InlineData(4d, 0, "4")]
-    [InlineData(4d, 1, "4.0")]
-    [InlineData(4d, 2, "4.00")]
-    [InlineData(28.995, 2, "29.00")]
-    [InlineData(-28.995, 2, "-29.00")]
-    [InlineData(-28.495, 2, "-28.50")]
-    [InlineData(-28.445, 2, "-28.45")]
-    [InlineData(28.445, 2, "28.45")]
-    [InlineData(10.995, 0, "11")]
+    [TestCase(4d, 0, "4")]
+    [TestCase(4d, 1, "4.0")]
+    [TestCase(4d, 2, "4.00")]
+    [TestCase(28.995, 2, "29.00")]
+    [TestCase(-28.995, 2, "-29.00")]
+    [TestCase(-28.495, 2, "-28.50")]
+    [TestCase(-28.445, 2, "-28.45")]
+    [TestCase(28.445, 2, "28.45")]
+    [TestCase(10.995, 0, "11")]
     public void ShouldRoundToFixedDecimal(double number, int fractionDigits, string result)
     {
         var engine = new Engine();
@@ -1528,7 +1517,7 @@ var prep = function (fn) { fn(); };
 
 
 
-    [Fact]
+    [Test]
     public void ShouldSortArrayWhenCompareFunctionReturnsFloatingPointNumber()
     {
         RunTest(@"
@@ -1544,7 +1533,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBreakWhenBreakpointIsReached()
     {
         countBreak = 0;
@@ -1565,7 +1554,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteStepByStep()
     {
         countBreak = 0;
@@ -1584,7 +1573,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotBreakTwiceIfSteppingOverBreakpoint()
     {
         countBreak = 0;
@@ -1613,7 +1602,7 @@ var prep = function (fn) { fn(); };
         return stepMode;
     }
 
-    [Fact]
+    [Test]
     public void ShouldShowProperDebugInformation()
     {
         countBreak = 0;
@@ -1659,7 +1648,7 @@ var prep = function (fn) { fn(); };
         return stepMode;
     }
 
-    [Fact]
+    [Test]
     public void ShouldBreakWhenConditionIsMatched()
     {
         countBreak = 0;
@@ -1685,7 +1674,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStepInSameLevelStatementsWhenStepOut()
     {
         countBreak = 0;
@@ -1708,7 +1697,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStepInIfRequiredToStepOut()
     {
         countBreak = 0;
@@ -1743,7 +1732,7 @@ var prep = function (fn) { fn(); };
         return StepMode.Into;
     }
 
-    [Fact]
+    [Test]
     public void ShouldBreakWhenStatementIsMultiLine()
     {
         countBreak = 0;
@@ -1766,7 +1755,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStepInsideIfRequiredToStepOver()
     {
         countBreak = 0;
@@ -1789,7 +1778,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldStepAllStatementsWithoutInvocationsIfStepOver()
     {
         countBreak = 0;
@@ -1811,7 +1800,7 @@ var prep = function (fn) { fn(); };
         countBreak.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateVariableAssignmentFromLeftToRight()
     {
         RunTest(@"
@@ -1827,7 +1816,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ObjectShouldBeExtensible()
     {
         RunTest(@"
@@ -1840,7 +1829,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayIndexShouldBeConvertedToUint32()
     {
         // This is missing from ECMA tests suite
@@ -1854,7 +1843,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void HexZeroAsArrayIndexShouldWork()
     {
         var engine = new Engine();
@@ -1864,7 +1853,7 @@ var prep = function (fn) { fn(); };
         engine.Execute("value = t['0'];").GetValue("value").AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void DatePrototypeFunctionWorkOnDateOnly()
     {
         RunTest(@"
@@ -1877,7 +1866,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateToStringMethodsShouldUseCurrentTimeZoneAndCulture()
     {
         // Forcing to PDT and FR for tests
@@ -1905,7 +1894,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateShouldHonorTimezoneDaylightSavingRules()
     {
         var EST = _easternTimeZone;
@@ -1922,7 +1911,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateShouldParseToString()
     {
         // Forcing to PDT and FR for tests
@@ -1943,7 +1932,7 @@ var prep = function (fn) { fn(); };
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldThrowErrorWhenMaxExecutionStackCountLimitExceeded()
     {
         new Engine(options => options.Constraints.MaxExecutionStackCount = 1000)
@@ -1967,7 +1956,7 @@ var prep = function (fn) { fn(); };
     }
 
 
-    [Fact]
+    [Test]
     public void ShouldThrowJavaScriptExceptionForObjectExpressionWithAssignmentPattern()
     {
         // Before the fix, JintObjectExpression.Initialize crashed with InvalidCastException
@@ -1979,7 +1968,7 @@ var prep = function (fn) { fn(); };
     }
 
 
-    [Fact]
+    [Test]
     public void LocaleNumberShouldUseLocalCulture()
     {
         // Forcing to PDT and FR for tests
@@ -2001,7 +1990,7 @@ var prep = function (fn) { fn(); };
         engine.Evaluate("assert('-1,230' === d.toLocaleString() || '-1,23' === d.toLocaleString());");
     }
 
-    [Fact]
+    [Test]
     public void DateCtorShouldAcceptDate()
     {
         RunTest(@"
@@ -2011,7 +2000,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void RegExpResultIsMutable()
     {
         RunTest(@"
@@ -2021,7 +2010,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void RegExpSupportsMultiline()
     {
         RunTest(@"
@@ -2049,13 +2038,13 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void RegExpPrototypeToString()
     {
         RunTest("assert(RegExp.prototype.toString() === '/(?:)/');");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSetYearBefore1970()
     {
         new Engine(options => options.TimeZone = TimeZoneInfo.Utc)
@@ -2068,7 +2057,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseReplaceMarkers()
     {
         RunTest(@"
@@ -2079,7 +2068,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ExceptionShouldHaveLocationOfInnerFunction()
     {
         var engine = new Engine();
@@ -2094,7 +2083,7 @@ var prep = function (fn) { fn(); };
         ex.Location.Start.Line.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void GlobalRegexLiteralShouldNotKeepState()
     {
         RunTest(@"
@@ -2110,7 +2099,7 @@ var prep = function (fn) { fn(); };
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCompareInnerValueOfClrInstances()
     {
         var engine = new Engine();
@@ -2127,14 +2116,14 @@ var prep = function (fn) { fn(); };
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyToConsole()
     {
         var engine = new Engine(options => options.AllowClr(typeof(Console).Assembly));
         engine.Evaluate("System.Console.WriteLine(JSON.stringify({x:12, y:14}));");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotCompareClrInstancesWithObjects()
     {
         var engine = new Engine();
@@ -2148,7 +2137,7 @@ var prep = function (fn) { fn(); };
         result.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ShouldStringifyNumWithoutV8DToA()
     {
         // 53.6841659 cannot be converted by V8's DToA => "old" DToA code will be used.
@@ -2158,7 +2147,7 @@ var prep = function (fn) { fn(); };
         val.AsString().Should().Be("53.6841659");
     }
 
-    [Fact]
+    [Test]
     public void ShouldStringifyObjectWithPropertiesToSameRef()
     {
         var engine = new Engine();
@@ -2177,7 +2166,7 @@ var prep = function (fn) { fn(); };
         res.Should().Be("{\"a\":[],\"a1\":[\"str\"],\"a2\":{},\"a3\":{\"prop\":\"val\"},\"b\":[],\"b1\":[\"str\"]}");
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowOnSerializingCyclicRefObject()
     {
         var engine = new Engine();
@@ -2197,7 +2186,7 @@ var prep = function (fn) { fn(); };
         res.Should().Be("Cyclic reference detected.");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStringifyFunctionValuedProperties()
     {
         var engine = new Engine();
@@ -2211,18 +2200,17 @@ var prep = function (fn) { fn(); };
         res.AsString().Should().Be("{}");
     }
 
-    [Theory]
-    [InlineData("", "escape('')")]
-    [InlineData("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
-    [InlineData("%uFFFD%uFFFE%uFFFF", "escape('\ufffd\ufffe\uffff')")]
-    [InlineData("%uD834%uDF06", "escape('\ud834\udf06')")]
-    [InlineData("%00%01%02%03", "escape('\x00\x01\x02\x03')")]
-    [InlineData("%2C", "escape(',')")]
-    [InlineData("%3A%3B%3C%3D%3E%3F", "escape(':;<=>?')")]
-    [InlineData("%60", "escape('`')")]
-    [InlineData("%7B%7C%7D%7E%7F%80", "escape('{|}~\x7f\x80')")]
-    [InlineData("%FD%FE%FF", "escape('\xfd\xfe\xff')")]
-    [InlineData("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_+-./", "escape('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_+-./')")]
+    [TestCase("", "escape('')")]
+    [TestCase("%u0100%u0101%u0102", "escape('\u0100\u0101\u0102')")]
+    [TestCase("%uFFFD%uFFFE%uFFFF", "escape('\ufffd\ufffe\uffff')")]
+    [TestCase("%uD834%uDF06", "escape('\ud834\udf06')")]
+    [TestCase("%00%01%02%03", "escape('\x00\x01\x02\x03')")]
+    [TestCase("%2C", "escape(',')")]
+    [TestCase("%3A%3B%3C%3D%3E%3F", "escape(':;<=>?')")]
+    [TestCase("%60", "escape('`')")]
+    [TestCase("%7B%7C%7D%7E%7F%80", "escape('{|}~\x7f\x80')")]
+    [TestCase("%FD%FE%FF", "escape('\xfd\xfe\xff')")]
+    [TestCase("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_+-./", "escape('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@*_+-./')")]
     public void ShouldEvaluateEscape(object expected, string source)
     {
         var engine = new Engine();
@@ -2231,209 +2219,208 @@ var prep = function (fn) { fn(); };
         result.Should().Be(expected);
     }
 
-    [Theory]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/empty-string.js
-    [InlineData("", "unescape('')")]
+    [TestCase("", "unescape('')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/four-ignore-bad-u.js
-    [InlineData("%U0000", "unescape('%U0000')")]
-    [InlineData("%t0000", "unescape('%t0000')")]
-    [InlineData("%v0000", "unescape('%v0000')")]
-    [InlineData("%" + "\x00" + "00", "unescape('%%0000')")]
+    [TestCase("%U0000", "unescape('%U0000')")]
+    [TestCase("%t0000", "unescape('%t0000')")]
+    [TestCase("%v0000", "unescape('%v0000')")]
+    [TestCase("%" + "\x00" + "00", "unescape('%%0000')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/four-ignore-end-str.js
-    [InlineData("%u", "unescape('%u')")]
-    [InlineData("%u0", "unescape('%u0')")]
-    [InlineData("%u1", "unescape('%u1')")]
-    [InlineData("%u2", "unescape('%u2')")]
-    [InlineData("%u3", "unescape('%u3')")]
-    [InlineData("%u4", "unescape('%u4')")]
-    [InlineData("%u5", "unescape('%u5')")]
-    [InlineData("%u6", "unescape('%u6')")]
-    [InlineData("%u7", "unescape('%u7')")]
-    [InlineData("%u8", "unescape('%u8')")]
-    [InlineData("%u9", "unescape('%u9')")]
-    [InlineData("%ua", "unescape('%ua')")]
-    [InlineData("%uA", "unescape('%uA')")]
-    [InlineData("%ub", "unescape('%ub')")]
-    [InlineData("%uB", "unescape('%uB')")]
-    [InlineData("%uc", "unescape('%uc')")]
-    [InlineData("%uC", "unescape('%uC')")]
-    [InlineData("%ud", "unescape('%ud')")]
-    [InlineData("%uD", "unescape('%uD')")]
-    [InlineData("%ue", "unescape('%ue')")]
-    [InlineData("%uE", "unescape('%uE')")]
-    [InlineData("%uf", "unescape('%uf')")]
-    [InlineData("%uF", "unescape('%uF')")]
-    [InlineData("%u01", "unescape('%u01')")]
-    [InlineData("%u02", "unescape('%u02')")]
-    [InlineData("%u03", "unescape('%u03')")]
-    [InlineData("%u04", "unescape('%u04')")]
-    [InlineData("%u05", "unescape('%u05')")]
-    [InlineData("%u06", "unescape('%u06')")]
-    [InlineData("%u07", "unescape('%u07')")]
-    [InlineData("%u08", "unescape('%u08')")]
-    [InlineData("%u09", "unescape('%u09')")]
-    [InlineData("%u0a", "unescape('%u0a')")]
-    [InlineData("%u0A", "unescape('%u0A')")]
-    [InlineData("%u0b", "unescape('%u0b')")]
-    [InlineData("%u0B", "unescape('%u0B')")]
-    [InlineData("%u0c", "unescape('%u0c')")]
-    [InlineData("%u0C", "unescape('%u0C')")]
-    [InlineData("%u0d", "unescape('%u0d')")]
-    [InlineData("%u0D", "unescape('%u0D')")]
-    [InlineData("%u0e", "unescape('%u0e')")]
-    [InlineData("%u0E", "unescape('%u0E')")]
-    [InlineData("%u0f", "unescape('%u0f')")]
-    [InlineData("%u0F", "unescape('%u0F')")]
-    [InlineData("%u000", "unescape('%u000')")]
-    [InlineData("%u001", "unescape('%u001')")]
-    [InlineData("%u002", "unescape('%u002')")]
-    [InlineData("%u003", "unescape('%u003')")]
-    [InlineData("%u004", "unescape('%u004')")]
-    [InlineData("%u005", "unescape('%u005')")]
-    [InlineData("%u006", "unescape('%u006')")]
-    [InlineData("%u007", "unescape('%u007')")]
-    [InlineData("%u008", "unescape('%u008')")]
-    [InlineData("%u009", "unescape('%u009')")]
-    [InlineData("%u00a", "unescape('%u00a')")]
-    [InlineData("%u00A", "unescape('%u00A')")]
-    [InlineData("%u00b", "unescape('%u00b')")]
-    [InlineData("%u00B", "unescape('%u00B')")]
-    [InlineData("%u00c", "unescape('%u00c')")]
-    [InlineData("%u00C", "unescape('%u00C')")]
-    [InlineData("%u00d", "unescape('%u00d')")]
-    [InlineData("%u00D", "unescape('%u00D')")]
-    [InlineData("%u00e", "unescape('%u00e')")]
-    [InlineData("%u00E", "unescape('%u00E')")]
-    [InlineData("%u00f", "unescape('%u00f')")]
-    [InlineData("%u00F", "unescape('%u00F')")]
+    [TestCase("%u", "unescape('%u')")]
+    [TestCase("%u0", "unescape('%u0')")]
+    [TestCase("%u1", "unescape('%u1')")]
+    [TestCase("%u2", "unescape('%u2')")]
+    [TestCase("%u3", "unescape('%u3')")]
+    [TestCase("%u4", "unescape('%u4')")]
+    [TestCase("%u5", "unescape('%u5')")]
+    [TestCase("%u6", "unescape('%u6')")]
+    [TestCase("%u7", "unescape('%u7')")]
+    [TestCase("%u8", "unescape('%u8')")]
+    [TestCase("%u9", "unescape('%u9')")]
+    [TestCase("%ua", "unescape('%ua')")]
+    [TestCase("%uA", "unescape('%uA')")]
+    [TestCase("%ub", "unescape('%ub')")]
+    [TestCase("%uB", "unescape('%uB')")]
+    [TestCase("%uc", "unescape('%uc')")]
+    [TestCase("%uC", "unescape('%uC')")]
+    [TestCase("%ud", "unescape('%ud')")]
+    [TestCase("%uD", "unescape('%uD')")]
+    [TestCase("%ue", "unescape('%ue')")]
+    [TestCase("%uE", "unescape('%uE')")]
+    [TestCase("%uf", "unescape('%uf')")]
+    [TestCase("%uF", "unescape('%uF')")]
+    [TestCase("%u01", "unescape('%u01')")]
+    [TestCase("%u02", "unescape('%u02')")]
+    [TestCase("%u03", "unescape('%u03')")]
+    [TestCase("%u04", "unescape('%u04')")]
+    [TestCase("%u05", "unescape('%u05')")]
+    [TestCase("%u06", "unescape('%u06')")]
+    [TestCase("%u07", "unescape('%u07')")]
+    [TestCase("%u08", "unescape('%u08')")]
+    [TestCase("%u09", "unescape('%u09')")]
+    [TestCase("%u0a", "unescape('%u0a')")]
+    [TestCase("%u0A", "unescape('%u0A')")]
+    [TestCase("%u0b", "unescape('%u0b')")]
+    [TestCase("%u0B", "unescape('%u0B')")]
+    [TestCase("%u0c", "unescape('%u0c')")]
+    [TestCase("%u0C", "unescape('%u0C')")]
+    [TestCase("%u0d", "unescape('%u0d')")]
+    [TestCase("%u0D", "unescape('%u0D')")]
+    [TestCase("%u0e", "unescape('%u0e')")]
+    [TestCase("%u0E", "unescape('%u0E')")]
+    [TestCase("%u0f", "unescape('%u0f')")]
+    [TestCase("%u0F", "unescape('%u0F')")]
+    [TestCase("%u000", "unescape('%u000')")]
+    [TestCase("%u001", "unescape('%u001')")]
+    [TestCase("%u002", "unescape('%u002')")]
+    [TestCase("%u003", "unescape('%u003')")]
+    [TestCase("%u004", "unescape('%u004')")]
+    [TestCase("%u005", "unescape('%u005')")]
+    [TestCase("%u006", "unescape('%u006')")]
+    [TestCase("%u007", "unescape('%u007')")]
+    [TestCase("%u008", "unescape('%u008')")]
+    [TestCase("%u009", "unescape('%u009')")]
+    [TestCase("%u00a", "unescape('%u00a')")]
+    [TestCase("%u00A", "unescape('%u00A')")]
+    [TestCase("%u00b", "unescape('%u00b')")]
+    [TestCase("%u00B", "unescape('%u00B')")]
+    [TestCase("%u00c", "unescape('%u00c')")]
+    [TestCase("%u00C", "unescape('%u00C')")]
+    [TestCase("%u00d", "unescape('%u00d')")]
+    [TestCase("%u00D", "unescape('%u00D')")]
+    [TestCase("%u00e", "unescape('%u00e')")]
+    [TestCase("%u00E", "unescape('%u00E')")]
+    [TestCase("%u00f", "unescape('%u00f')")]
+    [TestCase("%u00F", "unescape('%u00F')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/four-ignore-non-hex.js
-    [InlineData("%u000%0", "unescape('%u000%0')")]
-    [InlineData("%u000g0", "unescape('%u000g0')")]
-    [InlineData("%u000G0", "unescape('%u000G0')")]
-    [InlineData("%u00g00", "unescape('%u00g00')")]
-    [InlineData("%u00G00", "unescape('%u00G00')")]
-    [InlineData("%u0g000", "unescape('%u0g000')")]
-    [InlineData("%u0G000", "unescape('%u0G000')")]
-    [InlineData("%ug0000", "unescape('%ug0000')")]
-    [InlineData("%uG0000", "unescape('%uG0000')")]
-    [InlineData("%u000u0", "unescape('%u000u0')")]
-    [InlineData("%u000U0", "unescape('%u000U0')")]
-    [InlineData("%u00u00", "unescape('%u00u00')")]
-    [InlineData("%u00U00", "unescape('%u00U00')")]
-    [InlineData("%u0u000", "unescape('%u0u000')")]
-    [InlineData("%u0U000", "unescape('%u0U000')")]
-    [InlineData("%uu0000", "unescape('%uu0000')")]
-    [InlineData("%uU0000", "unescape('%uU0000')")]
+    [TestCase("%u000%0", "unescape('%u000%0')")]
+    [TestCase("%u000g0", "unescape('%u000g0')")]
+    [TestCase("%u000G0", "unescape('%u000G0')")]
+    [TestCase("%u00g00", "unescape('%u00g00')")]
+    [TestCase("%u00G00", "unescape('%u00G00')")]
+    [TestCase("%u0g000", "unescape('%u0g000')")]
+    [TestCase("%u0G000", "unescape('%u0G000')")]
+    [TestCase("%ug0000", "unescape('%ug0000')")]
+    [TestCase("%uG0000", "unescape('%uG0000')")]
+    [TestCase("%u000u0", "unescape('%u000u0')")]
+    [TestCase("%u000U0", "unescape('%u000U0')")]
+    [TestCase("%u00u00", "unescape('%u00u00')")]
+    [TestCase("%u00U00", "unescape('%u00U00')")]
+    [TestCase("%u0u000", "unescape('%u0u000')")]
+    [TestCase("%u0U000", "unescape('%u0U000')")]
+    [TestCase("%uu0000", "unescape('%uu0000')")]
+    [TestCase("%uU0000", "unescape('%uU0000')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/four.js
-    [InlineData("%0" + "\x00" + "0", "unescape('%0%u00000')")]
-    [InlineData("%0" + "\x01" + "0", "unescape('%0%u00010')")]
-    [InlineData("%0)0", "unescape('%0%u00290')")]
-    [InlineData("%0*0", "unescape('%0%u002a0')")]
-    [InlineData("%0*0", "unescape('%0%u002A0')")]
-    [InlineData("%0+0", "unescape('%0%u002b0')")]
-    [InlineData("%0+0", "unescape('%0%u002B0')")]
-    [InlineData("%0,0", "unescape('%0%u002c0')")]
-    [InlineData("%0,0", "unescape('%0%u002C0')")]
-    [InlineData("%0-0", "unescape('%0%u002d0')")]
-    [InlineData("%0-0", "unescape('%0%u002D0')")]
-    [InlineData("%090", "unescape('%0%u00390')")]
-    [InlineData("%0:0", "unescape('%0%u003a0')")]
-    [InlineData("%0:0", "unescape('%0%u003A0')")]
-    [InlineData("%0?0", "unescape('%0%u003f0')")]
-    [InlineData("%0?0", "unescape('%0%u003F0')")]
-    [InlineData("%0@0", "unescape('%0%u00400')")]
-    [InlineData("%0Z0", "unescape('%0%u005a0')")]
-    [InlineData("%0Z0", "unescape('%0%u005A0')")]
-    [InlineData("%0[0", "unescape('%0%u005b0')")]
-    [InlineData("%0[0", "unescape('%0%u005B0')")]
-    [InlineData("%0^0", "unescape('%0%u005e0')")]
-    [InlineData("%0^0", "unescape('%0%u005E0')")]
-    [InlineData("%0_0", "unescape('%0%u005f0')")]
-    [InlineData("%0_0", "unescape('%0%u005F0')")]
-    [InlineData("%0`0", "unescape('%0%u00600')")]
-    [InlineData("%0a0", "unescape('%0%u00610')")]
-    [InlineData("%0z0", "unescape('%0%u007a0')")]
-    [InlineData("%0z0", "unescape('%0%u007A0')")]
-    [InlineData("%0{0", "unescape('%0%u007b0')")]
-    [InlineData("%0{0", "unescape('%0%u007B0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%ufffe0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%uFffe0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%ufFfe0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%uffFe0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%ufffE0')")]
-    [InlineData("%0" + "\ufffe" + "0", "unescape('%0%uFFFE0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%uffff0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%uFfff0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%ufFff0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%uffFf0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%ufffF0')")]
-    [InlineData("%0" + "\uffff" + "0", "unescape('%0%uFFFF0')")]
+    [TestCase("%0" + "\x00" + "0", "unescape('%0%u00000')")]
+    [TestCase("%0" + "\x01" + "0", "unescape('%0%u00010')")]
+    [TestCase("%0)0", "unescape('%0%u00290')")]
+    [TestCase("%0*0", "unescape('%0%u002a0')")]
+    [TestCase("%0*0", "unescape('%0%u002A0')")]
+    [TestCase("%0+0", "unescape('%0%u002b0')")]
+    [TestCase("%0+0", "unescape('%0%u002B0')")]
+    [TestCase("%0,0", "unescape('%0%u002c0')")]
+    [TestCase("%0,0", "unescape('%0%u002C0')")]
+    [TestCase("%0-0", "unescape('%0%u002d0')")]
+    [TestCase("%0-0", "unescape('%0%u002D0')")]
+    [TestCase("%090", "unescape('%0%u00390')")]
+    [TestCase("%0:0", "unescape('%0%u003a0')")]
+    [TestCase("%0:0", "unescape('%0%u003A0')")]
+    [TestCase("%0?0", "unescape('%0%u003f0')")]
+    [TestCase("%0?0", "unescape('%0%u003F0')")]
+    [TestCase("%0@0", "unescape('%0%u00400')")]
+    [TestCase("%0Z0", "unescape('%0%u005a0')")]
+    [TestCase("%0Z0", "unescape('%0%u005A0')")]
+    [TestCase("%0[0", "unescape('%0%u005b0')")]
+    [TestCase("%0[0", "unescape('%0%u005B0')")]
+    [TestCase("%0^0", "unescape('%0%u005e0')")]
+    [TestCase("%0^0", "unescape('%0%u005E0')")]
+    [TestCase("%0_0", "unescape('%0%u005f0')")]
+    [TestCase("%0_0", "unescape('%0%u005F0')")]
+    [TestCase("%0`0", "unescape('%0%u00600')")]
+    [TestCase("%0a0", "unescape('%0%u00610')")]
+    [TestCase("%0z0", "unescape('%0%u007a0')")]
+    [TestCase("%0z0", "unescape('%0%u007A0')")]
+    [TestCase("%0{0", "unescape('%0%u007b0')")]
+    [TestCase("%0{0", "unescape('%0%u007B0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%ufffe0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%uFffe0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%ufFfe0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%uffFe0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%ufffE0')")]
+    [TestCase("%0" + "\ufffe" + "0", "unescape('%0%uFFFE0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%uffff0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%uFfff0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%ufFff0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%uffFf0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%ufffF0')")]
+    [TestCase("%0" + "\uffff" + "0", "unescape('%0%uFFFF0')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/two-ignore-end-str.js
-    [InlineData("%", "unescape('%')")]
-    [InlineData("%0", "unescape('%0')")]
-    [InlineData("%1", "unescape('%1')")]
-    [InlineData("%2", "unescape('%2')")]
-    [InlineData("%3", "unescape('%3')")]
-    [InlineData("%4", "unescape('%4')")]
-    [InlineData("%5", "unescape('%5')")]
-    [InlineData("%6", "unescape('%6')")]
-    [InlineData("%7", "unescape('%7')")]
-    [InlineData("%8", "unescape('%8')")]
-    [InlineData("%9", "unescape('%9')")]
-    [InlineData("%a", "unescape('%a')")]
-    [InlineData("%A", "unescape('%A')")]
-    [InlineData("%b", "unescape('%b')")]
-    [InlineData("%B", "unescape('%B')")]
-    [InlineData("%c", "unescape('%c')")]
-    [InlineData("%C", "unescape('%C')")]
-    [InlineData("%d", "unescape('%d')")]
-    [InlineData("%D", "unescape('%D')")]
-    [InlineData("%e", "unescape('%e')")]
-    [InlineData("%E", "unescape('%E')")]
-    [InlineData("%f", "unescape('%f')")]
-    [InlineData("%F", "unescape('%F')")]
+    [TestCase("%", "unescape('%')")]
+    [TestCase("%0", "unescape('%0')")]
+    [TestCase("%1", "unescape('%1')")]
+    [TestCase("%2", "unescape('%2')")]
+    [TestCase("%3", "unescape('%3')")]
+    [TestCase("%4", "unescape('%4')")]
+    [TestCase("%5", "unescape('%5')")]
+    [TestCase("%6", "unescape('%6')")]
+    [TestCase("%7", "unescape('%7')")]
+    [TestCase("%8", "unescape('%8')")]
+    [TestCase("%9", "unescape('%9')")]
+    [TestCase("%a", "unescape('%a')")]
+    [TestCase("%A", "unescape('%A')")]
+    [TestCase("%b", "unescape('%b')")]
+    [TestCase("%B", "unescape('%B')")]
+    [TestCase("%c", "unescape('%c')")]
+    [TestCase("%C", "unescape('%C')")]
+    [TestCase("%d", "unescape('%d')")]
+    [TestCase("%D", "unescape('%D')")]
+    [TestCase("%e", "unescape('%e')")]
+    [TestCase("%E", "unescape('%E')")]
+    [TestCase("%f", "unescape('%f')")]
+    [TestCase("%F", "unescape('%F')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/two-ignore-non-hex.js
-    [InlineData("%0%0", "unescape('%0%0')")]
-    [InlineData("%0g0", "unescape('%0g0')")]
-    [InlineData("%0G0", "unescape('%0G0')")]
-    [InlineData("%g00", "unescape('%g00')")]
-    [InlineData("%G00", "unescape('%G00')")]
-    [InlineData("%0u0", "unescape('%0u0')")]
-    [InlineData("%0U0", "unescape('%0U0')")]
-    [InlineData("%u00", "unescape('%u00')")]
-    [InlineData("%U00", "unescape('%U00')")]
+    [TestCase("%0%0", "unescape('%0%0')")]
+    [TestCase("%0g0", "unescape('%0g0')")]
+    [TestCase("%0G0", "unescape('%0G0')")]
+    [TestCase("%g00", "unescape('%g00')")]
+    [TestCase("%G00", "unescape('%G00')")]
+    [TestCase("%0u0", "unescape('%0u0')")]
+    [TestCase("%0U0", "unescape('%0U0')")]
+    [TestCase("%u00", "unescape('%u00')")]
+    [TestCase("%U00", "unescape('%U00')")]
     //https://github.com/tc39/test262/blob/master/test/annexB/built-ins/unescape/two.js
-    [InlineData("%0" + "\x00" + "00", "unescape('%0%0000')")]
-    [InlineData("%0" + "\x01" + "00", "unescape('%0%0100')")]
-    [InlineData("%0)00", "unescape('%0%2900')")]
-    [InlineData("%0*00", "unescape('%0%2a00')")]
-    [InlineData("%0*00", "unescape('%0%2A00')")]
-    [InlineData("%0+00", "unescape('%0%2b00')")]
-    [InlineData("%0+00", "unescape('%0%2B00')")]
-    [InlineData("%0,00", "unescape('%0%2c00')")]
-    [InlineData("%0,00", "unescape('%0%2C00')")]
-    [InlineData("%0-00", "unescape('%0%2d00')")]
-    [InlineData("%0-00", "unescape('%0%2D00')")]
-    [InlineData("%0900", "unescape('%0%3900')")]
-    [InlineData("%0:00", "unescape('%0%3a00')")]
-    [InlineData("%0:00", "unescape('%0%3A00')")]
-    [InlineData("%0?00", "unescape('%0%3f00')")]
-    [InlineData("%0?00", "unescape('%0%3F00')")]
-    [InlineData("%0@00", "unescape('%0%4000')")]
-    [InlineData("%0Z00", "unescape('%0%5a00')")]
-    [InlineData("%0Z00", "unescape('%0%5A00')")]
-    [InlineData("%0[00", "unescape('%0%5b00')")]
-    [InlineData("%0[00", "unescape('%0%5B00')")]
-    [InlineData("%0^00", "unescape('%0%5e00')")]
-    [InlineData("%0^00", "unescape('%0%5E00')")]
-    [InlineData("%0_00", "unescape('%0%5f00')")]
-    [InlineData("%0_00", "unescape('%0%5F00')")]
-    [InlineData("%0`00", "unescape('%0%6000')")]
-    [InlineData("%0a00", "unescape('%0%6100')")]
-    [InlineData("%0z00", "unescape('%0%7a00')")]
-    [InlineData("%0z00", "unescape('%0%7A00')")]
-    [InlineData("%0{00", "unescape('%0%7b00')")]
-    [InlineData("%0{00", "unescape('%0%7B00')")]
+    [TestCase("%0" + "\x00" + "00", "unescape('%0%0000')")]
+    [TestCase("%0" + "\x01" + "00", "unescape('%0%0100')")]
+    [TestCase("%0)00", "unescape('%0%2900')")]
+    [TestCase("%0*00", "unescape('%0%2a00')")]
+    [TestCase("%0*00", "unescape('%0%2A00')")]
+    [TestCase("%0+00", "unescape('%0%2b00')")]
+    [TestCase("%0+00", "unescape('%0%2B00')")]
+    [TestCase("%0,00", "unescape('%0%2c00')")]
+    [TestCase("%0,00", "unescape('%0%2C00')")]
+    [TestCase("%0-00", "unescape('%0%2d00')")]
+    [TestCase("%0-00", "unescape('%0%2D00')")]
+    [TestCase("%0900", "unescape('%0%3900')")]
+    [TestCase("%0:00", "unescape('%0%3a00')")]
+    [TestCase("%0:00", "unescape('%0%3A00')")]
+    [TestCase("%0?00", "unescape('%0%3f00')")]
+    [TestCase("%0?00", "unescape('%0%3F00')")]
+    [TestCase("%0@00", "unescape('%0%4000')")]
+    [TestCase("%0Z00", "unescape('%0%5a00')")]
+    [TestCase("%0Z00", "unescape('%0%5A00')")]
+    [TestCase("%0[00", "unescape('%0%5b00')")]
+    [TestCase("%0[00", "unescape('%0%5B00')")]
+    [TestCase("%0^00", "unescape('%0%5e00')")]
+    [TestCase("%0^00", "unescape('%0%5E00')")]
+    [TestCase("%0_00", "unescape('%0%5f00')")]
+    [TestCase("%0_00", "unescape('%0%5F00')")]
+    [TestCase("%0`00", "unescape('%0%6000')")]
+    [TestCase("%0a00", "unescape('%0%6100')")]
+    [TestCase("%0z00", "unescape('%0%7a00')")]
+    [TestCase("%0z00", "unescape('%0%7A00')")]
+    [TestCase("%0{00", "unescape('%0%7b00')")]
+    [TestCase("%0{00", "unescape('%0%7B00')")]
     public void ShouldEvaluateUnescape(object expected, string source)
     {
         var engine = new Engine();
@@ -2442,19 +2429,18 @@ var prep = function (fn) { fn(); };
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("new Date(1969,0,1,19,45,30,500).getHours()", 19)]
-    [InlineData("new Date(1970,0,1,19,45,30,500).getHours()", 19)]
-    [InlineData("new Date(1971,0,1,19,45,30,500).getHours()", 19)]
-    [InlineData("new Date(1969,0,1,19,45,30,500).getMinutes()", 45)]
-    [InlineData("new Date(1970,0,1,19,45,30,500).getMinutes()", 45)]
-    [InlineData("new Date(1971,0,1,19,45,30,500).getMinutes()", 45)]
-    [InlineData("new Date(1969,0,1,19,45,30,500).getSeconds()", 30)]
-    [InlineData("new Date(1970,0,1,19,45,30,500).getSeconds()", 30)]
-    [InlineData("new Date(1971,0,1,19,45,30,500).getSeconds()", 30)]
-    //[InlineData("new Date(1969,0,1,19,45,30,500).getMilliseconds()", 500)]
-    //[InlineData("new Date(1970,0,1,19,45,30,500).getMilliseconds()", 500)]
-    //[InlineData("new Date(1971,0,1,19,45,30,500).getMilliseconds()", 500)]
+    [TestCase("new Date(1969,0,1,19,45,30,500).getHours()", 19)]
+    [TestCase("new Date(1970,0,1,19,45,30,500).getHours()", 19)]
+    [TestCase("new Date(1971,0,1,19,45,30,500).getHours()", 19)]
+    [TestCase("new Date(1969,0,1,19,45,30,500).getMinutes()", 45)]
+    [TestCase("new Date(1970,0,1,19,45,30,500).getMinutes()", 45)]
+    [TestCase("new Date(1971,0,1,19,45,30,500).getMinutes()", 45)]
+    [TestCase("new Date(1969,0,1,19,45,30,500).getSeconds()", 30)]
+    [TestCase("new Date(1970,0,1,19,45,30,500).getSeconds()", 30)]
+    [TestCase("new Date(1971,0,1,19,45,30,500).getSeconds()", 30)]
+    //[TestCase("new Date(1969,0,1,19,45,30,500).getMilliseconds()", 500)]
+    //[TestCase("new Date(1970,0,1,19,45,30,500).getMilliseconds()", 500)]
+    //[TestCase("new Date(1971,0,1,19,45,30,500).getMilliseconds()", 500)]
     public void ShouldExtractDateParts(string source, double expected)
     {
         var engine = new Engine();
@@ -2463,12 +2449,11 @@ var prep = function (fn) { fn(); };
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("'abc'.padStart(10)", "       abc")]
-    [InlineData("'abc'.padStart(10, \"foo\")", "foofoofabc")]
-    [InlineData("'abc'.padStart(6, \"123456\")", "123abc")]
-    [InlineData("'abc'.padStart(8, \"0\")", "00000abc")]
-    [InlineData("'abc'.padStart(1)", "abc")]
+    [TestCase("'abc'.padStart(10)", "       abc")]
+    [TestCase("'abc'.padStart(10, \"foo\")", "foofoofabc")]
+    [TestCase("'abc'.padStart(6, \"123456\")", "123abc")]
+    [TestCase("'abc'.padStart(8, \"0\")", "00000abc")]
+    [TestCase("'abc'.padStart(1)", "abc")]
     public void ShouldPadStart(string source, object expected)
     {
         var engine = new Engine();
@@ -2477,11 +2462,10 @@ var prep = function (fn) { fn(); };
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("'abc'.padEnd(10)", "abc       ")]
-    [InlineData("'abc'.padEnd(10, \"foo\")", "abcfoofoof")]
-    [InlineData("'abc'.padEnd(6, \"123456\")", "abc123")]
-    [InlineData("'abc'.padEnd(1)", "abc")]
+    [TestCase("'abc'.padEnd(10)", "abc       ")]
+    [TestCase("'abc'.padEnd(10, \"foo\")", "abcfoofoof")]
+    [TestCase("'abc'.padEnd(6, \"123456\")", "abc123")]
+    [TestCase("'abc'.padEnd(1)", "abc")]
     public void ShouldPadEnd(string source, object expected)
     {
         var engine = new Engine();
@@ -2492,38 +2476,37 @@ var prep = function (fn) { fn(); };
     /// <summary>
     /// Tests for startsWith - tests created from MDN and https://github.com/mathiasbynens/String.prototype.startsWith/blob/master/tests/tests.js
     /// </summary>
-    [Theory]
-    [InlineData("'To be, or not to be, that is the question.'.startsWith('To be')", true)]
-    [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be')", false)]
-    [InlineData("'To be, or not to be, that is the question.'.startsWith()", false)]
-    [InlineData("'To be, or not to be, that is the question.'.startsWith('not to be', 10)", true)]
-    [InlineData("'undefined'.startsWith()", true)]
-    [InlineData("'undefined'.startsWith(undefined)", true)]
-    [InlineData("'undefined'.startsWith(null)", false)]
-    [InlineData("'null'.startsWith()", false)]
-    [InlineData("'null'.startsWith(undefined)", false)]
-    [InlineData("'null'.startsWith(null)", true)]
-    [InlineData("'abc'.startsWith()", false)]
-    [InlineData("'abc'.startsWith('')", true)]
-    [InlineData("'abc'.startsWith('\0')", false)]
-    [InlineData("'abc'.startsWith('a')", true)]
-    [InlineData("'abc'.startsWith('b')", false)]
-    [InlineData("'abc'.startsWith('ab')", true)]
-    [InlineData("'abc'.startsWith('bc')", false)]
-    [InlineData("'abc'.startsWith('abc')", true)]
-    [InlineData("'abc'.startsWith('bcd')", false)]
-    [InlineData("'abc'.startsWith('abcd')", false)]
-    [InlineData("'abc'.startsWith('bcde')", false)]
-    [InlineData("'abc'.startsWith('', 1)", true)]
-    [InlineData("'abc'.startsWith('\0', 1)", false)]
-    [InlineData("'abc'.startsWith('a', 1)", false)]
-    [InlineData("'abc'.startsWith('b', 1)", true)]
-    [InlineData("'abc'.startsWith('ab', 1)", false)]
-    [InlineData("'abc'.startsWith('bc', 1)", true)]
-    [InlineData("'abc'.startsWith('abc', 1)", false)]
-    [InlineData("'abc'.startsWith('bcd', 1)", false)]
-    [InlineData("'abc'.startsWith('abcd', 1)", false)]
-    [InlineData("'abc'.startsWith('bcde', 1)", false)]
+    [TestCase("'To be, or not to be, that is the question.'.startsWith('To be')", true)]
+    [TestCase("'To be, or not to be, that is the question.'.startsWith('not to be')", false)]
+    [TestCase("'To be, or not to be, that is the question.'.startsWith()", false)]
+    [TestCase("'To be, or not to be, that is the question.'.startsWith('not to be', 10)", true)]
+    [TestCase("'undefined'.startsWith()", true)]
+    [TestCase("'undefined'.startsWith(undefined)", true)]
+    [TestCase("'undefined'.startsWith(null)", false)]
+    [TestCase("'null'.startsWith()", false)]
+    [TestCase("'null'.startsWith(undefined)", false)]
+    [TestCase("'null'.startsWith(null)", true)]
+    [TestCase("'abc'.startsWith()", false)]
+    [TestCase("'abc'.startsWith('')", true)]
+    [TestCase("'abc'.startsWith('\0')", false)]
+    [TestCase("'abc'.startsWith('a')", true)]
+    [TestCase("'abc'.startsWith('b')", false)]
+    [TestCase("'abc'.startsWith('ab')", true)]
+    [TestCase("'abc'.startsWith('bc')", false)]
+    [TestCase("'abc'.startsWith('abc')", true)]
+    [TestCase("'abc'.startsWith('bcd')", false)]
+    [TestCase("'abc'.startsWith('abcd')", false)]
+    [TestCase("'abc'.startsWith('bcde')", false)]
+    [TestCase("'abc'.startsWith('', 1)", true)]
+    [TestCase("'abc'.startsWith('\0', 1)", false)]
+    [TestCase("'abc'.startsWith('a', 1)", false)]
+    [TestCase("'abc'.startsWith('b', 1)", true)]
+    [TestCase("'abc'.startsWith('ab', 1)", false)]
+    [TestCase("'abc'.startsWith('bc', 1)", true)]
+    [TestCase("'abc'.startsWith('abc', 1)", false)]
+    [TestCase("'abc'.startsWith('bcd', 1)", false)]
+    [TestCase("'abc'.startsWith('abcd', 1)", false)]
+    [TestCase("'abc'.startsWith('bcde', 1)", false)]
     public void ShouldStartWith(string source, object expected)
     {
         var engine = new Engine();
@@ -2532,11 +2515,10 @@ var prep = function (fn) { fn(); };
         result.Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("throw {}", "undefined")]
-    [InlineData("throw {message:null}", "null")]
-    [InlineData("throw {message:''}", "")]
-    [InlineData("throw {message:2}", "2")]
+    [TestCase("throw {}", "undefined")]
+    [TestCase("throw {message:null}", "null")]
+    [TestCase("throw {message:''}", "")]
+    [TestCase("throw {message:2}", "2")]
     public void ShouldAllowNonStringMessage(string source, string expected)
     {
         var engine = new Engine();
@@ -2544,96 +2526,95 @@ var prep = function (fn) { fn(); };
         ex.Message.Should().Be(expected);
     }
 
-    [Theory]
     //Months
-    [InlineData("new Date(2017, 0, 1, 0, 0, 0)", "new Date(2016, 12, 1, 0, 0, 0)")]
-    [InlineData("new Date(2016, 0, 1, 23, 59, 59)", "new Date(2015, 12, 1, 23, 59, 59)")]
-    [InlineData("new Date(2013, 0, 1, 0, 0, 0)", "new Date(2012, 12, 1, 0, 0, 0)")]
-    [InlineData("new Date(2013, 0, 29, 23, 59, 59)", "new Date(2012, 12, 29, 23, 59, 59)")]
-    [InlineData("new Date(2015, 11, 1, 0, 0, 0)", "new Date(2016, -1, 1, 0, 0, 0)")]
-    [InlineData("new Date(2014, 11, 1, 23, 59, 59)", "new Date(2015, -1, 1, 23, 59, 59)")]
-    [InlineData("new Date(2011, 11, 1, 0, 0, 0)", "new Date(2012, -1, 1, 0, 0, 0)")]
-    [InlineData("new Date(2011, 11, 29, 23, 59, 59)", "new Date(2012, -1, 29, 23, 59, 59)")]
-    [InlineData("new Date(2015, 1, 1, 0, 0, 0)", "new Date(2016, -11, 1, 0, 0, 0)")]
-    [InlineData("new Date(2014, 1, 1, 23, 59, 59)", "new Date(2015, -11, 1, 23, 59, 59)")]
-    [InlineData("new Date(2011, 1, 1, 0, 0, 0)", "new Date(2012, -11, 1, 0, 0, 0)")]
-    [InlineData("new Date(2011, 2, 1, 23, 59, 59)", "new Date(2012, -11, 29, 23, 59, 59)")]
-    [InlineData("new Date(2015, 0, 1, 0, 0, 0)", "new Date(2016, -12, 1, 0, 0, 0)")]
-    [InlineData("new Date(2014, 0, 1, 23, 59, 59)", "new Date(2015, -12, 1, 23, 59, 59)")]
-    [InlineData("new Date(2011, 0, 1, 0, 0, 0)", "new Date(2012, -12, 1, 0, 0, 0)")]
-    [InlineData("new Date(2011, 0, 29, 23, 59, 59)", "new Date(2012, -12, 29, 23, 59, 59)")]
-    [InlineData("new Date(2014, 11, 1, 0, 0, 0)", "new Date(2016, -13, 1, 0, 0, 0)")]
-    [InlineData("new Date(2013, 11, 1, 23, 59, 59)", "new Date(2015, -13, 1, 23, 59, 59)")]
-    [InlineData("new Date(2010, 11, 1, 0, 0, 0)", "new Date(2012, -13, 1, 0, 0, 0)")]
-    [InlineData("new Date(2010, 11, 29, 23, 59, 59)", "new Date(2012, -13, 29, 23, 59, 59)")]
-    [InlineData("new Date(2013, 11, 1, 0, 0, 0)", "new Date(2016, -25, 1, 0, 0, 0)")]
-    [InlineData("new Date(2012, 11, 1, 23, 59, 59)", "new Date(2015, -25, 1, 23, 59, 59)")]
-    [InlineData("new Date(2009, 11, 1, 0, 0, 0)", "new Date(2012, -25, 1, 0, 0, 0)")]
-    [InlineData("new Date(2009, 11, 29, 23, 59, 59)", "new Date(2012, -25, 29, 23, 59, 59)")]
+    [TestCase("new Date(2017, 0, 1, 0, 0, 0)", "new Date(2016, 12, 1, 0, 0, 0)")]
+    [TestCase("new Date(2016, 0, 1, 23, 59, 59)", "new Date(2015, 12, 1, 23, 59, 59)")]
+    [TestCase("new Date(2013, 0, 1, 0, 0, 0)", "new Date(2012, 12, 1, 0, 0, 0)")]
+    [TestCase("new Date(2013, 0, 29, 23, 59, 59)", "new Date(2012, 12, 29, 23, 59, 59)")]
+    [TestCase("new Date(2015, 11, 1, 0, 0, 0)", "new Date(2016, -1, 1, 0, 0, 0)")]
+    [TestCase("new Date(2014, 11, 1, 23, 59, 59)", "new Date(2015, -1, 1, 23, 59, 59)")]
+    [TestCase("new Date(2011, 11, 1, 0, 0, 0)", "new Date(2012, -1, 1, 0, 0, 0)")]
+    [TestCase("new Date(2011, 11, 29, 23, 59, 59)", "new Date(2012, -1, 29, 23, 59, 59)")]
+    [TestCase("new Date(2015, 1, 1, 0, 0, 0)", "new Date(2016, -11, 1, 0, 0, 0)")]
+    [TestCase("new Date(2014, 1, 1, 23, 59, 59)", "new Date(2015, -11, 1, 23, 59, 59)")]
+    [TestCase("new Date(2011, 1, 1, 0, 0, 0)", "new Date(2012, -11, 1, 0, 0, 0)")]
+    [TestCase("new Date(2011, 2, 1, 23, 59, 59)", "new Date(2012, -11, 29, 23, 59, 59)")]
+    [TestCase("new Date(2015, 0, 1, 0, 0, 0)", "new Date(2016, -12, 1, 0, 0, 0)")]
+    [TestCase("new Date(2014, 0, 1, 23, 59, 59)", "new Date(2015, -12, 1, 23, 59, 59)")]
+    [TestCase("new Date(2011, 0, 1, 0, 0, 0)", "new Date(2012, -12, 1, 0, 0, 0)")]
+    [TestCase("new Date(2011, 0, 29, 23, 59, 59)", "new Date(2012, -12, 29, 23, 59, 59)")]
+    [TestCase("new Date(2014, 11, 1, 0, 0, 0)", "new Date(2016, -13, 1, 0, 0, 0)")]
+    [TestCase("new Date(2013, 11, 1, 23, 59, 59)", "new Date(2015, -13, 1, 23, 59, 59)")]
+    [TestCase("new Date(2010, 11, 1, 0, 0, 0)", "new Date(2012, -13, 1, 0, 0, 0)")]
+    [TestCase("new Date(2010, 11, 29, 23, 59, 59)", "new Date(2012, -13, 29, 23, 59, 59)")]
+    [TestCase("new Date(2013, 11, 1, 0, 0, 0)", "new Date(2016, -25, 1, 0, 0, 0)")]
+    [TestCase("new Date(2012, 11, 1, 23, 59, 59)", "new Date(2015, -25, 1, 23, 59, 59)")]
+    [TestCase("new Date(2009, 11, 1, 0, 0, 0)", "new Date(2012, -25, 1, 0, 0, 0)")]
+    [TestCase("new Date(2009, 11, 29, 23, 59, 59)", "new Date(2012, -25, 29, 23, 59, 59)")]
     //Days
-    [InlineData("new Date(2016, 1, 11, 0, 0, 0)", "new Date(2016, 0, 42, 0, 0, 0)")]
-    [InlineData("new Date(2016, 0, 11, 23, 59, 59)", "new Date(2015, 11, 42, 23, 59, 59)")]
-    [InlineData("new Date(2012, 3, 11, 0, 0, 0)", "new Date(2012, 2, 42, 0, 0, 0)")]
-    [InlineData("new Date(2012, 2, 13, 23, 59, 59)", "new Date(2012, 1, 42, 23, 59, 59)")]
-    [InlineData("new Date(2015, 11, 31, 0, 0, 0)", "new Date(2016, 0, 0, 0, 0, 0)")]
-    [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 0, 23, 59, 59)")]
-    [InlineData("new Date(2012, 1, 29, 0, 0, 0)", "new Date(2012, 2, 0, 0, 0, 0)")]
-    [InlineData("new Date(2012, 0, 31, 23, 59, 59)", "new Date(2012, 1, 0, 23, 59, 59)")]
-    [InlineData("new Date(2015, 10, 24, 0, 0, 0)", "new Date(2016, 0, -37, 0, 0, 0)")]
-    [InlineData("new Date(2015, 9, 24, 23, 59, 59)", "new Date(2015, 11, -37, 23, 59, 59)")]
-    [InlineData("new Date(2012, 0, 23, 0, 0, 0)", "new Date(2012, 2, -37, 0, 0, 0)")]
-    [InlineData("new Date(2011, 11, 25, 23, 59, 59)", "new Date(2012, 1, -37, 23, 59, 59)")]
+    [TestCase("new Date(2016, 1, 11, 0, 0, 0)", "new Date(2016, 0, 42, 0, 0, 0)")]
+    [TestCase("new Date(2016, 0, 11, 23, 59, 59)", "new Date(2015, 11, 42, 23, 59, 59)")]
+    [TestCase("new Date(2012, 3, 11, 0, 0, 0)", "new Date(2012, 2, 42, 0, 0, 0)")]
+    [TestCase("new Date(2012, 2, 13, 23, 59, 59)", "new Date(2012, 1, 42, 23, 59, 59)")]
+    [TestCase("new Date(2015, 11, 31, 0, 0, 0)", "new Date(2016, 0, 0, 0, 0, 0)")]
+    [TestCase("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 0, 23, 59, 59)")]
+    [TestCase("new Date(2012, 1, 29, 0, 0, 0)", "new Date(2012, 2, 0, 0, 0, 0)")]
+    [TestCase("new Date(2012, 0, 31, 23, 59, 59)", "new Date(2012, 1, 0, 23, 59, 59)")]
+    [TestCase("new Date(2015, 10, 24, 0, 0, 0)", "new Date(2016, 0, -37, 0, 0, 0)")]
+    [TestCase("new Date(2015, 9, 24, 23, 59, 59)", "new Date(2015, 11, -37, 23, 59, 59)")]
+    [TestCase("new Date(2012, 0, 23, 0, 0, 0)", "new Date(2012, 2, -37, 0, 0, 0)")]
+    [TestCase("new Date(2011, 11, 25, 23, 59, 59)", "new Date(2012, 1, -37, 23, 59, 59)")]
     //Hours
-    [InlineData("new Date(2016, 0, 2, 1, 0, 0)", "new Date(2016, 0, 1, 25, 0, 0)")]
-    [InlineData("new Date(2015, 11, 2, 1, 59, 59)", "new Date(2015, 11, 1, 25, 59, 59)")]
-    [InlineData("new Date(2012, 2, 2, 1, 0, 0)", "new Date(2012, 2, 1, 25, 0, 0)")]
-    [InlineData("new Date(2012, 2, 1, 1, 59, 59)", "new Date(2012, 1, 29, 25, 59, 59)")]
-    [InlineData("new Date(2016, 0, 19, 3, 0, 0)", "new Date(2016, 0, 1, 435, 0, 0)")]
-    [InlineData("new Date(2015, 11, 19, 3, 59, 59)", "new Date(2015, 11, 1, 435, 59, 59)")]
-    [InlineData("new Date(2012, 2, 19, 3, 0, 0)", "new Date(2012, 2, 1, 435, 0, 0)")]
-    [InlineData("new Date(2012, 2, 18, 3, 59, 59)", "new Date(2012, 1, 29, 435, 59, 59)")]
-    [InlineData("new Date(2015, 11, 31, 23, 0, 0)", "new Date(2016, 0, 1, -1, 0, 0)")]
-    [InlineData("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 1, -1, 59, 59)")]
-    [InlineData("new Date(2012, 1, 29, 23, 0, 0)", "new Date(2012, 2, 1, -1, 0, 0)")]
-    [InlineData("new Date(2012, 1, 28, 23, 59, 59)", "new Date(2012, 1, 29, -1, 59, 59)")]
-    [InlineData("new Date(2015, 11, 3, 18, 0, 0)", "new Date(2016, 0, 1, -678, 0, 0)")]
-    [InlineData("new Date(2015, 10, 2, 18, 59, 59)", "new Date(2015, 11, 1, -678, 59, 59)")]
-    [InlineData("new Date(2012, 1, 1, 18, 0, 0)", "new Date(2012, 2, 1, -678, 0, 0)")]
-    [InlineData("new Date(2012, 0, 31, 18, 59, 59)", "new Date(2012, 1, 29, -678, 59, 59)")]
+    [TestCase("new Date(2016, 0, 2, 1, 0, 0)", "new Date(2016, 0, 1, 25, 0, 0)")]
+    [TestCase("new Date(2015, 11, 2, 1, 59, 59)", "new Date(2015, 11, 1, 25, 59, 59)")]
+    [TestCase("new Date(2012, 2, 2, 1, 0, 0)", "new Date(2012, 2, 1, 25, 0, 0)")]
+    [TestCase("new Date(2012, 2, 1, 1, 59, 59)", "new Date(2012, 1, 29, 25, 59, 59)")]
+    [TestCase("new Date(2016, 0, 19, 3, 0, 0)", "new Date(2016, 0, 1, 435, 0, 0)")]
+    [TestCase("new Date(2015, 11, 19, 3, 59, 59)", "new Date(2015, 11, 1, 435, 59, 59)")]
+    [TestCase("new Date(2012, 2, 19, 3, 0, 0)", "new Date(2012, 2, 1, 435, 0, 0)")]
+    [TestCase("new Date(2012, 2, 18, 3, 59, 59)", "new Date(2012, 1, 29, 435, 59, 59)")]
+    [TestCase("new Date(2015, 11, 31, 23, 0, 0)", "new Date(2016, 0, 1, -1, 0, 0)")]
+    [TestCase("new Date(2015, 10, 30, 23, 59, 59)", "new Date(2015, 11, 1, -1, 59, 59)")]
+    [TestCase("new Date(2012, 1, 29, 23, 0, 0)", "new Date(2012, 2, 1, -1, 0, 0)")]
+    [TestCase("new Date(2012, 1, 28, 23, 59, 59)", "new Date(2012, 1, 29, -1, 59, 59)")]
+    [TestCase("new Date(2015, 11, 3, 18, 0, 0)", "new Date(2016, 0, 1, -678, 0, 0)")]
+    [TestCase("new Date(2015, 10, 2, 18, 59, 59)", "new Date(2015, 11, 1, -678, 59, 59)")]
+    [TestCase("new Date(2012, 1, 1, 18, 0, 0)", "new Date(2012, 2, 1, -678, 0, 0)")]
+    [TestCase("new Date(2012, 0, 31, 18, 59, 59)", "new Date(2012, 1, 29, -678, 59, 59)")]
     // Minutes
-    [InlineData("new Date(2016, 0, 1, 1, 0, 0)", "new Date(2016, 0, 1, 0, 60, 0)")]
-    [InlineData("new Date(2015, 11, 2, 0, 0, 59)", "new Date(2015, 11, 1, 23, 60, 59)")]
-    [InlineData("new Date(2012, 2, 1, 1, 0, 0)", "new Date(2012, 2, 1, 0, 60, 0)")]
-    [InlineData("new Date(2012, 2, 1, 0, 0, 59)", "new Date(2012, 1, 29, 23, 60, 59)")]
-    [InlineData("new Date(2015, 11, 31, 23, 59, 0)", "new Date(2016, 0, 1, 0, -1, 0)")]
-    [InlineData("new Date(2015, 11, 1, 22, 59, 59)", "new Date(2015, 11, 1, 23, -1, 59)")]
-    [InlineData("new Date(2012, 1, 29, 23, 59, 0)", "new Date(2012, 2, 1, 0, -1, 0)")]
-    [InlineData("new Date(2012, 1, 29, 22, 59, 59)", "new Date(2012, 1, 29, 23, -1, 59)")]
-    [InlineData("new Date(2016, 0, 2, 15, 5, 0)", "new Date(2016, 0, 1, 0, 2345, 0)")]
-    [InlineData("new Date(2015, 11, 3, 14, 5, 59)", "new Date(2015, 11, 1, 23, 2345, 59)")]
-    [InlineData("new Date(2012, 2, 2, 15, 5, 0)", "new Date(2012, 2, 1, 0, 2345, 0)")]
-    [InlineData("new Date(2012, 2, 2, 14, 5, 59)", "new Date(2012, 1, 29, 23, 2345, 59)")]
-    [InlineData("new Date(2015, 11, 25, 18, 24, 0)", "new Date(2016, 0, 1, 0, -8976, 0)")]
-    [InlineData("new Date(2015, 10, 25, 17, 24, 59)", "new Date(2015, 11, 1, 23, -8976, 59)")]
-    [InlineData("new Date(2012, 1, 23, 18, 24, 0)", "new Date(2012, 2, 1, 0, -8976, 0)")]
-    [InlineData("new Date(2012, 1, 23, 17, 24, 59)", "new Date(2012, 1, 29, 23, -8976, 59)")]
+    [TestCase("new Date(2016, 0, 1, 1, 0, 0)", "new Date(2016, 0, 1, 0, 60, 0)")]
+    [TestCase("new Date(2015, 11, 2, 0, 0, 59)", "new Date(2015, 11, 1, 23, 60, 59)")]
+    [TestCase("new Date(2012, 2, 1, 1, 0, 0)", "new Date(2012, 2, 1, 0, 60, 0)")]
+    [TestCase("new Date(2012, 2, 1, 0, 0, 59)", "new Date(2012, 1, 29, 23, 60, 59)")]
+    [TestCase("new Date(2015, 11, 31, 23, 59, 0)", "new Date(2016, 0, 1, 0, -1, 0)")]
+    [TestCase("new Date(2015, 11, 1, 22, 59, 59)", "new Date(2015, 11, 1, 23, -1, 59)")]
+    [TestCase("new Date(2012, 1, 29, 23, 59, 0)", "new Date(2012, 2, 1, 0, -1, 0)")]
+    [TestCase("new Date(2012, 1, 29, 22, 59, 59)", "new Date(2012, 1, 29, 23, -1, 59)")]
+    [TestCase("new Date(2016, 0, 2, 15, 5, 0)", "new Date(2016, 0, 1, 0, 2345, 0)")]
+    [TestCase("new Date(2015, 11, 3, 14, 5, 59)", "new Date(2015, 11, 1, 23, 2345, 59)")]
+    [TestCase("new Date(2012, 2, 2, 15, 5, 0)", "new Date(2012, 2, 1, 0, 2345, 0)")]
+    [TestCase("new Date(2012, 2, 2, 14, 5, 59)", "new Date(2012, 1, 29, 23, 2345, 59)")]
+    [TestCase("new Date(2015, 11, 25, 18, 24, 0)", "new Date(2016, 0, 1, 0, -8976, 0)")]
+    [TestCase("new Date(2015, 10, 25, 17, 24, 59)", "new Date(2015, 11, 1, 23, -8976, 59)")]
+    [TestCase("new Date(2012, 1, 23, 18, 24, 0)", "new Date(2012, 2, 1, 0, -8976, 0)")]
+    [TestCase("new Date(2012, 1, 23, 17, 24, 59)", "new Date(2012, 1, 29, 23, -8976, 59)")]
     // Seconds
-    [InlineData("new Date(2016, 0, 1, 0, 1, 0)", "new Date(2016, 0, 1, 0, 0, 60)")]
-    [InlineData("new Date(2015, 11, 2, 0, 0, 0)", "new Date(2015, 11, 1, 23, 59, 60)")]
-    [InlineData("new Date(2012, 2, 1, 0, 1, 0)", "new Date(2012, 2, 1, 0, 0, 60)")]
-    [InlineData("new Date(2012, 2, 1, 0, 0, 0)", "new Date(2012, 1, 29, 23, 59, 60)")]
-    [InlineData("new Date(2015, 11, 31, 23, 59, 59)", "new Date(2016, 0, 1, 0, 0, -1)")]
-    [InlineData("new Date(2015, 11, 1, 23, 58, 59)", "new Date(2015, 11, 1, 23, 59, -1)")]
-    [InlineData("new Date(2012, 1, 29, 23, 59, 59)", "new Date(2012, 2, 1, 0, 0, -1)")]
-    [InlineData("new Date(2012, 1, 29, 23, 58, 59)", "new Date(2012, 1, 29, 23, 59, -1)")]
-    [InlineData("new Date(2016, 0, 3, 17, 9, 58)", "new Date(2016, 0, 1, 0, 0, 234598)")]
-    [InlineData("new Date(2015, 11, 4, 17, 8, 58)", "new Date(2015, 11, 1, 23, 59, 234598)")]
-    [InlineData("new Date(2012, 2, 3, 17, 9, 58)", "new Date(2012, 2, 1, 0, 0, 234598)")]
-    [InlineData("new Date(2012, 2, 3, 17, 8, 58)", "new Date(2012, 1, 29, 23, 59, 234598)")]
-    [InlineData("new Date(2015, 11, 21, 14, 39, 15)", "new Date(2016, 0, 1, 0, 0, -897645)")]
-    [InlineData("new Date(2015, 10, 21, 14, 38, 15)", "new Date(2015, 11, 1, 23, 59, -897645)")]
-    [InlineData("new Date(2012, 1, 19, 14, 39, 15)", "new Date(2012, 2, 1, 0, 0, -897645)")]
-    [InlineData("new Date(2012, 1, 19, 14, 38, 15)", "new Date(2012, 1, 29, 23, 59, -897645)")]
+    [TestCase("new Date(2016, 0, 1, 0, 1, 0)", "new Date(2016, 0, 1, 0, 0, 60)")]
+    [TestCase("new Date(2015, 11, 2, 0, 0, 0)", "new Date(2015, 11, 1, 23, 59, 60)")]
+    [TestCase("new Date(2012, 2, 1, 0, 1, 0)", "new Date(2012, 2, 1, 0, 0, 60)")]
+    [TestCase("new Date(2012, 2, 1, 0, 0, 0)", "new Date(2012, 1, 29, 23, 59, 60)")]
+    [TestCase("new Date(2015, 11, 31, 23, 59, 59)", "new Date(2016, 0, 1, 0, 0, -1)")]
+    [TestCase("new Date(2015, 11, 1, 23, 58, 59)", "new Date(2015, 11, 1, 23, 59, -1)")]
+    [TestCase("new Date(2012, 1, 29, 23, 59, 59)", "new Date(2012, 2, 1, 0, 0, -1)")]
+    [TestCase("new Date(2012, 1, 29, 23, 58, 59)", "new Date(2012, 1, 29, 23, 59, -1)")]
+    [TestCase("new Date(2016, 0, 3, 17, 9, 58)", "new Date(2016, 0, 1, 0, 0, 234598)")]
+    [TestCase("new Date(2015, 11, 4, 17, 8, 58)", "new Date(2015, 11, 1, 23, 59, 234598)")]
+    [TestCase("new Date(2012, 2, 3, 17, 9, 58)", "new Date(2012, 2, 1, 0, 0, 234598)")]
+    [TestCase("new Date(2012, 2, 3, 17, 8, 58)", "new Date(2012, 1, 29, 23, 59, 234598)")]
+    [TestCase("new Date(2015, 11, 21, 14, 39, 15)", "new Date(2016, 0, 1, 0, 0, -897645)")]
+    [TestCase("new Date(2015, 10, 21, 14, 38, 15)", "new Date(2015, 11, 1, 23, 59, -897645)")]
+    [TestCase("new Date(2012, 1, 19, 14, 39, 15)", "new Date(2012, 2, 1, 0, 0, -897645)")]
+    [TestCase("new Date(2012, 1, 19, 14, 38, 15)", "new Date(2012, 1, 29, 23, 59, -897645)")]
     public void ShouldSupportDateConsturctorWithArgumentOutOfRange(string expected, string actual)
     {
         var engine = new Engine(o => o.TimeZone = TimeZoneInfo.Utc);
@@ -2642,7 +2623,7 @@ var prep = function (fn) { fn(); };
         actualValue.Should().Be(expectedValue);
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnCorrectConcatenatedStrings()
     {
         RunTest(@"
@@ -2657,7 +2638,7 @@ var prep = function (fn) { fn(); };
         result.Should().Be("concatwelldone");
     }
 
-    [Fact]
+    [Test]
     public void ComplexMappingAndReducing()
     {
         const string program = @"
@@ -2745,7 +2726,7 @@ function output(x) {
         TypeConverter.ToNumber(result2.Get("TestDictionaryAverage2")).Should().Be(2);
         TypeConverter.ToNumber(result2.Get("TestDictionaryAverage3")).Should().Be(2);
     }
-    [Fact]
+    [Test]
     public void ShouldBeAbleToSpreadArrayLiteralsAndFunctionParameters()
     {
         RunTest(@"
@@ -2776,7 +2757,7 @@ function output(x) {
         c.Should().Be("1ab");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSpreadPrimitivesInObjectLiteralsViaToObject()
     {
         // PropertyDefinitionEvaluation for `...AssignmentExpression` performs CopyDataProperties
@@ -2812,7 +2793,7 @@ function output(x) {
             """).AsString().Should().Be("""{"0":"a","1":"b","x":2}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportDefaultsInFunctionParameters()
     {
         RunTest(@"
@@ -2830,7 +2811,7 @@ function output(x) {
         result.Should().Be("15");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReportErrorForInvalidJson()
     {
         var engine = new Engine();
@@ -2841,7 +2822,7 @@ function output(x) {
         voidCompletion.Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void ShouldParseAnonymousToTypeObject()
     {
         var obj = new Wrapper();
@@ -2860,7 +2841,7 @@ x.test = {
         obj.Test.Init(2, 3).Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ShouldOverrideDefaultTypeConverter()
     {
         var engine = new Engine(options => options
@@ -2871,7 +2852,7 @@ x.test = {
         Invoking(() => engine.Evaluate("c.Name")).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowDollarPrefixForProperties()
     {
         _engine.SetValue("str", "Hello");
@@ -2886,7 +2867,7 @@ x.test = {
         _engine.Evaluate("equal(false, str.hasOwnProperty('foo'));");
     }
 
-    [Fact]
+    [Test]
     public void ShouldProvideEngineForOptionsAsOverload()
     {
         new Engine((e, options) =>
@@ -2899,7 +2880,7 @@ x.test = {
             .SetValue("a", 1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldReuseOptions()
     {
         var options = new Options().Configure(e => e.SetValue("x", 1));
@@ -2911,7 +2892,7 @@ x.test = {
         Convert.ToInt32(engine2.GetValue("x").ToObject()).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RecursiveCallStack()
     {
         var engine = new Engine();
@@ -2924,7 +2905,7 @@ x.test = {
         result.Should().Be(1389);
     }
 
-    [Fact]
+    [Test]
     public void NestedEvaluateDuringContinuationDrainDoesNotClobberOuterResult()
     {
         // Regression test for https://github.com/sebastienros/jint/issues/2492
@@ -2948,7 +2929,7 @@ x.test = {
         result.AsString().Should().Be("B");
     }
 
-    [Fact]
+    [Test]
     public void MemberExpressionInObjectProperty()
     {
         var engine = new Engine();
@@ -2973,7 +2954,7 @@ x.test = {
         ((string) result.white).Should().Be("White");
     }
 
-    [Fact]
+    [Test]
     public void TypeofShouldEvaluateOnce()
     {
         var engine = new Engine();
@@ -2988,7 +2969,7 @@ x.test = {
         result.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MemberExpressionOnAssignmentShouldEvaluateRightHandSideOnce()
     {
         var engine = new Engine();
@@ -3005,14 +2986,14 @@ x.test = {
         engine.Evaluate("x").AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ClassDeclarationHoisting()
     {
         var ex = Invoking(() => _engine.Evaluate("typeof MyClass; class MyClass {}")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().Be("Cannot access 'MyClass' before initialization");
     }
 
-    [Fact]
+    [Test]
     public void ShouldObeyScriptLevelStrictModeInFunctions()
     {
         var engine = new Engine();
@@ -3025,7 +3006,7 @@ x.test = {
         ex.Message.Should().Be("Delete of an unqualified identifier in strict mode (<anonymous>:1:22)");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportThisInSubclass()
     {
         var engine = new Engine();
@@ -3035,7 +3016,7 @@ x.test = {
         ex.Message.Should().Be("Must call super constructor in derived class before accessing 'this' or returning from derived constructor");
     }
 
-    [Fact]
+    [Test]
     public void ShouldGetZeroPrefixedNumericKeys()
     {
         var engine = new Engine();
@@ -3044,7 +3025,7 @@ x.test = {
         engine.Evaluate("JSON.stringify(Object.getOwnPropertyNames(testObj));").AsString().Should().Be("[\"02100\"]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowOptionalChainingForMemberCall()
     {
         var engine = new Engine();
@@ -3061,7 +3042,7 @@ x.test = {
         array[1].IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanDisableCompilation()
     {
         var engine = new Engine(options =>
@@ -3078,7 +3059,7 @@ x.test = {
         ex.Message.Should().Be(ExpectedExceptionMessage);
     }
 
-    [Fact]
+    [Test]
     public void ExecuteShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3087,7 +3068,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void ExecuteWithSourceShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3096,7 +3077,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void ExecuteWithParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3105,7 +3086,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void ExecuteWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3114,7 +3095,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void EvaluateShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3123,7 +3104,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void EvaluateWithSourceShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3132,7 +3113,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void EvaluateWithParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3141,7 +3122,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void EvaluateWithSourceAndParserOptionsShouldTriggerBeforeEvaluateEvent()
     {
         TestBeforeEvaluateEvent(
@@ -3150,7 +3131,7 @@ x.test = {
         );
     }
 
-    [Fact]
+    [Test]
     public void ImportModuleShouldTriggerBeforeEvaluateEvents()
     {
         var engine = new Engine();
@@ -3188,7 +3169,7 @@ x.test = {
         beforeEvaluateTriggeredCount.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertJsTypedArraysCorrectly()
     {
         var engine = new Engine();
@@ -3223,7 +3204,7 @@ x.test = {
         beforeEvaluateTriggered.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithLetConst()
     {
         var engine = new Engine();
@@ -3239,7 +3220,7 @@ x.test = {
         result.AsNumber().Should().Be(19d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithConstReassignmentError()
     {
         var engine = new Engine();
@@ -3254,7 +3235,7 @@ x.test = {
         ex.Message.Should().ContainEquivalentOf("constant");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithLetTemporalDeadZone()
     {
         var engine = new Engine();
@@ -3269,7 +3250,7 @@ x.test = {
         ex.Message.Should().ContainEquivalentOf("has not been initialized");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithClosureOverLetConst()
     {
         var engine = new Engine();
@@ -3288,7 +3269,7 @@ x.test = {
         result.AsNumber().Should().Be(36d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleFixedSlotFunctionWithMultipleLetDeclarations()
     {
         var engine = new Engine();
@@ -3304,7 +3285,7 @@ x.test = {
         result.AsNumber().Should().Be(703d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleSlotCachingWithNonEscapingEnvironment()
     {
         // Function with let/const where environment doesn't escape (no closures)
@@ -3320,7 +3301,7 @@ x.test = {
         result.AsNumber().Should().Be(21d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowSlotCachingWhenClosureDoesNotReferenceSlotVars()
     {
         // Closure exists but doesn't reference any outer slot variables —
@@ -3336,7 +3317,7 @@ x.test = {
         result.AsNumber().Should().Be(94d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreventSlotCachingWhenClosureReferencesSlotVar()
     {
         // Closure references outer slot variable — environment must escape
@@ -3352,7 +3333,7 @@ x.test = {
         result.AsNumber().Should().Be(21d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleNestedClosureReferencingOuterSlotVar()
     {
         // Deeply nested closure references outer function's slot variable
@@ -3370,7 +3351,7 @@ x.test = {
         result.AsNumber().Should().Be(42d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowSlotCachingWhenClosureOnlyUsesGlobals()
     {
         // Closure uses global variable, not any slot variables
@@ -3386,7 +3367,7 @@ x.test = {
         result.AsNumber().Should().Be(210d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleConciseArrowReturningArrowWithClosure()
     {
         // Concise arrow x => y => x * y — body IS a closure that references slot var x

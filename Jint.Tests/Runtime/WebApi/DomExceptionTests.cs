@@ -16,7 +16,7 @@ public class DomExceptionTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Console));
 
-    [Fact]
+    [Test]
     public void DefaultsToTheIdlArguments()
     {
         var engine = WebEngine();
@@ -30,7 +30,7 @@ public class DomExceptionTests
         engine.Evaluate("new DOMException(undefined, undefined).name").AsString().Should().Be("Error");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheGivenMessageAndName()
     {
         var engine = WebEngine();
@@ -39,19 +39,18 @@ public class DomExceptionTests
         engine.Evaluate("new DOMException('boom', 'AbortError').name").AsString().Should().Be("AbortError");
     }
 
-    [Theory]
-    [InlineData("IndexSizeError", 1)]
-    [InlineData("HierarchyRequestError", 3)]
-    [InlineData("InvalidCharacterError", 5)]
-    [InlineData("NotFoundError", 8)]
-    [InlineData("InvalidStateError", 11)]
-    [InlineData("SyntaxError", 12)]
-    [InlineData("SecurityError", 18)]
-    [InlineData("NetworkError", 19)]
-    [InlineData("AbortError", 20)]
-    [InlineData("QuotaExceededError", 22)]
-    [InlineData("TimeoutError", 23)]
-    [InlineData("DataCloneError", 25)]
+    [TestCase("IndexSizeError", 1)]
+    [TestCase("HierarchyRequestError", 3)]
+    [TestCase("InvalidCharacterError", 5)]
+    [TestCase("NotFoundError", 8)]
+    [TestCase("InvalidStateError", 11)]
+    [TestCase("SyntaxError", 12)]
+    [TestCase("SecurityError", 18)]
+    [TestCase("NetworkError", 19)]
+    [TestCase("AbortError", 20)]
+    [TestCase("QuotaExceededError", 22)]
+    [TestCase("TimeoutError", 23)]
+    [TestCase("DataCloneError", 25)]
     public void MapsALegacyNameToItsCode(string name, int code)
     {
         var engine = WebEngine();
@@ -59,11 +58,10 @@ public class DomExceptionTests
         engine.Evaluate($"new DOMException('', '{name}').code").AsNumber().Should().Be(code);
     }
 
-    [Theory]
-    [InlineData("NotAllowedError")]
-    [InlineData("EncodingError")]
-    [InlineData("SomethingNobodyStandardized")]
-    [InlineData("")]
+    [TestCase("NotAllowedError")]
+    [TestCase("EncodingError")]
+    [TestCase("SomethingNobodyStandardized")]
+    [TestCase("")]
     public void ReportsZeroForANameOutsideTheLegacyTable(string name)
     {
         var engine = WebEngine();
@@ -71,7 +69,7 @@ public class DomExceptionTests
         engine.Evaluate($"new DOMException('', '{name}').code").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ExposesTheLegacyConstantsOnBothTheInterfaceObjectAndThePrototype()
     {
         var engine = WebEngine();
@@ -88,7 +86,7 @@ public class DomExceptionTests
             .AsNumber().Should().Be(25);
     }
 
-    [Fact]
+    [Test]
     public void EnumeratesTheLegacyConstantsInDeclarationOrder()
     {
         var engine = WebEngine();
@@ -113,7 +111,7 @@ public class DomExceptionTests
             .Should().Be("1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25");
     }
 
-    [Fact]
+    [Test]
     public void GivesTheConstantsTheAttributesWebIdlGivesConstants()
     {
         var engine = WebEngine();
@@ -125,7 +123,7 @@ public class DomExceptionTests
         engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ChainsThroughItsPrototypeToErrorPrototype()
     {
         var engine = WebEngine();
@@ -139,7 +137,7 @@ public class DomExceptionTests
         engine.Evaluate("DOMException.prototype.constructor === DOMException").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void InheritsErrorPrototypeToString()
     {
         var engine = WebEngine();
@@ -148,7 +146,7 @@ public class DomExceptionTests
         engine.Evaluate("String(new DOMException())").AsString().Should().Be("Error");
     }
 
-    [Fact]
+    [Test]
     public void CarriesAStack()
     {
         var engine = WebEngine();
@@ -163,7 +161,7 @@ public class DomExceptionTests
         engine.Evaluate("Object.keys(new DOMException()).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ExposesNameMessageAndCodeAsPrototypeAccessors()
     {
         var engine = WebEngine();
@@ -179,19 +177,19 @@ public class DomExceptionTests
         engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnAccessorReceiverThatIsNotADomException()
     {
         var engine = WebEngine();
 
         // DOMException.prototype is an interface prototype object, not an instance of the interface.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("DOMException.prototype.name"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("DOMException.prototype.name"))!
             .Message.Should().Contain("DOMException");
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(DOMException.prototype, 'code').get.call({})"));
     }
 
-    [Fact]
+    [Test]
     public void TagsItselfForObjectPrototypeToString()
     {
         var engine = WebEngine();
@@ -200,16 +198,16 @@ public class DomExceptionTests
         engine.Evaluate("DOMException.prototype[Symbol.toStringTag]").AsString().Should().Be("DOMException");
     }
 
-    [Fact]
+    [Test]
     public void RequiresNew()
     {
         var engine = WebEngine();
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("DOMException('x')"));
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("DOMException('x')"))!;
         exception.Message.Should().Contain("requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArity()
     {
         var engine = WebEngine();
@@ -218,7 +216,7 @@ public class DomExceptionTests
         engine.Evaluate("DOMException.name").AsString().Should().Be("DOMException");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheErrorDataInternalSlot()
     {
         var engine = WebEngine();

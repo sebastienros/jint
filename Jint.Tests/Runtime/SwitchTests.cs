@@ -2,7 +2,7 @@
 
 public class JintFailureTest
 {
-    [Fact]
+    [Test]
     public void ShouldHandleCaseBlockLexicalScopeCorrectly()
     {
         var engine = new Engine();
@@ -27,7 +27,7 @@ public class JintFailureTest
         engine.Evaluate("myFunc()").Should().Be("coffee");
     }
 
-    [Fact]
+    [Test]
     public void UnlabeledBreakShouldBeConsumedByLabeledSwitch()
     {
         // An unlabeled `break` inside a labeled switch must be absorbed by the switch, letting
@@ -50,7 +50,7 @@ public class JintFailureTest
         result.Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void LabeledBreakStillEscapesLabeledSwitch()
     {
         var engine = new Engine();
@@ -71,7 +71,7 @@ public class JintFailureTest
         result.Should().Be(100);
     }
 
-    [Fact]
+    [Test]
     public void UnlabeledBreakInNestedSwitchStaysInnermost()
     {
         var engine = new Engine();

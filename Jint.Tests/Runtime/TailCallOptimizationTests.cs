@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class TailCallOptimizationTests
 {
-    [Fact]
+    [Test]
     public void OptimizesStrictDirectTailRecursion()
     {
         var engine = new Engine();
@@ -21,7 +21,7 @@ public class TailCallOptimizationTests
         result.Should().Be(50_005_000);
     }
 
-    [Fact]
+    [Test]
     public void OptimizesStrictMutualTailRecursion()
     {
         var engine = new Engine();
@@ -40,7 +40,7 @@ public class TailCallOptimizationTests
         result.Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void OptimizesStrictConciseArrowTailRecursion()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public class TailCallOptimizationTests
         result.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void OptimizesTailRecursionInvokedByHost()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class TailCallOptimizationTests
         engine.Invoke("count", 10_000).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void OptimizesTailRecursionFromWarmedRegisterCallSite()
     {
         var engine = new Engine();
@@ -89,7 +89,7 @@ public class TailCallOptimizationTests
         result.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void DoesNotOptimizeSloppyTailRecursion()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
@@ -102,7 +102,7 @@ public class TailCallOptimizationTests
             """)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotOptimizeNonTailRecursion()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
@@ -116,7 +116,7 @@ public class TailCallOptimizationTests
             """)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotMoveTailCallPastFinally()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
@@ -134,7 +134,7 @@ public class TailCallOptimizationTests
             """)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotMoveTailCallPastCatch()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -157,7 +157,7 @@ public class TailCallOptimizationTests
         result.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void PreservesUsingDisposalOrder()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -184,7 +184,7 @@ public class TailCallOptimizationTests
         result.Should().Be("target,dispose");
     }
 
-    [Fact]
+    [Test]
     public void UsingDeclarationOnlyBlocksFollowingReturns()
     {
         var stack = new Engine().Evaluate("""
@@ -208,7 +208,7 @@ public class TailCallOptimizationTests
         stack.Should().NotContain("at invoke");
     }
 
-    [Fact]
+    [Test]
     public void PreservesIteratorCloseOrder()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -245,7 +245,7 @@ public class TailCallOptimizationTests
         result.Should().Be("target,close");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesTailCallReturnValueFromConstructor()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -265,7 +265,7 @@ public class TailCallOptimizationTests
         result.Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void AppliesDerivedConstructorReturnValidationAfterTailCall()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -285,7 +285,7 @@ public class TailCallOptimizationTests
             """)).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void TailCallFromFramelessCallbackPreservesBuiltinFrame()
     {
         var engine = new Engine();
@@ -306,7 +306,7 @@ public class TailCallOptimizationTests
         stack.Should().NotContain("at callback");
     }
 
-    [Fact]
+    [Test]
     public void ConstructorTailCallReplacesConstructorFrame()
     {
         var engine = new Engine();
@@ -326,7 +326,7 @@ public class TailCallOptimizationTests
         stack.Should().NotContain("at Constructor");
     }
 
-    [Fact]
+    [Test]
     public void ConstructorTailCallWorksThroughFramelessWrappers()
     {
         var engine = new Engine();
@@ -349,7 +349,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void BaseConstructorTailCallDoesNotReplaceDerivedFrame()
     {
         var engine = new Engine();
@@ -372,7 +372,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TailCallRecoversAfterNestedEvaluationResetsCallStack()
     {
         var engine = new Engine();
@@ -403,7 +403,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ConstructorTailCallRecoversAfterNestedEvaluationResetsCallStack()
     {
         var engine = new Engine();
@@ -434,7 +434,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RecursionLimitFailureLeavesCallStackBalanced()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 0);
@@ -453,7 +453,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void InfiniteStrictTailRecursionHonorsRecursionLimit()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 8);
@@ -469,7 +469,7 @@ public class TailCallOptimizationTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void MultiFunctionTailCycleHonorsRecursionLimit()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 1);
@@ -502,7 +502,7 @@ public class TailCallOptimizationTests
     /// itself, leaving the defect untested.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void RecursionLimitFiresWhenATailCallReEntersThroughAGetter()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 20);
@@ -527,7 +527,7 @@ public class TailCallOptimizationTests
     /// retention the trampoline failed to hand back is invisible in <c>CallStack.Count</c> and shows up
     /// only later, as a second run of the same functions overflowing before it has recursed at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void RecursionLimitFailureLeavesTheDepthStatisticBalanced()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 0);
@@ -548,7 +548,7 @@ public class TailCallOptimizationTests
         engine.Evaluate("stop = true; first();").Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void DebugModeKeepsTailCallerFrame()
     {
         var stack = new Engine(options => options.Debugger.Enabled = true).Evaluate("""
@@ -566,7 +566,7 @@ public class TailCallOptimizationTests
         stack.Should().Contain("at invoke");
     }
 
-    [Fact]
+    [Test]
     public void GeneratorDoesNotReceiveTailCallRequest()
     {
         var result = new Engine().Evaluate("""
@@ -583,7 +583,7 @@ public class TailCallOptimizationTests
         result.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task AsyncFunctionDoesNotReceiveTailCallRequest()
     {
         var result = await new Engine().EvaluateAsync("""
@@ -600,7 +600,7 @@ public class TailCallOptimizationTests
         result.Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void SharedPreparedTailCallMarkersArePublishedBeforeHandlerConstruction()
     {
         var prepared = Engine.PrepareScript("""
@@ -617,7 +617,7 @@ public class TailCallOptimizationTests
         results.Should().AllSatisfy(result => result.Should().Be(2_001_000));
     }
 
-    [Fact]
+    [Test]
     public void TailCallRequestCannotMasqueradeAsUndefined()
     {
         var request = new TailCallRequest();

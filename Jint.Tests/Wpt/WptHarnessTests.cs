@@ -32,82 +32,81 @@ public class WptHarnessTests
     /// <summary>The message recorded for a test whose whole body is <paramref name="body"/>.</summary>
     private static string? MessageOf(string body) => Run($"test(() => {body}, 'row');").Results[0].Message;
 
-    [Theory]
     // Each row is one assertion, a body that must be recorded PASS and a body that must be recorded FAIL.
-    [InlineData("assert_true(true)", "assert_true(1)")]
-    [InlineData("assert_false(false)", "assert_false(0)")]
-    [InlineData("assert_equals(1, 1)", "assert_equals(1, 2)")]
+    [TestCase("assert_true(true)", "assert_true(1)")]
+    [TestCase("assert_false(false)", "assert_false(0)")]
+    [TestCase("assert_equals(1, 1)", "assert_equals(1, 2)")]
     // same-value, not ===: NaN equals itself and the two zeroes are different values.
-    [InlineData("assert_equals(NaN, NaN)", "assert_equals(0, -0)")]
-    [InlineData("assert_equals('a', 'a')", "assert_equals('a', 'A')")]
-    [InlineData("assert_not_equals(1, 2)", "assert_not_equals(1, 1)")]
-    [InlineData("assert_array_equals([1, 2], [1, 2])", "assert_array_equals([1, 2], [1, 2, 3])")]
-    [InlineData("assert_array_equals([NaN], [NaN])", "assert_array_equals([1, 2], [2, 1])")]
-    [InlineData("assert_throws_js(TypeError, () => { throw new TypeError(); })", "assert_throws_js(TypeError, () => {})")]
+    [TestCase("assert_equals(NaN, NaN)", "assert_equals(0, -0)")]
+    [TestCase("assert_equals('a', 'a')", "assert_equals('a', 'A')")]
+    [TestCase("assert_not_equals(1, 2)", "assert_not_equals(1, 1)")]
+    [TestCase("assert_array_equals([1, 2], [1, 2])", "assert_array_equals([1, 2], [1, 2, 3])")]
+    [TestCase("assert_array_equals([NaN], [NaN])", "assert_array_equals([1, 2], [2, 1])")]
+    [TestCase("assert_throws_js(TypeError, () => { throw new TypeError(); })", "assert_throws_js(TypeError, () => {})")]
     // The constructor has to be the one asked for, so a RangeError does not satisfy a TypeError expectation.
-    [InlineData("assert_throws_js(RangeError, () => { throw new RangeError(); })", "assert_throws_js(TypeError, () => { throw new RangeError(); })")]
-    [InlineData(
+    [TestCase("assert_throws_js(RangeError, () => { throw new RangeError(); })", "assert_throws_js(TypeError, () => { throw new RangeError(); })")]
+    [TestCase(
         "assert_throws_dom('DataCloneError', () => { throw new DOMException('x', 'DataCloneError'); })",
         "assert_throws_dom('DataCloneError', () => { throw new DOMException('x', 'NotFoundError'); })")]
     // A plain Error wearing the right name and code is not a DOMException.
-    [InlineData(
+    [TestCase(
         "assert_throws_dom('NotFoundError', () => { throw new DOMException('x', 'NotFoundError'); })",
         "assert_throws_dom('NotFoundError', () => { var e = new Error(); e.name = 'NotFoundError'; e.code = 8; throw e; })")]
     // A legacy code *name* is accepted and mapped to the name it stands for, so it expects `NotFoundError`
     // rather than an exception literally called NOT_FOUND_ERR — upstream's `codename_name_map`.
-    [InlineData(
+    [TestCase(
         "assert_throws_dom('NOT_FOUND_ERR', () => { throw new DOMException('x', 'NotFoundError'); })",
         "assert_throws_dom('NOT_FOUND_ERR', () => { throw new DOMException('x', 'DataCloneError'); })")]
-    [InlineData(
+    [TestCase(
         "assert_throws_dom('DATA_CLONE_ERR', () => { throw new DOMException('x', 'DataCloneError'); })",
         "assert_throws_dom('DATA_CLONE_ERR', () => { throw new DOMException('x', 'NotFoundError'); })")]
     // The numeric form names a code, and the name that code stands for is checked with it.
-    [InlineData(
+    [TestCase(
         "assert_throws_dom(8, () => { throw new DOMException('x', 'NotFoundError'); })",
         "assert_throws_dom(8, () => { throw new DOMException('x', 'DataCloneError'); })")]
-    [InlineData("assert_throws_exactly(1, () => { throw 1; })", "assert_throws_exactly(1, () => { throw 2; })")]
-    [InlineData("if (false) assert_unreached('x')", "assert_unreached('x')")]
-    [InlineData("assert_in_array(2, [1, 2, 3])", "assert_in_array(4, [1, 2, 3])")]
+    [TestCase("assert_throws_exactly(1, () => { throw 1; })", "assert_throws_exactly(1, () => { throw 2; })")]
+    [TestCase("if (false) assert_unreached('x')", "assert_unreached('x')")]
+    [TestCase("assert_in_array(2, [1, 2, 3])", "assert_in_array(4, [1, 2, 3])")]
     // indexOf rather than same_value, which is upstream's own documented caveat: -0 finds 0, NaN finds nothing.
-    [InlineData("assert_in_array(-0, [0])", "assert_in_array(NaN, [NaN])")]
-    [InlineData("assert_object_equals({ a: 1, b: { c: 2 } }, { a: 1, b: { c: 2 } })", "assert_object_equals({ a: { b: 1 } }, { a: { b: 2 } })")]
+    [TestCase("assert_in_array(-0, [0])", "assert_in_array(NaN, [NaN])")]
+    [TestCase("assert_object_equals({ a: 1, b: { c: 2 } }, { a: 1, b: { c: 2 } })", "assert_object_equals({ a: { b: 1 } }, { a: { b: 2 } })")]
     // A property on one side and not the other, in both directions: the second walk is what catches the second.
-    [InlineData("assert_object_equals({ a: 1 }, { a: 1 })", "assert_object_equals({ a: 1, b: 2 }, { a: 1 })")]
-    [InlineData("assert_object_equals([1, 2], [1, 2])", "assert_object_equals({ a: 1 }, { a: 1, b: 2 })")]
+    [TestCase("assert_object_equals({ a: 1 }, { a: 1 })", "assert_object_equals({ a: 1, b: 2 }, { a: 1 })")]
+    [TestCase("assert_object_equals([1, 2], [1, 2])", "assert_object_equals({ a: 1 }, { a: 1, b: 2 })")]
     // Leaves compare by same_value, exactly as assert_equals does.
-    [InlineData("assert_object_equals({ a: NaN }, { a: NaN })", "assert_object_equals({ a: 0 }, { a: -0 })")]
-    [InlineData("assert_object_equals({}, {})", "assert_object_equals(1, {})")]
+    [TestCase("assert_object_equals({ a: NaN }, { a: NaN })", "assert_object_equals({ a: 0 }, { a: -0 })")]
+    [TestCase("assert_object_equals({}, {})", "assert_object_equals(1, {})")]
     // What upstream's `for..in` walk plus its `hasOwnProperty` check add up to: an enumerable property has to
     // be an own property on *both* sides, because the walk reaches an inherited one and the check refuses it.
     // Both directions, since the two loops are what catch the two of them.
-    [InlineData("assert_object_equals({ a: 'x' }, { a: 'x' })", "assert_object_equals(Object.create({ a: 1 }), { a: 1 })")]
-    [InlineData("assert_object_equals({ a: undefined }, { a: undefined })", "assert_object_equals({ a: 1 }, Object.create({ a: 1 }))")]
-    [InlineData("assert_class_string(new URL('https://example.com/'), 'URL')", "assert_class_string(new URL('https://example.com/'), 'Object')")]
-    [InlineData("assert_class_string(Math, 'Math')", "assert_class_string([], 'Object')")]
-    [InlineData("assert_own_property({ x: 1 }, 'x')", "assert_own_property({}, 'x')")]
+    [TestCase("assert_object_equals({ a: 'x' }, { a: 'x' })", "assert_object_equals(Object.create({ a: 1 }), { a: 1 })")]
+    [TestCase("assert_object_equals({ a: undefined }, { a: undefined })", "assert_object_equals({ a: 1 }, Object.create({ a: 1 }))")]
+    [TestCase("assert_class_string(new URL('https://example.com/'), 'URL')", "assert_class_string(new URL('https://example.com/'), 'Object')")]
+    [TestCase("assert_class_string(Math, 'Math')", "assert_class_string([], 'Object')")]
+    [TestCase("assert_own_property({ x: 1 }, 'x')", "assert_own_property({}, 'x')")]
     // Own, so a property reached through the prototype chain does not satisfy it.
-    [InlineData("assert_own_property([], 'length')", "assert_own_property(Object.create({ x: 1 }), 'x')")]
-    [InlineData("assert_greater_than(2, 1)", "assert_greater_than(1, 2)")]
+    [TestCase("assert_own_property([], 'length')", "assert_own_property(Object.create({ x: 1 }), 'x')")]
+    [TestCase("assert_greater_than(2, 1)", "assert_greater_than(1, 2)")]
     // Strictly greater, so equal is not greater.
-    [InlineData("assert_greater_than(0, -1)", "assert_greater_than(1, 1)")]
+    [TestCase("assert_greater_than(0, -1)", "assert_greater_than(1, 1)")]
     // The type check is upstream's and is not decoration: `undefined > 0` is false, so without it the failure
     // would name the comparison rather than the value that could never have satisfied one, and `'10' > 9` is
     // true, so a string would pass a numeric assertion outright.
-    [InlineData("assert_greater_than(10, 9)", "assert_greater_than('10', 9)")]
-    [InlineData("assert_greater_than(1, 0)", "assert_greater_than(undefined, 0)")]
+    [TestCase("assert_greater_than(10, 9)", "assert_greater_than('10', 9)")]
+    [TestCase("assert_greater_than(1, 0)", "assert_greater_than(undefined, 0)")]
     // Greater *or equal*, which is the whole difference from the row above, and the same type check.
-    [InlineData("assert_greater_than_equal(1, 1)", "assert_greater_than_equal(0, 1)")]
-    [InlineData("assert_greater_than_equal(2, 1)", "assert_greater_than_equal('2', 1)")]
+    [TestCase("assert_greater_than_equal(1, 1)", "assert_greater_than_equal(0, 1)")]
+    [TestCase("assert_greater_than_equal(2, 1)", "assert_greater_than_equal('2', 1)")]
     // Within the tolerance, and the tolerance is inclusive.
-    [InlineData("assert_approx_equals(10, 12, 3)", "assert_approx_equals(10, 12, 1)")]
-    [InlineData("assert_approx_equals(10, 12, 2)", "assert_approx_equals(10, 12, 1.9)")]
+    [TestCase("assert_approx_equals(10, 12, 3)", "assert_approx_equals(10, 12, 1)")]
+    [TestCase("assert_approx_equals(10, 12, 2)", "assert_approx_equals(10, 12, 1.9)")]
     // The non-finite branch: `Math.abs(Infinity - Infinity)` is NaN and no comparison against epsilon can be
     // true, so a pair with no finite side falls through to same-value instead — which is why Infinity equals
     // itself here and does not equal its negation however large the tolerance.
-    [InlineData("assert_approx_equals(Infinity, Infinity, 0)", "assert_approx_equals(Infinity, -Infinity, 1e308)")]
-    [InlineData("assert_approx_equals(NaN, NaN, 0)", "assert_approx_equals(NaN, 1, Infinity)")]
+    [TestCase("assert_approx_equals(Infinity, Infinity, 0)", "assert_approx_equals(Infinity, -Infinity, 1e308)")]
+    [TestCase("assert_approx_equals(NaN, NaN, 0)", "assert_approx_equals(NaN, 1, Infinity)")]
     // ... and the type check, which is what stops a string that coerces from satisfying it.
-    [InlineData("assert_approx_equals(1, 1, 0)", "assert_approx_equals('1', 1, 1)")]
+    [TestCase("assert_approx_equals(1, 1, 0)", "assert_approx_equals('1', 1, 1)")]
     public void AnAssertionRecordsBothOutcomes(string passing, string failing)
     {
         StatusOf($"test(() => {{ {passing} }}, 'row');").Should().Be("PASS");
@@ -125,44 +124,43 @@ public class WptHarnessTests
         var foreignDOMException = function DOMException() {};
         """;
 
-    [Theory]
     // Each row is one rejection assertion inside a promise_test, a body that must be recorded PASS and a body
     // that must be recorded FAIL. `t` is the test the shim passes the body.
-    [InlineData(
+    [TestCase(
         "promise_rejects_js(t, TypeError, Promise.reject(new TypeError()))",
         "promise_rejects_js(t, TypeError, Promise.reject(new RangeError()))")]
     // A promise that resolves has to fail the assertion rather than satisfy it by not rejecting.
-    [InlineData(
+    [TestCase(
         "promise_rejects_js(t, RangeError, Promise.reject(new RangeError()))",
         "promise_rejects_js(t, TypeError, Promise.resolve('resolved'))")]
     // The same sanity check assert_throws_js makes: a rejection reason that is not an object is not an error.
-    [InlineData(
+    [TestCase(
         "promise_rejects_js(t, TypeError, Promise.reject(new TypeError()))",
         "promise_rejects_js(t, TypeError, Promise.reject('not an object'))")]
-    [InlineData(
+    [TestCase(
         "promise_rejects_dom(t, 'NotFoundError', Promise.reject(new DOMException('x', 'NotFoundError')))",
         "promise_rejects_dom(t, 'NotFoundError', Promise.reject(new DOMException('x', 'DataCloneError')))")]
-    [InlineData(
+    [TestCase(
         "promise_rejects_dom(t, 'DataCloneError', Promise.reject(new DOMException('x', 'DataCloneError')))",
         "promise_rejects_dom(t, 'NotFoundError', Promise.resolve())")]
     // A plain Error wearing the right name and the right legacy code is still not a DOMException.
-    [InlineData(
+    [TestCase(
         "promise_rejects_dom(t, 'AbortError', Promise.reject(new DOMException('x', 'AbortError')))",
         "promise_rejects_dom(t, 'NotFoundError', Promise.reject(Object.assign(new Error(), { name: 'NotFoundError', code: 8 })))")]
     // The rejection form shares one implementation with the synchronous one, so the legacy code names it
     // accepts and the names it refuses are the same set — this row is what would catch the two drifting.
-    [InlineData(
+    [TestCase(
         "promise_rejects_dom(t, 'ABORT_ERR', Promise.reject(new DOMException('x', 'AbortError')))",
         "promise_rejects_dom(t, 'ABORT_ERR', Promise.reject(new DOMException('x', 'NotFoundError')))")]
     // The four-argument form names the global the exception must come from: this one satisfies it, and a
     // DOMException constructor that is not this global's does not, however right the name and code are.
-    [InlineData(
+    [TestCase(
         "promise_rejects_dom(t, 'NotFoundError', DOMException, Promise.reject(new DOMException('x', 'NotFoundError')))",
         "promise_rejects_dom(t, 'NotFoundError', foreignDOMException, Promise.reject(new DOMException('x', 'NotFoundError')))")]
-    [InlineData(
+    [TestCase(
         "promise_rejects_exactly(t, sentinel, Promise.reject(sentinel))",
         "promise_rejects_exactly(t, sentinel, Promise.reject(new Error('sentinel')))")]
-    [InlineData(
+    [TestCase(
         "promise_rejects_exactly(t, 1, Promise.reject(1))",
         "promise_rejects_exactly(t, 1, Promise.resolve(1))")]
     public void ARejectionAssertionRecordsBothOutcomes(string passing, string failing)
@@ -171,7 +169,7 @@ public class WptHarnessTests
         StatusOf($"{RejectionPreamble}\npromise_test(t => {failing}, 'row');").Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void ARejectionAssertionReportsTheSameMismatchItsSynchronousTwinWould()
     {
         // The point of the promise_rejects_* family routing through assert_throws_* rather than repeating the
@@ -185,7 +183,7 @@ public class WptHarnessTests
         rejected.Results[0].Message.Should().Be(thrown.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void APromiseThatResolvesSaysThatIsWhyTheRejectionAssertionFailed()
     {
         var outcome = Run("promise_test(t => promise_rejects_exactly(t, 1, Promise.resolve(), 'the operation'), 'row');");
@@ -195,7 +193,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("Should have rejected: the operation");
     }
 
-    [Fact]
+    [Test]
     public void TheNoConstructorFormOfPromiseRejectsDomRefusesAFifthArgument()
     {
         // A suite that meant the constructor form and spelled it wrong would otherwise have its description
@@ -208,7 +206,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("Too many args passed to no-constructor version of promise_rejects_dom");
     }
 
-    [Fact]
+    [Test]
     public void ARejectionAssertionIsWaitedOnRatherThanFireAndForgotten()
     {
         // The assertion has to be part of what settles the test: if the returned promise were dropped, the
@@ -222,7 +220,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("RangeError");
     }
 
-    [Fact]
+    [Test]
     public void AFailingTestKeepsTheMessageThatExplainsIt()
     {
         var outcome = Run("test(() => assert_equals('got', 'want', 'why'), 'row');");
@@ -232,7 +230,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Be("expected \"want\" but got \"got\" (why)");
     }
 
-    [Fact]
+    [Test]
     public void TheValueAssertionsSayWhichPropertyDisagreedAndHow()
     {
         // Messages are what an exclusion is triaged from, and every one of these is a name the corresponding
@@ -248,7 +246,7 @@ public class WptHarnessTests
         MessageOf("assert_greater_than('10', 9)").Should().Be("expected a number but got a string");
     }
 
-    [Fact]
+    [Test]
     public void AThrowThatIsNotAnAssertionIsAlsoAFailure()
     {
         var outcome = Run("test(() => { null.x; }, 'row');");
@@ -257,7 +255,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AssertionsInsideAThrowsAssertionAreNotSwallowedByIt()
     {
         // assert_throws_js catches whatever the body throws; an AssertionError raised *by an assertion the
@@ -293,28 +291,27 @@ public class WptHarnessTests
         var throwQuota = (requested, quota) => () => { throw new QuotaExceededError(requested, quota); };
         """;
 
-    [Theory]
     // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface carries `quota` and `requested`
     // beside the DOMException name and code, and each may be asserted as null, as a number, or by predicate.
-    [InlineData("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 7, 8)")]
-    [InlineData("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 7)")]
-    [InlineData(
+    [TestCase("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 7, 8)")]
+    [TestCase("assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)", "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 7)")]
+    [TestCase(
         "assert_throws_quotaexceedederror(throwQuota(9, 8), r => r === 9, q => q === 8)",
         "assert_throws_quotaexceedederror(throwQuota(9, 8), r => r === 9, q => q === 7)")]
-    [InlineData("assert_throws_quotaexceedederror(throwQuota(null, null), null, null)", "assert_throws_quotaexceedederror(() => {}, null, null)")]
+    [TestCase("assert_throws_quotaexceedederror(throwQuota(null, null), null, null)", "assert_throws_quotaexceedederror(() => {}, null, null)")]
     // The constructor form, and the same wrong-global check the DOMException assertion makes.
-    [InlineData(
+    [TestCase(
         "assert_throws_quotaexceedederror(QuotaExceededError, throwQuota(9, 8), 9, 8)",
         "assert_throws_quotaexceedederror(function QuotaExceededError() {}, throwQuota(9, 8), 9, 8)")]
     // A plain DOMException wearing the name and the legacy code is *not* the interface — the last assertion,
     // `e.constructor === constructor`, is what tells the two apart, and it is the whole reason upstream gave
     // QuotaExceededError an assertion of its own.
-    [InlineData(
+    [TestCase(
         "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8)",
         "assert_throws_quotaexceedederror(() => { throw new DOMException('x', 'QuotaExceededError'); }, null, null)")]
     // The no-constructor form refuses a fifth argument, so a suite that spelled the constructor form wrong
     // cannot silently lose its description.
-    [InlineData(
+    [TestCase(
         "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8, 'why')",
         "assert_throws_quotaexceedederror(throwQuota(9, 8), 9, 8, 'why', 'extra')")]
     public void TheQuotaExceededAssertionRecordsBothOutcomes(string passing, string failing)
@@ -327,7 +324,7 @@ public class WptHarnessTests
     /// The same assertion over the engine's own <c>QuotaExceededError</c>, with no stand-in installed — which
     /// is the arrangement the vendored <c>WebCryptoAPI/getRandomValues.any.js</c> rows actually run in.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheQuotaAssertionAcceptsTheEnginesOwnQuotaExceededError()
     {
         // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, reached through the global the
@@ -350,7 +347,7 @@ public class WptHarnessTests
             .Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void AnUnimplementedOptionalFeatureIsItsOwnOutcome()
     {
         // Upstream's third status. A truthy condition is a pass; a falsy one is neither a pass nor an
@@ -365,7 +362,7 @@ public class WptHarnessTests
             .Should().Be("PRECONDITION_FAILED");
     }
 
-    [Fact]
+    [Test]
     public void AMissingRequiredFeatureIsAnOrdinaryFailure()
     {
         // The sibling of the test above, and the pairing is the point: upstream has two assertions because
@@ -387,7 +384,7 @@ public class WptHarnessTests
             .Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void AssertionErrorIsAGlobalTheSuitesCanBranchOn()
     {
         // The WebCryptoAPI suites wrap an operation in try/catch and re-throw only `err instanceof
@@ -400,7 +397,7 @@ public class WptHarnessTests
             .Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void ADomExceptionAssertionChecksTheLegacyCodeAsWellAsTheName()
     {
         // https://webidl.spec.whatwg.org/#idl-DOMException-error-names — DataCloneError carries code 25, and
@@ -411,7 +408,7 @@ public class WptHarnessTests
             .Should().Be("PASS");
     }
 
-    [Fact]
+    [Test]
     public void ADomExceptionAssertionRefusesANameItsTableCannotHold()
     {
         // https://webidl.spec.whatwg.org/#dfn-error-names-table — upstream's `name_code_map` is a closed set,
@@ -442,7 +439,7 @@ public class WptHarnessTests
             .Should().Be("undefined is not a number or string");
     }
 
-    [Fact]
+    [Test]
     public void QuotaExceededErrorIsSentToItsOwnAssertionRatherThanMatchedAsADomExceptionName()
     {
         // https://webidl.spec.whatwg.org/#quotaexceedederror — since it became an interface of its own it is
@@ -460,7 +457,7 @@ public class WptHarnessTests
             .Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void TheRejectionFormRefusesWhatTheSynchronousFormRefuses()
     {
         // Both forms share `assert_throws_dom_impl`, which is what keeps the accepted set and the refused set
@@ -474,7 +471,7 @@ public class WptHarnessTests
             .Should().Be("Test bug: unrecognized DOMException code name or name \"NotFundError\" passed to assert_throws_dom()");
     }
 
-    [Fact]
+    [Test]
     public void ABodyThatThrewNothingIsReportedAsSuchEvenWhenTheNameWouldHaveBeenRefused()
     {
         // The refusals sit inside the catch, where upstream's are, so "it did not throw" outranks "the name
@@ -484,7 +481,7 @@ public class WptHarnessTests
         MessageOf("assert_throws_dom(22, () => {}, 'why')").Should().Be("did not throw (why)");
     }
 
-    [Fact]
+    [Test]
     public void FormatValueEscapesTheControlCharactersTestNamesAreBuiltFrom()
     {
         // api-invalid-label.any.js names every one of its ~3,400 cases with format_value, so this decides
@@ -510,7 +507,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void EveryRegisteredTestIsRecordedInRegistrationOrder()
     {
         var outcome = Run("test(() => {}, 'first'); test(() => assert_true(false), 'second'); test(() => {}, 'third');");
@@ -519,7 +516,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "FAIL", "PASS");
     }
 
-    [Fact]
+    [Test]
     public void PromiseTestsRunOneAfterTheOtherRatherThanConcurrently()
     {
         // Promise tests run in sequence, each starting only once the previous has finished —
@@ -537,7 +534,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS", "PASS");
     }
 
-    [Fact]
+    [Test]
     public void ARejectedPromiseTestIsAFailureAndDoesNotStopTheNextOne()
     {
         var outcome = Run("""
@@ -550,7 +547,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("nope");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingPromiseTestBodyIsAFailureRatherThanAHarnessError()
     {
         var outcome = Run("promise_test(() => { throw new Error('sync'); }, 'throws synchronously');");
@@ -559,7 +556,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void ATestRegisteredFromInsideAPromiseTestIsStillCollected()
     {
         // This is the shape every corpus-driven suite has: one promise_test loads the JSON and registers a
@@ -576,7 +573,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS", "FAIL");
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncTestIsOutstandingUntilItCallsDone()
     {
         var outcome = Run("""
@@ -588,7 +585,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS");
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncTestThatNeverFinishesIsReportedRatherThanSilentlyPassing()
     {
         // The one thing an outstanding test must not do is disappear. Nothing is queued here and the engine
@@ -601,7 +598,7 @@ public class WptHarnessTests
         outcome.HarnessError.Should().NotContain("other");
     }
 
-    [Fact]
+    [Test]
     public void ATestThatWaitsOnATimerIsDrivenToCompletion()
     {
         // The harness installs no setTimeout of its own: this is the engine's own, from
@@ -621,7 +618,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS");
     }
 
-    [Fact]
+    [Test]
     public void StepTimeoutSchedulesOnTheEnginesOwnTimerRatherThanOnAHarnessOne()
     {
         // The streams corpus reaches for `step_timeout` 45 times, through `delay()` in
@@ -643,7 +640,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void StepTimeoutForwardsTheArgumentsAfterTheDelay()
     {
         var outcome = Run("""
@@ -659,7 +656,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void TheTestBoundStepTimeoutFailsItsOwnTestRatherThanEruptingIntoThePump()
     {
         // `t.step_timeout` is what the corpus actually uses (42 of the 45 sites). The whole difference from
@@ -677,7 +674,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("inside the timer");
     }
 
-    [Fact]
+    [Test]
     public void TheTestBoundStepTimeoutForwardsItsArgumentsAndRunsWithTheTestAsThis()
     {
         var outcome = Run("""
@@ -693,10 +690,9 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Theory]
-    [InlineData("test(t => { t.add_cleanup(() => { globalThis.ran = true; }); }, 'row');")]
-    [InlineData("promise_test(t => { t.add_cleanup(() => { globalThis.ran = true; }); return Promise.resolve(); }, 'row');")]
-    [InlineData("var t = async_test('row'); t.add_cleanup(() => { globalThis.ran = true; }); t.done();")]
+    [TestCase("test(t => { t.add_cleanup(() => { globalThis.ran = true; }); }, 'row');")]
+    [TestCase("promise_test(t => { t.add_cleanup(() => { globalThis.ran = true; }); return Promise.resolve(); }, 'row');")]
+    [TestCase("var t = async_test('row'); t.add_cleanup(() => { globalThis.ran = true; }); t.done();")]
     public void ACleanupRunsWhateverKindOfTestRegisteredIt(string registration)
     {
         // The streams corpus makes this load-bearing rather than tidy: its `patched-global` suites replace
@@ -712,7 +708,7 @@ public class WptHarnessTests
         outcome.Results.Last().Status.Should().Be("PASS", outcome.Results.Last().Message);
     }
 
-    [Fact]
+    [Test]
     public void ACleanupRunsBeforeTheNextTestSeesTheGlobalItRestored()
     {
         // Ordering, not merely "it ran at some point": the restoration has to be complete by the time the
@@ -731,7 +727,7 @@ public class WptHarnessTests
         outcome.Results.Select(r => r.Status).Should().Equal("PASS", "PASS");
     }
 
-    [Fact]
+    [Test]
     public void EveryCleanupRunsEvenWhenAnEarlierOneThrows()
     {
         // They undo *different* pieces of shared state, so skipping the rest would poison the file exactly as
@@ -752,7 +748,7 @@ public class WptHarnessTests
         outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingCleanupDoesNotReplaceTheFailureThatExplainsTheTest()
     {
         // A test that failed and then left wreckage behind must still report what it was that failed, or the
@@ -768,7 +764,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Be("expected \"want\" but got \"got\" (the real failure)");
     }
 
-    [Fact]
+    [Test]
     public void ACleanupRunsOnceRatherThanOncePerCompletionAttempt()
     {
         // `done()` calls `complete()`, and a suite may call `done()` twice; a cleanup that restored a saved
@@ -787,7 +783,7 @@ public class WptHarnessTests
         outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
     }
 
-    [Fact]
+    [Test]
     public void AFailedStepEndsTheTestAndRunsItsCleanups()
     {
         // Upstream's `step` catch sets the status and then calls `done()`, so a failed step is the end of the
@@ -815,7 +811,7 @@ public class WptHarnessTests
         outcome.Results[1].Status.Should().Be("PASS", outcome.Results[1].Message);
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncTestWhoseBodyThrowsStopsBeingOutstanding()
     {
         // The half of the rule above that the driver depends on: nothing calls `done()` here, so if the throw
@@ -829,7 +825,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("noSuchGlobal");
     }
 
-    [Fact]
+    [Test]
     public void AStepThatThrowsFailsTheAsyncTestItBelongsTo()
     {
         var outcome = Run("""
@@ -841,7 +837,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("FAIL");
     }
 
-    [Fact]
+    [Test]
     public void AnUnreachedFuncFailsTheTestWhenItIsCalled()
     {
         var outcome = Run("""
@@ -853,7 +849,7 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain("should not resolve");
     }
 
-    [Fact]
+    [Test]
     public void SetupRunsBeforeTheTestsThatUseWhatItPrepared()
     {
         var outcome = Run("""
@@ -865,7 +861,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalIsNoneOfTheThreeWptKnowsAbout()
     {
         // .any.js files branch on this to skip what their global cannot do; saying "not a window" is what
@@ -884,7 +880,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void FetchReadsAVendoredResourceRelativeToTheFileThatAskedForIt()
     {
         var outcome = WptHarness.RunInline(
@@ -899,7 +895,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void FetchingSomethingTheCorpusDoesNotHoldIsAHarnessErrorRatherThanATestFailure()
     {
         // A missing resource is a vendoring bug. Letting it become a rejected promise would turn it into a
@@ -910,7 +906,7 @@ public class WptHarnessTests
         outcome.HarnessError.Should().Contain("url/resources/nope.json");
     }
 
-    [Fact]
+    [Test]
     public void AnExceptionEscapingACallbackIsAHarnessErrorForTheWholeFile()
     {
         // The driver's engines carry a DiagnosticsSink, so such an exception no longer erupts from the pump —
@@ -929,7 +925,7 @@ public class WptHarnessTests
         outcome.Results.Should().HaveCount(1);
     }
 
-    [Fact]
+    [Test]
     public void AFileThatDeclaresAllowUncaughtExceptionIsNotFailedByOne()
     {
         // The other half, and the reason html/webappapis/microtask-queuing/queue-microtask-exceptions.any.js
@@ -949,7 +945,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS");
     }
 
-    [Fact]
+    [Test]
     public void AThrowOutOfTheTopLevelIsAHarnessErrorForTheWholeFile()
     {
         var outcome = Run("test(() => {}, 'row'); missingGlobal();");
@@ -959,7 +955,7 @@ public class WptHarnessTests
         outcome.Results.Should().HaveCount(1, "what ran before the throw is still reported");
     }
 
-    [Fact]
+    [Test]
     public void SingleTestMakesTheWholeFileOneTestThatDoneFinishes()
     {
         // `setup({single_test: true})` is what four of the html/webappapis/timers files declare, and a shim
@@ -976,7 +972,7 @@ public class WptHarnessTests
         outcome.Results[0].Name.Should().Be("inline.any.js", "the shim names the file's one test after the file");
     }
 
-    [Fact]
+    [Test]
     public void ASingleTestFileThatNeverCallsDoneIsAStalledRunRatherThanAPass()
     {
         // The other half of the mode: the one test is asynchronous, so it is finished by `done()` and by
@@ -988,7 +984,7 @@ public class WptHarnessTests
         outcome.HarnessError.Should().Contain("inline.any.js");
     }
 
-    [Fact]
+    [Test]
     public void ACallbackThatThrowsAfterASingleTestFileIsDoneIsNotAHarnessError()
     {
         // Upstream's completion boundary, and the reason the four `single_test` timer files are deterministic:
@@ -1012,7 +1008,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void ACallbackThatThrowsBeforeASingleTestFileIsDoneStillIsAHarnessError()
     {
         // The other half, and what stops the boundary above from being a way to go quiet. The predicate is
@@ -1030,7 +1026,7 @@ public class WptHarnessTests
         outcome.HarnessError.Should().Contain("early");
     }
 
-    [Fact]
+    [Test]
     public void TheCompletionBoundaryIsPerFileRatherThanPerRun()
     {
         // A file that never declared `single_test` has no file test to have a result, so nothing about it is
@@ -1045,7 +1041,7 @@ public class WptHarnessTests
         outcome.HarnessError.Should().Contain("late");
     }
 
-    [Fact]
+    [Test]
     public void ASynchronousXmlHttpRequestReadsAVendoredResource()
     {
         var outcome = WptHarness.RunInline("""
@@ -1063,7 +1059,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void AnAsynchronousXmlHttpRequestFiresLoadAfterTheScriptThatSentIt()
     {
         // `xhr.onload = …` is assigned *after* `send()` in every suite that uses one, so a load event
@@ -1085,15 +1081,14 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Theory]
     // Everything the reader is not, each of which has to arrive as a failing test naming what was asked for —
     // never as a pass, a hang, or a CLR exception that takes the whole file down.
-    [InlineData("xhr.open('POST', 'resources/urltestdata.json'); xhr.send(null);", "supports GET")]
-    [InlineData("xhr.open('GET', 'resources/single-byte-raw.py?label=x'); xhr.send(null);", "holds no")]
-    [InlineData("xhr.open('GET', '../../../etc/passwd'); xhr.send(null);", "holds no")]
-    [InlineData("xhr.open('GET', 'resources/urltestdata.json'); xhr.send('body');", "sends no request body")]
-    [InlineData("xhr.send(null);", "before open()")]
-    [InlineData("xhr.open('GET', 'resources/urltestdata.json'); xhr.setRequestHeader('X', 'y');", "cannot set the header")]
+    [TestCase("xhr.open('POST', 'resources/urltestdata.json'); xhr.send(null);", "supports GET")]
+    [TestCase("xhr.open('GET', 'resources/single-byte-raw.py?label=x'); xhr.send(null);", "holds no")]
+    [TestCase("xhr.open('GET', '../../../etc/passwd'); xhr.send(null);", "holds no")]
+    [TestCase("xhr.open('GET', 'resources/urltestdata.json'); xhr.send('body');", "sends no request body")]
+    [TestCase("xhr.send(null);", "before open()")]
+    [TestCase("xhr.open('GET', 'resources/urltestdata.json'); xhr.setRequestHeader('X', 'y');", "cannot set the header")]
     public void AnXmlHttpRequestRefusesWhatItCannotServe(string body, string expected)
     {
         var outcome = WptHarness.RunInline($"test(() => {{ var xhr = new XMLHttpRequest(); {body} }}, 'row');", directory: "url");
@@ -1103,11 +1098,10 @@ public class WptHarnessTests
         outcome.Results[0].Message.Should().Contain(expected);
     }
 
-    [Theory]
     // One suite that reads its corpus with `fetch` and one that is about `Response` itself, because the
     // answer has to be the same object in both: every engine the driver builds carries the object model.
-    [InlineData("url", "resources/urltestdata.json")]
-    [InlineData("fetch/api/resources", "data.json")]
+    [TestCase("url", "resources/urltestdata.json")]
+    [TestCase("fetch/api/resources", "data.json")]
     public void TheResourceLoaderAnswersWithARealResponse(string directory, string reference)
     {
         // The `fetch/api/response/` suites read `response.body` and expect a ReadableStream. A duck-typed
@@ -1128,7 +1122,7 @@ public class WptHarnessTests
         outcome.Results[0].Status.Should().Be("PASS", outcome.Results[0].Message);
     }
 
-    [Fact]
+    [Test]
     public void MetaScriptsAreLoadedInTheOrderTheyAreDeclared()
     {
         // The vendored suites depend on this: encodings.js has to define encodings_table before the file's

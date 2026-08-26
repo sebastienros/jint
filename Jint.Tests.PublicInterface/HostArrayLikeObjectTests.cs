@@ -164,7 +164,7 @@ public class HostArrayLikeObjectTests
     // Indexed reads
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void IndexedReadsResolveAgainstTheHost()
     {
         var engine = CreateEngine(out _);
@@ -185,7 +185,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list['1.0']").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AWarmIndexedLoopCostsExactlyOneHostReadPerElement()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a", "b", "c", "d", "e");
@@ -203,7 +203,7 @@ public class HostArrayLikeObjectTests
         list.IndexReads.Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void AnIndexTheHostDoesNotOwnStillResolvesOnThePrototypeChain()
     {
         var engine = CreateEngine(out _);
@@ -216,7 +216,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("7 in list").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void AHoleIsAnAbsentOwnPropertyNotAnUndefinedElement()
     {
         var engine = CreateEngine(out _, attachArrayPrototype: true, "a", null, "c");
@@ -236,7 +236,7 @@ public class HostArrayLikeObjectTests
     // Iteration, spread, Array.from, destructuring
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ForOfSpreadArrayFromAndDestructuringAllIterateTheHost()
     {
         var engine = CreateEngine(out _);
@@ -249,7 +249,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("(function () { return arguments.length + ':' + arguments[1]; })(...list)").Should().Be("3:b");
     }
 
-    [Fact]
+    [Test]
     public void ForOfCostsOneHostReadPerElement()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a", "b", "c", "d");
@@ -262,7 +262,7 @@ public class HostArrayLikeObjectTests
         list.IndexReads.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void IterationObservesTheCollectionLive()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a", "b", "c");
@@ -285,7 +285,7 @@ public class HostArrayLikeObjectTests
     // Array.prototype generics
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeGenericsWorkOnAHostCollection()
     {
         var engine = CreateEngine(out _);
@@ -305,7 +305,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list.find(function (x) { return x > 'a'; })").Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeGenericsAlsoWorkCalledOnAHostCollectionWithoutTheArrayPrototype()
     {
         // A host that keeps its own prototype (the DOM shape: NodeList.prototype) is still a valid `this` for
@@ -320,7 +320,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("Array.from(list, function (x) { return x + '?'; }).join('-')").Should().Be("a?-b?-c?");
     }
 
-    [Fact]
+    [Test]
     public void AMutatingGenericFailsTheWayANonWritablePropertyDoes()
     {
         var engine = CreateEngine(out _);
@@ -336,7 +336,7 @@ public class HostArrayLikeObjectTests
     // Enumeration and reflection
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void OwnKeysAreTheIndicesAscendingThenLengthThenTheNamedBag()
     {
         var engine = CreateEngine(out _);
@@ -355,7 +355,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("JSON.stringify({ ...list })").Should().Be("""{"0":"a","1":"b","2":"c","named":"expando"}""");
     }
 
-    [Fact]
+    [Test]
     public void ExistenceChecksAgreeWithTheProjection()
     {
         var engine = CreateEngine(out _);
@@ -375,7 +375,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list.propertyIsEnumerable(3)").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void ReflectAgreesWithTheMemberLane()
     {
         // Reflect.* never reaches the interpreter's member lane, so these read through ObjectInstance.Get and
@@ -395,7 +395,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list[0]").Should().Be("a");
     }
 
-    [Fact]
+    [Test]
     public void DescriptorsReportTheWebIdlPlatformShape()
     {
         var engine = CreateEngine(out _);
@@ -409,7 +409,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(list, 3)").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void JsonStringifySerializesTheCollectionAsAnArray()
     {
         var engine = CreateEngine(out _);
@@ -419,7 +419,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("JSON.stringify(list, null, 2)").Should().Be("[\n  \"a\",\n  \"b\",\n  \"c\"\n]");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringifyEmitsNullForAHole()
     {
         var engine = CreateEngine(out _, attachArrayPrototype: true, "a", null, "c");
@@ -431,7 +431,7 @@ public class HostArrayLikeObjectTests
     // It is array-LIKE, not an Array
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheCollectionDoesNotClaimToBeAnArray()
     {
         var engine = CreateEngine(out _);
@@ -446,7 +446,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("Object.prototype.toString.call(list)").Should().Be("[object HostList]");
     }
 
-    [Fact]
+    [Test]
     public void ConcatAppendsUntilSymbolIsConcatSpreadableSaysOtherwise()
     {
         var engine = CreateEngine(out _);
@@ -464,7 +464,7 @@ public class HostArrayLikeObjectTests
     // Write / delete / defineProperty refusals
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void WritesToIndicesAndLengthAreIgnoredInSloppyModeAndThrowInStrictMode()
     {
         var engine = CreateEngine(out var list);
@@ -480,7 +480,7 @@ public class HostArrayLikeObjectTests
         Assert.Throws<JavaScriptException>(() => engine.Execute("'use strict'; list[9] = 'Y';"));
     }
 
-    [Fact]
+    [Test]
     public void NamedPropertiesRemainOrdinary()
     {
         var engine = CreateEngine(out _);
@@ -494,7 +494,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list.computed").Should().Be("via-getter");
     }
 
-    [Fact]
+    [Test]
     public void DeleteRefusesIndicesTheCollectionOwnsAndLength()
     {
         var engine = CreateEngine(out _);
@@ -511,7 +511,7 @@ public class HostArrayLikeObjectTests
         engine.Execute("'use strict'; delete list[99];");
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyIsRefusedForEveryIndexKeyAndForLength()
     {
         var engine = CreateEngine(out _);
@@ -528,7 +528,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("list.named").Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void FreezingTheCollectionFailsTheWayFreezingAPlatformObjectDoes()
     {
         var engine = CreateEngine(out _);
@@ -543,7 +543,7 @@ public class HostArrayLikeObjectTests
     // Live collection
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheCollectionIsReadLiveWithNoStaleCacheServingARemovedIndex()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a", "b", "c");
@@ -581,7 +581,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("[...list].length").Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnIndexedReadInAWarmLoopFollowsTheCollectionAsItChanges()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a", "b", "c");
@@ -598,7 +598,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate("swap(0, 'A'); " + Script).Should().Be("ABc");
     }
 
-    [Fact]
+    [Test]
     public void AnElementAppearingAfterAPrototypeReadWasCachedShadowsItFromTheVeryNextRead()
     {
         // The string-keyed spelling is the one that reaches the prototype-method inline cache. A host keeps its
@@ -615,7 +615,7 @@ public class HostArrayLikeObjectTests
         engine.Evaluate(script).Should().Be("from-prototype,from-prototype,own,own");
     }
 
-    [Fact]
+    [Test]
     public void APrototypeMethodStaysResolvableWhileTheCollectionChangesUnderIt()
     {
         var engine = CreateEngine(out var list, attachArrayPrototype: true, "a");
@@ -630,7 +630,7 @@ public class HostArrayLikeObjectTests
     // Named-getter subclass
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ASubclassMayAddALiveNamedMemberWithTheNamedHooks()
     {
         var engine = new Engine();
@@ -662,7 +662,7 @@ public class HostArrayLikeObjectTests
     /// meets. Measured against this file's previous <c>NamedGetterHostList</c>: <c>Object.keys</c> answered
     /// <c>0,1,2,last</c> while <c>ToObject()</c> answered <c>0,1,2</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANamedMemberIsVisibleToEveryEnumerationIncludingTheClrConversion()
     {
         var engine = new Engine();
@@ -688,7 +688,7 @@ public class HostArrayLikeObjectTests
     /// hand-rolled shape each of these cost exactly one descriptor, because <c>ProbeOwnProperty</c> was sealed
     /// with no hook to answer a named key from.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANamedMemberAnswersExistenceQuestionsWithoutADescriptor()
     {
         var engine = new Engine();
@@ -711,7 +711,7 @@ public class HostArrayLikeObjectTests
     /// projection is consulted, so a projected name spelling one of them would advertise a key its own read
     /// never reaches.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheCollectionOwnsIndicesAndLengthAheadOfTheNamedProjection()
     {
         var engine = new Engine();

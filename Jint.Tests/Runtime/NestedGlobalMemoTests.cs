@@ -7,7 +7,7 @@
 /// </summary>
 public class NestedGlobalMemoTests
 {
-    [Fact]
+    [Test]
     public void SloppyEvalInjectionIntoPinnedChainIsObserved()
     {
         var engine = new Engine();
@@ -33,7 +33,7 @@ public class NestedGlobalMemoTests
         result.Should().Be("number;number;number;string;string;string;");
     }
 
-    [Fact]
+    [Test]
     public void SloppyEvalInjectionRedirectsNestedWrites()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public class NestedGlobalMemoTests
         result.Should().Be("2:1");
     }
 
-    [Fact]
+    [Test]
     public void AnnexBBlockFunctionShadowIsObserved()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class NestedGlobalMemoTests
         result.Should().Be("undefined;undefined;function;function;");
     }
 
-    [Fact]
+    [Test]
     public void WithEnvironmentBlocksTheMemo()
     {
         var engine = new Engine();
@@ -99,7 +99,7 @@ public class NestedGlobalMemoTests
         result.Should().Be("global;global;with;with;global;global;");
     }
 
-    [Fact]
+    [Test]
     public void SharedPreparedScriptResolvesPerEngine()
     {
         var prepared = Engine.PrepareScript("""
@@ -122,7 +122,7 @@ public class NestedGlobalMemoTests
         }
     }
 
-    [Fact]
+    [Test]
     public void GlobalLexicalShadowAfterMemoizationIsObserved()
     {
         var engine = new Engine();
@@ -142,7 +142,7 @@ public class NestedGlobalMemoTests
         engine.Evaluate("r();").AsString().Should().Be("lexicallexical");
     }
 
-    [Fact]
+    [Test]
     public void DeletedGlobalThrowsAfterMemoization()
     {
         var engine = new Engine();
@@ -162,7 +162,7 @@ public class NestedGlobalMemoTests
         ex.Message.Should().Contain("gd is not defined");
     }
 
-    [Fact]
+    [Test]
     public void PooledLoopEnvReattachmentKeepsCorrectChain()
     {
         var engine = new Engine();

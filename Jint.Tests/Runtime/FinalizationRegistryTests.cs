@@ -11,10 +11,10 @@ namespace Jint.Tests.Runtime;
 /// and the parts of https://tc39.es/ecma262/#sec-cleanup-finalization-registry a host can observe.
 /// </summary>
 /// <remarks>
-/// Shares the <see cref="GarbageCollectionTests"/> collection, which disables parallelization: every test
-/// here forces a full collection, which cannot be isolated from whatever else the runner is doing.
+/// Non-parallel for the reason <see cref="GarbageCollectionTests"/> is: every test here forces a full
+/// collection, which cannot be isolated from whatever else the runner is doing.
 /// </remarks>
-[Collection(nameof(GarbageCollectionTests))]
+[NonParallelizable]
 public class FinalizationRegistryTests
 {
     /// <summary>
@@ -78,7 +78,7 @@ public class FinalizationRegistryTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void RegisterUnreachableTarget(Engine engine, string script) => engine.Execute(script);
 
-    [Fact]
+    [Test]
     public void CleanupCallbackRunsOnTheEngineThreadFromTheEventLoop()
     {
         var recorder = new Recorder();
@@ -100,7 +100,7 @@ public class FinalizationRegistryTests
         recorder.ThreadIds.Should().Equal(Environment.CurrentManagedThreadId);
     }
 
-    [Fact]
+    [Test]
     public void CleanupCallbackRunsForACellRegisteredWithALiveUnregisterToken()
     {
         var recorder = new Recorder();
@@ -116,7 +116,7 @@ public class FinalizationRegistryTests
         recorder.HeldValues.Should().Equal("held");
     }
 
-    [Fact]
+    [Test]
     public void UnregisterBeforeTheCleanupJobRunsSuppressesTheCallback()
     {
         var recorder = new Recorder();
@@ -135,7 +135,7 @@ public class FinalizationRegistryTests
         recorder.HeldValues.Should().BeEmpty("an unregistered cell has left [[Cells]] and step 3 no longer sees it");
     }
 
-    [Fact]
+    [Test]
     public void UnregisterAfterTheCleanupCallbackHasRunReportsNothingRemoved()
     {
         var recorder = new Recorder();
@@ -150,7 +150,7 @@ public class FinalizationRegistryTests
         engine.Evaluate("registry.unregister(token)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CollectionObservedAfterARestoreIsDroppedRatherThanRunAgainstRestoredGlobals()
     {
         var recorder = new Recorder();
@@ -178,7 +178,7 @@ public class FinalizationRegistryTests
         GC.KeepAlive(registry);
     }
 
-    [Fact]
+    [Test]
     public void OneCleanupJobNeverDeliversACellFromAnEndedCycleAlongsideACurrentOne()
     {
         var recorder = new Recorder();

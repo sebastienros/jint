@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods;
 
 public class ExtensionMethodsTest
 {
-    [Fact]
+    [Test]
     public void ShouldInvokeObjectExtensionMethod()
     {
         var person = new Person();
@@ -22,7 +22,7 @@ public class ExtensionMethodsTest
         age.Should().Be(70);
     }
 
-    [Fact]
+    [Test]
     public void ShouldInvokeStringExtensionMethod()
     {
         var options = new Options();
@@ -34,7 +34,7 @@ public class ExtensionMethodsTest
         result.Should().Be("!dlroW olleH");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInvokeNumberExtensionMethod()
     {
         var options = new Options();
@@ -46,7 +46,7 @@ public class ExtensionMethodsTest
         result.Should().Be(40);
     }
 
-    [Fact]
+    [Test]
     public void ShouldPrioritizingNonGenericMethod()
     {
         var options = new Options();
@@ -58,7 +58,7 @@ public class ExtensionMethodsTest
         ((string) result.name).Should().Be("Mickey");
     }
 
-    [Fact]
+    [Test]
     public void PrototypeFunctionsShouldNotBeOverridden()
     {
         var engine = new Engine(opts =>
@@ -81,7 +81,7 @@ public class ExtensionMethodsTest
         arr2[1].Should().Be("s,no");
     }
 
-    [Fact]
+    [Test]
     public void OverridePrototypeFunctions()
     {
         var engine = new Engine(opts =>
@@ -98,7 +98,7 @@ public class ExtensionMethodsTest
         arr[1].Should().Be("NO");
     }
 
-    [Fact]
+    [Test]
     public void HasOwnPropertyShouldWorkCorrectlyInPresenceOfExtensionMethods()
     {
         var person = new Person();
@@ -125,7 +125,7 @@ public class ExtensionMethodsTest
         });
     }
 
-    [Fact]
+    [Test]
     public void LinqExtensionMethodWithoutGenericParameter()
     {
         var engine = GetLinqEngine();
@@ -138,7 +138,7 @@ public class ExtensionMethodsTest
 
     // TODO this fails due to double -> long assignment on FW
 #if !NETFRAMEWORK
-        [Fact]
+        [Test]
         public void LinqExtensionMethodWithSingleGenericParameter()
         {
             var engine = GetLinqEngine();
@@ -150,7 +150,7 @@ public class ExtensionMethodsTest
         }
 #endif
 
-    [Fact]
+    [Test]
     public void LinqExtensionMethodWithMultipleGenericParameters()
     {
         // Copy produces a native JsArray whose 'join' is the prototype method. Explicit LiveView
@@ -168,7 +168,7 @@ public class ExtensionMethodsTest
         // stringList.Select((x, i) => x + i).ToArray().join()
     }
 
-    [Fact]
+    [Test]
     public void GenericTypeExtension()
     {
         var options = new Options();
@@ -194,7 +194,7 @@ public class ExtensionMethodsTest
         observable.Last.Should().Be("foobar");
     }
 
-    [Fact]
+    [Test]
     public void GenericExtensionMethodOnClosedGenericType()
     {
         var options = new Options();
@@ -218,7 +218,7 @@ public class ExtensionMethodsTest
         result.Should().Be("some text");
     }
 
-    [Fact]
+    [Test]
     public void GenericExtensionMethodOnClosedGenericType2()
     {
         var options = new Options();
@@ -248,7 +248,7 @@ public class ExtensionMethodsTest
         nameObservableResult.Last.Should().Be("testing yo");
     }
 
-    [Fact]
+    [Test]
     public void GenericExtensionMethodOnOpenGenericType()
     {
         var options = new Options();
@@ -282,7 +282,7 @@ public class ExtensionMethodsTest
         baseObservableResult.Last.Should().Be("testing yo");
     }
 
-    [Fact]
+    [Test]
     public void GenericExtensionMethodOnGenericTypeInstantiatedInJs()
     {
         var options = new Options();
@@ -316,7 +316,7 @@ public class ExtensionMethodsTest
         baseObservableResult.Last.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CanProjectAndGroupWhenExpandoObjectWrappingDisabled()
     {
         var engine = new Engine(options =>

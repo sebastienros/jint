@@ -47,7 +47,7 @@ public class DestructuringRestElementTests
 
     private const string Empty = "len=0 json=[] map=0 keys=[]";
 
-    public static TheoryData<string, string> RestShapes() => new()
+    public static TestCases<string, string> RestShapes() => new()
     {
         // The four shapes the issue filed, all of which reach the array lane.
         { "var a, b, r; [a, b, ...r] = [1]; describe(r)", Empty },
@@ -124,8 +124,7 @@ public class DestructuringRestElementTests
         { "var [a = 9, b = 9, ...r] = []; describe(r)", Empty },
     };
 
-    [Theory]
-    [MemberData(nameof(RestShapes))]
+    [TestCaseSource(nameof(RestShapes))]
     public void TheRestOfAnExhaustedSourceIsEmpty(string script, string expected)
     {
         string outcome;
@@ -156,7 +155,7 @@ public class DestructuringRestElementTests
     /// already claimed to be empty.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void TheRestArrayIsGenuinelyEmptyAndNotMerelyReportingZero()
     {
         const string Guard = " if (r.length !== 0) { throw new Error('length=' + r.length); } ";
@@ -199,7 +198,7 @@ public class DestructuringRestElementTests
     /// <summary>
     /// The exact shape from the issue: an ordinary "take the head off a possibly empty row" script.
     /// </summary>
-    [Fact]
+    [Test]
     public void StringifyingTheRestOfAnEmptyRowReturnsAnEmptyArray()
     {
         new Engine()
@@ -211,7 +210,7 @@ public class DestructuringRestElementTests
     /// The array lane is entered by anything array-like carrying the original array iterator, which is
     /// a wrapped CLR collection as well as a JsArray. Same arithmetic, same wrap.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWrappedClrCollectionTakesTheSameLaneAndIsEmptyToo()
     {
         var engine = new Engine();
@@ -250,7 +249,7 @@ public class DestructuringRestElementTests
     /// <summary>
     /// The third receiver the array lane accepts: a host <see cref="ArrayLikeObject"/>.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostArrayLikeObjectTakesTheSameLaneAndIsEmptyToo()
     {
         var engine = new Engine();

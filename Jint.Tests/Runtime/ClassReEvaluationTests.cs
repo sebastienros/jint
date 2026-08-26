@@ -8,7 +8,7 @@
 /// </summary>
 public class ClassReEvaluationTests
 {
-    [Fact]
+    [Test]
     public void ClassFactoriesProduceIndependentClasses()
     {
         var engine = new Engine();
@@ -40,7 +40,7 @@ public class ClassReEvaluationTests
         result.Should().Be("true,true,true,a:a,b:b,a!,b!,a,b,A,B,true,false");
     }
 
-    [Fact]
+    [Test]
     public void SuperAndHomeObjectStayPerEvaluation()
     {
         var engine = new Engine();
@@ -59,7 +59,7 @@ public class ClassReEvaluationTests
         result.Should().Be("sub-one|sub-two");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedPreparedScriptEvaluationStaysCorrect()
     {
         var engine = new Engine();

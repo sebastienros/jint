@@ -28,23 +28,22 @@ public class ArrayIteratorReceiverTests
     /// <summary>
     /// The seven shapes named in the issue, each with what the specification requires of it.
     /// </summary>
-    [Theory]
     // No `length` at all: LengthOfArrayLike is ToLength(undefined), which is 0, so the closure returns
     // on its very first step.
-    [InlineData("[...Array.prototype.values.call({})]", "")]
+    [TestCase("[...Array.prototype.values.call({})]", "")]
     // A string `length` coerces: ToLength('3') is 3.
-    [InlineData("[...Array.prototype.values.call({length: '3', 0: 'a', 1: 'b', 2: 'c'})]", "a,b,c")]
+    [TestCase("[...Array.prototype.values.call({length: '3', 0: 'a', 1: 'b', 2: 'c'})]", "a,b,c")]
     // ToLength clamps a negative to +0 rather than rejecting it.
-    [InlineData("[...Array.prototype.values.call({length: -1})]", "")]
+    [TestCase("[...Array.prototype.values.call({length: -1})]", "")]
     // ToLength(null) is ToIntegerOrInfinity(ToNumber(null)) = 0.
-    [InlineData("[...Array.prototype.values.call({length: null})]", "")]
+    [TestCase("[...Array.prototype.values.call({length: null})]", "")]
     // ToLength(true) is 1.
-    [InlineData("[...Array.prototype.values.call({length: true, 0: 'a'})]", "a")]
+    [TestCase("[...Array.prototype.values.call({length: true, 0: 'a'})]", "a")]
     // The whole reason the WPT corpus reached this: an object borrowing Array.prototype's @@iterator is a
     // sequence of length 0, not a TypeError.
-    [InlineData("[...{[Symbol.iterator]: Array.prototype.values}]", "")]
+    [TestCase("[...{[Symbol.iterator]: Array.prototype.values}]", "")]
     // ToObject boxes a primitive, so a String object's own indices and length are what gets iterated.
-    [InlineData("[...Array.prototype.values.call('abc')]", "a,b,c")]
+    [TestCase("[...Array.prototype.values.call('abc')]", "a,b,c")]
     public void ANonArrayLikeReceiverIteratesRatherThanThrowing(string script, string expected)
     {
         _engine.Evaluate(script + ".join(',')").AsString().Should().Be(expected);
@@ -54,7 +53,7 @@ public class ArrayIteratorReceiverTests
     /// A Number object carries no <c>length</c>, so it is the "absent means zero" case reached through
     /// <i>ToObject</i> rather than directly.
     /// </summary>
-    [Fact]
+    [Test]
     public void APrimitiveWithNoLengthBoxesToAnEmptyIteration()
     {
         _engine.Evaluate("[...Array.prototype.values.call(5)].length").AsNumber().Should().Be(0);
@@ -64,19 +63,18 @@ public class ArrayIteratorReceiverTests
     /// <i>ToObject</i> is still step 1, so <c>undefined</c> and <c>null</c> remain a <c>TypeError</c> — the
     /// one receiver rejection the algorithm does have.
     /// </summary>
-    [Theory]
-    [InlineData("undefined")]
-    [InlineData("null")]
+    [TestCase("undefined")]
+    [TestCase("null")]
     public void AnUndefinedOrNullReceiverIsStillATypeError(string receiver)
     {
-        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate($"Array.prototype.values.call({receiver})"));
+        var ex = Assert.Throws<JavaScriptException>(() => _engine.Evaluate($"Array.prototype.values.call({receiver})"))!;
         ex.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
     /// <summary>
     /// <c>keys</c> and <c>entries</c> have the same two-step body, so the same receiver reaches all three.
     /// </summary>
-    [Fact]
+    [Test]
     public void KeysAndEntriesTakeTheSameReceivers()
     {
         _engine.Evaluate("[...Array.prototype.keys.call({})].length").AsNumber().Should().Be(0);
@@ -92,7 +90,7 @@ public class ArrayIteratorReceiverTests
     /// <c>values()</c> and erupt from the first <c>next()</c>. This is the ordering half of the defect and
     /// the half a "throw earlier instead" fix would get wrong.
     /// </summary>
-    [Fact]
+    [Test]
     public void AThrowingLengthGetterThrowsFromTheFirstNextNotFromValues()
     {
         _engine.Evaluate("""
@@ -111,7 +109,7 @@ public class ArrayIteratorReceiverTests
     /// <c>values()</c> is clean and <c>next()</c> carries the exception. (This is the shape
     /// <c>Blob-constructor.any.js</c>'s "ToUint32 should be applied to the length" row hands the engine.)
     /// </summary>
-    [Fact]
+    [Test]
     public void AThrowingLengthCoercionThrowsFromTheFirstNext()
     {
         _engine.Evaluate("""
@@ -128,7 +126,7 @@ public class ArrayIteratorReceiverTests
     /// A <c>length</c> that cannot be coerced at all — a Symbol — is a <c>TypeError</c> from <c>next()</c>,
     /// again not from <c>values()</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASymbolLengthIsATypeErrorFromNext()
     {
         _engine.Evaluate("""
@@ -144,7 +142,7 @@ public class ArrayIteratorReceiverTests
     /// elements it grew by. Caching the length at <c>values()</c> — or even at the first step — would stop
     /// after the element that existed then.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALengthThatGrowsBetweenStepsYieldsTheNewElements()
     {
         _engine.Evaluate("""
@@ -165,7 +163,7 @@ public class ArrayIteratorReceiverTests
     /// <summary>
     /// And the other direction: a shrink completes the iteration at the step that observes it.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALengthThatShrinksBetweenStepsCompletesTheIteration()
     {
         _engine.Evaluate("""
@@ -185,7 +183,7 @@ public class ArrayIteratorReceiverTests
     /// <c>length</c> that grows back after exhaustion does not restart the iteration, and the getter is not
     /// even consulted.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnExhaustedArrayLikeIteratorDoesNotReadLengthAgain()
     {
         _engine.Evaluate("""
@@ -210,7 +208,7 @@ public class ArrayIteratorReceiverTests
     /// its <c>valueOf</c> run once per step, interleaved with the index reads, and nothing runs at
     /// <c>values()</c> time.
     /// </summary>
-    [Fact]
+    [Test]
     public void LengthIsReadOncePerStepInterleavedWithTheIndexReads()
     {
         _engine.Evaluate("""
@@ -237,7 +235,7 @@ public class ArrayIteratorReceiverTests
     /// <summary>
     /// A key+value step re-reads the length like the other two kinds, and reads the element exactly once.
     /// </summary>
-    [Fact]
+    [Test]
     public void EntriesReReadsLengthPerStep()
     {
         _engine.Evaluate("""
@@ -252,7 +250,7 @@ public class ArrayIteratorReceiverTests
     /// Step 10.d.v of the closure is a bare <c>Get</c>, never a <c>HasProperty</c> first, so a hole in an
     /// array-like is <c>undefined</c> and not a skipped element.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHoleInAnArrayLikeYieldsUndefined()
     {
         _engine.Evaluate("[...Array.prototype.values.call({length: 3, 0: 'a', 2: 'c'})].join('|')")
@@ -262,7 +260,7 @@ public class ArrayIteratorReceiverTests
     /// <summary>
     /// A key-kind step reads no element at all — only the length.
     /// </summary>
-    [Fact]
+    [Test]
     public void KeysReadsNoElement()
     {
         _engine.Evaluate("""
@@ -277,7 +275,7 @@ public class ArrayIteratorReceiverTests
     /// and so is a typed array, whose own <c>%TypedArray%.prototype.values</c> keeps its
     /// <i>ValidateTypedArray</i> precondition.
     /// </summary>
-    [Fact]
+    [Test]
     public void RealArraysAndTypedArraysAreUnaffected()
     {
         _engine.Evaluate("[...[1, 2, 3]].join(',')").AsString().Should().Be("1,2,3");
@@ -290,7 +288,7 @@ public class ArrayIteratorReceiverTests
             var array = new Uint8Array(buffer);
             buffer.transfer();
             array.values();
-            """));
+            """))!;
         detached.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
@@ -303,7 +301,7 @@ public class ArrayIteratorReceiverTests
     /// <c>get</c> of <c>length</c> and then one of the index — steps 1.b and 10.d.v of the closure, in that
     /// order and with no existence probe between them.
     /// </summary>
-    [Fact]
+    [Test]
     public void ValuesReadsNothingAndTheFirstNextReadsLengthThenTheIndex()
     {
         _engine.Evaluate("""
@@ -329,19 +327,18 @@ public class ArrayIteratorReceiverTests
     /// <i>ToLength</i> is <i>ToIntegerOrInfinity</i> clamped into <c>[0, 2^53-1]</c>, not <i>ToNumber</i>:
     /// anything coercing to <c>NaN</c> is zero, a fraction truncates, and a negative clamps.
     /// </summary>
-    [Theory]
-    [InlineData("{length: NaN, 0: 'a'}", "")]
-    [InlineData("{length: 'abc', 0: 'a'}", "")]
-    [InlineData("{length: {}, 0: 'a'}", "")]
-    [InlineData("{length: [], 0: 'a'}", "")]
-    [InlineData("{length: undefined, 0: 'a'}", "")]
-    [InlineData("{length: -Infinity, 0: 'a'}", "")]
-    [InlineData("{length: -0.5, 0: 'a'}", "")]
-    [InlineData("{length: false, 0: 'a'}", "")]
-    [InlineData("{length: 2.9, 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
-    [InlineData("{length: ' 2 ', 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
-    [InlineData("{length: '0x2', 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
-    [InlineData("{length: ['2'], 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
+    [TestCase("{length: NaN, 0: 'a'}", "")]
+    [TestCase("{length: 'abc', 0: 'a'}", "")]
+    [TestCase("{length: {}, 0: 'a'}", "")]
+    [TestCase("{length: [], 0: 'a'}", "")]
+    [TestCase("{length: undefined, 0: 'a'}", "")]
+    [TestCase("{length: -Infinity, 0: 'a'}", "")]
+    [TestCase("{length: -0.5, 0: 'a'}", "")]
+    [TestCase("{length: false, 0: 'a'}", "")]
+    [TestCase("{length: 2.9, 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
+    [TestCase("{length: ' 2 ', 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
+    [TestCase("{length: '0x2', 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
+    [TestCase("{length: ['2'], 0: 'a', 1: 'b', 2: 'c'}", "a,b")]
     public void TheLengthIsCoercedByToLength(string receiver, string expected)
     {
         _engine.Evaluate($"[...Array.prototype.values.call({receiver})].join(',')").AsString().Should().Be(expected);
@@ -363,10 +360,9 @@ public class ArrayIteratorReceiverTests
     /// own change.
     /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("Math.pow(2, 31)")]
-    [InlineData("4294967294")]
-    [InlineData("2147483648.7")]
+    [TestCase("Math.pow(2, 31)")]
+    [TestCase("4294967294")]
+    [TestCase("2147483648.7")]
     public void AVeryLargeLengthStillYieldsItsFirstElement(string length)
     {
         _engine.Evaluate($$"""
@@ -380,7 +376,7 @@ public class ArrayIteratorReceiverTests
     /// A shrink all the way below the index the iterator has already reached completes it at that step:
     /// <c>index &lt; len</c> is false, so the closure returns without reading an element.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALengthThatShrinksBelowTheCurrentIndexCompletesTheIteration()
     {
         _engine.Evaluate("""
@@ -403,7 +399,7 @@ public class ArrayIteratorReceiverTests
     /// Step 10.d.v is an ordinary <i>Get</i>, so a hole resolves up the prototype chain rather than
     /// answering <c>undefined</c> unconditionally — for an array-like…
     /// </summary>
-    [Fact]
+    [Test]
     public void AHoleInAnArrayLikeResolvesThroughThePrototypeChain()
     {
         _engine.Evaluate("""
@@ -419,7 +415,7 @@ public class ArrayIteratorReceiverTests
     /// …and for a real array, whose dense lane has to notice that <c>Array.prototype</c> gained an index and
     /// stop answering holes out of its backing store alone.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHoleInARealArrayResolvesThroughThePrototypeChain()
     {
         _engine.Evaluate("""
@@ -439,7 +435,7 @@ public class ArrayIteratorReceiverTests
     /// An entry step yields <c>[index, Get(O, index)]</c>, so an absent index is a present pair carrying
     /// <c>undefined</c> — never a skipped pair.
     /// </summary>
-    [Fact]
+    [Test]
     public void EntriesYieldsAPairForEveryIndexIncludingAbsentOnes()
     {
         _engine.Evaluate("[...Array.prototype.entries.call({length: 2})].map(e => e[0] + ':' + e[1]).join(',')")
@@ -453,7 +449,7 @@ public class ArrayIteratorReceiverTests
     /// <c>Array.prototype[Symbol.iterator]</c> is the very same function object as
     /// <c>Array.prototype.values</c> (ECMA-262 23.1.3.41), which is why one gate broke both.
     /// </summary>
-    [Fact]
+    [Test]
     public void SymbolIteratorIsTheSameFunctionObjectAsValues()
     {
         _engine.Evaluate("Array.prototype[Symbol.iterator] === Array.prototype.values").AsBoolean().Should().BeTrue();
@@ -467,7 +463,7 @@ public class ArrayIteratorReceiverTests
     /// test on the receiver and <i>ToObject</i> hands an object straight back, so a <c>JsArray</c> still
     /// reaches the dense iterator and everything else the array-like one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnArrayReceiverStillReachesTheDenseArrayIterator()
     {
         _engine.Evaluate("[1, 2].values()").GetType().Name.Should().Be("ArrayIterator");
@@ -480,7 +476,7 @@ public class ArrayIteratorReceiverTests
     /// <summary>
     /// <c>arguments</c> already satisfied the old gate; it must keep working through the ungated path.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArgumentsObjectsStillIterate()
     {
         _engine.Evaluate("(function () { return [...Array.prototype.values.call(arguments)].join(','); })('p', 'q')")

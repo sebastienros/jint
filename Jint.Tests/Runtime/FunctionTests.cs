@@ -17,7 +17,7 @@ public class FunctionTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
-    [Fact]
+    [Test]
     public void ApplyRejectsArrayLikeArgumentsThatCannotBeMaterialized()
     {
         var engine = new Engine();
@@ -28,7 +28,7 @@ public class FunctionTests
         exception.Error.InstanceofOperator(engine.Intrinsics.RangeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FunctionPrototypeApplyThrowsRangeErrorFromTheFunctionsRealm()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class FunctionTests
         ((JsBoolean) engine.Evaluate(script))._value.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FunctionPrototypeApplyThrowsTypeErrorFromTheFunctionsRealm()
     {
         // Regression for the source-gen [JsFunction]/ICallable cast precondition: when
@@ -76,7 +76,7 @@ public class FunctionTests
         ((JsBoolean) engine.Evaluate(script))._value.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BindCombinesBoundArgumentsToCallArgumentsCorrectly()
     {
         _engine.Evaluate("var testFunc = function (a, b, c) { return a + ', ' + b + ', ' + c + ', ' + JSON.stringify(arguments); }");
@@ -85,7 +85,7 @@ public class FunctionTests
         _engine.Evaluate("testFunc.bind('anything')('a', 1, 'a');").AsString().Should().Be("a, 1, a, {\"0\":\"a\",\"1\":1,\"2\":\"a\"}");
     }
 
-    [Fact]
+    [Test]
     public void CanCallBoundFunctionWhoseTargetIsItselfBound()
     {
         // Per the spec a bound function's [[BoundTargetFunction]] only needs to be callable —
@@ -102,7 +102,7 @@ public class FunctionTests
         result.AsString().Should().Be("1:arg");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedBindAccumulatesArgumentsInOrder()
     {
         var result = _engine.Evaluate("""
@@ -114,7 +114,7 @@ public class FunctionTests
         result.AsString().Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void CanCallDeeplyReboundObjectMethod()
     {
         // The double-bind-into-a-dispatch-map pattern: obj.method.bind(obj) stored,
@@ -130,7 +130,7 @@ public class FunctionTests
         result.AsString().Should().Be("42!");
     }
 
-    [Fact]
+    [Test]
     public void CanConstructThroughBoundFunctionWhoseTargetIsItselfBound()
     {
         var result = _engine.Evaluate("""
@@ -143,7 +143,7 @@ public class FunctionTests
         result.AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void InstanceofWorksAgainstBoundFunctionWhoseTargetIsItselfBound()
     {
         var result = _engine.Evaluate("""
@@ -156,7 +156,7 @@ public class FunctionTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrowFunctionShouldBeExtensible()
     {
         new Engine()
@@ -171,7 +171,7 @@ public class FunctionTests
                 ");
     }
 
-    [Fact]
+    [Test]
     public void BlockScopeFunctionShouldWork()
     {
         const string Script = @"
@@ -198,7 +198,7 @@ function execute(doc, args){
         obj.Get("Name").AsString().Should().Be("ayende");
     }
 
-    [Fact]
+    [Test]
     public void ObjectCoercibleForCallable()
     {
         const string Script = @"
@@ -222,13 +222,13 @@ assertEqual(booleanCount, 1);
             .Execute(Script);
     }
 
-    [Fact]
+    [Test]
     public void AnonymousLambdaShouldHaveNameDefined()
     {
         _engine.Evaluate("(()=>{}).hasOwnProperty('name')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeConstructorsFromEngine()
     {
         _engine.Evaluate("class TestClass { constructor(a, b) { this.a = a; this.b = b; }}");
@@ -248,7 +248,7 @@ assertEqual(booleanCount, 1);
         arrayInstance[1].Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void FunctionInstancesCanBePassedToHost()
     {
         var engine = new Engine();
@@ -281,7 +281,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("a").Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public void BoundFunctionCanBeUsedAsPropertyGetter()
     {
         var result = new Engine().Evaluate("""
@@ -296,7 +296,7 @@ assertEqual(booleanCount, 1);
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void BoundFunctionsCanBePassedToHost()
     {
         var engine = new Engine();
@@ -328,7 +328,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("a").Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public void ConstructorsCanBePassedToHost()
     {
         var engine = new Engine();
@@ -350,7 +350,7 @@ assertEqual(booleanCount, 1);
         ev(JsValue.Undefined, [JsValue.Undefined]).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void FunctionsShouldResolveToSameReference()
     {
         _engine.SetValue("equal", new Action<object, object>(static (expected, actual) =>
@@ -361,7 +361,7 @@ assertEqual(booleanCount, 1);
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeCallForFunctionInstance()
     {
         ((Function) _engine.Evaluate(@"
@@ -381,7 +381,7 @@ assertEqual(booleanCount, 1);
         result.AsInteger().Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeCallForFunctionInstanceWithDifferingArgCounts()
     {
         _engine.Execute("function foo() { return Array.from(arguments).join(','); }");
@@ -393,7 +393,7 @@ assertEqual(booleanCount, 1);
         function.Call(1, 2, 3, 4).Should().Be("1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeFunctionViaEngineInstance()
     {
         var function = _engine.Evaluate("function bar(a) { return a; }; bar;");
@@ -402,7 +402,7 @@ assertEqual(booleanCount, 1);
         _engine.Invoke("bar", 123).Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeFunctionViaEngineInstanceWithCustomThisObj()
     {
         var function = _engine.Evaluate("function baz() { return this; }; baz;");
@@ -411,14 +411,14 @@ assertEqual(booleanCount, 1);
         TypeConverter.ToString(function.Call("I'm this!", Arguments.Empty)).Should().Be("I'm this!");
     }
 
-    [Fact]
+    [Test]
     public void ArrowFunction()
     {
         const string Script = @"var f = (function() { return z => arguments[0]; }(5)); equal(5, f(6));";
         _engine.Execute(Script);
     }
 
-    [Fact]
+    [Test]
     public void MultipleCallsShouldNotCacheFunctionEnvironment()
     {
         var engine = new Engine();
@@ -467,8 +467,7 @@ assertEqual(booleanCount, 1);
         found2.Should().Be(values[1]);
     }
 
-    [Theory]
-    [InlineData(
+    [TestCase(
         """
         /* before */ function fn() {
           return 0;
@@ -480,7 +479,7 @@ assertEqual(booleanCount, 1);
           return 0;
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ async function* g() {
           yield 0;
@@ -492,7 +491,7 @@ assertEqual(booleanCount, 1);
           yield 0;
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ var fn = async function f() {
           return 0;
@@ -504,7 +503,7 @@ assertEqual(booleanCount, 1);
           return 0;
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ let g = function*() {
           yield 0;
@@ -516,7 +515,7 @@ assertEqual(booleanCount, 1);
           yield 0;
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ var fn = () => {
           return 0;
@@ -528,7 +527,7 @@ assertEqual(booleanCount, 1);
           return 0;
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ const o = {
           m () {
@@ -543,7 +542,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ const o = {
           *g( ) {
@@ -558,7 +557,7 @@ assertEqual(booleanCount, 1);
             yield 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ const o = {
           get p() {
@@ -573,7 +572,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ const o = {
           set p(_) {
@@ -586,7 +585,7 @@ assertEqual(booleanCount, 1);
         set p(_) {
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A extends Object.prototype.constructor {
           constructor() { super(); }
@@ -599,7 +598,7 @@ assertEqual(booleanCount, 1);
           constructor() { super(); }
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           m() {
@@ -614,7 +613,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           * g( ) {
@@ -629,7 +628,7 @@ assertEqual(booleanCount, 1);
             yield 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           get p() {
@@ -644,7 +643,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           set p(_) {
@@ -657,7 +656,7 @@ assertEqual(booleanCount, 1);
         set p(_) {
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           static m() {
@@ -672,7 +671,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           static async * g() {
@@ -687,7 +686,7 @@ assertEqual(booleanCount, 1);
             yield 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           static get p() {
@@ -702,7 +701,7 @@ assertEqual(booleanCount, 1);
             return 0;
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         /* before */ class A {
           static set p(_) {
@@ -715,7 +714,7 @@ assertEqual(booleanCount, 1);
         set p(_) {
           }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var fn = /* before */Function()/* after */;
         [fn.toString(), fn.toString()]
@@ -726,7 +725,7 @@ assertEqual(booleanCount, 1);
 
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var Generator = (function*() {}).constructor;
         var fn = /* before */Generator()/* after */;
@@ -738,7 +737,7 @@ assertEqual(booleanCount, 1);
 
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var AsyncFunction = (async function() {}).constructor;
         var fn = /* before */AsyncFunction()/* after */;
@@ -750,7 +749,7 @@ assertEqual(booleanCount, 1);
 
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var AsyncGenerator = (async function*() {}).constructor;
         var fn = /* before */AsyncGenerator()/* after */;
@@ -762,7 +761,7 @@ assertEqual(booleanCount, 1);
 
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var p1 = "a //", p2 = "/*a */ b, c";
         var fn = /* before */Function(p1, p2, "return Promise.resolve(a+b+c) /* d */ //")/* after */;
@@ -774,7 +773,7 @@ assertEqual(booleanCount, 1);
         return Promise.resolve(a+b+c) /* d */ //
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var Generator = (function*() {}).constructor;
         var p1 = "a //", p2 = "/*a */ b, c";
@@ -787,7 +786,7 @@ assertEqual(booleanCount, 1);
         return Promise.resolve(a+b+c) /* d */ //
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var AsyncFunction = (async function() {}).constructor;
         var p1 = "a //", p2 = "/*a */ b, c";
@@ -800,7 +799,7 @@ assertEqual(booleanCount, 1);
         return Promise.resolve(a+b+c) /* d */ //
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         var AsyncGenerator = (async function*() {}).constructor;
         var p1 = "a //", p2 = "/*a */ b, c";
@@ -813,7 +812,7 @@ assertEqual(booleanCount, 1);
         return Promise.resolve(a+b+c) /* d */ //
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         eval('function fn() {\n}');
         [fn.toString(), fn.toString()]
@@ -822,7 +821,7 @@ assertEqual(booleanCount, 1);
         function fn() {
         }
         """)]
-    [InlineData(
+    [TestCase(
         """
         const fn = new ShadowRealm().evaluate('(\n)=>0');
         [fn.toString(), fn.toString()]
@@ -831,7 +830,7 @@ assertEqual(booleanCount, 1);
         (
         )=>0
         """)]
-    [InlineData(
+    [TestCase(
         """
         const fn = (0, eval)(
           new ShadowRealm().evaluate('(\n)=>0')
@@ -859,7 +858,7 @@ assertEqual(booleanCount, 1);
         actualResult2.Should().BeSameAs(actualResult1);
     }
 
-    [Fact]
+    [Test]
     public void ToStringReturnsNativeCodePlaceholderByDefault()
     {
         // By default the source text is not retained (to save memory), so toString() returns the
@@ -871,7 +870,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("(() => 0).toString();").AsString().Should().Be("function () { [native code] }");
     }
 
-    [Fact]
+    [Test]
     public void ToStringReturnsSourceTextWhenRetainedViaParsingOptions()
     {
         // Opt in to source-text retention through parsing options (covers the prepared-script path too).
@@ -886,7 +885,7 @@ assertEqual(booleanCount, 1);
         new Engine().Evaluate(prepared).AsString().Should().Be("function fn() { return 42; }");
     }
 
-    [Fact]
+    [Test]
     public void PreparedScriptDoesNotRetainSourceTextByDefault()
     {
         // A prepared script must not retain its source by default: toString() falls back to native code.
@@ -894,7 +893,7 @@ assertEqual(booleanCount, 1);
         new Engine().Evaluate(prepared).AsString().Should().Be("function fn() { [native code] }");
     }
 
-    [Fact]
+    [Test]
     public void ClassToStringReturnsTheClassSourceTextWhenRetained()
     {
         // https://tc39.es/ecma262/#sec-class-definitions-runtime-semantics-evaluation
@@ -913,7 +912,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("(class { constructor(a) {} }).toString()").AsString().Should().Be("class { constructor(a) {} }");
     }
 
-    [Fact]
+    [Test]
     public void ClassesWithoutAnExplicitConstructorDoNotShareOneSourceText()
     {
         // They all borrow the same synthesized constructor AST, so the interpreter definition that carries
@@ -928,7 +927,7 @@ assertEqual(booleanCount, 1);
             .AsString().Should().Be("class F extends Object {}|class G extends Object {}");
     }
 
-    [Fact]
+    [Test]
     public void ClassToStringReturnsNativeCodePlaceholderByDefault()
     {
         // Source-text retention stays opt-in for classes exactly as it is for functions.
@@ -938,7 +937,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("(class {}).toString()").AsString().Should().Be("function () { [native code] }");
     }
 
-    [Fact]
+    [Test]
     public void ForInHeadInitializerNamesAnAnonymousFunction()
     {
         // https://tc39.es/ecma262/#sec-runtime-semantics-forinofloopevaluation
@@ -962,7 +961,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("for (var k = 42 in {}) {} k").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ClosureInParameterDefaultKeepsItsCapturedEnvironment()
     {
         // The environment-escape analysis must also scan parameter default expressions: a closure created
@@ -989,7 +988,7 @@ assertEqual(booleanCount, 1);
         result.AsString().Should().Be("0,1,2");
     }
 
-    [Fact]
+    [Test]
     public void EscapedArrowCapturingThisKeepsItsEnvironment()
     {
         // The slot-aware escape analysis must treat `this`/`new.target` inside a closure as environment
@@ -1019,7 +1018,7 @@ assertEqual(booleanCount, 1);
     // surrounding code (https://tc39.es/ecma262/#sec-strict-mode-code). A concise (expression) body is
     // not a FunctionBody node, which is where the parser records the inherited flag.
 
-    [Fact]
+    [Test]
     public void ConciseBodyArrowInheritsStrictnessFromEnclosingCode()
     {
         var engine = new Engine();
@@ -1038,7 +1037,7 @@ assertEqual(booleanCount, 1);
             """)).Should().Throw<JavaScriptException>().WithMessage("*undeclaredGlobalXyz*");
     }
 
-    [Fact]
+    [Test]
     public void ConciseBodyArrowInsideAStrictFunctionIsStrict()
     {
         var engine = new Engine();
@@ -1053,7 +1052,7 @@ assertEqual(booleanCount, 1);
             """)).Should().Throw<JavaScriptException>().WithMessage("*read only*");
     }
 
-    [Fact]
+    [Test]
     public void ConciseBodyArrowInSloppyCodeStaysSloppy()
     {
         var engine = new Engine();
@@ -1066,7 +1065,7 @@ assertEqual(booleanCount, 1);
             """).AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ConciseBodyArrowInAStrictModuleIsStrict()
     {
         // Module code is always strict.
@@ -1078,7 +1077,7 @@ assertEqual(booleanCount, 1);
             .Should().Throw<JavaScriptException>().WithMessage("*read only*");
     }
 
-    [Fact]
+    [Test]
     public void ASloppyFunctionsOwnArgumentsIsReadableRatherThanAThrower()
     {
         var engine = new Engine();
@@ -1110,7 +1109,7 @@ assertEqual(booleanCount, 1);
         engine.Evaluate("copied.caller").Should().Be(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void AStrictFunctionsRestrictedPropertiesStillThrowFromThePrototype()
     {
         var engine = new Engine();

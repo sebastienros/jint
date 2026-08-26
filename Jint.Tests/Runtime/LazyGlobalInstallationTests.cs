@@ -15,7 +15,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class LazyGlobalInstallationTests
 {
-    [Fact]
+    [Test]
     public void InstallsAnUnmaterializedLazyDescriptor()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class LazyGlobalInstallationTests
     /// warmed identifier site holds the previous descriptor by reference and revalidates it against
     /// <c>_propertiesVersion</c> alone. Every storage path the global object can take must bump it.
     /// </summary>
-    [Fact]
+    [Test]
     public void InstallingBumpsTheOwnPropertyVersionOnEveryStoragePath()
     {
         var engine = new Engine();
@@ -72,7 +72,7 @@ public class LazyGlobalInstallationTests
     /// environment, so the two counters that describe those must NOT move — a lexical declaration shadows a
     /// global property, and bumping either would be invalidating caches for a change that did not happen.
     /// </summary>
-    [Fact]
+    [Test]
     public void InstallingDoesNotDisturbTheLexicalCounters()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class LazyGlobalInstallationTests
         engine._envBindingInjectionEpoch.Should().Be(injectionEpoch);
     }
 
-    [Fact]
+    [Test]
     public void AnInstalledLazyGlobalIsFieldBackedSoARestoreCanRevertIt()
     {
         var engine = new Engine();

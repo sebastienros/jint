@@ -7,7 +7,7 @@
 /// </summary>
 public class EqualityLaneTests
 {
-    [Fact]
+    [Test]
     public void SlotNumberEqualityMatchesSpecForSpecialValues()
     {
         var engine = new Engine();
@@ -25,7 +25,7 @@ public class EqualityLaneTests
         result.Should().Be("false,true,false,true,true,true,false,true,true,false,false");
     }
 
-    [Fact]
+    [Test]
     public void LaneDeclinesWhenSlotTypeChangesMidLoop()
     {
         var engine = new Engine();
@@ -45,7 +45,7 @@ public class EqualityLaneTests
         result.Should().Be(4); // '1' == 1 keeps matching through loose coercion
     }
 
-    [Fact]
+    [Test]
     public void BigIntAndMixedOperandsBailToGenericEquality()
     {
         var engine = new Engine();
@@ -63,7 +63,7 @@ public class EqualityLaneTests
         result.Should().Be("true,false,true,false,true,false,true,false");
     }
 
-    [Fact]
+    [Test]
     public void EqualityLaneWorksInValuePositions()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class EqualityLaneTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GlobalNumberComparisonsMatchSpecThroughLane()
     {
         var engine = new Engine();
@@ -98,7 +98,7 @@ public class EqualityLaneTests
         result.Should().Be($"{iteration},{iteration},{iteration}");
     }
 
-    [Fact]
+    [Test]
     public void GlobalLaneDeclinesWhenGlobalRedefinedAsAccessor()
     {
         var engine = new Engine();
@@ -119,7 +119,7 @@ public class EqualityLaneTests
         result.Should().Be("4:2");
     }
 
-    [Fact]
+    [Test]
     public void FusedModuloEqualityMatchesGenericPathAcrossSigns()
     {
         var engine = new Engine();
@@ -146,7 +146,7 @@ public class EqualityLaneTests
         result.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void FusedModuloHandlesSpecialNumbersAndDeclines()
     {
         var engine = new Engine();
@@ -165,7 +165,7 @@ public class EqualityLaneTests
         result.Should().Be("false,true,false,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void FusedModuloWorksOnGlobals()
     {
         var engine = new Engine();
@@ -183,7 +183,7 @@ public class EqualityLaneTests
         result.Should().Be(14);
     }
 
-    [Fact]
+    [Test]
     public void ConstBindingsTakeTheLaneShapes()
     {
         var engine = new Engine();
@@ -206,7 +206,7 @@ public class EqualityLaneTests
         result.Should().Be(414); // 4 even-z hits + one z=3 (+10) + four z<4 (+400)
     }
 
-    [Fact]
+    [Test]
     public void TdzReadStillThrowsThroughLaneShapes()
     {
         var engine = new Engine();
@@ -229,7 +229,7 @@ public class EqualityLaneTests
         result.Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void GlobalLaneDeclinesWhenValueTypeChangesInPlace()
     {
         var engine = new Engine();

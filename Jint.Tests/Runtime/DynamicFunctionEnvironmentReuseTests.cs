@@ -14,7 +14,7 @@ public class DynamicFunctionEnvironmentReuseTests
     private const string Make =
         "var make = new Function('a', 'var b = a; return function () { return answer; };');";
 
-    [Fact]
+    [Test]
     public void AClosureReturnedByADynamicFunctionStillReachesTheGlobalScope()
     {
         var engine = new Engine();
@@ -26,7 +26,7 @@ public class DynamicFunctionEnvironmentReuseTests
         engine.Evaluate("make(1)()").Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void TheClosureKeepsAnsweringAfterTheParkedEnvironmentIsRented()
     {
         var engine = new Engine();
@@ -42,7 +42,7 @@ public class DynamicFunctionEnvironmentReuseTests
         engine.Evaluate("second()").Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AClosureThatDoesReadTheCallKeepsItsOwnValues()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class DynamicFunctionEnvironmentReuseTests
         engine.Evaluate("second()").Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void AnObjectTheDynamicCallReturnedResolvesGlobalsThroughIt()
     {
         var engine = new Engine();

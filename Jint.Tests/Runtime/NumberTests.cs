@@ -20,45 +20,41 @@ public class NumberTests
         _engine.Execute(source);
     }
 
-    [Theory]
-    [InlineData(1, "3.0e+0")]
-    [InlineData(50, "3.00000000000000000000000000000000000000000000000000e+0")]
-    [InlineData(100, "3.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e+0")]
+    [TestCase(1, "3.0e+0")]
+    [TestCase(50, "3.00000000000000000000000000000000000000000000000000e+0")]
+    [TestCase(100, "3.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e+0")]
     public void ToExponential(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toExponential({fractionDigits}).toString()").AsString();
         value.Should().Be(result);
     }
 
-    [Theory]
-    [InlineData(1, "3.0")]
-    [InlineData(50, "3.00000000000000000000000000000000000000000000000000")]
-    [InlineData(99, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
+    [TestCase(1, "3.0")]
+    [TestCase(50, "3.00000000000000000000000000000000000000000000000000")]
+    [TestCase(99, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
     public void ToFixed(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toFixed({fractionDigits}).toString()").AsString();
         value.Should().Be(result);
     }
 
-    [Fact]
+    [Test]
     public void ToFixedWith100FractionDigitsWorks()
     {
         var value = _engine.Evaluate("(3).toFixed(100)").AsString();
         value.Should().Be("3." + new string('0', 100));
     }
 
-    [Theory]
-    [InlineData(1, "3")]
-    [InlineData(50, "3.0000000000000000000000000000000000000000000000000")]
-    [InlineData(100, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
+    [TestCase(1, "3")]
+    [TestCase(50, "3.0000000000000000000000000000000000000000000000000")]
+    [TestCase(100, "3.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")]
     public void ToPrecision(int fractionDigits, string result)
     {
         var value = _engine.Evaluate($"(3).toPrecision({fractionDigits}).toString()").AsString();
         value.Should().Be(result);
     }
 
-    [Theory]
-    [InlineData("1.7976931348623157e+308", double.MaxValue)]
+    [TestCase("1.7976931348623157e+308", double.MaxValue)]
     public void ParseFloat(string input, double result)
     {
         var value = _engine.Evaluate($"parseFloat('{input}')").AsNumber();
@@ -66,87 +62,85 @@ public class NumberTests
     }
 
     // Results from node -v v18.18.0.
-    [Theory]
     // Thousand separators.
-    [InlineData("1000000", "en-US", "1,000,000")]
-    [InlineData("1000000", "en-GB", "1,000,000")]
-    [InlineData("1000000", "de-DE", "1.000.000")]
+    [TestCase("1000000", "en-US", "1,000,000")]
+    [TestCase("1000000", "en-GB", "1,000,000")]
+    [TestCase("1000000", "de-DE", "1.000.000")]
     // TODO. Fails in Win CI due to U+2009
     // Check https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu
-    // [InlineData("1000000", "fr-FR", "1 000 000")] 
-    [InlineData("1000000", "es-ES", "1.000.000")]
-    [InlineData("1000000", "es-LA", "1.000.000")]
-    [InlineData("1000000", "es-MX", "1,000,000")]
-    [InlineData("1000000", "es-AR", "1.000.000")]
-    [InlineData("1000000", "es-CL", "1.000.000")]
+    // [TestCase("1000000", "fr-FR", "1 000 000")] 
+    [TestCase("1000000", "es-ES", "1.000.000")]
+    [TestCase("1000000", "es-LA", "1.000.000")]
+    [TestCase("1000000", "es-MX", "1,000,000")]
+    [TestCase("1000000", "es-AR", "1.000.000")]
+    [TestCase("1000000", "es-CL", "1.000.000")]
     // Comma separator.
-    [InlineData("1,23", "en-US", "23")]
-    [InlineData("1,23", "en-GB", "23")]
-    [InlineData("1,23", "de-DE", "23")]
-    [InlineData("1,23", "fr-FR", "23")]
-    [InlineData("1,23", "es-ES", "23")]
-    [InlineData("1,23", "es-LA", "23")]
-    [InlineData("1,23", "es-MX", "23")]
-    [InlineData("1,23", "es-AR", "23")]
-    [InlineData("1,23", "es-CL", "23")]
+    [TestCase("1,23", "en-US", "23")]
+    [TestCase("1,23", "en-GB", "23")]
+    [TestCase("1,23", "de-DE", "23")]
+    [TestCase("1,23", "fr-FR", "23")]
+    [TestCase("1,23", "es-ES", "23")]
+    [TestCase("1,23", "es-LA", "23")]
+    [TestCase("1,23", "es-MX", "23")]
+    [TestCase("1,23", "es-AR", "23")]
+    [TestCase("1,23", "es-CL", "23")]
     // Dot deicimal separator.
-    [InlineData("1.23", "en-US", "1.23")]
-    [InlineData("1.23", "en-GB", "1.23")]
-    [InlineData("1.23", "de-DE", "1,23")]
-    [InlineData("1.23", "fr-FR", "1,23")]
-    [InlineData("1.23", "es-ES", "1,23")]
-    [InlineData("1.23", "es-LA", "1,23")]
-    [InlineData("1.23", "es-MX", "1.23")]
-    [InlineData("1.23", "es-AR", "1,23")]
-    [InlineData("1.23", "es-CL", "1,23")]
+    [TestCase("1.23", "en-US", "1.23")]
+    [TestCase("1.23", "en-GB", "1.23")]
+    [TestCase("1.23", "de-DE", "1,23")]
+    [TestCase("1.23", "fr-FR", "1,23")]
+    [TestCase("1.23", "es-ES", "1,23")]
+    [TestCase("1.23", "es-LA", "1,23")]
+    [TestCase("1.23", "es-MX", "1.23")]
+    [TestCase("1.23", "es-AR", "1,23")]
+    [TestCase("1.23", "es-CL", "1,23")]
     // Scientific notation.
-    [InlineData("1e6", "en-US", "1,000,000")]
-    [InlineData("1e6", "en-GB", "1,000,000")]
-    [InlineData("1e6", "de-DE", "1.000.000")]
+    [TestCase("1e6", "en-US", "1,000,000")]
+    [TestCase("1e6", "en-GB", "1,000,000")]
+    [TestCase("1e6", "de-DE", "1.000.000")]
     // TODO. Fails in Win CI due to U+2009
     // Check https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu
-    // [InlineData("1000000", "fr-FR", "1 000 000")]
-    [InlineData("1e6", "es-ES", "1.000.000")]
-    [InlineData("1e6", "es-LA", "1.000.000")]
-    [InlineData("1e6", "es-MX", "1,000,000")]
-    [InlineData("1e6", "es-AR", "1.000.000")]
-    [InlineData("1e6", "es-CL", "1.000.000")]
+    // [TestCase("1000000", "fr-FR", "1 000 000")]
+    [TestCase("1e6", "es-ES", "1.000.000")]
+    [TestCase("1e6", "es-LA", "1.000.000")]
+    [TestCase("1e6", "es-MX", "1,000,000")]
+    [TestCase("1e6", "es-AR", "1.000.000")]
+    [TestCase("1e6", "es-CL", "1.000.000")]
     // Returns the correct max decimal degits for the respective cultures, rounded down.
-    [InlineData("1.234444449", "en-US", "1.234")]
-    [InlineData("1.234444449", "en-GB", "1.234")]
-    [InlineData("1.234444449", "de-DE", "1,234")]
-    [InlineData("1.234444449", "fr-FR", "1,234")]
-    [InlineData("1.234444449", "es-ES", "1,234")]
-    [InlineData("1.234444449", "es-LA", "1,234")]
-    [InlineData("1.234444449", "es-MX", "1.234")]
-    [InlineData("1.234444449", "es-AR", "1,234")]
-    [InlineData("1.234444449", "es-CL", "1,234")]
+    [TestCase("1.234444449", "en-US", "1.234")]
+    [TestCase("1.234444449", "en-GB", "1.234")]
+    [TestCase("1.234444449", "de-DE", "1,234")]
+    [TestCase("1.234444449", "fr-FR", "1,234")]
+    [TestCase("1.234444449", "es-ES", "1,234")]
+    [TestCase("1.234444449", "es-LA", "1,234")]
+    [TestCase("1.234444449", "es-MX", "1.234")]
+    [TestCase("1.234444449", "es-AR", "1,234")]
+    [TestCase("1.234444449", "es-CL", "1,234")]
     // Returns the correct max decimal degits for the respective cultures, rounded up.
-    [InlineData("1.234500001", "en-US", "1.235")]
-    [InlineData("1.234500001", "en-GB", "1.235")]
-    [InlineData("1.234500001", "de-DE", "1,235")]
-    [InlineData("1.234500001", "fr-FR", "1,235")]
-    [InlineData("1.234500001", "es-ES", "1,235")]
-    [InlineData("1.234500001", "es-LA", "1,235")]
-    [InlineData("1.234500001", "es-MX", "1.235")]
-    [InlineData("1.234500001", "es-AR", "1,235")]
-    [InlineData("1.234500001", "es-CL", "1,235")]
+    [TestCase("1.234500001", "en-US", "1.235")]
+    [TestCase("1.234500001", "en-GB", "1.235")]
+    [TestCase("1.234500001", "de-DE", "1,235")]
+    [TestCase("1.234500001", "fr-FR", "1,235")]
+    [TestCase("1.234500001", "es-ES", "1,235")]
+    [TestCase("1.234500001", "es-LA", "1,235")]
+    [TestCase("1.234500001", "es-MX", "1.235")]
+    [TestCase("1.234500001", "es-AR", "1,235")]
+    [TestCase("1.234500001", "es-CL", "1,235")]
     public void ToLocaleString(string parseNumber, string culture, string result)
     {
         var value = _engine.Evaluate($"({parseNumber}).toLocaleString('{culture}')").AsString();
         value.Should().Be(result);
     }
 
-    [Theory]
     // Does not add extra zeros of there is no culture argument.
-    [InlineData("123456")]
+    [TestCase("123456")]
     public void ToLocaleStringNoArg(string parseNumber)
     {
         var value = _engine.Evaluate($"({parseNumber}).toLocaleString()").AsString();
         value.Should().NotContain(".0");
     }
 
-    [Fact]
+    [Test]
     public void CoercingOverflowFromString()
     {
         var engine = new Engine();
@@ -168,7 +162,7 @@ public class NumberTests
         engine.Evaluate("(-'1e1000').toString()").ToObject().Should().Be("-Infinity");
     }
 
-    [Fact]
+    [Test]
     public void Int32BoundaryArithmeticDoesNotOverflow()
     {
         var engine = new Engine();
@@ -189,7 +183,7 @@ public class NumberTests
         engine.Evaluate("var d = 2147483647; d += 1; d").AsNumber().Should().Be(2147483648d);
     }
 
-    [Fact]
+    [Test]
     public void CompoundAssignmentMatchesBinaryOperatorSemantics()
     {
         var engine = new Engine();
@@ -225,7 +219,7 @@ public class NumberTests
         tdzUpdate.Error.AsObject().Get("constructor").AsObject().Get("name").AsString().Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void IntegerMultiplicationPreservesNegativeZero()
     {
         var engine = new Engine();
@@ -269,7 +263,7 @@ public class NumberTests
         result.Should().Be("true,true,true,true,true,true,true,true,true,true,true,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void IntegerRemainderLanesPreserveSignAndSpecialCases()
     {
         var engine = new Engine();
@@ -348,7 +342,7 @@ public class NumberTests
     // vehicle (the this-value passed to the callee is the primitive, boxed at call time for sloppy
     // functions), so removing it must not change any observable behavior.
 
-    [Fact]
+    [Test]
     public void PrimitiveNumberMethodsResolveWithoutWrapper()
     {
         var engine = new Engine();
@@ -370,7 +364,7 @@ public class NumberTests
         engine.Evaluate("typeof (5).nope").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void PatchedNumberPrototypeMethodSeesBoxedThisInSloppyMode()
     {
         var engine = new Engine();
@@ -387,7 +381,7 @@ public class NumberTests
         engine.Evaluate("(5).typ()").AsString().Should().Be("reassigned");
     }
 
-    [Fact]
+    [Test]
     public void PatchedNumberPrototypeMethodSeesPrimitiveThisInStrictMode()
     {
         var engine = new Engine();
@@ -399,7 +393,7 @@ public class NumberTests
         engine.Evaluate("(41).sinc()").AsNumber().Should().Be(42d);
     }
 
-    [Fact]
+    [Test]
     public void GetterOnNumberPrototypeReceivesCorrectReceiver()
     {
         var engine = new Engine();
@@ -410,7 +404,7 @@ public class NumberTests
         engine.Evaluate("(7).gt").AsString().Should().Be("number");
     }
 
-    [Fact]
+    [Test]
     public void NumberMethodResolvesThroughObjectPrototype()
     {
         var engine = new Engine();
@@ -421,7 +415,7 @@ public class NumberTests
         engine.Evaluate("(5).hasOwnProperty('x')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ProxyInNumberPrototypeChainReceivesPrimitiveReceiver()
     {
         var engine = new Engine();
@@ -436,7 +430,7 @@ public class NumberTests
         engine.Evaluate("(5).base").AsNumber().Should().Be(1d);
     }
 
-    [Fact]
+    [Test]
     public void BooleanPrimitiveMethodsResolveWithoutWrapper()
     {
         var engine = new Engine();
@@ -451,7 +445,7 @@ public class NumberTests
         engine.Evaluate("(true).styp()").AsString().Should().Be("boolean");
     }
 
-    [Fact]
+    [Test]
     public void BigIntPrimitiveMethodsResolveWithoutWrapper()
     {
         var engine = new Engine();
@@ -472,107 +466,100 @@ public class NumberTests
     // precision above 99 there, so routing toFixed through it produced a different string per target
     // framework.
 
-    [Theory]
     // The double nearest 3.141592653589793 is exactly 3.14159265358979311599796346854418516159057617187500.
-    [InlineData("(3.141592653589793).toFixed(50)", "3.14159265358979311599796346854418516159057617187500")]
-    [InlineData("(3.141592653589793).toFixed(20)", "3.14159265358979311600")]
+    [TestCase("(3.141592653589793).toFixed(50)", "3.14159265358979311599796346854418516159057617187500")]
+    [TestCase("(3.141592653589793).toFixed(20)", "3.14159265358979311600")]
     // ... and the one nearest 123456.78 is exactly 123456.77999999999883584678173065185546875.
-    [InlineData("(123456.78).toFixed(50)", "123456.77999999999883584678173065185546875000000000000000")]
-    [InlineData("(-123456.78).toFixed(10)", "-123456.7800000000")]
-    [InlineData("(3.141592653589793).toFixed(100)", "3.1415926535897931159979634685441851615905761718750000000000000000000000000000000000000000000000000000")]
+    [TestCase("(123456.78).toFixed(50)", "123456.77999999999883584678173065185546875000000000000000")]
+    [TestCase("(-123456.78).toFixed(10)", "-123456.7800000000")]
+    [TestCase("(3.141592653589793).toFixed(100)", "3.1415926535897931159979634685441851615905761718750000000000000000000000000000000000000000000000000000")]
     public void ToFixedProducesTheExactMathematicalValueOfTheDouble(string source, string expected)
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
 
-    [Theory]
     // Casting through long saturated here: .NET answered long.MaxValue and .NET Framework long.MinValue.
-    [InlineData("(1e20).toFixed(0)", "100000000000000000000")]
-    [InlineData("(1e20).toFixed()", "100000000000000000000")]
-    [InlineData("(1e19).toFixed(0)", "10000000000000000000")]
-    [InlineData("(-1e20).toFixed(0)", "-100000000000000000000")]
-    [InlineData("(1e20).toFixed(1)", "100000000000000000000.0")]
+    [TestCase("(1e20).toFixed(0)", "100000000000000000000")]
+    [TestCase("(1e20).toFixed()", "100000000000000000000")]
+    [TestCase("(1e19).toFixed(0)", "10000000000000000000")]
+    [TestCase("(-1e20).toFixed(0)", "-100000000000000000000")]
+    [TestCase("(1e20).toFixed(1)", "100000000000000000000.0")]
     // 2^63 is where the exact-integer shortcut has to hand over to the digit generator.
-    [InlineData("(9223372036854775807).toFixed(0)", "9223372036854775808")]
-    [InlineData("(9223372036854775807).toFixed(2)", "9223372036854775808.00")]
-    [InlineData("(9.9e18).toFixed(0)", "9900000000000000000")]
+    [TestCase("(9223372036854775807).toFixed(0)", "9223372036854775808")]
+    [TestCase("(9223372036854775807).toFixed(2)", "9223372036854775808.00")]
+    [TestCase("(9.9e18).toFixed(0)", "9900000000000000000")]
     // At 10^21 the fixed notation gives way to Number::toString.
-    [InlineData("(1e21).toFixed(2)", "1e+21")]
+    [TestCase("(1e21).toFixed(2)", "1e+21")]
     public void ToFixedIsExactPastTheRangeOfLong(string source, string expected)
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
 
-    [Theory]
     // toFixed step 8 works on the real value, for which -0 is not negative, but -Number.MIN_VALUE is.
-    [InlineData("(-0).toFixed(0)", "0")]
-    [InlineData("(-0).toFixed(3)", "0.000")]
-    [InlineData("(-Number.MIN_VALUE).toFixed(0)", "-0")]
-    [InlineData("(-Number.MIN_VALUE).toFixed(3)", "-0.000")]
-    [InlineData("(Number.MIN_VALUE).toFixed(3)", "0.000")]
-    [InlineData("(0.5).toFixed(0)", "1")]
-    [InlineData("(-0.5).toFixed(0)", "-1")]
-    [InlineData("(1.45).toFixed(1)", "1.4")]
-    [InlineData("(-0.4).toFixed(0)", "-0")]
-    [InlineData("(-1e-7).toFixed(0)", "-0")]
-    [InlineData("(-0.000001).toFixed(2)", "-0.00")]
+    [TestCase("(-0).toFixed(0)", "0")]
+    [TestCase("(-0).toFixed(3)", "0.000")]
+    [TestCase("(-Number.MIN_VALUE).toFixed(0)", "-0")]
+    [TestCase("(-Number.MIN_VALUE).toFixed(3)", "-0.000")]
+    [TestCase("(Number.MIN_VALUE).toFixed(3)", "0.000")]
+    [TestCase("(0.5).toFixed(0)", "1")]
+    [TestCase("(-0.5).toFixed(0)", "-1")]
+    [TestCase("(1.45).toFixed(1)", "1.4")]
+    [TestCase("(-0.4).toFixed(0)", "-0")]
+    [TestCase("(-1e-7).toFixed(0)", "-0")]
+    [TestCase("(-0.000001).toFixed(2)", "-0.00")]
     // The stored double is a hair above 930.9805, so exact rounding goes up.
-    [InlineData("(930.9805).toFixed(3)", "930.981")]
+    [TestCase("(930.9805).toFixed(3)", "930.981")]
     // ... and a hair below 1.005, so exact rounding goes down.
-    [InlineData("(1.005).toFixed(2)", "1.00")]
+    [TestCase("(1.005).toFixed(2)", "1.00")]
     public void ToFixedRoundsTiesToTheLargerIntegerAndKeepsTheSignOfTheValue(string source, string expected)
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
 
-    [Theory]
     // The integrality test behind ToString(double) used to accept anything below ~4.94e-322 as zero.
-    [InlineData("String(Number.MIN_VALUE)", "5e-324")]
-    [InlineData("String(-Number.MIN_VALUE)", "-5e-324")]
-    [InlineData("JSON.stringify(Number.MIN_VALUE)", "5e-324")]
-    [InlineData("(Number.MIN_VALUE).toPrecision()", "5e-324")]
-    [InlineData("(Number.MIN_VALUE).toPrecision(10)", "4.940656458e-324")]
-    [InlineData("`${1e-323}`", "1e-323")]
+    [TestCase("String(Number.MIN_VALUE)", "5e-324")]
+    [TestCase("String(-Number.MIN_VALUE)", "-5e-324")]
+    [TestCase("JSON.stringify(Number.MIN_VALUE)", "5e-324")]
+    [TestCase("(Number.MIN_VALUE).toPrecision()", "5e-324")]
+    [TestCase("(Number.MIN_VALUE).toPrecision(10)", "4.940656458e-324")]
+    [TestCase("`${1e-323}`", "1e-323")]
     public void SubnormalsKeepTheirValueWhenStringified(string source, string expected)
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("(Number.MAX_VALUE).toString()", "1.7976931348623157e+308")]
-    [InlineData("(Number.MAX_VALUE).toString(10)", "1.7976931348623157e+308")]
-    [InlineData("(-Number.MAX_VALUE).toString()", "-1.7976931348623157e+308")]
-    [InlineData("(Number.MAX_VALUE).toString(16).length", "256")]
+    [TestCase("(Number.MAX_VALUE).toString()", "1.7976931348623157e+308")]
+    [TestCase("(Number.MAX_VALUE).toString(10)", "1.7976931348623157e+308")]
+    [TestCase("(-Number.MAX_VALUE).toString()", "-1.7976931348623157e+308")]
+    [TestCase("(Number.MAX_VALUE).toString(16).length", "256")]
     public void TheLargestFiniteDoubleDoesNotReportItselfAsInfinity(string source, string expected)
     {
         new Engine().Evaluate(source + ".toString()").AsString().Should().Be(expected);
     }
 
-    [Theory]
     // ThisNumberValue reads [[NumberData]] out of the wrapper, so an own valueOf cannot hijack it.
-    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toString()", "0")]
-    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toFixed(1)", "0.0")]
-    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toPrecision(2)", "0.0")]
-    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; n.toExponential(1)", "0.0e+0")]
-    [InlineData("var n = new Number(); n.valueOf = function () { return 17; }; String(n)", "0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 17; }; n.toString()", "0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 17; }; n.toFixed(1)", "0.0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 17; }; n.toPrecision(2)", "0.0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 17; }; n.toExponential(1)", "0.0e+0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 17; }; String(n)", "0")]
     // ... while ToPrimitive with a string hint still consults the (unmodified) toString first, so an
     // own valueOf does not decide a property key either.
-    [InlineData("var o = { 0: 17, 8: 42 }; var n = new Number(); n.valueOf = function () { return 8; }; o[n]", "17")]
-    [InlineData("var o = { 0: 17, 9: 42 }; var n = new Number(); n.toString = function () { return 9; }; o[n]", "42")]
+    [TestCase("var o = { 0: 17, 8: 42 }; var n = new Number(); n.valueOf = function () { return 8; }; o[n]", "17")]
+    [TestCase("var o = { 0: 17, 9: 42 }; var n = new Number(); n.toString = function () { return 9; }; o[n]", "42")]
     // ... and the default hint does consult valueOf, which is what makes these two differ.
-    [InlineData("var n = new Number(); n.valueOf = function () { return 8.5; }; n + n", "17")]
-    [InlineData("var n = new Number(); n.toString = function () { return 5; }; n + n", "0")]
+    [TestCase("var n = new Number(); n.valueOf = function () { return 8.5; }; n + n", "17")]
+    [TestCase("var n = new Number(); n.toString = function () { return 5; }; n + n", "0")]
     public void NumberPrototypeMethodsReadTheSlotRatherThanCallingValueOf(string source, string expected)
     {
         new Engine().Evaluate(source).ToString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("Number.prototype.toFixed.call('Hello')")]
-    [InlineData("Number.prototype.toFixed.call({})")]
+    [TestCase("Number.prototype.toFixed.call('Hello')")]
+    [TestCase("Number.prototype.toFixed.call({})")]
     // ThisNumberValue is step 1, so it outranks the fractionDigits range check of step 4.
-    [InlineData("Number.prototype.toFixed.call('Hello', 555)")]
-    [InlineData("Number.prototype.toLocaleString.call('Hello')")]
+    [TestCase("Number.prototype.toFixed.call('Hello', 555)")]
+    [TestCase("Number.prototype.toLocaleString.call('Hello')")]
     public void NumberPrototypeMethodsRejectANonNumberReceiver(string source)
     {
         var engine = new Engine();
@@ -580,11 +567,10 @@ public class NumberTests
         exception.Error.Get("constructor").Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Theory]
-    [InlineData("Number.prototype.toFixed.call(NaN, 555)")]
-    [InlineData("Number.prototype.toFixed.call(1, -1)")]
-    [InlineData("Number.prototype.toFixed.call(1, 101)")]
-    [InlineData("Number.prototype.toFixed.call(1, Infinity)")]
+    [TestCase("Number.prototype.toFixed.call(NaN, 555)")]
+    [TestCase("Number.prototype.toFixed.call(1, -1)")]
+    [TestCase("Number.prototype.toFixed.call(1, 101)")]
+    [TestCase("Number.prototype.toFixed.call(1, Infinity)")]
     public void ToFixedRejectsFractionDigitsOutsideZeroToOneHundred(string source)
     {
         var engine = new Engine();
@@ -592,7 +578,7 @@ public class NumberTests
         exception.Error.Get("constructor").Get("name").AsString().Should().Be("RangeError");
     }
 
-    [Fact]
+    [Test]
     public void ToStringConvertsItsRadixArgumentExactlyOnce()
     {
         var engine = new Engine();
@@ -603,12 +589,11 @@ public class NumberTests
         engine.Evaluate("calls").AsNumber().Should().Be(1d);
     }
 
-    [Theory]
-    [InlineData("Number.prototype.toFixed.call(NaN)", "NaN")]
-    [InlineData("Number.prototype.toFixed.call(Infinity)", "Infinity")]
-    [InlineData("Number.prototype.toFixed.call(-Infinity)", "-Infinity")]
-    [InlineData("Number.prototype.toExponential.call(new Number(Infinity))", "Infinity")]
-    [InlineData("Number.prototype.toPrecision.call(new Number(-Infinity), 3)", "-Infinity")]
+    [TestCase("Number.prototype.toFixed.call(NaN)", "NaN")]
+    [TestCase("Number.prototype.toFixed.call(Infinity)", "Infinity")]
+    [TestCase("Number.prototype.toFixed.call(-Infinity)", "-Infinity")]
+    [TestCase("Number.prototype.toExponential.call(new Number(Infinity))", "Infinity")]
+    [TestCase("Number.prototype.toPrecision.call(new Number(-Infinity), 3)", "-Infinity")]
     public void NonFiniteValuesFormatAsNumberToString(string source, string expected)
     {
         new Engine().Evaluate(source).AsString().Should().Be(expected);
@@ -622,16 +607,15 @@ public class NumberTests
     /// <c>staging/sm/misc/builtin-methods-reject-null-undefined-this.js</c>, where <c>toFixed</c> was the only
     /// entry in a table of roughly a hundred built-ins that Jint got wrong.
     /// </summary>
-    [Theory]
-    [InlineData("Number.prototype.toFixed.call(null)")]
-    [InlineData("Number.prototype.toFixed.call(undefined)")]
-    [InlineData("Number.prototype.toFixed.apply(null)")]
-    [InlineData("Number.prototype.toFixed.call(null, 2)")]
-    [InlineData("Number.prototype.toFixed.call('1')")]
-    [InlineData("Number.prototype.toFixed.call({})")]
-    [InlineData("Number.prototype.toFixed.call(Symbol())")]
-    [InlineData("Number.prototype.toFixed.call(1n)")]
-    [InlineData("(0, Number.prototype.toFixed)()")]
+    [TestCase("Number.prototype.toFixed.call(null)")]
+    [TestCase("Number.prototype.toFixed.call(undefined)")]
+    [TestCase("Number.prototype.toFixed.apply(null)")]
+    [TestCase("Number.prototype.toFixed.call(null, 2)")]
+    [TestCase("Number.prototype.toFixed.call('1')")]
+    [TestCase("Number.prototype.toFixed.call({})")]
+    [TestCase("Number.prototype.toFixed.call(Symbol())")]
+    [TestCase("Number.prototype.toFixed.call(1n)")]
+    [TestCase("(0, Number.prototype.toFixed)()")]
     public void ToFixedRequiresANumberReceiver(string script)
     {
         Invoking(() => new Engine().Evaluate(script))
@@ -643,7 +627,7 @@ public class NumberTests
     /// The receiver check is step 1 and the argument coercion is step 2, so a bad receiver is reported even
     /// when the argument would also have thrown.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToFixedChecksItsReceiverBeforeCoercingItsArgument()
     {
         const string Script = """
@@ -662,7 +646,7 @@ public class NumberTests
     /// The control: every receiver that is a Number still formats, and the digit range is still the one the
     /// spec's steps 4 and 5 describe.
     /// </summary>
-    [Fact]
+    [Test]
     public void ToFixedStillFormatsEveryNumberReceiver()
     {
         var engine = new Engine();

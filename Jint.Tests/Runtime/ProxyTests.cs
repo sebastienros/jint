@@ -15,7 +15,7 @@ public class ProxyTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
-    [Fact]
+    [Test]
     public void ProxyCanBeRevokedWithoutContext()
     {
         _engine.Execute(@"
@@ -25,13 +25,13 @@ public class ProxyTests
         ");
     }
 
-    [Fact]
+    [Test]
     public void GetTrapIsCalledForPropertyNamedRevoke()
     {
         _engine.Evaluate("new Proxy({}, { get: () => 'trapped' }).revoke").AsString().Should().Be("trapped");
     }
 
-    [Fact]
+    [Test]
     public void AccessingPropertyOnRevokedProxyThrowsTypeError()
     {
         _engine.Execute(@"
@@ -43,7 +43,7 @@ public class ProxyTests
         AssertJsTypeError(_engine, ex, "Cannot perform 'get' on a proxy that has been revoked");
     }
 
-    [Fact]
+    [Test]
     public void RevokingProxyInsideSetTrapValidatesAgainstOriginalTarget()
     {
         // the spec captures [[ProxyTarget]] before the trap runs; a trap revoking its own
@@ -56,7 +56,7 @@ public class ProxyTests
         result.Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void RevokingProxyInsideDeleteTrapValidatesAgainstOriginalTarget()
     {
         var result = _engine.Evaluate("""
@@ -66,7 +66,7 @@ public class ProxyTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RevokingProxyInsideHasTrapValidatesAgainstOriginalTarget()
     {
         var result = _engine.Evaluate("""
@@ -76,7 +76,7 @@ public class ProxyTests
         result.AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ConstructTrapReceivesCreateArrayFromListArguments()
     {
         var result = _engine.Evaluate("""
@@ -87,14 +87,14 @@ public class ProxyTests
         result.Should().Be("1:42");
     }
 
-    [Fact]
+    [Test]
     public void ConstructTrapAcceptsSingleFractionalArgument()
     {
         var result = _engine.Evaluate("new (new Proxy(function () {}, { construct: (t, args) => ({ v: args[0] }) }))(1.5).v");
         result.AsNumber().Should().Be(1.5);
     }
 
-    [Fact]
+    [Test]
     public void ProxyInvariantViolationsHaveDescriptiveMessages()
     {
         _engine.Execute("""
@@ -117,7 +117,7 @@ public class ProxyTests
         AssertJsTypeError(_engine, ex, "'get' trap of proxy handler is not a function");
     }
 
-    [Fact]
+    [Test]
     public void ProxyToStringUseTarget()
     {
         _engine.Execute(@"
@@ -127,7 +127,7 @@ public class ProxyTests
         _engine.Evaluate("`${new Proxy(targetWithToString, {})}`").AsString().Should().Be("target");
     }
 
-    [Fact]
+    [Test]
     public void ProxyToStringUseHandler()
     {
         _engine.Execute(@"
@@ -141,7 +141,7 @@ public class ProxyTests
         _engine.Evaluate("`${new Proxy(targetWithToString, handler)}`").AsString().Should().Be("handler");
     }
 
-    [Fact]
+    [Test]
     public void ToPropertyDescriptor()
     {
         const string Script = @"
@@ -162,7 +162,7 @@ public class ProxyTests
         _engine.Evaluate(Script).Should().Be("enumerable,configurable,value,writable,get,set");
     }
 
-    [Fact]
+    [Test]
     public void DefineProperties()
     {
         const string Script = @"
@@ -175,7 +175,7 @@ public class ProxyTests
         _engine.Evaluate(Script).Should().Be("foo,bar");
     }
 
-    [Fact]
+    [Test]
     public void GetHandlerInstancesOfProxies()
     {
         const string Script = @"
@@ -191,7 +191,7 @@ public class ProxyTests
         _engine.Execute(Script);
     }
 
-    [Fact]
+    [Test]
     public void SetHandlerInvariants()
     {
         const string Script = @"
@@ -227,7 +227,7 @@ public class ProxyTests
         _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ApplyHandlerInvariant()
     {
         const string Script = @"
@@ -249,7 +249,7 @@ public class ProxyTests
         _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConstructHandlerInvariant()
     {
         const string Script = @"
@@ -284,28 +284,28 @@ public class ProxyTests
     // https://tc39.es/ecma262/#sec-proxycreate
     // A proxy only has [[Construct]] if its target is a constructor at creation time;
     // a handler "construct" trap cannot confer constructability.
-    [Fact]
+    [Test]
     public void ProxyWithNonConstructorTargetIsNotConstructor()
     {
         var ex = Invoking(() => _engine.Evaluate("new (new Proxy(() => {}, { construct: () => ({}) }))()")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
-    [Fact]
+    [Test]
     public void ProxyWithConstructorTargetUsesConstructTrap()
     {
         var result = _engine.Evaluate("new (new Proxy(function(){}, { construct: () => ({ x: 1 }) }))().x");
         result.AsInteger().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ReflectConstructRequiresConstructorNewTarget()
     {
         var ex = Invoking(() => _engine.Evaluate("Reflect.construct(function(){ return; }, [], new Proxy(() => {}, { construct: () => ({}) }))")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
-    [Fact]
+    [Test]
     public void RevokedConstructorProxyKeepsTypeofFunctionButConstructThrowsRevokedError()
     {
         _engine.Execute("var r = Proxy.revocable(function(){}, {}); r.revoke();");
@@ -318,7 +318,7 @@ public class ProxyTests
         ex.Message.Should().Contain("revoked");
     }
 
-    [Fact]
+    [Test]
     public void ProxyHandlerGetDataPropertyShouldNotUseReferenceEquals()
     {
         // There are two JsString which should be treat as same value,
@@ -338,7 +338,7 @@ public class ProxyTests
         """);
     }
 
-    [Fact]
+    [Test]
     public void ProxyHandlerGetDataPropertyShouldNotCheckClrType()
     {
         // There are a JsString and a ConcatenatedString which should be treat as same value,
@@ -382,7 +382,7 @@ public class ProxyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrPropertyPrimitiveString()
     {
         _engine.SetValue("testClass", TestClass.Instance);
@@ -398,7 +398,7 @@ public class ProxyTests
         result.AsString().Should().Be(TestClass.Instance.StringValue);
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrPropertyPrimitiveInt()
     {
         _engine.SetValue("testClass", TestClass.Instance);
@@ -414,7 +414,7 @@ public class ProxyTests
         result.AsInteger().Should().Be(TestClass.Instance.IntValue);
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrPropertyObjectWrapper()
     {
         _engine.SetValue("testClass", TestClass.Instance);
@@ -443,7 +443,7 @@ public class ProxyTests
     // the value ofthe corresponding target object property,
     // if the target object property is
     // a non-writable, non-configurable own data property.
-    [Fact]
+    [Test]
     public void ProxyHandlerGetInvariantsDataPropertyReturnsDifferentValue()
     {
         _engine.Execute("""
@@ -468,7 +468,7 @@ public class ProxyTests
     // if the corresponding target object property is
     // a non-configurable own accessor property
     // that has undefined as its [[Get]] attribute.
-    [Fact]
+    [Test]
     public void ProxyHandlerGetInvariantsAccessorPropertyWithoutGetButReturnsValue()
     {
         _engine.Execute("""
@@ -506,7 +506,7 @@ public class ProxyTests
     // the value of the corresponding target object property,
     // if the corresponding target object property is
     // a non-writable, non-configurable data property.
-    [Fact]
+    [Test]
     public void ProxyHandlerSetInvariantsDataPropertyImmutableChangeValue()
     {
         _engine.Execute(ScriptProxyHandlerSetInvariantsDataPropertyImmutable);
@@ -514,7 +514,7 @@ public class ProxyTests
         AssertJsTypeError(_engine, ex, "'set' on proxy: trap returned truish for property 'value' which exists in the proxy target as a non-configurable and non-writable data property with a different value");
     }
 
-    [Fact]
+    [Test]
     public void ProxyHandlerSetInvariantsDataPropertyImmutableSetSameValue()
     {
         _engine.Execute(ScriptProxyHandlerSetInvariantsDataPropertyImmutable);
@@ -526,7 +526,7 @@ public class ProxyTests
     // if the corresponding target object property is
     // a non-configurable accessor property
     // that has undefined as its [[Set]] attribute.
-    [Fact]
+    [Test]
     public void ProxyHandlerSetInvariantsAccessorPropertyWithoutSetChange()
     {
         _engine.Execute("""
@@ -548,7 +548,7 @@ public class ProxyTests
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/set#invariants
     // In strict mode, a false return value from the set() handler
     // will throw a TypeError exception.
-    [Fact]
+    [Test]
     public void ProxyHandlerSetInvariantsReturnsFalseInStrictMode()
     {
         var ex = Invoking(() => _engine.Evaluate("""
@@ -560,7 +560,7 @@ public class ProxyTests
         AssertJsTypeError(_engine, ex, "Cannot assign to read only property 'value' of Object");
     }
 
-    [Fact]
+    [Test]
     public void ProxyHandlerSetInvariantsReturnsFalseInNonStrictMode()
     {
         _engine.Evaluate("""
@@ -571,14 +571,14 @@ public class ProxyTests
     }
 
     // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-getprototypeof
-    [Fact]
+    [Test]
     public void ProxyHandlerGetPrototypeOfCanReturnNull()
     {
         _engine.Evaluate("Object.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull().Should().BeTrue();
         _engine.Evaluate("Reflect.getPrototypeOf(new Proxy({}, { getPrototypeOf: () => null }))").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ProxyHandlerGetPrototypeOfCanReturnNullForNonExtensibleTargetWithNullPrototype()
     {
         _engine.Evaluate("""
@@ -589,7 +589,7 @@ public class ProxyTests
     }
 
     // https://tc39.es/ecma262/#sec-proxy-object-internal-methods-and-internal-slots-setprototypeof-v
-    [Fact]
+    [Test]
     public void ProxyHandlerSetPrototypeOfCanSetNullOnNonExtensibleTargetWithNullPrototype()
     {
         _engine.Execute("""
@@ -606,7 +606,7 @@ public class ProxyTests
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/getPrototypeOf#invariants
     // If the target object is not extensible, the prototype reported
     // by the trap must be the same as the target object's prototype.
-    [Fact]
+    [Test]
     public void ProxyHandlerGetPrototypeOfInvariantsNonExtensibleTargetDifferentPrototype()
     {
         _engine.Execute("""
@@ -620,7 +620,7 @@ public class ProxyTests
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy/Proxy/setPrototypeOf#invariants
     // If the target object is not extensible, the prototype cannot be changed.
-    [Fact]
+    [Test]
     public void ProxyHandlerSetPrototypeOfInvariantsNonExtensibleTargetDifferentPrototype()
     {
         _engine.Execute("""
@@ -632,7 +632,7 @@ public class ProxyTests
         ex.Error.AsObject().Prototype.Should().BeSameAs(TypeErrorPrototype(_engine));
     }
 
-    [Fact]
+    [Test]
     public void ClrPropertySideEffect()
     {
         _engine.SetValue("testClass", TestClass.Instance);
@@ -650,7 +650,7 @@ public class ProxyTests
         TestClass.Instance.PropertySideEffect.Should().Be(2); // second call to PropertySideEffect
     }
 
-    [Fact]
+    [Test]
     public void ToObjectReturnsProxiedToObject()
     {
         _engine
@@ -678,7 +678,7 @@ public class ProxyTests
 
     }
 
-    [Fact]
+    [Test]
     public void ProxyIterateClrList()
     {
         var res = _engine
@@ -725,18 +725,17 @@ public class ProxyTests
     /// "writable" beside a "value", and a "get"/"set" pair for a descriptor carrying nothing but attributes.
     /// Every expectation here was read off node 24.
     /// </summary>
-    [Theory]
-    [InlineData("{ get: function () {} }", "get")]
-    [InlineData("{ set: function () {} }", "set")]
-    [InlineData("{ get: function () {}, set: function () {} }", "get,set")]
-    [InlineData("{ get: undefined }", "get")]
-    [InlineData("{ value: 1 }", "value")]
-    [InlineData("{ value: undefined }", "value")]
-    [InlineData("{ writable: true }", "writable")]
-    [InlineData("{ configurable: true }", "configurable")]
-    [InlineData("{}", "")]
-    [InlineData("{ value: 1, configurable: true, enumerable: true }", "value,enumerable,configurable")]
-    [InlineData("{ configurable: true, set: function () {} }", "set,configurable")]
+    [TestCase("{ get: function () {} }", "get")]
+    [TestCase("{ set: function () {} }", "set")]
+    [TestCase("{ get: function () {}, set: function () {} }", "get,set")]
+    [TestCase("{ get: undefined }", "get")]
+    [TestCase("{ value: 1 }", "value")]
+    [TestCase("{ value: undefined }", "value")]
+    [TestCase("{ writable: true }", "writable")]
+    [TestCase("{ configurable: true }", "configurable")]
+    [TestCase("{}", "")]
+    [TestCase("{ value: 1, configurable: true, enumerable: true }", "value,enumerable,configurable")]
+    [TestCase("{ configurable: true, set: function () {} }", "set,configurable")]
     public void DefinePropertyTrapSeesOnlyTheFieldsTheCallerWrote(string descriptor, string expected)
     {
         foreach (var define in new[]
@@ -763,7 +762,7 @@ public class ProxyTests
     /// so a non-configurable definition for a property the target does not have is a TypeError even though the
     /// trap saw only "value"/"writable"/"enumerable"/"configurable" and returned true.
     /// </summary>
-    [Fact]
+    [Test]
     public void DefinePropertyTrapValidationStillRunsAgainstTheCallersDescriptor()
     {
         var engine = new Engine();
@@ -780,7 +779,7 @@ public class ProxyTests
     /// The completing mode of FromPropertyDescriptor is what <c>Object.getOwnPropertyDescriptor</c> uses, and it
     /// keeps reporting every attribute of a real property.
     /// </summary>
-    [Fact]
+    [Test]
     public void GetOwnPropertyDescriptorStillReportsACompleteDescriptor()
     {
         var engine = new Engine();
@@ -792,7 +791,7 @@ public class ProxyTests
             .AsString().Should().Be("get,set,enumerable,configurable");
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrObjectMethod()
     {
         var res = _engine
@@ -818,7 +817,7 @@ public class ProxyTests
         res.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrObjectMethodWithDelegate()
     {
         var res = _engine
@@ -844,7 +843,7 @@ public class ProxyTests
         res.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ProxyClrObjectWithTmpObjectMethod()
     {
         var res = _engine

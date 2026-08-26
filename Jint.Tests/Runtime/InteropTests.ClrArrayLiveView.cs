@@ -25,7 +25,7 @@ public partial class InteropTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ArrayConversionDefaultsToCopy()
     {
         new Options().Interop.ArrayConversion.Should().Be(ArrayConversionMode.Copy);
@@ -46,7 +46,7 @@ public partial class InteropTests
         engine.Evaluate("h.Numbers[1]").AsNumber().Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewElementReadsConvertPrimitiveItemTypes()
     {
         var engine = CreateLiveViewEngine();
@@ -85,7 +85,7 @@ public partial class InteropTests
         engine.Evaluate("intList[99] === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LiveViewHonorsNonArrayDeclaredType()
     {
         var engine = CreateLiveViewEngine();
@@ -113,7 +113,7 @@ public partial class InteropTests
         public void Mutate(int index, int value) => _data[index] = value;
     }
 
-    [Fact]
+    [Test]
     public void ArrayUnderNonArrayDeclaredTypeDoesNotPoisonTypeMapper()
     {
         // the static type-mapper memoization must not register the array lane under a non-array
@@ -132,7 +132,7 @@ public partial class InteropTests
         public IEnumerable<int> Data { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void InOperatorMatchesJsArraySemantics()
     {
         var engine = CreateLiveViewEngine();
@@ -153,7 +153,7 @@ public partial class InteropTests
         engine.Evaluate("-1 in l").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void KeyEnumerationYieldsIndexKeys()
     {
         var engine = CreateLiveViewEngine();
@@ -179,7 +179,7 @@ public partial class InteropTests
         });
     }
 
-    [Fact]
+    [Test]
     public void CopyModeArrayIsJsArraySnapshot()
     {
         // Opting out of the recent-wrapper cache makes each crossing produce an independent snapshot.
@@ -195,7 +195,7 @@ public partial class InteropTests
         cachedEngine.Evaluate("h.Numbers === h.Numbers").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CopyModeScriptWritesDoNotAffectClrArray()
     {
         var engine = CreateCopyEngine();
@@ -207,7 +207,7 @@ public partial class InteropTests
         numbers[1].Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void CopyModeKeepsClrSnapshotsOutsideTheJsArraySizeConstraint()
     {
         var engine = CreateCopyEngine(options => options.Constraints.MaxArraySize = 2);
@@ -217,9 +217,8 @@ public partial class InteropTests
         engine.Evaluate("arr.length").AsNumber().Should().Be(3);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void CopyModePreservesSelfReferentialArrays(bool cacheRecentWrappers)
     {
         var engine = CreateCopyEngine(options => options.Interop.CacheRecentObjectWrappers = cacheRecentWrappers);
@@ -231,9 +230,8 @@ public partial class InteropTests
         engine.Evaluate("Array.isArray(arr) && arr[0] === arr").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void CopyModePreservesMutuallyReferentialArrays(bool cacheRecentWrappers)
     {
         var engine = CreateCopyEngine(options => options.Interop.CacheRecentObjectWrappers = cacheRecentWrappers);
@@ -247,7 +245,7 @@ public partial class InteropTests
         engine.Evaluate("Array.isArray(arr[0]) && arr[0][0] === arr").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CopyModeDoesNotSpliceACachedDescendantFromAnOlderCyclicGraph()
     {
         var first = new object[1];
@@ -268,7 +266,7 @@ public partial class InteropTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReentrantCopyDoesNotSpliceACachedDescendantFromAnOlderCyclicGraph()
     {
         var first = new object[1];
@@ -291,7 +289,7 @@ public partial class InteropTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConverterDependencyDoesNotSpliceACachedDescendantFromAnOlderCyclicGraph()
     {
         var root = new object[1];
@@ -313,9 +311,8 @@ public partial class InteropTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void CopyModeReusesCachedAcyclicDescendants(bool trackIdentity)
     {
         var child = new object[] { 1 };
@@ -328,7 +325,7 @@ public partial class InteropTests
         engine.Evaluate("child === parent[0]").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CachedDescendantProvenanceHandlesMultidimensionalArrays()
     {
         var child = new object[] { new int[2, 2] };
@@ -340,7 +337,7 @@ public partial class InteropTests
         engine.Evaluate("child === parent[0]").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FailedIdentityTrackedCopyDoesNotPublishSnapshot()
     {
         var deadline = new OperationDeadlineConstraint();
@@ -364,9 +361,8 @@ public partial class InteropTests
         engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
-    [Theory]
-    [InlineData(true, true)]
-    [InlineData(false, false)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
     public void CopyModeAppliesCacheIdentityWithinOneArrayGraph(bool cacheRecentWrappers, bool expectedSame)
     {
         var engine = CreateCopyEngine(options => options.Interop.CacheRecentObjectWrappers = cacheRecentWrappers);
@@ -378,9 +374,8 @@ public partial class InteropTests
         engine.Evaluate("arr[0] === arr[1]").AsBoolean().Should().Be(expectedSame);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void CopyModePreservesBoundedRecentCacheSemanticsWithinOneArrayGraph(bool trackIdentity)
     {
         var child = new object[1];
@@ -398,7 +393,7 @@ public partial class InteropTests
         engine.Evaluate("arr[0] === arr[9]").AsBoolean().Should().Be(trackIdentity);
     }
 
-    [Fact]
+    [Test]
     public void CopyModeSharesRecentCacheEvictionWithNonArrayWrappersWithinOneGraph()
     {
         var child = new object[1];
@@ -416,7 +411,7 @@ public partial class InteropTests
         engine.Evaluate("arr[0] === arr[9]").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void FailedCyclicCopyDoesNotPublishPartialSnapshotsToTheRecentCache()
     {
         var engine = CreateCopyEngine();
@@ -435,7 +430,7 @@ public partial class InteropTests
         engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void FailedCopyRestoresThePreviousRecentCacheTimeline()
     {
         var cached = new object[1];
@@ -454,7 +449,7 @@ public partial class InteropTests
         engine.Evaluate("before === after").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CaughtReentrantCopyFailureRollsBackItsStagedCachesAndDiagnostics()
     {
         var failedRoot = new object[2];
@@ -474,7 +469,7 @@ public partial class InteropTests
         engine.Diagnostics.GetInteropConversionDiagnostics().ArrayCopyConversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CopyModeConvertsDeepAcyclicArrayGraphsWithoutUsingTheClrStack()
     {
         const int Depth = 10_000;
@@ -498,7 +493,7 @@ public partial class InteropTests
             """).AsString().Should().Be($"{Depth}:42");
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayMaintainsIdentity()
     {
         // wrapper equality is by wrapped target, so === holds even without any identity cache flag
@@ -518,7 +513,7 @@ public partial class InteropTests
         recentCacheEngine.Evaluate("h.Numbers").Should().BeSameAs(recentCacheEngine.Evaluate("h.Numbers"));
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayScriptWritesAreVisibleInClr()
     {
         var engine = CreateLiveViewEngine();
@@ -530,7 +525,7 @@ public partial class InteropTests
         numbers[1].Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayClrWritesAreVisibleInScript()
     {
         var engine = CreateLiveViewEngine();
@@ -544,7 +539,7 @@ public partial class InteropTests
         engine.Evaluate("arr[2]").AsNumber().Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayWriteConvertsToElementType()
     {
         var engine = CreateLiveViewEngine();
@@ -557,16 +552,15 @@ public partial class InteropTests
         strings[1].Should().Be("b");
     }
 
-    [Theory]
-    [InlineData("arr.push(4)")]
-    [InlineData("arr.pop()")]
-    [InlineData("arr.shift()")]
-    [InlineData("arr.unshift(0)")]
-    [InlineData("arr.splice(0, 1)")]
-    [InlineData("arr.length = 1")]
-    [InlineData("arr.length = 10")]
-    [InlineData("arr[3] = 4")]
-    [InlineData("arr[100] = 1")]
+    [TestCase("arr.push(4)")]
+    [TestCase("arr.pop()")]
+    [TestCase("arr.shift()")]
+    [TestCase("arr.unshift(0)")]
+    [TestCase("arr.splice(0, 1)")]
+    [TestCase("arr.length = 1")]
+    [TestCase("arr.length = 10")]
+    [TestCase("arr[3] = 4")]
+    [TestCase("arr[100] = 1")]
     public void LiveViewArrayResizeAttemptsThrowTypeError(string operation)
     {
         var engine = CreateLiveViewEngine();
@@ -582,7 +576,7 @@ public partial class InteropTests
         engine.Evaluate("arr.length").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayLengthWriteWithSameValueIsNoOp()
     {
         var engine = CreateLiveViewEngine();
@@ -593,7 +587,7 @@ public partial class InteropTests
         engine.Evaluate("arr.length").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayIsNotJsArray()
     {
         var engine = CreateLiveViewEngine();
@@ -603,7 +597,7 @@ public partial class InteropTests
         engine.Evaluate("typeof arr").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArraySerializesAsJsonArray()
     {
         // JsonSerializer treats ObjectWrapper { IsArrayLike: true } as an array
@@ -615,7 +609,7 @@ public partial class InteropTests
         engine.Evaluate("JSON.stringify(holder)").AsString().Should().Be("""{"Numbers":[10,20,30]}""");
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArraySupportsIteration()
     {
         var engine = CreateLiveViewEngine();
@@ -629,7 +623,7 @@ public partial class InteropTests
         engine.Evaluate("arr.indexOf(2)").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayDeleteBehavesLikeIntegerIndexedExotic()
     {
         var engine = CreateLiveViewEngine();
@@ -649,7 +643,7 @@ public partial class InteropTests
             "(function() { 'use strict'; try { delete arr[0]; return 'no-throw'; } catch (e) { return e instanceof TypeError ? 'TypeError' : 'unexpected: ' + e; } })()").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayRespectsAllowWriteFalse()
     {
         var engine = CreateLiveViewEngine(options => options.Interop.AllowWrite = false);
@@ -661,7 +655,7 @@ public partial class InteropTests
         numbers[1].Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void LiveViewArrayRoundTripsOriginalReferenceToClr()
     {
         var engine = CreateLiveViewEngine();
@@ -675,7 +669,7 @@ public partial class InteropTests
         received.Should().BeSameAs(numbers);
     }
 
-    [Fact]
+    [Test]
     public void MultiRankArraysKeepCopyModeFailureUnderBothModes()
     {
         // Non-empty multidimensional arrays are not convertible (Array.GetValue with a single
@@ -687,7 +681,7 @@ public partial class InteropTests
         Invoking(() => liveViewEngine.SetValue("md", new int[2, 2])).Should().ThrowExactly<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void ZeroLengthMultiRankArraysKeepCopyFallbackUnderBothModes()
     {
         var copyEngine = new Engine();
@@ -699,7 +693,7 @@ public partial class InteropTests
         liveViewEngine.Evaluate("Array.isArray(md) && md.length === 0").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LiveViewDoesNotAffectListWrapping()
     {
         var engine = CreateLiveViewEngine();
@@ -712,13 +706,12 @@ public partial class InteropTests
         list[3].Should().Be(4);
     }
 
-    [Theory]
-    [InlineData("list.push(4)")]
-    [InlineData("list.pop()")]
-    [InlineData("list.splice(0, 1)")]
-    [InlineData("list.length = 1")]
-    [InlineData("list.length = 10")]
-    [InlineData("list[3] = 4")]
+    [TestCase("list.push(4)")]
+    [TestCase("list.pop()")]
+    [TestCase("list.splice(0, 1)")]
+    [TestCase("list.length = 1")]
+    [TestCase("list.length = 10")]
+    [TestCase("list[3] = 4")]
     public void FixedSizeUntypedListRefusesResizeWithTypeError(string operation)
     {
         // ArrayList.FixedSize implements IList and no generic collection interface, so it resolves to the
@@ -737,7 +730,7 @@ public partial class InteropTests
         engine.Evaluate("list.length").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void GrowableUntypedListStillResizes()
     {
         var list = new System.Collections.ArrayList { 1, 2, 3 };

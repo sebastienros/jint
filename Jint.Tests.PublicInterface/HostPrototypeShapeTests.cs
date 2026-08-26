@@ -83,7 +83,7 @@ public class HostPrototypeShapeTests
 
     // ---- reachability and representation witness ----
 
-    [Fact]
+    [Test]
     public void ShapeCountReportsDeclaredMemberCount()
     {
         // Eight string-keyed members; Symbol.toStringTag is not one of them (symbols live outside the
@@ -91,7 +91,7 @@ public class HostPrototypeShapeTests
         ElementShape.Count.Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void AnInstantiatedObjectUsesTheSharedBuiltinLayout()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -103,7 +103,7 @@ public class HostPrototypeShapeTests
         engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void InstantiateUsesObjectPrototypeByDefaultAndTheGivenPrototypeOtherwise()
     {
         var engine = new Engine();
@@ -123,7 +123,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("Object.getPrototypeOf(chained) === defaulted").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void InstantiateRejectsANullEngineAndAForeignPrototype()
     {
         Invoking(() => ElementShape.Instantiate(null!)).Should().Throw<ArgumentNullException>();
@@ -138,7 +138,7 @@ public class HostPrototypeShapeTests
 
     // ---- members work through the prototype ----
 
-    [Fact]
+    [Test]
     public void MethodsAccessorsAndConstantsResolveThroughAnInstance()
     {
         var engine = EngineWithPrototype(out _);
@@ -165,7 +165,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("other._tag").Should().Be("SPAN");
     }
 
-    [Fact]
+    [Test]
     public void AnAccessorWithoutASetterIsReadOnly()
     {
         var engine = EngineWithPrototype(out _);
@@ -179,7 +179,7 @@ public class HostPrototypeShapeTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void AccessorHalvesAreNamedPerSpecConvention()
     {
         var engine = EngineWithPrototype(out _);
@@ -190,7 +190,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(proto, 'tagName').set.length").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MaterializedMembersKeepAStableIdentityWithinAnEngine()
     {
         var engine = EngineWithPrototype(out _);
@@ -203,7 +203,7 @@ public class HostPrototypeShapeTests
         descriptorIdentity.Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void MaterializedFunctionsBelongToTheInstantiatingRealm()
     {
         // Materialization is lazy, so it can be triggered while a different realm is the active one — a
@@ -221,7 +221,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.secretMethod()").Should().Be("secret");
     }
 
-    [Fact]
+    [Test]
     public void ToStringTagIsApplied()
     {
         var engine = EngineWithPrototype(out _);
@@ -238,7 +238,7 @@ public class HostPrototypeShapeTests
 
     // ---- constants ----
 
-    [Fact]
+    [Test]
     public void ConstantsAreNonWritableAndNonConfigurable()
     {
         var engine = EngineWithPrototype(out _);
@@ -262,7 +262,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DeletingANonConfigurableConstantFailsPerSpec()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -276,7 +276,7 @@ public class HostPrototypeShapeTests
 
     // ---- per-realm slots ----
 
-    [Fact]
+    [Test]
     public void APerRealmValueSlotStartsUndefinedAndIsFilledPerEngine()
     {
         var engineA = new Engine();
@@ -306,7 +306,7 @@ public class HostPrototypeShapeTests
         engineB.Evaluate("proto.constructor").Should().Be("ctor-B");
     }
 
-    [Fact]
+    [Test]
     public void APerRealmFactorySlotRunsOnceOnFirstAccessAndNotBefore()
     {
         var calls = 0;
@@ -335,7 +335,7 @@ public class HostPrototypeShapeTests
         calls.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void APerRealmFactorySlotReceivesTheInstantiatedObject()
     {
         var shape = new JsObjectShape.Builder()
@@ -351,7 +351,7 @@ public class HostPrototypeShapeTests
 
     // ---- sharing across engines ----
 
-    [Fact]
+    [Test]
     public void TwoEnginesShareOneShapeWithoutSharingAnythingElse()
     {
         var engineA = new Engine();
@@ -395,7 +395,7 @@ public class HostPrototypeShapeTests
         engineB.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void FunctionIdentityIsPerEngine()
     {
         var engineA = new Engine();
@@ -413,7 +413,7 @@ public class HostPrototypeShapeTests
 
     // ---- mutation and deopt semantics ----
 
-    [Fact]
+    [Test]
     public void AWritableMethodCanBeOverwrittenInPlace()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -424,7 +424,7 @@ public class HostPrototypeShapeTests
         engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void RedefiningADeclaredMemberIncludingDataToAccessorKeepsTheSharedLayout()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -439,7 +439,7 @@ public class HostPrototypeShapeTests
         engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void AddingANewStringKeyKeepsTheSharedLayoutAndAppendsToOwnKeyOrder()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -453,7 +453,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.defined").Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AddingAnIntegerLikeKeyFallsBackToTheDictionary()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -466,7 +466,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("Object.getOwnPropertyNames(proto)[0]").Should().Be("0");
     }
 
-    [Fact]
+    [Test]
     public void DeletingAConfigurableMemberFallsBackToTheDictionaryAndKeepsEveryOtherMemberCorrect()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -492,7 +492,7 @@ public class HostPrototypeShapeTests
             .Should().Be("secretMethod,tagName,readOnlyTag,ELEMENT_NODE,SECRET,constructor");
     }
 
-    [Fact]
+    [Test]
     public void PreventExtensionsAndFreezeBehaveAsOnAnyOtherObject()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -513,7 +513,7 @@ public class HostPrototypeShapeTests
         engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void SettingThePrototypeOfAShapedObjectDoesNotDisturbItsMembers()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -524,7 +524,7 @@ public class HostPrototypeShapeTests
         engine.Diagnostics.GetObjectRepresentation(prototype).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void SymbolKeyedMembersNeverDisturbTheSharedLayout()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -540,7 +540,7 @@ public class HostPrototypeShapeTests
 
     // ---- enumeration ----
 
-    [Fact]
+    [Test]
     public void EnumerationSeesExactlyTheEnumerableMembers()
     {
         var engine = EngineWithPrototype(out _);
@@ -562,7 +562,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("'SECRET' in el").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void EnumerabilityAnswersFollowTheLiveDescriptorAfterARedefine()
     {
         // Existence and enumerability are answered from the shared layout without creating the member's
@@ -587,7 +587,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("'greet' in proto").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void ExistenceAndEnumerabilityStayCorrectAfterTheFallbackToTheDictionary()
     {
         var engine = EngineWithPrototype(out var prototype);
@@ -603,7 +603,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("Object.keys(proto).join(',')").Should().Be("tagName,readOnlyTag,ELEMENT_NODE");
     }
 
-    [Fact]
+    [Test]
     public void ExistenceAnswersCoverHybridAdditionsAndAbsentNames()
     {
         var engine = EngineWithPrototype(out _);
@@ -620,7 +620,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("'toString' in proto").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void AbsentNamesAnswerAcrossAChainOfShapedPrototypes()
     {
         // A name nothing declares is the expensive question: it is refused once per prototype level before the
@@ -666,7 +666,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("middle.hasOwnProperty('rootMember')").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void AnUntouchedFactorySlotAnswersExistenceBeforeItsFactoryRuns()
     {
         // A per-realm factory slot has no declared attributes until its factory has run, so the shared layout
@@ -695,7 +695,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.hasOwnProperty('neverDeclared')").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void AbsentNamesStayCorrectAfterAHybridAddition()
     {
         // A brand-new string key joins a side dictionary beside the shared layout, so the layout index alone
@@ -718,7 +718,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.hasOwnProperty('ELEMENT_NODE')").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void AbsentNamesStayCorrectAfterADigitLeadingDefineDeopts()
     {
         // An integer-like key cannot be expressed in the shape-then-additions own-key order, so defining one
@@ -740,7 +740,7 @@ public class HostPrototypeShapeTests
         engine.Evaluate("proto.ELEMENT_NODE").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ForInWalksTheEnumerablePrototypeMembers()
     {
         var engine = EngineWithPrototype(out _);
@@ -750,7 +750,7 @@ public class HostPrototypeShapeTests
             .Should().Be("own,greet,tagName,readOnlyTag,ELEMENT_NODE");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringifyAndSpreadSeeTheEnumerableMembers()
     {
         var engine = EngineWithPrototype(out _);
@@ -768,7 +768,7 @@ public class HostPrototypeShapeTests
 
     // ---- inline-cache interaction ----
 
-    [Fact]
+    [Test]
     public void WarmedReadsStayCorrectAcrossAMidLoopOverwriteWithTheShapedObjectAsReceiver()
     {
         var engine = EngineWithPrototype(out _);
@@ -786,7 +786,7 @@ public class HostPrototypeShapeTests
             """).Should().Be("redefined");
     }
 
-    [Fact]
+    [Test]
     public void WarmedReadsThroughAScriptReceiverStayCorrectAcrossAMidLoopOverwrite()
     {
         var engine = EngineWithPrototype(out _);
@@ -803,7 +803,7 @@ public class HostPrototypeShapeTests
             """).Should().Be("hello x|patched");
     }
 
-    [Fact]
+    [Test]
     public void WarmedReadsThroughAHostInstanceStayCorrectAcrossAMidLoopOverwrite()
     {
         var engine = new Engine();
@@ -833,7 +833,7 @@ public class HostPrototypeShapeTests
 
     // ---- builder validation ----
 
-    [Fact]
+    [Test]
     public void BuilderRejectsInvalidNames()
     {
         Invoking(() => new JsObjectShape.Builder().Method(null!, static (t, a) => JsValue.Undefined))
@@ -846,7 +846,7 @@ public class HostPrototypeShapeTests
             .Should().Throw<ArgumentException>().WithMessage("*starts with a digit*");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsDuplicateNamesAcrossKinds()
     {
         Invoking(() => new JsObjectShape.Builder()
@@ -860,7 +860,7 @@ public class HostPrototypeShapeTests
             .Should().Throw<ArgumentException>().WithMessage("*already been declared*");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsMissingDelegatesAndObjectConstants()
     {
         Invoking(() => new JsObjectShape.Builder().Method("x", null!))
@@ -880,14 +880,14 @@ public class HostPrototypeShapeTests
             .Should().Throw<ArgumentException>().WithMessage("*object value*");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsAnUnfillablePerRealmSlot()
     {
         Invoking(() => new JsObjectShape.Builder().PerRealmSlot("x", writable: false, configurable: false))
             .Should().Throw<ArgumentException>().WithMessage("*neither writable nor configurable*");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsASecondToStringTag()
     {
         Invoking(() => new JsObjectShape.Builder().ToStringTag("A").ToStringTag("B"))
@@ -896,7 +896,7 @@ public class HostPrototypeShapeTests
             .Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsUseAfterBuild()
     {
         var builder = new JsObjectShape.Builder().Method("x", static (t, a) => JsValue.Undefined);
@@ -916,7 +916,7 @@ public class HostPrototypeShapeTests
             .Should().Throw<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsMoreMembersThanAShapeCanDescribe()
     {
         var builder = new JsObjectShape.Builder();
@@ -928,7 +928,7 @@ public class HostPrototypeShapeTests
         Invoking(() => builder.Build()).Should().Throw<ArgumentException>().WithMessage("*at most 4096 members*");
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyShapeIsUsable()
     {
         var shape = new JsObjectShape.Builder().Build();

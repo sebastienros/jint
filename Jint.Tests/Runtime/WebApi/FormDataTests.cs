@@ -23,7 +23,7 @@ public class FormDataTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void StartsEmptyAndTakesNoForm()
     {
         Eval("[...new FormData()].length").AsNumber().Should().Be(0);
@@ -38,13 +38,13 @@ public class FormDataTests
         Eval("[...new FormData(undefined)].length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RequiresNew()
     {
         Assert.Throws<JavaScriptException>(() => Eval("FormData()"));
     }
 
-    [Fact]
+    [Test]
     public void AppendsInOrderAndKeepsDuplicates()
     {
         var engine = WithEntries();
@@ -54,7 +54,7 @@ public class FormDataTests
         engine.Evaluate("JSON.stringify([...fd])").AsString().Should().Be("""[["a","1"],["b","2"],["a","3"]]""");
     }
 
-    [Fact]
+    [Test]
     public void GetAnswersTheFirstMatchAndNullOtherwise()
     {
         var engine = WithEntries();
@@ -63,7 +63,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('missing')").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GetAllAnswersEveryMatchInOrder()
     {
         var engine = WithEntries();
@@ -72,7 +72,7 @@ public class FormDataTests
         engine.Evaluate("Array.isArray(fd.getAll('missing')) && fd.getAll('missing').length === 0").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasAnswersWhetherAnyEntryCarriesTheName()
     {
         var engine = WithEntries();
@@ -81,7 +81,7 @@ public class FormDataTests
         engine.Evaluate("fd.has('missing')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeleteRemovesEveryEntryWithTheName()
     {
         var engine = WithEntries();
@@ -94,7 +94,7 @@ public class FormDataTests
         engine.Evaluate("[...fd].length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SetReplacesTheFirstMatchInPlaceAndRemovesTheRest()
     {
         var engine = WithEntries();
@@ -104,7 +104,7 @@ public class FormDataTests
         engine.Evaluate("JSON.stringify([...fd])").AsString().Should().Be("""[["a","9"],["b","2"]]""");
     }
 
-    [Fact]
+    [Test]
     public void SetAppendsWhenTheNameIsAbsent()
     {
         var engine = WithEntries();
@@ -113,7 +113,7 @@ public class FormDataTests
         engine.Evaluate("JSON.stringify([...fd])").AsString().Should().Be("""[["a","1"],["b","2"],["a","3"],["c","4"]]""");
     }
 
-    [Fact]
+    [Test]
     public void ConvertsNamesAndStringValuesToScalarValueStrings()
     {
         var engine = WebEngine();
@@ -123,7 +123,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('s\\uFFFD')").AsString().Should().Be("v�");
     }
 
-    [Fact]
+    [Test]
     public void WrapsABlobValueIntoAFileNamedBlob()
     {
         var engine = WebEngine();
@@ -138,7 +138,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('f').type").AsString().Should().Be("text/x");
     }
 
-    [Fact]
+    [Test]
     public void UsesTheFilenameWheneverOneIsGiven()
     {
         var engine = WebEngine();
@@ -156,7 +156,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('c').name").AsString().Should().Be("override.txt");
     }
 
-    [Fact]
+    [Test]
     public void AlwaysStoresAFreshFileRatherThanTheValueItWasGiven()
     {
         var engine = WebEngine();
@@ -172,7 +172,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('k').text()").UnwrapIfPromise().AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesTheOverloadOnTheValueNotTheFilename()
     {
         var engine = WebEngine();
@@ -194,7 +194,7 @@ public class FormDataTests
         engine.Evaluate("touched").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void StringifiesANonBlobValue()
     {
         var engine = WebEngine();
@@ -205,7 +205,7 @@ public class FormDataTests
         engine.Evaluate("fd.get('u')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void IteratesEntriesKeysAndValues()
     {
         var engine = WithEntries();
@@ -215,7 +215,7 @@ public class FormDataTests
         engine.Evaluate("[...fd.values()].join(',')").AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ItsDefaultIteratorIsEntriesItself()
     {
         var engine = WebEngine();
@@ -229,7 +229,7 @@ public class FormDataTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IteratesTheLiveEntryList()
     {
         var engine = WebEngine();
@@ -247,7 +247,7 @@ public class FormDataTests
         engine.Evaluate("seen.join(',')").AsString().Should().Be("a1,b2");
     }
 
-    [Fact]
+    [Test]
     public void ForEachVisitsValueKeyAndTheFormData()
     {
         var engine = WithEntries();
@@ -256,7 +256,7 @@ public class FormDataTests
         engine.Evaluate("seen.join(',')").AsString().Should().Be("a=1true,b=2true,a=3true");
     }
 
-    [Fact]
+    [Test]
     public void ForEachHonoursItsThisArgAndRejectsANonCallable()
     {
         var engine = WithEntries();
@@ -267,7 +267,7 @@ public class FormDataTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("fd.forEach(5)"));
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksEveryMember()
     {
         var engine = WebEngine();
@@ -278,7 +278,7 @@ public class FormDataTests
         }
     }
 
-    [Fact]
+    [Test]
     public void HasTheShapeWebIdlAsksFor()
     {
         var engine = WebEngine();
@@ -298,7 +298,7 @@ public class FormDataTests
         engine.Evaluate("FormData.prototype.entries.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassing()
     {
         var engine = WebEngine();
@@ -309,7 +309,7 @@ public class FormDataTests
         engine.Evaluate("m.get('a')").AsString().Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void TheIteratorPrototypesNextCarriesWebIdlsAttributes()
     {
         // "An iterator prototype object must have a next data property with attributes

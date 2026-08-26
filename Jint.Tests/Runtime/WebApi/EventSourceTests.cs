@@ -244,7 +244,7 @@ public class EventSourceTests
     private static void PumpUntilLogHas(Engine engine, int entries, string expectation)
         => Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= entries, expectation);
 
-    [Fact]
+    [Test]
     public void DispatchesAMessageEventForEachBlankLineTerminatedBlock()
     {
         // The standard's own example: "the event's data attribute would contain the string YHOO\n+2\n10".
@@ -264,7 +264,7 @@ public class EventSourceTests
         request.Header("last-event-id").Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AnEventFieldRenamesTheEventAndAnIdFieldOutlivesIt()
     {
         // The standard's second worked example, minus the comment: an id sticks until the server changes it,
@@ -289,7 +289,7 @@ public class EventSourceTests
             "open~1|message~message~first~1~https://example.org|ping~second~1|message~message~third~~https://example.org");
     }
 
-    [Fact]
+    [Test]
     public void ACommentOnlyStreamDispatchesNothingAndKeepsTheConnectionOpen()
     {
         var stream = new PushStream();
@@ -316,7 +316,7 @@ public class EventSourceTests
         stream.Complete();
     }
 
-    [Fact]
+    [Test]
     public void ParsesTheFieldGrammarTheStandardSpellsOut()
     {
         // "The following stream fires two events" — the first with the empty string, the middle with a single
@@ -330,7 +330,7 @@ public class EventSourceTests
         Log(engine, 3).Should().Be("open~1|message~message~~~https://example.org|message~message~\n~~https://example.org");
     }
 
-    [Fact]
+    [Test]
     public void RemovesExactlyOneSpaceAfterTheColon()
     {
         // "The following stream fires two identical events … because the space after the colon is ignored."
@@ -343,7 +343,7 @@ public class EventSourceTests
         engine.Evaluate("log.slice(1, 4).map(x => x.split('~')[2]).join('|')").AsString().Should().Be("test|test| test");
     }
 
-    [Fact]
+    [Test]
     public void HandlesEveryLineEndingAndAChunkBoundaryInsideOne()
     {
         var stream = new PushStream();
@@ -370,7 +370,7 @@ public class EventSourceTests
         stream.Complete();
     }
 
-    [Fact]
+    [Test]
     public void StripsOneLeadingByteOrderMark()
     {
         // "The UTF-8 decode algorithm strips one leading UTF-8 Byte Order Mark (BOM), if any" — a BOM left in
@@ -395,7 +395,7 @@ public class EventSourceTests
         Log(engine, 2).Should().Be("open~1|message~message~hello~~https://example.org");
     }
 
-    [Fact]
+    [Test]
     public void DecodesUtf8AcrossAChunkBoundary()
     {
         var stream = new PushStream();
@@ -417,7 +417,7 @@ public class EventSourceTests
         stream.Complete();
     }
 
-    [Fact]
+    [Test]
     public void ReadyStateFollowsTheConnectionAndTheConstantsAreOnBothObjects()
     {
         var stream = new PushStream();
@@ -455,7 +455,7 @@ public class EventSourceTests
         stream.Complete();
     }
 
-    [Fact]
+    [Test]
     public Task CloseStopsEverythingAndDispatchesNothingFurther() => DedicatedThread.RunAsync(() =>
     {
         var stream = new PushStream();
@@ -486,7 +486,7 @@ public class EventSourceTests
         stream.Complete();
     });
 
-    [Fact]
+    [Test]
     public void CloseFromInsideAListenerStopsTheRestOfTheSameChunk()
     {
         // Both events arrive in one read and are delivered by one job, so the readyState is what stops the
@@ -511,7 +511,7 @@ public class EventSourceTests
         engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AWrongContentTypeFailsTheConnectionForGood()
     {
         // "if res's status is not 200, or if res's Content-Type is not text/event-stream, then fail the
@@ -530,7 +530,7 @@ public class EventSourceTests
         handler.Requests.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void AContentTypeWithParametersIsStillAnEventStream()
     {
         // The check is on the MIME type essence, so a charset parameter changes nothing.
@@ -543,7 +543,7 @@ public class EventSourceTests
         engine.Evaluate("log[1]").AsString().Should().Be("message~message~ok~~https://example.org");
     }
 
-    [Fact]
+    [Test]
     public void ANon200StatusFailsTheConnectionForGood()
     {
         var handler = new StubHandler { Responder = _ => Answer("", "text/event-stream", HttpStatusCode.NoContent) };
@@ -559,7 +559,7 @@ public class EventSourceTests
         handler.Requests.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void AUrlThePolicyRefusesFailsTheConnectionWithoutOpeningASocket()
     {
         var handler = new StubHandler();
@@ -574,7 +574,7 @@ public class EventSourceTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ASchemeTheHostDidNotAllowFailsTheConnection()
     {
         var handler = new StubHandler();
@@ -587,7 +587,7 @@ public class EventSourceTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ReconnectsAfterTheStreamEndsUsingTheAnnouncedRetryAndTheLastEventId()
     {
         var handler = new StubHandler
@@ -630,7 +630,7 @@ public class EventSourceTests
         handler.Requests[1].Header("last-event-id").Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void AReconnectionRunsTheUrlPolicyAgain()
     {
         var handler = new StubHandler { Responder = _ => Answer("retry: 10\ndata: one\n\n") };
@@ -651,7 +651,7 @@ public class EventSourceTests
         handler.Requests.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void CloseDuringTheReconnectDelayStopsTheRetry()
     {
         var handler = new StubHandler { Responder = _ => Answer("retry: 10\ndata: one\n\n") };
@@ -674,7 +674,7 @@ public class EventSourceTests
         engine.Evaluate("es.readyState").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AnEventLargerThanTheCapFailsTheConnection()
     {
         // MaxResponseBytes cannot bound a stream, so it bounds one event — which is what has to be held in
@@ -692,7 +692,7 @@ public class EventSourceTests
         handler.Requests.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void AnEventAtTheCapStillArrives()
     {
         // Fifty x's, plus the "data: " the line itself costs, is what fits under a cap of sixty-four: the cap
@@ -706,7 +706,7 @@ public class EventSourceTests
         engine.Evaluate("log[1].split('~')[2].length").AsNumber().Should().Be(50);
     }
 
-    [Fact]
+    [Test]
     public void RefusesMoreStreamsThanTheHostAllows()
     {
         var stream = new PushStream();
@@ -729,7 +729,7 @@ public class EventSourceTests
         stream.Complete();
     }
 
-    [Fact]
+    [Test]
     public void AnUnparsableUrlIsASyntaxErrorDomException()
     {
         // Constructor step 4: "if urlRecord is failure, then throw a SyntaxError DOMException" — which is not
@@ -746,7 +746,7 @@ public class EventSourceTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void WithCredentialsIsRememberedAndChangesNothing()
     {
         var handler = new StubHandler { Responder = _ => Answer("data: ok\n\n") };
@@ -762,7 +762,7 @@ public class EventSourceTests
         handler.Requests[0].Header("authorization").Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AnEventSourceIsAnEventTargetAndItsEventsAreEvents()
     {
         var handler = new StubHandler { Responder = _ => Answer("data: ok\n\n") };
@@ -786,7 +786,7 @@ public class EventSourceTests
         engine.Evaluate("Array.isArray(seen.ports) && seen.ports.length === 0 && Object.isFrozen(seen.ports)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MessageEventIsConstructibleWithTheMembersItsDictionaryDeclares()
     {
         var handler = new StubHandler();
@@ -808,7 +808,7 @@ public class EventSourceTests
         engine.Evaluate("new MessageEvent('x', { ports: [] }).ports.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void InstallsTheInterfaceObjectsBehindItsOwnFlagAndNowhereElse()
     {
         foreach (var name in new[] { "EventSource", "MessageEvent" })
@@ -839,7 +839,7 @@ public class EventSourceTests
         }
     }
 
-    [Fact]
+    [Test]
     public void BringsTheEventsFeatureAndNotTheFetchOne()
     {
         // The closure is computed at install, so it catches a host that assigned Features directly.
@@ -855,7 +855,7 @@ public class EventSourceTests
         options.WebApi.Features.Should().Be(WebApiFeatures.EventSource);
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceObjectRefusesToBeCalledWithoutNew()
     {
         var engine = new Engine(options => options.UseEventSource());
@@ -869,7 +869,7 @@ public class EventSourceTests
         engine.Evaluate("Object.getPrototypeOf(EventSource.prototype) === EventTarget.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheAccessorsRefuseAForeignReceiver()
     {
         var engine = new Engine(options => options.UseEventSource());

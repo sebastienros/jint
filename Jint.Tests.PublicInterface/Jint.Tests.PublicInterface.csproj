@@ -4,11 +4,10 @@
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net472</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);612;xUnit1051</NoWarn>
+    <NoWarn>$(NoWarn);612</NoWarn>
     <!-- Still needed on the net472 leg, and not for Jint itself: Microsoft.Extensions.TimeProvider.Testing
          ships a targets file that warns it does not support anything below net8.0. -->
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
-    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
 
@@ -35,8 +34,8 @@
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="SourceMaps" />
-    <PackageReference Include="xunit.v3.mtp-off" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>
 
   <!--
@@ -50,9 +49,9 @@
     artifacts/bin/Jint/ while the other leg's build is still writing it, and a second copy of Jint.dll
     beside a test binary that the outer Jint build never refreshes. Both are exactly what
     TheSnapshottedAssembliesAreTheOnesThisTestRunWasBuiltFrom exists to notice, and the torn read is the
-    worse of the two: it faults inside MetadataLoadContext, where xUnit cannot attribute it to a test, so
-    the run dies part-way through with a TestPipelineException and still reports "Passed!" for the tests
-    it managed. That is what the macOS leg did in
+    worse of the two: it faults inside MetadataLoadContext, where the runner cannot attribute it to a test,
+    so the run dies part-way through and still reports what the tests it managed did. That is what the
+    macOS leg did in
     https://github.com/sebastienros/jint/actions/runs/32637573245 - the one CI machine that happened to
     start both legs in the same second.
 
@@ -73,7 +72,7 @@
     <PackageReference Include="PublicApiGenerator" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" />
     <PackageReference Include="Verify.DiffPlex" />
-    <PackageReference Include="Verify.XunitV3" />
+    <PackageReference Include="Verify.NUnit" />
   </ItemGroup>
 
   <!--
@@ -95,6 +94,17 @@
   <ItemGroup>
     <!-- Shared so that a JsValue can be compared against a CLR value in both test projects. -->
     <Compile Include="..\Jint.Tests\JsValueAssertions.cs" Link="JsValueAssertions.cs" />
+    <!--
+      Shared so that the two suites run under the same NUnit contract: one fixture instance per test case,
+      and fixtures parallel with each other. See the file for what each decision restores.
+    -->
+    <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
+    <!-- Shared so that a conditional skip is spelled the same way in both suites. -->
+    <Compile Include="..\Jint.Tests\IgnoreUnlessAttribute.cs" Link="IgnoreUnlessAttribute.cs" />
+    <!-- Shared so that a typed set of test-case rows is spelled the same way in both suites. -->
+    <Compile Include="..\Jint.Tests\TestCases.cs" Link="TestCases.cs" />
+    <!-- Shared so that "run this and hand me what it threw" is spelled the same way in both suites. -->
+    <Compile Include="..\Jint.Tests\Caught.cs" Link="Caught.cs" />
     <!--
       Shared so that both suites turn Jint's host-contract verifiers on the same way, and early enough: the
       module initializer inside runs before any Jint type is touched, which is the only point at which the
@@ -126,7 +136,7 @@
     <Using Include="AwesomeAssertions" />
     <Using Include="AwesomeAssertions.FluentActions" Static="true" />
     <Using Include="Jint.Tests" />
-    <Using Include="Xunit" />
+    <Using Include="NUnit.Framework" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net472'">

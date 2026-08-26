@@ -70,7 +70,7 @@ public class WebApiFetchHandlerAbortTests
     /// The shape a host writes: the client goes away, the token fires, and the handler — which was waiting on
     /// its own <c>request.signal</c> — answers gracefully on the next turn the host pumps.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheHostTokenReachesTheHandlerAsRequestSignal()
     {
         var engine = Handler("""
@@ -105,7 +105,7 @@ public class WebApiFetchHandlerAbortTests
     /// pays no attention and answers anyway is served, because the host that went on pumping is the one that
     /// decided to let it finish — stopping an invocation outright is the host's own lever, not the script's.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHandlerThatIgnoresTheAbortStillAnswers()
     {
         var engine = Handler(
@@ -138,7 +138,7 @@ public class WebApiFetchHandlerAbortTests
     /// <c>request.signal</c> does for it — fails the invocation through the ordinary failure contract, with
     /// no special case anywhere for cancellation.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHandlerThatRejectsOnTheAbortFailsTheOperationTheOrdinaryWay()
     {
         var engine = Handler("""
@@ -154,12 +154,12 @@ public class WebApiFetchHandlerAbortTests
         Pump(engine, operation);
 
         operation.IsFaulted.Should().BeTrue();
-        var failure = Assert.IsType<PromiseRejectedException>(operation.Error);
+        var failure = operation.Error.Should().BeOfType<PromiseRejectedException>().Which;
         failure.RejectedValue.AsString().Should().Be("gone: AbortError");
 
         // A host maps that to the wire itself, exactly as it maps every other handler failure — Jint never
         // turns one into a status code.
-        Assert.IsAssignableFrom<JintException>(operation.Error);
+        operation.Error.Should().BeAssignableTo<JintException>();
     }
 
     /// <summary>
@@ -167,7 +167,7 @@ public class WebApiFetchHandlerAbortTests
     /// is aborted from its first statement, so it can refuse without doing any work — and it needs no pump,
     /// because building the request already runs on the engine's thread.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAlreadyCancelledTokenGivesTheHandlerAnAlreadyAbortedSignal()
     {
         var engine = Handler("""
@@ -192,7 +192,7 @@ public class WebApiFetchHandlerAbortTests
     /// registration is gone, so a token cancelled afterwards reaches nothing. A pooled engine serving request
     /// after request from one long-lived token therefore accumulates nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnInvocationThatCompletedNoLongerListensToTheHostToken()
     {
         var engine = Handler("""
@@ -227,7 +227,7 @@ public class WebApiFetchHandlerAbortTests
     /// already did, and an abort enqueued before the restore lands on nothing — the fence discards it exactly
     /// as it discards the reaction that would have completed the operation.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreAbandonsTheInvocationAndNoLateAbortLands()
     {
         var engine = Handler("""
@@ -252,7 +252,7 @@ public class WebApiFetchHandlerAbortTests
         engine.Tasks.ProcessTasks();
 
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("abandoned");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("abandoned");
 
         engine.SetValue("survivor", signal);
         engine.Evaluate("survivor.aborted").AsBoolean().Should().BeFalse();
@@ -263,7 +263,7 @@ public class WebApiFetchHandlerAbortTests
     /// deterministic half of that: the body read has nothing to read, the handler is called with an aborted
     /// signal, and its synchronous answer never reaches the await's cancellation check.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TheAwaitableShapeGivesAnAlreadyCancelledTokenTheSameAbortedSignal()
     {
         var engine = Handler("""
@@ -285,7 +285,7 @@ public class WebApiFetchHandlerAbortTests
     /// And a live token that is never cancelled changes nothing about the awaitable shape, which is what the
     /// hosts already using it are entitled to.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TheAwaitableShapeIsUnchangedForATokenThatNeverFires()
     {
         var engine = Handler("globalThis.handler = request => new Response('aborted=' + request.signal.aborted);");
@@ -304,7 +304,7 @@ public class WebApiFetchHandlerAbortTests
     /// The script-facing route reads the same truth: a Workers-shaped listener sees
     /// <c>event.request.signal</c> abort.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheScriptRegisteredListenerRouteCarriesTheSignalToo()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.FetchEvents));
@@ -332,7 +332,7 @@ public class WebApiFetchHandlerAbortTests
     /// The single-argument overload is untouched: its request's signal is still the one that can never fire,
     /// so a host that never passes a token sees exactly the engine it saw before.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheOverloadWithoutATokenStillHandsOverASignalThatNeverFires()
     {
         var engine = Handler("""
@@ -356,7 +356,7 @@ public class WebApiFetchHandlerAbortTests
     /// The argument checks are the ones the other overload makes, in the same order: a host's own mistake is
     /// thrown from the call rather than delivered through the operation.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArgumentFailuresAreStillTheHostsOwn()
     {
         var engine = Handler("globalThis.handler = () => new Response('x');");

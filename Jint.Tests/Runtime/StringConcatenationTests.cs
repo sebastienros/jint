@@ -32,7 +32,7 @@ public class StringConcatenationTests
     /// rather than copied. If the interpreter ever starts flattening this shape, these tests would keep
     /// passing while covering nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void AccumulatingWithPlusLeavesTheValueDeferred()
     {
         var value = CreateEngine().Evaluate("var s = ''; for (var i = 0; i < 200; i++) { s = s + chunk; } s;");
@@ -41,7 +41,7 @@ public class StringConcatenationTests
         value.ToString().Length.Should().Be(2000);
     }
 
-    [Fact]
+    [Test]
     public void PrependingWithPlusLeavesTheValueDeferred()
     {
         var value = CreateEngine().Evaluate("var s = ''; for (var i = 0; i < 200; i++) { s = chunk + s; } s;");
@@ -54,7 +54,7 @@ public class StringConcatenationTests
     /// A short result is still allocated flat: below the deferral threshold a node costs more than the
     /// copy it saves, and every consumer of the result would pay the flattening indirection for nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void AShortConcatenationIsStillFlat()
     {
         var engine = CreateEngine();
@@ -68,14 +68,13 @@ public class StringConcatenationTests
     /// Every accumulation shape has to produce exactly what the compound assignment produces — including
     /// the chain forms, which are evaluated as one flattened node rather than nested pairwise additions.
     /// </summary>
-    [Theory]
-    [InlineData("s += chunk", 1000, 10000)]
-    [InlineData("s = s + chunk", 1000, 10000)]
-    [InlineData("s = chunk + s", 1000, 10000)]
-    [InlineData("s = s + chunk + chunk", 500, 10000)]
-    [InlineData("s = s + chunk + chunk + chunk", 400, 12000)]
-    [InlineData("s = s + chunk + chunk + chunk + chunk + chunk", 200, 10000)]
-    [InlineData("s = chunk + chunk + s", 500, 10000)]
+    [TestCase("s += chunk", 1000, 10000)]
+    [TestCase("s = s + chunk", 1000, 10000)]
+    [TestCase("s = chunk + s", 1000, 10000)]
+    [TestCase("s = s + chunk + chunk", 500, 10000)]
+    [TestCase("s = s + chunk + chunk + chunk", 400, 12000)]
+    [TestCase("s = s + chunk + chunk + chunk + chunk + chunk", 200, 10000)]
+    [TestCase("s = chunk + chunk + s", 500, 10000)]
     public void EveryAccumulationShapeProducesTheSameCharacters(string body, int iterations, int expectedLength)
     {
         var engine = CreateEngine();
@@ -93,7 +92,7 @@ public class StringConcatenationTests
     /// These build from a piece that changes every iteration, and assert against the two orders
     /// spelled out — the one thing a concatenation node can get wrong that a length check will not show.
     /// </summary>
-    [Fact]
+    [Test]
     public void AppendAndPrependPutTheOperandsInTheRightOrder()
     {
         var engine = CreateEngine();
@@ -114,29 +113,28 @@ public class StringConcatenationTests
     /// Every <c>String.prototype</c> method, and every engine path that needs characters, has to see the
     /// deferred node as the string it stands for. Only the length is answered without flattening.
     /// </summary>
-    [Theory]
-    [InlineData("s.length", "2000")]
-    [InlineData("s.charCodeAt(0)", "48")]
-    [InlineData("s.charCodeAt(1999)", "57")]
-    [InlineData("s.charAt(11)", "1")]
-    [InlineData("s[12]", "2")]
-    [InlineData("s.indexOf('789012')", "7")]
-    [InlineData("s.lastIndexOf('0123')", "1990")]
-    [InlineData("s.slice(5, 15)", "5678901234")]
-    [InlineData("s.substring(0, 4)", "0123")]
-    [InlineData("s.startsWith('01234')", "true")]
-    [InlineData("s.endsWith('56789')", "true")]
-    [InlineData("s.includes('456')", "true")]
-    [InlineData("s.split('0').length", "201")]
-    [InlineData("s.toUpperCase().length", "2000")]
-    [InlineData("JSON.stringify(s).length", "2002")]
-    [InlineData("(s === s + '')", "true")]
-    [InlineData("`${s}`.length", "2000")]
-    [InlineData("(+s.slice(0, 3))", "12")]
-    [InlineData("s.replace('012', 'zzz').slice(0, 5)", "zzz34")]
-    [InlineData("[...s].length", "2000")]
-    [InlineData("s.match(/9(0)/)[1]", "0")]
-    [InlineData("(s == s.valueOf())", "true")]
+    [TestCase("s.length", "2000")]
+    [TestCase("s.charCodeAt(0)", "48")]
+    [TestCase("s.charCodeAt(1999)", "57")]
+    [TestCase("s.charAt(11)", "1")]
+    [TestCase("s[12]", "2")]
+    [TestCase("s.indexOf('789012')", "7")]
+    [TestCase("s.lastIndexOf('0123')", "1990")]
+    [TestCase("s.slice(5, 15)", "5678901234")]
+    [TestCase("s.substring(0, 4)", "0123")]
+    [TestCase("s.startsWith('01234')", "true")]
+    [TestCase("s.endsWith('56789')", "true")]
+    [TestCase("s.includes('456')", "true")]
+    [TestCase("s.split('0').length", "201")]
+    [TestCase("s.toUpperCase().length", "2000")]
+    [TestCase("JSON.stringify(s).length", "2002")]
+    [TestCase("(s === s + '')", "true")]
+    [TestCase("`${s}`.length", "2000")]
+    [TestCase("(+s.slice(0, 3))", "12")]
+    [TestCase("s.replace('012', 'zzz').slice(0, 5)", "zzz34")]
+    [TestCase("[...s].length", "2000")]
+    [TestCase("s.match(/9(0)/)[1]", "0")]
+    [TestCase("(s == s.valueOf())", "true")]
     public void EveryStringOperationSeesTheFlatValue(string expression, string expected)
     {
         var engine = CreateEngine();
@@ -152,7 +150,7 @@ public class StringConcatenationTests
     /// place. A node that simply held the reference would change content behind whoever read the
     /// concatenation, so the operand is snapshotted on the way in.
     /// </summary>
-    [Fact]
+    [Test]
     public void AppendingToAnOperandAfterwardsDoesNotChangeTheResult()
     {
         var engine = CreateEngine();
@@ -177,7 +175,7 @@ public class StringConcatenationTests
     /// interchangeably as a property key or a collection key. Content, not representation, is the
     /// identity of a string value.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADeferredNodeIsIndistinguishableFromTheFlatString()
     {
         var engine = CreateEngine();
@@ -197,7 +195,7 @@ public class StringConcatenationTests
         deferred.GetHashCode().Should().Be(flat.GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void ADeferredNodeWorksAsAKeyOnBothSidesOfALookup()
     {
         var engine = CreateEngine();
@@ -222,9 +220,8 @@ public class StringConcatenationTests
     /// images: appending leans left, prepending leans right, and a walk that is cheap on one is the one
     /// that has to keep an explicit stack for the other.
     /// </summary>
-    [Theory]
-    [InlineData("s = s + 'ab'")]
-    [InlineData("s = 'ab' + s")]
+    [TestCase("s = s + 'ab'")]
+    [TestCase("s = 'ab' + s")]
     public void AVeryDeepTreeFlattensWithoutRecursing(string body)
     {
         var engine = CreateEngine();
@@ -241,7 +238,7 @@ public class StringConcatenationTests
     /// A tree whose operands are shared — <c>s = s + s</c> doubles by referencing the same node twice, so
     /// it is a DAG rather than a tree — flattens to the whole value, not to one copy per distinct node.
     /// </summary>
-    [Fact]
+    [Test]
     public void SharedOperandsFlattenToTheWholeValue()
     {
         var engine = CreateEngine();
@@ -264,10 +261,9 @@ public class StringConcatenationTests
     /// size, so neither assertion is close enough to the truth to be fragile.
     /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("s = s + chunk")]
-    [InlineData("s = chunk + s")]
-    [InlineData("s = s + chunk + chunk")]
+    [TestCase("s = s + chunk")]
+    [TestCase("s = chunk + s")]
+    [TestCase("s = s + chunk + chunk")]
     public void AccumulatingWithPlusIsNoLongerQuadratic(string body)
     {
         if (!GCPolyfills.AllocatedBytesForCurrentThreadIsSupported)

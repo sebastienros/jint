@@ -26,7 +26,7 @@ public class WebApiWebSocketTests
     private static Engine RefusingEngine()
         => new(options => options.UseWebSocket(net => net.UrlFilter = _ => false));
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoWebSocket()
     {
         var engine = new Engine();
@@ -40,7 +40,7 @@ public class WebApiWebSocketTests
     /// Network egress is never inherited from asking for "the web APIs", which is the same rule
     /// <c>fetch</c> has.
     /// </summary>
-    [Fact]
+    [Test]
     public void UseWebApisDoesNotBringWebSocket()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -49,7 +49,7 @@ public class WebApiWebSocketTests
         WebApiFeatures.Default.HasFlag(WebApiFeatures.WebSocket).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebSocketInstallsTheInterfacesItsEventsAreMadeOf()
     {
         var engine = new Engine(options => options.UseWebSocket());
@@ -63,7 +63,7 @@ public class WebApiWebSocketTests
         engine.Evaluate("typeof Blob").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void EnablingWebSocketDoesNotEnableFetchAndTheOptionReadsBackWhatWasAsked()
     {
         var options = new Options().UseWebSocket();
@@ -73,7 +73,7 @@ public class WebApiWebSocketTests
         options.WebApi.Features.Should().Be(WebApiFeatures.WebSocket, "the closure is computed when the engine is built");
     }
 
-    [Fact]
+    [Test]
     public void EnablingFetchDoesNotEnableWebSocket()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -82,7 +82,7 @@ public class WebApiWebSocketTests
         engine.Evaluate("typeof WebSocket").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new Jint.Native.JsString("the host's own WebSocket");
@@ -96,7 +96,7 @@ public class WebApiWebSocketTests
         engine.Evaluate("WebSocket").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void UseWebSocketConfiguresTheSharedNetworkGroup()
     {
         var options = new Options().UseWebSocket(net =>
@@ -114,29 +114,28 @@ public class WebApiWebSocketTests
     /// https://websockets.spec.whatwg.org/#dom-websocket-websocket steps 3 to 7 — the only failures the
     /// constructor has, and all of them <c>SyntaxError</c> <c>DOMException</c>s.
     /// </summary>
-    [Theory]
-    [InlineData("ftp://example.org/")]
-    [InlineData("relative/path")]
-    [InlineData("wss://example.org/#fragment")]
+    [TestCase("ftp://example.org/")]
+    [TestCase("relative/path")]
+    [TestCase("wss://example.org/#fragment")]
     public void ABadUrlIsASyntaxErrorDomException(string url)
     {
         var engine = RefusingEngine();
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('{url}');"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('{url}');"))!;
 
         thrown.Error.Get("name").AsString().Should().Be("SyntaxError");
         engine.Evaluate($"(() => {{ try {{ new WebSocket('{url}'); }} catch (e) {{ return e instanceof DOMException; }} }})()")
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ABadSubprotocolIsASyntaxErrorDomException()
     {
         var engine = RefusingEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/', ['a b']);"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/', ['a b']);"))!
             .Error.Get("name").AsString().Should().Be("SyntaxError");
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/', ['x', 'x']);"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/', ['x', 'x']);"))!
             .Error.Get("name").AsString().Should().Be("SyntaxError");
     }
 
@@ -144,7 +143,7 @@ public class WebApiWebSocketTests
     /// The host's filter is the last word, and refusing is not something a script can tell from a refused
     /// connection: the socket is born CONNECTING and fails on a later turn.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARefusedUrlOpensNothingAndFailsAsynchronously()
     {
         var engine = RefusingEngine();
@@ -166,7 +165,7 @@ public class WebApiWebSocketTests
     /// <summary>
     /// The filter is shown the <c>ws:</c> URL, which is what a host has to write its rules against.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheFilterIsShownTheWebSocketUrl()
     {
         var seen = new List<Uri>();
@@ -184,7 +183,7 @@ public class WebApiWebSocketTests
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-send step 1: the one exception the method has.
     /// </summary>
-    [Fact]
+    [Test]
     public void SendBeforeTheConnectionIsEstablishedIsAnInvalidStateError()
     {
         var engine = RefusingEngine();
@@ -196,7 +195,7 @@ public class WebApiWebSocketTests
         var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("""
             var early = new WebSocket('wss://example.org/');
             early.send('too early');
-            """));
+            """))!;
 
         thrown.Error.Get("name").AsString().Should().Be("InvalidStateError");
     }
@@ -204,7 +203,7 @@ public class WebApiWebSocketTests
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close steps 1 and 2.
     /// </summary>
-    [Fact]
+    [Test]
     public void CloseValidatesItsArgumentsWhateverTheReadyStateIs()
     {
         var engine = RefusingEngine();
@@ -212,10 +211,10 @@ public class WebApiWebSocketTests
         engine.Execute("var ws = new WebSocket('wss://example.org/');");
         engine.Evaluate("ws.readyState").AsNumber().Should().Be(3, "the refused socket has already failed");
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("ws.close(1001);"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("ws.close(1001);"))!
             .Error.Get("name").AsString().Should().Be("InvalidAccessError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("ws.close(1000, 'x'.repeat(124));"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("ws.close(1000, 'x'.repeat(124));"))!
             .Error.Get("name").AsString().Should().Be("SyntaxError");
 
         // A closed socket still accepts a well-formed close, and does nothing with it.
@@ -226,7 +225,7 @@ public class WebApiWebSocketTests
     /// The attributes a host can read before anything has happened, and the divergence it should know about:
     /// <c>binaryType</c> starts at <c>"arraybuffer"</c> here, where a browser starts at <c>"blob"</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheAttributesReadBackBeforeAnythingHasHappened()
     {
         var engine = new Engine(options => options.UseWebSocket(net => net.UrlFilter = _ => false));
@@ -244,7 +243,7 @@ public class WebApiWebSocketTests
     /// <summary>
     /// One <c>Options</c> instance serves any number of engines, and the socket registry is per engine.
     /// </summary>
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebSocket(net =>
@@ -267,7 +266,7 @@ public class WebApiWebSocketTests
     /// The globals are never reached inside a shadow realm, which is the same conservative choice every other
     /// web API here makes.
     /// </summary>
-    [Fact]
+    [Test]
     public void AShadowRealmHasNoWebSocket()
     {
         var engine = new Engine(options => options.UseWebSocket());

@@ -18,7 +18,7 @@ public class StorageTests
     private static Engine StorageEngine(StorageProvider local, StorageProvider? session = null) =>
         new(options => options.UseStorage(local, session));
 
-    [Fact]
+    [Test]
     public void RoundTripsThroughTheInterfaceMethods()
     {
         var engine = StorageEngine();
@@ -36,7 +36,7 @@ public class StorageTests
             """).AsString().Should().Be("2|1|null|1|null|0");
     }
 
-    [Fact]
+    [Test]
     public void CoercesKeysAndValuesToStrings()
     {
         var engine = StorageEngine();
@@ -55,7 +55,7 @@ public class StorageTests
             """).AsString().Should().Be("string|2|undefined|1,2");
     }
 
-    [Fact]
+    [Test]
     public void KeyAnswersTheStoreOrderAndNullBeyondIt()
     {
         var engine = StorageEngine();
@@ -75,7 +75,7 @@ public class StorageTests
             """).AsString().Should().Be("first|second|null|null|first|second");
     }
 
-    [Fact]
+    [Test]
     public void ChecksArityBeforeConvertingAnything()
     {
         var engine = StorageEngine();
@@ -95,7 +95,7 @@ public class StorageTests
             """).AsString().Should().Be("TypeError,TypeError,TypeError/false");
     }
 
-    [Fact]
+    [Test]
     public void ReadsAndWritesStoredKeysAsProperties()
     {
         var engine = StorageEngine();
@@ -113,7 +113,7 @@ public class StorageTests
             """).AsString().Should().Be("bar|bar|qux|undefined|null");
     }
 
-    [Fact]
+    [Test]
     public void AnswersExistenceQuestionsFromTheStore()
     {
         var engine = StorageEngine();
@@ -132,7 +132,7 @@ public class StorageTests
             """).AsString().Should().Be("true|false|true|false|true");
     }
 
-    [Fact]
+    [Test]
     public void EnumeratesTheStoreInItsOwnOrder()
     {
         var engine = StorageEngine();
@@ -159,7 +159,7 @@ public class StorageTests
             """).AsString().Should().Be("b,1,a|1,x,2|b=1,1=x,a=2|1,b,a|{\"b\":\"1\",\"1\":\"x\",\"a\":\"2\"}|b,1,a");
     }
 
-    [Fact]
+    [Test]
     public void ForInVisitsTheStoredKeysAndTheEnumerableAttribute()
     {
         var engine = StorageEngine();
@@ -184,7 +184,7 @@ public class StorageTests
             """).AsString().Should().Be("one,two,clear,getItem,key,removeItem,setItem,length/one,two");
     }
 
-    [Fact]
+    [Test]
     public void LetsTheInterfaceWinOverAStoredKeyOfTheSameName()
     {
         var engine = StorageEngine();
@@ -210,7 +210,7 @@ public class StorageTests
             """).AsString().Should().Be("function|shadowed|3|function|false|true|");
     }
 
-    [Fact]
+    [Test]
     public void AssigningOverAMethodNameStoresTheKeyAndKeepsTheMethod()
     {
         var engine = StorageEngine();
@@ -225,7 +225,7 @@ public class StorageTests
             """).AsString().Should().Be("function|not a function");
     }
 
-    [Fact]
+    [Test]
     public void FollowsThePrototypeChainAsItChanges()
     {
         var engine = StorageEngine();
@@ -247,7 +247,7 @@ public class StorageTests
             """).AsString().Should().Be("from the store|from the store|from the prototype|from the prototype|0|from the store|from the store");
     }
 
-    [Fact]
+    [Test]
     public void IsALegacyPlatformObjectForDefineAndFreeze()
     {
         var engine = StorageEngine();
@@ -275,7 +275,7 @@ public class StorageTests
             """).AsString().Should().Be("42|42truetruetrue|TypeError|TypeError|true|TypeError|TypeError");
     }
 
-    [Fact]
+    [Test]
     public void DeletingAnAbsentOrInheritedNameSucceedsVacuously()
     {
         var engine = StorageEngine();
@@ -293,7 +293,7 @@ public class StorageTests
             """).AsString().Should().Be("true|true|function|stored");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheInterfaceObjectAndItsPrototype()
     {
         var engine = StorageEngine();
@@ -314,7 +314,7 @@ public class StorageTests
             """).AsString().Should().Be("true|true|[object Storage]|TypeError|TypeError|TypeError|TypeError");
     }
 
-    [Fact]
+    [Test]
     public void KeepsLocalAndSessionApart()
     {
         var engine = StorageEngine();
@@ -334,7 +334,7 @@ public class StorageTests
             """).AsString().Should().Be("false|true|no|definitely not|true");
     }
 
-    [Fact]
+    [Test]
     public void TurnsAProvidersQuotaRefusalIntoACatchableQuotaExceededError()
     {
         var engine = new Engine(options => options
@@ -361,7 +361,7 @@ public class StorageTests
             """).AsString().Should().Be("QuotaExceededError|true|22|32|146|null|tiny|1");
     }
 
-    [Fact]
+    [Test]
     public void QuotaAlsoGuardsTheNamedSetter()
     {
         var engine = new Engine(options => options
@@ -376,7 +376,7 @@ public class StorageTests
             """).AsString().Should().Be("QuotaExceededError");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotTouchTheProviderWhenTheValueIsUnchanged()
     {
         // "If this's map[key] exists: ... if oldValue is value, return" — the whole operation is a no-op,
@@ -394,7 +394,7 @@ public class StorageTests
         provider.Log.Should().Be("set(a,1)|set(a,2)");
     }
 
-    [Fact]
+    [Test]
     public void DrivesTheHostsProviderForEveryOperation()
     {
         var provider = new RecordingStorageProvider();
@@ -413,7 +413,7 @@ public class StorageTests
         provider.Log.Should().Be("set(a,1)|set(b,2)|remove(b)|remove(a)|clear");
     }
 
-    [Fact]
+    [Test]
     public void ReadsWhateverTheProviderSaysAtThatMoment()
     {
         var provider = new InMemoryStorageProvider();
@@ -428,7 +428,7 @@ public class StorageTests
         provider.Count.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void GivesTwoEnginesBuiltFromOneOptionsInstanceTheirOwnStores()
     {
         var options = new Options().UseStorage();
@@ -444,7 +444,7 @@ public class StorageTests
         second.Evaluate("localStorage.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SharesAStoreWhenTheProviderIsShared()
     {
         var shared = new InMemoryStorageProvider();
@@ -461,7 +461,7 @@ public class StorageTests
         first.Evaluate("localStorage === sessionStorage").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IsNotPartOfTheDefaultFeatureSet()
     {
         // Storage is state a host may not expect, so it is never inherited from "give me the web APIs".
@@ -477,7 +477,7 @@ public class StorageTests
         plain.Evaluate("'localStorage' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void GivesEachGlobalTheAttributesWebIdlAsksFor()
     {
         var engine = StorageEngine();
@@ -499,7 +499,7 @@ public class StorageTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = StorageEngine();
@@ -512,7 +512,7 @@ public class StorageTests
         engine.Evaluate("typeof localStorage").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("the host's own");
@@ -524,7 +524,7 @@ public class StorageTests
         engine.Evaluate("typeof sessionStorage").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestoreWithItsContents()
     {
         var engine = StorageEngine();
@@ -543,7 +543,7 @@ public class StorageTests
         engine.Evaluate("localStorage.getItem('written')").AsString().Should().Be("in the first cycle");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAKeyThatIsAlsoASymbol()
     {
         var engine = StorageEngine();
@@ -566,14 +566,14 @@ public class StorageTests
             """).AsString().Should().Be("not stored|stored|1|tag|true|undefined");
     }
 
-    [Fact]
+    [Test]
     public void ThrowsThroughToTheHostForAnythingButAQuotaRefusal()
     {
         var engine = StorageEngine(new ThrowingStorageProvider());
 
         // Only StorageQuotaExceededException is translated; a host's own failure is not flattened into a
         // JavaScript error the script could swallow.
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Execute("localStorage.setItem('a', '1')"));
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.Execute("localStorage.setItem('a', '1')"))!;
         exception.Message.Should().Be("the database is on fire");
     }
 

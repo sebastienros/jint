@@ -48,7 +48,7 @@ public class HostPromiseTimeoutTests
     /// A promise nobody settles, and a budget far below the ten-second default. Reading the default instead
     /// of the configured value would name ten seconds and park for ten seconds, and both are asserted.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheArgumentLessUnwrapTakesTheConfiguredPromiseTimeout()
     {
         var configured = TimeSpan.FromMilliseconds(200);
@@ -57,7 +57,7 @@ public class HostPromiseTimeoutTests
         var manual = engine.Tasks.RegisterPromise();
 
         var elapsed = Stopwatch.StartNew();
-        var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise());
+        var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise())!;
         elapsed.Stop();
 
         ShouldNameTheBudgetItWaitedUnder(rejection, configured);
@@ -69,7 +69,7 @@ public class HostPromiseTimeoutTests
     /// configured with. Here the configured value is the longer of the two, so honouring it would be the
     /// failure.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnExplicitTimeoutStillWinsOverTheConfiguredOne()
     {
         var configured = TimeSpan.FromMinutes(5);
@@ -79,7 +79,7 @@ public class HostPromiseTimeoutTests
         var requested = TimeSpan.FromMilliseconds(200);
 
         var elapsed = Stopwatch.StartNew();
-        var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise(requested));
+        var rejection = Assert.Throws<PromiseRejectedException>(() => manual.Promise.UnwrapIfPromise(requested))!;
         elapsed.Stop();
 
         ShouldNameTheBudgetItWaitedUnder(rejection, requested);
@@ -90,7 +90,7 @@ public class HostPromiseTimeoutTests
     /// A settled promise never reaches the wait at all, so the configured bound costs nothing on the path
     /// every host actually takes.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASettledPromiseIsUnwrappedWithoutConsultingTheBudget()
     {
         using var engine = new Engine(options => options.Constraints.PromiseTimeout = TimeSpan.Zero);

@@ -39,7 +39,7 @@ public class GlobalSnapshotInternalsTests
     /// that tree is keyed on the AST — a restore must not evict it, or a reusing host would be paying
     /// fresh-engine cost with extra steps.
     /// </summary>
-    [Fact]
+    [Test]
     public void HandlerTreeCachesSurviveRestore()
     {
         var engine = new Engine();
@@ -66,7 +66,7 @@ public class GlobalSnapshotInternalsTests
         EvaluatedScriptCount(engine).Should().Be(1, "restore must not make the engine forget it has already run this script");
     }
 
-    [Fact]
+    [Test]
     public void CachedFunctionDefinitionsStayWarmAcrossRestore()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class GlobalSnapshotInternalsTests
         afterRestore.Should().BeSameAs(definition, "the definition owns the body handler tree and its inline caches");
     }
 
-    [Fact]
+    [Test]
     public void GlobalReEntersBuiltinShapeStorageAfterADeoptAndRestore()
     {
         var engine = new Engine();
@@ -118,7 +118,7 @@ public class GlobalSnapshotInternalsTests
         engine.Evaluate("'AggregateError' in globalThis").Should().Be(true, "a lazily materialized intrinsic is declared by the layout even before its factory runs");
     }
 
-    [Fact]
+    [Test]
     public void EachRestoreHandsOutAFreshDescriptorArray()
     {
         // Slot materialization writes back into the array the object is holding, so handing out the
@@ -134,7 +134,7 @@ public class GlobalSnapshotInternalsTests
         shaped.BuiltinDescriptors.Should().NotBeSameAs(first);
     }
 
-    [Fact]
+    [Test]
     public void VersionCountersStrictlyIncreaseAcrossRestore()
     {
         var engine = new Engine();
@@ -161,7 +161,7 @@ public class GlobalSnapshotInternalsTests
         global._propertiesVersion.Should().NotBe(afterFirst, "an idempotent restore still has to invalidate");
     }
 
-    [Fact]
+    [Test]
     public void CaptureDoesNotMaterializeALazyGlobalDescriptor()
     {
         var engine = new Engine(options => options.AddLazyGlobal(
@@ -180,7 +180,7 @@ public class GlobalSnapshotInternalsTests
         descriptor._value.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void RestoreEmptiesTheGlobalDeclarativeRecord()
     {
         var engine = new Engine();
@@ -196,7 +196,7 @@ public class GlobalSnapshotInternalsTests
         declarativeRecord.Should().BeSameAs(engine.Realm.GlobalEnv._declarativeRecord, "environment identity is pinned by per-node caches");
     }
 
-    [Fact]
+    [Test]
     public void RestoreDrainsTheEventLoopWithoutRunningTheJobs()
     {
         var engine = new Engine();
@@ -217,7 +217,7 @@ public class GlobalSnapshotInternalsTests
     /// completes it, which can be long after a restore, so the settle job is enqueued onto a loop that was
     /// already drained. Only the generation stamped at registration can tell it apart from current work.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStaleClrTaskSettlingAfterRestoreIsDroppedAtDequeue()
     {
         var engine = new Engine();
@@ -245,7 +245,7 @@ public class GlobalSnapshotInternalsTests
         engine.Evaluate("typeof globalThis.cache").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void InCycleWorkEnqueuedAfterARestoreStillRuns()
     {
         // The fence must only reach backwards: everything the next cycle queues carries the new generation.
@@ -264,7 +264,7 @@ public class GlobalSnapshotInternalsTests
     /// value field: that field is not where its reads come from, so writing it would leave the two
     /// disagreeing — a descriptor that is neither restored nor consistent.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostCustomValueDescriptorIsNotDesynchronizedByRestore()
     {
         var engine = new Engine();
@@ -302,7 +302,7 @@ public class GlobalSnapshotInternalsTests
     /// they are the one <c>CustomJsValue</c> shape restore may revert by writing that field. The marker is
     /// what says so; if a lazy descriptor ever stops carrying it, the revert silently stops happening.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheInBoxLazyDescriptorsDeclareThemselvesFieldBacked()
     {
         var engine = new Engine(options => options.AddLazyGlobal(
@@ -317,7 +317,7 @@ public class GlobalSnapshotInternalsTests
         plain.Realm.GlobalObject._properties!["parseInt"].Should().BeAssignableTo<IFieldBackedLazyDescriptor>();
     }
 
-    [Fact]
+    [Test]
     public void RestoreKeepsHostGlobalsInTheHybridOverflowRatherThanDeoptingTheShape()
     {
         var engine = new Engine();

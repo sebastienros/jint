@@ -1,17 +1,26 @@
+#nullable enable
+
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
+using NUnit.Framework.Interfaces;
+using NUnit.Framework.Internal;
 
 namespace Jint.Tests;
 
-public class RunnableInDebugOnlyAttribute : FactAttribute
+/// <summary>
+/// Marks a test that only runs under a debugger, because it needs something an unattended run has no
+/// business doing — reaching the network, for instance.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+public sealed class RunnableInDebugOnlyAttribute : NUnitAttribute, IApplyToTest
 {
-    public RunnableInDebugOnlyAttribute(
-        [CallerFilePath] string sourceFilePath = null,
-        [CallerLineNumber] int sourceLineNumber = -1) : base(sourceFilePath, sourceLineNumber)
+    public void ApplyToTest(Test test)
     {
-        if (!Debugger.IsAttached)
+        if (test.RunState == RunState.NotRunnable || Debugger.IsAttached)
         {
-            Skip = "Only running in interactive mode.";
+            return;
         }
+
+        test.RunState = RunState.Ignored;
+        test.Properties.Set(PropertyNames.SkipReason, "Only running in interactive mode.");
     }
 }

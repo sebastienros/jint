@@ -7,7 +7,7 @@
 /// </summary>
 public class DynamicFunctionTests
 {
-    [Fact]
+    [Test]
     public void RepeatedDynamicFunctionCallsGetFreshBindings()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -21,7 +21,7 @@ public class DynamicFunctionTests
         engine.Evaluate("results.join(',')").AsString().Should().Be("1,1,1,1,1");
     }
 
-    [Fact]
+    [Test]
     public void ClosureCapturingDynamicFunctionsKeepIndependentEnvironments()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -36,7 +36,7 @@ public class DynamicFunctionTests
         engine.Evaluate("results.join(',')").AsString().Should().Be("1,2,1,1");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedInstancesOfTheSameSourceStayIndependent()
     {
         var engine = new Engine(static options => options.Strict = true);

@@ -50,7 +50,7 @@ public class HostNamedPropertyWriteTests
     // Writing
     // -------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AssigningAWritableNameReachesTheHost()
     {
         var engine = EngineWith(out var record);
@@ -66,7 +66,7 @@ public class HostNamedPropertyWriteTests
         record.Read("title").Should().Be("reflected");
     }
 
-    [Fact]
+    [Test]
     public void AWritableNameReportsWritableTrue()
     {
         var engine = EngineWith(out _);
@@ -83,7 +83,7 @@ public class HostNamedPropertyWriteTests
     /// stays honest: the read-only one refuses exactly the way an ordinary non-writable data property does —
     /// a silent no-op in sloppy mode, a <c>TypeError</c> in strict mode.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARefusedWriteIsSilentInSloppyModeAndThrowsInStrictMode()
     {
         var engine = EngineWith(out var record);
@@ -105,7 +105,7 @@ public class HostNamedPropertyWriteTests
     /// <c>IsNameWritable</c> accepts any name in the schema, so an assignment creates the field; anything else
     /// falls through to the prototype chain and then to an ordinary expando, exactly as on a plain object.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAssignmentMayCreateAFieldOrStayAnOrdinaryExpando()
     {
         var engine = EngineWith(out var record);
@@ -120,7 +120,7 @@ public class HostNamedPropertyWriteTests
         engine.Evaluate("Object.keys(doc).join()").Should().Be("title,views,id,summary,notInSchema");
     }
 
-    [Fact]
+    [Test]
     public void ReflectSetWithAForeignReceiverDefinesOnTheReceiver()
     {
         var engine = EngineWith(out var record);
@@ -134,7 +134,7 @@ public class HostNamedPropertyWriteTests
     // Deleting
     // -------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DeletingAWritableNameReachesTheHost()
     {
         var engine = EngineWith(out var record);
@@ -146,7 +146,7 @@ public class HostNamedPropertyWriteTests
         engine.Evaluate("Object.keys(doc).join()").Should().Be("views,id");
     }
 
-    [Fact]
+    [Test]
     public void ARefusedDeleteIsFalseInSloppyModeAndThrowsInStrictMode()
     {
         var engine = EngineWith(out var record);
@@ -162,7 +162,7 @@ public class HostNamedPropertyWriteTests
     // Enumeration
     // -------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void EnumerationOrderIsTheOrderTheRecordReportsNames()
     {
         var engine = EngineWith(out var record);
@@ -182,7 +182,7 @@ public class HostNamedPropertyWriteTests
     /// <c>Object.getOwnPropertySymbols(record)</c> reported <c>1</c> against unfixed code. The base class
     /// honours the mask, and the member is sealed, so it cannot be got wrong.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheTypesMaskIsHonoured()
     {
         var engine = EngineWith(out _);
@@ -199,7 +199,7 @@ public class HostNamedPropertyWriteTests
     // The rest of the model still holds
     // -------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void DefinePropertyOnAProjectedNameIsStillRefused()
     {
         var engine = EngineWith(out var record);
@@ -212,7 +212,7 @@ public class HostNamedPropertyWriteTests
         engine.Evaluate("Object.defineProperty(doc, 'extra', { value: 1, enumerable: true }); doc.extra").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheRecordIsStillVisibleToTheClrConversion()
     {
         var engine = EngineWith(out var record);
@@ -224,7 +224,7 @@ public class HostNamedPropertyWriteTests
         converted["id"].Should().Be("doc/1");
     }
 
-    [Fact]
+    [Test]
     public void ObjectAssignCopiesTheRecordOut()
     {
         var engine = EngineWith(out _);
@@ -241,12 +241,12 @@ public class HostNamedPropertyWriteTests
     /// <summary>
     /// Whether Jint's host-contract verifiers are running: always in a Debug build, and in Release when
     /// <c>Jint.EnableHostContractVerification</c> was set before the first use of any Jint type — which is what
-    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Public and
-    /// static so xUnit can read it for <c>SkipUnless</c>.
+    /// this repository's Release verification leg does (<c>JINT_HOST_CONTRACT_VERIFICATION=1</c>). Static so
+    /// <see cref="IgnoreUnlessAttribute" /> can read it while the test tree is built.
     /// </summary>
     public static bool Verifying => HostContractVerificationSwitch.Enabled;
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void DeclaringANameWritableWithNoWriteHookIsReportedWhenVerifying()
     {
         var engine = new Engine();
@@ -256,7 +256,7 @@ public class HostNamedPropertyWriteTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*does not override TrySetNamedValue*");
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void AWriteHookWithNoWritabilityDeclarationIsReportedWhenVerifying()
     {
         var engine = new Engine();
@@ -271,7 +271,7 @@ public class HostNamedPropertyWriteTests
     /// deletion is governed by <c>configurable</c>, which a projected name always reports <c>true</c>. It must
     /// therefore work, and must not trip the dead-write-hook verifier.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADeleteOnlyProjectionIsAnOrdinaryShape()
     {
         var engine = new Engine();
@@ -308,7 +308,7 @@ public class HostNamedPropertyWriteTests
         protected override bool TryDeleteName(string name) => _names.Remove(name);
     }
 
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void ADeleteThatDidNotDeleteIsReportedWhenVerifying()
     {
         var engine = new Engine();

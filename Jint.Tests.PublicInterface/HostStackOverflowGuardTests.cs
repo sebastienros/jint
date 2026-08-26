@@ -26,13 +26,13 @@ public class HostStackOverflowGuardTests
 
     private static Engine Guarded() => new();
 
-    [Fact]
+    [Test]
     public void TheGuardIsEnabledByDefault()
     {
         new Options().Constraints.StackOverflowGuard.Should().BeTrue();
     }
 
-    public static TheoryData<string, string> UnboundedRecursions => new()
+    public static TestCases<string, string> UnboundedRecursions => new()
     {
         { "call", "function f() { return f(); } f();" },
         { "new", "function F() { new F(); } new F();" },
@@ -41,8 +41,7 @@ public class HostStackOverflowGuardTests
         { "proxy trap", "var p = new Proxy({}, { get: function (t, k) { return p[k]; } }); p.a;" },
     };
 
-    [Theory]
-    [MemberData(nameof(UnboundedRecursions))]
+    [TestCaseSource(nameof(UnboundedRecursions))]
     public void AnUnboundedRecursionIsACatchableError(string route, string script)
     {
         _ = route;
@@ -59,7 +58,7 @@ public class HostStackOverflowGuardTests
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void TheEngineKeepsWorkingAfterOne()
     {
         DedicatedThread.Run(
@@ -85,7 +84,7 @@ public class HostStackOverflowGuardTests
     /// A host callback that re-enters the engine is the shape an embedder is most likely to build a cycle
     /// out of by accident, and the one furthest from a call expression.
     /// </summary>
-    [Fact]
+    [Test]
     public void HostReEntryIsGuardedToo()
     {
         DedicatedThread.Run(
@@ -102,7 +101,7 @@ public class HostStackOverflowGuardTests
             maxStackSize: SmallStack);
     }
 
-    [Fact]
+    [Test]
     public void ScriptCodeCanCatchItAndCarryOn()
     {
         DedicatedThread.Run(
@@ -129,7 +128,7 @@ public class HostStackOverflowGuardTests
     /// thread with more stack gets proportionally more frames. That is what makes the guard safe to enable
     /// at all: it never takes depth away from a host that provisioned for it.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDepthFollowsTheStackTheEngineRunsOn()
     {
         var small = MeasureGuardedDepth(SmallStack);
@@ -147,7 +146,7 @@ public class HostStackOverflowGuardTests
     /// direction is impossible in-process: what an unguarded engine does past its own limit is end the
     /// process, and no test can assert on that.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnExplicitOptOutDoesNotProbeAtAll()
     {
         var guardedDepth = (int) MeasureGuardedDepth(SmallStack);
