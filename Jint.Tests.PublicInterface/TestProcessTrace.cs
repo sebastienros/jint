@@ -26,8 +26,10 @@ namespace Jint.Tests.PublicInterface;
 /// </para>
 /// <para>
 /// Attach it to the assembly rather than to any class: the point is to cover tests nobody suspected yet.
-/// The counter is what makes the trace comparable with the run summary — "482 passed" and
-/// "the 486th line is the last one" identify the same moment from the two ends.
+/// The counter is what makes the trace comparable with the run summary — "482 passed" and "the 486th start"
+/// identify the same moment from the two ends — and it is the count to trust: a log that merged standard
+/// output into standard error can glue a trace line onto the tail of an xUnit line that did not end in a
+/// newline, so counting lines undercounts and the ordinal does not.
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Assembly)]
@@ -43,21 +45,22 @@ internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
 
     public override void Before(MethodInfo methodUnderTest, IXunitTest test)
     {
-        Write(">>>", Interlocked.Increment(ref _started), test);
+        if (Enabled)
+        {
+            Write(">>>", Interlocked.Increment(ref _started), test);
+        }
     }
 
     public override void After(MethodInfo methodUnderTest, IXunitTest test)
     {
-        Write("<<<", Interlocked.Increment(ref _finished), test);
+        if (Enabled)
+        {
+            Write("<<<", Interlocked.Increment(ref _finished), test);
+        }
     }
 
     private static void Write(string marker, int ordinal, IXunitTest test)
     {
-        if (!Enabled)
-        {
-            return;
-        }
-
         // " :: " separates the fixed-width preamble from the display name, so that a log reader can pair
         // starts with finishes on an exact field rather than on a column count.
         Console.Error.WriteLine(string.Format(

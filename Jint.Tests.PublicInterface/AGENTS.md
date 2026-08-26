@@ -35,9 +35,16 @@ Three consequences, all of which cost time on sebastienros/jint#3308 before they
 The adapter starts the test assembly's app host with stdin and stdout redirected and **not** stderr, so a
 runtime crash banner never reaches the log either. To see any of it, run the assembly the way the adapter
 does — it is an `Exe`, so `artifacts/bin/Jint.Tests.PublicInterface/release_<tfm>/Jint.Tests.PublicInterface`
-runs standalone — and read the exit code. `JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which writes
-one stderr line per test start and finish; diffing starts against finishes is what names the test that was
-in flight when the process went.
+runs standalone — and read the exit code: `134` is SIGABRT, which is what a managed stack overflow becomes,
+`139` SIGSEGV, `137` the OOM killer, and macOS leaves a `.ips` report in
+`~/Library/Logs/DiagnosticReports` besides. `JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which
+writes one stderr line per test start and finish; the highest ordinal with no matching finish names the
+test that was in flight when the process went, and `-parallelMode none` makes that exactly one test.
+
+The one time this has happened it was a stack overflow: linking a thousand-module import chain recursed
+once per module and ran out of stack on macOS under `net8.0` and nowhere else. The general lesson is the
+one in `Jint/Runtime/Modules/AGENTS.md` — a test whose passing depends on how much stack the runner gave
+the thread is asserting a property of the runner.
 
 ### Where integrator-facing tests belong
 

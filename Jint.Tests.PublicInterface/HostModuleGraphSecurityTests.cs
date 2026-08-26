@@ -661,8 +661,8 @@ public sealed class HostModuleGraphSecurityTests
         ChainRoot(modules, LongChainLength).LoadRequestedModules();
 
         // ...and it reached the bottom rather than stopping short: the chain is exactly this deep, so one
-        // less is the limit that has to fail. Without this the test above would still pass against a loader
-        // that quietly gave up part-way.
+        // less is the limit that has to fail. Without this line, a load phase that quietly gave up part-way
+        // would satisfy the call above.
         Invoking(() => ChainRoot(modules, LongChainLength - 1).LoadRequestedModules())
             .Should().Throw<ModuleGraphLimitException>();
     }
