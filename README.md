@@ -2837,9 +2837,28 @@ var engine = new Engine(options =>
 
 `Options.Temporal.CalendarProvider` (`ICalendarProvider`) is the third of these, for non-ISO
 calendar arithmetic. Its default, `DefaultCalendarProvider`, is backed by
-`System.Globalization.Calendar` subclasses, which constrains some date ranges — derive from it and
-override one conversion to correct a calendar (see
+`System.Globalization.Calendar` subclasses, which constrains some date ranges (see
 [`Jint/Native/Temporal/NonIsoCalendars.cs`](Jint/Native/Temporal/NonIsoCalendars.cs)).
+
+*Correcting* one of the eleven non-ISO calendars Jint implements is one override — the conversion that
+gets it wrong, with `base` answering for the other ten:
+
+```c#
+sealed class AstronomicalPersian : DefaultCalendarProvider
+{
+    public override IsoDateFields? CalendarFieldsToIso(
+        string calendar, int year, string? monthCode, int month, int day, string overflow)
+        => calendar == "persian"
+            ? MyTables.ToIso(year, month, day)
+            : base.CalendarFieldsToIso(calendar, year, monthCode, month, day, overflow);
+}
+```
+
+*Adding* a calendar Jint does not know is three: `GetSupportedCalendars`, which is what makes the
+identifier valid anywhere in `Temporal`, and both conversions, which nobody but you can perform. The
+inherited `IsSupported` reads the list, so it does not need overriding as well. Such a calendar reaches
+construction, every field accessor, `with` and `toString`; it does not reach `add`/`subtract`/`until`/`since`
+or `toLocaleString`, both of which raise a `RangeError` for a calendar the engine does not implement itself.
 
 ## Running untrusted code
 

@@ -111,7 +111,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
             }
 
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarArg);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarArg);
         }
 
         // Use a reference year - 1972 is a leap year so Feb 29 is valid
@@ -182,10 +182,10 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
         {
             // Calendar must be a string, not other types
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarValue);
         }
 
-        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_engine, _realm, calendar);
 
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
@@ -278,7 +278,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
 
         // For non-ISO calendars, when an explicit ordinal `month` is supplied, year is needed
         // because the ordinal-to-monthCode mapping is year-dependent (leap months shift it).
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar) && month != 0 && !yearExplicitlyProvided)
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, _engine) && month != 0 && !yearExplicitlyProvided)
         {
             Throw.TypeError(_realm, "year is required when month is provided for a non-ISO calendar");
         }
@@ -290,7 +290,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
 
         // Fundamental monthCode validity for non-ISO calendars: out-of-range display number,
         // or leap variant on a calendar without leap months → RangeError regardless of overflow.
-        if (monthCodeStr is not null && NonIsoCalendars.IsNonIsoCalendar(calendar)
+        if (monthCodeStr is not null && NonIsoCalendars.IsNonIsoCalendar(calendar, _engine)
             && !NonIsoCalendars.TryValidateMonthCode(calendar, monthCodeStr, out var displayMonth))
         {
             var max = NonIsoCalendars.MaxDisplayMonth(calendar) ?? 12;
@@ -327,7 +327,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
             string? effectiveMonthCode = monthCodeStr;
             if (yearExplicitlyProvided)
             {
-                var validated = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+                var validated = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, day, overflow, monthCodeStr);
                 if (validated is null)
                 {
                     Throw.RangeError(_realm, "Invalid month-day");
@@ -387,9 +387,9 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
                 }
             }
 
-            var calendarYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, actualDay, effectiveMonthCode);
+            var calendarYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, month, actualDay, effectiveMonthCode, _engine);
 
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, calendar, calendarYear, month, actualDay, finalOverflow, effectiveMonthCode);
+            var calDate = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, calendarYear, month, actualDay, finalOverflow, effectiveMonthCode);
             if (calDate is null)
             {
                 Throw.RangeError(_realm, "Invalid month-day");
@@ -424,7 +424,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
         }
 
         // Strip annotations and extract calendar if present
-        var error = TemporalHelpers.StripAnnotations(input, out var coreString, out var calendar);
+        var error = TemporalHelpers.StripAnnotations(engine, input, out var coreString, out var calendar);
         if (error is not null)
         {
             // Annotation parsing error
@@ -434,7 +434,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
         var hasNonIsoCalendar = false;
         if (calendar is not null)
         {
-            var canonical = TemporalHelpers.CanonicalizeCalendar(calendar);
+            var canonical = TemporalHelpers.CanonicalizeCalendar(engine, calendar);
             if (canonical is null)
             {
                 return null; // Invalid calendar
@@ -588,7 +588,7 @@ internal sealed partial class PlainMonthDayConstructor : Constructor
                 // (Tevet 14 of 5732), so simply replacing the year flips the calendar day.
                 var calFields = NonIsoCalendars.IsoToCalendarDate(calendar, parsed.Value, engine);
                 var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(calendar, 1972, calFields.Month, calFields.Day, calFields.MonthCode);
-                var anchored = TemporalHelpers.CalendarDateToISO(null!, calendar, canonicalYear, calFields.Month, calFields.Day, "constrain", calFields.MonthCode);
+                var anchored = TemporalHelpers.CalendarDateToISO(null, null!, calendar, canonicalYear, calFields.Month, calFields.Day, "constrain", calFields.MonthCode);
                 if (anchored is not null)
                 {
                     return anchored.Value;

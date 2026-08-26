@@ -494,7 +494,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
         IsoDate? date;
         if (isNonIso8601)
         {
-            date = TemporalHelpers.CalendarDateToISO(_realm, zdt.Calendar, year, month, day, overflow, monthCode);
+            date = TemporalHelpers.CalendarDateToISO(_engine, _realm, zdt.Calendar, year, month, day, overflow, monthCode);
         }
         else
         {
@@ -573,7 +573,7 @@ internal sealed partial class ZonedDateTimePrototype : Prototype
         // Step 1-2: Validate this value
         var zdt = ValidateZonedDateTime(thisObject);
         // Step 3: Let calendar be ? ToTemporalCalendarIdentifier(calendarLike)
-        var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarLike);
+        var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarLike);
 
         // Step 4: Return ! CreateTemporalZonedDateTime(zonedDateTime.[[EpochNanoseconds]], zonedDateTime.[[TimeZone]], calendar)
         return _constructor.Construct(zdt.EpochNanoseconds, zdt.TimeZone, calendar);

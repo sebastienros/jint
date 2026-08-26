@@ -1,5 +1,7 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
+using Jint.Runtime;
 
 namespace Jint.Native.Temporal;
 
@@ -66,12 +68,37 @@ internal static class NonIsoCalendars
         bool InLeapYear);
 
     /// <summary>
-    /// Returns true if the calendar is a non-ISO calendar supported by this adapter.
+    /// The failure of a provider that names a calendar in <see cref="ICalendarProvider.GetSupportedCalendars"/>
+    /// and then hands its conversion back to the base class, which has never heard of it. Reported as a
+    /// <c>RangeError</c> naming the member the host still owes, so it arrives as a JavaScript error rather
+    /// than as a <see cref="NotSupportedException"/> escaping the engine.
     /// </summary>
-    internal static bool IsNonIsoCalendar(string calendar)
-        => calendar is "chinese" or "dangi" or "hebrew" or "persian"
+    [DoesNotReturn]
+    private static void ThrowUnclaimedByProvider(Engine engine, string calendar, string member)
+    {
+        Throw.RangeError(
+            engine.Realm,
+            $"Calendar '{calendar}' is claimed by the configured {nameof(ICalendarProvider)} but its {member} does not answer for it");
+    }
+
+    /// <summary>
+    /// Returns true if the calendar is a non-ISO calendar this adapter can convert — the eleven it
+    /// implements itself, plus any a host <see cref="ICalendarProvider"/> claims when one is installed.
+    /// </summary>
+    internal static bool IsNonIsoCalendar(string calendar, Engine? engine = null)
+    {
+        if (calendar is "chinese" or "dangi" or "hebrew" or "persian"
             or "coptic" or "ethiopic" or "ethioaa" or "indian"
-            or "islamic-umalqura" or "islamic-civil" or "islamic-tbla";
+            or "islamic-umalqura" or "islamic-civil" or "islamic-tbla")
+        {
+            return true;
+        }
+
+        var provider = engine?.Options.Temporal.CalendarProvider;
+        return provider is not null
+            && !ReferenceEquals(provider, DefaultCalendarProvider.Instance)
+            && provider.IsSupported(calendar);
+    }
 
     /// <summary>
     /// Converts an ISO date to calendar-specific fields.
@@ -83,7 +110,20 @@ internal static class NonIsoCalendars
         var provider = engine?.Options.Temporal.CalendarProvider;
         if (provider is not null && provider != DefaultCalendarProvider.Instance && provider.IsSupported(calendar))
         {
-            var fields = provider.IsoToCalendarFields(calendar, isoDate.Year, isoDate.Month, isoDate.Day);
+            CalendarFields fields;
+            try
+            {
+                fields = provider.IsoToCalendarFields(calendar, isoDate.Year, isoDate.Month, isoDate.Day);
+            }
+            catch (NotSupportedException)
+            {
+                // The provider claims the calendar and then delegates it to an inherited conversion that
+                // has never heard of it. That is the host's contract broken, not the script's mistake, but
+                // a CLR exception crossing out of a Temporal call is nobody's idea of a diagnosis.
+                ThrowUnclaimedByProvider(engine!, calendar, nameof(ICalendarProvider.IsoToCalendarFields));
+                return default;
+            }
+
             return new CalendarDate(
                 fields.Year, fields.Month, fields.MonthCode, fields.Day,
                 fields.IsLeapMonth, fields.MonthsInYear, fields.DaysInMonth,
@@ -128,7 +168,17 @@ internal static class NonIsoCalendars
         var provider = engine?.Options.Temporal.CalendarProvider;
         if (provider is not null && provider != DefaultCalendarProvider.Instance && provider.IsSupported(calendar))
         {
-            var iso = provider.CalendarFieldsToIso(calendar, year, monthCode, month, day, overflow);
+            IsoDateFields? iso;
+            try
+            {
+                iso = provider.CalendarFieldsToIso(calendar, year, monthCode, month, day, overflow);
+            }
+            catch (NotSupportedException)
+            {
+                ThrowUnclaimedByProvider(engine!, calendar, nameof(ICalendarProvider.CalendarFieldsToIso));
+                return null;
+            }
+
             return iso is null ? null : new IsoDate(iso.Value.Year, iso.Value.Month, iso.Value.Day);
         }
 
@@ -799,11 +849,48 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// The same "latest calendar year whose (monthCode, day) still lands on or before the ISO reference
+    /// year" search as below, expressed only in terms of the two conversions an
+    /// <see cref="ICalendarProvider"/> supplies, for a calendar the engine itself does not implement.
+    /// </summary>
+    private static int FindProviderReferenceYear(string calendar, int isoReferenceYear, string monthCode, int day, Engine engine)
+    {
+        var anchor = IsoToCalendarDate(calendar, new IsoDate(isoReferenceYear, 12, 31), engine).Year;
+        var bestYear = anchor;
+        var bestDay = long.MinValue;
+
+        for (var year = anchor - 12; year <= anchor + 12; year++)
+        {
+            var iso = CalendarDateToIso(calendar, year, monthCode, 0, day, "reject", engine);
+            if (iso is null || iso.Value.Year > isoReferenceYear)
+            {
+                continue;
+            }
+
+            var epochDay = IsoToJulianDay(iso.Value.Year, iso.Value.Month, iso.Value.Day);
+            if (epochDay > bestDay)
+            {
+                bestDay = epochDay;
+                bestYear = year;
+            }
+        }
+
+        return bestYear;
+    }
+
+    /// <summary>
     /// Finds a calendar year where (year, monthCode, day) converts to an ISO date
     /// with the given ISO reference year. Used for PlainMonthDay without explicit year.
     /// </summary>
-    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, string monthCode, int day)
+    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, string monthCode, int day, Engine? engine = null)
     {
+        // A calendar only a host provider knows has no BCL calendar behind it, so the search below cannot
+        // run. The provider's own two conversions are enough to do it generically.
+        if (engine is not null && !IsNonIsoCalendar(calendar))
+        {
+            return FindProviderReferenceYear(calendar, isoReferenceYear, monthCode, day, engine);
+        }
+
         // For calendars that don't use .NET Calendar class
         if (calendar is "coptic" or "ethiopic" or "ethioaa")
         {

@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Globalization;
 using System.Numerics;
 using Jint.Native.Intl;
 using Jint.Native.Temporal;
@@ -203,6 +204,68 @@ public class HostLocaleProviderTests
     }
 
     [Fact]
+    public void AddingACalendarTheEngineHasNeverSeenIsThreeOverrides()
+    {
+        var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
+
+        // the identifier is valid everywhere a calendar identifier can appear
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').year").AsNumber().Should().Be(5138);
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').toString()")
+            .AsString().Should().Be("2024-03-05[u-ca=mayan]");
+        engine.Evaluate("Temporal.PlainDate.from({ year: 5138, monthCode: 'M03', day: 5, calendar: 'mayan' }).toString()")
+            .AsString().Should().Be("2024-03-05[u-ca=mayan]");
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05[u-ca=mayan]').year").AsNumber().Should().Be(5138);
+        engine.Evaluate("Temporal.PlainDateTime.from('2024-03-05T12:00[u-ca=mayan]').year").AsNumber().Should().Be(5138);
+        engine.Evaluate("Temporal.ZonedDateTime.from('2024-03-05T12:00[UTC][u-ca=mayan]').year").AsNumber().Should().Be(5138);
+
+        // …and every field accessor reads it through the two conversions
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').monthCode").AsString().Should().Be("M03");
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').daysInMonth").AsNumber().Should().Be(31);
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').inLeapYear").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').with({ day: 10 }).toString()")
+            .AsString().Should().Be("2024-03-10[u-ca=mayan]");
+        engine.Evaluate("Temporal.PlainYearMonth.from({ year: 5138, monthCode: 'M03', calendar: 'mayan' }).toString()")
+            .AsString().Should().Be("2024-03-01[u-ca=mayan]");
+        engine.Evaluate("Temporal.PlainMonthDay.from({ monthCode: 'M03', day: 5, calendar: 'mayan' }).toString()")
+            .AsString().Should().Be("1972-03-05[u-ca=mayan]");
+
+        // every calendar the subclass does not claim still reads the inherited BCL-backed arithmetic
+        var stock = new Engine();
+        foreach (var calendar in new[] { "islamic-civil", "coptic", "persian", "indian", "hebrew" })
+        {
+            var script = $"Temporal.PlainDate.from('2024-03-05').withCalendar('{calendar}').toString()";
+            engine.Evaluate(script).AsString().Should().Be(stock.Evaluate(script).AsString());
+        }
+    }
+
+    /// <summary>
+    /// Calendar arithmetic is implemented per calendar inside the engine and is not routed through
+    /// <see cref="ICalendarProvider"/>, so a calendar a host added has none. What this pins is that the
+    /// refusal is a <c>RangeError</c> a script can catch, rather than a <see cref="NotSupportedException"/>
+    /// escaping <c>Engine.Evaluate</c> as it did before.
+    /// </summary>
+    [Fact]
+    public void AHostCalendarHasNoArithmeticAndSaysSoInJavaScript()
+    {
+        var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
+
+        foreach (var script in new[]
+        {
+            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ days: 1 })",
+            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').subtract({ months: 1 })",
+            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').until(Temporal.PlainDate.from('2024-05-05').withCalendar('mayan'))",
+        })
+        {
+            engine.Evaluate($"(function () {{ try {{ {script}; return 'no error'; }} catch (e) {{ return e.constructor.name + ': ' + e.message; }} }})()")
+                .AsString().Should().Be("RangeError: Calendar arithmetic is not implemented for 'mayan'");
+        }
+
+        // the calendars the engine implements itself are unaffected
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('hebrew').add({ months: 1 }).toString()")
+            .AsString().Should().Be(new Engine().Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('hebrew').add({ months: 1 }).toString()").AsString());
+    }
+
+    [Fact]
     public void AnEngineThatConfiguresNothingStillReadsTheSharedSingletons()
     {
         var options = new Options();
@@ -296,6 +359,46 @@ file sealed class ShiftedHebrewEra : DefaultCalendarProvider
 
 /// <summary>
 /// Present only to be compiled: the compiler is the only thing that checks that all nineteen are virtual.
+/// A calendar Jint has never heard of, defined as ISO shifted by the Mayan Long Count epoch so the
+/// arithmetic is checkable by eye. The two conversions are the whole subclass: nobody but the host can
+/// convert a calendar the engine does not know, and everything else about it is inherited.
+/// </summary>
+file sealed class WithMayan : DefaultCalendarProvider
+{
+    private const int EpochOffset = 3114;
+
+    public override IReadOnlyCollection<string> GetSupportedCalendars()
+        => [.. base.GetSupportedCalendars(), "mayan"];
+
+    public override CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay)
+    {
+        if (!string.Equals(calendar, "mayan", StringComparison.Ordinal))
+        {
+            return base.IsoToCalendarFields(calendar, isoYear, isoMonth, isoDay);
+        }
+
+        var leap = DateTime.IsLeapYear(isoYear);
+        return new CalendarFields(
+            isoYear + EpochOffset, isoMonth, $"M{isoMonth:D2}", isoDay,
+            IsLeapMonth: false, MonthsInYear: 12, DaysInMonth: DateTime.DaysInMonth(isoYear, isoMonth),
+            DaysInYear: leap ? 366 : 365, InLeapYear: leap);
+    }
+
+    public override IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow)
+    {
+        if (!string.Equals(calendar, "mayan", StringComparison.Ordinal))
+        {
+            return base.CalendarFieldsToIso(calendar, year, monthCode, month, day, overflow);
+        }
+
+        var resolved = monthCode is not null ? int.Parse(monthCode.Substring(1), CultureInfo.InvariantCulture) : month;
+        return new IsoDateFields(year - EpochOffset, resolved, day);
+    }
+}
+
+/// <summary>
+/// Present only to be compiled: a host reaching a member the engine never consults still has to be able
+/// to override it, and the compiler is the only thing that checks that all twenty-one are virtual.
 /// </summary>
 file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
 {

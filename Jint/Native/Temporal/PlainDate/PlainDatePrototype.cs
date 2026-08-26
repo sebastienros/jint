@@ -244,7 +244,7 @@ internal sealed partial class PlainDatePrototype : Prototype
         var overflow = TemporalHelpers.GetOverflowOption(_realm, (JsValue?) resolvedOptions ?? JsValue.Undefined);
 
         // Handle non-ISO calendars
-        if (NonIsoCalendars.IsNonIsoCalendar(plainDate.Calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(plainDate.Calendar, _engine))
         {
             // Get current calendar fields
             var calDate = NonIsoCalendars.IsoToCalendarDate(plainDate.Calendar, plainDate.IsoDate, _engine);
@@ -286,7 +286,7 @@ internal sealed partial class PlainDatePrototype : Prototype
                 finalMonthCode = calDate.MonthCode;
             }
 
-            var date = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, finalCalYear,
+            var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, plainDate.Calendar, finalCalYear,
                 month ?? 0, finalCalDay, overflow, finalMonthCode);
             if (date is null)
             {
@@ -324,7 +324,7 @@ internal sealed partial class PlainDatePrototype : Prototype
                 calMonth = mc.Value;
             }
 
-            var date2 = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, calYear, calMonth, calDay, overflow);
+            var date2 = TemporalHelpers.CalendarDateToISO(_engine, _realm, plainDate.Calendar, calYear, calMonth, calDay, overflow);
             if (date2 is null)
             {
                 Throw.RangeError(_realm, "Invalid date");
@@ -526,7 +526,7 @@ internal sealed partial class PlainDatePrototype : Prototype
         }
 
         // Step 6: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit, _realm);
 
         // Step 7-10: If rounding needed, use RoundRelativeDuration
         DurationRecord result;
@@ -765,8 +765,8 @@ internal sealed partial class PlainDatePrototype : Prototype
                 }
             }
 
-            var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(plainDate.Calendar, 1972, calFields.Month, day, monthCode);
-            var anchored = TemporalHelpers.CalendarDateToISO(_realm, plainDate.Calendar, canonicalYear, calFields.Month, day, "constrain", monthCode);
+            var canonicalYear = TemporalHelpers.FindCalendarReferenceYear(plainDate.Calendar, 1972, calFields.Month, day, monthCode, _engine);
+            var anchored = TemporalHelpers.CalendarDateToISO(_engine, _realm, plainDate.Calendar, canonicalYear, calFields.Month, day, "constrain", monthCode);
             if (anchored is not null)
             {
                 return new JsPlainMonthDay(_engine, _realm.Intrinsics.TemporalPlainMonthDay.PrototypeObject,
@@ -933,7 +933,7 @@ internal sealed partial class PlainDatePrototype : Prototype
         }
 
         // Use the shared ToTemporalCalendarIdentifier which handles ISO string parsing
-        return TemporalHelpers.ToTemporalCalendarIdentifier(_realm, value);
+        return TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, value);
     }
 
     /// <summary>

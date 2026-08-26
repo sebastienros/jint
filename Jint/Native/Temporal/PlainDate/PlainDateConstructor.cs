@@ -88,10 +88,10 @@ internal sealed partial class PlainDateConstructor : Constructor
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
             // This handles Temporal objects (fast path) and string calendars
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarValue);
         }
 
-        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_engine, _realm, calendar);
 
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
@@ -186,7 +186,7 @@ internal sealed partial class PlainDateConstructor : Constructor
         // (TypeError) checks per CalendarResolveFields error ordering.
         month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+        var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
@@ -242,7 +242,7 @@ internal sealed partial class PlainDateConstructor : Constructor
 
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
             // This handles Temporal objects (fast path) and string calendars
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarArg);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarArg);
         }
 
         var date = TemporalHelpers.RegulateIsoDate(year, month, day, "reject");
@@ -320,7 +320,7 @@ internal sealed partial class PlainDateConstructor : Constructor
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
             // This handles Temporal objects (fast path) and string calendars
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarValue);
         }
 
         // 2. day - read and convert immediately
@@ -427,7 +427,7 @@ internal sealed partial class PlainDateConstructor : Constructor
             month = monthFromCode.Value;
         }
 
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow);
+        var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, day, overflow);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
@@ -436,7 +436,7 @@ internal sealed partial class PlainDateConstructor : Constructor
         return Construct(date.Value, calendar);
     }
 
-    private static ParsedDateResult? ParseDateString(string input)
+    private ParsedDateResult? ParseDateString(string input)
     {
         // Empty strings are invalid
         if (string.IsNullOrEmpty(input))
@@ -445,7 +445,7 @@ internal sealed partial class PlainDateConstructor : Constructor
         }
 
         // Strip annotations and extract calendar if present
-        var error = TemporalHelpers.StripAnnotations(input, out var coreString, out var calendar);
+        var error = TemporalHelpers.StripAnnotations(_engine, input, out var coreString, out var calendar);
         if (error is not null)
         {
             // Annotation parsing error - return null to let caller throw the error

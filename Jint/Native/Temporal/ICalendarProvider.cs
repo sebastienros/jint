@@ -17,9 +17,21 @@ namespace Jint.Native.Temporal;
 public interface ICalendarProvider
 {
     /// <summary>Returns true if this provider can handle the given calendar identifier.</summary>
+    /// <remarks>
+    /// Asked on every non-ISO calendar operation, so keep it cheap. <see cref="DefaultCalendarProvider"/>
+    /// answers it from <see cref="GetSupportedCalendars"/>, which is what keeps the two consistent.
+    /// </remarks>
     bool IsSupported(string calendar);
 
     /// <summary>Returns all calendar identifiers this provider supports.</summary>
+    /// <remarks>
+    /// This list is what makes an identifier <c>Temporal</c> does not implement itself a valid one: a
+    /// calendar named here is accepted by <c>Temporal.PlainDate.from</c>, <c>withCalendar</c> and a
+    /// <c>[u-ca=…]</c> annotation, and its conversions are then asked of this provider. It is read on a
+    /// validation path — return a cached collection rather than building one per call.
+    /// It does not feed <c>Intl.supportedValuesOf('calendar')</c>, which is
+    /// <see cref="Intl.ICldrProvider.GetSupportedCalendars"/>'s answer.
+    /// </remarks>
     IReadOnlyCollection<string> GetSupportedCalendars();
 
     /// <summary>

@@ -93,7 +93,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
         }
 
         // Read and convert properties in strict alphabetical order per spec: day, month, monthCode, year
-        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(md.Calendar);
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(md.Calendar, _engine);
 
         // 1. day
         var dayProp = obj.Get("day");
@@ -188,7 +188,7 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
             var calYear = isNonIso && yearProp.IsUndefined()
                 ? TemporalHelpers.CalendarYear(md.Calendar, md.IsoDate, _engine)
                 : year;
-            var calDate = TemporalHelpers.CalendarDateToISO(_realm, md.Calendar, calYear,
+            var calDate = TemporalHelpers.CalendarDateToISO(_engine, _realm, md.Calendar, calYear,
                 monthProp.IsUndefined() ? 0 : month, day, overflow, monthCode);
             if (calDate is null)
             {
