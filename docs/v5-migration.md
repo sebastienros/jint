@@ -1751,6 +1751,49 @@ placeholder's.
 `InnerException`. Catch the exception the host actually raises instead. There is no option to restore the
 old shape; the old shape reported an exception nothing threw.
 
+### 4.33 An overload the argument cannot bind to is no longer selected ([#3407](https://github.com/sebastienros/jint/issues/3407))
+
+Overload scoring rates each argument against each parameter and had no verdict for a plain type mismatch:
+anything it did not recognize scored "will rarely succeed", and a *positive* score is a match. So a candidate
+the argument could never bind to was selected whenever it was the only one, and the call then died converting
+the argument. Two places take the first match and stop, and both were affected.
+
+**Operators.** For a host type whose only `+` is `(T, T)`, four spec-defined expressions threw instead of
+evaluating. There is no overload for those operand pairs, so `ApplyStringOrNumericBinaryOperator` applies:
+`ToPrimitive` both operands and, one of them being a string, concatenate.
+
+```js
+// 4.16.x, for engine.SetValue("v", new Vector2D(1, 2)) with AllowOperatorOverloading = true
+'text ' + v        // InvalidCastException: Invalid cast from 'System.String' to 'Vector2D'
+v + ' text'        // InvalidCastException
+1 + v              // InvalidCastException: Invalid cast from 'System.Double' to 'Vector2D'
+true + v           // InvalidCastException: Invalid cast from 'System.Boolean' to 'Vector2D'
+```
+
+```js
+// 5.x
+'text ' + v        // "text (1, 2)"
+v + ' text'        // "(1, 2) text"
+1 + v              // "1(1, 2)"
+true + v           // "true(1, 2)"
+```
+
+An overload that *does* accept the pair still wins: declare `(T, double)`, `(double, T)` or `(string, T)`
+and those expressions are operator calls exactly as before.
+
+**Constructors.** `new Boxed('text')`, where the only constructor takes a type no string converts to, raised
+the CLR's `InvalidCastException` out of `Evaluate` — not a `JavaScriptException`, so no script `catch` and no
+host `catch (JavaScriptException)` could see it. It is now the resolution failure it always was, a `TypeError`
+reading `Could not resolve a constructor for the specified arguments.`
+
+Method calls are unchanged: `MethodInfoFunction` already asked the converter per candidate and moved on when
+it declined, so a hopeless candidate was proposed and then rejected. It is no longer proposed.
+
+**What could break:** a `catch (InvalidCastException)` around `Evaluate` written to absorb either shape no
+longer fires — catch `JavaScriptException`, or stop writing the expression that threw. A host relying on
+`'s' + v` throwing as a type check has to test explicitly instead. Nothing changes for
+`AllowOperatorOverloading = false`, which took the concatenating path already.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

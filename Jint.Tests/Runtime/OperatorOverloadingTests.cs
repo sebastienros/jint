@@ -359,20 +359,15 @@ public class OperatorOverloadingTests
     }
 
     /// <remarks>
-    /// Ignored rather than adapted, and the assertion below is untouched: what it asserts is what an embedder
-    /// expects, and un-ignoring it is the acceptance criterion for sebastienros/jint#3407.
-    /// <para>
-    /// This is not a regression of the move to NUnit, and it is not flaky. The engine has always thrown here:
-    /// <c>'text' + v</c> resolves to <c>op_Addition(Vector2D, Vector2D)</c>, whose first parameter cannot take
-    /// a string, and converting the argument throws. What changed is only who reports it. The exception
-    /// leaves the engine as a <see cref="System.Reflection.TargetInvocationException"/> whose
-    /// <c>InnerException</c> is <see langword="null" /> (sebastienros/jint#3408), and xUnit unwraps such an
-    /// exception to its inner - that is, to <see langword="null" /> - and records no failure at all. So this
-    /// assertion has never once been evaluated since the test was added in #1011 in 2021. NUnit does not
-    /// unwrap, so it reports what was always happening.
-    /// </para>
+    /// Green from #1011 in 2021 until sebastienros/jint#3407, without either assertion ever being reached.
+    /// <c>'### ' + v1</c> resolved to <c>op_Addition(Vector2D, Vector2D)</c>, whose first parameter cannot
+    /// take a string, and converting the argument threw; the failure left the engine as a
+    /// <see cref="System.Reflection.TargetInvocationException"/> whose <c>InnerException</c> was
+    /// <see langword="null" /> (sebastienros/jint#3408), and xUnit unwrapped such an exception to its inner -
+    /// that is, to <see langword="null" /> - and recorded no failure at all. NUnit does not unwrap, so a
+    /// regression here cannot hide the same way again.
     /// </remarks>
-    [Test, Ignore("sebastienros/jint#3407: 'text' + an operator-overloaded CLR value throws instead of concatenating")]
+    [Test]
     public void ShouldAllowStringConcatenateForOverloaded()
     {
         var engine = new Engine(cfg => cfg.Interop.AllowOperatorOverloading = true);
