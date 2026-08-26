@@ -1,12 +1,43 @@
 # Agent instructions: integrator-facing tests
 
 > **Read this when:** You are writing a test that has to prove a third party can actually reach an API,
-> **or a build here has failed on `PublicApiTest` or `PublicApiDocumentationTest`.**
+> **or a build here has failed on `PublicApiTest` or `PublicApiDocumentationTest`, or a run here ended in
+> a `TestPipelineException` naming no test.**
 >
 > This is one of the co-located instruction files indexed from the repository-root
 > [`AGENTS.md`](../AGENTS.md). Read that first — it carries the build and test commands, the branch to
 > target, and the conventions that apply to every file in the repository. Nothing below is
 > repeated there.
+
+### When the run dies instead of failing
+
+`[FATAL ERROR] Xunit.Sdk.TestPipelineException`, with no test named and no stack trace, **is not an
+exception anything threw**. `xunit.runner.visualstudio` synthesises it in `CrashDetectionExecutionSink`
+when the test process stops talking without ever sending `TestAssemblyFinished`: it waits
+`crashDetectionSinkTimeout` — sixty seconds by default — *from the last message it received*, and then
+reports that type name with one message line, `Test process crashed with exit code N.` or `Test process
+crashed or communication channel was lost.`
+
+Three consequences, all of which cost time on sebastienros/jint#3308 before they were understood:
+
+- **Subtract sixty seconds.** The fatal is stamped a minute after the process went, so the run looks like
+  it hung for a minute doing nothing. It did not. The `Duration:` on the summary line, not the timestamp
+  of the fatal, is when the process was last alive.
+- **The sentence saying what happened is filtered out.** `LogError` writes the exception *type* at error
+  level and the message and stack trace through `LogImportantMessage`, which arrives at VSTest as
+  `TestMessageLevel.Informational` — printed only at `verbosity=normal` and `detailed`. CI runs
+  `--logger "console;verbosity=quiet"`, so the type survives and the message does not. Re-run the one
+  assembly at `verbosity=normal` to read it; do not raise the verbosity of the whole-solution run, which
+  prints a line per passing test.
+- **`Passed!` is printed for the subset that reported.** A partial run reports `Failed: 0` and only the
+  process exit code disagrees. Never conclude a leg is green from the summary line alone.
+
+The adapter starts the test assembly's app host with stdin and stdout redirected and **not** stderr, so a
+runtime crash banner never reaches the log either. To see any of it, run the assembly the way the adapter
+does — it is an `Exe`, so `artifacts/bin/Jint.Tests.PublicInterface/release_<tfm>/Jint.Tests.PublicInterface`
+runs standalone — and read the exit code. `JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which writes
+one stderr line per test start and finish; diffing starts against finishes is what names the test that was
+in flight when the process went.
 
 ### Where integrator-facing tests belong
 
