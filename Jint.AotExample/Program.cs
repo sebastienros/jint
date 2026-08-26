@@ -23,6 +23,9 @@
 //
 //   degrades, and the Probe checks the degradation is CORRECT and not merely quiet
 //     ArrayWrapperFactory<int> / GenericListWrapperFactory<int> -> ListWrapper
+//     GenericListWrapperFactory<int>, target is not an IList    -> plain ObjectWrapper, and
+//                                                                  Array.prototype over the
+//                                                                  IndexWrappedOperations lane (#3362)
 //     ReadOnlyListWrapperFactory<double>                        -> plain ObjectWrapper
 //     EnumerableSnapshotFactory<int>                            -> object snapshot
 //   throws, because nothing non-generic satisfies the contract asked for
@@ -122,6 +125,83 @@ Probe("IReadOnlyList<double> crossing (plain ObjectWrapper fallback under AOT)",
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("ro", new ReadOnlyDoubles());
     Expect(1.5, engine.Evaluate("ro[0]"));
+});
+
+// The reference-type sibling of the row below. IndexedItems<T> is an IList<T> that is deliberately not
+// a non-generic IList, and GenericListWrapperFactory<string> shares canonical code, so this host gets
+// the typed wrapper on every runtime and its length is writable. That is what makes the row below a
+// boundary rather than an assertion about one type.
+Probe("IList<string> without IList (GenericListWrapperFactory<string>)", static () =>
+{
+    var engine = new Engine(static cfg => { cfg.AllowClr(); cfg.Interop.AllowWrite = true; });
+    engine.SetValue("host", new IndexedItems<string>("a", "b"));
+
+    if (engine.Evaluate("host").GetType() == typeof(ObjectWrapper))
+    {
+        throw new InvalidOperationException("expected the typed GenericListWrapper, got the degraded plain ObjectWrapper");
+    }
+
+    Expect(2, engine.Evaluate("host.length"));
+    Expect("b", engine.Evaluate("host[1]"));
+    Expect("a-b", engine.Evaluate("Array.prototype.join.call(host, '-')"));
+    Expect("spliced 0, length 2", engine.Evaluate("(function () { try { var r = Array.prototype.splice.call(host, 0, 0); return 'spliced ' + r.length + ', length ' + host.length; } catch (e) { return e.constructor.name; } })()"));
+});
+
+// Same site, value-type argument, and the shape that reaches ArrayOperations.IndexWrappedOperations: a
+// wrapped CLR collection with an index to read but no IList to read it through. Under a JIT this host
+// gets the typed GenericListWrapper<int> and the lane is never entered, so Native AOT is what runs it -
+// which is why two bugs sat on it undetected until #3302 was fixed beside them (#3362). The reflection
+// fallback passed the WRAPPER to PropertyInfo.GetValue instead of the CLR target, a TargetException
+// waiting for its first read, and SetLength threw a bare NotSupportedException where the wrapper's
+// read-only "length" owes script a TypeError. Both fail this probe.
+//
+// Two facts about the host type are load-bearing, and neither is decoration. The non-generic ICollection
+// is where ArrayOperations reads the count, so an IList<T> without it falls through to ObjectOperations.
+// And the lane needs the PropertyInfo for IList<int>.Item, which the type descriptor finds by reflecting
+// over an interface it obtained at run time - metadata ILC trims by default, so without the
+// [DynamicDependency] on IndexedItems the degraded target reads through ObjectOperations here too and
+// this probe pins nothing. That is measured, not assumed: typeof(IList<int>).GetProperties() returned an
+// empty array in this published binary before that root was added.
+Probe("IList<int> without IList (IndexWrappedOperations lane under AOT)", () =>
+{
+    var engine = new Engine(static cfg => { cfg.AllowClr(); cfg.Interop.AllowWrite = true; });
+    engine.SetValue("host", new IndexedItems<int>(1, 2, 3));
+
+    // Which wrapper was built is what decides which lane Array.prototype takes, so assert it instead of
+    // hoping: the degraded plain ObjectWrapper is the one routed through IndexWrappedOperations, and a
+    // probe that quietly took the typed lane would pin nothing.
+    var wrapper = engine.Evaluate("host").GetType();
+    if ((wrapper == typeof(ObjectWrapper)) == dynamicCode)
+    {
+        throw new InvalidOperationException(
+            $"expected {(dynamicCode ? "the typed GenericListWrapper" : "the degraded plain ObjectWrapper")} but got {wrapper.Name}");
+    }
+
+    // The lane's other precondition, and the one that is invisible from script: without the PropertyInfo
+    // for IList<int>.Item the type descriptor reports no integer index, ArrayOperations picks
+    // ObjectOperations instead, and every assertion below still passes while testing a different lane.
+    if (typeof(IList<int>).GetProperty("Item") is null)
+    {
+        throw new InvalidOperationException("IList<int>.Item was trimmed, so the IndexWrappedOperations lane is unreachable and this probe would pin nothing");
+    }
+
+    // The reads. join, indexOf and filter are Array.prototype generics, so under AOT every element comes
+    // back through IndexWrappedOperations.ReadValue - PropertyInfo.GetValue over IList<int>.Item, with
+    // the CLR collection as the receiver. host[1] is the contrast: it resolves the type's own indexer
+    // and never used that lane, which is exactly why nothing ever caught the receiver bug.
+    Expect(3, engine.Evaluate("host.length"));
+    Expect(2, engine.Evaluate("host[1]"));
+    Expect("1-2-3", engine.Evaluate("Array.prototype.join.call(host, '-')"));
+    Expect(2, engine.Evaluate("Array.prototype.indexOf.call(host, 3)"));
+    Expect("2-3", engine.Evaluate("Array.prototype.filter.call(host, function (x) { return x > 1; }).join('-')"));
+
+    // The write. splice(0, 0) is the shortest generic that reaches SetLength and nothing else: a
+    // deleteCount of 0 with no items performs no element write and no delete, just
+    // Set(O, "length", len, true). The degraded wrapper has no IList to resize, so that write meets the
+    // wrapper's read-only "length" and becomes a TypeError script can catch - where the code this
+    // replaced threw a bare NotSupportedException out of Evaluate, which no script or host catch can
+    // see. The typed wrapper resizes instead, so the two runtimes answer differently on purpose.
+    Expect(dynamicCode ? "spliced 0, length 3" : "TypeError", engine.Evaluate("(function () { try { var r = Array.prototype.splice.call(host, 0, 0); return 'spliced ' + r.length + ', length ' + host.length; } catch (e) { return e.constructor.name; } })()"));
 });
 
 Probe("IEnumerable<string> snapshot (EnumerableSnapshotFactory<string>)", static () =>
@@ -463,6 +543,51 @@ public class ListTaker
     public int SumList(List<int> values) { var sum = 0; foreach (var v in values) { sum += v; } return sum; }
     public long SumEnumerable(IEnumerable<long> values) { long sum = 0; foreach (var v in values) { sum += v; } return sum; }
     public int CountCollection(System.Collections.ObjectModel.Collection<short> values) => values.Count;
+}
+
+/// <summary>
+/// A host collection that implements <see cref="IList{T}"/> and the non-generic
+/// <see cref="System.Collections.ICollection"/> but <em>not</em> the non-generic
+/// <see cref="System.Collections.IList"/> - the shape that reaches
+/// <c>ArrayOperations.IndexWrappedOperations</c> once the typed wrapper cannot be built. Every part of
+/// that sentence is load-bearing: the generic interface is what gives the type an index, the non-generic
+/// <see cref="System.Collections.ICollection"/> is where the count is read, and the absence of the
+/// non-generic <see cref="System.Collections.IList"/> is what leaves the degraded wrapper with nothing to
+/// resize.
+/// </summary>
+public sealed class IndexedItems<T> : IList<T>, System.Collections.ICollection
+{
+    private readonly List<T> _items;
+
+    /// <summary>
+    /// The lane this type exists to exercise reads its elements through the <c>PropertyInfo</c> for
+    /// <c>IList&lt;int&gt;.Item</c>, which Jint obtains by reflecting over an interface it discovered at
+    /// run time - so no signature preserves it and ILC trims it. Without this root
+    /// <c>typeof(IList&lt;int&gt;).GetProperties()</c> is empty in the published binary, the type
+    /// descriptor reports no integer index, and the collection is served by <c>ObjectOperations</c>
+    /// instead: the same answers, from a different lane, with no diagnostic anywhere - the failure mode
+    /// this project already roots its own assembly to avoid.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.DynamicDependency(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicProperties, typeof(IList<int>))]
+    public IndexedItems(params T[] items) => _items = [.. items];
+
+    public T this[int index] { get => _items[index]; set => _items[index] = value; }
+    public int Count => _items.Count;
+    public bool IsReadOnly => false;
+    public void Add(T item) => _items.Add(item);
+    public void Clear() => _items.Clear();
+    public bool Contains(T item) => _items.Contains(item);
+    public void CopyTo(T[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+    public int IndexOf(T item) => _items.IndexOf(item);
+    public void Insert(int index, T item) => _items.Insert(index, item);
+    public bool Remove(T item) => _items.Remove(item);
+    public void RemoveAt(int index) => _items.RemoveAt(index);
+    public IEnumerator<T> GetEnumerator() => _items.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+    bool System.Collections.ICollection.IsSynchronized => false;
+    object System.Collections.ICollection.SyncRoot => this;
+    void System.Collections.ICollection.CopyTo(Array array, int index) => ((System.Collections.ICollection) _items).CopyTo(array, index);
 }
 
 public sealed class ReadOnlyStrings : IReadOnlyList<string>
