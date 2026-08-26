@@ -31,9 +31,10 @@ namespace Jint.Native;
 /// <para>
 /// <b>Subclassing this class directly.</b> Passing a <see langword="null"/> backing value to
 /// <see cref="JsString(string)"/> still works and is how a lazy host string was written before
-/// <see cref="LazyJsString"/> existed; Jint's own sliced and concatenated representations are built on
-/// the same mechanism. It is the harder path — the parameter is typed <see cref="string"/>, so the
-/// <see langword="null"/> is a suppression against a contract that lives only in prose, and the
+/// <see cref="LazyJsString"/> existed; Jint's own sliced, concatenated and deferred-concatenation
+/// representations are built on the same mechanism. It is the harder path — the parameter is typed
+/// <see cref="string"/>, so the <see langword="null"/> is a suppression against a contract that lives
+/// only in prose, and the
 /// subclass owns its own memoization. A subclass that does it <b>must</b> override every member that
 /// would otherwise observe the backing value:
 /// <list type="bullet">
@@ -355,6 +356,67 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         }
 
         return CreateSliced(source.ToString(), start, length);
+    }
+
+    /// <summary>
+    /// The shortest concatenation result that is worth deferring instead of copying. Below it a
+    /// <see cref="RopeString"/> would cost a second object for a copy that is already cheaper than the
+    /// allocation, and every consumer of the result would pay the flattening indirection for nothing.
+    /// </summary>
+    /// <remarks>
+    /// Only the asymptotic behaviour above this line matters, and the exact value does not change it: a
+    /// loop that accumulates in <c>n</c>-character pieces copies for the first
+    /// <c>MinDeferredConcatenationLength / n</c> iterations and defers from then on, so the whole
+    /// quadratic term is bounded by <c>MinDeferredConcatenationLength²</c> characters however long the
+    /// loop runs. It is a knob for the small-string case, not for the fix.
+    /// </remarks>
+    internal const int MinDeferredConcatenationLength = 512;
+
+    /// <summary>
+    /// Concatenates two strings, deferring the copy into a <see cref="RopeString"/> once the result is
+    /// long enough to be worth a node. This is what <c>a + b</c> produces; it is deliberately not what
+    /// <c>a += b</c> produces, which stays on <see cref="ConcatenatedString"/>'s builder.
+    /// </summary>
+    /// <remarks>
+    /// The caller has already refused a result longer than <see cref="MaxLength"/> — it holds both
+    /// lengths for the sum it just checked, so re-reading them here would be two virtual dispatches for
+    /// a number it already has. That check is what lets the addition below be a plain <see cref="int"/>.
+    /// </remarks>
+    internal static JsString Concat(JsString left, JsString right)
+    {
+        var leftLength = left.Length;
+        var rightLength = right.Length;
+        Debug.Assert((long) leftLength + rightLength <= MaxLength, "the caller must refuse an over-long result before building it");
+
+        var length = leftLength + rightLength;
+        if (length < MinDeferredConcatenationLength)
+        {
+            return Create(string.Concat(left.ToString(), right.ToString()));
+        }
+
+        if (leftLength == 0)
+        {
+            return Immutable(right);
+        }
+
+        if (rightLength == 0)
+        {
+            return Immutable(left);
+        }
+
+        return new RopeString(Immutable(left), Immutable(right), length);
+    }
+
+    /// <summary>
+    /// A value that is safe to hold on to. <see cref="ConcatenatedString"/> is mutated in place by
+    /// <c>+=</c>, so a node that kept one would change content behind whoever else is still reading it;
+    /// everything else <see cref="JsString"/> produces is immutable and is returned as it is. The
+    /// snapshot is a wrapper around the string the builder has already flattened, not a character copy.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static JsString Immutable(JsString value)
+    {
+        return (value._type & InternalTypes.RequiresCloning) == InternalTypes.Empty ? value : new JsString(value.ToString());
     }
 
     internal static JsString Create(int value)
@@ -824,6 +886,141 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
         {
             // same hash as the equivalent flat string instance
             return string.GetHashCode(AsSpan(), StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// An immutable binary concatenation node: the result of an <c>a + b</c> whose operands are long
+    /// enough that copying them is worth deferring. It holds the two operands and the total length; the
+    /// flat text is produced once, on the first read that actually needs characters, and memoized.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why not <see cref="ConcatenatedString"/>.</b> That one is a mutable builder, and <c>s += t</c>
+    /// may append into it only because the assignment replaces the receiver. A non-assignment <c>+</c>
+    /// has no such guarantee — both operands stay reachable from wherever they were read — so the
+    /// deferred form it can use has to be immutable. Same reason an operand that <em>is</em> a
+    /// <see cref="ConcatenatedString"/> is snapshotted on the way in (<see cref="Immutable"/>): a later
+    /// <c>+=</c> on it appends in place, and a node holding it would change content behind its reader.
+    /// </para>
+    /// <para>
+    /// <b>Only the length is answered from the node.</b> <see cref="Length"/> — and therefore
+    /// truthiness, and the length comparison <see cref="JsString.Equals(JsString)"/> performs first — is
+    /// free. Everything else flattens, including <see cref="this[int]"/>, which does so deliberately
+    /// rather than descending the tree: descending is O(depth), so a <c>charCodeAt</c> scan over a
+    /// freshly accumulated value would become a new quadratic — the very shape this class exists to
+    /// remove. Flattening costs one copy, which is what the old code performed on every concatenation
+    /// anyway, and the memo makes every later read O(1). The base <see cref="JsString"/> bodies for
+    /// equality and hashing are correct as they stand: they read <c>_value</c> only when it is either
+    /// <see langword="null"/> or the exact flat text, which is the invariant this class keeps.
+    /// </para>
+    /// <para>
+    /// <b>Depth is not capped, and that is the design.</b> Flushing the tree at a depth bound would
+    /// re-copy the whole accumulated value every N concatenations — the quadratic behaviour again, with
+    /// a smaller constant, which is the thing being fixed. The hazard a cap would have addressed, a
+    /// recursive flatten overflowing the CLR stack on the unbalanced tree a long loop produces, is
+    /// removed at its source instead: <see cref="CopyInto"/> walks iteratively with an explicit,
+    /// heap-allocated stack, so depth costs 8 bytes per pending node — against the ~40 the node itself
+    /// already costs — and no stack frames at all. The walk descends right-first, so the append shape
+    /// (<c>s = s + x</c>, a left-leaning spine) never has more than one node pending; the prepend shape
+    /// (<c>s = x + s</c>) is the one that pays for the array.
+    /// </para>
+    /// </remarks>
+    internal sealed class RopeString : JsString
+    {
+        /// <summary>
+        /// Where the pending-node stack starts. A tree that never leans right stays inside one entry, so
+        /// this is only ever reached by prepend-shaped or genuinely bushy trees, which then double.
+        /// </summary>
+        private const int InitialPendingCapacity = 16;
+
+        // Not readonly, and released once the flat value is memoized: a flattened rope must stop
+        // retaining the tree it was built from, which for an accumulator loop is one node per iteration.
+        private JsString? _left;
+        private JsString? _right;
+
+        private readonly int _length;
+
+        internal RopeString(JsString left, JsString right, int length) : base(null!, InternalTypes.String)
+        {
+            _left = left;
+            _right = right;
+            _length = length;
+        }
+
+        public override int Length => _length;
+
+        public override string ToString() => _value ?? Flatten();
+
+        // Flattens rather than descending; see the class remarks for why.
+        public override char this[int index] => ToString()[index];
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private string Flatten()
+        {
+            // Not routed through a polyfill, unlike the rest of the assembly's downlevel gaps: what
+            // net472 and netstandard2.0 lack is not string.Create but System.Buffers.SpanAction<T, TArg>,
+            // its callback type, and a "polyfill" that declared a delegate of its own would be inventing
+            // API rather than backfilling it. The downlevel form fills an array and copies it into the
+            // string, which is the extra copy those targets already pay everywhere a string is built
+            // from parts; the modern form writes the characters into the string as it is allocated, and
+            // that single copy is what keeps a flattened concatenation no more expensive than the
+            // string.Concat it replaced.
+#if NETFRAMEWORK || NETSTANDARD2_0
+            var buffer = new char[_length];
+            CopyInto(buffer);
+            var value = new string(buffer);
+#else
+            var value = string.Create(_length, this, static (span, rope) => rope.CopyInto(span));
+#endif
+
+            _value = value;
+            _left = null;
+            _right = null;
+
+            return value;
+        }
+
+        /// <summary>
+        /// Writes the whole tree into <paramref name="destination"/>, filling it from the back so that a
+        /// left-leaning spine — the <c>s = s + x</c> accumulator — keeps at most one node pending.
+        /// </summary>
+        private void CopyInto(Span<char> destination)
+        {
+            var pending = System.Array.Empty<JsString>();
+            var pendingCount = 0;
+            var node = (JsString) this;
+            var position = _length;
+
+            while (true)
+            {
+                // A node that has already memoized its own flat value is a leaf as far as this walk is
+                // concerned: ToString() below hands back the memo without touching the (released) children.
+                if (node is RopeString { _value: null } rope)
+                {
+                    if (pendingCount == pending.Length)
+                    {
+                        System.Array.Resize(ref pending, pendingCount == 0 ? InitialPendingCapacity : pendingCount * 2);
+                    }
+
+                    pending[pendingCount++] = rope._left!;
+                    node = rope._right!;
+                    continue;
+                }
+
+                var text = node.ToString();
+                position -= text.Length;
+                text.AsSpan().CopyTo(destination.Slice(position));
+
+                if (pendingCount == 0)
+                {
+                    break;
+                }
+
+                node = pending[--pendingCount];
+            }
+
+            Debug.Assert(position == 0, "the node's length must be the sum of its operands' lengths");
         }
     }
 }

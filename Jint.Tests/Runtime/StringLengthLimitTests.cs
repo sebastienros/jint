@@ -21,11 +21,17 @@ namespace Jint.Tests.Runtime;
 /// Every row below is a path whose limit is decided from small inputs — a repeat count, a pad length,
 /// a replacement pattern's expansion factor, an array's <c>length</c> — so the throw happens before
 /// anything of that size is allocated and the test costs a few megabytes. The remaining guarded paths
-/// (<c>+</c>/<c>+=</c>, template literals, <c>concat</c>, <c>join</c>, <c>toLocaleString</c>,
+/// (<c>+=</c>, template literals, <c>concat</c>, <c>join</c>, <c>toLocaleString</c>,
 /// <c>String.raw</c>, the accumulators inside <c>replace</c>/<c>replaceAll</c> and the element-by-element
 /// half of <c>JSON.stringify</c>) accumulate their result one piece at a time, so their guard can only
 /// fire once roughly half a billion characters are already in hand; a test for those would have to
 /// allocate the gigabyte the guard exists to prevent, and there is no cheaper input that reaches them.
+/// </para>
+/// <para>
+/// <c>+</c> used to be in that second list and no longer is: it defers a long result into an immutable
+/// node rather than materializing it, so <c>s = s + s</c> doubles the length by referencing the same
+/// value twice and reaches the limit through 29 nodes and no characters at all. The guard is checked
+/// on the summed lengths, before the node is built, which is why it still fires there.
 /// </para>
 /// </summary>
 public class StringLengthLimitTests
@@ -71,6 +77,30 @@ public class StringLengthLimitTests
     {
         Caught($"'x'.padEnd({JsString.MaxLength + 1L}, 'ab')").Should().Be(InvalidStringLength);
         _engine.Evaluate("'x'.padEnd(3, 'ab')").AsString().Should().Be("xab");
+    }
+
+    /// <summary>
+    /// Repeated doubling with <c>+</c>: each step references the previous value twice, so the length
+    /// doubles while the representation grows by one node. The limit is therefore reached with nothing
+    /// of that size allocated, which is exactly where the guard has to fire — on the summed lengths,
+    /// before the result is built.
+    /// </summary>
+    [Fact]
+    public void ConcatenationPastTheLimitIsACatchableRangeError()
+    {
+        _engine.Execute("var s = 'x'; for (var i = 0; i < 28; i++) { s = s + s; }");
+        _engine.Evaluate("s.length").AsNumber().Should().Be(268_435_456);
+        _engine.Evaluate($"s.length <= {JsString.MaxLength}").AsBoolean().Should().BeTrue();
+
+        // one more character fits and is refused nothing; one more doubling does not
+        _engine.Evaluate("(s + 'y').length").AsNumber().Should().Be(268_435_457);
+        Caught("s + s").Should().Be(InvalidStringLength);
+        Caught("s + s + s").Should().Be(InvalidStringLength);
+        Caught("'y' + s + s").Should().Be(InvalidStringLength);
+
+        // deliberately not `s += s`: the compound form coerces its right operand to text first, so it
+        // would flatten the half-gigabyte this row exists to avoid allocating. Its guard is the one the
+        // paragraph above describes, and it stays untested for the reason given there.
     }
 
     /// <summary>
