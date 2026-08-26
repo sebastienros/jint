@@ -1605,7 +1605,7 @@ fires. Script that relied on a length change silently succeeding never existed �
 for a growable collection, for `Options.Interop.AllowWrite = false` (which refused these writes already), or
 for a `T[]` exposed under `ArrayConversionMode.LiveView`.
 
-### 4.28 `Intl` reads the CLDR provider for date names and numbering-system digits ([#3354](https://github.com/sebastienros/jint/issues/3354))
+### 4.29 `Intl` reads the CLDR provider for date names and numbering-system digits ([#3354](https://github.com/sebastienros/jint/issues/3354))
 
 `Intl.DateTimeFormat` took its month, weekday and day-period names straight from .NET's `CultureInfo`, and
 every formatter transliterated digits by looking the numbering system up in an embedded table. Both now go
@@ -1644,6 +1644,47 @@ months keeps .NET's abbreviated ones. Two lanes stay out of reach and are the en
 the interface's — `month: "narrow"` and `weekday: "narrow"`, which the formatter renders with the
 abbreviated pattern letter, and `timeStyle`, which writes English `AM`/`PM` regardless of any locale data,
 .NET's included.
+
+### 4.30 A calendar `ICalendarProvider` claims is a calendar `Temporal` accepts ([#3355](https://github.com/sebastienros/jint/issues/3355))
+
+`ICalendarProvider` could correct one of the eleven non-ISO calendars Jint implements, and nothing more.
+*Adding* one was documented as four overrides and was in fact impossible at any number: every `Temporal`
+entry point canonicalizes the identifier through a fixed table of eighteen before a provider is consulted,
+so `withCalendar('mayan')` was a `RangeError` that no provider could prevent. `ICalendarProvider.GetSupportedCalendars`
+had no caller at all — `Intl.supportedValuesOf('calendar')` reads `ICldrProvider.GetSupportedCalendars`,
+which is a different provider.
+
+Three things changed, none of which an unconfigured engine can observe:
+
+- **Canonicalization asks the provider.** An identifier Jint's own table does not name, that is a
+  well-formed Unicode calendar type and that the configured provider claims, is now a valid calendar
+  identifier — in `withCalendar`, in a `calendar` field and in a `[u-ca=…]` annotation.
+- **`DefaultCalendarProvider.IsSupported` answers from `GetSupportedCalendars()`** instead of from its own
+  hardcoded list, so the two cannot disagree and adding a calendar is three overrides rather than four. The
+  two lists held exactly the same eleven identifiers, so the answer is unchanged for every input.
+- **An unknown calendar reaching a conversion is a `RangeError`, not a `NotSupportedException`.** That
+  applies to a provider that names a calendar and then hands its conversion back to the base class, and to
+  calendar arithmetic — `add`, `subtract`, `until`, `since` — which is implemented per calendar inside the
+  engine and is not routed through the provider. Both used to throw a CLR exception out of
+  `Engine.Evaluate`, where neither script nor an embedder's `catch (JintException)` could see it.
+
+```c#
+// 5.x — three overrides, and Temporal accepts the identifier everywhere
+sealed class WithMayan : DefaultCalendarProvider
+{
+    public override IReadOnlyCollection<string> GetSupportedCalendars() => [.. base.GetSupportedCalendars(), "mayan"];
+    public override CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay) => …;
+    public override IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow) => …;
+}
+```
+
+**What could break:** a provider whose `IsSupported` and `GetSupportedCalendars` disagreed. `IsSupported` is
+now the list's answer for anything deriving from `DefaultCalendarProvider` without overriding it, and it is
+the question the engine asks — so a calendar in the list is now claimed, and one absent from it is not.
+A provider implementing `ICalendarProvider` from scratch is unaffected: both members are still its own.
+Second, a host calendar reaches construction, the field accessors, `with`, `toString` and the
+`PlainYearMonth`/`PlainMonthDay` conversions, but not arithmetic and not `Intl.DateTimeFormat`; both refuse
+it with a `RangeError`.
 
 ## 5. New in v5
 
@@ -1790,11 +1831,11 @@ var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 
 `ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
 answers is what `Intl` shows — see [4.22](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info)
-and [4.28](#428-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits) for the two changes
+and [4.29](#429-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits) for the two changes
 that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.
 On the calendar side, *correcting* a calendar Jint already knows is one override, while *adding* one it does
-not know is four: `IsSupported`, `GetSupportedCalendars` and both conversions all have to answer for the new
-identifier.
+not know is three — `GetSupportedCalendars` and both conversions — per
+[4.30](#430-a-calendar-icalendarprovider-claims-is-a-calendar-temporal-accepts).
 
 ### 5.3 Host objects: one hook set for named properties ([#3338](https://github.com/sebastienros/jint/pull/3338))
 

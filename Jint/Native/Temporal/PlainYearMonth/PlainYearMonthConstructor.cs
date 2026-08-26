@@ -134,7 +134,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
             }
 
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarArg);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarArg);
         }
 
         var day = referenceDay.IsUndefined() ? 1 : TemporalHelpers.ToIntegerWithTruncationAsInt(_realm, referenceDay);
@@ -221,10 +221,10 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         else
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarValue);
         }
 
-        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_engine, _realm, calendar);
 
         // 2. era/eraYear - read for era-supporting calendars (alphabetically between calendar and month)
         var eraYear = TemporalHelpers.ReadEraFields(_realm, obj, calendar);
@@ -307,7 +307,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
         if (calendar is not "iso8601" and not "gregory")
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
+            var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
@@ -353,7 +353,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         else
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarValue);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarValue);
         }
 
         // 2. era/eraYear - read for era-supporting calendars (alphabetically between calendar and month)
@@ -436,7 +436,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         // For non-ISO/non-gregory calendars, convert calendar year/month to ISO via CalendarDateToISO
         if (calendar is not "iso8601" and not "gregory")
         {
-            var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, 1, overflow, monthCodeStr);
+            var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, 1, overflow, monthCodeStr);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
@@ -467,7 +467,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         return Construct(new IsoDate(year, month, 1), calendar);
     }
 
-    private static IsoDate? ParseYearMonthString(string input, out string parsedCalendar)
+    private IsoDate? ParseYearMonthString(string input, out string parsedCalendar)
     {
         parsedCalendar = "iso8601";
 
@@ -478,7 +478,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         }
 
         // Strip annotations and extract calendar if present
-        var error = TemporalHelpers.StripAnnotations(input, out var coreString, out var calendar);
+        var error = TemporalHelpers.StripAnnotations(_engine, input, out var coreString, out var calendar);
         if (error is not null)
         {
             // Annotation parsing error
@@ -488,7 +488,7 @@ internal sealed partial class PlainYearMonthConstructor : Constructor
         // Canonicalize calendar annotation if present
         if (calendar is not null)
         {
-            var canonical = TemporalHelpers.CanonicalizeCalendar(calendar);
+            var canonical = TemporalHelpers.CanonicalizeCalendar(_engine, calendar);
             if (canonical is null)
             {
                 return null; // Invalid calendar

@@ -128,7 +128,7 @@ internal sealed partial class PlainDateTimeConstructor : Constructor
                 Throw.RangeError(_realm, $"Unsupported calendar: {calendarStr}");
             }
 
-            var canonical = TemporalHelpers.CanonicalizeCalendar(calendarStr);
+            var canonical = TemporalHelpers.CanonicalizeCalendar(_engine, calendarStr);
             if (canonical is null)
             {
                 Throw.RangeError(_realm, $"Unsupported calendar: {calendarStr}");
@@ -212,7 +212,7 @@ internal sealed partial class PlainDateTimeConstructor : Constructor
                 Throw.RangeError(_realm, "Invalid date-time string");
             }
 
-            return Construct(parsed.DateTime.Value, TemporalHelpers.ExtractCalendarIdentifierFromString(str));
+            return Construct(parsed.DateTime.Value, TemporalHelpers.ExtractCalendarIdentifierFromString(_engine, str));
         }
 
         if (item.IsObject())
@@ -239,10 +239,10 @@ internal sealed partial class PlainDateTimeConstructor : Constructor
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion
             // This handles Temporal objects (fast path) and string calendars
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarProp);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarProp);
         }
 
-        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_engine, _realm, calendar);
 
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
@@ -362,7 +362,7 @@ internal sealed partial class PlainDateTimeConstructor : Constructor
             Throw.RangeError(_realm, "Date is outside valid range");
         }
 
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+        var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");

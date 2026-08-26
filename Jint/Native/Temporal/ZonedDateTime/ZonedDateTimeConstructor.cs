@@ -92,7 +92,7 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         }
         else if (calendarArg.IsString())
         {
-            var canonical = TemporalHelpers.CanonicalizeCalendar(calendarArg.ToString());
+            var canonical = TemporalHelpers.CanonicalizeCalendar(_engine, calendarArg.ToString());
             if (canonical is null)
             {
                 Throw.RangeError(_realm, $"Invalid calendar: {calendarArg}");
@@ -180,10 +180,10 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         if (!calendarProp.IsUndefined())
         {
             // Use ToTemporalCalendarIdentifier for spec-compliant conversion (handles Temporal objects)
-            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarProp);
+            calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarProp);
         }
 
-        TemporalHelpers.RejectTemporalUnsupportedCalendar(_realm, calendar);
+        TemporalHelpers.RejectTemporalUnsupportedCalendar(_engine, _realm, calendar);
 
         // 2. day - read and convert immediately
         var dayValue = obj.Get("day");
@@ -321,7 +321,7 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         month = TemporalHelpers.ValidateMonthAndMonthCode(_realm, calendar, year, month, monthCodeStr, monthFromCode);
 
         // Regulate date (with calendar conversion for non-ISO calendars)
-        var date = TemporalHelpers.CalendarDateToISO(_realm, calendar, year, month, day, overflow, monthCodeStr);
+        var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, calendar, year, month, day, overflow, monthCodeStr);
         if (date is null)
         {
             Throw.RangeError(_realm, "Invalid date");
@@ -449,7 +449,7 @@ internal sealed partial class ZonedDateTimeConstructor : Constructor
         }
 
         var calendarId = result.Calendar ?? "iso8601";
-        var canonicalCalendar = TemporalHelpers.CanonicalizeCalendar(calendarId);
+        var canonicalCalendar = TemporalHelpers.CanonicalizeCalendar(_engine, calendarId);
         if (canonicalCalendar is null)
         {
             // A syntactically valid but not-yet-adopted calendar annotation (e.g. "bangla") must be rejected.

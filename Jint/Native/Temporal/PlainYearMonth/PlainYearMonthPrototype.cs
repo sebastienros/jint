@@ -279,7 +279,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
                 }
             }
 
-            var date = TemporalHelpers.CalendarDateToISO(_realm, ym.Calendar, year, month, 1, overflow, monthCode);
+            var date = TemporalHelpers.CalendarDateToISO(_engine, _realm, ym.Calendar, year, month, 1, overflow, monthCode);
             if (date is null)
             {
                 Throw.RangeError(_realm, "Invalid year-month");
@@ -489,7 +489,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
         TemporalHelpers.CheckISODaysRange(_realm, otherDate);
 
         // Step 11: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(ym1.Calendar, thisDate, otherDate, largestUnit);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(ym1.Calendar, thisDate, otherDate, largestUnit, _realm);
 
         // Step 12: AdjustDateDurationRecord - zero out weeks and days (PlainYearMonth only has years/months)
         var yearsMonthsDifference = new DurationRecord(
@@ -689,13 +689,13 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
         var day = TemporalHelpers.ToPositiveIntegerWithTruncation(_realm, dayProp);
 
         IsoDate? date;
-        if (NonIsoCalendars.IsNonIsoCalendar(ym.Calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(ym.Calendar, _engine))
         {
             // For non-ISO calendars, get the calendar year/month and combine with the provided day
             var calYear = TemporalHelpers.CalendarYear(ym.Calendar, ym.IsoDate, _engine);
             var calMonth = TemporalHelpers.CalendarMonth(ym.Calendar, ym.IsoDate, _engine);
             var calMonthCode = TemporalHelpers.CalendarMonthCode(ym.Calendar, ym.IsoDate, _engine);
-            date = TemporalHelpers.CalendarDateToISO(_realm, ym.Calendar, calYear, calMonth, day, "constrain", calMonthCode);
+            date = TemporalHelpers.CalendarDateToISO(_engine, _realm, ym.Calendar, calYear, calMonth, day, "constrain", calMonthCode);
         }
         else
         {

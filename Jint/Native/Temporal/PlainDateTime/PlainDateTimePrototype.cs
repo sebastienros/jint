@@ -372,7 +372,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         IsoDate? date;
         if (isNonIso8601)
         {
-            date = TemporalHelpers.CalendarDateToISO(_realm, plainDateTime.Calendar, year, month, day, overflow, monthCode);
+            date = TemporalHelpers.CalendarDateToISO(_engine, _realm, plainDateTime.Calendar, year, month, day, overflow, monthCode);
         }
         else
         {
@@ -423,7 +423,7 @@ internal sealed partial class PlainDateTimePrototype : Prototype
         // https://tc39.es/proposal-temporal/#sec-temporal.plaindatetime.prototype.withcalendar
         var plainDateTime = ValidatePlainDateTime(thisObject);
         // Use ToTemporalCalendarIdentifier for spec-compliant conversion (handles Temporal objects)
-        var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_realm, calendarArg);
+        var calendar = TemporalHelpers.ToTemporalCalendarIdentifier(_engine, _realm, calendarArg);
 
         return _constructor.Construct(plainDateTime.IsoDateTime, calendar);
     }

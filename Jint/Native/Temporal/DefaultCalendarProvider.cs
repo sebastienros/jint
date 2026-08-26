@@ -14,13 +14,25 @@ namespace Jint.Native.Temporal;
 /// property alone keeps <see cref="Instance"/>, which the engine recognizes by identity and answers inline.
 /// </para>
 /// <para>
-/// Range-limited per the underlying BCL calendars. Adding a calendar Jint does not know is not a
-/// one-member job: <see cref="IsSupported"/>, <see cref="GetSupportedCalendars"/> and both conversions
-/// all have to answer for it, or the inherited conversion throws on an identifier it has never seen.
+/// Range-limited per the underlying BCL calendars. <em>Adding</em> a calendar Jint does not know is three
+/// overrides, and no fewer: <see cref="GetSupportedCalendars"/>, which is what makes the identifier valid
+/// anywhere in <c>Temporal</c>, and both conversions, which nobody but the host can perform for a calendar
+/// the engine has never heard of. The inherited <see cref="IsSupported"/> reads the list, so the two answer
+/// consistently without the host keeping them in step; override it as well only to make the membership test
+/// cheaper than a scan of the list.
+/// </para>
+/// <para>
+/// A calendar added this way reaches construction from fields and from a <c>[u-ca=…]</c> annotation, every
+/// field accessor, <c>with</c>, <c>toString</c> and the <c>PlainYearMonth</c> / <c>PlainMonthDay</c>
+/// conversions. It does not reach calendar arithmetic — <c>add</c>, <c>subtract</c>, <c>until</c>,
+/// <c>since</c> — which is implemented per calendar inside the engine and raises a <c>RangeError</c> for a
+/// calendar it does not implement; nor <c>Intl.DateTimeFormat</c>, which has its own calendar list, so
+/// <c>toLocaleString</c> on such a date raises a <c>RangeError</c> too.
 /// </para>
 /// </remarks>
 /// <example>
 /// <code>
+/// // Correcting a calendar Jint already knows: one override.
 /// sealed class AstronomicalPersian : DefaultCalendarProvider
 /// {
 ///     public override IsoDateFields? CalendarFieldsToIso(
@@ -29,6 +41,14 @@ namespace Jint.Native.Temporal;
 /// }
 ///
 /// options.Temporal.CalendarProvider = new AstronomicalPersian();
+///
+/// // Adding one it does not know: the list, plus the two conversions.
+/// sealed class WithMayan : DefaultCalendarProvider
+/// {
+///     public override IReadOnlyCollection&lt;string&gt; GetSupportedCalendars() => [.. base.GetSupportedCalendars(), "mayan"];
+///     public override CalendarFields IsoToCalendarFields(string calendar, int isoYear, int isoMonth, int isoDay) => …;
+///     public override IsoDateFields? CalendarFieldsToIso(string calendar, int year, string? monthCode, int month, int day, string overflow) => …;
+/// }
 /// </code>
 /// </example>
 public class DefaultCalendarProvider : ICalendarProvider
@@ -49,7 +69,40 @@ public class DefaultCalendarProvider : ICalendarProvider
     protected DefaultCalendarProvider() { }
 
     /// <inheritdoc />
-    public virtual bool IsSupported(string calendar) => NonIsoCalendars.IsNonIsoCalendar(calendar);
+    /// <remarks>
+    /// Answered from <see cref="GetSupportedCalendars"/>, so a derived provider that adds a calendar to the
+    /// list does not also have to remember to claim it here. That means the list is read on a Temporal
+    /// validation path: return a cached collection from <see cref="GetSupportedCalendars"/>, and override
+    /// this member too if the list is long enough that scanning it matters.
+    /// </remarks>
+    public virtual bool IsSupported(string calendar)
+    {
+        var supported = GetSupportedCalendars();
+
+        // The default is a string[], which iterates without allocating an enumerator.
+        if (supported is string[] array)
+        {
+            foreach (var candidate in array)
+            {
+                if (string.Equals(candidate, calendar, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach (var candidate in supported)
+        {
+            if (string.Equals(candidate, calendar, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedCalendars() => SupportedCalendars;

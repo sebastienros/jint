@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -481,7 +482,7 @@ internal static class TemporalHelpers
     /// Handles: [u-ca=calendar], [timezone], [!u-ca=calendar], etc.
     /// Returns error message if annotations are invalid, null if valid.
     /// </summary>
-    public static string? StripAnnotations(string input, out string coreString, out string? calendar)
+    public static string? StripAnnotations(Engine? engine, string input, out string coreString, out string? calendar)
     {
         // Reject non-ASCII minus sign (U+2212)
         if (ContainsInvalidMinusSign(input))
@@ -593,7 +594,7 @@ internal static class TemporalHelpers
                         var calendarId = annotation.Substring(5); // Extract calendar name after "u-ca="
 
                         // Validate the calendar ID
-                        var canonical = CanonicalizeCalendar(calendarId);
+                        var canonical = CanonicalizeCalendar(engine, calendarId);
                         if (canonical is null)
                         {
                             coreString = input;
@@ -1573,7 +1574,15 @@ internal static class TemporalHelpers
     /// Canonicalizes a calendar identifier (case-insensitive matching).
     /// https://tc39.es/proposal-temporal/#sec-temporal-canonicalizetemporalcalendaridentifier
     /// </summary>
-    public static string? CanonicalizeCalendar(string calendar)
+    /// <remarks>
+    /// The switch below is Jint's own <c>AvailableCalendars</c>. An identifier it does not name is put to the
+    /// engine's <see cref="ICalendarProvider"/>, which is the only thing that could implement a calendar
+    /// Jint does not: without this, a host provider's <c>IsSupported</c> is never reached for a new
+    /// identifier, because every Temporal entry point canonicalizes before it consults a provider.
+    /// A host is answered only for a well-formed Unicode calendar type, so nothing it claims can produce an
+    /// identifier that would not round-trip through a <c>[u-ca=…]</c> annotation.
+    /// </remarks>
+    public static string? CanonicalizeCalendar(Engine? engine, string calendar)
     {
         // Must use ASCII case-folding only (not Turkish İ)
         // Check if it's a valid calendar ID and return canonical form
@@ -1602,20 +1611,46 @@ internal static class TemporalHelpers
             "japanese" => "japanese",
             "persian" => "persian",
             "roc" => "roc",
-            _ => null // Unsupported calendar
+            _ => AskCalendarProvider(engine, lower)
         };
+    }
+
+    /// <summary>
+    /// The last word on an identifier Jint's own table does not name: a host provider that claims it, or null.
+    /// </summary>
+    private static string? AskCalendarProvider(Engine? engine, string lowered)
+    {
+        var provider = engine?.Options.Temporal.CalendarProvider;
+        if (provider is null || ReferenceEquals(provider, DefaultCalendarProvider.Instance))
+        {
+            return null;
+        }
+
+        return Intl.IntlUtilities.IsValidUnicodeExtensionValue(lowered) && provider.IsSupported(lowered)
+            ? lowered
+            : null;
     }
 
     /// <summary>
     /// Throws RangeError for observation-based calendars that cannot be used in Temporal.
     /// "islamic" and "islamic-rgsa" are only valid for Intl.DateTimeFormat, not Temporal.
     /// </summary>
-    internal static void RejectTemporalUnsupportedCalendar(Realm realm, string calendar)
+    internal static void RejectTemporalUnsupportedCalendar(Engine engine, Realm realm, string calendar)
     {
-        if (calendar is "islamic" or "islamic-rgsa")
+        if (calendar is not ("islamic" or "islamic-rgsa"))
         {
-            Throw.RangeError(realm, $"Calendar '{calendar}' is not supported for Temporal operations");
+            return;
         }
+
+        // A host that installs its own provider and claims one of these has the observation data
+        // Jint lacks, which is the only reason these two are refused.
+        var provider = engine.Options.Temporal.CalendarProvider;
+        if (!ReferenceEquals(provider, DefaultCalendarProvider.Instance) && provider.IsSupported(calendar))
+        {
+            return;
+        }
+
+        Throw.RangeError(realm, $"Calendar '{calendar}' is not supported for Temporal operations");
     }
 
     /// <summary>
@@ -1697,7 +1732,7 @@ internal static class TemporalHelpers
     /// For non-ISO calendars, the input fields are in the calendar's system
     /// and need to be converted to the proleptic Gregorian (ISO 8601) calendar.
     /// </summary>
-    public static IsoDate? CalendarDateToISO(Realm realm, string calendar, int year, int month, int day, string overflow, string? monthCode = null)
+    public static IsoDate? CalendarDateToISO(Engine? engine, Realm realm, string calendar, int year, int month, int day, string overflow, string? monthCode = null)
     {
         // Observation-based calendars cannot be used for Temporal arithmetic
         if (calendar is "islamic" or "islamic-rgsa")
@@ -1729,9 +1764,9 @@ internal static class TemporalHelpers
             return RegulateIsoDate(year, month, day, overflow);
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
-            return NonIsoCalendars.CalendarDateToIso(calendar, year, monthCode, month, day, overflow);
+            return NonIsoCalendars.CalendarDateToIso(calendar, year, monthCode, month, day, overflow, engine);
         }
 
         // For other calendars, fall back to treating fields as ISO (best effort)
@@ -1743,11 +1778,11 @@ internal static class TemporalHelpers
     /// converting (calendarYear, month, day) to ISO produces an ISO date with the given
     /// ISO reference year (typically 1972).
     /// </summary>
-    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day, string? monthCode = null)
+    internal static int FindCalendarReferenceYear(string calendar, int isoReferenceYear, int month, int day, string? monthCode = null, Engine? engine = null)
     {
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar) && monthCode is not null)
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine) && monthCode is not null)
         {
-            return NonIsoCalendars.FindCalendarReferenceYear(calendar, isoReferenceYear, monthCode, day);
+            return NonIsoCalendars.FindCalendarReferenceYear(calendar, isoReferenceYear, monthCode, day, engine);
         }
 
         if (calendar is "buddhist")
@@ -1768,7 +1803,7 @@ internal static class TemporalHelpers
             // Try years around the approximation to find one mapping to the ISO reference year
             for (var y = approxYear - 1; y <= approxYear + 1; y++)
             {
-                var isoDate = CalendarDateToISO(null!, calendar, y, month, day, "constrain");
+                var isoDate = CalendarDateToISO(null, null!, calendar, y, month, day, "constrain");
                 if (isoDate?.Year == isoReferenceYear)
                 {
                     return y;
@@ -1882,7 +1917,7 @@ internal static class TemporalHelpers
             return CalendarYear(calendar, isoDate.Year);
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Year;
         }
@@ -1900,7 +1935,7 @@ internal static class TemporalHelpers
             return isoDate.Month;
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Month;
         }
@@ -1918,7 +1953,7 @@ internal static class TemporalHelpers
             return $"M{isoDate.Month:D2}";
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).MonthCode;
         }
@@ -1936,7 +1971,7 @@ internal static class TemporalHelpers
             return isoDate.Day;
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).Day;
         }
@@ -1958,7 +1993,7 @@ internal static class TemporalHelpers
             return new IsoDate(isoDate.Year, isoDate.Month, 1);
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine);
             var firstOfMonth = NonIsoCalendars.CalendarDateToIso(calendar, calDate.Year, calDate.MonthCode, calDate.Month, 1, "constrain", engine);
@@ -1985,7 +2020,7 @@ internal static class TemporalHelpers
             return isoDate.DayOfYear();
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             var calDate = NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine);
             // Find the first day of the calendar year
@@ -2011,7 +2046,7 @@ internal static class TemporalHelpers
             return isoDate.DaysInMonth();
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).DaysInMonth;
         }
@@ -2029,7 +2064,7 @@ internal static class TemporalHelpers
             return isoDate.DaysInYear();
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).DaysInYear;
         }
@@ -2047,7 +2082,7 @@ internal static class TemporalHelpers
             return 12;
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).MonthsInYear;
         }
@@ -2065,7 +2100,7 @@ internal static class TemporalHelpers
             return IsoDate.IsLeapYear(isoDate.Year);
         }
 
-        if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             return NonIsoCalendars.IsoToCalendarDate(calendar, in isoDate, engine).InLeapYear;
         }
@@ -2488,12 +2523,12 @@ internal static class TemporalHelpers
     /// <summary>
     /// Extracts and canonicalizes the calendar from a string, defaulting to "iso8601".
     /// </summary>
-    internal static string ExtractCalendarIdentifierFromString(string input)
+    internal static string ExtractCalendarIdentifierFromString(Engine? engine, string input)
     {
         var extracted = ExtractCalendarFromIsoString(input);
         if (extracted is not null)
         {
-            var canonical = CanonicalizeCalendar(extracted);
+            var canonical = CanonicalizeCalendar(engine, extracted);
             if (canonical is not null)
             {
                 return canonical;
@@ -2631,8 +2666,27 @@ internal static class TemporalHelpers
         }
         else
         {
-            throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
+            ThrowCalendarArithmeticUnavailable(realm, calendar);
+            return default;
         }
+    }
+
+    /// <summary>
+    /// Calendar arithmetic — <c>add</c>, <c>subtract</c>, <c>until</c>, <c>since</c> — is implemented per
+    /// calendar in <see cref="NonIsoCalendars"/> and is not routed through
+    /// <see cref="ICalendarProvider"/>, so a calendar a host provider added has no arithmetic. Reported as
+    /// a <c>RangeError</c> wherever a realm is at hand, rather than as a <see cref="NotSupportedException"/>
+    /// escaping <c>Engine.Evaluate</c>.
+    /// </summary>
+    [DoesNotReturn]
+    private static void ThrowCalendarArithmeticUnavailable(Realm? realm, string calendar)
+    {
+        if (realm is not null)
+        {
+            Throw.RangeError(realm, $"Calendar arithmetic is not implemented for '{calendar}'");
+        }
+
+        throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
     }
 
     /// <summary>
@@ -3915,7 +3969,7 @@ internal static class TemporalHelpers
     /// Converts a value to a calendar identifier string.
     /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalcalendaridentifier (calendar.html:666-686)
     /// </summary>
-    public static string ToTemporalCalendarIdentifier(Realm realm, JsValue calendarLike)
+    public static string ToTemporalCalendarIdentifier(Engine engine, Realm realm, JsValue calendarLike)
     {
         // Step 1: If temporalCalendarLike is an Object
         if (calendarLike.IsObject())
@@ -3964,7 +4018,7 @@ internal static class TemporalHelpers
         var calendar = calendarLike.ToString();
 
         // First try as a plain calendar identifier
-        var canonical = CanonicalizeCalendar(calendar);
+        var canonical = CanonicalizeCalendar(engine, calendar);
         if (canonical is not null)
         {
             return canonical;
@@ -3981,7 +4035,7 @@ internal static class TemporalHelpers
 
             // If annotation found, canonicalize it; if no annotation, default to iso8601
             var calendarId = extractedCalendar ?? "iso8601";
-            canonical = CanonicalizeCalendar(calendarId);
+            canonical = CanonicalizeCalendar(engine, calendarId);
             if (canonical is not null)
             {
                 return canonical;
@@ -4366,7 +4420,7 @@ internal static class TemporalHelpers
 
                 // Build a simple object with just the fields PlainDate needs
                 // We already read all fields in order, so this won't cause additional reads
-                var resultPlainDate = CreatePlainDateFromFields(realm, fields);
+                var resultPlainDate = CreatePlainDateFromFields(engine, realm, fields);
                 return new RelativeToResult(resultPlainDate, null);
             }
             else
@@ -4424,7 +4478,7 @@ internal static class TemporalHelpers
         string calendar = "iso8601";
         if (!calendarProp.IsUndefined())
         {
-            calendar = ToTemporalCalendarIdentifier(realm, calendarProp);
+            calendar = ToTemporalCalendarIdentifier(engine, realm, calendarProp);
         }
 
         // Step 2: Read all other fields in alphabetical order
@@ -4552,7 +4606,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Helper to create PlainDate from RelativeToFields.
     /// </summary>
-    private static JsPlainDate CreatePlainDateFromFields(Realm realm, RelativeToFields fields)
+    private static JsPlainDate CreatePlainDateFromFields(Engine engine, Realm realm, RelativeToFields fields)
     {
         // Required fields: year, day, and (month or monthCode)
         if (!fields.Year.HasValue)
@@ -4568,7 +4622,7 @@ internal static class TemporalHelpers
         // Determine month from either month or monthCode
         int month;
         string? monthCode = null;
-        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar);
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar, engine);
         if (fields.Month.HasValue && !string.IsNullOrEmpty(fields.MonthCode))
         {
             // Both provided - verify they match (ISO only - non-ISO ordinal ≠ display)
@@ -4600,7 +4654,7 @@ internal static class TemporalHelpers
         IsoDate? isoDate;
         if (isNonIso)
         {
-            isoDate = CalendarDateToISO(realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
+            isoDate = CalendarDateToISO(engine, realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
         }
         else
         {
@@ -4640,7 +4694,7 @@ internal static class TemporalHelpers
         // Determine month
         int month;
         string? monthCode = null;
-        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar);
+        var isNonIso = NonIsoCalendars.IsNonIsoCalendar(fields.Calendar, engine);
         if (fields.Month.HasValue && !string.IsNullOrEmpty(fields.MonthCode))
         {
             var parsedMonthCode = ParseMonthCode(realm, fields.MonthCode!);
@@ -4671,7 +4725,7 @@ internal static class TemporalHelpers
         IsoDate? isoDate;
         if (isNonIso)
         {
-            isoDate = CalendarDateToISO(realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
+            isoDate = CalendarDateToISO(engine, realm, fields.Calendar, fields.Year.Value, month, fields.Day.Value, "constrain", monthCode);
         }
         else
         {
@@ -6127,7 +6181,7 @@ internal static class TemporalHelpers
             var weeksEnd = AddDaysToISODate(weeksStart, (int) duration.Days);
 
             // Step 4: Calculate weeks between weeksStart and weeksEnd
-            var untilResult = CalendarDateUntil(calendar, weeksStart, weeksEnd, "week");
+            var untilResult = CalendarDateUntil(calendar, weeksStart, weeksEnd, "week", realm);
 
             // Step 5: Round total weeks (original weeks + calculated weeks from days)
             var weeks = RoundNumberToIncrement(duration.Weeks + untilResult.Weeks, increment, "trunc");
@@ -6693,7 +6747,7 @@ internal static class TemporalHelpers
     /// ISODateSurpasses algorithm (calendar.html:632-661) but uses direct arithmetic
     /// for O(1) performance on years/days instead of O(n) iteration.
     /// </summary>
-    internal static DurationRecord CalendarDateUntil(string calendar, IsoDate one, IsoDate two, string largestUnit)
+    internal static DurationRecord CalendarDateUntil(string calendar, IsoDate one, IsoDate two, string largestUnit, Realm? realm = null)
     {
         // Step 1: Get sign
         var sign = CompareIsoDates(one, two);
@@ -6712,7 +6766,7 @@ internal static class TemporalHelpers
                 return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit);
             }
 
-            throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
+            ThrowCalendarArithmeticUnavailable(realm, calendar);
         }
 
         // Step 3.1: Negate sign per spec (line 637)
