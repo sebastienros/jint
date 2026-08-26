@@ -6,9 +6,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Jint.Extensions;
 
-#pragma warning disable IL2067
-#pragma warning disable IL2070
-
 namespace Jint.Runtime.Interop.Reflection;
 
 /// <summary>
@@ -55,6 +52,20 @@ internal sealed class ExtensionMethodCache
         return _builtCaches.GetOrAdd(key, static k => BuildCore(k.Types));
     }
 
+    /// <remarks>
+    /// The container types arrive as a <see cref="Type"/> array, and
+    /// <c>[DynamicallyAccessedMembers]</c> is honoured on a <see cref="Type"/> or a <see cref="string"/>
+    /// only — never on an array of them. So nothing this call site can write would preserve the methods
+    /// being scanned for. The requirement is stated where a host can act on it instead:
+    /// <c>Options.AddExtensionMethods(params Type[])</c> carries <c>[RequiresUnreferencedCode]</c> saying
+    /// exactly this and naming the fix (root the declaring types), and
+    /// <c>docs/v5-migration.md</c> §6.3 repeats it. Suppressed rather than left to the csproj's
+    /// <c>NoWarn</c>, which reaches Jint's own compilation and no embedder's.
+    /// </remarks>
+    [UnconditionalSuppressMessage("Trimming", "IL2067:UnrecognizedReflectionPattern",
+        Justification = "The registered container types cannot carry DynamicallyAccessedMembers - the parameter " +
+                        "that accepts them is an array - and Options.AddExtensionMethods is annotated " +
+                        "[RequiresUnreferencedCode] to say so at the call site the host controls.")]
     private static ExtensionMethodCache BuildCore(Type[] extensionMethodContainerTypes)
     {
         static Type GetTypeDefinition(Type type)

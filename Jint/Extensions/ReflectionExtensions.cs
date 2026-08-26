@@ -52,14 +52,22 @@ internal static class ReflectionExtensions
 
     internal static List<MethodInfo> GetOperatorOverloadMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] this Type type)
     {
-        return _operatorOverloadMethodCache.GetOrAdd(type, static t =>
+        // The scan is written out here rather than in a GetOrAdd lambda because a lambda parameter cannot
+        // carry [DynamicallyAccessedMembers]: passing `type` through the closure dropped its annotation and
+        // reported the GetMethods call as unannotated in every trimming build, while the caller had already
+        // promised exactly what the scan needs.
+        if (_operatorOverloadMethodCache.TryGetValue(type, out var cached))
         {
-#pragma warning disable IL2070
-            return t.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
-                .Where(static m => m.IsSpecialName)
-                .ToList();
-#pragma warning restore IL2070
-        });
+            return cached;
+        }
+
+        var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+            .Where(static m => m.IsSpecialName)
+            .ToList();
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the same
+        // list the dictionary holds - which is what the factory overload guaranteed.
+        return _operatorOverloadMethodCache.GetOrAdd(type, methods);
     }
 
     private static bool IsExtensionMethod(this MethodBase methodInfo)

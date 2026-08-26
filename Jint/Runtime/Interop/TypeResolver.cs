@@ -6,11 +6,6 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Jint.Runtime.Interop.Reflection;
 
-#pragma warning disable IL2067
-#pragma warning disable IL2070
-#pragma warning disable IL2072
-#pragma warning disable IL2075
-
 namespace Jint.Runtime.Interop;
 
 /// <summary>
@@ -324,14 +319,20 @@ public sealed class TypeResolver
         Engine engine,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type type)
     {
-        return _constructors.GetOrAdd(
-            type,
-            t =>
-            {
-                List<ConstructorInfo> constructors = [.. t.GetConstructors(BindingFlags.Public | BindingFlags.Instance)];
-                constructors.RemoveAll(x => !Filter(engine, t, x));
-                return MethodDescriptor.Build(constructors);
-            });
+        // Resolved here rather than in a GetOrAdd lambda: a lambda parameter carries no
+        // [DynamicallyAccessedMembers], so the caller's promise about `type` was dropped at the closure
+        // boundary and the GetConstructors call read as unannotated in every trimming build.
+        if (_constructors.TryGetValue(type, out var cached))
+        {
+            return cached;
+        }
+
+        List<ConstructorInfo> constructors = [.. type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)];
+        constructors.RemoveAll(x => !Filter(engine, type, x));
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the same
+        // array the dictionary holds - which is what the factory overload guaranteed.
+        return _constructors.GetOrAdd(type, MethodDescriptor.Build(constructors));
     }
 
     private ReflectionAccessor ResolveStaticAccessor(

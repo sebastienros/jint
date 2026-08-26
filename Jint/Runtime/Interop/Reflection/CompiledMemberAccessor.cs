@@ -12,10 +12,9 @@ using ConditionalExpression = System.Linq.Expressions.ConditionalExpression;
 
 // The delegates are compiled with System.Linq.Expressions; every member they reference is public
 // (JsValue implicit operators, JsValueExtensions accessors, JsValue.Null, Math.Floor) so the
-// generated dynamic methods need no reflection-visibility relaxation. IL2075/IL3050 cover the
-// reflection + dynamic-code use, which is gated behind RuntimeFeature.IsDynamicCodeCompiled.
-#pragma warning disable IL2075
-#pragma warning disable IL3050
+// generated dynamic methods need no reflection-visibility relaxation. The lane is gated on
+// RuntimeFeature.IsDynamicCodeCompiled in CanCompile and on IsDynamicCodeSupported again in
+// TryCreateOpenDelegate, which is what an AOT publish can actually see.
 
 namespace Jint.Runtime.Interop.Reflection;
 
@@ -391,6 +390,17 @@ internal static class CompiledMemberAccessor
     {
         accessorDelegate = null;
         delegateType = null;
+
+        // Expression.TryGetFuncType / TryGetActionType close Func<> and Action<> over the argument types,
+        // which is [RequiresDynamicCode]. The lane as a whole already declines when the runtime will not
+        // JIT (CanCompile above), but the guard has to be repeated HERE for it to mean anything to an AOT
+        // publish: the trim analyzer and ILC reason one method at a time, and IsDynamicCodeSupported is a
+        // feature guard they fold, so restating it turns two IL3050 in every embedder's build into a
+        // branch the compiler removes.
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+        {
+            return false;
+        }
 
         if (returnType is null)
         {

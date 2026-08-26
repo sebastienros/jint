@@ -2067,12 +2067,26 @@ a real trimming bug: `SetValue("items", companies)` used to preserve the public 
 `System.Array`, never `Company`'s, so `companies[0].name` was the one thing not preserved. Nothing in
 your code changes; the overload is picked automatically.
 
-**Expect Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's compilation
-and reaches nothing downstream - ILC re-derives every diagnostic over the closed program - so an AOT
-publish reports the remaining trim-analysis warnings against Jint's files in *your* build. They are
-tracked in [#3305](https://github.com/sebastienros/jint/issues/3305); until they are paid down, set
-`<IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>` or `NoWarn` the codes, and treat the run
-as the evidence rather than the warning count.
+**Expect some of Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's
+compilation and reaches nothing downstream - ILC re-derives every diagnostic over the closed program -
+so an AOT publish reports Jint's remaining trim-analysis warnings against Jint's files in *your* build.
+There are 76 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
+they now divide into two kinds:
+
+* **Nine are the gaps in [§6.2](#62-the-one-thing-that-does-not-a-generic-instantiation-over-a-value-type)**
+  - six `IL3050` and their three `IL2060` twins, one per site that builds a generic instantiation over a
+  type only known at run time. These are true, they are the shapes the native run confirms do not work,
+  and they are not suppressed for exactly that reason. If your script never reaches one, the diagnostic
+  costs you nothing; if it does, §6.2 says what to write instead.
+* **The rest are dataflow**, and almost all root at one value: the runtime type of a host object,
+  obtained through `object.GetType()`. No annotation can describe it, which is why the requirement is
+  stated at the entry points instead ([§6.3](#63-apis-that-now-warn)) and why the answer is the rooting
+  above rather than anything in the diagnostic.
+
+Neither kind is actionable at the file it names, so set
+`<IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>` or `NoWarn` the codes, and treat the run as
+the evidence rather than the warning count. What *is* actionable is any diagnostic pointing at **your**
+files: those are the ones §6.3 and this section are about.
 
 ### 6.5 The AOT-safe subset
 

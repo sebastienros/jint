@@ -6,8 +6,6 @@ using Jint.Native;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 
-#pragma warning disable IL2067
-
 namespace Jint.Runtime.Interop.Reflection;
 
 internal sealed class IndexerAccessor : ReflectionAccessor

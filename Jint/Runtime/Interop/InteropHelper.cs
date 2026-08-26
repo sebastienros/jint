@@ -6,8 +6,6 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interop;
 
-#pragma warning disable IL2072
-
 internal sealed class InteropHelper
 {
     internal const DynamicallyAccessedMemberTypes DefaultDynamicallyAccessedMemberTypes = DynamicallyAccessedMemberTypes.PublicConstructors
@@ -31,10 +29,29 @@ internal sealed class InteropHelper
     /// and array handling - i.e.
     /// GetElementType()
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two parameters are annotated asymmetrically on purpose, and the asymmetry is what each one
+    /// actually reads. <paramref name="givenType"/> is asked for its interfaces, so it declares
+    /// <see cref="DynamicallyAccessedMemberTypes.Interfaces"/> and nothing else. <paramref name="genericType"/>
+    /// is only ever compared - <c>IsConstructedGenericType</c>, <c>IsGenericType</c>,
+    /// <c>GetGenericTypeDefinition</c> - none of which reads a member, so it declares nothing at all. The
+    /// pair used to demand every public member of both, which no caller could satisfy: the types arrive as
+    /// a parameter's type or a value's <c>GetType()</c>, so the excess propagated outwards as a trim
+    /// diagnostic at every call site rather than preserving anything.
+    /// </para>
+    /// <para>
+    /// The base-type walk is a loop rather than the recursion it used to be for the same reason.
+    /// <see cref="Type.GetInterfaces"/> already returns the transitive closure, so a base type's interfaces
+    /// were re-scanned having already been scanned here, and the recursive call demanded
+    /// <c>Interfaces</c> of a <see cref="Type.BaseType"/> that cannot carry it. What is left in the loop -
+    /// the constructed-generic-definition test - reads no members, so it needs no annotation. Same answer,
+    /// including which type a miss reports (the last one in the chain).
+    /// </para>
+    /// </remarks>
     internal static AssignableResult IsAssignableToGenericType(
-        [DynamicallyAccessedMembers(DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
         Type givenType,
-        [DynamicallyAccessedMembers(DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.Interfaces)]
         Type genericType)
     {
         if (givenType is null)
@@ -69,18 +86,22 @@ internal sealed class InteropHelper
             }
         }
 
-        if (givenType.IsGenericType && givenType.GetGenericTypeDefinition() == genericType)
+        var current = givenType;
+        while (true)
         {
-            return new AssignableResult(0, givenType);
-        }
+            if (current.IsGenericType && current.GetGenericTypeDefinition() == genericType)
+            {
+                return new AssignableResult(0, current);
+            }
 
-        var baseType = givenType.BaseType;
-        if (baseType == null)
-        {
-            return new AssignableResult(-1, givenType);
-        }
+            var baseType = current.BaseType;
+            if (baseType is null)
+            {
+                return new AssignableResult(-1, current);
+            }
 
-        return IsAssignableToGenericType(baseType, genericType);
+            current = baseType;
+        }
     }
 
     /// <summary>

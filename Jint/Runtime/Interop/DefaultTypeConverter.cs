@@ -12,13 +12,6 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Expression = System.Linq.Expressions.Expression;
 
-#pragma warning disable IL2026
-#pragma warning disable IL2062
-#pragma warning disable IL2067
-#pragma warning disable IL2070
-#pragma warning disable IL2072
-#pragma warning disable IL3050
-
 namespace Jint.Runtime.Interop;
 
 public class DefaultTypeConverter : ClrTypeConverter
@@ -34,24 +27,36 @@ public class DefaultTypeConverter : ClrTypeConverter
     private static readonly Type iCallableType = typeof(JsCallDelegate);
     private static readonly Type jsValueType = typeof(JsValue);
     private static readonly Type objectType = typeof(object);
-    private static readonly Type engineType = typeof(Engine);
     private static readonly Type taskType = typeof(Task);
     private static readonly Type genTaskType = typeof(Task<>);
-    private static readonly MethodInfo taskFromResultInfo = taskType.GetMethod("FromResult")!;
 #if !NETFRAMEWORK && !NETSTANDARD2_0
     private static readonly Type valueTaskType = typeof(ValueTask);
     private static readonly Type genValueTaskType = typeof(ValueTask<>);
-    private static readonly MethodInfo valueTaskFromResultInfo = valueTaskType.GetMethod("FromResult")!;
+#endif
+
+    // Every lookup below spells its receiver as `typeof(X)` rather than reading one of the Type fields
+    // above, and that is not a style choice. A `typeof` token is a constant the trim analyzer folds, so
+    // it both PRESERVES the member being looked up and reports nothing; the same lookup through a field
+    // read loses the type's identity on the way and was six IL2080 in every embedder's publish. Keep new
+    // lookups in this shape - the fields exist for the identity comparisons further down, not for
+    // reflection.
+    private static readonly MethodInfo taskFromResultInfo = typeof(Task).GetMethod("FromResult")!;
+#if !NETFRAMEWORK && !NETSTANDARD2_0
+    private static readonly MethodInfo valueTaskFromResultInfo = typeof(ValueTask).GetMethod("FromResult")!;
 #endif
 
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
-    private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
-    private static readonly MethodInfo enterHostCallback = engineType.GetMethod(nameof(Engine.EnterTransferredHostCallback), BindingFlags.Instance | BindingFlags.NonPublic)!;
-    private static readonly MethodInfo getHostCallbackOwner = engineType.GetMethod(nameof(Engine.GetHostCallbackAuthorization), BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo jsValueFromObject = typeof(JsValue).GetMethod(nameof(JsValue.FromObject))!;
+    private static readonly MethodInfo enterHostCallback = typeof(Engine).GetMethod(nameof(Engine.EnterTransferredHostCallback), BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo getHostCallbackOwner = typeof(Engine).GetMethod(nameof(Engine.GetHostCallbackAuthorization), BindingFlags.Instance | BindingFlags.NonPublic)!;
     private static readonly MethodInfo exitHostCallback = typeof(Engine.HostCallScope).GetMethod(nameof(IDisposable.Dispose))!;
-    private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
+    private static readonly MethodInfo jsValueToObject = typeof(JsValue).GetMethod(nameof(JsValue.ToObject))!;
 
+    // Expression.Property(Expression, string) resolves the property by NAME and is [RequiresUnreferencedCode]
+    // for it. The declaring type here is a constant and so is the name, so the PropertyInfo overload says the
+    // same thing while preserving the property instead of warning about it.
+    private static readonly PropertyInfo objectInstanceEngine = typeof(ObjectInstance).GetProperty(nameof(ObjectInstance.Engine))!;
 
     public DefaultTypeConverter(Engine engine)
     {
@@ -462,6 +467,12 @@ public class DefaultTypeConverter : ClrTypeConverter
     internal static bool IsHostCallback(object? value)
         => value is Delegate callback && _hostCallbackDelegates.TryGetValue(callback, out _);
 
+    [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
+        Justification = "Expression.NewArrayInit is [RequiresDynamicCode] because the array type may have to " +
+                        "be constructed at run time. The element type here is always typeof(JsValue), and " +
+                        "JsValue[] is used throughout this assembly, so the array type is already in any image " +
+                        "that contains Jint. Jint.AotExample's 'JS function -> Func<int, int>' probe runs this " +
+                        "path on a published native binary.")]
     private static LambdaExpression BuildDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
         JsCallDelegate function,
@@ -479,7 +490,7 @@ public class DefaultTypeConverter : ClrTypeConverter
         var initializers = new List<MethodCallExpression>(parameters.Length);
         var targetEngine = Expression.Property(
             Expression.Convert(targetExpression, typeof(ObjectInstance)),
-            nameof(ObjectInstance.Engine));
+            objectInstanceEngine);
 
         for (var i = 0; i < parameters.Length; i++)
         {
@@ -496,7 +507,9 @@ public class DefaultTypeConverter : ClrTypeConverter
                 for (var j = 0; j < instance.GetLength(); j++)
                 {
                     var returnLabel = Expression.Label(typeof(object));
-                    var checkIndex = Expression.GreaterThanOrEqual(Expression.Property(param, nameof(Array.Length)), Expression.Constant(j));
+                    // ArrayLength rather than Expression.Property(param, "Length"), which resolves by name
+                    // and is [RequiresUnreferencedCode] for it; the node produced is the same ldlen.
+                    var checkIndex = Expression.GreaterThanOrEqual(Expression.ArrayLength(param), Expression.Constant(j));
                     var condition = Expression.IfThen(checkIndex, Expression.Return(returnLabel, Expression.ArrayAccess(param, Expression.Constant(j))));
                     var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
 

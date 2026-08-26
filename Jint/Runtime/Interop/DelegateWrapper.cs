@@ -8,9 +8,6 @@ using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 
-#pragma warning disable IL2072
-#pragma warning disable IL3050
-
 namespace Jint.Runtime.Interop;
 
 /// <summary>

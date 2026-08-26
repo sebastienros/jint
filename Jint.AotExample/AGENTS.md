@@ -13,21 +13,42 @@
 
 ### Native AOT: what is measured, what is annotated, and what is still suppressed
 
-`Jint.csproj` sets `<IsAotCompatible>` for net7.0+ and, in the same property group, suppresses eight IL
-codes — `IL3050` (*requires dynamic code*) plus `IL2060`, `IL2067`, `IL2069`, `IL2070`, `IL2072`,
-`IL2075`, `IL2080`. **The property is not evidence, and the suppressions are why.** What makes the
-claim checkable is that a CI leg publishes `Jint.AotExample` with `PublishAot=true` and *runs the
-native binary* (`aot` in `.github/workflows/pr.yml` and `build.yml`), because the run is the only thing
-that distinguishes a warning that matters from one that does not.
+`Jint.csproj` sets `<IsAotCompatible>` for net7.0+ and, in the same property group, `NoWarn`s nine IL
+codes. **The property is not evidence, and the `NoWarn` is why**: it is a property of Jint's own
+*compilation* and reaches nothing downstream, since ILC re-derives the whole set over the closed program
+— so **an embedder publishing Native AOT sees every diagnostic it hides**, attributed to Jint's files.
+What makes the claim checkable instead is the CI leg that publishes `Jint.AotExample` with
+`PublishAot=true` and *runs the native binary* (`aot` in `.github/workflows/pr.yml` and `build.yml`).
 
-Two facts about the suppressions are worth knowing before trusting either of them. Jint's `NoWarn` is a
-property of Jint's own *compilation* and reaches nothing downstream: ILC re-derives the whole set when
-it compiles the closed program, so **an embedder publishing Native AOT sees all of them**, attributed
-to Jint's files, in their build. And a source `#pragma warning disable IL3050` — `ObjectWrapper` has
-several — is Roslyn-only for the same reason; `[UnconditionalSuppressMessage]` is the one ILC honours,
-and is what to reach for when a suppression is genuinely justified. Paying the remaining 115 down is
-[#3305](https://github.com/sebastienros/jint/issues/3305), which carries the inventory by code and by
-file, why it is not one change, and a suggested order; `Jint.csproj`'s own comment says the same.
+**A source `#pragma warning disable IL....` is Roslyn-only for the same reason, and `Jint` now has
+none** — the sixty-one that sat at the tops of the interop files bought Jint a green build and an
+embedder nothing. `[UnconditionalSuppressMessage]` is what ILC honours; it asserts safety rather than
+requesting silence, so every one in the assembly names the invariant it stands on — the degradation a
+probe pins, the feature guard ILC folds, or the public entry point whose `[RequiresUnreferencedCode]`
+already states the requirement. **Do not write one whose justification is not literally true, and do not
+add a code back to `NoWarn` to quiet a new site.**
+
+[#3305](https://github.com/sebastienros/jint/issues/3305) took the published-and-run inventory from 113
+to 76 and carries what is left, grouped by what would close it. Four moves did most of it, and each is
+worth trying before a suppression is:
+
+* **Spell a constant type as `typeof(X)` at the reflection call.** That token is folded, so the lookup
+  *preserves* the member; the same lookup through a `static readonly Type` field loses the type's
+  identity on the way and merely reports. Six `IL2080` in `DefaultTypeConverter`'s static constructor
+  were exactly this.
+* **Do not reflect inside a cache lambda.** A lambda parameter cannot carry
+  `[DynamicallyAccessedMembers]`, so `GetOrAdd(type, static t => …reflect over t…)` drops at the closure
+  boundary what the caller had already promised. Hoist the resolution into the annotated method and
+  store through `GetOrAdd`'s *value* overload, which keeps the one-instance-per-key guarantee the
+  factory overload gave.
+* **Restate a feature guard in the method that makes the call.** Both analyzers reason one method at a
+  time, so a lane gated on `RuntimeFeature.IsDynamicCodeSupported` two frames up still reports
+  `IL3050`; an early return on the same property beside the `Expression.TryGetFuncType` call is a branch
+  they fold instead.
+* **Declare what the method reads, and no more.** `InteropHelper.IsAssignableToGenericType` demanded
+  every public member of *both* parameters while reading the interfaces of one and merely comparing the
+  other; no caller could satisfy the excess, so it propagated outwards as a diagnostic at every one of
+  them.
 
 #### What the leg proves
 
@@ -121,8 +142,8 @@ leaving its reflective one silent. **Annotate the pair, not the member** — and
 the same annotation twice, share the implementation instead. `JsValue.FromObject` is deliberately not among them: it is the engine's own
 conversion funnel with ~60 call sites inside Jint, the interpreter's operator-overloading path among
 them, so annotating it would either cascade `[RequiresUnreferencedCode]` across the interpreter or need
-a suppression per site. `Options.InteropOptions._defaultWrapObjectHandler` carries the one
-`[UnconditionalSuppressMessage]`, because it has to stay assignable to the public `WrapObjectDelegate`.
+a suppression per site. `Options.InteropOptions._defaultWrapObjectHandler` carries one of the
+`[UnconditionalSuppressMessage]`s, because it has to stay assignable to the public `WrapObjectDelegate`.
 
 #### Two costs that land in the embedder's project
 

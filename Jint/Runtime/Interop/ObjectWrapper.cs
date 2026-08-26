@@ -12,10 +12,6 @@ using Jint.Runtime.Descriptors;
 using Jint.Runtime.Descriptors.Specialized;
 using Jint.Runtime.Interop.Reflection;
 
-#pragma warning disable IL2067
-#pragma warning disable IL2072
-#pragma warning disable IL2075
-
 namespace Jint.Runtime.Interop;
 
 /// <summary>
@@ -181,21 +177,31 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
         // resolved once per exposed type: reflection (interface scan + generic instantiation +
         // Activator) runs only on the first sighting, every later wrapper creation is a single
-        // virtual call into the cached factory
-        var factory = _arrayLikeWrapperResolution.GetOrAdd(type, static t =>
+        // virtual call into the cached factory.
+        //
+        // Deliberately not GetOrAdd with a lambda: a lambda parameter carries no
+        // [DynamicallyAccessedMembers], so `type`'s annotation is lost at the closure boundary and the
+        // interface scan inside reads as unannotated in every trimming build. Resolving in this method
+        // keeps the annotated parameter in scope. A cached miss is stored as null and TryGetValue reports
+        // it, so a type that is not array-like is resolved once and not once per crossing.
+        if (!_arrayLikeWrapperResolution.TryGetValue(type, out var factory))
         {
             try
             {
-                var factoryType = ResolveArrayLikeWrapperFactoryType(t);
-                return factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
+                var factoryType = ResolveArrayLikeWrapperFactoryType(type);
+                factory = factoryType is null ? null : (ArrayLikeWrapperFactory) Activator.CreateInstance(factoryType)!;
             }
             catch (Exception e) when (IsMissingGenericInstantiation(e))
             {
                 // no typed factory on this runtime; the caller degrades to the non-generic ListWrapper,
                 // or to a plain ObjectWrapper when the target is not even an IList
-                return null;
+                factory = null;
             }
-        });
+
+            // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the
+            // same factory the dictionary holds - which is what the factory overload guaranteed.
+            factory = _arrayLikeWrapperResolution.GetOrAdd(type, factory);
+        }
 
         if (factory is not null)
         {
@@ -232,19 +238,28 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <c>try</c>: both are ways of asking for a generic instantiation, and either can be the one a runtime
     /// declines.
     /// </summary>
+    [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
+        Justification = "The sole caller wraps this call and the activation of its result in a catch that " +
+                        "degrades to the non-generic ListWrapper, or to a plain ObjectWrapper when the target " +
+                        "is not an IList. Jint.AotExample's List<int>, int[] and IReadOnlyList<double> probes " +
+                        "assert the degraded answers on a published native binary, so a runtime with no code " +
+                        "for the instantiation is handled rather than merely tolerated. See " +
+                        "IsMissingGenericInstantiation.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2055:MakeGenericType",
+        Justification = "The three factories are Jint's own internal sealed types, so the only instantiation a " +
+                        "trimmer can remove is one over an element type it also removed; Activator.CreateInstance " +
+                        "then raises MissingMethodException, which the same catch degrades. See " +
+                        "IsMissingGenericInstantiation.")]
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
     private static Type? ResolveArrayLikeWrapperFactoryType(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type t)
     {
-#pragma warning disable IL2055
-#pragma warning disable IL2070
-#pragma warning disable IL3050
-
         // single-rank zero-based CLR arrays (T[]) get a fixed-size live wrapper; T[] implements
         // IList<T> and would otherwise flow into GenericListWrapper<T> below, whose growth paths
         // call IList<T>.Add and would leak NotSupportedException from the underlying array.
-        // The MakeArrayType equality intentionally excludes multi-rank (T[,]) and non-zero-based
-        // (T[*]) arrays, which keep their previous handling.
-        if (t.IsArray && t.GetElementType() is { } elementType && t == elementType.MakeArrayType())
+        // IsSZArray intentionally excludes multi-rank (T[,]) and non-zero-based (T[*]) arrays, which keep
+        // their previous handling.
+        if (t.IsSZArray && t.GetElementType() is { } elementType)
         {
             return typeof(ArrayWrapperFactory<>).MakeGenericType(elementType);
         }
@@ -269,10 +284,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                 return typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
             }
         }
-
-#pragma warning restore IL3050
-#pragma warning restore IL2070
-#pragma warning restore IL2055
 
         return null;
     }
@@ -306,39 +317,51 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     private static readonly ConcurrentDictionary<Type, EnumerableSnapshotFactory> _enumerableSnapshotResolution = new();
 
+    [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
+        Justification = "MakeGenericType and the activation beside it are both under a catch that degrades to " +
+                        "ObjectEnumerableSnapshotFactory when the runtime has no code for the instantiation, and " +
+                        "Jint.AotExample's IEnumerable<int> snapshot probe asserts that degraded answer on a " +
+                        "published native binary. See IsMissingGenericInstantiation.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2055:MakeGenericType",
+        Justification = "EnumerableSnapshotFactory<> is Jint's own internal sealed type, so the only instantiation " +
+                        "a trimmer can remove is one over an element type it also removed; Activator.CreateInstance " +
+                        "then raises MissingMethodException, which the same catch degrades. See " +
+                        "IsMissingGenericInstantiation.")]
     private static EnumerableSnapshotFactory ResolveEnumerableSnapshotFactory(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
-        return _enumerableSnapshotResolution.GetOrAdd(type, static t =>
+        // resolved out of the lambda for the reason TryBuildArrayLikeWrapper's is: an annotated Type does
+        // not survive the closure boundary, so the interface scan below read as unannotated.
+        if (_enumerableSnapshotResolution.TryGetValue(type, out var cached))
         {
-#pragma warning disable IL2055
-#pragma warning disable IL2070
-#pragma warning disable IL3050
-            foreach (var i in t.GetInterfaces())
-            {
-                if (i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                {
-                    try
-                    {
-                        var factoryType = typeof(EnumerableSnapshotFactory<>).MakeGenericType(i.GenericTypeArguments[0]);
-                        return (EnumerableSnapshotFactory) Activator.CreateInstance(factoryType)!;
-                    }
-                    catch (Exception e) when (IsMissingGenericInstantiation(e))
-                    {
-                        // trimmed, or Native AOT with no code for this instantiation: snapshot as
-                        // objects instead. See IsMissingGenericInstantiation for why both exceptions.
-                        break;
-                    }
-                }
-            }
-#pragma warning restore IL3050
-#pragma warning restore IL2070
-#pragma warning restore IL2055
+            return cached;
+        }
 
-            // a type implementing IEnumerable<T> more than once takes the first one, the same arbitrary
-            // choice every other interface scan on this path makes
-            return ObjectEnumerableSnapshotFactory.Instance;
-        });
+        EnumerableSnapshotFactory factory = ObjectEnumerableSnapshotFactory.Instance;
+        foreach (var i in type.GetInterfaces())
+        {
+            if (i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            {
+                try
+                {
+                    var factoryType = typeof(EnumerableSnapshotFactory<>).MakeGenericType(i.GenericTypeArguments[0]);
+                    factory = (EnumerableSnapshotFactory) Activator.CreateInstance(factoryType)!;
+                }
+                catch (Exception e) when (IsMissingGenericInstantiation(e))
+                {
+                    // trimmed, or Native AOT with no code for this instantiation: snapshot as
+                    // objects instead. See IsMissingGenericInstantiation for why both exceptions.
+                }
+
+                // a type implementing IEnumerable<T> more than once takes the first one, the same arbitrary
+                // choice every other interface scan on this path makes
+                break;
+            }
+        }
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the same
+        // factory the dictionary holds - which is what the factory overload guaranteed.
+        return _enumerableSnapshotResolution.GetOrAdd(type, factory);
     }
 
     public object Target { get; }

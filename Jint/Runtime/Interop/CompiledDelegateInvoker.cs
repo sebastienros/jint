@@ -8,10 +8,8 @@ using Expression = System.Linq.Expressions.Expression;
 
 // The invoker is compiled with System.Linq.Expressions and only ever binds publicly visible types
 // (guarded below), so the generated dynamic method needs no reflection-visibility relaxation.
-// IL2075/IL3050 cover the reflection + dynamic-code use, which is gated behind
-// RuntimeFeature.IsDynamicCodeCompiled before anything is built.
-#pragma warning disable IL2075
-#pragma warning disable IL3050
+// The reflection and dynamic-code use is gated behind RuntimeFeature.IsDynamicCodeCompiled before
+// anything is built.
 
 namespace Jint.Runtime.Interop;
 

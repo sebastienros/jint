@@ -4,10 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Jint.Runtime.Interop.Reflection;
 
-#pragma warning disable IL2067
-#pragma warning disable IL2075
-#pragma warning disable IL2077
-
 namespace Jint.Runtime.Interop;
 
 internal sealed class TypeDescriptor
@@ -129,7 +125,17 @@ internal sealed class TypeDescriptor
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)]
         Type type)
     {
-        return _cache.GetOrAdd(type, t => new TypeDescriptor(t));
+        // Built here rather than in a GetOrAdd lambda: a lambda parameter carries no
+        // [DynamicallyAccessedMembers], so the caller's promise about `type` was dropped at the closure
+        // boundary and the whole analysis below read as unannotated in every trimming build.
+        if (_cache.TryGetValue(type, out var cached))
+        {
+            return cached;
+        }
+
+        // GetOrAdd's value overload rather than TryAdd, so that a race still hands every caller the same
+        // descriptor instance the dictionary holds - which is what the factory overload guaranteed.
+        return _cache.GetOrAdd(type, new TypeDescriptor(type));
     }
 
     private static void Analyze(
@@ -167,7 +173,6 @@ internal sealed class TypeDescriptor
 
         foreach (var t in type.GetInterfaces())
         {
-#pragma warning disable IL2072
             AnalyzeType(
                 t,
                 out var isCollectionForSubType,
@@ -183,7 +188,6 @@ internal sealed class TypeDescriptor
                 out var genericContainsKeyMethodForSubType,
                 out var genericIndexerSetMethodForSubType,
                 out var genericRemoveMethodForSubType);
-#pragma warning restore IL2072
 
             isCollection |= isCollectionForSubType;
             isEnumerable |= isEnumerableForSubType;
