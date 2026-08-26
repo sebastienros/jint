@@ -1717,6 +1717,40 @@ This is a catchable *failure*, not a raised ceiling: how deep a graph an engine 
 the thread's stack rather than by `MaxModuleGraphDepth`. Making the two algorithms iterative, the way loading
 already is, is tracked in [#3401](https://github.com/sebastienros/jint/issues/3401).
 
+### 4.32 A host operator that throws reports what it threw ([#3408](https://github.com/sebastienros/jint/issues/3408))
+
+With `Options.Interop.AllowOperatorOverloading = true`, an exception raised inside a host `operator` reached
+the embedder as something else. Every other interop call site normalizes what it catches with
+`e as TargetInvocationException ?? new TargetInvocationException(e)`; the operator path wrapped
+`e.InnerException`, and by the time it catches, the invoke has already been unwrapped — so it reported the
+host exception's *cause*, or, when there was none, an empty `TargetInvocationException`:
+
+```csharp
+// 4.16.x, for a host type whose operator+ throws InvalidOperationException("HOST BOOM")
+//         and whose operator- throws NotSupportedException("…", new ArgumentException("nested cause"))
+engine.Evaluate("a.Add(b)");   // InvalidOperationException: HOST BOOM
+engine.Evaluate("a + b");      // TargetInvocationException: Exception has been thrown by the
+                               //                            target of an invocation.  ← message gone
+engine.Evaluate("a.Sub(b)");   // NotSupportedException: metres do not subtract
+engine.Evaluate("a - b");      // ArgumentException: nested cause                       ← the cause, not the error
+```
+
+```csharp
+// 5.x — the operator and the ordinary method are the same exception
+engine.Evaluate("a + b");      // InvalidOperationException: HOST BOOM
+engine.Evaluate("a - b");      // NotSupportedException: metres do not subtract
+```
+
+`Options.CatchClrExceptions()` moves with it: the `JavaScriptException` is now built from the host
+exception, so `JintException.TryGetClrException` hands back that exception rather than a placeholder, and
+`Options.Interop.ExposeDetailedExceptionMessages = true` shows the host's message rather than the
+placeholder's.
+
+**What could break:** a `catch` written around `Evaluate` to absorb the placeholder — `catch
+(TargetInvocationException)`, or a `catch` for the exception type that happened to be the host exception's
+`InnerException`. Catch the exception the host actually raises instead. There is no option to restore the
+old shape; the old shape reported an exception nothing threw.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
