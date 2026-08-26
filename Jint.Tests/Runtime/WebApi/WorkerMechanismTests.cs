@@ -31,8 +31,14 @@ public class WorkerMechanismTests
 {
     private const string Specifier = "./worker.js";
 
-    /// <summary>Ten seconds: long enough that a loaded machine is slow rather than red.</summary>
-    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(10);
+    /// <summary>
+    /// Long enough that a loaded machine is slow rather than red. Every use is a <c>Wait</c> or a
+    /// <c>Join</c> on a thread this class started, and nothing asserts how long either took — the assertions
+    /// are that the handshake happened and that the thread left — so this is a wedge ceiling and
+    /// <see cref="TestBudgets.WedgeCeiling"/> is what the suite calls one. Ten seconds was that number sized
+    /// for an idle box (#3379).
+    /// </summary>
+    private static readonly TimeSpan Ceiling = TestBudgets.WedgeCeiling;
 
     // -------------------------------------------------------------------------------------------------------
     // Construction and refusals

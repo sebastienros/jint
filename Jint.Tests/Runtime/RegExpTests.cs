@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -520,22 +519,62 @@ public class RegExpTests
             $"export default '{TestedValue}'.match(/{TestRegex}/)",
             options: preparationOptions);
 
-        // Engine is set to a long timeout so a regression that drops the prepare-time
-        // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
-        // the modest default — keeping a clear gap above the assertion threshold even
-        // on slow Windows CI runners where cancellation lag can be several seconds.
-        var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromSeconds(EngineRegexTimeoutSeconds));
+        // Engine is set to a long timeout so a regression that drops the prepare-time timeout on the floor
+        // falls through to EngineRegexTimeout rather than to the modest default — see
+        // ShouldHaveRunUnderThePrepareTimeBudget for why that is the wrong answer this test discriminates
+        // against, and why it no longer needs a clock to do it.
+        var engine = new Engine(o => o.Constraints.RegexTimeout = EngineRegexTimeout);
         engine.Modules.Add("__main__", x => x.AddModule(preparedModule));
 
-        var sw = Stopwatch.StartNew();
-        Invoking(() => engine.Modules.Import("__main__")).Should().ThrowExactly<RegexMatchTimeoutException>();
-        sw.Stop();
+        var timedOut = Invoking(() => engine.Modules.Import("__main__"))
+            .Should().ThrowExactly<RegexMatchTimeoutException>().Which;
 
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds), $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
+        ShouldHaveRunUnderThePrepareTimeBudget(timedOut);
     }
 
-    private const int EngineRegexTimeoutSeconds = 30;
-    private const int MaxAcceptableTimeoutSeconds = 15;
+    /// <summary>
+    /// The budget the match that failed was actually running under — <b>not</b> a restatement of the
+    /// configuration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>RegExpPrototype.ExecuteWithTimeout</c> resolves the effective timeout into one local
+    /// (<c>GetCustomEngineTimeout</c>: the prepared script's, falling back to the engine's), hands that local
+    /// to the interpreter as its deadline, and constructs the <see cref="RegexMatchTimeoutException"/> from
+    /// the very same local. So <see cref="RegexMatchTimeoutException.MatchTimeout"/> is a witness of which of
+    /// the two budgets fired, thrown by the matcher that fired it — a regression that drops the prepare-time
+    /// timeout reports <see cref="EngineRegexTimeout"/> here and fails, and there is no way to report
+    /// <see cref="PrepareTimeRegexTimeout"/> while having actually waited out the other one.
+    /// </para>
+    /// <para>
+    /// This replaces a wall-clock bound (#3379). That bound asked the same question — did this fire on one
+    /// second or on thirty? — through a proxy, and the proxy does not survive a loaded runner: .NET and
+    /// Jint's interpreter both check a regex deadline every <i>N</i> steps rather than continuously, so the
+    /// overshoot scales with the machine and a one-second budget was measured reporting at 16.7 s against a
+    /// 15 s bound on a contended Windows leg. Expressing the bound as a ratio of the thirty seconds would not
+    /// have helped either, because the wrong answer's overshoot scales by the same factor — both candidates
+    /// move together, so no fixed fraction separates them. The exception's own field does, exactly, and
+    /// without measuring anything.
+    /// </para>
+    /// <para>
+    /// It is also strictly narrower than the type check it accompanies:
+    /// <c>RegExpInterpreter</c> raises the same exception type for a backtracking stack overflow, which
+    /// carries no match timeout at all and used to satisfy <c>ThrowExactly</c>.
+    /// </para>
+    /// </remarks>
+    private static void ShouldHaveRunUnderThePrepareTimeBudget(RegexMatchTimeoutException timedOut)
+        => timedOut.MatchTimeout.Should().Be(
+            PrepareTimeRegexTimeout,
+            "the match must have run under the prepared script's own regex timeout rather than falling through to the engine's {0}",
+            EngineRegexTimeout);
+
+    /// <summary>
+    /// The wrong answer. Deliberately far from <see cref="PrepareTimeRegexTimeout"/> so that a regression is
+    /// unmistakable in the witness above, and finite so that a regression which dropped <em>both</em> budgets
+    /// is reported rather than hanging the run.
+    /// </summary>
+    private static readonly TimeSpan EngineRegexTimeout = TimeSpan.FromSeconds(30);
+
     private static readonly TimeSpan PrepareTimeRegexTimeout = TimeSpan.FromSeconds(1);
 
     private static void AssertPrepareTimeRegexTimeoutFires(string script)
@@ -550,17 +589,15 @@ public class RegExpTests
 
         var preparedScript = Engine.PrepareScript(script, options: preparationOptions);
 
-        // Engine is set to a long timeout so a regression that drops the prepare-time
-        // timeout on the floor falls through to ~EngineRegexTimeoutSeconds rather than
-        // the modest default — keeping a clear gap above the assertion threshold even
-        // on slow Windows CI runners where cancellation lag can be several seconds.
-        var engine = new Engine(o => o.Constraints.RegexTimeout = TimeSpan.FromSeconds(EngineRegexTimeoutSeconds));
+        // Engine is set to a long timeout so a regression that drops the prepare-time timeout on the floor
+        // falls through to EngineRegexTimeout rather than to the modest default — see
+        // ShouldHaveRunUnderThePrepareTimeBudget.
+        var engine = new Engine(o => o.Constraints.RegexTimeout = EngineRegexTimeout);
 
-        var sw = Stopwatch.StartNew();
-        Invoking(() => engine.Execute(preparedScript)).Should().ThrowExactly<RegexMatchTimeoutException>();
-        sw.Stop();
+        var timedOut = Invoking(() => engine.Execute(preparedScript))
+            .Should().ThrowExactly<RegexMatchTimeoutException>().Which;
 
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(MaxAcceptableTimeoutSeconds), $"Expected RegexMatchTimeoutException within {MaxAcceptableTimeoutSeconds}s, took {sw.Elapsed.TotalSeconds:F1}s");
+        ShouldHaveRunUnderThePrepareTimeBudget(timedOut);
     }
 
     // ---- host-supplied .NET Regex (RegExpConstructor.Construct(Regex, ...)) ----

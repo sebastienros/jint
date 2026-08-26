@@ -1,4 +1,5 @@
 #nullable enable
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Atomics;
@@ -36,7 +37,12 @@ public class AtomicsWaiterRegistryTests
         };
         thread.Start();
 
-        var completedWithoutBlocking = thread.Join(TimeSpan.FromSeconds(2));
+        // "Rejected the wait" and "blocked on it" are separated by whether the thread ever finishes, not by
+        // how quickly, so this is a wedge ceiling: a regressed implementation blocks for ever and misses any
+        // budget, while a healthy one that a loaded runner has not scheduled yet is not a defect. Two seconds
+        // was a number the machine could decide (#3379); the cost of the wider one is paid only by a genuine
+        // regression, which now takes two minutes to be reported.
+        var completedWithoutBlocking = thread.Join(TestBudgets.WedgeCeiling);
         if (!completedWithoutBlocking)
         {
             var notifier = new Engine();
@@ -185,8 +191,11 @@ public class AtomicsWaiterRegistryTests
 
         engine.Evaluate("notified").AsNumber().Should().Be(1);
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (DateTime.UtcNow < deadline && engine.Evaluate("outcome").AsString() == "pending")
+        // A wedge ceiling: the assertion is what the wait settled with, never how many pumps it took. A wait
+        // the notify missed stays "pending" for its own three minutes, which no budget short of that could
+        // mistake for a slow runner.
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < TestBudgets.WedgeCeiling && engine.Evaluate("outcome").AsString() == "pending")
         {
             engine.Tasks.ProcessTasks();
             Thread.Sleep(5);

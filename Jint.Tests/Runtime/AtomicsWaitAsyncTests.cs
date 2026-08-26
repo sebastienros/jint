@@ -1,4 +1,5 @@
 #nullable enable
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Jint.Tests.Runtime;
@@ -28,6 +29,10 @@ public class AtomicsWaitAsyncTests
         // the engine after that is the timeout timer, because there is nothing else left to hold it.
         var reference = WaitNotifyAndForget();
 
+        // Ten seconds is four hundred forced blocking gen-2 collections, and that is not a wall-clock margin:
+        // an object that is rooted does not stop being rooted because more time passed, so the budget only
+        // has to outlast the transient window the remarks on CollectUntilDead describe. Widening it would buy
+        // no reliability and would cost two minutes of full collections on a genuine regression.
         CollectUntilDead(reference, TimeSpan.FromSeconds(10))
             .Should().BeTrue("the timeout timer of a woken Atomics.waitAsync still pins the engine that owned it");
 
@@ -58,7 +63,7 @@ public class AtomicsWaitAsyncTests
             Atomics.waitAsync(i32a, 0, 0, 50).value.then(function (v) { outcome = v; });
             """);
 
-        DrainUntil(engine, "outcome !== 'pending'", TimeSpan.FromSeconds(10));
+        DrainUntil(engine, "outcome !== 'pending'");
 
         engine.Evaluate("outcome").AsString().Should().Be("timed-out");
     }
@@ -77,20 +82,35 @@ public class AtomicsWaitAsyncTests
 
         engine.Evaluate("notified").AsNumber().Should().Be(1);
 
-        DrainUntil(engine, "outcome !== 'pending'", TimeSpan.FromSeconds(10));
+        DrainUntil(engine, "outcome !== 'pending'");
 
         engine.Evaluate("outcome").AsString().Should().Be("ok");
     }
 
-    private static void DrainUntil(Engine engine, string condition, TimeSpan timeout)
+    /// <summary>
+    /// Pumps until <paramref name="condition"/> holds, or fails saying that it never did.
+    /// </summary>
+    /// <remarks>
+    /// The budget is a <see cref="TestBudgets.WedgeCeiling"/>: nothing here asserts how long the pump took —
+    /// the callers assert what the wait settled <em>with</em> — so widening it can hide nothing, and the ten
+    /// seconds it was could be reached by a runner slow enough without anything being wrong. Running out of
+    /// it now says so: this used to return silently, so an exhausted budget reported as
+    /// <c>outcome == "pending"</c>, which reads as a settlement defect rather than as the wedge it is.
+    /// </remarks>
+    private static void DrainUntil(Engine engine, string condition)
     {
-        var deadline = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < deadline)
+        var elapsed = Stopwatch.StartNew();
+        while (true)
         {
             engine.Tasks.ProcessTasks();
             if (engine.Evaluate(condition).AsBoolean())
             {
                 return;
+            }
+
+            if (elapsed.Elapsed >= TestBudgets.WedgeCeiling)
+            {
+                Assert.Fail($"the engine never reached `{condition}` within {TestBudgets.WedgeCeiling}");
             }
 
             Thread.Sleep(5);

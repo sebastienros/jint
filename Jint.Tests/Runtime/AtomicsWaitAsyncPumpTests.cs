@@ -160,7 +160,9 @@ public class AtomicsWaitAsyncPumpTests
         var engine = new Engine();
         var promise = engine.Evaluate(SharedInt32Array + "Atomics.waitAsync(i32a, 0, 0, 1).value");
 
-        promise.UnwrapIfPromise(TimeSpan.FromSeconds(10)).AsString().Should().Be("timed-out");
+        // The unwrap's own budget is a wedge ceiling here — what is asserted is the value the wait settled
+        // with, and a clamp that regressed never ends the wait at all, so no budget can be too generous.
+        promise.UnwrapIfPromise(TestBudgets.WedgeCeiling).AsString().Should().Be("timed-out");
     }
 
     [Fact]
@@ -211,14 +213,15 @@ public class AtomicsWaitAsyncPumpTests
 
     /// <summary>
     /// Pumps the engine on this thread until <paramref name="condition"/> holds, and answers which thread that
-    /// was. The bound exists so a broken engine fails the run rather than hanging it, and is three orders of
-    /// magnitude above the longest timeout any test here asks for — nothing is asserted about how long the
-    /// loop actually took, which is the property that keeps these tests off the wall clock.
+    /// was. The bound exists so a broken engine fails the run rather than hanging it — nothing is asserted
+    /// about how long the loop actually took, which is the property that keeps these tests off the wall
+    /// clock, and which makes <see cref="TestBudgets.WedgeCeiling"/> the right length for it rather than the
+    /// thirty seconds a loaded runner could reach on its own (#3379).
     /// </summary>
     private static int PumpUntil(Engine engine, string condition)
     {
         var elapsed = Stopwatch.StartNew();
-        while (elapsed.Elapsed < TimeSpan.FromSeconds(30))
+        while (elapsed.Elapsed < TestBudgets.WedgeCeiling)
         {
             engine.Tasks.ProcessTasks();
             if (engine.Evaluate(condition).AsBoolean())

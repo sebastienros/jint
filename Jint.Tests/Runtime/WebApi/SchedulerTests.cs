@@ -1,7 +1,6 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
-using System.Diagnostics;
 using Jint.Native;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
@@ -1001,28 +1000,36 @@ public class SchedulerTests
         result.AsString().Should().Be("ab");
     }
 
+    /// <summary>
+    /// Nothing but a pump the host calls itself runs a task: Jint starts no thread and arms no background
+    /// timer, so a delayed task that is due sits there until <c>ProcessTasks</c> is called.
+    /// </summary>
+    /// <remarks>
+    /// On the same manual clock as the rest of this class, which is what makes each of the three states below
+    /// a fact rather than a race (#3372). The first assertion used to be a statement about how long the
+    /// enclosing <c>Execute</c> took: the outer background task runs during that call's own drain and posts
+    /// the inner one with a twenty-millisecond delay, so on a machine where the drain outlived twenty
+    /// milliseconds of <em>wall</em> clock the inner task came due inside the same <c>Execute</c> and
+    /// <c>done</c> was already true. A clock that only this test moves cannot be outlived, and it buys the
+    /// middle state as well — due, and still not run, which is the actual claim and which no amount of
+    /// polling could have asserted.
+    /// </remarks>
     [Fact]
     public void AHostsOwnPumpRunsTheTasks()
     {
-        var engine = new Engine(options => options.UseWebApis());
+        var (engine, clock) = SchedulerEngine();
 
         var done = false;
         engine.SetValue("done", new Action(() => done = true));
 
-        // Nothing drains here: Evaluate returns as soon as the script has run, and the delayed task is still
-        // waiting on the clock.
         engine.Execute("scheduler.postTask(() => scheduler.postTask(done, { delay: 20 }), { priority: 'background' });");
-        done.Should().BeFalse();
+        done.Should().BeFalse("the clock has not moved, so the inner task is not due");
 
-        var deadline = Stopwatch.StartNew();
-        while (!done && deadline.Elapsed < TimeSpan.FromSeconds(5))
-        {
-            // Nothing but the host's own pump: no engine thread, no background timer.
-            engine.Tasks.ProcessTasks();
-            Thread.Sleep(5);
-        }
+        clock.Advance(20);
+        done.Should().BeFalse("being due is not enough — only a pump the host calls may run it");
 
-        done.Should().BeTrue();
+        engine.Tasks.ProcessTasks();
+        done.Should().BeTrue("the host's own pump is what runs it");
     }
 }
 #endif

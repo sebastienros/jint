@@ -1027,7 +1027,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
+        result = result.UnwrapIfPromise(TestBudgets.WedgeCeiling);
 
         result.Should().Be("Hello World");
     });
@@ -1044,7 +1044,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
 
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
+        result = result.UnwrapIfPromise(TestBudgets.WedgeCeiling);
 
         result.Should().Be("Hello World");
     });
@@ -1152,23 +1152,47 @@ public class AsyncTests
 
         // A Task that never completes: the awaited promise stays pending forever unless cancellation breaks in.
         var neverCompletes = new TaskCompletionSource<int>();
-        engine.SetValue("hang", new Func<Task<int>>(() => neverCompletes.Task));
+        using var awaitReached = new ManualResetEventSlim();
+        engine.SetValue("hang", new Func<Task<int>>(() =>
+        {
+            awaitReached.Set();
+            return neverCompletes.Task;
+        }));
 
         engine.Modules.Add("main", """
             const x = await hang();
             export const answer = x;
             """);
 
-        // Cancel shortly after Import starts blocking on the drain (fires on a ThreadPool thread).
-        cts.CancelAfter(TimeSpan.FromMilliseconds(200));
+        // Started by the cancelling thread immediately before the cancel, so what is measured is the
+        // interval the assertion is about — how long the idle drain took to notice — and never how long the
+        // cancel itself took to be delivered. The cancel used to come from CancelAfter, whose callback the
+        // thread pool delivers whenever it gets round to it: #3369 measured a healthy 250 ms cancellation at
+        // 5.011 s that way, because a saturated pool grows at roughly one worker per 500 ms.
+        var elapsed = new System.Diagnostics.Stopwatch();
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var canceller = DedicatedThread.RunAsync(() =>
+        {
+            // hang() has been called, so Import is on its way into the blocking drain; the settle lets it
+            // arrive. Both interleavings are correct — a cancel that beats the park is seen by the drain's
+            // own pre-check — so this only decides which of the two the run exercises.
+            awaitReached.Wait(TestBudgets.WedgeCeiling);
+            Thread.Sleep(TimeSpan.FromMilliseconds(200));
+            elapsed.Start();
+            cts.Cancel();
+        });
+
         Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<ExecutionCanceledException>();
-        sw.Stop();
+        elapsed.Stop();
 
-        // Prompt: nowhere near the multi-minute PromiseTimeout. A generous ceiling keeps this stable under CI load.
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), $"Cancellation was not observed promptly: took {sw.Elapsed}.");
+        // Half of what the wrong answer costs, derived from it rather than written out again: a drain that
+        // never looked at the token sits out the whole PromiseTimeout, so the midpoint between the two is
+        // what separates "observed the cancellation" from "gave up on the budget".
+        elapsed.Elapsed.Should().BeLessThan(
+            TimeSpan.FromTicks(GenerousPromiseTimeout.Ticks / 2),
+            $"Cancellation was not observed promptly: took {elapsed.Elapsed} of a {GenerousPromiseTimeout} budget.");
 
+        canceller.GetAwaiter().GetResult();
         neverCompletes.TrySetCanceled();
     });
 
@@ -1197,7 +1221,13 @@ public class AsyncTests
         Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<InvalidOperationException>();
         sw.Stop();
 
-        sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(30), $"Never-settling await was not bounded: took {sw.Elapsed}.");
+        // Bounded rather than unbounded is the whole of what this half claims, and a wedge ceiling is
+        // therefore the honest number: the exception it accompanies says "did not return a fulfilled
+        // promise" and names no budget, so nothing here can tell a drain that gave up on the configured
+        // half-second from one that gave up on the ten-second default. Thirty seconds looked like a
+        // discriminator and was not — it is above both candidates — while being close enough to the
+        // half-second to be crossed by a stalled runner (#3379).
+        sw.Elapsed.Should().BeLessThan(TestBudgets.WedgeCeiling, $"Never-settling await was not bounded: took {sw.Elapsed}.");
 
         neverCompletes.TrySetCanceled();
     });
@@ -1216,7 +1246,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<Task>(() => Task.Delay(100)));
         engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
+        result = result.UnwrapIfPromise(TestBudgets.WedgeCeiling);
         result.Should().Be("Hello World");
     });
 
@@ -1232,7 +1262,7 @@ public class AsyncTests
         engine.SetValue("asyncWork", new Func<ValueTask<string>>(async () => { await Task.Delay(100); return "Hello World"; }));
         engine.SetValue("assert", new Action<bool>(static value => value.Should().BeTrue()));
         var result = engine.Evaluate("async function hello() {return await asyncTestMethod(async () =>{ return await asyncWork(); })} hello();");
-        result = result.UnwrapIfPromise(TimeSpan.FromSeconds(30));
+        result = result.UnwrapIfPromise(TestBudgets.WedgeCeiling);
         result.Should().Be("Hello World");
     });
 
@@ -1533,7 +1563,7 @@ public class AsyncTests
                         var val = result.GetValue("main").Call(testObj);
 
                         // Wait for the async function to complete (non-blocking async model)
-                        val = val.UnwrapIfPromise(TimeSpan.FromSeconds(30));
+                        val = val.UnwrapIfPromise(TestBudgets.WedgeCeiling);
                         val.AsInteger().Should().Be(1);
 
                         tasks[taskIdx].SetResult(null);
@@ -1559,15 +1589,22 @@ public class AsyncTests
         var engine = new Engine();
         var callbackExecuted = false;
 
-        engine.SetValue("setTimeout",
-            (Action action, int ms) =>
+        // The host timer never fires by itself: it hands its callback to this test and waits to be told.
+        // It used to be Task.Delay(ms).ContinueWith(...), which made both assertions below a statement about
+        // how long the Execute and the Evaluate took — a hundred milliseconds is not a margin a loaded
+        // runner respects, and a callback that had run reads as exactly the defect this test exists to catch
+        // (#3379). Nothing here is about latency: what is asserted is that calling f() without awaiting it
+        // returns before the awaited promise settles.
+        Action scheduled = null;
+        engine.SetValue("setTimeout", (Action action, int ms) =>
+        {
+            _ = ms;
+            scheduled = () =>
             {
-                Task.Delay(ms).ContinueWith(_ =>
-                {
-                    callbackExecuted = true;
-                    action();
-                });
-            });
+                callbackExecuted = true;
+                action();
+            };
+        });
 
         engine.Execute("""
             var x = '';
@@ -1585,6 +1622,12 @@ public class AsyncTests
         // and NOT include "promise resolved -" yet
         x.Should().Be("f() called - ");
         callbackExecuted.Should().BeFalse("Promise callback should not have executed yet");
+
+        // ...and the other half of "not yet", which the wall clock could never state: once the host does run
+        // the timer, the continuation the async function was suspended on is the thing that lands.
+        scheduled.Should().NotBeNull("the script registered a timer");
+        scheduled();
+        engine.Evaluate("x").AsString().Should().Be("f() called - promise resolved - ");
     }
 
     [Fact]
@@ -2377,16 +2420,16 @@ public class AsyncTests
     [Fact]
     public async Task EvaluateAsyncTimeoutShouldFireDuringPendingClrTask()
     {
-        // Verify that the PromiseTimeout constraint works with the async wake path.
+        // Verify that the PromiseTimeout constraint works with the async wake path. The IO never completes at
+        // all, so the timeout is the only thing that can end the wait and no amount of load can let the IO
+        // win the race — where a five-second Task.Delay only had to beat the budget by a factor of fifty, on
+        // a pool that also has to deliver the budget's own CancelAfter callback.
+        var neverCompletes = new TaskCompletionSource<int>();
         var engine = new Engine(options =>
         {
             options.Constraints.PromiseTimeout = TimeSpan.FromMilliseconds(100);
         });
-        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
-        {
-            await Task.Delay(5000);
-            return 999;
-        }));
+        engine.SetValue("slowIO", new Func<Task<int>>(() => neverCompletes.Task));
 
         await Awaiting(async () =>
         {
@@ -2397,6 +2440,8 @@ public class AsyncTests
                 main()
                 """);
         }).Should().ThrowExactlyAsync<PromiseRejectedException>();
+
+        neverCompletes.TrySetCanceled();
     }
 
     [Fact]
@@ -2487,10 +2532,18 @@ public class AsyncTests
         var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
         var ioStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        // The IO ends when this test says so, never on an interval — the same fix
+        // PromiseTests.UnwrapIfPromiseAsync_WithIOBoundTask_DoesNotBlockCallerThread took for its twin of
+        // this body. `await Task.Delay(200)` made the "still pending" assertion below a race this test could
+        // lose: on a loaded runner the two hundred milliseconds can be gone before this thread is scheduled
+        // again, and a completed evaluation then reads as exactly the defect the test exists to catch. A gate
+        // the test holds cannot complete early, so "in flight" is a fact rather than a hope.
+        var releaseIO = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
         engine.SetValue("simulateIO", new Func<Task<int>>(async () =>
         {
             ioStarted.TrySetResult(true);
-            await Task.Delay(200);
+            await releaseIO.Task.ConfigureAwait(false);
             return 42;
         }));
 
@@ -2507,6 +2560,8 @@ public class AsyncTests
 
         // The evalTask should not be completed yet — IO is in flight
         evalTask.IsCompleted.Should().BeFalse("EvaluateAsync should not block; task should still be pending during IO");
+
+        releaseIO.SetResult(true);
 
         // Now await the result
         var result = await evalTask;
@@ -2652,61 +2707,121 @@ public class AsyncTests
         // and the TCS in WaitForEventAsync gets cancelled (stale). The engine must
         // remain usable for subsequent calls — the stale TCS must be detected and
         // replaced on the next EvaluateAsync invocation.
-        //
-        // One budget for both halves, because the Options an engine was built from are read-only afterwards.
-        // It is generous enough that the recovery half asserts success rather than racing the machine, and
-        // the first half reaches it anyway because the slow IO never completes at all.
         var neverCompletes = new TaskCompletionSource<int>();
         var engine = new Engine(options =>
         {
-            options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(1);
+            options.Constraints.PromiseTimeout = ReuseAfterTimeoutBudget;
         });
         engine.SetValue("slowIO", new Func<Task<int>>(() => neverCompletes.Task));
-        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
+
+        // The recovery half's IO ends when a thread this test owns says so, never on an interval. It used to
+        // be `await Task.Delay(10)`, which is a pool timer whose continuation needs a pool worker, and on a
+        // saturated runner the pool grows at about one worker per 500 ms — so the ten milliseconds became
+        // seconds and the recovery failed as "Timeout of 00:00:01 reached", which says nothing about
+        // whether the engine was reusable. A dedicated thread that is already parked on the handshake below
+        // needs a core, not a worker.
+        using var recoveryIOStarted = new ManualResetEventSlim();
+        var recoveryIO = new TaskCompletionSource<int>();
+        engine.SetValue("fastIO", new Func<Task<int>>(() =>
         {
-            await Task.Delay(10);
-            return 42;
+            recoveryIOStarted.Set();
+            return recoveryIO.Task;
         }));
 
-        // First call should time out
-        await Awaiting(async () =>
+        var releaser = DedicatedThread.RunAsync(() =>
+        {
+            recoveryIOStarted.Wait(TestBudgets.WedgeCeiling);
+            recoveryIO.TrySetResult(42);
+        });
+
+        // First call should time out. Which budget it gave up on is stated by the rejection itself —
+        // AwaitPromiseSettlementAsync formats the very local it armed the timeout CTS from — so the size of
+        // that budget is not what this asserts and a slower machine cannot change the answer.
+        var rejection = await Awaiting(async () =>
         {
             await engine.EvaluateAsync("(async () => await slowIO())()");
         }).Should().ThrowExactlyAsync<PromiseRejectedException>();
 
+        rejection.Which.Message.Should().Contain(ReuseAfterTimeoutBudget.ToString());
+
         // Engine should still work
         var result = await engine.EvaluateAsync("(async () => await fastIO())()");
         result.AsInteger().Should().Be(42);
+
+        await releaser;
     }
+
+    /// <summary>
+    /// The one promise budget <see cref="EngineReusableAfterEvaluateAsyncTimeout"/> has for both of its
+    /// halves, because the <see cref="Options"/> an engine was built from are read-only afterwards and
+    /// <c>EvaluateAsync</c> takes no per-call timeout.
+    /// </summary>
+    /// <remarks>
+    /// It plays two roles, which is why it is named rather than written inline. The first half spends all of
+    /// it — the slow IO never completes — so it is the whole cost of the test, and it is deliberately not the
+    /// two-minute <see cref="TestBudgets.WedgeCeiling"/> the behaviour-only rows here use. The second half
+    /// gets all of it as margin, and that is the half a loaded runner used to take away at one second
+    /// (#3379): what the recovery has to fit inside is now a handshake and a context switch on a thread the
+    /// test already started, rather than a thread-pool timer and the pool's worker-injection rate.
+    /// <em>Which</em> budget fired is asserted from the rejection message rather than from this number, so
+    /// moving it changes what the test costs and never what it claims.
+    /// </remarks>
+    private static readonly TimeSpan ReuseAfterTimeoutBudget = TimeSpan.FromSeconds(5);
 
     [Fact]
     public async Task EngineReusableAfterEvaluateAsyncCancellation()
     {
         // CancellationToken fires during a pending EvaluateAsync. The TCS in
         // WaitForEventAsync gets cancelled. Verify the engine is still usable.
+        //
+        // Nothing here is on the wall clock, and nothing is released by the thread pool. The slow IO is a
+        // gate this test holds rather than a ten-second Task.Delay it had to outrun; the cancel comes from a
+        // thread the test owns rather than from CancelAfter, whose callback a saturated pool delivers
+        // whenever it gets round to it; and the recovery IO is completed by that same thread rather than by
+        // another pool timer. What is asserted is the exception type and the recovered value — never a
+        // duration — so GenerousPromiseTimeout is a wedge ceiling on all of it.
         var engine = new Engine(options => options.Constraints.PromiseTimeout = GenerousPromiseTimeout);
-        engine.SetValue("slowIO", new Func<Task<int>>(async () =>
+
+        var slowIO = new TaskCompletionSource<int>();
+        using var slowIOStarted = new ManualResetEventSlim();
+        engine.SetValue("slowIO", new Func<Task<int>>(() =>
         {
-            await Task.Delay(10_000);
-            return 999;
-        }));
-        engine.SetValue("fastIO", new Func<Task<int>>(async () =>
-        {
-            await Task.Delay(10);
-            return 7;
+            slowIOStarted.Set();
+            return slowIO.Task;
         }));
 
-        using (var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50)))
+        var recoveryIO = new TaskCompletionSource<int>();
+        using var recoveryIOStarted = new ManualResetEventSlim();
+        engine.SetValue("fastIO", new Func<Task<int>>(() =>
         {
+            recoveryIOStarted.Set();
+            return recoveryIO.Task;
+        }));
+
+        using (var cts = new CancellationTokenSource())
+        {
+            var driver = DedicatedThread.RunAsync(() =>
+            {
+                slowIOStarted.Wait(TestBudgets.WedgeCeiling);
+                cts.Cancel();
+
+                recoveryIOStarted.Wait(TestBudgets.WedgeCeiling);
+                recoveryIO.TrySetResult(7);
+            });
+
             await Awaiting(async () =>
             {
                 await engine.EvaluateAsync("(async () => await slowIO())()", cancellationToken: cts.Token);
             }).Should().ThrowAsync<OperationCanceledException>();
+
+            // Engine must still be usable after cancellation
+            var result = await engine.EvaluateAsync("(async () => await fastIO())()");
+            result.AsInteger().Should().Be(7);
+
+            await driver;
         }
 
-        // Engine must still be usable after cancellation
-        var result = await engine.EvaluateAsync("(async () => await fastIO())()");
-        result.AsInteger().Should().Be(7);
+        slowIO.TrySetCanceled();
     }
 
     // ========================================================================
@@ -3196,7 +3311,7 @@ public class AsyncTests
         var engine = new Engine(options =>
         {
             options.Strict = true;
-            options.Constraints.PromiseTimeout = TimeSpan.FromSeconds(30);
+            options.Constraints.PromiseTimeout = TestBudgets.WedgeCeiling;
         });
 
         engine.SetValue("host", (Func<string, Task<string>>) (value => Task.FromResult(value)));
@@ -3350,7 +3465,9 @@ public class AsyncTests
 
         loop.Enqueue(static () => { });
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        // A wedge ceiling: what is asserted is that both waiters were signalled, never how quickly, and the
+        // completions are delivered by the thread pool.
+        using var cts = new CancellationTokenSource(TestBudgets.WedgeCeiling);
         await Task.WhenAll(waiter1, waiter2).WaitAsync(cts.Token);
 
         waiter1.IsCompletedSuccessfully.Should().BeTrue();

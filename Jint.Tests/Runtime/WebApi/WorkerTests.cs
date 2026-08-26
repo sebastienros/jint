@@ -422,7 +422,10 @@ public class WorkerTests
 
         foreach (var thread in threads)
         {
-            thread.Join(TimeSpan.FromSeconds(60)).Should().BeTrue("End() never blocks its caller");
+            // A wedge ceiling: what is claimed is that End() never blocks its caller, and a call that blocks
+            // blocks for ever on a Barrier nobody else will reach — so the budget separates "finished" from
+            // "wedged" and never "fast" from "slow", however many racers the runner has cores for.
+            thread.Join(TestBudgets.WedgeCeiling).Should().BeTrue("End() never blocks its caller");
         }
 
         for (var round = 0; round < Rounds; round++)

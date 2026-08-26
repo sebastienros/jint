@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.Diagnostics;
 using Jint.Native;
 using Jint.Runtime;
 
@@ -24,7 +25,12 @@ public class Test262AgentManagerTests
             `);
             """);
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        // A wedge ceiling — nothing here asserts how long the spawned agent took, only what it reported — and
+        // its exhaustion is stated before the value is read. The five seconds it was ran straight into
+        // AsString() on a JS null, so a runner too slow to start a thread inside the budget reported
+        // "Expected string but got Null" from inside JsValue: a message about neither the agent nor the
+        // budget, which is the diagnosis cost #3297 is about.
+        var elapsed = Stopwatch.StartNew();
         JsValue report;
         do
         {
@@ -33,8 +39,9 @@ public class Test262AgentManagerTests
             {
                 Thread.Sleep(10);
             }
-        } while (report.IsNull() && DateTime.UtcNow < deadline);
+        } while (report.IsNull() && elapsed.Elapsed < TestBudgets.WedgeCeiling);
 
+        report.IsNull().Should().BeFalse($"the spawned agent must report within {TestBudgets.WedgeCeiling}; {elapsed.Elapsed} elapsed");
         report.AsString().Should().Be("timed-out");
     }
 }
