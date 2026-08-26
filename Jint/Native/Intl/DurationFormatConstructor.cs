@@ -209,7 +209,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
             proto,
             resolvedLocale,
             style,
-            numberingSystem,
+            Data.ResolvedNumberingSystem.Resolve(_engine, numberingSystem),
             culture,
             yearsStyle,
             monthsStyle,

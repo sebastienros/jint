@@ -1839,6 +1839,29 @@ new Intl.DateTimeFormat('ar', { timeStyle: 'short' }).format(Date.UTC(2024, 0, 1
 letters, and its narrow names are what the derivation produces. Formatting that asks for neither a narrow
 style nor a day period is untouched, and so is the cost of constructing it — the narrow names are read only
 when a narrow style was actually requested.
+### 4.35 `Intl.DurationFormat` formats in the numbering system it reports ([#3400](https://github.com/sebastienros/jint/issues/3400))
+
+`Intl.DurationFormat` resolved a numbering system, reported it from `resolvedOptions()`, and then wrote
+Latin digits anyway. Its three siblings — `Intl.NumberFormat`, `Intl.DateTimeFormat`,
+`Intl.RelativeTimeFormat` — all transliterated their output; this one stored the value and nothing read it.
+
+```js
+// 5.0
+new Intl.DurationFormat('en', { numberingSystem: 'arab' }).resolvedOptions().numberingSystem; // "arab"
+new Intl.DurationFormat('en', { numberingSystem: 'arab' }).format({ hours: 12, minutes: 30 }); // "12 hr, 30 min"
+
+// 5.x
+new Intl.DurationFormat('en', { numberingSystem: 'arab' }).format({ hours: 12, minutes: 30 }); // "١٢ hr, ٣٠ min"
+new Intl.DurationFormat('en', { numberingSystem: 'arab', style: 'digital' }).format({ hours: 1, minutes: 2, seconds: 3 }); // "١:٠٢:٠٣"
+```
+
+Digits only: a unit name is not a number, so `hr` and `min` keep their own characters, which is what
+`formatToParts` already said by giving them a `unit` type rather than an `integer` one. `format()` and
+`formatToParts()` agree, because the specification defines the first as the concatenation of the second.
+
+**What could break:** a duration formatted with an explicit `numberingSystem`, or a `-u-nu-` extension, that
+is not `latn`. Nothing else moves — a formatter that resolves to `latn`, which is every formatter that does
+not ask for something else, writes exactly what it wrote before.
 
 ## 5. New in v5
 
