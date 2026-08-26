@@ -30,12 +30,21 @@ internal sealed class StackGuard
     // specific request, so it wins.
     private readonly bool _backstopEnabled;
 
+    // The same snapshot without that exclusion, for the recursions that are not on a call path at all.
+    // The exclusion above is about ordering between two probes a few native frames apart on one path;
+    // MaxExecutionStackCount's lane is TryEnterOnCurrentStack, which nothing but a call expression
+    // reaches, so on the module pipeline there is nothing for it to win against — and honouring the
+    // exclusion there would leave an engine that asked for a call-depth limit with no protection at all
+    // for a deep import.
+    private readonly bool _graphGuardEnabled;
+
     public StackGuard(Engine engine)
     {
         _engine = engine;
         _maxExecutionStackCount = engine.Options.Constraints.MaxExecutionStackCount;
         _enabled = _maxExecutionStackCount != Disabled;
         _backstopEnabled = !_enabled && engine.Options.Constraints.StackOverflowGuard;
+        _graphGuardEnabled = engine.Options.Constraints.StackOverflowGuard;
     }
 
     /// <summary>
@@ -86,6 +95,31 @@ internal sealed class StackGuard
         {
             ProbeStackHeadroom();
         }
+    }
+
+    /// <summary>
+    /// Whether the current thread still has the runtime's reserve below it, for a caller about to add one
+    /// more level to a recursion that is linear in the size of a *host-supplied* graph rather than in
+    /// anything script wrote — the module pipeline's linking, evaluation and export resolution.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reports rather than throws, because the two module algorithms disagree about what failing looks
+    /// like: <c>InnerModuleLinking</c> throws and lets <c>Link</c>'s cleanup return the graph to unlinked,
+    /// while <c>InnerModuleEvaluation</c> has to hand back a <em>throw completion</em> so
+    /// <c>Evaluate</c> can mark every module still on the Tarjan stack evaluated-with-that-error instead of
+    /// stranding them in <c>evaluating</c>. An engine that survives the failure is the whole point; one
+    /// left holding a graph it can neither re-link nor re-evaluate would only be a slower way of losing it.
+    /// </para>
+    /// <para>
+    /// It is gated on <see cref="Options.ConstraintOptions.StackOverflowGuard"/> alone — see
+    /// <c>_graphGuardEnabled</c> — and costs one predictable branch plus, when armed, one comparison
+    /// against the thread's stack limit, per module of the graph. A graph is linked once.
+    /// </para>
+    /// </remarks>
+    public bool HasGraphRecursionHeadroom()
+    {
+        return !_graphGuardEnabled || RuntimeHelpers.TryEnsureSufficientExecutionStack();
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
