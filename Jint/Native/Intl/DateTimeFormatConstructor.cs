@@ -472,7 +472,16 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // this culture, so seeding the culture's own tables is the one place a host's names reach all of
         // format(), formatToParts() and formatRange() at once, and it happens here, once per formatter,
         // rather than on the per-format() path.
-        if (ApplyProviderNames(dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar))
+        //
+        // The shared singleton is recognized by identity and skipped, the way the engine already treats
+        // DefaultCalendarProvider.Instance: it reads these very names out of this very culture, so it can
+        // only ever answer with what is already there, and asking it would cost five provider calls, five
+        // cache-key allocations and four cloned DateTimeFormatInfo arrays to learn nothing. That the two
+        // agree is not assumed — IntlTests.TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames walks every
+        // culture on the machine and compares all five arrays entry by entry.
+        var cldrProvider = _engine.Options.Intl.CldrProvider;
+        if (!ReferenceEquals(cldrProvider, DefaultCldrProvider.Instance)
+            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar))
         {
             culture = (CultureInfo) culture.Clone();
             culture.DateTimeFormat = dateTimeFormatInfo;
@@ -526,9 +535,9 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
 
     /// <summary>
     /// Seeds one formatter's <see cref="DateTimeFormatInfo"/> with the month, weekday and day-period names
-    /// the engine's <see cref="ICldrProvider"/> answers with, and reports whether any of them differed from
-    /// what .NET already held. A provider answering with .NET's own names writes nothing — which is exactly
-    /// what <see cref="DefaultCldrProvider"/> does, since it reads them out of this same culture.
+    /// a host <see cref="ICldrProvider"/> answers with, and reports whether any of them differed from what
+    /// .NET already held. Reached only for a provider the host installed: <see cref="DefaultCldrProvider"/>'s
+    /// shared singleton reads these names out of this same culture, so the caller skips it by identity.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -541,13 +550,13 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// (<c>MMM</c>, <c>ddd</c>) for <c>narrow</c>, so it has no narrow lane for a provider to feed.
     /// </para>
     /// </remarks>
-    private bool ApplyProviderNames(
+    private static bool ApplyProviderNames(
+        ICldrProvider provider,
         DateTimeFormatInfo target,
         DateTimeFormatInfo original,
         string locale,
         string? calendar)
     {
-        var provider = _engine.Options.Intl.CldrProvider;
         var changed = false;
 
         var longMonths = provider.GetMonthNames(locale, "long", calendar);

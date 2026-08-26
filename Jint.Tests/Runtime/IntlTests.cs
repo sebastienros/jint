@@ -1371,12 +1371,17 @@ public class IntlTests
 
     /// <summary>
     /// <c>Intl.DateTimeFormat</c> seeds each formatter's <c>DateTimeFormatInfo</c> from
-    /// <c>Options.Intl.CldrProvider</c>, and writes only a name group that differs from what .NET already
-    /// held. <c>DefaultCldrProvider</c> reads those names out of the very same <c>CultureInfo</c>, so on an
-    /// unconfigured engine the seeding writes nothing at all and the formatter keeps the culture instance it
-    /// always had. This walks every culture the machine has and checks that entry by entry, rather than
-    /// asserting it for one locale.
+    /// <c>Options.Intl.CldrProvider</c>, and skips the shared <c>DefaultCldrProvider.Instance</c> by identity
+    /// rather than asking it and comparing — because it reads those names out of the very same
+    /// <c>CultureInfo</c> the formatter would otherwise have used, so it can only answer with what is
+    /// already there.
     /// </summary>
+    /// <remarks>
+    /// This is what makes that shortcut sound, so it is the guard on it: it walks every culture the machine
+    /// has and compares all five arrays the seeding reads, entry by entry, against the
+    /// <c>DateTimeFormatInfo</c> behind them. Should the default provider ever start answering with names of
+    /// its own, this fails, and the identity check in <c>DateTimeFormatConstructor</c> is then wrong.
+    /// </remarks>
     [Fact]
     public void TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames()
     {
