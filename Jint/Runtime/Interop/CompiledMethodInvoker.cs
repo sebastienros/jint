@@ -2,16 +2,16 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Expression = System.Linq.Expressions.Expression;
 using ConditionalExpression = System.Linq.Expressions.ConditionalExpression;
 
 // The delegate is compiled with System.Linq.Expressions; every member it references is public
 // (JsValue implicit operators, JsValueExtensions accessors, JsValue.Null) so the generated
-// dynamic method needs no reflection-visibility relaxation. IL2075/IL3050 cover the reflection +
-// dynamic-code use, which is gated behind RuntimeFeature.IsDynamicCodeCompiled at the call site.
-#pragma warning disable IL2075
-#pragma warning disable IL3050
+// dynamic method needs no reflection-visibility relaxation. The lane is gated on
+// RuntimeFeature.IsDynamicCodeCompiled at the call site in MethodDescriptor and on
+// IsDynamicCodeSupported again in TryCreateInvocationDelegate, which is what an AOT publish can see.
 
 namespace Jint.Runtime.Interop;
 
@@ -207,6 +207,15 @@ internal static class CompiledMethodInvoker
     {
         invocationDelegate = null;
         delegateType = null;
+
+        // Expression.TryGetFuncType / TryGetActionType close Func<> and Action<> over the signature, which
+        // is [RequiresDynamicCode]. MethodDescriptor already declines this lane when the runtime will not
+        // JIT, but the guard has to be restated HERE for an AOT publish to see it: the analyzer and ILC
+        // reason one method at a time, and IsDynamicCodeSupported is a feature guard they fold.
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+        {
+            return false;
+        }
 
         var isVoid = returnType == typeof(void);
         var instanceSlot = method.IsStatic ? 0 : 1;

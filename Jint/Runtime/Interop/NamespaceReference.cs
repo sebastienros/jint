@@ -6,8 +6,6 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime.Descriptors;
 
-#pragma warning disable IL3050
-
 namespace Jint.Runtime.Interop;
 
 /// <summary>

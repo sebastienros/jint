@@ -9,10 +9,8 @@ using Expression = System.Linq.Expressions.Expression;
 #endif
 
 // The delegates are compiled with System.Linq.Expressions and only reference the reflected declaring
-// type, whose visibility is checked before anything is emitted. IL2075/IL3050 cover the reflection +
-// dynamic-code use, which is gated behind RuntimeFeature.IsDynamicCodeCompiled.
-#pragma warning disable IL2075
-#pragma warning disable IL3050
+// type, whose visibility is checked before anything is emitted. The reflection and dynamic-code use is
+// gated behind RuntimeFeature.IsDynamicCodeCompiled.
 
 namespace Jint.Runtime.Interop.Reflection;
 

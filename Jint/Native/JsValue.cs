@@ -180,9 +180,25 @@ public abstract partial class JsValue : IEquatable<JsValue>
     /// <summary>
     /// Cached reflection lookups for Task interop to avoid repeated GetMethod/GetProperty calls.
     /// </summary>
+    /// <remarks>
+    /// Both lookups are keyed on a <em>constructed</em> generic type that only exists at run time, which is
+    /// why neither can carry <c>[DynamicallyAccessedMembers]</c> - and why both used to warn in every
+    /// trimming build without preserving anything. The member asked for belongs to the generic
+    /// <em>definition</em> in both cases, so a dependency on the definition covers every instantiation and
+    /// is expressible; see the attributes on the two methods below. What that fixes is not the diagnostic:
+    /// a trimmed-away <c>Task&lt;T&gt;.Result</c> made an awaited host value resolve to <c>undefined</c>,
+    /// silently.
+    /// </remarks>
     private static readonly ConcurrentDictionary<Type, PropertyInfo?> _taskResultPropertyCache = new();
     private static readonly ConcurrentDictionary<Type, MethodInfo?> _valueTaskAsTaskMethodCache = new();
 
+#if !NETFRAMEWORK && !NETSTANDARD2_0
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(ValueTask<>))]
+    [UnconditionalSuppressMessage("Trimming", "IL2070:UnrecognizedReflectionPattern",
+        Justification = "The lookup is reached only for a ValueTask<T> - every other awaitable shape is " +
+                        "handled above it - and AsTask is declared on ValueTask<>, whose public methods the " +
+                        "DynamicDependency preserves for every instantiation.")]
+#endif
     internal static JsValue ConvertAwaitableToPromise(Engine engine, object obj)
     {
         if (obj is Task task)
@@ -208,6 +224,11 @@ public abstract partial class JsValue : IEquatable<JsValue>
         return FromObject(engine, JsValue.Undefined);
     }
 
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(Task<>))]
+    [UnconditionalSuppressMessage("Trimming", "IL2070:UnrecognizedReflectionPattern",
+        Justification = "The lookup is reached only for the runtime type of a Task, so the only type that can " +
+                        "carry a Result property is a Task<T>, and Task<>'s public properties are preserved by " +
+                        "the DynamicDependency. A non-generic Task answers null, which the caller handles.")]
     internal static JsValue ConvertTaskToPromise(Engine engine, Task task)
     {
         // The settle functions convert on the engine's thread, not on the background thread that completes

@@ -25,30 +25,44 @@
     <NoWarn>$(NoWarn);JINT0001</NoWarn>
 
     <!--
-      Trim and AOT analysis, suppressed so that Jint's own build is green. Read this before assuming it
-      means anything to a consumer: NoWarn is a property of THIS compilation and reaches nothing
-      downstream. ILC re-derives every diagnostic when it compiles the closed program, so an embedder
-      publishing Native AOT sees all 115 of them attributed to Jint's files in their own build. The
-      same is true of a source `#pragma warning disable IL....`, which reaches Roslyn and not ILC;
-      [UnconditionalSuppressMessage] is the form ILC honours, and it asserts safety, so it needs a
-      justification that is true.
+      Trim and AOT analysis. Read this before assuming it means anything to a consumer: NoWarn is a
+      property of THIS compilation and reaches nothing downstream. ILC re-derives every diagnostic when
+      it compiles the closed program, so an embedder publishing Native AOT sees the remaining ones
+      attributed to Jint's files in their own build. The same is true of a source
+      `#pragma warning disable IL....`, which reaches Roslyn and not ILC - the reason this assembly no
+      longer has any. [UnconditionalSuppressMessage] is the form ILC honours, and it asserts safety, so
+      it needs a justification that is true; every one in the assembly names the invariant it relies on.
 
       What actually substantiates the IsAotCompatible property below is the `aot` CI leg, which
       publishes Jint.AotExample with PublishAot=true and RUNS the native binary. The warnings say what
       might break; the run says what does.
 
-      Paying these down is https://github.com/sebastienros/jint/issues/3305, which carries the
-      inventory by code and by file and a suggested order. Almost all of them are dataflow - a Type
-      reaching a call that demands [DynamicallyAccessedMembers] - so each one is fixed by propagating
-      the annotation back to whoever produced the Type, and the propagation only terminates at a public
-      API. That is why removing this line is not one change: it turns ~104 diagnostics into build errors
-      at once, TreatWarningsAsErrors being on repository-wide.
+      What is left, and why each code is still here (https://github.com/sebastienros/jint/issues/3305):
+
+        IL3050, IL2060  The eight sites that build a generic instantiation over a type only known at run
+                        time - Task.FromResult<T>, MethodInfo.MakeGenericMethod, List<T>/Collection<T>
+                        for a generic-collection parameter, the closed type a script names through
+                        importNamespace, and the two Array.CreateInstance calls that bind a params array.
+                        These are REAL: docs/v5-migration.md section 6.2 documents them as the one shape
+                        that does not work natively, and Jint.AotExample pins five of them as
+                        KnownAotGaps. They are not suppressed because they are not safe, and they do not
+                        get [RequiresDynamicCode] because no signature in Jint predicts the type
+                        argument - it comes from the host's members and the script's arguments.
+
+        IL2062, IL2067  Dataflow: a Type reaching a call that demands [DynamicallyAccessedMembers]
+        IL2069, IL2070  without carrying it. Almost all of these root at one value - the runtime type of
+        IL2072, IL2075  a host object, obtained through object.GetType(), which no annotation can
+        IL2077          describe. The requirement is stated where a host can act on it instead:
+                        [RequiresUnreferencedCode] on Options.AllowClr, Engine.SetValue(string, object?),
+                        ObjectWrapper.Create and ClrHelper.Wrap/Unwrap, plus section 6.4's "root the host
+                        types Jint reaches only by reflection".
 
       Do not resolve one of these by annotating an API the measured run shows to work. An embedder who
       learns to suppress [RequiresDynamicCode] on the APIs that are fine will suppress it on the ones
-      that are not.
+      that are not. And do not add a code back to this line to silence a NEW site: fix it, or say at the
+      site why it is safe.
     -->
-    <NoWarn>$(NoWarn);IL3050;IL2080;IL2075;IL2072;IL2070;IL2069;IL2067;IL2060;</NoWarn>
+    <NoWarn>$(NoWarn);IL3050;IL2077;IL2075;IL2072;IL2070;IL2069;IL2067;IL2062;IL2060;</NoWarn>
 
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 

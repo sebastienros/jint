@@ -203,6 +203,21 @@ internal static class Polyfills
 #endif
 }
 
+internal static class TypePolyfills
+{
+#if NETFRAMEWORK || NETSTANDARD2_0
+    // Type.IsSZArray arrived in .NET Core 2.1 / netstandard2.1. The downlevel body is the type
+    // construction the call sites used to spell inline, and moving it here is why they can stop:
+    // Type.MakeArrayType is [RequiresDynamicCode], so asking "is this a plain T[]?" that way cost an
+    // IL3050 in every embedder's Native AOT publish - on frameworks where Native AOT does not exist at
+    // all. It also costs a Type construction per call, which the real property does not.
+    extension(Type type)
+    {
+        public bool IsSZArray => type.IsArray && type.GetArrayRank() == 1 && type == type.GetElementType()!.MakeArrayType();
+    }
+#endif
+}
+
 internal static class MemoryMarshalPolyfills
 {
     extension(MemoryMarshal)

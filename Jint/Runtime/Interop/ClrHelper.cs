@@ -4,8 +4,6 @@ using Jint.Native;
 
 namespace Jint.Runtime.Interop;
 
-#pragma warning disable IL2072
-
 internal sealed class ClrHelper
 {
     // Snapshot, like every other engine-visible reading of this option: it is settled once the engine's

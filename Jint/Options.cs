@@ -498,6 +498,13 @@ public sealed partial class Options
     /// Called by the <see cref="Engine"/> instance that loads this <see cref="Options" />
     /// once it is loaded.
     /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2026:RequiresUnreferencedCode",
+        Justification = "The three reflection-dependent registrations below - System, importNamespace and " +
+                        "clrHelper - are installed only when the host set Interop.Enabled, which is the gate " +
+                        "they belong to. The setter cannot carry [RequiresUnreferencedCode] (it would warn on " +
+                        "= false as well), so docs/v5-migration.md section 6.3 states the requirement and " +
+                        "Options.AllowClr, the way a host normally opens the gate, carries the attribute. " +
+                        "Warning here as well would report Jint's own file for a decision made in the host's.")]
     internal void Apply(Engine engine)
     {
         // Modules must exist before the configuration callbacks run: a host's
@@ -526,7 +533,6 @@ public sealed partial class Options
         // add missing bits if needed
         if (Interop.Enabled)
         {
-#pragma warning disable IL2026
             var typeResolutionPolicy = new ClrTypeResolutionPolicy(Interop);
 
             engine.Realm.GlobalObject.SetProperty("System", new PropertyDescriptor(new NamespaceReference(engine, "System", typeResolutionPolicy), PropertyFlag.AllForbidden));
@@ -541,8 +547,6 @@ public sealed partial class Options
                 PropertyFlag.AllForbidden));
 
             engine.Realm.GlobalObject.SetProperty("clrHelper", new PropertyDescriptor(ObjectWrapper.Create(engine, new ClrHelper(Interop, typeResolutionPolicy)), PropertyFlag.AllForbidden));
-
-#pragma warning restore IL2026
         }
 
 #if NET8_0_OR_GREATER

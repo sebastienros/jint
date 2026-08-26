@@ -6,8 +6,6 @@ using Jint.Native.Symbol;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop.Reflection;
 
-#pragma warning disable IL2072
-
 namespace Jint.Runtime.Interop;
 
 /// <summary>

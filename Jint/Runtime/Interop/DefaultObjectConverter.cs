@@ -213,17 +213,46 @@ internal static class DefaultObjectConverter
             System.Text.Json.JsonValueKind.Object => JsValue.FromObject(engine, value),
             System.Text.Json.JsonValueKind.Array => JsValue.FromObject(engine, value),
             System.Text.Json.JsonValueKind.String => JsString.Create(value.ToString()),
-#pragma warning disable IL2026, IL3050
-            System.Text.Json.JsonValueKind.Number => ((System.Text.Json.Nodes.JsonValue) value).TryGetValue<int>(out var intValue)
-                ? JsNumber.Create(intValue)
-                : System.Text.Json.JsonSerializer.Deserialize<double>(value),
-#pragma warning restore IL2026, IL3050
+            System.Text.Json.JsonValueKind.Number => ConvertSystemTextJsonNumber((System.Text.Json.Nodes.JsonValue) value),
             System.Text.Json.JsonValueKind.True => JsBoolean.True,
             System.Text.Json.JsonValueKind.False => JsBoolean.False,
             System.Text.Json.JsonValueKind.Undefined => JsValue.Undefined,
             System.Text.Json.JsonValueKind.Null => JsValue.Null,
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// A JSON number as the nearest JavaScript number, asked of the node itself rather than of the
+    /// serializer.
+    /// </summary>
+    /// <remarks>
+    /// This used to fall through to <c>JsonSerializer.Deserialize&lt;double&gt;</c>, which is both
+    /// <c>[RequiresUnreferencedCode]</c> and <c>[RequiresDynamicCode]</c> - it goes through the whole
+    /// converter machinery, and reported so in every embedder's trimming and Native AOT build - to read a
+    /// number out of a node that is already parsed and already answers the question directly. The
+    /// <see cref="int"/> attempt above it always did.
+    /// </remarks>
+    private static JsNumber ConvertSystemTextJsonNumber(System.Text.Json.Nodes.JsonValue value)
+    {
+        if (value.TryGetValue<int>(out var intValue))
+        {
+            return JsNumber.Create(intValue);
+        }
+
+        if (value.TryGetValue<double>(out var doubleValue))
+        {
+            return JsNumber.Create(doubleValue);
+        }
+
+        // A JsonValue built around a CLR number the double conversion declines (a decimal, say) still
+        // renders as its JSON text, which is what a number literal in a script would have been read from.
+        if (double.TryParse(value.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out doubleValue))
+        {
+            return JsNumber.Create(doubleValue);
+        }
+
+        return JsNumber.DoubleNaN;
     }
 #endif
 
@@ -528,8 +557,7 @@ internal static class DefaultObjectConverter
     /// </summary>
     private static bool TryConvertArrayLiveView(Engine e, object v, Type arrayType, [NotNullWhen(true)] out JsValue? result)
     {
-        if (arrayType.GetElementType() is not { } elementType
-            || arrayType != elementType.MakeArrayType())
+        if (!arrayType.IsSZArray)
         {
             result = null;
             return false;
