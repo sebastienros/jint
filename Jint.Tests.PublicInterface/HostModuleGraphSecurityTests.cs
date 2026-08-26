@@ -621,6 +621,19 @@ public sealed class HostModuleGraphSecurityTests
         return modules;
     }
 
+    private static Engine ChainEngine(Dictionary<string, string> modules)
+    {
+        return new Engine(o =>
+        {
+            o.UseModules(new DictLoader(modules));
+
+            // Generous rather than exact: these are the count and depth limits, and every test below is
+            // about something else reaching its own limit first.
+            o.Modules.MaxModuleCount = modules.Count * 2;
+            o.Modules.MaxModuleGraphDepth = modules.Count * 2;
+        });
+    }
+
     private static ModuleRecord ChainRoot(Dictionary<string, string> modules, int maximumGraphDepth)
     {
         var engine = new Engine(o =>
@@ -644,13 +657,16 @@ public sealed class HostModuleGraphSecurityTests
     /// The load phase, and only the load phase: <c>LoadRequestedModules</c> is what this drives, rather than
     /// a whole <c>Import</c>. Linking and evaluation still recurse once per module
     /// (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>), so an import of this same
-    /// graph is bounded by the stack. That is what
+    /// graph is bounded by the stack — catchably now, but still by the stack rather than by
+    /// <see cref="Options.ModuleOptions.MaxModuleGraphDepth"/>. That is what
     /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> turned out to be: a thousand
     /// nested <c>InnerModuleLinking</c> frames overflowed the stack and ended the test process on macOS under
     /// <c>net8.0</c>, while passing everywhere else. Asserting the import here asserted that gap did not
     /// exist on whichever runtime and operating system ran the suite, which is not a property of Jint.
     /// <see cref="GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases"/> keeps the
-    /// import covered, on a stack chosen for it.
+    /// import covered, on a stack chosen for it, and
+    /// <see cref="GraphDepth_AnImportTooDeepForTheStackThrowsRatherThanEndingTheProcess"/> pins what happens
+    /// on one that is not.
     /// </remarks>
     [Test]
     public void GraphDepth_LongSynchronousChainLoadsIteratively()
@@ -692,6 +708,137 @@ public sealed class HostModuleGraphSecurityTests
             // terminating would otherwise hang the run rather than fail it.
             joinTimeout: TestBudgets.WedgeCeiling,
             timeoutMessage: $"importing a {LongChainLength}-module chain did not complete within {TestBudgets.WedgeCeiling}");
+    }
+
+    /// <summary>
+    /// A stack the chain below cannot possibly fit in, so that what this suite measures is Jint's probe and
+    /// not the machine it runs on.
+    /// </summary>
+    /// <remarks>
+    /// 256 KB is the floor a thread request is rounded up to on Windows, and at that size a plain import
+    /// chain reaches roughly two hundred modules before either recursive phase runs out — measured on
+    /// <c>net8.0</c>, x64, Release. <see cref="LongChainLength"/> is five times that, which is the point: the
+    /// per-module cost differs by runtime, architecture and operating system by tens of percent, and it was
+    /// exactly a margin thinner than that which let
+    /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> pass on four legs and end the
+    /// process on the fifth. Nothing decided by codegen can move a factor of five.
+    /// </remarks>
+    private const int StackTooSmallForTheChain = 256 * 1024;
+
+    /// <summary>
+    /// A module graph deeper than the calling thread can recurse over fails with a <c>RangeError</c> the host
+    /// catches, naming the module it gave up on, and leaves an engine that still runs script.
+    /// </summary>
+    /// <remarks>
+    /// The property being pinned is that there <em>is</em> an outcome. Linking and evaluation descend once
+    /// per module (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>), so before the
+    /// probe this same call ended the process: a native stack overflow, which .NET does not deliver to any
+    /// <c>catch</c>, no exception, no log. A host whose whole reason for implementing
+    /// <see cref="IModuleLoader"/> is to serve a graph it did not author could be killed by one.
+    /// <para>
+    /// Deliberately not asserted: <em>which</em> of the two phases gave up. Linking descends first and
+    /// evaluation's frames are the larger, so which one meets the reserve first is a question about frame
+    /// layout on the day. <see cref="GraphDepth_AnEvaluationTooDeepForTheStackLeavesTheGraphErrored"/> is
+    /// where the evaluation half is selected on purpose.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void GraphDepth_AnImportTooDeepForTheStackThrowsRatherThanEndingTheProcess()
+    {
+        var modules = ImportChain(LongChainLength);
+        Exception? failure = null;
+        var afterwards = 0d;
+
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = ChainEngine(modules);
+                failure = Caught.Exception(() => engine.Modules.Import("0.js"));
+
+                // The other half of the promise the guard makes for script recursion: an engine that is
+                // still usable. Nothing about a native stack overflow leaves one.
+                afterwards = engine.Evaluate("1 + 1").AsNumber();
+            },
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"importing a {LongChainLength}-module chain did not complete within {TestBudgets.WedgeCeiling}",
+            maxStackSize: StackTooSmallForTheChain);
+
+        failure.Should().BeOfType<JavaScriptException>()
+            .Which.Message.Should().StartWith("Maximum call stack size exceeded while ")
+            .And.Contain("module '");
+
+        afterwards.Should().Be(2);
+    }
+
+    /// <summary>
+    /// The slice a chain is linked in, chosen so that linking's own recursion stays comfortably inside
+    /// <see cref="StackTooSmallForTheChain"/> — about half of what that stack holds.
+    /// </summary>
+    private const int LinkSliceLength = 100;
+
+    /// <summary>
+    /// Links <paramref name="modules"/> bottom-up in slices on <paramref name="engine"/>, leaving the whole
+    /// chain linked without linking ever having recursed more than one slice deep.
+    /// </summary>
+    /// <remarks>
+    /// Each slice is driven from a module of its own whose single import is the slice's first module. The
+    /// records underneath are the engine's, keyed by resolved specifier and so shared by every slice, which
+    /// is what makes each slice after the first stop at a dependency that is already <c>linked</c>.
+    /// </remarks>
+    private static void LinkInSlices(Engine engine, Dictionary<string, string> modules)
+    {
+        for (var start = modules.Count - LinkSliceLength; start >= 0; start -= LinkSliceLength)
+        {
+            var location = $"slice{start}.js";
+            var request = new ModuleRequest(location, []);
+            var resolved = new ResolvedSpecifier(request, location, new Uri($"file:///base/{location}"), SpecifierType.RelativeOrAbsolute);
+            ModuleFactory.BuildSourceTextModule(engine, resolved, $"import './{start}.js';").Link();
+        }
+    }
+
+    /// <summary>
+    /// An evaluation that runs out of stack leaves the graph <em>errored</em> — every module it had reached
+    /// marked evaluated with that error — rather than stranded mid-evaluation. Importing the same root again
+    /// therefore fails the same way instead of waiting for a promise nothing will ever settle.
+    /// </summary>
+    /// <remarks>
+    /// This is what makes the evaluation half of the probe hand back a throw <em>completion</em> where the
+    /// linking half throws. <c>Evaluate</c> step 9.a is the only thing that marks the modules still on the
+    /// Tarjan stack, and only an abrupt completion returned to it reaches that step; an exception thrown past
+    /// it leaves them in <c>evaluating</c> forever. Measured against a build that throws instead: the first
+    /// import fails as it does here and the second one <b>succeeds</b>, handing the host a namespace for a
+    /// graph not one body of which ever ran. That is the failure this second assertion exists for — a
+    /// half-evaluated graph that reports itself as fine is worse than the crash the probe replaced.
+    /// <para>
+    /// The evaluation half is selected rather than hoped for: linking the chain in slices first means the
+    /// only walk left with a thousand levels to descend is evaluation's.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void GraphDepth_AnEvaluationTooDeepForTheStackLeavesTheGraphErrored()
+    {
+        var modules = ImportChain(LongChainLength);
+        Exception? first = null;
+        Exception? second = null;
+
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = ChainEngine(modules);
+                LinkInSlices(engine, modules);
+
+                first = Caught.Exception(() => engine.Modules.Import("0.js"));
+                second = Caught.Exception(() => engine.Modules.Import("0.js"));
+            },
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"importing a pre-linked {LongChainLength}-module chain did not complete within {TestBudgets.WedgeCeiling}",
+            maxStackSize: StackTooSmallForTheChain);
+
+        first.Should().BeOfType<JavaScriptException>()
+            .Which.Message.Should().StartWith("Maximum call stack size exceeded while evaluating module '");
+
+        second.Should().BeOfType<JavaScriptException>()
+            .Which.Message.Should().Be(first!.Message);
     }
 
     // Resolution hops

@@ -3238,6 +3238,14 @@ see. A third and older setting, `options.Constraints.MaxExecutionStackCount`, co
 a fresh thread instead of throwing; it is checked at call expressions only, so it does not cover the other
 routes above, and it takes precedence over the guard when both are set.
 
+The guard also covers recursion nobody wrote: linking and evaluating a module graph descend once per module,
+so importing a graph deep enough — a long chain of `import './next.js'` — used to end the process the same
+way. It now raises `RangeError: Maximum call stack size exceeded while linking module '…'`, naming the module
+the walk gave up on, and the engine goes on working. That half is not displaced by `MaxExecutionStackCount`,
+whose own check no part of the module pipeline reaches. It is a catchable failure rather than a raised
+ceiling: how deep a graph you can import is still decided by the stack of the thread you import on, so a host
+serving genuinely deep graphs should import them on a thread provisioned for it.
+
 ## Using Modules
 
 You can use modules to `import` and `export` variables from multiple script files:

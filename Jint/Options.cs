@@ -1220,8 +1220,9 @@ public sealed partial class Options
         public int MaxExecutionStackCount { get; set { ThrowIfReadOnly(); field = value; } } = StackGuard.Disabled;
 
         /// <summary>
-        /// Whether every entry into an interpreted function probes the remaining native stack and throws a
-        /// catchable <c>RangeError</c> when it runs low. Defaults to <see langword="true"/>.
+        /// Whether the engine probes the remaining native stack — on every entry into an interpreted
+        /// function, and on every module of a graph being linked or evaluated — and throws a catchable
+        /// <c>RangeError</c> when it runs low. Defaults to <see langword="true"/>.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -1240,10 +1241,20 @@ public sealed partial class Options
         /// routes above all remain in scope.
         /// </para>
         /// <para>
+        /// It also covers the module pipeline, which is recursion nobody wrote: <c>InnerModuleLinking</c> and
+        /// <c>InnerModuleEvaluation</c> descend once per module, so how deep a graph an engine can import is
+        /// otherwise decided by the calling thread's stack rather than by
+        /// <see cref="Options.ModuleOptions.MaxModuleGraphDepth"/> — and exceeding it ends the process
+        /// (sebastienros/jint#3401). With this on, a graph too deep to link raises a <c>RangeError</c> the
+        /// host can catch and leaves the engine usable. That half of the guard is <em>not</em> displaced by
+        /// <see cref="MaxExecutionStackCount"/>: that limit's own probe sits at the call expression, which no
+        /// part of the module pipeline reaches, so there would be nothing in its place.
+        /// </para>
+        /// <para>
         /// It is a backstop, not a policy: where <see cref="MaxRecursionDepth"/> is also set that limit fires
-        /// first, and <see cref="MaxExecutionStackCount"/> takes precedence over this flag. Set it to
-        /// <see langword="false"/> to recover the probe's cost when every script is trusted and independently
-        /// bounded. Read once, while the engine is being constructed.
+        /// first, and <see cref="MaxExecutionStackCount"/> takes precedence over this flag for function
+        /// entry. Set it to <see langword="false"/> to recover the probe's cost when every script is trusted
+        /// and independently bounded. Read once, while the engine is being constructed.
         /// </para>
         /// </remarks>
         public bool StackOverflowGuard { get; set { ThrowIfReadOnly(); field = value; } } = true;
