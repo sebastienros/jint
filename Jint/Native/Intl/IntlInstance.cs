@@ -103,18 +103,12 @@ internal sealed partial class IntlInstance : ObjectInstance
         return result;
     }
 
-    private string[] GetSupportedCalendars()
-    {
-        // Use CLDR provider for supported calendars
-        var calendars = CldrProvider.GetSupportedCalendars();
-        var result = new string[calendars.Count];
-        var i = 0;
-        foreach (var calendar in calendars)
-        {
-            result[i++] = calendar;
-        }
-        return result;
-    }
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.supportedvaluesof step 2 — the calendars this engine answers for,
+    /// which is one list rather than this one's own. Extending it is <c>ICalendarProvider</c>: a calendar
+    /// needs conversions before it needs names, and a host that adds one adds it once.
+    /// </summary>
+    private string[] GetSupportedCalendars() => AvailableCalendars.SupportedValues(_engine);
 
     private string[] GetSupportedCollations()
     {

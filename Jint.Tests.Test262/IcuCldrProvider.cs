@@ -303,9 +303,6 @@ public sealed class IcuCldrProvider : ICldrProvider
 
     // === Supported Values ===
 
-    public IReadOnlyCollection<string> GetSupportedCalendars()
-        => _fallback.GetSupportedCalendars();
-
     public IReadOnlyCollection<string> GetSupportedCollations()
         => _fallback.GetSupportedCollations();
 

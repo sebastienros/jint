@@ -1208,7 +1208,6 @@ namespace Jint.Native.Intl
         public virtual string? GetNumberingSystemDigits(string numberingSystem) { }
         public virtual Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style) { }
         public virtual string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style) { }
-        public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars() { }
         public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations() { }
         public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies() { }
         public virtual System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems() { }
@@ -1230,7 +1229,6 @@ namespace Jint.Native.Intl
         string? GetNumberingSystemDigits(string numberingSystem);
         Jint.Native.Intl.RelativeTimePatterns? GetRelativeTimePatterns(string locale, string unit, string style);
         string? GetRelativeTimeSpecialPhrase(string locale, string unit, int value, bool past, string style);
-        System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCalendars();
         System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCollations();
         System.Collections.Generic.IReadOnlyCollection<string> GetSupportedCurrencies();
         System.Collections.Generic.IReadOnlyCollection<string> GetSupportedNumberingSystems();

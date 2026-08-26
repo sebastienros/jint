@@ -43,14 +43,6 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     private static readonly StringSearchValues DateStyleValues = new(["full", "long", "medium", "short"], StringComparison.Ordinal);
     private static readonly StringSearchValues TimeStyleValues = new(["full", "long", "medium", "short"], StringComparison.Ordinal);
 
-    // Supported calendars per ECMA-402 and Unicode CLDR
-    private static readonly StringSearchValues SupportedCalendars = new(
-    [
-        "buddhist", "chinese", "coptic", "dangi", "ethioaa", "ethiopic",
-        "gregory", "hebrew", "indian", "islamic", "islamic-civil", "islamic-rgsa",
-        "islamic-tbla", "islamic-umalqura", "iso8601", "japanese", "persian", "roc"
-    ], StringComparison.Ordinal);
-
     public DateTimeFormatConstructor(
         Engine engine,
         Realm realm,
@@ -131,46 +123,21 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         var calendarOption = GetUnicodeExtensionOption(optionsObj, "calendar");
         string? calendar;
 
-        if (calendarOption != null)
+        // https://tc39.es/ecma402/#sec-createdatetimeformat steps 7-9. An identifier this engine does not
+        // answer for is not an error: ResolveLocale simply keeps the locale's own calendar, and the option
+        // is dropped. AvailableCalendars is the one list all of that is decided against.
+        var resolvedExtCalendar = extCalendar != null ? AvailableCalendars.ResolveForDateTimeFormat(_engine, extCalendar) : null;
+        calendar = calendarOption != null ? AvailableCalendars.ResolveForDateTimeFormat(_engine, calendarOption) : null;
+
+        if (calendar != null)
         {
-            // Option provided - validate and canonicalize
-            var canonicalizedOption = CanonicalizeCalendar(calendarOption);
-            if (IsValidCalendar(canonicalizedOption))
-            {
-                // Valid option - it overrides extension
-                calendar = canonicalizedOption;
-                // If option matches extension, preserve the extension
-                preserveCalendarExt = extCalendar != null && string.Equals(calendar, CanonicalizeCalendar(extCalendar), StringComparison.Ordinal);
-            }
-            else if (extCalendar != null && IsValidCalendar(CanonicalizeCalendar(extCalendar)))
-            {
-                // Invalid option, but valid extension - use extension
-                calendar = CanonicalizeCalendar(extCalendar);
-                preserveCalendarExt = true;
-            }
-            else
-            {
-                // Both invalid - use default
-                calendar = null;
-            }
+            // The extension is preserved in the resolved locale only when it asked for the same calendar.
+            preserveCalendarExt = resolvedExtCalendar != null && string.Equals(calendar, resolvedExtCalendar, StringComparison.Ordinal);
         }
-        else if (extCalendar != null)
+        else if (resolvedExtCalendar != null)
         {
-            // No option, check if extension is valid
-            var canonicalizedExt = CanonicalizeCalendar(extCalendar);
-            if (IsValidCalendar(canonicalizedExt))
-            {
-                calendar = canonicalizedExt;
-                preserveCalendarExt = true;
-            }
-            else
-            {
-                calendar = null;
-            }
-        }
-        else
-        {
-            calendar = null;
+            calendar = resolvedExtCalendar;
+            preserveCalendarExt = true;
         }
 
         // Step 10: Get numberingSystem option
@@ -910,14 +877,6 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// Checks if the given calendar is supported.
-    /// </summary>
-    private static bool IsValidCalendar(string? calendar)
-    {
-        return calendar != null && SupportedCalendars.Contains(calendar);
-    }
-
-    /// <summary>
     /// Builds the resolved locale string, including only the unicode extensions that should be preserved.
     /// </summary>
     private static string BuildResolvedLocale(string baseLocale, string requestedLocale,
@@ -952,32 +911,6 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
 
         return $"{baseLocale}-u-{string.Join('-', extensions)}";
-    }
-
-    /// <summary>
-    /// Canonicalizes calendar names per ECMA-402.
-    /// Converts deprecated/alias names to their canonical forms.
-    /// Per ECMA-402, "islamic" and "islamic-rgsa" should fallback to a valid calendar
-    /// from AvailableCalendars (like "islamic-civil").
-    /// </summary>
-    private static string? CanonicalizeCalendar(string? calendar)
-    {
-        if (calendar == null)
-        {
-            return null;
-        }
-
-        // Calendar alias and fallback mappings per Unicode CLDR and ECMA-402
-        return calendar.ToLowerInvariant() switch
-        {
-            "ethiopic-amete-alem" => "ethioaa",
-            "islamicc" => "islamic-civil",
-            // Per ECMA-402 §11.1.2, "islamic" and "islamic-rgsa" are deprecated
-            // and should fallback to a valid calendar from AvailableCalendars
-            "islamic" => "islamic-civil",
-            "islamic-rgsa" => "islamic-civil",
-            _ => calendar.ToLowerInvariant()
-        };
     }
 
     /// <summary>

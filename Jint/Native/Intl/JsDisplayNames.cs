@@ -171,26 +171,16 @@ internal sealed class JsDisplayNames : ObjectInstance
 
     private string? GetCalendarDisplayName(string code)
     {
-        var normalizedCode = code.ToLowerInvariant();
-
-        // Only return display names for calendars we actually support
-        // This ensures consistency with Intl.supportedValuesOf("calendar")
-        var supportedCalendars = _engine.Options.Intl.CldrProvider.GetSupportedCalendars();
-        var isSupported = false;
-        foreach (var supported in supportedCalendars)
-        {
-            if (string.Equals(supported, normalizedCode, StringComparison.OrdinalIgnoreCase) ||
-                (string.Equals(normalizedCode, "gregorian", StringComparison.Ordinal) && string.Equals(supported, "gregory", StringComparison.Ordinal)))
-            {
-                isSupported = true;
-                break;
-            }
-        }
-
-        if (!isSupported)
+        // A display name is offered for exactly the calendars this engine answers for, which is the one
+        // AvailableCalendars list rather than a second opinion about it — the alias handling comes with it,
+        // and a calendar a host ICalendarProvider added is one this can now be asked about.
+        var canonical = AvailableCalendars.Canonicalize(_engine, code);
+        if (canonical is null || !AvailableCalendars.Contains(_engine, canonical))
         {
             return GetFallbackValue(code);
         }
+
+        var normalizedCode = canonical;
 
         var name = normalizedCode switch
         {

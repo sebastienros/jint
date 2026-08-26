@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Globalization;
 using System.Numerics;
@@ -16,7 +16,7 @@ namespace Jint.Tests.PublicInterface;
 public class HostLocaleProviderTests
 {
     [Test]
-    public void OverridingOneCldrDatumLeavesTheOtherEighteenMembersInherited()
+    public void OverridingOneCldrDatumLeavesTheOtherSeventeenMembersInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrencyName());
 
@@ -300,6 +300,36 @@ public class HostLocaleProviderTests
             .AsString().Should().Be(new Engine().Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('hebrew').add({ months: 1 }).toString()").AsString());
     }
 
+    /// <summary>
+    /// The calendars an engine answers for are one list, so the calendar a host adds through
+    /// <see cref="ICalendarProvider"/> is a calendar <c>Intl</c> knows about too. Before this it existed for
+    /// <c>Temporal</c> alone: <c>Intl.supportedValuesOf</c> read a different provider's list, and
+    /// <c>Intl.DateTimeFormat</c> read a third that nothing could change.
+    /// </summary>
+    [Test]
+    public void ACalendarTheHostAddsIsOneIntlKnowsAbout()
+    {
+        var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
+
+        engine.Evaluate("Intl.supportedValuesOf('calendar').indexOf('mayan') >= 0").AsBoolean().Should().BeTrue();
+        engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'mayan' }).resolvedOptions().calendar")
+            .AsString().Should().Be("mayan");
+        engine.Evaluate("new Intl.DateTimeFormat('en-u-ca-mayan').resolvedOptions().calendar")
+            .AsString().Should().Be("mayan");
+
+        // …and a date in it can be formatted, in the calendar's own fields rather than the ISO ones
+        engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'mayan', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2024, 2, 5))")
+            .AsString().Should().Be("5138");
+        engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').toLocaleString('en', { calendar: 'mayan', year: 'numeric' })")
+            .AsString().Should().Be("5138");
+
+        // a stock engine answers for exactly the sixteen it always did, and no host calendar
+        var stock = new Engine();
+        stock.Evaluate("Intl.supportedValuesOf('calendar').indexOf('mayan') >= 0").AsBoolean().Should().BeFalse();
+        stock.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'mayan' }).resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+    }
+
     [Test]
     public void AnEngineThatConfiguresNothingStillReadsTheSharedSingletons()
     {
@@ -311,7 +341,7 @@ public class HostLocaleProviderTests
     }
 }
 
-/// <summary>One currency's display name; the other eighteen members are inherited.</summary>
+/// <summary>One currency's display name; the other seventeen members are inherited.</summary>
 file sealed class OneCurrencyName : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
@@ -381,7 +411,7 @@ file sealed class NauticalDayPeriods : DefaultCldrProvider
     public override string[]? GetDayPeriods(string locale, string style, string? calendar) => ["MORN", "EVE"];
 }
 
-/// <summary>One list-pattern set; the other eighteen members are inherited.</summary>
+/// <summary>One list-pattern set; the other seventeen members are inherited.</summary>
 file sealed class GermanLists : DefaultCldrProvider
 {
     public override ListPatterns? GetListPatterns(string locale, string type, string style)
@@ -447,7 +477,7 @@ file sealed class WithMayan : DefaultCalendarProvider
 
 /// <summary>
 /// Present only to be compiled: a host reaching a member the engine never consults still has to be able
-/// to override it, and the compiler is the only thing that checks that all twenty-one are virtual.
+/// to override it, and the compiler is the only thing that checks that all twenty are virtual.
 /// </summary>
 file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
 {
@@ -464,7 +494,6 @@ file sealed class EveryCldrMemberOverridden : DefaultCldrProvider
     public override string[]? GetEraNames(string locale, string style, string? calendar) => base.GetEraNames(locale, style, calendar);
     public override string? GetCurrencyDisplayName(string locale, string code) => base.GetCurrencyDisplayName(locale, code);
     public override WeekInfo? GetWeekInfo(string locale) => base.GetWeekInfo(locale);
-    public override IReadOnlyCollection<string> GetSupportedCalendars() => base.GetSupportedCalendars();
     public override IReadOnlyCollection<string> GetSupportedCollations() => base.GetSupportedCollations();
     public override IReadOnlyCollection<string> GetSupportedCurrencies() => base.GetSupportedCurrencies();
     public override IReadOnlyCollection<string> GetSupportedNumberingSystems() => base.GetSupportedNumberingSystems();

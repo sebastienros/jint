@@ -1624,4 +1624,70 @@ public class IntlTests
         _engine.Evaluate("new Intl.DateTimeFormat('en', { timeStyle: 'medium', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15, 9, 5, 7))")
             .AsString().Should().Be("9:05:07 AM");
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-availablecalendars is one list, and three places used to carry their own
+    /// copy of it. This is the entry-by-entry statement of what an unconfigured engine answers, so that
+    /// collapsing the three cannot quietly change it.
+    /// </summary>
+    [Test]
+    public void TheAvailableCalendarsOfADefaultEngineAreTheSixteen()
+    {
+        _engine.Evaluate("JSON.stringify(Intl.supportedValuesOf('calendar'))").AsString().Should().Be(
+            """
+            ["buddhist","chinese","coptic","dangi","ethioaa","ethiopic","gregory","hebrew","indian","islamic-civil","islamic-tbla","islamic-umalqura","iso8601","japanese","persian","roc"]
+            """);
+    }
+
+    /// <summary>
+    /// The three sites now read one list and one alias table, so they answer the same question the same way.
+    /// The two deprecated identifiers are the one place they part, and they part because the two
+    /// specifications ask for different things:
+    /// https://tc39.es/ecma402/#sec-createdatetimeformat step 9 makes a formatter asking for one resolve to
+    /// another available calendar, and <c>Temporal</c> refuses them outright.
+    /// </summary>
+    [TestCase("islamicc", "islamic-civil")]
+    [TestCase("ethiopic-amete-alem", "ethioaa")]
+    [TestCase("ISO8601", "iso8601")]
+    [TestCase("Gregory", "gregory")]
+    [TestCase("islamic", "islamic-civil")]
+    [TestCase("islamic-rgsa", "islamic-civil")]
+    public void TheCalendarOptionResolvesThroughTheOneAliasTable(string requested, string resolved)
+    {
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ calendar: '{requested}' }}).resolvedOptions().calendar")
+            .AsString().Should().Be(resolved);
+    }
+
+    /// <summary>
+    /// A grammatically valid identifier this engine does not answer for is not an error — ResolveLocale keeps
+    /// the locale's own calendar and the option is dropped — while an ill-formed one is a RangeError however
+    /// the locale would have resolved a well-formed one.
+    /// </summary>
+    [Test]
+    public void ACalendarNobodyAnswersForFallsBackAndAnIllFormedOneThrows()
+    {
+        _engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'mayan' }).resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+        _engine.Evaluate("new Intl.DateTimeFormat('en-u-ca-mayan').resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'no' })"));
+        Assert.Throws<JavaScriptException>(() => _engine.Evaluate("new Intl.DateTimeFormat('en', { calendar: 'İSO8601' })"));
+    }
+
+    /// <summary>
+    /// <c>Intl.DisplayNames</c> reads the same list, which is what its own comment said it was for: it named
+    /// a calendar exactly when <c>Intl.supportedValuesOf('calendar')</c> did, through a second membership
+    /// scan and a hand-written <c>gregorian</c> special case.
+    /// </summary>
+    [Test]
+    public void DisplayNamesOffersANameForExactlyTheAvailableCalendars()
+    {
+        _engine.Evaluate("new Intl.DisplayNames('en', { type: 'calendar' }).of('gregory')")
+            .AsString().Should().Be("Gregorian Calendar");
+        _engine.Evaluate("new Intl.DisplayNames('en', { type: 'calendar' }).of('islamicc')")
+            .AsString().Should().Be("Islamic (civil) Calendar");
+        _engine.Evaluate("new Intl.DisplayNames('en', { type: 'calendar' }).of('mayan')")
+            .AsString().Should().Be("mayan");
+    }
 }

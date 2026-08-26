@@ -2855,10 +2855,13 @@ sealed class AstronomicalPersian : DefaultCalendarProvider
 ```
 
 *Adding* a calendar Jint does not know is three: `GetSupportedCalendars`, which is what makes the
-identifier valid anywhere in `Temporal`, and both conversions, which nobody but you can perform. The
-inherited `IsSupported` reads the list, so it does not need overriding as well. Such a calendar reaches
-construction, every field accessor, `with` and `toString`; it does not reach `add`/`subtract`/`until`/`since`
-or `toLocaleString`, both of which raise a `RangeError` for a calendar the engine does not implement itself.
+identifier valid, and both conversions, which nobody but you can perform. The inherited `IsSupported` reads
+the list, so it does not need overriding as well. That list is the engine's only list of calendars, so such
+a calendar reaches construction, every field accessor, `with`, `toString`, `add`/`subtract`/`until`/`since`
+— the arithmetic is walked through your two conversions — and `Intl`: it is reported by
+`Intl.supportedValuesOf('calendar')`, is a valid `calendar` option of `Intl.DateTimeFormat`, and formats
+through `toLocaleString`. Month, weekday and era *names* for it are `ICldrProvider`'s to supply; without
+them the fields are written numerically.
 
 ## Running untrusted code
 
