@@ -282,7 +282,7 @@ Probe("delegate crossing: CLR Func<int, int> -> JS", static () =>
     // diagnostics for a one-line registration. The array half of this had the same cause and was
     // fixable with an overload; this half is not, because a `where T : Delegate` overload would have
     // the same signature as SetValue<T> after substitution and make every delegate call site
-    // ambiguous. See the AOT section of Jint/Runtime/Interop/AGENTS.md.
+    // ambiguous. See AGENTS.md beside this file.
     engine.SetValue("twice", (Delegate) new Func<int, int>(static x => x * 2));
 
     Expect(8, engine.Evaluate("twice(4)"));

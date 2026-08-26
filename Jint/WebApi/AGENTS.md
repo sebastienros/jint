@@ -7,6 +7,10 @@
 > target, and the conventions that apply to every file in the repository. Nothing below is
 > repeated there.
 
+### Citing the living standard
+
+These are owned by WHATWG living standards rather than by ECMA-262, each with its own document and anchor vocabulary: `https://console.spec.whatwg.org/#...`, `https://webidl.spec.whatwg.org/#...` (`#idl-*`, `#es-*`, `#dfn-*`), `https://fetch.spec.whatwg.org/#...` (`#dom-*`, `#concept-*`), `https://dom.spec.whatwg.org/#...`, `https://html.spec.whatwg.org/multipage/...`, `https://encoding.spec.whatwg.org/#...` and `https://url.spec.whatwg.org/#...`. Cite the one that actually defines the thing — `fetch` is WHATWG Fetch, `setTimeout` is HTML, `DOMException` is WebIDL — never MDN. The rest of the citation convention, and the `tc39.es` documents that own everything outside this subtree, are in the repository-root [`AGENTS.md`](../../AGENTS.md).
+
 ### Web APIs
 
 `Jint/WebApi/` holds the opt-in WHATWG surface — `console`, `DOMException`, and the timers/encoding/URL/fetch features still landing — with one subfolder and matching namespace per feature (`Console/`, `DomException/`, …). It is deliberately *not* under `Jint/Native/`, which mirrors ECMAScript; these are host APIs guided by WinterTC's Minimum Common Web Platform API, they use the BCL only (no new package dependencies), and their JS-facing types are `internal sealed` and authored with the source generator exactly like the built-ins.

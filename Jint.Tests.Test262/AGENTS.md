@@ -7,6 +7,10 @@
 > target, and the conventions that apply to every file in the repository. Nothing below is
 > repeated there.
 
+### Where the suite's own sources are
+
+Test sources live in `..\test262\test`, which you may always read, and the harness scripts a test `includes` in `..\test262\harness` — including `harness/sm/` for the staged SpiderMonkey ports. Failure output contains the failing script — strip the line numbers to reproduce.
+
 ### Updating the test262 suite
 
 Bump `SuiteGitSha` in `Jint.Tests.Test262/Test262Harness.settings.json` to the new upstream commit. The next build notices the settings-file hash changed, wipes `Generated/` and regenerates it (`dotnet tool restore && dotnet test262 generate`); `Generated/` is gitignored, so the committed diff stays one line.
