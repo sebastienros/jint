@@ -607,25 +607,92 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
-    public void GraphDepth_LongSynchronousChainUsesIterativeLoading()
+    private const int LongChainLength = 1_000;
+
+    /// <summary>A chain of <paramref name="count"/> modules, each importing the next.</summary>
+    private static Dictionary<string, string> ImportChain(int count)
     {
-        const int count = 1_000;
         var modules = new Dictionary<string, string>(count, StringComparer.Ordinal);
         for (var i = 0; i < count - 1; i++)
         {
             modules[$"{i}.js"] = $"import './{i + 1}.js';";
         }
-        modules[$"{count - 1}.js"] = "export default 1;";
 
+        modules[$"{count - 1}.js"] = "export default 1;";
+        return modules;
+    }
+
+    private static ModuleRecord ChainRoot(Dictionary<string, string> modules, int maximumGraphDepth)
+    {
         var engine = new Engine(o =>
         {
             o.UseModules(new DictLoader(modules));
-            o.Modules.MaxModuleCount = count;
-            o.Modules.MaxModuleGraphDepth = count;
+            o.Modules.MaxModuleCount = modules.Count + 1;
+            o.Modules.MaxModuleGraphDepth = maximumGraphDepth;
         });
 
-        engine.Modules.Import("0.js");
+        var request = new ModuleRequest("0.js", []);
+        var resolved = new ResolvedSpecifier(request, "0.js", new Uri("file:///base/0.js"), SpecifierType.RelativeOrAbsolute);
+        return ModuleFactory.BuildSourceTextModule(engine, resolved, modules["0.js"]);
+    }
+
+    /// <summary>
+    /// The load phase walks a thousand-deep import chain <b>iteratively</b>, so how deep a graph a host can
+    /// load is a question about <see cref="Options.ModuleOptions.MaxModuleGraphDepth"/> and not about how
+    /// much stack the calling thread happens to have.
+    /// </summary>
+    /// <remarks>
+    /// The load phase, and only the load phase: <c>LoadRequestedModules</c> is what this drives, rather than
+    /// a whole <c>Import</c>. Linking and evaluation still recurse once per module
+    /// (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>), so an import of this same
+    /// graph is bounded by the stack. That is what
+    /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> turned out to be: a thousand
+    /// nested <c>InnerModuleLinking</c> frames overflowed the stack and ended the test process on macOS under
+    /// <c>net8.0</c>, while passing everywhere else. Asserting the import here asserted that gap did not
+    /// exist on whichever runtime and operating system ran the suite, which is not a property of Jint.
+    /// <see cref="GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases"/> keeps the
+    /// import covered, on a stack chosen for it.
+    /// </remarks>
+    [Fact]
+    public void GraphDepth_LongSynchronousChainLoadsIteratively()
+    {
+        var modules = ImportChain(LongChainLength);
+
+        ChainRoot(modules, LongChainLength).LoadRequestedModules();
+
+        // ...and it reached the bottom rather than stopping short: the chain is exactly this deep, so one
+        // less is the limit that has to fail. Without this line, a load phase that quietly gave up part-way
+        // would satisfy the call above.
+        Invoking(() => ChainRoot(modules, LongChainLength - 1).LoadRequestedModules())
+            .Should().Throw<ModuleGraphLimitException>();
+    }
+
+    /// <summary>
+    /// The same graph, imported end to end. On a stack sized for it, because linking and evaluation each
+    /// recurse once per module (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>) —
+    /// see the remarks on <see cref="GraphDepth_LongSynchronousChainLoadsIteratively"/>.
+    /// </summary>
+    [Fact]
+    public void GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases()
+    {
+        var modules = ImportChain(LongChainLength);
+
+        DedicatedThread.Run(
+            () =>
+            {
+                var engine = new Engine(o =>
+                {
+                    o.UseModules(new DictLoader(modules));
+                    o.Modules.MaxModuleCount = LongChainLength;
+                    o.Modules.MaxModuleGraphDepth = LongChainLength;
+                });
+
+                engine.Modules.Import("0.js");
+            },
+            // A wedge ceiling, not an assertion: the import takes about a second, and a graph walk that stopped
+            // terminating would otherwise hang the run rather than fail it.
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"importing a {LongChainLength}-module chain did not complete within {TestBudgets.WedgeCeiling}");
     }
 
     // Resolution hops
