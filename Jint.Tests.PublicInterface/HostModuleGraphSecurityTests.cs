@@ -677,17 +677,22 @@ public sealed class HostModuleGraphSecurityTests
     {
         var modules = ImportChain(LongChainLength);
 
-        DedicatedThread.Run(() =>
-        {
-            var engine = new Engine(o =>
+        DedicatedThread.Run(
+            () =>
             {
-                o.UseModules(new DictLoader(modules));
-                o.Modules.MaxModuleCount = LongChainLength;
-                o.Modules.MaxModuleGraphDepth = LongChainLength;
-            });
+                var engine = new Engine(o =>
+                {
+                    o.UseModules(new DictLoader(modules));
+                    o.Modules.MaxModuleCount = LongChainLength;
+                    o.Modules.MaxModuleGraphDepth = LongChainLength;
+                });
 
-            engine.Modules.Import("0.js");
-        });
+                engine.Modules.Import("0.js");
+            },
+            // A wedge ceiling, not an assertion: the import takes about a second, and a graph walk that stopped
+            // terminating would otherwise hang the run rather than fail it.
+            joinTimeout: TestBudgets.WedgeCeiling,
+            timeoutMessage: $"importing a {LongChainLength}-module chain did not complete within {TestBudgets.WedgeCeiling}");
     }
 
     // Resolution hops
