@@ -1640,10 +1640,8 @@ nothing at all.
 `DefaultCldrProvider`. Its `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods` and
 `GetNumberingSystemDigits` were dead code and are now read. The fallback is per member and per style:
 `null`, or an array of the wrong length, keeps .NET's data, so a provider that answers only for `"long"`
-months keeps .NET's abbreviated ones. Two lanes stay out of reach and are the engine's own gaps rather than
-the interface's — `month: "narrow"` and `weekday: "narrow"`, which the formatter renders with the
-abbreviated pattern letter, and `timeStyle`, which writes English `AM`/`PM` regardless of any locale data,
-.NET's included.
+months keeps .NET's abbreviated ones. Two lanes stayed out of reach when this shipped and are reached in
+4.33: `month: "narrow"` / `weekday: "narrow"`, and the day period a `timeStyle` writes.
 
 ### 4.30 A calendar `ICalendarProvider` claims is a calendar `Temporal` accepts ([#3355](https://github.com/sebastienros/jint/issues/3355))
 
@@ -1793,6 +1791,54 @@ it declined, so a hopeless candidate was proposed and then rejected. It is no lo
 longer fires — catch `JavaScriptException`, or stop writing the expression that threw. A host relying on
 `'s' + v` throwing as a type check has to test explicitly instead. Nothing changes for
 `AllowOperatorOverloading = false`, which took the concatenating path already.
+### 4.34 A narrow date name is narrow, and a `timeStyle` day period is the locale's ([#3398](https://github.com/sebastienros/jint/issues/3398), [#3399](https://github.com/sebastienros/jint/issues/3399))
+
+Two lanes of `Intl.DateTimeFormat` wrote something other than the locale data the specification names, and
+both are the ones 4.29 could not reach.
+
+**`month: "narrow"` and `weekday: "narrow"` rendered the abbreviated name.** Both options mapped onto the
+abbreviated .NET pattern letter — `MMM`, `ddd` — because .NET has no narrow one. The narrow names now go
+into that formatter's own `DateTimeFormatInfo`, so the same pattern letter writes them:
+
+```js
+// 5.0
+new Intl.DateTimeFormat('en', { month: 'narrow' }).format(Date.UTC(2024, 0, 15));   // "Jan"
+new Intl.DateTimeFormat('en', { weekday: 'narrow' }).format(Date.UTC(2024, 0, 15)); // "Mon"
+
+// 5.x — what every browser writes
+new Intl.DateTimeFormat('en', { month: 'narrow' }).format(Date.UTC(2024, 0, 15));   // "J"
+new Intl.DateTimeFormat('en', { weekday: 'narrow' }).format(Date.UTC(2024, 0, 15)); // "M"
+```
+
+`ICldrProvider.GetMonthNames` and `GetWeekdayNames` are asked for `"narrow"` for the first time, and unlike
+the other styles the shared `DefaultCldrProvider.Instance` is asked too, because .NET has nowhere to read
+either answer from directly. Narrow **weekdays** start from `ShortestDayNames`, a slot no pattern letter
+reaches and whose contents are a *platform* difference rather than a locale one: for `en` it holds CLDR's
+narrow names on Windows (`S`, `M`, `T`, …) and its short ones on Linux (`Su`, `Mo`, `Tu`, …), so an array in
+which no entry is a single text element is narrowed entry by entry and `Intl` writes the same seven either
+way. Narrow **months** .NET does not carry at all, so they are derived the same way, from the first text
+element of the abbreviated name, upper-cased in the locale's own casing rules. Both reproduce CLDR for
+locales whose narrow form is an initial — Latin, Cyrillic and Greek — and neither does where it is not, such
+as the numeric narrow months of `ja`, `ko`, `cs` and `he`; a host that needs those exactly overrides the one
+member.
+
+**`timeStyle` wrote English `AM`/`PM`.** The component lane (`hour` with `hour12`) rendered the locale's
+designators and the `timeStyle` lane wrote two literals, so one formatter's two lanes disagreed:
+
+```js
+// 5.0
+new Intl.DateTimeFormat('ar', { timeStyle: 'short' }).format(Date.UTC(2024, 0, 15, 15, 30));            // "3:30 PM"
+new Intl.DateTimeFormat('ar', { hour: 'numeric', hour12: true }).format(Date.UTC(2024, 0, 15, 15, 30)); // "3 م"
+
+// 5.x — both lanes, one source
+new Intl.DateTimeFormat('ar', { timeStyle: 'short' }).format(Date.UTC(2024, 0, 15, 15, 30));            // "3:30 م"
+```
+
+**What could break:** any output containing a narrow month or weekday, and any `timeStyle` output in a
+12-hour locale whose designators are not `AM`/`PM`. `en` is unchanged in both: its designators are those two
+letters, and its narrow names are what the derivation produces. Formatting that asks for neither a narrow
+style nor a day period is untouched, and so is the cost of constructing it — the narrow names are read only
+when a narrow style was actually requested.
 
 ## 5. New in v5
 

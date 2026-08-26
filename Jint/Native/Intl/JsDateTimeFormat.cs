@@ -953,7 +953,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
 
         var minuteStr = dateTime.Minute.ToString("D2", CultureInfo.InvariantCulture);
         var secondStr = dateTime.Second.ToString("D2", CultureInfo.InvariantCulture);
-        var dayPeriod = use12Hour ? " " + GetDayPeriod(dateTime.Hour) : "";
+        var dayPeriodName = use12Hour ? GetDayPeriod(dateTime.Hour) : "";
+        var dayPeriod = dayPeriodName.Length > 0 ? " " + dayPeriodName : "";
 
         return TimeStyle switch
         {
@@ -965,9 +966,17 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         };
     }
 
-    private static string GetDayPeriod(int hour)
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.g — the <c>ampm</c> field of a pattern is
+    /// "an ILD String representing post meridiem / ante meridiem", not those words, and Annex A lists
+    /// "am/pm indicators" among the implementation- and locale-dependent behaviours. This is the same data the
+    /// component lane's <c>tt</c> pattern letter renders through: the designators on this formatter's own
+    /// <see cref="DateTimeFormatInfo"/>, which a host <see cref="ICldrProvider.GetDayPeriods"/> has already
+    /// had its say over.
+    /// </summary>
+    private string GetDayPeriod(int hour)
     {
-        return hour < 12 ? "AM" : "PM";
+        return hour < 12 ? DateTimeFormatInfo.AMDesignator : DateTimeFormatInfo.PMDesignator;
     }
 
     private string FormatWithComponents(DateTime dateTime, int? originalYear = null)
@@ -1076,8 +1085,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
 
         // Day period (AM/PM) - only add "tt" if using 12-hour format with hour specified
-        // and DayPeriod is not explicitly specified (DayPeriod uses extended periods)
-        var needsAmPm = Hour != null && hourUse12Hour && DayPeriod == null;
+        // and DayPeriod is not explicitly specified (DayPeriod uses extended periods). An empty designator
+        // takes its separator with it, so this lane and the parts lane cannot disagree for a host that
+        // supplies one; no culture on any machine has one.
+        var needsAmPm = Hour != null && hourUse12Hour && DayPeriod == null && GetDayPeriod(dateTime.Hour).Length > 0;
         if (needsAmPm)
         {
             parts.Add("tt");
@@ -1609,11 +1620,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             result.Add(new DateTimePart("second", dateTime.Second.ToString("D2", CultureInfo)));
         }
 
-        // Day period (AM/PM) for 12-hour format
+        // Day period (AM/PM) for 12-hour format, from the same locale data the component lane's "tt" reads
         if (use12Hour)
         {
-            result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("dayPeriod", dateTime.Hour < 12 ? "AM" : "PM"));
+            var dayPeriodName = GetDayPeriod(dateTime.Hour);
+            if (dayPeriodName.Length > 0)
+            {
+                result.Add(new DateTimePart("literal", " "));
+                result.Add(new DateTimePart("dayPeriod", dayPeriodName));
+            }
         }
 
         // Time zone name (for long and full) - omit for plain Temporal types
@@ -1925,8 +1940,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         }
         else if (Hour != null && hourUse12Hour)
         {
-            result.Add(new DateTimePart("literal", " "));
-            result.Add(new DateTimePart("dayPeriod", dateTime.ToString("tt", CultureInfo)));
+            var dayPeriodName = dateTime.ToString("tt", CultureInfo);
+            if (dayPeriodName.Length > 0)
+            {
+                result.Add(new DateTimePart("literal", " "));
+                result.Add(new DateTimePart("dayPeriod", dayPeriodName));
+            }
         }
 
         // Time zone name
@@ -1986,12 +2005,12 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                     >= 18 and < 21 => "in the evening",
                     _ => "at night"
                 },
-                _ => hour < 12 ? "AM" : "PM"
+                _ => GetDayPeriod(hour)
             };
         }
 
-        // Default: use AM/PM
-        return hour < 12 ? "AM" : "PM";
+        // No extended day-period data for this locale: fall back to its own AM/PM designators.
+        return GetDayPeriod(hour);
     }
 
     internal readonly record struct DateTimePart(string Type, string Value);
