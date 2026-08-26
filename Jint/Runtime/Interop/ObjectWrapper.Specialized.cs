@@ -107,22 +107,112 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     // type descriptor does not recognize as integer-indexed
     internal sealed override bool HasIndexedElements => true;
 
-    public sealed override JsValue Get(JsValue property, JsValue receiver)
+    /// <summary>
+    /// What a property key names on this view. Every element lane below is keyed on the <em>index</em>
+    /// rather than on how script spelled it: <c>x[3]</c> and <c>x["3"]</c> are one property key, because
+    /// <see href="https://tc39.es/ecma262/#sec-topropertykey">ToPropertyKey</see> turns both into the
+    /// String <c>"3"</c>. Answering the two spellings from different lanes is answering one question
+    /// twice, and the lane that used to serve the string spelling was the reflected indexer, which reaches
+    /// the collection with whatever index it parses out of the key (#3384).
+    /// </summary>
+    private enum ElementKey
     {
-        if (property.IsInteger())
+        /// <summary>Not a position of this view: a member name, a symbol, a fractional number, or any string key of a dictionary-shaped target.</summary>
+        None,
+
+        /// <summary>A position the target could address. May be at or past <see cref="Length"/>.</summary>
+        Position,
+
+        /// <summary>Index-shaped but never a position of this view: negative, non-canonical (<c>"08"</c>, <c>"+3"</c>), or past what the target can address.</summary>
+        OutOfBand,
+    }
+
+    /// <summary>
+    /// The highest position an element lane will address, one below <see cref="int.MaxValue"/> so that
+    /// growing to <c>index + 1</c> cannot overflow.
+    /// </summary>
+    private const int MaxPosition = int.MaxValue - 1;
+
+    private ElementKey ClassifyElementKey(JsValue property, out int index)
+    {
+        index = 0;
+
+        if (property is JsNumber number)
         {
-            var index = property.AsInteger();
-            if ((uint) index < (uint) Length)
+            var value = number._value;
+            if (!TypeConverter.IsIntegralNumber(value))
             {
-                var result = GetJsValueAt(index);
-                if (_elementAccessMayRunHostCode)
-                {
-                    _engine.CheckAmortizedConstraintsAtHostBoundary();
-                }
-                return result;
+                return ElementKey.None;
             }
 
-            // out-of-range and negative indices read like JS array holes
+            if (value < 0 || value > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) value;
+            return ElementKey.Position;
+        }
+
+        // a symbol names no position, and a dictionary-shaped target (e.g. Newtonsoft's JObject: both
+        // IDictionary<string,_> and IList<_>) answers a string key from its own keys rather than by index
+        if (property is not JsString jsString || _typeDescriptor.IsDictionary)
+        {
+            return ElementKey.None;
+        }
+
+        var member = jsString.ToString();
+        var parsed = ArrayInstance.ParseArrayIndex(member);
+        if (parsed != uint.MaxValue)
+        {
+            if (parsed > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) parsed;
+            return ElementKey.Position;
+        }
+
+        // One character rules out every ordinary member name that reaches this view — "length", "Count",
+        // "push" — which would otherwise pay a whole long.TryParse only to be rejected by it.
+        if (member.Length == 0 || !IsIntegerShapedStart(member[0]))
+        {
+            return ElementKey.None;
+        }
+
+        // an integer-shaped but non-canonical key ("-1", "08") is not a position of the view either, and
+        // must not fall through to the reflected indexer, which parses one out of it and reaches the
+        // collection with an index the collection rejects
+        return long.TryParse(member, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+            ? ElementKey.OutOfBand
+            : ElementKey.None;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="c"/> can begin something <see cref="NumberStyles.Integer"/> parses: a digit,
+    /// a sign, or the leading white space it tolerates.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsIntegerShapedStart(char c)
+        => (uint) (c - '0') <= 9 || c == '-' || c == '+' || char.IsWhiteSpace(c);
+
+    public sealed override JsValue Get(JsValue property, JsValue receiver)
+    {
+        var key = ClassifyElementKey(property, out var index);
+        if (key == ElementKey.Position && (uint) index < (uint) Length)
+        {
+            var result = GetJsValueAt(index);
+            if (_elementAccessMayRunHostCode)
+            {
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
+            }
+            return result;
+        }
+
+        if (key != ElementKey.None)
+        {
+            // out-of-range, negative and non-canonical indices read like JS array holes
             return Undefined;
         }
 
@@ -138,32 +228,18 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             return base.HasProperty(property);
         }
 
-        if (property.IsNumber())
+        // membership of an array-like view is exactly the index range [0, Length); falling through would
+        // consult the reflected indexer, which reports presence for any parseable index (so e.g.
+        // "-1 in view" would be true)
+        var key = ClassifyElementKey(property, out var index);
+        if (key == ElementKey.Position)
         {
-            var value = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(value))
-            {
-                // numeric membership of an array-like view is exactly the index range [0, Length);
-                // falling through would consult the reflected indexer, which reports presence for
-                // any parseable index (so e.g. "-1 in view" would be true). Compare as double so a
-                // negative or out-of-int-range index can never alias into range.
-                return value >= 0 && value < Length;
-            }
+            return (uint) index < (uint) Length;
         }
-        else if (property is JsString jsString)
+
+        if (key == ElementKey.OutOfBand)
         {
-            var str = jsString.ToString();
-            var index = ArrayInstance.ParseArrayIndex(str);
-            if (index != uint.MaxValue)
-            {
-                return index < (uint) Length;
-            }
-            // an integer-shaped but non-canonical key ("-1", "08") is not a member of the view
-            // either, and must not fall through to the reflected indexer's presence-only answer
-            if (long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-            {
-                return false;
-            }
+            return false;
         }
 
         return base.HasProperty(property);
@@ -190,53 +266,55 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
                 }
             }
 
-            if (!_typeDescriptor.IsDictionary && property.IsNumber())
+            if (!_typeDescriptor.IsDictionary)
             {
-                var value = ((JsNumber) property)._value;
-                if (TypeConverter.IsIntegralNumber(value))
+                var frozenKey = ClassifyElementKey(property, out var frozenIndex);
+                if (frozenKey == ElementKey.Position)
                 {
-                    return value < 0 || value >= Length;
+                    return (uint) frozenIndex >= (uint) Length;
                 }
-            }
-            else if (!_typeDescriptor.IsDictionary && property is JsString jsString)
-            {
-                var index = ArrayInstance.ParseArrayIndex(jsString.ToString());
-                if (index != uint.MaxValue)
+
+                if (frozenKey == ElementKey.OutOfBand)
                 {
-                    return index >= (uint) Length;
+                    return true;
                 }
             }
 
             return ProbeOwnPropertyChecked(property) == OwnPropertyProbe.Missing;
         }
 
-        if (property.IsNumber())
+        var key = ClassifyElementKey(property, out var index);
+        if (key != ElementKey.None)
         {
-            var value = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(value))
+            if (key == ElementKey.OutOfBand || (uint) index >= (uint) Length)
             {
-                if (IsFixedSize)
-                {
-                    // elements of a fixed-size CLR array view cannot be removed (and resetting them to a
-                    // default value on delete would let Array.prototype.pop/shift/splice silently zero
-                    // slots before their length write throws). Mirror integer-indexed exotic object
-                    // semantics instead: false for an in-range index, true for anything out of range.
-                    return value < 0 || value >= Length;
-                }
-
-                var defaultValue = default(object);
-                if (typeof(JsValue).IsAssignableFrom(ItemType))
-                {
-                    defaultValue = JsValue.Undefined;
-                }
-                else if (ItemType.IsValueType)
-                {
-                    defaultValue = Activator.CreateInstance(ItemType);
-                }
-
-                DoSetAt((int) value, defaultValue);
+                // there is no such position, so there is nothing to delete: OrdinaryDelete returns true
+                // for a property that is not there. Reaching the collection with the index instead is
+                // what raised the CLR's own ArgumentOutOfRangeException out of Evaluate (#3384).
                 return true;
             }
+
+            if (IsFixedSize)
+            {
+                // elements of a fixed-size CLR array view cannot be removed (and resetting them to a
+                // default value on delete would let Array.prototype.pop/shift/splice silently zero
+                // slots before their length write throws). Mirror integer-indexed exotic object
+                // semantics instead: false for an in-range index, true for anything out of range.
+                return false;
+            }
+
+            var defaultValue = default(object);
+            if (typeof(JsValue).IsAssignableFrom(ItemType))
+            {
+                defaultValue = JsValue.Undefined;
+            }
+            else if (ItemType.IsValueType)
+            {
+                defaultValue = Activator.CreateInstance(ItemType);
+            }
+
+            DoSetAt(index, defaultValue);
+            return true;
         }
 
         return base.Delete(property);
@@ -362,42 +440,49 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             Throw.TypeError(_engine.Realm, "Invalid array length");
         }
 
-        if (ReferenceEquals(receiver, this) && property.IsNumber())
+        if (ReferenceEquals(receiver, this))
         {
-            // An element write to a read-only or non-extensible (frozen) wrapper must be refused:
-            // base.SetSlow would otherwise materialize a throwaway descriptor and return true, silently
-            // "succeeding" (#2541), or reach an indexer with an out-of-range growth write. Everything else —
-            // writable in-range writes, growth, negative and non-integral indices — defers to base.Set, which
-            // writes through and already
-            // rejects runtime read-only collections (e.g. ReadOnlyCollection<T>) cleanly. Wrappers don't
-            // track per-element writability, so a non-extensible wrapper blocks existing-element writes too
-            // — a deliberate, contained interop divergence from the spec.
-            var numValue = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(numValue) && numValue >= 0
-                && (!CanWrite || !Extensible))
+            // Every index write is answered here rather than through the reflection indexer base.Set would
+            // resolve. That indexer takes the index straight to the collection, so it leaked the CLR's own
+            // ArgumentOutOfRangeException for anything outside [0, Count) and, for a T[], found the
+            // non-generic IList.Item (object-typed) overload, whose writes bypass item-type coercion (#3384).
+            var key = ClassifyElementKey(property, out var index);
+            if (key != ElementKey.None)
             {
-                return false;
-            }
-
-            // Fixed-size targets (CLR arrays) handle integral index writes here: in-range writes go
-            // straight to the backing store and anything else is a TypeError. The base.Set slow path
-            // below resolves the element writer through the reflection indexer, which for T[] finds
-            // the non-generic IList.Item (object-typed) indexer — element values would bypass item
-            // type coercion and out-of-range writes would leak CLR exceptions.
-            if (IsFixedSize && TypeConverter.IsIntegralNumber(numValue))
-            {
+                // An element write to a read-only or non-extensible (frozen) wrapper is refused as an
+                // ordinary [[Set]] false — silent in sloppy mode, a TypeError in strict — rather than by
+                // materializing a throwaway descriptor and returning true (#2541). Wrappers don't track
+                // per-element writability, so a non-extensible wrapper blocks existing-element writes too
+                // — a deliberate, contained interop divergence from the spec.
                 if (!CanWrite || !Extensible)
                 {
                     return false;
                 }
 
-                if (numValue >= 0 && numValue < Length)
+                if (key == ElementKey.Position && (uint) index < (uint) Length)
                 {
-                    SetAt((int) numValue, value);
+                    SetAt(index, value);
                     return true;
                 }
 
-                Throw.TypeError(_engine.Realm, "Cannot write outside the bounds of a fixed-size CLR array");
+                if (IsFixedSize)
+                {
+                    Throw.TypeError(_engine.Realm, "Cannot write outside the bounds of a fixed-size CLR array");
+                }
+
+                if (key == ElementKey.OutOfBand)
+                {
+                    // a negative, non-canonical or unaddressable index is a position this view can never
+                    // have — Get answers undefined for it and HasProperty answers false — so the write is
+                    // the ordinary [[Set]] refusal rather than something the collection has to reject
+                    return false;
+                }
+
+                // At or past the end of a growable target. The view is an extensible ordinary object and
+                // the position can exist, so CreateDataProperty succeeds: make room and write, which is
+                // exactly what a "length" write of index + 1 does through the lane above.
+                SetAt(index, value);
+                return true;
             }
         }
 
@@ -528,7 +613,15 @@ internal sealed class ListWrapper : ArrayLikeWrapper
     {
         _list = target;
         _fixedSize = target.IsFixedSize;
-        _readOnly = target.IsReadOnly;
+
+        // Two ways this view is read-only: the target says so, or the exposed contract offers no writable
+        // indexer. The second half is what a T[] or a List<T> reaching the engine as IReadOnlyList<T>
+        // needs. ReadOnlyListWrapper<T> says read-only from its type argument, but an interface is not
+        // among its own GetInterfaces(), so ResolveArrayLikeWrapperFactoryType finds no typed factory for
+        // that exposure and it degrades to here. Until #3384 the element lane read the target's writability
+        // and wrote straight through a contract that had promised script it could only read; the refusal
+        // came from the reflected indexer instead, and therefore only for a string-spelled index.
+        _readOnly = target.IsReadOnly || !_typeDescriptor.IsIntegerIndexed;
     }
 
     /// <summary>

@@ -1939,6 +1939,67 @@ from, and the one `ShadowRealm.SetValue` enters deliberately ([§4.23](#423-a-va
 (`x instanceof Function`), a reach for `call`/`apply`/`bind`, or an `Object.getPrototypeOf` inside a shadow
 realm now gets the answer the realm's own intrinsics give. A host function the embedder builds itself
 through `new ClrFunction(engine, …)` is unaffected and still belongs to the principal realm.
+### 4.36 An index on a host collection is one property, however it is spelled ([#3384](https://github.com/sebastienros/jint/issues/3384))
+
+`x[3]` and `x["3"]` are one property key, and a wrapped CLR collection answered them from two different
+places: a number key went to the array-like view, a string key to the reflected indexer, which took whatever
+index it parsed out of the key straight to the collection. So on a `List<int>` of three elements:
+
+```js
+// 4.16.x, for engine.SetValue("x", new List<int> { 1, 2, 3 })
+//         with options.Interop.AllowWrite = true
+x[3] = 9                    // ArgumentOutOfRangeException out of Evaluate
+x["3"] = 9                  // ArgumentOutOfRangeException
+x["3"]                      // ArgumentOutOfRangeException — a read
+Object.assign(x, { 3: 9 })  // ArgumentOutOfRangeException
+delete x[3]                 // ArgumentOutOfRangeException
+x[-1] = 9                   // ArgumentOutOfRangeException
+x.length = 5                // grows the list to 1,2,3,0,0
+```
+
+None of those is a `JavaScriptException`, so neither a script `try`/`catch` nor a host
+`catch (JavaScriptException)` could see them. The view now answers every index-shaped key itself:
+
+```js
+// 5.x
+x[3] = 9                    // 1,2,3,9  — what x.length = 4 already did
+x["3"] = 9                  // 1,2,3,9
+x[5] = 9                    // 1,2,3,0,0,9 — exactly what x.length = 6; x[5] = 9 gives
+x["3"]                      // undefined
+Object.assign(x, { 3: 9 })  // 1,2,3,9
+delete x[3]                 // true, list untouched
+x[-1] = 9                   // sloppy: silently ignored;  strict: TypeError
+```
+
+**A growable collection grows.** An index at or past the end is `CreateDataProperty` on an extensible
+ordinary object, so it succeeds and makes room the way the `length` write does — including the default-valued
+slots in between. A **fixed-size** target (`T[]` under `ArrayConversionMode.LiveView`, `ArraySegment<T>`,
+`ArrayList.FixedSize`) keeps the `TypeError` #3381 gave it, and a **read-only** one keeps the refusal #3382
+gave it.
+
+**An index the view can never hold is refused, not handed to the collection.** A negative index, a
+non-canonical one (`"08"`, `"+3"`), and one past what the target can address are all ordinary `[[Set]]`
+refusals: silent outside strict mode, a `TypeError` inside it. `x[-1]` already read `undefined` and
+`-1 in x` was already `false`, so there was no position to write to.
+
+**A read-only exposed contract is now honoured by the view itself.** An array or list handed to script as
+`IReadOnlyList<T>` refused element writes only when the index was string-spelled, because the refusal came
+from that interface's get-only indexer rather than from the wrapper. It now refuses both spellings.
+
+**What could break**, in each case only where the two spellings used to disagree:
+
+- a `catch (ArgumentOutOfRangeException)` around `Evaluate` written to absorb an out-of-range index write no
+  longer fires — the write succeeds on a growable collection and is refused on any other;
+- `Object.freeze(list); list["0"] = 9` outside strict mode was a `TypeError` and is now silent, which is what
+  `list[0] = 9` always did and what a frozen JavaScript array gives. `Reflect.set(list, "0", 9)` returns
+  `false` instead of throwing, which is what `Reflect.set` is specified to do;
+- `delete list["0"]` resets the slot instead of being refused, matching `delete list[0]`;
+- a `T[]` live view accepts `x["2"] = 9`, which used to raise `ArgumentException` because the reflected
+  indexer for an array is the `object`-typed `IList` one and bypassed item-type coercion.
+
+Nothing changes for `Options.Interop.AllowWrite = false`, for a non-extensible or frozen wrapper, for a
+dictionary-shaped target such as `JObject` (string keys still answer from its own keys), or for the
+`Array.prototype` generics, which reached the view rather than the indexer already.
 
 ### 4.41 Two holes in the freeze, closed ([#3360](https://github.com/sebastienros/jint/issues/3360))
 

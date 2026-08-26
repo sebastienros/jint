@@ -237,8 +237,6 @@ public class ClrWriteConfigurationTests
     [TestCase("Array.prototype.pop.call(list)")]
     [TestCase("Array.prototype.shift.call(list)")]
     [TestCase("Array.prototype.splice.call(list, 0, 1)")]
-    [TestCase("list['0'] = 9")]
-    [TestCase("Reflect.set(list, '0', 9)")]
     [TestCase("Object.assign(list, { 0: 9 })")]
     [TestCase("Object.getOwnPropertyDescriptor(list, '0').set.call(list, 9)")]
     public void ArrayGenericsCannotMutateFrozenClrListsWhenWritesAreEnabled(string script)
@@ -251,6 +249,45 @@ public class ClrWriteConfigurationTests
             .Should().Throw<JavaScriptException>().Which;
 
         exception.Error.Get("name").AsString().Should().Be("TypeError");
+        list.Should().Equal(1, 2);
+    }
+
+    /// <summary>
+    /// The other half of the refusal, and it is not a throw. A bare assignment to a frozen wrapper is an
+    /// ordinary <c>[[Set]]</c> returning <see langword="false"/> — silent outside strict mode — and
+    /// <c>Reflect.set</c> reports that <see langword="false"/> rather than raising. Both spellings of the
+    /// index answer the same way since #3384; before it, <c>list[0]</c> was silent and <c>list['0']</c>
+    /// threw, because only the second reached the reflected indexer's throwing descriptor.
+    /// </summary>
+    [TestCase("list[0] = 9")]
+    [TestCase("list['0'] = 9")]
+    public void AnAssignmentToAFrozenClrListIsRefusedSilentlyInSloppyModeAndThrowsInStrictMode(string script)
+    {
+        var list = new List<int> { 1, 2 };
+
+        var engine = new Engine(options => options.Interop.AllowWrite = true).SetValue("list", list);
+        engine.Execute("Object.freeze(list);");
+        engine.Execute(script);
+        list.Should().Equal(1, 2);
+
+        var strictEngine = new Engine(options => options.Interop.AllowWrite = true).SetValue("list", list);
+        strictEngine.Execute("Object.freeze(list);");
+        var exception = Invoking(() => strictEngine.Execute("'use strict';\n" + script))
+            .Should().Throw<JavaScriptException>().Which;
+
+        exception.Error.Get("name").AsString().Should().Be("TypeError");
+        list.Should().Equal(1, 2);
+    }
+
+    [TestCase("Reflect.set(list, 0, 9)")]
+    [TestCase("Reflect.set(list, '0', 9)")]
+    public void ReflectSetReportsAFrozenClrListsRefusalAsFalse(string script)
+    {
+        var list = new List<int> { 1, 2 };
+        var engine = new Engine(options => options.Interop.AllowWrite = true).SetValue("list", list);
+        engine.Execute("Object.freeze(list);");
+
+        engine.Evaluate(script).Should().BeFalse();
         list.Should().Equal(1, 2);
     }
 
