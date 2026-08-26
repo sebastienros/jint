@@ -98,7 +98,7 @@ public class HostLayoutLazySlotTests
 
     // ---- creation ----
 
-    [Fact]
+    [Test]
     public void CreateRunsNoFactoryAndStillProducesAHiddenClassObject()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);
@@ -108,7 +108,7 @@ public class HostLayoutLazySlotTests
         engine.Diagnostics.GetObjectRepresentation(envelope).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
-    [Fact]
+    [Test]
     public void EagerMembersReadNormallyAndRunNoFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -121,7 +121,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ALazyMemberMaterializesOnceOnFirstReadAndLeavesItsSiblingsAlone()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -137,7 +137,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ObjectStaysAHiddenClassObjectAcrossMaterialization()
     {
         var engine = EngineWithEnvelope(out _, out var envelope);
@@ -151,7 +151,7 @@ public class HostLayoutLazySlotTests
 
     // ---- the batch: one hidden class, one factory run per item ----
 
-    [Fact]
+    [Test]
     public void ABatchSharesOneHiddenClassAndRunsOneFactoryPerItem()
     {
         const int count = 64;
@@ -181,14 +181,13 @@ public class HostLayoutLazySlotTests
 
     // ---- existence questions never materialize ----
 
-    [Theory]
-    [InlineData("'body' in e")]
-    [InlineData("e.hasOwnProperty('body')")]
-    [InlineData("Object.prototype.propertyIsEnumerable.call(e, 'body')")]
-    [InlineData("Object.keys(e).indexOf('body') >= 0")]
-    [InlineData("Object.getOwnPropertyNames(e).indexOf('body') >= 0")]
-    [InlineData("Reflect.ownKeys(e).indexOf('body') >= 0")]
-    [InlineData("(function () { for (const k in e) { if (k === 'body') return true; } return false; })()")]
+    [TestCase("'body' in e")]
+    [TestCase("e.hasOwnProperty('body')")]
+    [TestCase("Object.prototype.propertyIsEnumerable.call(e, 'body')")]
+    [TestCase("Object.keys(e).indexOf('body') >= 0")]
+    [TestCase("Object.getOwnPropertyNames(e).indexOf('body') >= 0")]
+    [TestCase("Reflect.ownKeys(e).indexOf('body') >= 0")]
+    [TestCase("(function () { for (const k in e) { if (k === 'body') return true; } return false; })()")]
     public void ExistenceQuestionsAnswerTrueWithoutRunningAnyFactory(string expression)
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -199,7 +198,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void KeyOrderIsLayoutOrderWithoutRunningAnyFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -209,7 +208,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void StringifyingAnObjectThatDropsTheEnvelopeRunsNoFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -223,16 +222,15 @@ public class HostLayoutLazySlotTests
 
     // ---- value observations do materialize ----
 
-    [Theory]
-    [InlineData("Object.values(e).length")]
-    [InlineData("Object.entries(e).length")]
-    [InlineData("JSON.stringify(e).length")]
-    [InlineData("Object.keys({ ...e }).length")]
-    [InlineData("Object.keys(Object.assign({}, e)).length")]
-    [InlineData("Object.getOwnPropertyDescriptor(e, 'body').value.amount")]
-    [InlineData("e['bo' + 'dy'].amount")]
-    [InlineData("Reflect.get(e, 'body').amount")]
-    [InlineData("e.body.hasOwnProperty('amount') ? 1 : 0")]
+    [TestCase("Object.values(e).length")]
+    [TestCase("Object.entries(e).length")]
+    [TestCase("JSON.stringify(e).length")]
+    [TestCase("Object.keys({ ...e }).length")]
+    [TestCase("Object.keys(Object.assign({}, e)).length")]
+    [TestCase("Object.getOwnPropertyDescriptor(e, 'body').value.amount")]
+    [TestCase("e['bo' + 'dy'].amount")]
+    [TestCase("Reflect.get(e, 'body').amount")]
+    [TestCase("e.body.hasOwnProperty('amount') ? 1 : 0")]
     public void ValueObservationsRunTheFactory(string expression)
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -242,7 +240,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StringifyIncludesTheLazyMembersAndMaterializesEachOnce()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -254,7 +252,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SpreadCopiesMaterializedValuesAndReadsTheSourceOnce()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -268,7 +266,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ASpreadCopyIsItselfAHiddenClassObject()
     {
         var engine = EngineWithEnvelope(out _, out _);
@@ -281,7 +279,7 @@ public class HostLayoutLazySlotTests
 
     // ---- write / delete before read discards the factory ----
 
-    [Fact]
+    [Test]
     public void WritingALazyMemberBeforeAnyReadDiscardsItsFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);
@@ -298,7 +296,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DeletingALazyMemberBeforeAnyReadDiscardsItsFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -313,7 +311,7 @@ public class HostLayoutLazySlotTests
 
     // ---- deopt keeps laziness ----
 
-    [Fact]
+    [Test]
     public void DeletingAnUnrelatedKeyLeavesTheOtherLazyMembersLazy()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);
@@ -333,7 +331,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void DefiningAnUnrelatedKeyLeavesTheLazyMembersLazy()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);
@@ -349,7 +347,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RedefiningTheLazyKeyWithAValueDiscardsItsFactory()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -364,7 +362,7 @@ public class HostLayoutLazySlotTests
         payload.MetadataParses.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RedefiningTheLazyKeyWithAttributesOnlyKeepsItLazy()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -378,7 +376,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RedefiningANonConfigurableLazyKeyValidatesAgainstItsRealValue()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -397,7 +395,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void FreezingKeepsTheMembersLazyRejectsWritesAndStillServesReads()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);
@@ -417,7 +415,7 @@ public class HostLayoutLazySlotTests
         Invoking(() => engine.Evaluate("'use strict'; e.body = 1;")).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void SealingKeepsTheMembersLazyAndWritable()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -432,7 +430,7 @@ public class HostLayoutLazySlotTests
 
     // ---- factory contract ----
 
-    [Fact]
+    [Test]
     public void AFactoryReturningNullStoresUndefined()
     {
         var layout = JsObjectLayout.CreateBuilder()
@@ -448,7 +446,7 @@ public class HostLayoutLazySlotTests
         engine.Evaluate("JSON.stringify(o)").AsString().Should().Be("""{"a":1}""");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingFactorySurfacesAndLeavesTheSlotUnmaterialized()
     {
         var runs = new int[1];
@@ -482,7 +480,7 @@ public class HostLayoutLazySlotTests
         runs[0].Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void EachObjectGetsItsOwnStateAndItsOwnMaterialization()
     {
         var engine = new Engine();
@@ -502,7 +500,7 @@ public class HostLayoutLazySlotTests
         engine.Evaluate("a.body === b.body").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OneLayoutServesSeveralEnginesIndependently()
     {
         var firstEngine = new Engine();
@@ -527,7 +525,7 @@ public class HostLayoutLazySlotTests
         secondEngine.Diagnostics.GetObjectRepresentation(secondObject).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
-    [Fact]
+    [Test]
     public void AMemberCallOnALazyMemberMaterializesIt()
     {
         var layout = JsObjectLayout.CreateBuilder()
@@ -544,7 +542,7 @@ public class HostLayoutLazySlotTests
 
     // ---- API validation ----
 
-    [Fact]
+    [Test]
     public void AValueMustNotBeGivenForALazyProperty()
     {
         var engine = new Engine();
@@ -558,7 +556,7 @@ public class HostLayoutLazySlotTests
             .WithMessage("*index 4 ('body') must be null*");
     }
 
-    [Fact]
+    [Test]
     public void TheThreeArgumentCreateWorksWithALazyLayoutAndPassesNullState()
     {
         var layout = JsObjectLayout.CreateBuilder()
@@ -572,14 +570,14 @@ public class HostLayoutLazySlotTests
         engine.Evaluate("o.b").AsString().Should().Be("no state");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsANullFactory()
     {
         Invoking(() => JsObjectLayout.CreateBuilder().AddLazy("a", null))
             .Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void BuilderAppliesTheSameNameRulesAsTheConstructors()
     {
         Invoking(() => JsObjectLayout.CreateBuilder().Add("a").Add("a"))
@@ -594,7 +592,7 @@ public class HostLayoutLazySlotTests
             .Should().Throw<ArgumentException>().WithMessage("*starts with a digit*");
     }
 
-    [Fact]
+    [Test]
     public void BuilderRejectsMorePropertiesThanAHiddenClassCanDescribe()
     {
         var builder = JsObjectLayout.CreateBuilder();
@@ -614,7 +612,7 @@ public class HostLayoutLazySlotTests
         Invoking(() => another.Add("overflow")).Should().Throw<ArgumentException>().WithMessage("*at most 64*");
     }
 
-    [Fact]
+    [Test]
     public void ABuilderIsSingleUse()
     {
         var builder = JsObjectLayout.CreateBuilder().Add("a");
@@ -625,7 +623,7 @@ public class HostLayoutLazySlotTests
         Invoking(() => builder.AddLazy("b", static (_, _) => JsValue.Undefined)).Should().Throw<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void AnAllEagerBuilderProducesAnOrdinaryLayout()
     {
         var layout = JsObjectLayout.CreateBuilder().Add("x").Add("y").Build();
@@ -644,7 +642,7 @@ public class HostLayoutLazySlotTests
         engine.Evaluate("Object.keys(o).join(',')").AsString().Should().Be("x,y");
     }
 
-    [Fact]
+    [Test]
     public void ALayoutMayBeEntirelyLazy()
     {
         var layout = JsObjectLayout.CreateBuilder()
@@ -665,7 +663,7 @@ public class HostLayoutLazySlotTests
         counter[0].Should().Be(12);
     }
 
-    [Fact]
+    [Test]
     public void ALazyMemberIsAnOrdinaryDataProperty()
     {
         var engine = EngineWithEnvelope(out _, out _);
@@ -676,7 +674,7 @@ public class HostLayoutLazySlotTests
         engine.Evaluate("'get' in d").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ProxyingAnEnvelopeSeesOrdinaryProperties()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -691,7 +689,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AWithScopeResolvesLazyMembers()
     {
         var engine = EngineWithEnvelope(out var payload, out _);
@@ -703,7 +701,7 @@ public class HostLayoutLazySlotTests
         payload.BodyParses.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ToObjectMaterializesEveryMember()
     {
         var engine = EngineWithEnvelope(out var payload, out var envelope);

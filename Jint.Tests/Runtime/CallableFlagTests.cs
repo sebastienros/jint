@@ -16,7 +16,7 @@ public class CallableFlagTests
     /// invariant: each one derives from a root that sets the flag. A new <c>ICallable</c> value type
     /// that skips the flag fails here instead of silently throwing "x is not a function" at runtime.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryCallableJsValueDerivesFromAFlagSettingRoot()
     {
         var flagSettingRoots = new[]
@@ -52,7 +52,7 @@ public class CallableFlagTests
     /// <see cref="Function"/> and by nothing else. The other <c>ICallable</c> roots must NOT carry it —
     /// if one did, it would be reinterpreted as a <see cref="Function"/> and pushed onto the call stack.
     /// </summary>
-    [Fact]
+    [Test]
     public void OnlyFunctionCarriesTheFunctionFlag()
     {
         var engine = new Engine(options => options.AllowClr(typeof(System.Collections.Generic.List<>).Assembly));
@@ -67,8 +67,8 @@ public class CallableFlagTests
         AssertFunctionFlag(engine.Evaluate("importNamespace('System.Collections.Generic')"), expected: false); // NamespaceReference
 
         // and calling each of them still works, i.e. the non-Function branch is exercised
-        Assert.Equal(3d, engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber());
-        Assert.Equal(3d, engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber());
+        Assert.That(engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber(), Is.EqualTo(3d));
+        Assert.That(engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber(), Is.EqualTo(3d));
     }
 
     private static void AssertFunctionFlag(Jint.Native.JsValue value, bool expected)
@@ -91,21 +91,21 @@ public class CallableFlagTests
     /// function, a bound function, a proxy over a function, and the interop namespace reference
     /// (which is callable purely to bind generic types).
     /// </summary>
-    [Fact]
+    [Test]
     public void FlaggedCallablesAreCallableFromScript()
     {
         var engine = new Engine(options => options.AllowClr(typeof(System.Collections.Generic.List<>).Assembly));
 
-        Assert.Equal(3d, engine.Evaluate("(function (a, b) { return a + b; })(1, 2)").AsNumber());
-        Assert.Equal(3d, engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber());
-        Assert.Equal(3d, engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber());
+        Assert.That(engine.Evaluate("(function (a, b) { return a + b; })(1, 2)").AsNumber(), Is.EqualTo(3d));
+        Assert.That(engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber(), Is.EqualTo(3d));
+        Assert.That(engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber(), Is.EqualTo(3d));
 
         // NamespaceReference.Call: binds the generic type argument, so the result is constructible.
-        Assert.Equal(1d, engine.Evaluate("""
+        Assert.That(engine.Evaluate("""
             var listType = importNamespace('System.Collections.Generic').List(System.String);
             var list = new listType();
             list.Add('x');
             list.Count;
-            """).AsNumber());
+            """).AsNumber(), Is.EqualTo(1d));
     }
 }

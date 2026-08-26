@@ -39,7 +39,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- installation
 
-    [Fact]
+    [Test]
     public void IsAbsentUntilTheFeatureIsEnabled()
     {
         var engine = new Engine();
@@ -49,7 +49,7 @@ public class MessagingTests
         engine.Evaluate("typeof MessageEvent").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void IsInstalledByTheMessagingFeatureOnItsOwn()
     {
         // Messaging does not depend on the Events flag: MessagePort and MessageEvent inherit from the
@@ -67,19 +67,19 @@ public class MessagingTests
         engine.Execute("var ch = new MessageChannel(); ch.port1.addEventListener('message', function () {});");
     }
 
-    [Fact]
+    [Test]
     public void IsPartOfTheDefaultFeatureSet()
     {
         (WebApiFeatures.Default & WebApiFeatures.Messaging).Should().Be(WebApiFeatures.Messaging);
     }
 
-    [Fact]
+    [Test]
     public void UsesTheBitTheEnumReserved()
     {
         ((int) WebApiFeatures.Messaging).Should().Be(1 << 14);
     }
 
-    [Fact]
+    [Test]
     public void GivesEachGlobalTheAttributesWebIdlAsksFor()
     {
         var engine = MessagingEngine();
@@ -98,7 +98,7 @@ public class MessagingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DoesNotClobberAGlobalTheHostRegistered()
     {
         var engine = new Engine(options => options
@@ -108,7 +108,7 @@ public class MessagingTests
         engine.Evaluate("MessageChannel").AsString().Should().Be("mine");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = MessagingEngine();
@@ -120,7 +120,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- the interfaces
 
-    [Fact]
+    [Test]
     public void ExposesMessageChannelAsAnInterfaceObject()
     {
         var engine = MessagingEngine();
@@ -134,7 +134,7 @@ public class MessagingTests
         Err(engine, "MessageChannel()").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void GivesAChannelTwoDistinctEntangledPorts()
     {
         var engine = MessagingEngine();
@@ -150,7 +150,7 @@ public class MessagingTests
         engine.Evaluate("Object.prototype.toString.call(ch.port1)").AsString().Should().Be("[object MessagePort]");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToConstructAMessagePortDirectly()
     {
         var engine = MessagingEngine();
@@ -165,7 +165,7 @@ public class MessagingTests
         engine.Evaluate("MessagePort.prototype.close.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnOperationOnAReceiverThatIsNotAPort()
     {
         var engine = MessagingEngine();
@@ -176,7 +176,7 @@ public class MessagingTests
         Err(engine, "Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage').get.call({})").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassingMessageChannel()
     {
         var engine = MessagingEngine();
@@ -189,7 +189,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- delivery
 
-    [Fact]
+    [Test]
     public void DeliversAMessageToTheEntangledPortOnceItIsStarted()
     {
         var engine = MessagingEngine();
@@ -206,7 +206,7 @@ public class MessagingTests
         Log(engine).Should().Be("posted,got:hello");
     }
 
-    [Fact]
+    [Test]
     public void DeliversInBothDirections()
     {
         var engine = MessagingEngine();
@@ -222,7 +222,7 @@ public class MessagingTests
         Log(engine).Should().Be("p2:to2,p1:to1");
     }
 
-    [Fact]
+    [Test]
     public void DeliversMessagesInTheOrderTheyWerePosted()
     {
         var engine = MessagingEngine();
@@ -236,7 +236,7 @@ public class MessagingTests
         Log(engine).Should().Be("0,1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void DeliversAMessageAsATaskSoMicrotasksRunFirst()
     {
         var engine = MessagingEngine();
@@ -264,7 +264,7 @@ public class MessagingTests
     /// finally keeps — put the second message ahead of the first message's microtasks and made this read
     /// <c>m1,m2,p1,p2</c>.
     /// </remarks>
-    [Fact]
+    [Test]
     public void EachMessageGetsItsOwnMicrotaskCheckpoint()
     {
         var engine = MessagingEngine();
@@ -286,7 +286,7 @@ public class MessagingTests
     /// The property the arm-before-dispatch order was written for, kept: a listener that throws erupts from
     /// the pump, and the message behind it is still delivered on the next turn.
     /// </summary>
-    [Fact]
+    [Test]
     public void AThrowingListenerDoesNotStrandTheMessagesBehindIt()
     {
         var engine = MessagingEngine();
@@ -311,7 +311,7 @@ public class MessagingTests
         Log(engine).Should().Be("m1,m2");
     }
 
-    [Fact]
+    [Test]
     public void FiresATrustedMessageEventWithTheSpecifiedDefaults()
     {
         var engine = MessagingEngine();
@@ -342,7 +342,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- the port message queue
 
-    [Fact]
+    [Test]
     public void HoldsMessagesUntilTheQueueIsEnabled()
     {
         var engine = MessagingEngine();
@@ -362,7 +362,7 @@ public class MessagingTests
         Log(engine).Should().Be("first,second");
     }
 
-    [Fact]
+    [Test]
     public void EnablesTheQueueWhenOnMessageIsAssigned()
     {
         var engine = MessagingEngine();
@@ -380,7 +380,7 @@ public class MessagingTests
         Log(engine).Should().Be("queued");
     }
 
-    [Fact]
+    [Test]
     public void AssigningOnMessageStartsThePortEvenForAListenerRegisteredSeparately()
     {
         var engine = MessagingEngine();
@@ -399,7 +399,7 @@ public class MessagingTests
         Log(engine).Should().Be("listener:x");
     }
 
-    [Fact]
+    [Test]
     public void KeepsOrderWhenTheQueueIsEnabledMidFlight()
     {
         var engine = MessagingEngine();
@@ -420,7 +420,7 @@ public class MessagingTests
         Log(engine).Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void StartingAnAlreadyStartedPortIsANoOp()
     {
         var engine = MessagingEngine();
@@ -438,7 +438,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- close
 
-    [Fact]
+    [Test]
     public void StopsDeliveringOnceTheReceivingPortIsClosed()
     {
         var engine = MessagingEngine();
@@ -453,7 +453,7 @@ public class MessagingTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ClosingAPortDisentanglesThePairInBothDirections()
     {
         var engine = MessagingEngine();
@@ -472,7 +472,7 @@ public class MessagingTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void DropsWhatAClosedPortHadStillQueued()
     {
         var engine = MessagingEngine();
@@ -487,7 +487,7 @@ public class MessagingTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ClosingAPortTwiceIsHarmless()
     {
         var engine = MessagingEngine();
@@ -496,7 +496,7 @@ public class MessagingTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void StillSerializesWhenThereIsNowhereToDeliver()
     {
         var engine = MessagingEngine();
@@ -513,7 +513,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- the message itself
 
-    [Fact]
+    [Test]
     public void DeliversAStructuredCloneRatherThanTheValueItself()
     {
         var engine = MessagingEngine();
@@ -537,7 +537,7 @@ public class MessagingTests
         engine.Evaluate("received.self === received").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SerializesAtPostTimeRatherThanAtDeliveryTime()
     {
         var engine = MessagingEngine();
@@ -556,7 +556,7 @@ public class MessagingTests
         engine.Evaluate("received.n").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnUncloneableMessageSynchronously()
     {
         var engine = MessagingEngine();
@@ -567,7 +567,7 @@ public class MessagingTests
         Err(engine, "ch.port1.postMessage(new Promise(function () {}))").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RequiresTheMessageArgument()
     {
         var engine = MessagingEngine();
@@ -582,7 +582,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- transfer
 
-    [Fact]
+    [Test]
     public void TransfersAnArrayBufferThroughTheChannel()
     {
         var engine = MessagingEngine();
@@ -602,7 +602,7 @@ public class MessagingTests
         engine.Evaluate("new Uint8Array(received.payload)[0]").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AcceptsTheTransferListEitherWay()
     {
         var engine = MessagingEngine();
@@ -621,7 +621,7 @@ public class MessagingTests
         engine.Evaluate("b.byteLength").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAMalformedTransferOption()
     {
         var engine = MessagingEngine();
@@ -648,7 +648,7 @@ public class MessagingTests
         };
         """;
 
-    [Fact]
+    [Test]
     public void TransfersAPortThroughTheChannel()
     {
         var engine = MessagingEngine();
@@ -669,7 +669,7 @@ public class MessagingTests
         Log(engine).Should().Be("through the moved port,back:reply");
     }
 
-    [Fact]
+    [Test]
     public void LeavesTheTransferredPortInert()
     {
         var engine = MessagingEngine();
@@ -692,7 +692,7 @@ public class MessagingTests
     /// The port message queue travels with the port, and everything in flight keeps its place in it — which is
     /// what HTML gets by passing the queue itself into the data holder rather than a copy of its contents.
     /// </summary>
-    [Fact]
+    [Test]
     public void CarriesTheQueuedMessagesWithTheTransferredPortAndKeepsTheirOrder()
     {
         var engine = MessagingEngine();
@@ -714,7 +714,7 @@ public class MessagingTests
         Log(engine).Should().Be("queued-before-1,queued-before-2,posted-in-transit,after");
     }
 
-    [Fact]
+    [Test]
     public void CarriesAStartedPortsUndeliveredBacklog()
     {
         var engine = MessagingEngine();
@@ -737,7 +737,7 @@ public class MessagingTests
         Log(engine).Should().Be("backlog");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToTransferAPortThroughItself()
     {
         var engine = MessagingEngine();
@@ -751,7 +751,7 @@ public class MessagingTests
         engine.Evaluate("ch.port1.postMessage('still works') === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoomsAMessageThatTransfersTheEntangledPeer()
     {
         var engine = MessagingEngine();
@@ -778,7 +778,7 @@ public class MessagingTests
         sender.Endpoint!.Peer!.Closed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EndsEveryTransferStrandedBehindAClosedPortHoweverDeeplyNested()
     {
         var engine = MessagingEngine();
@@ -806,7 +806,7 @@ public class MessagingTests
         z1.Endpoint!.Peer!.Closed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPortThatAppearsTwiceInOneTransferList()
     {
         var engine = MessagingEngine();
@@ -820,7 +820,7 @@ public class MessagingTests
         Log(engine).Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToTransferAnAlreadyDetachedPort()
     {
         var engine = MessagingEngine();
@@ -835,7 +835,7 @@ public class MessagingTests
         Err(engine, "relay.port1.postMessage(0, [other.port1])").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAPortThatWasNotInTheTransferList()
     {
         var engine = MessagingEngine();
@@ -851,7 +851,7 @@ public class MessagingTests
         Log(engine).Should().Be("fine");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesAPortThatIsBothTransferredAndReferencedToOneObject()
     {
         var engine = MessagingEngine();
@@ -870,7 +870,7 @@ public class MessagingTests
         engine.Evaluate("event.data.again[0] === event.ports[0]").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void GivesTheEventAFrozenPortsArrayInTransferListOrder()
     {
         var engine = MessagingEngine();
@@ -900,7 +900,7 @@ public class MessagingTests
         Log(engine).Should().Be("0:from second,1:from first");
     }
 
-    [Fact]
+    [Test]
     public void TransfersBothEndsOfAChannelInOneMessage()
     {
         var engine = MessagingEngine();
@@ -919,7 +919,7 @@ public class MessagingTests
         Log(engine).Should().Be("both ends moved");
     }
 
-    [Fact]
+    [Test]
     public void RelaysAPortThroughSeveralTransfers()
     {
         var engine = MessagingEngine();
@@ -944,7 +944,7 @@ public class MessagingTests
         Log(engine).Should().Be("queued at the very start,after two hops");
     }
 
-    [Fact]
+    [Test]
     public void TransfersAPortThroughStructuredCloneIntoTheSameRealm()
     {
         var engine = MessagingEngine();
@@ -967,7 +967,7 @@ public class MessagingTests
         Log(engine).Should().Be("from the clone,clone got to the clone");
     }
 
-    [Fact]
+    [Test]
     public void StructuredCloneStillRefusesAPortThatIsNotTransferred()
     {
         var engine = MessagingEngine();
@@ -980,7 +980,7 @@ public class MessagingTests
         Log(engine).Should().Be("unharmed");
     }
 
-    [Fact]
+    [Test]
     public void EndsAPortWhoseTransferCanNeverBePickedUp()
     {
         var engine = MessagingEngine();
@@ -1007,7 +1007,7 @@ public class MessagingTests
         remaining.Endpoint!.Peer!.Closed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EndsAPortInFlightToAnEngineThatRestores()
     {
         var host = MessagingEngine();
@@ -1034,7 +1034,7 @@ public class MessagingTests
         host.Execute("ch.port1.postMessage('into the void');");
     }
 
-    [Fact]
+    [Test]
     public void BroadcastChannelStillRefusesAPort()
     {
         var engine = MessagingEngine();
@@ -1051,7 +1051,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- listeners
 
-    [Fact]
+    [Test]
     public void RunsTheHandlerAttributeInRegistrationOrderAmongTheListeners()
     {
         var engine = MessagingEngine();
@@ -1067,7 +1067,7 @@ public class MessagingTests
         Log(engine).Should().Be("first,handler,last");
     }
 
-    [Fact]
+    [Test]
     public void ReadsBackAndReplacesTheHandlerAttribute()
     {
         var engine = MessagingEngine();
@@ -1088,7 +1088,7 @@ public class MessagingTests
         Log(engine).Should().Be("true,g,true");
     }
 
-    [Fact]
+    [Test]
     public void ExposesOnMessageErrorButNeverFiresIt()
     {
         var engine = MessagingEngine();
@@ -1107,7 +1107,7 @@ public class MessagingTests
         Log(engine).Should().Be("messageerror");
     }
 
-    [Fact]
+    [Test]
     public void LetsAListenerRemoveItselfWithOnce()
     {
         var engine = MessagingEngine();
@@ -1123,7 +1123,7 @@ public class MessagingTests
         Log(engine).Should().Be("a");
     }
 
-    [Fact]
+    [Test]
     public void DeliversTheRestOfTheQueueAfterAListenerThrows()
     {
         var engine = MessagingEngine();
@@ -1147,7 +1147,7 @@ public class MessagingTests
 
     // ---------------------------------------------------------------- MessageEvent
 
-    [Fact]
+    [Test]
     public void ConstructsAMessageEvent()
     {
         var engine = MessagingEngine();
@@ -1170,7 +1170,7 @@ public class MessagingTests
         engine.Evaluate("ev.ports.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheMessageEventInitDictionary()
     {
         var engine = MessagingEngine();
@@ -1200,7 +1200,7 @@ public class MessagingTests
         engine.Evaluate("ev.ports === ev.ports").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesAMessageEventInitMemberOfTheWrongType()
     {
         var engine = MessagingEngine();
@@ -1210,7 +1210,7 @@ public class MessagingTests
         Err(engine, "new MessageEvent('m', 5)").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAMessageEventAccessorOnAPlainEvent()
     {
         var engine = MessagingEngine();

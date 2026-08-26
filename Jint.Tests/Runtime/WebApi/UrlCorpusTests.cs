@@ -73,7 +73,7 @@ public class UrlCorpusTests
     /// </summary>
     private static readonly Dictionary<(string Attribute, string Href, string NewValue), Divergence> _setterExclusions = new();
 
-    [Fact]
+    [Test]
     public void ParsesEveryRowOfTheWebPlatformTestsCorpus()
     {
         using var document = LoadCorpus("urltestdata.json");
@@ -120,7 +120,7 @@ public class UrlCorpusTests
         Report(failures, stale);
     }
 
-    [Fact]
+    [Test]
     public void AppliesEverySetterRowOfTheWebPlatformTestsCorpus()
     {
         using var document = LoadCorpus("setters_tests.json");

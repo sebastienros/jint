@@ -57,7 +57,7 @@ public class HostResultLimitsTests
         ({ get value() { for (var i = 0; i < 200; i++) {} return 42; } })
         """;
 
-    [Fact]
+    [Test]
     public void DefaultConversionRemainsUnlimitedAndCompatible()
     {
         var options = new Options();
@@ -72,7 +72,7 @@ public class HostResultLimitsTests
         options.ResultLimits.Should().BeSameAs(ResultLimits.Unlimited);
     }
 
-    [Fact]
+    [Test]
     public void DepthBoundaryIsInclusive()
     {
         using var engine = new Engine();
@@ -86,7 +86,7 @@ public class HostResultLimitsTests
             observed: 2);
     }
 
-    [Fact]
+    [Test]
     public void LeafObjectsDoNotConsumeContainerDepth()
     {
         using var engine = new Engine();
@@ -95,7 +95,7 @@ public class HostResultLimitsTests
         engine.ConvertResult(value, Limits(maxDepth: 1)).Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void PropertyBoundaryIsCheckedBeforeGettersRun()
     {
         using var engine = new Engine();
@@ -116,7 +116,7 @@ public class HostResultLimitsTests
         engine.GetValue("reads").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void StringAndAggregateCharacterLimitsAreIndependent()
     {
         using var engine = new Engine();
@@ -134,7 +134,7 @@ public class HostResultLimitsTests
             observed: 10);
     }
 
-    [Fact]
+    [Test]
     public void ArraysAndTypedArraysAreRejectedBeforeOutputAllocation()
     {
         using var engine = new Engine();
@@ -156,7 +156,7 @@ public class HostResultLimitsTests
             observed: 12);
     }
 
-    [Fact]
+    [Test]
     public void BinaryByteLimitIsCumulativeAndArrayBuffersAreCopied()
     {
         using var engine = new Engine();
@@ -176,7 +176,7 @@ public class HostResultLimitsTests
         engine.Evaluate("new Uint8Array(buffer)[0]").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void FunctionsAndSymbolsAreNotExportedAsEngineAffineValues()
     {
         using var engine = new Engine();
@@ -187,7 +187,7 @@ public class HostResultLimitsTests
             .Should().ThrowExactly<NotSupportedException>();
     }
 
-    [Fact]
+    [Test]
     public void MapsAndSetsConvertToDetachedClrCollections()
     {
         using var engine = new Engine();
@@ -209,7 +209,7 @@ public class HostResultLimitsTests
         set.Should().Equal("x", "y");
     }
 
-    [Fact]
+    [Test]
     public void CyclesAreRejected()
     {
         using var engine = new Engine();
@@ -220,7 +220,7 @@ public class HostResultLimitsTests
             .WithMessage("*Cyclic reference detected*");
     }
 
-    [Fact]
+    [Test]
     public void ProxyKeysAreCountedBeforeProxyGetsRun()
     {
         using var engine = new Engine();
@@ -242,7 +242,7 @@ public class HostResultLimitsTests
         engine.GetValue("gets").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ProxiedArraysPreserveArrayOutputAndRunGetTraps()
     {
         using var engine = new Engine();
@@ -261,7 +261,7 @@ public class HostResultLimitsTests
         engine.GetValue("gets").AsNumber().Should().Be(3, "length and both elements are read through the proxy");
     }
 
-    [Fact]
+    [Test]
     public void GetterExecutionUsesEngineConstraints()
     {
         using var engine = new Engine(options => options.LimitStatements(100));
@@ -271,7 +271,7 @@ public class HostResultLimitsTests
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void ConstraintCadenceSpansManySmallContainers()
     {
         var constraint = new ArmedConstraint();
@@ -292,7 +292,7 @@ public class HostResultLimitsTests
             .WithMessage("conversion constraint checked");
     }
 
-    [Fact]
+    [Test]
     public void PropertyCountBoundsRepeatedSharedReferences()
     {
         using var engine = new Engine();
@@ -308,7 +308,7 @@ public class HostResultLimitsTests
             observed: 4);
     }
 
-    [Fact]
+    [Test]
     public void HostWrappersReturnTheirExistingTargetWithoutWalkingIt()
     {
         using var engine = new Engine();
@@ -319,7 +319,7 @@ public class HostResultLimitsTests
             .Should().BeSameAs(target);
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptErrorRenderingCanBeBounded()
     {
         using var engine = new Engine();
@@ -333,7 +333,7 @@ public class HostResultLimitsTests
             observed: 4);
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptErrorStackAccessUsesEngineConstraints()
     {
         using var engine = new Engine(options => options.LimitStatements(100));
@@ -348,7 +348,7 @@ public class HostResultLimitsTests
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task PublicResultBoundariesRejectConcurrentUseAndRecover()
     {
         using var entered = new ManualResetEventSlim();
@@ -390,7 +390,7 @@ public class HostResultLimitsTests
         serializer.Serialize(value).AsString().Should().Be("""{"value":42}""");
     }
 
-    [Fact]
+    [Test]
     public void ConversionAndSerializationAllowSameOwnerCallbackReentry()
     {
         using var engine = new Engine();
@@ -432,7 +432,7 @@ public class HostResultLimitsTests
     /// expressible before.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void OperationDeadlineSpansEvaluationAndConversion()
     {
         var clock = new ManualClock();
@@ -469,7 +469,7 @@ public class HostResultLimitsTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 #else
-    [Fact]
+    [Test]
     public void OperationDeadlineSpansEvaluationAndConversion()
     {
         // Evaluating a script and converting its result are two separate top-level entries, and the
@@ -497,16 +497,17 @@ public class HostResultLimitsTests
         try
         {
             JsValue value = null;
-            var evaluationFailure = Record.Exception(() => value = engine.Evaluate(CheckedEvaluationSource));
+            var evaluationFailure = Caught.Exception(() => value = engine.Evaluate(CheckedEvaluationSource));
 
             // A stall long enough to fail this entry is the runner's doing, and failing it is what the
             // engine promises, but it leaves the run with nothing to say about the conversion. A budget
             // armed in the past fails the same entry with the stopwatch reading nearly zero, and that is
             // a defect — hence the elapsed-time condition rather than a bare "did it throw", and hence
             // the assertion that follows for every other failure.
-            Assert.SkipWhen(
-                evaluationFailure is TimeoutException && stopwatch.Elapsed >= OperationBudget - AttributionSlack,
-                "the runner stalled the evaluation entry past the whole operation budget");
+            if (evaluationFailure is TimeoutException && stopwatch.Elapsed >= OperationBudget - AttributionSlack)
+            {
+                Assert.Ignore("the runner stalled the evaluation entry past the whole operation budget");
+            }
             evaluationFailure.Should().BeNull("the evaluation entry runs inside a budget it cannot have spent");
 
             Thread.Sleep(OperationBudget + BudgetOverspend);
@@ -525,7 +526,7 @@ public class HostResultLimitsTests
     }
 #endif
 
-    [Fact]
+    [Test]
     public void ExplicitMemoryOperationSpansEvaluationAndConversion()
     {
         const int allocationSize = 2_000_000;
@@ -550,7 +551,7 @@ public class HostResultLimitsTests
         engine.ConvertResult(engine.Evaluate("({ value: 42 })")).Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ModuleNamespaceCanBeConvertedUnderResultLimits()
     {
         using var engine = new Engine();
@@ -565,7 +566,7 @@ public class HostResultLimitsTests
         converted["nested"].Should().BeAssignableTo<IDictionary<string, object>>();
     }
 
-    [Fact]
+    [Test]
     public void FailedConversionReleasesStateForRetry()
     {
         using var engine = new Engine();
@@ -581,7 +582,7 @@ public class HostResultLimitsTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ResultLimitFromClrCallbackRemainsFatalWhenClrExceptionsAreCatchable()
     {
         using var engine = new Engine(options => options.CatchClrExceptions());

@@ -20,18 +20,16 @@ public class QueuingStrategyTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void KeepsTheHighWaterMarkItWasGiven(string strategy)
     {
         var engine = StreamEngine();
         engine.Evaluate($"new {strategy}({{ highWaterMark: 4 }}).highWaterMark").AsNumber().Should().Be(4);
     }
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void RequiresAnInitDictionaryWithAHighWaterMark(string strategy)
     {
         var engine = StreamEngine();
@@ -39,16 +37,15 @@ public class QueuingStrategyTests
         // `constructor(QueuingStrategyInit init)` takes a required dictionary with a required member.
         foreach (var argument in new[] { "", "null", "undefined", "true", "5", "{}" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new {strategy}({argument})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new {strategy}({argument})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", $"{strategy}({argument})");
         }
 
         engine.Evaluate($"{strategy}.length").AsNumber().Should().Be(1);
     }
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void ConvertsTheHighWaterMarkWithTheUnrestrictedDoubleRulesAndValidatesNothing(string strategy)
     {
         // "Note that the provided high water mark will not be validated ahead of time. Instead, if it is
@@ -62,25 +59,23 @@ public class QueuingStrategyTests
         engine.Evaluate($"Number.isNaN(new {strategy}({{ highWaterMark: 'foo' }}).highWaterMark)").AsBoolean().Should().BeTrue();
         engine.Evaluate($"new {strategy}({{ highWaterMark: -Infinity }}).highWaterMark").AsNumber().Should().Be(double.NegativeInfinity);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ReadableStream({{}}, new {strategy}({{ highWaterMark: -1 }}))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ReadableStream({{}}, new {strategy}({{ highWaterMark: -1 }}))"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void ReportsAThrowingHighWaterMarkGetter(string strategy)
     {
         var engine = StreamEngine();
         engine.Execute("var e = new Error('wow');");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new {strategy}({{ get highWaterMark() {{ throw e; }} }})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new {strategy}({{ get highWaterMark() {{ throw e; }} }})"))!
             .Error.Get("message").AsString().Should().Be("wow");
     }
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void SizeIsOneSharedFunctionPerRealmRatherThanAMethod(string strategy)
     {
         var engine = StreamEngine();
@@ -93,13 +88,12 @@ public class QueuingStrategyTests
         engine.Evaluate("'prototype' in a.size").AsBoolean().Should().BeFalse();
 
         // Not a constructor either.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (a.size)()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new (a.size)()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Theory]
-    [InlineData("CountQueuingStrategy")]
-    [InlineData("ByteLengthQueuingStrategy")]
+    [TestCase("CountQueuingStrategy")]
+    [TestCase("ByteLengthQueuingStrategy")]
     public void SubclassingWorks(string strategy)
     {
         var engine = StreamEngine();
@@ -117,7 +111,7 @@ public class QueuingStrategyTests
         engine.Evaluate("sc.extra()").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CountSizeAlwaysAnswersOne()
     {
         var engine = StreamEngine();
@@ -130,7 +124,7 @@ public class QueuingStrategyTests
         engine.Evaluate("size({ get byteLength() { throw new Error('never read'); } })").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ByteLengthSizeReadsTheByteLengthProperty()
     {
         var engine = StreamEngine();
@@ -145,15 +139,15 @@ public class QueuingStrategyTests
         engine.Evaluate("size({}) === undefined").AsBoolean().Should().BeTrue();
         engine.Evaluate("size('potato') === undefined").AsBoolean().Should().BeTrue();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size(null)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size(null)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size({ get byteLength() { throw e; } })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("size({ get byteLength() { throw e; } })"))!
             .Error.Get("message").AsString().Should().Be("wow");
     }
 
-    [Fact]
+    [Test]
     public void CountQueuingStrategyMeasuresAStreamInChunks()
     {
         var engine = StreamEngine();
@@ -168,7 +162,7 @@ public class QueuingStrategyTests
         Log(engine).Should().Be("3,2");
     }
 
-    [Fact]
+    [Test]
     public void ByteLengthQueuingStrategyMeasuresAStreamInBytes()
     {
         var engine = StreamEngine();
@@ -184,7 +178,7 @@ public class QueuingStrategyTests
         Log(engine).Should().Be("924,900");
     }
 
-    [Fact]
+    [Test]
     public void AnyObjectWithTheRightShapeIsAQueuingStrategy()
     {
         // "Any object with these properties can be used when a queuing strategy object is expected."
@@ -201,16 +195,16 @@ public class QueuingStrategyTests
         Log(engine).Should().Be("6");
     }
 
-    [Fact]
+    [Test]
     public void ANonCallableSizeIsATypeError()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({}, { size: 42 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({}, { size: 42 })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASizeThatIsNotAFiniteNonNegativeNumber()
     {
         var engine = StreamEngine();
@@ -231,7 +225,7 @@ public class QueuingStrategyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void MembersCarryTheWebIdlShape()
     {
         var engine = StreamEngine();
@@ -248,15 +242,15 @@ public class QueuingStrategyTests
             descriptor.Writable.Should().BeTrue(strategy);
             descriptor.Configurable.Should().BeTrue(strategy);
 
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Object.getOwnPropertyDescriptor({strategy}.prototype, 'highWaterMark').get.call({{}})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Object.getOwnPropertyDescriptor({strategy}.prototype, 'highWaterMark').get.call({{}})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", strategy);
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Object.getOwnPropertyDescriptor({strategy}.prototype, 'size').get.call({{}})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Object.getOwnPropertyDescriptor({strategy}.prototype, 'size').get.call({{}})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", strategy);
         }
 
         // Each interface brand-checks against its own type, not against "a queuing strategy".
         Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-            "Object.getOwnPropertyDescriptor(CountQueuingStrategy.prototype, 'highWaterMark').get.call(new ByteLengthQueuingStrategy({ highWaterMark: 1 }))"))
+            "Object.getOwnPropertyDescriptor(CountQueuingStrategy.prototype, 'highWaterMark').get.call(new ByteLengthQueuingStrategy({ highWaterMark: 1 }))"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 }

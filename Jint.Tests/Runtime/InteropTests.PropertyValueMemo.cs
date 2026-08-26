@@ -26,7 +26,7 @@ public partial class InteropTests
         public int x { get; set; } = 7;
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoReturnsStableWrapperAndValues()
     {
         var engine = new Engine();
@@ -40,7 +40,7 @@ public partial class InteropTests
         engine.Evaluate("host.stable === host.stable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoInvalidatesWhenGetterReturnsNewInstance()
     {
         var engine = new Engine();
@@ -53,7 +53,7 @@ public partial class InteropTests
         engine.Evaluate("var a = host.fresh[0]; var b = host.fresh[0]; a + ',' + b").AsString().Should().Be("2,3");
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoDoesNotHideInPlaceMutationForLiveView()
     {
         var host = new PropertyMemoHost();
@@ -68,7 +68,7 @@ public partial class InteropTests
         engine.Evaluate("host.stable[0]").AsNumber().Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoNeverCachesValueTypeProperty()
     {
         var host = new PropertyMemoHost();
@@ -82,7 +82,7 @@ public partial class InteropTests
         engine.Evaluate("host.price").AsNumber().Should().Be(2.5);
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoRespectsCacheOptOut()
     {
         // Copy mode with the recent-wrapper cache off is the fresh-snapshot-per-crossing contract
@@ -99,7 +99,7 @@ public partial class InteropTests
         engine.Evaluate("var a = host.stable; a[0] = 42; host.stable[0]").AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoDisabledUnderIdentityTracking()
     {
         // the ConditionalWeakTable is authoritative when identity tracking is on; the memo stays out
@@ -114,7 +114,7 @@ public partial class InteropTests
         engine.Evaluate("host.fresh[0]").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PropertyValueMemoWorksForObjectProperty()
     {
         var host = new PropertyMemoHost();

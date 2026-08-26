@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostValueBridgingTests
 {
-    [Fact]
+    [Test]
     public void PropertyDescriptorCanBeConstructedFromFlagsDirectly()
     {
         var engine = new Engine();
@@ -31,7 +31,7 @@ public class HostValueBridgingTests
         engine.Evaluate("Object.keys(target).join(',')").AsString().Should().Be("answer");
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorFlagsOverloadMatchesTheNullableBoolOverload()
     {
         var byFlags = new PropertyDescriptor(new JsString("v"), PropertyFlag.ConfigurableEnumerableWritable);
@@ -43,7 +43,7 @@ public class HostValueBridgingTests
         byFlags.Value.Should().Be(byBools.Value);
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorSupportsNonEnumerableCombinations()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ public class HostValueBridgingTests
     // can get hold of - literals, Array(), and `class X extends Array {}` alike - is a JsArray; the one
     // ArrayInstance that is not is Array.prototype itself. JsArray adds the non-allocating Length on top
     // of the hole-aware TryGetValue it inherits, which is the whole pair needed to walk an array.
-    [Fact]
+    [Test]
     public void ArrayTryGetValueDistinguishesHolesFromStoredUndefined()
     {
         var engine = new Engine();
@@ -91,7 +91,7 @@ public class HostValueBridgingTests
         beyond.IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayTryGetValueResolvesInheritedIndices()
     {
         var engine = new Engine();
@@ -112,7 +112,7 @@ public class HostValueBridgingTests
         array.TryGetValue(2, out _).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ArrayTryGetValueBridgesASparseArrayInOnePass()
     {
         var engine = new Engine();
@@ -127,19 +127,19 @@ public class HostValueBridgingTests
         bridged.Should().Equal("a", null, null, "d");
     }
 
-    [Fact]
+    [Test]
     public void JsStringCreateReturnsTheInternedEmptyInstance()
     {
         JsString.Create("").Should().BeSameAs(JsString.Empty);
     }
 
-    [Fact]
+    [Test]
     public void JsStringCreateReturnsAnInternedInstanceForASingleCharacter()
     {
         JsString.Create("a").Should().BeSameAs(JsString.Create("a"));
     }
 
-    [Fact]
+    [Test]
     public void JsStringCreateRoundTripsALongerString()
     {
         var value = JsString.Create("ab");
@@ -151,7 +151,7 @@ public class HostValueBridgingTests
         engine.Evaluate("bridged + '!'").AsString().Should().Be("ab!");
     }
 
-    [Fact]
+    [Test]
     public void JsStringCreateRejectsNull()
     {
         Invoking(() => JsString.Create(null!)).Should().Throw<ArgumentNullException>();

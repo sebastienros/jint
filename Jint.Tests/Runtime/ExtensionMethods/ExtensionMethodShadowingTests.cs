@@ -19,9 +19,8 @@ public class ExtensionMethodShadowingTests
         });
     }
 
-    [Theory]
-    [InlineData(ArrayConversionMode.LiveView)]
-    [InlineData(ArrayConversionMode.Copy)]
+    [TestCase(ArrayConversionMode.LiveView)]
+    [TestCase(ArrayConversionMode.Copy)]
     public void ArrayPrototypeMapWinsOverExtensionOnWrappedArray(ArrayConversionMode mode)
     {
         var engine = CreateEngine(options => options.Interop.ArrayConversion = mode);
@@ -31,7 +30,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("coll.map(x => x).includes('Hello')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeMapWinsOverExtensionOnWrappedList()
     {
         var engine = CreateEngine();
@@ -41,7 +40,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("coll.map(x => x).includes('Hello')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExtensionMethodStillReachableThroughItsClrCasing()
     {
         var engine = CreateEngine();
@@ -54,7 +53,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("Array.from(coll.Map(x => x + '!')).join()").AsString().Should().Be("Hello!,World!");
     }
 
-    [Fact]
+    [Test]
     public void ExtensionMethodStillAppliesToPlainEnumerable()
     {
         var engine = CreateEngine();
@@ -66,7 +65,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("Array.from(coll.map(x => x + '!')).join()").AsString().Should().Be("Hello!,World!");
     }
 
-    [Fact]
+    [Test]
     public void ExtensionMethodStillAppliesToNonIndexableArrayLike()
     {
         var engine = CreateEngine();
@@ -79,7 +78,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("Array.from(coll.map(x => x + '!')).sort().join()").AsString().Should().Be("Hello!,World!");
     }
 
-    [Fact]
+    [Test]
     public void ClrInstanceMethodStillWinsWhenMixedWithExtensions()
     {
         var engine = new Engine(options => options.AddExtensionMethods(typeof(Enumerable)));
@@ -92,7 +91,7 @@ public class ExtensionMethodShadowingTests
         list.Should().Equal(3, 2, 1);
     }
 
-    [Fact]
+    [Test]
     public void DeferredNameIsInheritedNotOwn()
     {
         var engine = CreateEngine();
@@ -106,7 +105,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("coll.map = function() { return 1; }; Array.isArray(coll.map(x => x))").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsUnaffected()
     {
         var engine = new Engine(options =>
@@ -120,7 +119,7 @@ public class ExtensionMethodShadowingTests
         engine.Evaluate("list.reverse() === list").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LinqChainWorksUnderExplicitLiveView()
     {
         var engine = new Engine(options =>

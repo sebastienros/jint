@@ -17,7 +17,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class JsonSpanParsingTests
 {
-    public static TheoryData<string> Documents => new()
+    public static TestCases<string> Documents => new()
     {
         // primitives, including the number shapes the scanner special-cases
         "null",
@@ -71,7 +71,7 @@ public class JsonSpanParsingTests
         "[1,\"1\",true,null,{},[]]",
     };
 
-    public static TheoryData<string> MalformedDocuments => new()
+    public static TestCases<string> MalformedDocuments => new()
     {
         "",
         " ",
@@ -96,8 +96,7 @@ public class JsonSpanParsingTests
         "{}\ufeff",
     };
 
-    [Theory]
-    [MemberData(nameof(Documents))]
+    [TestCaseSource(nameof(Documents))]
     public void ParsingACharSpanMatchesParsingTheString(string json)
     {
         var engine = new Engine();
@@ -108,8 +107,7 @@ public class JsonSpanParsingTests
         fromSpan.Should().Be(fromString);
     }
 
-    [Theory]
-    [MemberData(nameof(Documents))]
+    [TestCaseSource(nameof(Documents))]
     public void ParsingUtf8MatchesParsingTheString(string json)
     {
         var engine = new Engine();
@@ -120,8 +118,7 @@ public class JsonSpanParsingTests
         fromUtf8.Should().Be(fromString);
     }
 
-    [Theory]
-    [MemberData(nameof(MalformedDocuments))]
+    [TestCaseSource(nameof(MalformedDocuments))]
     public void ACharSpanIsRejectedExactlyLikeTheString(string json)
     {
         var engine = new Engine();
@@ -133,8 +130,7 @@ public class JsonSpanParsingTests
         fromSpan.Message.Should().Be(fromString.Message);
     }
 
-    [Theory]
-    [MemberData(nameof(MalformedDocuments))]
+    [TestCaseSource(nameof(MalformedDocuments))]
     public void Utf8IsRejectedExactlyLikeTheString(string json)
     {
         var engine = new Engine();
@@ -150,7 +146,7 @@ public class JsonSpanParsingTests
     /// as it is for the string overload. Only the UTF-8 overload strips a mark, and it strips the byte
     /// sequence rather than the decoded character.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALeadingByteOrderMarkIsASyntaxErrorForTheCharacterOverloads()
     {
         var engine = new Engine();
@@ -171,7 +167,7 @@ public class JsonSpanParsingTests
     /// nothing the parse produces keeps a view on the buffer, which is what makes it safe to hand over a
     /// pooled or stack buffer and reuse it immediately afterwards.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDocumentBufferIsNotRetainedAfterTheParse()
     {
         var engine = new Engine();
@@ -186,7 +182,7 @@ public class JsonSpanParsingTests
         new JsonSerializer(engine).Serialize(parsed).AsString().Should().Be("{\"a\":\"value\"}");
     }
 
-    [Fact]
+    [Test]
     public void ANullStringIsRejected()
     {
         var parser = new JsonParser(new Engine());
@@ -196,7 +192,7 @@ public class JsonSpanParsingTests
 
     #region UTF-8 specifics
 
-    [Fact]
+    [Test]
     public void SkipsALeadingByteOrderMark()
     {
         var engine = new Engine();
@@ -208,7 +204,7 @@ public class JsonSpanParsingTests
             .Should().Be(Describe(engine, new JsonParser(engine).Parse(Json)));
     }
 
-    [Fact]
+    [Test]
     public void SkipsOnlyOneByteOrderMark()
     {
         var engine = new Engine();
@@ -220,7 +216,7 @@ public class JsonSpanParsingTests
             .WithMessage("*at position 0");
     }
 
-    [Fact]
+    [Test]
     public void AByteOrderMarkInsideTheDocumentIsASyntaxError()
     {
         var engine = new Engine();
@@ -229,7 +225,7 @@ public class JsonSpanParsingTests
         Invoking(() => new JsonParser(engine).Parse(bytes)).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void EmptyInputIsRejectedTheSameWayByEveryOverload()
     {
         var engine = new Engine();
@@ -248,7 +244,7 @@ public class JsonSpanParsingTests
             .Should().Throw<JavaScriptException>().WithMessage(expected);
     }
 
-    public static TheoryData<byte[], string> InvalidUtf8 => new()
+    public static TestCases<byte[], string> InvalidUtf8 => new()
     {
         { [0xFF], "a byte that never starts a sequence" },
         { [0x22, 0x80, 0x22], "a lone continuation byte" },
@@ -262,8 +258,7 @@ public class JsonSpanParsingTests
         { [0x22, 0x61, 0x62, 0x63, 0xE2], "a sequence truncated by the end of the input" },
     };
 
-    [Theory]
-    [MemberData(nameof(InvalidUtf8))]
+    [TestCaseSource(nameof(InvalidUtf8))]
     public void InvalidUtf8IsReportedAsASyntaxError(byte[] bytes, string because)
     {
         var engine = new Engine();
@@ -281,7 +276,7 @@ public class JsonSpanParsingTests
     /// which script cannot catch; the overload contracts to raise the parser's own SyntaxError instead, so
     /// a host wrapping the call in a script-visible function behaves like <c>JSON.parse</c> does.
     /// </summary>
-    [Fact]
+    [Test]
     public void InvalidUtf8IsCatchableFromScript()
     {
         var engine = new Engine();
@@ -303,7 +298,7 @@ public class JsonSpanParsingTests
         result.Should().StartWith("true|Invalid UTF-8 sequence in JSON at position ");
     }
 
-    [Fact]
+    [Test]
     public void InvalidUtf8ReportsTheByteOffsetOfTheOffendingSequence()
     {
         var engine = new Engine();
@@ -328,18 +323,17 @@ public class JsonSpanParsingTests
     /// an implementation detail, so these sizes bracket it generously from both sides rather than probing
     /// for it.
     /// </summary>
-    [Theory]
-    [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(64)]
-    [InlineData(254)]
-    [InlineData(255)]
-    [InlineData(256)]
-    [InlineData(257)]
-    [InlineData(258)]
-    [InlineData(512)]
-    [InlineData(4096)]
-    [InlineData(70_000)]
+    [TestCase(4)]
+    [TestCase(5)]
+    [TestCase(64)]
+    [TestCase(254)]
+    [TestCase(255)]
+    [TestCase(256)]
+    [TestCase(257)]
+    [TestCase(258)]
+    [TestCase(512)]
+    [TestCase(4096)]
+    [TestCase(70_000)]
     public void TranscodesAsciiDocumentsOfAnySize(int byteLength)
     {
         var json = "[\"" + new string('x', byteLength - 4) + "\"]";
@@ -355,15 +349,14 @@ public class JsonSpanParsingTests
     /// Multi-byte content makes the decoded char count strictly smaller than the byte count, which is the
     /// direction the buffer sizing relies on (a UTF-8 sequence never yields more chars than it has bytes).
     /// </summary>
-    [Theory]
-    [InlineData(1)]
-    [InlineData(20)]
-    [InlineData(28)]
-    [InlineData(29)]
-    [InlineData(30)]
-    [InlineData(31)]
-    [InlineData(200)]
-    [InlineData(5000)]
+    [TestCase(1)]
+    [TestCase(20)]
+    [TestCase(28)]
+    [TestCase(29)]
+    [TestCase(30)]
+    [TestCase(31)]
+    [TestCase(200)]
+    [TestCase(5000)]
     public void TranscodesMultiByteDocumentsOfAnySize(int repeats)
     {
         var padding = string.Concat(Enumerable.Repeat("\u00e9\u4e2d\ud83d\ude00", repeats));
@@ -384,7 +377,7 @@ public class JsonSpanParsingTests
     /// the pool would not fail here directly, but a buffer returned twice or handed out while still in use
     /// would corrupt the parse that follows, which is what this checks.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFailedLargeParseLeavesThePoolUsable()
     {
         var engine = new Engine();
@@ -407,7 +400,7 @@ public class JsonSpanParsingTests
 
     #endregion
 
-    [Fact]
+    [Test]
     public void OneParserInstanceServesEveryOverload()
     {
         var engine = new Engine();
@@ -425,7 +418,7 @@ public class JsonSpanParsingTests
         serializer.Serialize(parser.Parse(Second)).AsString().Should().Be(Second);
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsAValueThroughTheUtf8Serializer()
     {
         var engine = new Engine();
@@ -440,7 +433,7 @@ public class JsonSpanParsingTests
         Describe(engine, reparsed).Should().Be(Describe(engine, value));
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsALargeValueThroughTheUtf8Serializer()
     {
         var engine = new Engine();

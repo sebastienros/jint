@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class EngineMemoryReportTests
 {
-    [Fact]
+    [Test]
     public void TwoConsecutiveReportsOnAnIdleEngineAreEqual()
     {
         var engine = new Engine();
@@ -31,7 +31,7 @@ public class EngineMemoryReportTests
         second.Should().Be(first);
     }
 
-    [Fact]
+    [Test]
     public void AnEngineThatIsReportedOnEndsUpInTheSameStateAsOneThatIsNot()
     {
         const string Script = "var seen = []; function record(x) { seen.push(x); } record(1); record('two'); seen.length;";
@@ -55,7 +55,7 @@ public class EngineMemoryReportTests
         reported.Diagnostics.GetMemoryReport().Should().Be(untouched.Diagnostics.GetMemoryReport());
     }
 
-    [Fact]
+    [Test]
     public void ReadingTheReportDoesNotMaterializeAnUntouchedBuiltin()
     {
         var engine = new Engine();
@@ -72,7 +72,7 @@ public class EngineMemoryReportTests
         before.MaterializedGlobalPropertyCount.Should().BeLessThan(before.GlobalPropertyCount);
     }
 
-    [Fact]
+    [Test]
     public void ReadingABuiltinMovesItToTheMaterializedSide()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class EngineMemoryReportTests
         after.GlobalPropertyCount.Should().Be(before.GlobalPropertyCount);
     }
 
-    [Fact]
+    [Test]
     public void ALazyGlobalCountsAsAPropertyUntilItsFactoryRuns()
     {
         var engine = new Engine();
@@ -113,7 +113,7 @@ public class EngineMemoryReportTests
         resolved.MaterializedGlobalPropertyCount.Should().Be(installed.MaterializedGlobalPropertyCount + 1);
     }
 
-    [Fact]
+    [Test]
     public void GlobalPropertyCountFollowsHostRegistrations()
     {
         var engine = new Engine();
@@ -126,7 +126,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().GlobalPropertyCount.Should().Be(before.GlobalPropertyCount + 3);
     }
 
-    [Fact]
+    [Test]
     public void LexicalDeclarationsCountApartFromGlobalProperties()
     {
         var engine = new Engine();
@@ -147,7 +147,7 @@ public class EngineMemoryReportTests
         withVar.GlobalPropertyCount.Should().Be(after.GlobalPropertyCount + 1);
     }
 
-    [Fact]
+    [Test]
     public void HandlerTreeCachesEngageOnlyOnTheSecondEvaluation()
     {
         var engine = new Engine();
@@ -178,7 +178,7 @@ public class EngineMemoryReportTests
         afterSecond.HandlerTreeCaches.FunctionDefinitions.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void AComputedPropertyKeyRegistersInThePropertyKeyExpressionCache()
     {
         var engine = new Engine();
@@ -192,7 +192,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().HandlerTreeCaches.PropertyKeyExpressions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EachDistinctScriptAddsOneEvaluatedScriptEntry()
     {
         var engine = new Engine();
@@ -204,7 +204,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().HandlerTreeCaches.EvaluatedScripts.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ModuleRegistryCountsWhatWasActuallyImported()
     {
         var engine = new Engine();
@@ -220,7 +220,7 @@ public class EngineMemoryReportTests
         after.PendingModuleLoadCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void EventLoopQueueDepthSeesQueuedWorkAndItsDrain()
     {
         var engine = new Engine();
@@ -236,7 +236,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void PendingAtomicsWaiterCountSeesAFiniteTimeoutWait()
     {
         var engine = new Engine();
@@ -254,7 +254,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().PendingAtomicsWaiterCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PoolCountsFollowARentAndReturn()
     {
         var engine = new Engine();
@@ -267,7 +267,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport().Pools.PooledReferences.Should().Be(before.Pools.PooledReferences + 1);
     }
 
-    [Fact]
+    [Test]
     public void PooledArraySlotsAreTheSumOfTheArrayLengths()
     {
         var engine = new Engine();
@@ -280,7 +280,7 @@ public class EngineMemoryReportTests
         after.PooledJsValueArraySlots.Should().Be(before.PooledJsValueArraySlots + 3);
     }
 
-    [Fact]
+    [Test]
     public void InteropCachesCountThisEnginesTypeReferences()
     {
         var engine = new Engine(options => options.AllowClr(typeof(EngineMemoryReportTests).Assembly));
@@ -292,7 +292,7 @@ public class EngineMemoryReportTests
             .Should().Be(before.InteropCaches.TypeReferenceCount + 1);
     }
 
-    [Fact]
+    [Test]
     public void CensusCountsTheObjectsAHostRegistrationBringsWithIt()
     {
         var engine = new Engine();
@@ -309,7 +309,7 @@ public class EngineMemoryReportTests
         after.ObjectCensus.BoundReached.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CensusSeparatesArraysFunctionsAndHostWrappers()
     {
         var engine = new Engine();
@@ -331,7 +331,7 @@ public class EngineMemoryReportTests
         withHost.HostWrappers.Should().Be(withCallback.HostWrappers + 1);
     }
 
-    [Fact]
+    [Test]
     public void CensusStopsAtItsBoundAndSaysSo()
     {
         var engine = new Engine();
@@ -351,7 +351,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport(objectCensusBound: 4).ObjectCensus.Should().Be(bounded);
     }
 
-    [Fact]
+    [Test]
     public void CensusRespectsItsBoundInsideALargeArray()
     {
         var engine = new Engine();
@@ -366,7 +366,7 @@ public class EngineMemoryReportTests
         census.BoundReached.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ANonPositiveBoundSkipsTheCensusEntirely()
     {
         var engine = new Engine();
@@ -382,7 +382,7 @@ public class EngineMemoryReportTests
         engine.Diagnostics.GetMemoryReport(objectCensusBound: -1).GlobalPropertyCount.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void CensusNeverInvokesAnAccessor()
     {
         var engine = new Engine();
@@ -395,7 +395,7 @@ public class EngineMemoryReportTests
         report.ObjectCensus.ObjectCount.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void CensusNeverInvokesAHostBackedGetter()
     {
         var engine = new Engine();
@@ -416,7 +416,7 @@ public class EngineMemoryReportTests
         report.ObjectCensus.HostWrappers.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void CensusDoesNotFireProxyTraps()
     {
         var engine = new Engine();
@@ -433,7 +433,7 @@ public class EngineMemoryReportTests
         report.ObjectCensus.ObjectCount.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void CensusTerminatesOnACyclicGraph()
     {
         var engine = new Engine();
@@ -445,7 +445,7 @@ public class EngineMemoryReportTests
         census.ObjectCount.Should().BeGreaterThan(1);
     }
 
-    [Fact]
+    [Test]
     public void CensusWalksArrayElementsWithoutMaterializingKeys()
     {
         var engine = new Engine();
@@ -459,7 +459,7 @@ public class EngineMemoryReportTests
         after.PlainObjects.Should().Be(before.PlainObjects + 3);
     }
 
-    [Fact]
+    [Test]
     public void PendingTimerCountIsZeroWithoutTheTimerGlobals()
     {
         var engine = new Engine();

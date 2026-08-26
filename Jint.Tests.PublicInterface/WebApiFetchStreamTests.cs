@@ -29,7 +29,7 @@ namespace Jint.Tests.PublicInterface;
 /// <para>
 /// <b>Every test that reaches the transport runs on <see cref="DedicatedThread.RunAsync"/>.</b> A network
 /// response body is pumped by a <c>Task.Run</c> loop inside <c>FetchBodyStream</c>, so each chunk and each
-/// cancellation arrives on a thread-pool worker; a body that blocked an xUnit pool worker to wait for one
+/// cancellation arrives on a thread-pool worker; a body that blocked a pool worker to wait for one
 /// would be the resource inversion described on <see cref="DedicatedThread.RunAsync"/>, and the bound would
 /// stop being a check and start being a race (sebastienros/jint#3213).
 /// </para>
@@ -114,7 +114,7 @@ public class WebApiFetchStreamTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void EnablingFetchAlsoGivesTheStreamInterfaces()
     {
         // response.body is a ReadableStream, so the fetch flag brings the Streams feature with it — the same
@@ -129,7 +129,7 @@ public class WebApiFetchStreamTests
         options.WebApi.Features.Should().Be(WebApiFeatures.Fetch);
     }
 
-    [Fact]
+    [Test]
     public Task AHostScriptDrainsTheResponseBodyChunkByChunk() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -155,7 +155,7 @@ public class WebApiFetchStreamTests
         handler.Body.ReadCount.Should().Be(3);
     });
 
-    [Fact]
+    [Test]
     public Task TheTransportIsOnlyReadWhenTheScriptAsks() => DedicatedThread.RunAsync(() =>
     {
         // Backpressure, from the host's side: a script that takes the response and never reads its body
@@ -186,7 +186,7 @@ public class WebApiFetchStreamTests
         handler.Body.ReadCount.Should().Be(1);
     });
 
-    [Fact]
+    [Test]
     public Task CancellingTheBodyLetsGoOfTheConnection() => DedicatedThread.RunAsync(() =>
     {
         // Nothing is emitted, so the transport is parked in a read and only its token can end it.
@@ -207,7 +207,7 @@ public class WebApiFetchStreamTests
         handler.Body.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("cancelling the body must cancel the read in flight, not merely close the stream");
     });
 
-    [Fact]
+    [Test]
     public Task ARestoreLetsGoOfAStreamingBodyMidFlight() => DedicatedThread.RunAsync(() =>
     {
         var handler = new GatedHandler();
@@ -232,7 +232,7 @@ public class WebApiFetchStreamTests
         engine.Evaluate("typeof fetch").AsString().Should().Be("function");
     });
 
-    [Fact]
+    [Test]
     public Task AResponseBodyCanBePipedThroughATransformStream() => DedicatedThread.RunAsync(() =>
     {
         // The two features meeting: a streaming body driving a TransformStream, all on the engine's own job

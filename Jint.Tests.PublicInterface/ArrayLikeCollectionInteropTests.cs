@@ -35,7 +35,7 @@ public class ArrayLikeCollectionInteropTests
         return engine;
     }
 
-    public static TheoryData<string> GenericCollections => new TheoryData<string>
+    public static TestCases<string> GenericCollections => new TestCases<string>
     {
         nameof(HashSet<int>),
         nameof(ReadOnlyBag),
@@ -49,8 +49,7 @@ public class ArrayLikeCollectionInteropTests
         _ => new HashSet<int> { 1, 2, 3 },
     };
 
-    [Theory]
-    [MemberData(nameof(GenericCollections))]
+    [TestCaseSource(nameof(GenericCollections))]
     public void AGenericOnlyCollectionGetsTheArrayPrototype(string kind)
     {
         var engine = CreateEngine(CreateGenericCollection(kind));
@@ -66,8 +65,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("Array.isArray(host)").Should().BeFalse();
     }
 
-    [Theory]
-    [MemberData(nameof(GenericCollections))]
+    [TestCaseSource(nameof(GenericCollections))]
     public void AGenericOnlyCollectionExposesItsCountAsLength(string kind)
     {
         var engine = CreateEngine(CreateGenericCollection(kind));
@@ -75,7 +73,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("host.length").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void LengthFollowsTheLiveCollection()
     {
         // length forwards to Count on every read rather than snapshotting it at wrap time
@@ -91,8 +89,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("host.length").Should().Be(0);
     }
 
-    [Theory]
-    [MemberData(nameof(GenericCollections))]
+    [TestCaseSource(nameof(GenericCollections))]
     public void AGenericOnlyCollectionIterates(string kind)
     {
         var engine = CreateEngine(CreateGenericCollection(kind));
@@ -110,7 +107,7 @@ public class ArrayLikeCollectionInteropTests
             .Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void LengthDrivenPrototypeMethodsRunButFindNoIndexedElements()
     {
         // The boundary of the treatment, stated explicitly so a change in either direction is visible: a set
@@ -133,7 +130,7 @@ public class ArrayLikeCollectionInteropTests
             """).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnIndexableCollectionGetsTheElementsToo()
     {
         // The contrast case: List<T> has an integer indexer, so it takes the indexable lane on top of
@@ -147,7 +144,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("Array.prototype.indexOf.call(host, 2)").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void APlainEnumerableIsNotArrayLike()
     {
         // The other side of the fold: being enumerable is not being a collection. No length, no
@@ -159,7 +156,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("[...host].join('|')").Should().Be("7|8");
     }
 
-    [Fact]
+    [Test]
     public void AGenericDictionaryIsNotArrayLike()
     {
         // Dictionary<K,V> implements ICollection<KeyValuePair<K,V>>, so the fold sees a collection - but
@@ -172,7 +169,7 @@ public class ArrayLikeCollectionInteropTests
         engine.Evaluate("JSON.stringify(host)").Should().Be("""{"a":1}""");
     }
 
-    [Fact]
+    [Test]
     public void AttachArrayPrototypeCanBeTurnedOffWithoutLosingLengthOrIteration()
     {
         var engine = CreateEngine(new HashSet<int> { 1, 2, 3 }, options => options.Interop.AttachArrayPrototype = false);

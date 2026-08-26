@@ -42,7 +42,7 @@ public class ArrayLikeObjectLaneTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheReadDispatcherKeysOnTheTypeAndTheWriteDispatcherDeliberatelyDoesNot()
     {
         var engine = new Engine();
@@ -58,7 +58,7 @@ public class ArrayLikeObjectLaneTests
         ArrayOperations.For(host, forWrite: true).GetType().Name.Should().Be("ObjectOperations");
     }
 
-    [Fact]
+    [Test]
     public void TheOperationsClassReportsTheLiveLengthAndElements()
     {
         var engine = new Engine();
@@ -74,7 +74,7 @@ public class ArrayLikeObjectLaneTests
         operations.TryGetValue(9, out _).Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void TheTypeDerivesOrdinaryReadSemanticsWithTheOwnValueHook()
     {
         var engine = new Engine();
@@ -104,7 +104,7 @@ public class ArrayLikeObjectLaneTests
     /// private protected and IBuiltinShaped is internal), but that is a fact about reachability, and this pins it
     /// as a fact about the answer.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheBuiltinShapeCarveOutDoesNotAdmitAHostCollectionAsACacheHolder()
     {
         var engine = new Engine();
@@ -155,7 +155,7 @@ public class ArrayLikeObjectLaneTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheOperationsHoleTestIsTheContainmentHookAndTheElementReadIsNot()
     {
         var engine = new Engine();

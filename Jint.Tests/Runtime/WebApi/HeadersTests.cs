@@ -16,7 +16,7 @@ public class HeadersTests
 
     private static JsValue Eval(string source) => WebEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void ConstructsEmptyFromNoArguments()
     {
         Eval("[...new Headers()].length").AsNumber().Should().Be(0);
@@ -25,7 +25,7 @@ public class HeadersTests
         Eval("[...new Headers(undefined)].length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void FillsFromAPairSequence()
     {
         // https://fetch.spec.whatwg.org/#concept-headers-fill, the sequence arm.
@@ -36,20 +36,20 @@ public class HeadersTests
         Eval("new Headers(new Headers({ a: '1' })).get('a')").AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASequenceElementThatIsNotAPair()
     {
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers([['a']])"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers([['a']])"))!
             .Message.Should().Contain("name/value pair");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers([['a', '1', 'x']])"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers([['a', '1', 'x']])"))!
             .Message.Should().Contain("name/value pair");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers([1])"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers([1])"))!
             .Message.Should().Contain("sequence");
     }
 
-    [Fact]
+    [Test]
     public void FillsFromARecordInOwnPropertyOrder()
     {
         // https://webidl.spec.whatwg.org/#es-record — own enumerable string-keyed properties, in own-key
@@ -65,14 +65,14 @@ public class HeadersTests
         Eval("[...new Headers(Object.create({ a: '1' })).keys()].length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnInitThatIsNotAnObject()
     {
         Assert.Throws<JavaScriptException>(() => Eval("new Headers('a: 1')"));
         Assert.Throws<JavaScriptException>(() => Eval("new Headers(1)"));
     }
 
-    [Fact]
+    [Test]
     public void MatchesNamesCaseInsensitively()
     {
         var engine = WebEngine();
@@ -85,7 +85,7 @@ public class HeadersTests
         engine.Evaluate("h.has('content-type')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AppendCombinesWhereSetReplaces()
     {
         // https://fetch.spec.whatwg.org/#concept-header-list-get — values joined by ", ".
@@ -97,13 +97,13 @@ public class HeadersTests
             .AsString().Should().Be("a:x,b:2");
     }
 
-    [Fact]
+    [Test]
     public void GetAnswersNullForAnAbsentName()
     {
         Eval("new Headers().get('a')").Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void NormalizesTheValueButRefusesInteriorNewlines()
     {
         // https://fetch.spec.whatwg.org/#concept-header-value-normalize strips the surrounding whitespace...
@@ -112,14 +112,14 @@ public class HeadersTests
 
         // ... and https://fetch.spec.whatwg.org/#concept-header-value refuses what is left carrying one.
         // This is the request-splitting defence: a value with a CRLF in it could start a second request.
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ a: '1\\r\\nX-Evil: 2' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ a: '1\\r\\nX-Evil: 2' })"))!
             .Message.Should().Contain("Invalid value");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ a: '1\\u0000' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ a: '1\\u0000' })"))!
             .Message.Should().Contain("Invalid value");
     }
 
-    [Fact]
+    [Test]
     public void RefusesANameThatIsNotAToken()
     {
         foreach (var name in new[] { "''", "'a b'", "'a:b'", "'a\\r\\nb'", "'ä'" })
@@ -134,21 +134,21 @@ public class HeadersTests
         Eval("new Headers().has(\"!#$%&'*+-.^_`|~0aZ\")").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RefusesACodeUnitAboveByteRange()
     {
         // https://webidl.spec.whatwg.org/#es-ByteString
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers().append('a', '\\u0100')"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers().append('a', '\\u0100')"))!
             .Message.Should().Contain("ByteString");
     }
 
-    [Fact]
+    [Test]
     public void DeletingAnAbsentNameIsNotAnError()
     {
         Eval("(() => { new Headers().delete('a'); return 'ok'; })()").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void IteratesSortedLowercasedAndCombined()
     {
         // https://fetch.spec.whatwg.org/#concept-header-list-sort-and-combine
@@ -158,7 +158,7 @@ public class HeadersTests
         Eval("[...new Headers({ 'X-Y': '1' }).keys()][0]").AsString().Should().Be("x-y");
     }
 
-    [Fact]
+    [Test]
     public void KeepsEverySetCookieValueSeparate()
     {
         // The one name the standard never combines, because a cookie value may itself contain a comma.
@@ -176,7 +176,7 @@ public class HeadersTests
         engine.Evaluate("new Headers().getSetCookie().length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ExposesTheThreeIteratorsAndForEach()
     {
         var engine = WebEngine();
@@ -191,14 +191,14 @@ public class HeadersTests
             .AsString().Should().Be("a=1:true,b=2:true");
     }
 
-    [Fact]
+    [Test]
     public void SymbolIteratorIsTheSameFunctionAsEntries()
     {
         // https://webidl.spec.whatwg.org/#es-iterable — function identity a script can observe.
         Eval("Headers.prototype[Symbol.iterator] === Headers.prototype.entries").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IterationIsLive()
     {
         // https://webidl.spec.whatwg.org/#es-default-iterator-object recomputes the pairs on every step, so
@@ -211,38 +211,38 @@ public class HeadersTests
             })()").AsString().Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void HasNoOwnPropertiesAndTheRightToStringTag()
     {
         Eval("Object.getOwnPropertyNames(new Headers()).length").AsNumber().Should().Be(0);
         Eval("Object.prototype.toString.call(new Headers())").AsString().Should().Be("[object Headers]");
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksEveryMember()
     {
         foreach (var member in new[] { "append('a','1')", "delete('a')", "get('a')", "getSetCookie()", "has('a')", "set('a','1')", "forEach(() => {})", "entries()", "keys()", "values()" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"Headers.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => Eval($"Headers.prototype.{member}"))!
                 .Message.Should().Contain("Headers");
         }
     }
 
-    [Fact]
+    [Test]
     public void IsConstructibleAsABaseClass()
     {
         Eval("(() => { class H extends Headers {}; const h = new H([['a','1']]); return h.get('a') + ':' + (h instanceof H); })()")
             .AsString().Should().Be("1:true");
     }
 
-    [Fact]
+    [Test]
     public void RequiresNew()
     {
-        Assert.Throws<JavaScriptException>(() => Eval("Headers()"))
+        Assert.Throws<JavaScriptException>(() => Eval("Headers()"))!
             .Message.Should().Contain("requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void TheIteratorPrototypesNextCarriesWebIdlsAttributes()
     {
         // "An iterator prototype object must have a next data property with attributes
@@ -300,7 +300,7 @@ public class HeadersTests
         }
         """;
 
-    [Fact]
+    [Test]
     public void ConvertsARecordInWebIdlsOwnOrder()
     {
         // https://webidl.spec.whatwg.org/#es-record, whose step 4 walks [[OwnPropertyKeys]]() and, for each
@@ -356,16 +356,16 @@ public class HeadersTests
                 + "| getOwnPropertyDescriptor:c | get:c");
     }
 
-    [Fact]
+    [Test]
     public void ARecordKeyThatIsNotAByteStringIsATypeError()
     {
         // The consequence of the order above that a script can see without a proxy. A Symbol fails at the
         // ToString https://webidl.spec.whatwg.org/#es-ByteString starts with, rather than at its own
         // above-0x00FF check, so the message is the language's rather than the binding's.
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ [Symbol.toStringTag]: 'x' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ [Symbol.toStringTag]: 'x' })"))!
             .Message.Should().Contain("Symbol");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ '￿': 'x' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Headers({ '￿': 'x' })"))!
             .Message.Should().Contain("ByteString");
 
         // ... and the one it must not raise: a non-enumerable Symbol key is not a record member at all.

@@ -17,7 +17,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class HostClrFunctionRealmTests
 {
-    [Fact]
+    [Test]
     public void AHostFunctionBuiltBeforeAnyOtherRealmBelongsToTheMainRealm()
     {
         var engine = new Engine();
@@ -27,7 +27,7 @@ public class HostClrFunctionRealmTests
         engine.Evaluate("Object.getPrototypeOf(hostFn) === Function.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AHostFunctionBuiltAfterAShadowRealmStillBelongsToTheMainRealm()
     {
         var engine = new Engine();
@@ -39,7 +39,7 @@ public class HostClrFunctionRealmTests
             .BeTrue("a host function belongs to the engine's principal realm, not to whichever realm was created last");
     }
 
-    [Fact]
+    [Test]
     public void ALazilyRegisteredGlobalMaterializingAfterAShadowRealmIsStillAnOrdinaryFunction()
     {
         // The reachable shape of the same defect: the global is declared before anything runs and built on

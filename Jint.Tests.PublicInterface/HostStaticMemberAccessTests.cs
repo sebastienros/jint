@@ -32,7 +32,7 @@ public class HostStaticMemberAccessTests
 
     #region 1. reads
 
-    [Fact]
+    [Test]
     public void ReadsStaticPropertiesOfEveryLaneType()
     {
         StaticHost.Reset();
@@ -46,7 +46,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.Bridged").AsString().Should().Be("bridged");
     }
 
-    [Fact]
+    [Test]
     public void ReadsStaticFieldsOfEveryLaneType()
     {
         StaticHost.Reset();
@@ -57,7 +57,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.FlagField").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsAStaticNullString()
     {
         StaticHost.Reset();
@@ -66,7 +66,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.NullText === null").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsAConstantAndAReadOnlyField()
     {
         // a const is a literal: it has no storage for a compiled read to load, so it keeps the reflection
@@ -77,7 +77,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.ReadOnlyField").AsString().Should().Be("readonly");
     }
 
-    [Fact]
+    [Test]
     public void ReadsStaticMembersOfAValueType()
     {
         StaticValueTypeHost.Reset();
@@ -92,7 +92,7 @@ public class HostStaticMemberAccessTests
 
     #region 2. writes
 
-    [Fact]
+    [Test]
     public void WritesStaticProperties()
     {
         StaticHost.Reset();
@@ -108,7 +108,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.Number").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void WritesStaticFields()
     {
         StaticHost.Reset();
@@ -121,7 +121,7 @@ public class HostStaticMemberAccessTests
         StaticHost.FlagField.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void WriteOfANonExactValueStillConverts()
     {
         // a fractional number bound to an int member declines the exact-type lane and takes the conversion
@@ -139,7 +139,7 @@ public class HostStaticMemberAccessTests
 
     #region 3. shapes that must keep their existing behaviour
 
-    [Fact]
+    [Test]
     public void AStaticEnumFieldStillFollowsTheEnumConversionMode()
     {
         StaticHost.Reset();
@@ -153,7 +153,7 @@ public class HostStaticMemberAccessTests
         asString.Evaluate("Host.EnumProperty").AsString().Should().Be("One");
     }
 
-    [Fact]
+    [Test]
     public void AStaticMemberOfANonLaneTypeStillReadsThrough()
     {
         StaticHost.Reset();
@@ -163,7 +163,7 @@ public class HostStaticMemberAccessTests
         engine.Evaluate("Host.Moment.getUTCFullYear()").AsNumber().Should().Be(2020);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingStaticGetterSurfacesTheSameWayAnInstanceOneDoes()
     {
         var engine = new Engine();

@@ -1,8 +1,8 @@
 # Agent instructions: integrator-facing tests
 
 > **Read this when:** You are writing a test that has to prove a third party can actually reach an API,
-> **or a build here has failed on `PublicApiTest` or `PublicApiDocumentationTest`, or a run here ended in
-> a `TestPipelineException` naming no test.**
+> **or a build here has failed on `PublicApiTest` or `PublicApiDocumentationTest`, or a run here ended
+> without reporting a failing test at all.**
 >
 > This is one of the co-located instruction files indexed from the repository-root
 > [`AGENTS.md`](../AGENTS.md). Read that first — it carries the build and test commands, the branch to
@@ -11,35 +11,23 @@
 
 ### When the run dies instead of failing
 
-`[FATAL ERROR] Xunit.Sdk.TestPipelineException`, with no test named and no stack trace, **is not an
-exception anything threw**. `xunit.runner.visualstudio` synthesises it in `CrashDetectionExecutionSink`
-when the test process stops talking without ever sending `TestAssemblyFinished`: it waits
-`crashDetectionSinkTimeout` — sixty seconds by default — *from the last message it received*, and then
-reports that type name with one message line, `Test process crashed with exit code N.` or `Test process
-crashed or communication channel was lost.`
+A test host that stops talking is reported by the platform, not by the test framework: the run ends with
+`The active test run was aborted`, no test named and no stack trace. That is not an exception anything
+threw and not a failure the adapter observed — it is VSTest noticing that the pipe went quiet. Two
+consequences, both of which cost time on sebastienros/jint#3308 before they were understood:
 
-Three consequences, all of which cost time on sebastienros/jint#3308 before they were understood:
+- **The sentence saying what happened is easily filtered out.** CI runs
+  `--logger "console;verbosity=quiet"`, which drops informational messages. Re-run the one assembly at
+  `verbosity=normal` to read them; do not raise the verbosity of the whole-solution run, which prints a
+  line per passing test.
+- **A summary is still printed for the subset that reported.** A partial run reports `Failed: 0` and only
+  the process exit code disagrees. Never conclude a leg is green from the summary line alone.
 
-- **Subtract sixty seconds.** The fatal is stamped a minute after the process went, so the run looks like
-  it hung for a minute doing nothing. It did not. The `Duration:` on the summary line, not the timestamp
-  of the fatal, is when the process was last alive.
-- **The sentence saying what happened is filtered out.** `LogError` writes the exception *type* at error
-  level and the message and stack trace through `LogImportantMessage`, which arrives at VSTest as
-  `TestMessageLevel.Informational` — printed only at `verbosity=normal` and `detailed`. CI runs
-  `--logger "console;verbosity=quiet"`, so the type survives and the message does not. Re-run the one
-  assembly at `verbosity=normal` to read it; do not raise the verbosity of the whole-solution run, which
-  prints a line per passing test.
-- **`Passed!` is printed for the subset that reported.** A partial run reports `Failed: 0` and only the
-  process exit code disagrees. Never conclude a leg is green from the summary line alone.
-
-The adapter starts the test assembly's app host with stdin and stdout redirected and **not** stderr, so a
-runtime crash banner never reaches the log either. To see any of it, run the assembly the way the adapter
-does — it is an `Exe`, so `artifacts/bin/Jint.Tests.PublicInterface/release_<tfm>/Jint.Tests.PublicInterface`
-runs standalone — and read the exit code: `134` is SIGABRT, which is what a managed stack overflow becomes,
-`139` SIGSEGV, `137` the OOM killer, and macOS leaves a `.ips` report in
-`~/Library/Logs/DiagnosticReports` besides. `JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which
-writes one stderr line per test start and finish; the highest ordinal with no matching finish names the
-test that was in flight when the process went, and `-parallelMode none` makes that exactly one test.
+`JINT_TEST_TRACE=1` turns on `TestProcessTrace.cs`, which writes one stderr line per test start and
+finish; the highest ordinal with no matching finish names the test that was in flight when the process
+went, and `dotnet test -- NUnit.NumberOfTestWorkers=0` makes that exactly one test. Exit codes are worth
+reading too: `134` is SIGABRT, which is what a managed stack overflow becomes, `139` SIGSEGV, `137` the
+OOM killer, and macOS leaves a `.ips` report in `~/Library/Logs/DiagnosticReports` besides.
 
 The one time this has happened it was a stack overflow: linking a thousand-module import chain recursed
 once per module and ran out of stack on macOS under `net8.0` and nowhere else. The general lesson is the
@@ -102,8 +90,8 @@ Three things about how it is wired are worth knowing before touching it:
   is redundancy — but it is a second process reading `artifacts/bin/Jint/` while the other leg's build is
   still writing it, and a second `Jint.dll` beside a test binary that the outer Jint build never refreshes.
   A stale copy trips `TheSnapshottedAssembliesAreTheOnesThisTestRunWasBuiltFrom`; a torn read faults inside
-  `MetadataLoadContext`, where xUnit cannot attribute it to a test, so the run dies part-way through with a
-  `TestPipelineException` and still prints `Passed!` for what it managed. If a future change wants the
+  `MetadataLoadContext`, where the runner cannot attribute it to a test, so the run dies part-way through
+  and still reports what it managed. If a future change wants the
   baselines on a different runtime, move the property — do not add a second leg.
 
 ### The documentation gate

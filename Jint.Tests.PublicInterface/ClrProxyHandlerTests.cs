@@ -64,7 +64,7 @@ public class ClrProxyHandlerTests
         return target;
     }
 
-    [Fact]
+    [Test]
     public void GetTrapInterceptsPropertyRead()
     {
         var engine = new Engine();
@@ -81,7 +81,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p.y").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void SetTrapInterceptsPropertyWrite()
     {
         var engine = new Engine();
@@ -104,7 +104,7 @@ public class ClrProxyHandlerTests
         target.Get("x").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SetTrapReturningFalseThrowsInStrictMode()
     {
         var engine = new Engine();
@@ -118,7 +118,7 @@ public class ClrProxyHandlerTests
         Invoking(() => engine.Evaluate("'use strict'; p.x = 1;")).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void HasTrapInterceptsInOperator()
     {
         var engine = new Engine();
@@ -136,7 +136,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("'missing' in p").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeletePropertyTrapInterceptsDelete()
     {
         var engine = new Engine();
@@ -159,7 +159,7 @@ public class ClrProxyHandlerTests
         target.Get("x").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void GetOwnPropertyDescriptorTrapReportsPhantomAndHiddenProperties()
     {
         var engine = new Engine();
@@ -181,7 +181,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(p, 'visible').value").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyTrapInterceptsDefinition()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class ClrProxyHandlerTests
         target.Get("y").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OwnKeysTrapFiltersKeys()
     {
         var engine = new Engine();
@@ -218,7 +218,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("Object.getOwnPropertyNames(p).join()").AsString().Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void ApplyTrapInterceptsCall()
     {
         var engine = new Engine();
@@ -243,7 +243,7 @@ public class ClrProxyHandlerTests
         capturedArguments[1].AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ApplyTrapForwardsWhenNotImplemented()
     {
         var engine = new Engine();
@@ -255,7 +255,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p(2, 3)").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ConstructTrapInterceptsNew()
     {
         var engine = new Engine();
@@ -279,7 +279,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("new pf(2, 3).sum").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void GetPrototypeOfTrapCanReportNullPrototype()
     {
         var engine = new Engine();
@@ -293,7 +293,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("Object.getPrototypeOf(p) === null").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SetPrototypeOfTrapInterceptsPrototypeChange()
     {
         var engine = new Engine();
@@ -316,7 +316,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("Object.getPrototypeOf(p) === Object.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IsExtensibleTrapIsConsulted()
     {
         var engine = new Engine();
@@ -336,7 +336,7 @@ public class ClrProxyHandlerTests
         invocations.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PreventExtensionsTrapIsConsulted()
     {
         var engine = new Engine();
@@ -357,7 +357,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("Object.isExtensible(p)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void GetAndSetTrapsWorkAgainstObjectWrapperTarget()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -390,7 +390,7 @@ public class ClrProxyHandlerTests
         person.Name.Should().Be("John");
     }
 
-    [Fact]
+    [Test]
     public void ApplyTrapWorksAgainstClrFunctionTarget()
     {
         var engine = new Engine();
@@ -405,7 +405,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p(2, 3)").AsNumber().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void HandlerWithOnlyGetLetsWritesReachTarget()
     {
         var engine = new Engine();
@@ -421,7 +421,7 @@ public class ClrProxyHandlerTests
         target.Get("x").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TrapReturningUndefinedIsARealResultNotForward()
     {
         var engine = new Engine();
@@ -436,7 +436,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p.x === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConditionalForwardingLetsTargetValuesThrough()
     {
         var engine = new Engine();
@@ -452,7 +452,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p.special").AsNumber().Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void GetTrapLyingAboutFrozenPropertyThrowsTypeError()
     {
         var engine = new Engine();
@@ -469,7 +469,7 @@ public class ClrProxyHandlerTests
         ex.Message.Should().Contain("'get' on proxy");
     }
 
-    [Fact]
+    [Test]
     public void SetTrapLyingAboutFrozenPropertyThrowsTypeError()
     {
         var engine = new Engine();
@@ -486,7 +486,7 @@ public class ClrProxyHandlerTests
         ex.Message.Should().Contain("'set' on proxy");
     }
 
-    [Fact]
+    [Test]
     public void OwnKeysTrapOmittingNonConfigurableKeyThrowsTypeError()
     {
         var engine = new Engine();
@@ -536,7 +536,7 @@ public class ClrProxyHandlerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void MethodCallsCanBeInterceptedByWrappingFunctionsInGetTrap()
     {
         var engine = new Engine();
@@ -557,7 +557,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("p.Offset").AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void RevocableProxyThrowsAfterRevoke()
     {
         var engine = new Engine();
@@ -579,7 +579,7 @@ public class ClrProxyHandlerTests
         ex.Message.Should().Contain("revoked");
     }
 
-    [Fact]
+    [Test]
     public void RevokedCallableProxyKeepsTypeofFunction()
     {
         var engine = new Engine();
@@ -592,7 +592,7 @@ public class ClrProxyHandlerTests
         engine.Evaluate("typeof p").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void CanComposeWithWrapObjectHandler()
     {
         var handler = new DelegatingProxyHandler
@@ -622,7 +622,7 @@ public class ClrProxyHandlerTests
         received.Should().BeSameAs(calculator);
     }
 
-    [Fact]
+    [Test]
     public void ReflectGetPassesReceiverToTrap()
     {
         var engine = new Engine();
@@ -646,7 +646,7 @@ public class ClrProxyHandlerTests
         capturedReceiver.Should().BeSameAs(proxy);
     }
 
-    [Fact]
+    [Test]
     public void TrapExceptionsBubbleToClrByDefault()
     {
         var engine = new Engine();
@@ -661,7 +661,7 @@ public class ClrProxyHandlerTests
         ex.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void TrapExceptionsAreCatchableInScriptWithCatchClrExceptions()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -676,7 +676,7 @@ public class ClrProxyHandlerTests
         result.Should().Be("caught: A host operation failed.");
     }
 
-    [Fact]
+    [Test]
     public void ParsingLimitFromAnyTrapRemainsFatal()
     {
         var engine = new Engine(options =>
@@ -699,7 +699,7 @@ public class ClrProxyHandlerTests
         engine.GetValue("caught").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void ResultLimitFromAnyTrapRemainsFatal()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -719,7 +719,7 @@ public class ClrProxyHandlerTests
         engine.GetValue("caught").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void FactoriesValidateArguments()
     {
         var engine = new Engine();
@@ -732,7 +732,7 @@ public class ClrProxyHandlerTests
         Invoking(() => engine.Advanced.CreateRevocableProxy(target, null!)).Should().ThrowExactly<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void DefaultRevocableProxyThrowsInvalidOperationException()
     {
         var uninitialized = default(RevocableProxy);

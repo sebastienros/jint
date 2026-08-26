@@ -72,7 +72,7 @@ public class ModuleLoadPhaseTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LoadRequestedModulesReturnsAPromiseThatSettlesWhenTheGraphHasLoaded()
     {
         var loader = new CountingAsyncLoader(new Dictionary<string, string>
@@ -94,7 +94,7 @@ public class ModuleLoadPhaseTests
         loadPromise.Value.Should().Be(JsValue.Undefined, "https://tc39.es/ecma262/#sec-InnerModuleLoading step 5.c resolves with undefined");
     }
 
-    [Fact]
+    [Test]
     public void ALoadFailureRejectsTheLoadPhasePromiseInsteadOfThrowing()
     {
         var loader = new CountingAsyncLoader(new Dictionary<string, string>
@@ -113,7 +113,7 @@ public class ModuleLoadPhaseTests
         loadPromise.Value.Get("message").AsString().Should().Contain("Module not found: missing");
     }
 
-    [Fact]
+    [Test]
     public void AModuleStartsNewAndBecomesUnlinkedOnlyWhenTheWholeGraphHasLoaded()
     {
         // https://tc39.es/ecma262/#sec-InnerModuleLoading step 5.b: every visited module leaves the `new`
@@ -139,7 +139,7 @@ public class ModuleLoadPhaseTests
         module.Status.Should().Be(ModuleStatus.Unlinked);
     }
 
-    [Fact]
+    [Test]
     public void TheLoaderIsAskedOncePerReferrerAndSpecifierAcrossAnEntireGraph()
     {
         // https://tc39.es/ecma262/#sec-HostLoadImportedModule's consistency requirement, and the reason
@@ -160,7 +160,7 @@ public class ModuleLoadPhaseTests
         loader.Asked.Count(s => string.Equals(s, "shared", StringComparison.Ordinal)).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ReimportingAModuleDoesNotAskTheLoaderAgain()
     {
         var loader = new CountingAsyncLoader(new Dictionary<string, string>
@@ -176,7 +176,7 @@ public class ModuleLoadPhaseTests
         loader.Asked.Should().Equal("lib");
     }
 
-    [Fact]
+    [Test]
     public void ACycleIsLoadedWithoutRecursingForever()
     {
         // InnerModuleLoading guards on state.[[Visited]], so a module already being visited is not descended
@@ -193,7 +193,7 @@ public class ModuleLoadPhaseTests
         loader.Asked.Should().BeEquivalentTo(["A", "B"]);
     }
 
-    [Fact]
+    [Test]
     public void ASynchronousLoaderStillFinishesTheLoadPhaseInline()
     {
         // The cost of the load phase for the existing synchronous loaders: none, in the sense that matters -
@@ -210,7 +210,7 @@ public class ModuleLoadPhaseTests
         module.Status.Should().Be(ModuleStatus.Unlinked);
     }
 
-    [Fact]
+    [Test]
     public void LoadingIsFinishedBeforeLinkingBegins()
     {
         // The ordering the load phase makes structural: a graph containing both a linking error and an
@@ -229,7 +229,7 @@ public class ModuleLoadPhaseTests
         ex.Message.Should().NotContain("Ambiguous");
     }
 
-    [Fact]
+    [Test]
     public void APendingLoadIsForgottenWhenTheEngineEndsItsEvaluationCycle()
     {
         // A load in flight belongs to the cycle that started it. RestoreGlobalSnapshot ends that cycle, so the

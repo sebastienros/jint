@@ -26,7 +26,7 @@ public class ShadowRealmValueRealmTests
         public string Shout() => Name.ToUpperInvariant();
     }
 
-    [Fact]
+    [Test]
     public void ATypedHostObjectBelongsToTheRealmItIsRegisteredOn()
     {
         var engine = new Engine();
@@ -38,7 +38,7 @@ public class ShadowRealmValueRealmTests
         shadowRealm.Evaluate("Object.getPrototypeOf(company) === Object.prototype").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnUntypedHostObjectBelongsToTheRealmItIsRegisteredOn()
     {
         var engine = new Engine();
@@ -51,7 +51,7 @@ public class ShadowRealmValueRealmTests
         shadowRealm.Evaluate("Object.getPrototypeOf(company) === Object.prototype").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ADelegateBelongsToTheRealmItIsRegisteredOn()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ public class ShadowRealmValueRealmTests
         shadowRealm.Evaluate("shout('acme')").Should().Be("ACME");
     }
 
-    [Fact]
+    [Test]
     public void ATypeReferenceBelongsToTheRealmItIsRegisteredOn()
     {
         var engine = new Engine();
@@ -77,7 +77,7 @@ public class ShadowRealmValueRealmTests
         shadowRealm.Evaluate("new Company('acme') instanceof Object").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AProjectedArrayBelongsToTheRealmItIsRegisteredOn()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public class ShadowRealmValueRealmTests
     /// The other half of the same rule: registering on a shadow realm must not make the engine's own
     /// registrations answer to a realm the script cannot reach.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheEnginesOwnRegistrationsStillBelongToThePrincipalRealm()
     {
         var engine = new Engine();
@@ -114,7 +114,7 @@ public class ShadowRealmValueRealmTests
     /// installs a value untouched, so the comparison happens inside the realm against the very intrinsic the
     /// wrapper used to inherit from.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostObjectIsNotAnInstanceOfThePrincipalRealmsObject()
     {
         var engine = new Engine();

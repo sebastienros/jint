@@ -40,13 +40,13 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- installation
 
-    [Fact]
+    [Test]
     public void IsAbsentUntilTheFeatureIsEnabled()
     {
         new Engine().Evaluate("typeof BroadcastChannel").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RidesTheMessagingFeatureRatherThanOneOfItsOwn()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Messaging));
@@ -60,13 +60,13 @@ public class BroadcastChannelTests
         engine.Execute("var c = new BroadcastChannel('x'); c.addEventListener('message', function () {});");
     }
 
-    [Fact]
+    [Test]
     public void IsPartOfTheDefaultFeatureSet()
     {
         new Engine(options => options.UseWebApis()).Evaluate("typeof BroadcastChannel").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void GivesTheGlobalTheAttributesWebIdlAsksFor()
     {
         var engine = BroadcastEngine();
@@ -80,7 +80,7 @@ public class BroadcastChannelTests
         descriptor.Enumerable.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void InheritsFromEventTarget()
     {
         var engine = BroadcastEngine();
@@ -91,7 +91,7 @@ public class BroadcastChannelTests
         engine.Evaluate("Object.prototype.toString.call(new BroadcastChannel('x'))").AsString().Should().Be("[object BroadcastChannel]");
     }
 
-    [Fact]
+    [Test]
     public void HasTheInterfaceShapeTheIdlDeclares()
     {
         var engine = BroadcastEngine();
@@ -112,7 +112,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- the constructor
 
-    [Fact]
+    [Test]
     public void RequiresAName()
     {
         var engine = BroadcastEngine();
@@ -126,7 +126,7 @@ public class BroadcastChannelTests
         engine.Evaluate("new BroadcastChannel('').name").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToBeCalledWithoutNew()
     {
         var engine = BroadcastEngine();
@@ -134,7 +134,7 @@ public class BroadcastChannelTests
         Err(engine, "BroadcastChannel('x');").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EveryOperationIsBranded()
     {
         var engine = BroadcastEngine();
@@ -147,7 +147,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- delivery
 
-    [Fact]
+    [Test]
     public void ReachesEveryOtherChannelOfThatNameAndNotTheSender()
     {
         var engine = BroadcastEngine();
@@ -164,7 +164,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("b:hello");
     }
 
-    [Fact]
+    [Test]
     public void ReachesTheDestinationsInCreationOrder()
     {
         var engine = BroadcastEngine();
@@ -185,7 +185,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("first,second,third");
     }
 
-    [Fact]
+    [Test]
     public void ADifferentNameHearsNothing()
     {
         var engine = BroadcastEngine();
@@ -202,7 +202,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void TheNameIsComparedAsAnExactString()
     {
         var engine = BroadcastEngine();
@@ -217,7 +217,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void DeliveryIsATaskAndNotASynchronousCall()
     {
         var engine = BroadcastEngine();
@@ -235,7 +235,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("synchronously: 0,later");
     }
 
-    [Fact]
+    [Test]
     public void EveryAlreadyQueuedJobRunsBeforeTheMessage()
     {
         var engine = BroadcastEngine();
@@ -257,7 +257,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("microtask,message,afterwards");
     }
 
-    [Fact]
+    [Test]
     public void AddEventListenerAloneIsEnoughToReceive()
     {
         var engine = BroadcastEngine();
@@ -274,7 +274,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("heard");
     }
 
-    [Fact]
+    [Test]
     public void TheEventIsATrustedMessageEvent()
     {
         var engine = BroadcastEngine();
@@ -298,7 +298,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("true,message,true,true,true,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void ManyMessagesArriveInThePostedOrder()
     {
         var engine = BroadcastEngine();
@@ -315,7 +315,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- the event handler attributes
 
-    [Fact]
+    [Test]
     public void OnMessageIsAnOrdinaryEventHandlerAttribute()
     {
         var engine = BroadcastEngine();
@@ -333,7 +333,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void OnMessageTakesItsTurnAmongTheOtherListeners()
     {
         var engine = BroadcastEngine();
@@ -350,7 +350,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("first,handler,last");
     }
 
-    [Fact]
+    [Test]
     public void OnMessageErrorExistsAndNeverFires()
     {
         var engine = BroadcastEngine();
@@ -371,7 +371,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- close
 
-    [Fact]
+    [Test]
     public void PostingOnAClosedChannelThrowsInvalidStateError()
     {
         var engine = BroadcastEngine();
@@ -387,7 +387,7 @@ public class BroadcastChannelTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheClosedCheckHappensBeforeTheMessageIsSerialized()
     {
         var engine = BroadcastEngine();
@@ -399,7 +399,7 @@ public class BroadcastChannelTests
         Err(engine, "c.postMessage(function () {});").Should().Be("InvalidStateError");
     }
 
-    [Fact]
+    [Test]
     public void AClosedChannelReceivesNothing()
     {
         var engine = BroadcastEngine();
@@ -415,7 +415,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ClosingIsIdempotent()
     {
         var engine = BroadcastEngine();
@@ -426,7 +426,7 @@ public class BroadcastChannelTests
         engine.Evaluate("c.name").AsString().Should().Be("room");
     }
 
-    [Fact]
+    [Test]
     public void ClosingDuringADispatchStopsTheDestinationsBehindIt()
     {
         var engine = BroadcastEngine();
@@ -445,7 +445,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void AChannelClosedAfterAPostStillDoesNotHearIt()
     {
         var engine = BroadcastEngine();
@@ -463,7 +463,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- structured clone
 
-    [Fact]
+    [Test]
     public void AnUncloneableValueIsASynchronousDataCloneError()
     {
         var engine = BroadcastEngine();
@@ -477,7 +477,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ItSerializesEvenWhenNobodyIsListening()
     {
         var engine = BroadcastEngine();
@@ -489,7 +489,7 @@ public class BroadcastChannelTests
         Err(engine, "lonely.postMessage(Symbol('x'));").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void TheMessageIsAStructuredCloneTakenAtThePost()
     {
         var engine = BroadcastEngine();
@@ -513,7 +513,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("true,true,true,v,true,true");
     }
 
-    [Fact]
+    [Test]
     public void ThereIsNoTransferListAndNothingIsDetached()
     {
         var engine = BroadcastEngine();
@@ -534,7 +534,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("sender byteLength: 2,7");
     }
 
-    [Fact]
+    [Test]
     public void EachDestinationGetsItsOwnCopyOfTheMessage()
     {
         var engine = BroadcastEngine();
@@ -556,7 +556,7 @@ public class BroadcastChannelTests
         engine.Evaluate("received[1].n").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TwoDestinationsDoNotShareOneArrayBuffersStorage()
     {
         var engine = BroadcastEngine();
@@ -581,7 +581,7 @@ public class BroadcastChannelTests
         engine.Evaluate("received[0][0]").AsNumber().Should().Be(99);
     }
 
-    [Fact]
+    [Test]
     public void ACyclicGraphSurvivesTheRoundTrip()
     {
         var engine = BroadcastEngine();
@@ -603,7 +603,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- the evaluation cycle
 
-    [Fact]
+    [Test]
     public void ARestoreEndsEveryChannelTheEngineCreated()
     {
         var engine = BroadcastEngine();
@@ -640,7 +640,7 @@ public class BroadcastChannelTests
         Log(engine).Should().Be("next cycle");
     }
 
-    [Fact]
+    [Test]
     public void AChannelFromAnEndedCycleIsGoneFromTheBroker()
     {
         var engine = BroadcastEngine();
@@ -667,7 +667,7 @@ public class BroadcastChannelTests
 
     // ---------------------------------------------------------------- the broker keeps nothing it need not
 
-    [Fact]
+    [Test]
     public void AClosedChannelLeavesTheBrokerAndAnEmptyNameGoesWithIt()
     {
         var broker = new BroadcastChannelBroker();
@@ -694,7 +694,7 @@ public class BroadcastChannelTests
         broker.ActiveNameCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ARestoreTakesEveryNameWithIt()
     {
         var broker = new BroadcastChannelBroker();

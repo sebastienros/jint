@@ -93,14 +93,14 @@ public class DiagnosticsTests
 
     // reportError — https://html.spec.whatwg.org/multipage/webappapis.html#dom-reporterror
 
-    [Fact]
+    [Test]
     public void ReportErrorHandsTheValueToTheSink()
     {
         var (engine, sink, _) = Reporting();
 
         engine.Execute("var e = new Error('boom'); reportError(e);");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.ReportedError);
         report.Value.Should().BeSameAs(engine.Evaluate("e"));
 
@@ -111,7 +111,7 @@ public class DiagnosticsTests
         report.RejectionHandled.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorReportsAnyValueAtAll()
     {
         // "report an exception exception which is a JavaScript value" — not necessarily an Error.
@@ -125,7 +125,7 @@ public class DiagnosticsTests
         sink.Reports[2].Value.AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorWithoutASinkIsANoOpThatNeverThrows()
     {
         // The feature installs the function whether or not anything is listening, so a script written for a
@@ -137,7 +137,7 @@ public class DiagnosticsTests
         engine.Evaluate("reportError(undefined)").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorRequiresItsArgument()
     {
         // WebIDL's arity check: `undefined reportError(any e)` has one required argument, so calling with
@@ -145,7 +145,7 @@ public class DiagnosticsTests
         // only way the function can fail, and it fails the same way with or without a sink.
         var (engine, sink, _) = Reporting();
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("reportError()"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("reportError()"))!
             .Message.Should().Contain("1 argument required");
 
         sink.Reports.Should().BeEmpty();
@@ -154,7 +154,7 @@ public class DiagnosticsTests
         Assert.Throws<JavaScriptException>(() => silent.Execute("reportError()"));
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorIsAWebIdlOperation()
     {
         var (engine, _, _) = Reporting();
@@ -170,7 +170,7 @@ public class DiagnosticsTests
         engine.Evaluate("reportError.name").AsString().Should().Be("reportError");
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorIsAbsentUnlessItsFeatureIsNamed()
     {
         new Engine().Evaluate("typeof reportError").AsString().Should().Be("undefined");
@@ -188,7 +188,7 @@ public class DiagnosticsTests
             .Evaluate("typeof reportError").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var (engine, _, _) = Reporting();
@@ -199,7 +199,7 @@ public class DiagnosticsTests
 
     // Timer callbacks — https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timer-initialisation-steps
 
-    [Fact]
+    [Test]
     public void AThrowingTimerCallbackIsReportedAndThePumpCarriesOn()
     {
         var (engine, sink, clock) = Reporting();
@@ -218,7 +218,7 @@ public class DiagnosticsTests
 
         Log(engine).Should().Be("first,second");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
         report.Exception.Should().NotBeNull();
@@ -227,7 +227,7 @@ public class DiagnosticsTests
         report.Promise.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AThrowingTimerCallbackEruptsWithoutASink()
     {
         // The twin of the test above, and the behaviour every engine without a sink keeps.
@@ -236,11 +236,11 @@ public class DiagnosticsTests
         engine.Execute("setTimeout(() => { log.push('first'); throw new Error('boom'); }, 5);");
         clock.Advance(5);
 
-        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!
             .Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AReportedIntervalCallbackKeepsRunning()
     {
         var (engine, sink, clock) = Reporting();
@@ -260,7 +260,7 @@ public class DiagnosticsTests
         engine.Execute("clearInterval(id);");
     }
 
-    [Fact]
+    [Test]
     public void AThrowFromExecutesOwnDrainIsReportedRatherThanReturnedToTheHost()
     {
         // Execute drains the event loop once the script has finished, so without a sink the throw comes out
@@ -270,10 +270,10 @@ public class DiagnosticsTests
 
         engine.Execute("setTimeout(() => { throw new Error('boom'); }, 0);");
 
-        Assert.Single(sink.Reports).Exception!.Message.Should().Be("boom");
+        sink.Reports.Should().ContainSingle().Which.Exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AConstraintFailureInATimerCallbackStillErupts()
     {
         // MustPropagate-class failures are never reported: a budget that turns into a diagnostic no longer
@@ -294,7 +294,7 @@ public class DiagnosticsTests
 
     // queueMicrotask — https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask
 
-    [Fact]
+    [Test]
     public void AThrowingMicrotaskCallbackIsReportedAndTheQueueCarriesOn()
     {
         var (engine, sink, _) = Reporting();
@@ -308,7 +308,7 @@ public class DiagnosticsTests
         // so both callbacks have run by the time it returns and the exception never reaches the host.
         Log(engine).Should().Be("first,second");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
         report.Exception.Should().NotBeNull();
@@ -317,7 +317,7 @@ public class DiagnosticsTests
         report.Promise.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AThrowingMicrotaskCallbackEruptsWithoutASink()
     {
         // The twin of the test above, and the behaviour every engine without a sink keeps. It erupts from
@@ -325,13 +325,13 @@ public class DiagnosticsTests
         var (engine, _) = Silent();
 
         Assert.Throws<JavaScriptException>(
-                () => engine.Execute("queueMicrotask(() => { log.push('first'); throw new Error('boom'); });"))
+                () => engine.Execute("queueMicrotask(() => { log.push('first'); throw new Error('boom'); });"))!
             .Message.Should().Be("boom");
 
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void AReportedMicrotaskCallbackDoesNotStopTheJobsBehindIt()
     {
         // The engine's single job queue *is* the microtask queue, so a reported failure must leave everything
@@ -350,10 +350,10 @@ public class DiagnosticsTests
         engine.Tasks.ProcessTasks();
 
         Log(engine).Should().Be("script,micro1,promise,micro2,timeout");
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
     }
 
-    [Fact]
+    [Test]
     public void AConstraintFailureInAMicrotaskCallbackStillErupts()
     {
         // The same MustPropagate rule the timer and listener sites keep: RecursionDepthOverflowException is a
@@ -371,7 +371,7 @@ public class DiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AStatementBudgetTrippedInsideAMicrotaskCallbackStillErupts()
     {
         // The other half of the same rule, over the budget a runaway callback actually trips: a microtask
@@ -388,7 +388,7 @@ public class DiagnosticsTests
 
     // Idle callbacks — https://w3c.github.io/requestidlecallback/#invoke-idle-callbacks-algorithm
 
-    [Fact]
+    [Test]
     public void AThrowingIdleCallbackIsReportedAndTheIdlePeriodCarriesOn()
     {
         var (engine, sink, _) = Reporting();
@@ -402,7 +402,7 @@ public class DiagnosticsTests
         // started, so the one behind the failure still runs and Execute's own drain never sees the throw.
         Log(engine).Should().Be("first,second");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
         report.Exception.Should().NotBeNull();
@@ -411,7 +411,7 @@ public class DiagnosticsTests
         report.Promise.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AThrowingIdleCallbackEruptsWithoutASink()
     {
         // The twin of the test above, and the behaviour every engine without a sink keeps: it erupts from
@@ -419,13 +419,13 @@ public class DiagnosticsTests
         var (engine, _) = Silent();
 
         Assert.Throws<JavaScriptException>(
-                () => engine.Execute("requestIdleCallback(() => { log.push('first'); throw new Error('boom'); });"))
+                () => engine.Execute("requestIdleCallback(() => { log.push('first'); throw new Error('boom'); });"))!
             .Message.Should().Be("boom");
 
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingTimedOutIdleCallbackIsReportedAsAnIdleCallback()
     {
         // The invoke idle callback timeout algorithm is a second algorithm with the same "report" invocation —
@@ -449,12 +449,12 @@ public class DiagnosticsTests
 
         Log(engine).Should().Be("true");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
         report.Exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AConstraintFailureInAnIdleCallbackStillErupts()
     {
         // The same MustPropagate rule the other three report sites keep: RecursionDepthOverflowException is a
@@ -470,7 +470,7 @@ public class DiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AStatementBudgetTrippedInsideAnIdleCallbackStillErupts()
     {
         // The other half of the same rule, over the budget a runaway callback actually trips: an idle callback
@@ -489,7 +489,7 @@ public class DiagnosticsTests
     // *not* a report site: its callback is invoked with "rethrow" and the throw becomes the promise's
     // rejection. The two tests below are what stops that being "fixed" into symmetry with the four above.
 
-    [Fact]
+    [Test]
     public void AThrowingSchedulerTaskRejectsItsPromiseAndIsNeverReportedAsACallbackError()
     {
         var (engine, sink, _) = Reporting();
@@ -508,7 +508,7 @@ public class DiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AnUnhandledSchedulerTaskRejectionIsReportedAsARejectionRatherThanACallbackError()
     {
         // Where the throw does reach the host it arrives as what it is — the promise rejection nobody handled,
@@ -518,14 +518,14 @@ public class DiagnosticsTests
 
         engine.Execute("scheduler.postTask(() => { throw new RangeError('boom'); });");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
         report.CallbackSource.Should().BeNull();
     }
 
     // Event listeners — https://dom.spec.whatwg.org/#concept-event-listener-inner-invoke
 
-    [Fact]
+    [Test]
     public void AThrowingListenerIsReportedAndTheDispatchContinues()
     {
         var (engine, sink, _) = Reporting();
@@ -543,7 +543,7 @@ public class DiagnosticsTests
         Log(engine).Should().Be("first,second");
         engine.Evaluate("result").AsBoolean().Should().BeTrue();
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
         report.Exception!.Message.Should().Be("boom");
@@ -553,7 +553,7 @@ public class DiagnosticsTests
         engine.Evaluate("e.eventPhase").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingListenerEruptsWithoutASink()
     {
         var (engine, _) = Silent();
@@ -565,13 +565,13 @@ public class DiagnosticsTests
             var e = new Event('ping');
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))!
             .Message.Should().Be("boom");
 
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingAbortListenerIsReportedAndTheAbortCompletes()
     {
         var (engine, sink, _) = Reporting();
@@ -586,10 +586,10 @@ public class DiagnosticsTests
         engine.Evaluate("controller.signal.aborted").AsBoolean().Should().BeTrue();
         engine.Evaluate("controller.signal.reason").AsString().Should().Be("why");
 
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
     }
 
-    [Fact]
+    [Test]
     public void AConstraintFailureInAListenerStillErupts()
     {
         var (engine, sink, _) = Reporting(options => options.Constraints.MaxRecursionDepth = 8);
@@ -608,7 +608,7 @@ public class DiagnosticsTests
     // Unhandled promise rejections —
     // https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections
 
-    [Fact]
+    [Test]
     public void AnUnhandledRejectionReachesTheSinkAndTheExistingEventBoth()
     {
         var (engine, sink, _) = Reporting();
@@ -619,10 +619,10 @@ public class DiagnosticsTests
         engine.Execute("var p = Promise.reject(new Error('boom'));");
 
         // The public event is untouched: it still fires, and it fires first.
-        var trackedEvent = Assert.Single(tracked);
+        var trackedEvent = tracked.Should().ContainSingle().Which;
         trackedEvent.Operation.Should().Be(PromiseRejectionOperation.Reject);
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
         report.RejectionHandled.Should().BeFalse();
         report.Promise.Should().BeSameAs(engine.Evaluate("p"));
@@ -632,7 +632,7 @@ public class DiagnosticsTests
         report.CallbackSource.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AHandlerAttachedLaterIsReportedAsHandled()
     {
         var (engine, sink, _) = Reporting();
@@ -649,7 +649,7 @@ public class DiagnosticsTests
         sink.Reports[1].Promise.Should().BeSameAs(sink.Reports[0].Promise);
     }
 
-    [Fact]
+    [Test]
     public void ARejectionHandledInTheSameTurnIsReportedAndThenMarkedHandled()
     {
         var (engine, sink, _) = Reporting();
@@ -667,7 +667,7 @@ public class DiagnosticsTests
         sink.Reports[1].Promise.Should().BeSameAs(sink.Reports[0].Promise);
     }
 
-    [Fact]
+    [Test]
     public void ASinkAloneArmsTheChannelAndInstallsNothing()
     {
         // No feature named at all: the host wanted the reports and nothing else. It must get no globals —
@@ -681,12 +681,12 @@ public class DiagnosticsTests
 
         engine.Execute("Promise.reject('boom');");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
         report.Value.AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineReportsNothingAndKeepsErupting()
     {
         // The whole channel is opt-in: an engine nobody configured is the engine it always was.
@@ -700,7 +700,7 @@ public class DiagnosticsTests
 
     // The two ways of saying nothing, which mean opposite things.
 
-    [Fact]
+    [Test]
     public void TheNullSinkStillSwitchesEruptToReport()
     {
         // DiagnosticsSink.Null is not the absence of a sink: it says "carry on, and tell me nothing".
@@ -720,14 +720,14 @@ public class DiagnosticsTests
         Log(engine).Should().Be("after");
     }
 
-    [Fact]
+    [Test]
     public void ASinkThatThrowsIsNotCaught()
     {
         // Documented: the engine does not guard the sink, so a failing sink is the host's own problem and is
         // never mistaken for the script's.
         var engine = new Engine(options => options.UseDiagnostics(new ThrowingSink()));
 
-        Assert.Throws<InvalidOperationException>(() => engine.Execute("reportError(new Error('boom'))"))
+        Assert.Throws<InvalidOperationException>(() => engine.Execute("reportError(new Error('boom'))"))!
             .Message.Should().Be("sink failed");
     }
 
@@ -736,7 +736,7 @@ public class DiagnosticsTests
         public override void Report(DiagnosticEvent report) => throw new InvalidOperationException("sink failed");
     }
 
-    [Fact]
+    [Test]
     public void UseDiagnosticsEnablesReportingAndSetsTheSink()
     {
         var sink = new RecordingSink();
@@ -745,7 +745,7 @@ public class DiagnosticsTests
         engine.Evaluate("typeof reportError").AsString().Should().Be("function");
         engine.Execute("reportError('x');");
 
-        Assert.Single(sink.Reports).Value.AsString().Should().Be("x");
+        sink.Reports.Should().ContainSingle().Which.Value.AsString().Should().Be("x");
 
         // It adds a feature rather than replacing the set, like every other extension in that file.
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");

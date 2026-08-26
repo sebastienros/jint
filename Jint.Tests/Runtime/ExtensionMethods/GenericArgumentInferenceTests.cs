@@ -28,7 +28,7 @@ public class GenericArgumentInferenceTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void ChainedGenericExtensionsOverLazyEnumerable()
     {
         // the issue's own repro: a LINQ iterator handed to the engine, projected, then searched
@@ -39,7 +39,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("coll.map(x => x + '!').includes('World!')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReceiverPinsTypeArgumentOverMoreSpecificArgument()
     {
         var engine = CreateEngineWithLazyReceiver(new List<object> { "Hello", "World" }.Where(_ => true));
@@ -50,7 +50,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("coll.includes('Nope')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void NumericArgumentDoesNotRepinElementType()
     {
         // no LINQ projection and no 'object' element type - a JsNumber's CLR shape is a double, so the
@@ -62,7 +62,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("coll.includes(9)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void BareGenericParameterStillInfersWhenNothingPinsIt()
     {
         var engine = CreateEngineWithLazyReceiver(new List<int> { 1, 2, 3 }.Where(x => x > 0));
@@ -71,7 +71,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("coll.inferredBoth('x')").AsString().Should().Be("Int32/String");
     }
 
-    [Fact]
+    [Test]
     public void ElidedOptionalArgumentInfersNothing()
     {
         var engine = CreateEngineWithLazyReceiver(new List<string> { "Hello" }.Where(_ => true));
@@ -80,7 +80,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("coll.inferredOptional()").AsString().Should().Be("String");
     }
 
-    [Fact]
+    [Test]
     public void ConstraintViolationIsACatchableTypeError()
     {
         var engine = CreateEngineWithLazyReceiver(new List<string> { "Hello" }.Where(_ => true));
@@ -94,7 +94,7 @@ public class GenericArgumentInferenceTests
             .AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void MismatchedElementTypeIsACatchableTypeError()
     {
         var engine = new Engine();
@@ -113,7 +113,7 @@ public class GenericArgumentInferenceTests
         engine.Evaluate("host.Take(strings)").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void GenericExtensionOverAnArrayLikeReceiverIsUnaffected()
     {
         // a List<string> receiver reaches Array.prototype.includes (#2976), and the extension stays

@@ -29,7 +29,7 @@ public class ErrorEventTests
 
     // ErrorEvent
 
-    [Fact]
+    [Test]
     public void ErrorEventDefaultsEveryMember()
     {
         var engine = WebEngine();
@@ -52,7 +52,7 @@ public class ErrorEventTests
         engine.Evaluate("e.isTrusted").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventReadsItsDictionary()
     {
         var engine = WebEngine();
@@ -79,7 +79,7 @@ public class ErrorEventTests
         engine.Evaluate("e.cancelable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventCoercesLikeWebIdlDoes()
     {
         var engine = WebEngine();
@@ -95,7 +95,7 @@ public class ErrorEventTests
         engine.Evaluate("e.filename").AsString().Should().Be("7");
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventReadsItsMembersInWebIdlOrder()
     {
         var engine = WebEngine();
@@ -113,12 +113,12 @@ public class ErrorEventTests
         Log(engine).Should().Be("bubbles,cancelable,composed,colno,error,filename,lineno,message");
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventRequiresItsType()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new ErrorEvent()"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new ErrorEvent()"))!
             .Message.Should().Contain("1 argument required");
 
         // The dictionary is optional, and a non-object that is not undefined or null is a TypeError.
@@ -126,7 +126,7 @@ public class ErrorEventTests
         Assert.Throws<JavaScriptException>(() => engine.Execute("new ErrorEvent('error', 5)"));
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventInheritsFromEvent()
     {
         var engine = WebEngine();
@@ -139,7 +139,7 @@ public class ErrorEventTests
         engine.Evaluate("Object.prototype.toString.call(new ErrorEvent('error'))").AsString().Should().Be("[object ErrorEvent]");
     }
 
-    [Fact]
+    [Test]
     public void ErrorEventAccessorsAreBranded()
     {
         var engine = WebEngine();
@@ -155,14 +155,14 @@ public class ErrorEventTests
             engine.Evaluate($"Object.getOwnPropertyDescriptor(ErrorEvent.prototype, '{member}').configurable").AsBoolean().Should().BeTrue();
 
             Assert.Throws<JavaScriptException>(() =>
-                engine.Execute($"Object.getOwnPropertyDescriptor(ErrorEvent.prototype, '{member}').get.call(new Event('x'))"))
+                engine.Execute($"Object.getOwnPropertyDescriptor(ErrorEvent.prototype, '{member}').get.call(new Event('x'))"))!
                 .Message.Should().Contain("not an ErrorEvent");
         }
     }
 
     // PromiseRejectionEvent
 
-    [Fact]
+    [Test]
     public void PromiseRejectionEventRequiresItsDictionaryAndItsPromise()
     {
         var engine = WebEngine();
@@ -171,22 +171,22 @@ public class ErrorEventTests
         // required member — so length is 2 and one argument is an arity error.
         engine.Evaluate("PromiseRejectionEvent.length").AsNumber().Should().Be(2);
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection')"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection')"))!
             .Message.Should().Contain("2 arguments required");
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', {})"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', {})"))!
             .Message.Should().Contain("required member promise");
 
         // WebIDL treats an explicit undefined as absent, so it fails the same way.
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', { promise: undefined })"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', { promise: undefined })"))!
             .Message.Should().Contain("required member promise");
 
         // And so does a null dictionary, which converts to one with no members at all.
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', null)"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new PromiseRejectionEvent('unhandledrejection', null)"))!
             .Message.Should().Contain("required member promise");
     }
 
-    [Fact]
+    [Test]
     public void PromiseRejectionEventKeepsAPromiseAndConvertsAnythingElse()
     {
         var engine = WebEngine();
@@ -209,7 +209,7 @@ public class ErrorEventTests
         engine.Evaluate("converted.reason").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PromiseRejectionEventReadsItsMembersInWebIdlOrder()
     {
         var engine = WebEngine();
@@ -227,7 +227,7 @@ public class ErrorEventTests
         Log(engine).Should().Be("bubbles,cancelable,composed,promise,reason");
     }
 
-    [Fact]
+    [Test]
     public void PromiseRejectionEventInheritsFromEvent()
     {
         var engine = WebEngine();
@@ -240,11 +240,11 @@ public class ErrorEventTests
         engine.Evaluate("Object.prototype.toString.call(e)").AsString().Should().Be("[object PromiseRejectionEvent]");
 
         Assert.Throws<JavaScriptException>(() =>
-            engine.Execute("Object.getOwnPropertyDescriptor(PromiseRejectionEvent.prototype, 'promise').get.call(new Event('x'))"))
+            engine.Execute("Object.getOwnPropertyDescriptor(PromiseRejectionEvent.prototype, 'promise').get.call(new Event('x'))"))!
             .Message.Should().Contain("not a PromiseRejectionEvent");
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceObjectsAreWebIdlInterfaceObjects()
     {
         var engine = WebEngine();
@@ -259,7 +259,7 @@ public class ErrorEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheInterfacesAreAbsentWithoutTheFeature()
     {
         // The events feature alone brings Event and EventTarget and neither of these two.

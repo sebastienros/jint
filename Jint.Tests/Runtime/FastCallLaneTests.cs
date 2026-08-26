@@ -20,7 +20,7 @@ public class FastCallLaneTests
     /// site must also recover when the original is restored — a one-way deopt would be a silent
     /// permanent slowdown.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReassigningABuiltinDeoptimizesTheCallSiteAndRestoringItReoptimizes()
     {
         var engine = new Engine();
@@ -38,7 +38,7 @@ public class FastCallLaneTests
         result.AsString().Should().Be("5,999,5");
     }
 
-    [Fact]
+    [Test]
     public void DeletingABuiltinIsObservedByAWarmedCallSite()
     {
         var engine = new Engine();
@@ -54,7 +54,7 @@ public class FastCallLaneTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReplacingTheWholeNamespaceIsObservedByAWarmedCallSite()
     {
         var engine = new Engine();
@@ -71,7 +71,7 @@ public class FastCallLaneTests
     /// <summary>
     /// A lexical binding shadows the global, so a warmed site must resolve to the shadowing value.
     /// </summary>
-    [Fact]
+    [Test]
     public void AShadowingLocalBindingWins()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public class FastCallLaneTests
     /// An object argument coerces through user <c>valueOf</c>, so the frame must NOT be elided —
     /// the fast lane's argument-shape guard exists precisely to keep this case on the framed path.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheBuiltinsOwnFrameStaysInErrorStackWhenAnArgumentCoercesThroughUserCode()
     {
         var engine = new Engine();
@@ -113,7 +113,7 @@ public class FastCallLaneTests
     /// Same guard from the receiver side: a non-primitive receiver coerces via ToJsString/ToObject,
     /// which can run user code, so such calls must keep their frame and their exact semantics.
     /// </summary>
-    [Fact]
+    [Test]
     public void ABoxedReceiverProducesTheSameResultAsAPrimitiveOne()
     {
         var engine = new Engine();
@@ -125,7 +125,7 @@ public class FastCallLaneTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NonNumericArgumentsStillCoerceExactlyOnce()
     {
         var engine = new Engine();
@@ -147,23 +147,22 @@ public class FastCallLaneTests
     /// body; they claim Leaf under declared per-argument guards, and an object is exactly what those
     /// guards exist to turn away — it must keep the frame the user <c>valueOf</c> can observe.
     /// </summary>
-    [Theory]
-    [InlineData("\"abc\".charCodeAt(p)", "charCodeAt")]
-    [InlineData("\"abc\".charAt(p)", "charAt")]
-    [InlineData("\"abc\".substring(p)", "substring")]
-    [InlineData("\"abc\".substring(0, p)", "substring")]
-    [InlineData("\"abc\".slice(p)", "slice")]
-    [InlineData("\"abc\".slice(0, p)", "slice")]
-    [InlineData("\"abc\".at(p)", "at")]
-    [InlineData("\"abc\".substr(p)", "substr")]
-    [InlineData("\"abc\".substr(0, p)", "substr")]
-    [InlineData("\"abc\".indexOf(\"b\", p)", "indexOf")]
-    [InlineData("\"abc\".startsWith(\"b\", p)", "startsWith")]
-    [InlineData("\"abc\".endsWith(\"b\", p)", "endsWith")]
-    [InlineData("\"abc\".includes(\"b\", p)", "includes")]
-    [InlineData("isNaN(p)", "isNaN")]
-    [InlineData("isFinite(p)", "isFinite")]
-    [InlineData("parseInt(\"10\", p)", "parseInt")]
+    [TestCase("\"abc\".charCodeAt(p)", "charCodeAt")]
+    [TestCase("\"abc\".charAt(p)", "charAt")]
+    [TestCase("\"abc\".substring(p)", "substring")]
+    [TestCase("\"abc\".substring(0, p)", "substring")]
+    [TestCase("\"abc\".slice(p)", "slice")]
+    [TestCase("\"abc\".slice(0, p)", "slice")]
+    [TestCase("\"abc\".at(p)", "at")]
+    [TestCase("\"abc\".substr(p)", "substr")]
+    [TestCase("\"abc\".substr(0, p)", "substr")]
+    [TestCase("\"abc\".indexOf(\"b\", p)", "indexOf")]
+    [TestCase("\"abc\".startsWith(\"b\", p)", "startsWith")]
+    [TestCase("\"abc\".endsWith(\"b\", p)", "endsWith")]
+    [TestCase("\"abc\".includes(\"b\", p)", "includes")]
+    [TestCase("isNaN(p)", "isNaN")]
+    [TestCase("isFinite(p)", "isFinite")]
+    [TestCase("parseInt(\"10\", p)", "parseInt")]
     public void AWarmedSiteKeepsTheBuiltinFrameWhenAnArgumentCoercesThroughUserCode(string call, string builtin)
     {
         var engine = new Engine();
@@ -187,15 +186,14 @@ public class FastCallLaneTests
     /// The warm-up value conforms, so each of these sites takes the frameless branch twice before the
     /// call that has to decline it.
     /// </summary>
-    [Theory]
-    [InlineData("parseInt(p)", "parseInt")]
-    [InlineData("parseInt(p, 16)", "parseInt")]
-    [InlineData("parseFloat(p)", "parseFloat")]
-    [InlineData("\"abc\".indexOf(p)", "indexOf")]
-    [InlineData("\"abc\".indexOf(p, 0)", "indexOf")]
-    [InlineData("\"abc\".startsWith(p)", "startsWith")]
-    [InlineData("\"abc\".endsWith(p)", "endsWith")]
-    [InlineData("\"abc\".includes(p)", "includes")]
+    [TestCase("parseInt(p)", "parseInt")]
+    [TestCase("parseInt(p, 16)", "parseInt")]
+    [TestCase("parseFloat(p)", "parseFloat")]
+    [TestCase("\"abc\".indexOf(p)", "indexOf")]
+    [TestCase("\"abc\".indexOf(p, 0)", "indexOf")]
+    [TestCase("\"abc\".startsWith(p)", "startsWith")]
+    [TestCase("\"abc\".endsWith(p)", "endsWith")]
+    [TestCase("\"abc\".includes(p)", "includes")]
     public void AWarmedSiteKeepsTheBuiltinFrameWhenTheStringArgumentCoercesThroughUserCode(string call, string builtin)
     {
         var engine = new Engine();
@@ -218,7 +216,7 @@ public class FastCallLaneTests
     /// callee only after a dispatch <em>returns</em>, so a site that first recurses into itself is
     /// still cold all the way down and never reaches the leaf branch.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARecursionThatOnlyPassesThroughABuiltinIsStillChargedTheRecursionLimit()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 24);
@@ -249,28 +247,27 @@ public class FastCallLaneTests
     /// deliberately NOT the same as an explicit NaN — a difference that survives only while the
     /// undefined-ness of the argument is still observable in the body.
     /// </summary>
-    [Theory]
-    [InlineData("\"abcdef\".substring(2)", "cdef")]
-    [InlineData("\"abcdef\".substring(2, undefined)", "cdef")]
-    [InlineData("\"abcdef\".substring(2, NaN)", "ab")]
-    [InlineData("\"abcdef\".substring(undefined, 2)", "ab")]
-    [InlineData("\"abcdef\".slice(2)", "cdef")]
-    [InlineData("\"abcdef\".slice(2, undefined)", "cdef")]
-    [InlineData("\"abcdef\".slice(2, NaN)", "")]
-    [InlineData("\"abcdef\".slice(undefined, 2)", "ab")]
-    [InlineData("String(\"abc\".charCodeAt())", "97")]
-    [InlineData("String(\"abc\".charCodeAt(undefined))", "97")]
-    [InlineData("String(\"abc\".charCodeAt(NaN))", "97")]
-    [InlineData("\"abc\".charAt()", "a")]
-    [InlineData("\"abc\".charAt(undefined)", "a")]
-    [InlineData("\"abc\".charAt(NaN)", "a")]
-    [InlineData("String(parseInt(\"0x10\"))", "16")]
-    [InlineData("String(parseInt(\"0x10\", undefined))", "16")]
-    [InlineData("String(parseInt(\"0x10\", NaN))", "16")]
-    [InlineData("String(parseInt(\"10\", 2))", "2")]
-    [InlineData("String(parseInt(\"10\", 1))", "NaN")]
-    [InlineData("String(parseFloat(\"1.5e2x\"))", "150")]
-    [InlineData("String(parseFloat(\"1.5\", 16))", "1.5")]
+    [TestCase("\"abcdef\".substring(2)", "cdef")]
+    [TestCase("\"abcdef\".substring(2, undefined)", "cdef")]
+    [TestCase("\"abcdef\".substring(2, NaN)", "ab")]
+    [TestCase("\"abcdef\".substring(undefined, 2)", "ab")]
+    [TestCase("\"abcdef\".slice(2)", "cdef")]
+    [TestCase("\"abcdef\".slice(2, undefined)", "cdef")]
+    [TestCase("\"abcdef\".slice(2, NaN)", "")]
+    [TestCase("\"abcdef\".slice(undefined, 2)", "ab")]
+    [TestCase("String(\"abc\".charCodeAt())", "97")]
+    [TestCase("String(\"abc\".charCodeAt(undefined))", "97")]
+    [TestCase("String(\"abc\".charCodeAt(NaN))", "97")]
+    [TestCase("\"abc\".charAt()", "a")]
+    [TestCase("\"abc\".charAt(undefined)", "a")]
+    [TestCase("\"abc\".charAt(NaN)", "a")]
+    [TestCase("String(parseInt(\"0x10\"))", "16")]
+    [TestCase("String(parseInt(\"0x10\", undefined))", "16")]
+    [TestCase("String(parseInt(\"0x10\", NaN))", "16")]
+    [TestCase("String(parseInt(\"10\", 2))", "2")]
+    [TestCase("String(parseInt(\"10\", 1))", "NaN")]
+    [TestCase("String(parseFloat(\"1.5e2x\"))", "150")]
+    [TestCase("String(parseFloat(\"1.5\", 16))", "1.5")]
     public void AbsentNumericArgumentsKeepTheirSpecDefinedMeaning(string expression, string expected)
     {
         var engine = new Engine();
@@ -284,10 +281,9 @@ public class FastCallLaneTests
     /// Coercion order: the receiver's ToString runs before an argument's valueOf, per steps 2→3 of
     /// each of these methods. Only observable when both are objects.
     /// </summary>
-    [Theory]
-    [InlineData("charCodeAt")]
-    [InlineData("charAt")]
-    [InlineData("substring")]
+    [TestCase("charCodeAt")]
+    [TestCase("charAt")]
+    [TestCase("substring")]
     public void TheReceiverIsCoercedBeforeTheArguments(string method)
     {
         var engine = new Engine();
@@ -309,12 +305,11 @@ public class FastCallLaneTests
     /// receiver that is anything else — a boxed String, an object with a user <c>toString</c> —
     /// must fail the guard and keep both its frame and its exact semantics, at a warmed site.
     /// </summary>
-    [Theory]
-    [InlineData("trim")]
-    [InlineData("trimStart")]
-    [InlineData("trimEnd")]
-    [InlineData("toUpperCase")]
-    [InlineData("toLowerCase")]
+    [TestCase("trim")]
+    [TestCase("trimStart")]
+    [TestCase("trimEnd")]
+    [TestCase("toUpperCase")]
+    [TestCase("toLowerCase")]
     public void AReceiverGuardedLeafBuiltinStillFramesEveryOtherReceiver(string method)
     {
         var engine = new Engine();
@@ -339,7 +334,7 @@ public class FastCallLaneTests
     /// the type system holds the two enums together, and a silent drift would not fail a guard — it
     /// would answer the wrong question — so the correspondence is pinned here.
     /// </summary>
-    [Fact]
+    [Test]
     public void FastCallGuardValuesMatchInternalTypes()
     {
         ((InternalTypes) FastCallGuard.Number).Should().Be(InternalTypes.Number | InternalTypes.Integer);
@@ -380,14 +375,13 @@ public class FastCallLaneTests
     /// no method at all and raise a different TypeError from a different place.
     /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("Map", "c.get(k)", "get")]
-    [InlineData("Map", "c.has(k)", "has")]
-    [InlineData("Map", "c.delete(k)", "delete")]
-    [InlineData("Map", "c.set(k, 1)", "set")]
-    [InlineData("Set", "c.has(k)", "has")]
-    [InlineData("Set", "c.add(k)", "add")]
-    [InlineData("Set", "c.delete(k)", "delete")]
+    [TestCase("Map", "c.get(k)", "get")]
+    [TestCase("Map", "c.has(k)", "has")]
+    [TestCase("Map", "c.delete(k)", "delete")]
+    [TestCase("Map", "c.set(k, 1)", "set")]
+    [TestCase("Set", "c.has(k)", "has")]
+    [TestCase("Set", "c.add(k)", "add")]
+    [TestCase("Set", "c.delete(k)", "delete")]
     public void AWarmedKeyedCollectionSiteFramesAWrongBrandReceiver(string ctor, string call, string builtin)
     {
         var engine = new Engine();
@@ -411,11 +405,10 @@ public class FastCallLaneTests
     /// change — must fail the receiver guard, keep its frame and throw. A single shared
     /// "keyed collection" bit would let this exact call through frameless.
     /// </summary>
-    [Theory]
-    [InlineData("Map", "Set", "get")]
-    [InlineData("Map", "Set", "has")]
-    [InlineData("Set", "Map", "add")]
-    [InlineData("Set", "Map", "has")]
+    [TestCase("Map", "Set", "get")]
+    [TestCase("Map", "Set", "has")]
+    [TestCase("Set", "Map", "add")]
+    [TestCase("Set", "Map", "has")]
     public void AWarmedKeyedCollectionSiteFramesTheOtherCollection(string owner, string foreign, string builtin)
     {
         var engine = new Engine();
@@ -439,7 +432,7 @@ public class FastCallLaneTests
     /// of key is asserted to answer the same warm as cold — objects above all, which are the keys a Map
     /// exists for and the ones a partial guard would have sent back to the framed path.
     /// </summary>
-    [Fact]
+    [Test]
     public void KeyedCollectionLookupsAgreeWarmAndColdForEveryKindOfKey()
     {
         var engine = new Engine();
@@ -479,7 +472,7 @@ public class FastCallLaneTests
     /// framed path. Each pair below performs its mutation at a warmed site and reads the result back
     /// through a channel that does not go through the lane at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void MutationsThroughTheFramelessLaneStayVisibleToIterationAndSize()
     {
         var engine = new Engine();
@@ -528,7 +521,7 @@ public class FastCallLaneTests
     /// subclass instance at a warmed site is exactly the case that should stay fast, so it must also
     /// answer identically; an overriding subclass must not.
     /// </summary>
-    [Fact]
+    [Test]
     public void SubclassInstancesKeepTheBuiltinsAnswerAtAWarmedSite()
     {
         var engine = new Engine();
@@ -558,7 +551,7 @@ public class FastCallLaneTests
     /// non-conforming one that must not. The behaviour on both sides is pinned by the theories
     /// around this one; what this adds is that the branch exists and admits what it says it does.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDeclaredGuardsAdmitExactlyTheValuesTheirBodiesAreLeafFor()
     {
         var engine = new Engine();
@@ -634,44 +627,43 @@ public class FastCallLaneTests
     /// calls: a body that reached user code or raised a JavaScript error frameless would fail here
     /// before the value ever got compared.
     /// </summary>
-    [Theory]
-    [InlineData("\"abcdef\".indexOf(\"cd\")", "2")]
-    [InlineData("\"abcdef\".indexOf(\"cd\", 3)", "-1")]
-    [InlineData("\"abcdef\".indexOf(\"\", 99)", "6")]
-    [InlineData("\"abcdef\".startsWith(\"ab\")", "true")]
-    [InlineData("\"abcdef\".startsWith(\"cd\", 2)", "true")]
-    [InlineData("\"abcdef\".startsWith(\"cd\", -1)", "false")]
-    [InlineData("\"abcdef\".endsWith(\"ef\")", "true")]
-    [InlineData("\"abcdef\".endsWith(\"cd\", 4)", "true")]
-    [InlineData("\"abcdef\".endsWith(\"ef\", 99)", "true")]
-    [InlineData("\"abcdef\".includes(\"cd\")", "true")]
-    [InlineData("\"abcdef\".includes(\"cd\", 3)", "false")]
-    [InlineData("\"abcdef\".includes(\"cd\", 1e10)", "false")]
-    [InlineData("\"abcdef\".at(1)", "b")]
-    [InlineData("\"abcdef\".at(-1)", "f")]
-    [InlineData("\"abcdef\".at()", "a")]
-    [InlineData("\"abcdef\".at(99)", "undefined")]
-    [InlineData("\"abcdef\".substr(1, 2)", "bc")]
-    [InlineData("\"abcdef\".substr(-2)", "ef")]
-    [InlineData("\"abcdef\".substr(2)", "cdef")]
-    [InlineData("Number.isFinite(1)", "true")]
-    [InlineData("Number.isFinite(Infinity)", "false")]
-    [InlineData("Number.isFinite(\"1\")", "false")]
-    [InlineData("Number.isInteger(1.5)", "false")]
-    [InlineData("Number.isInteger(2)", "true")]
-    [InlineData("Number.isNaN(NaN)", "true")]
-    [InlineData("Number.isNaN(\"NaN\")", "false")]
-    [InlineData("Number.isSafeInteger(9007199254740992)", "false")]
-    [InlineData("Number.isSafeInteger(9007199254740991)", "true")]
-    [InlineData("isNaN(NaN)", "true")]
-    [InlineData("isNaN(\"12\")", "false")]
-    [InlineData("isNaN(\"nope\")", "true")]
-    [InlineData("isNaN()", "true")]
-    [InlineData("isFinite(\"12\")", "true")]
-    [InlineData("isFinite(\"1e400\")", "false")]
-    [InlineData("isFinite()", "false")]
-    [InlineData("Array.isArray([])", "true")]
-    [InlineData("Array.isArray(\"[]\")", "false")]
+    [TestCase("\"abcdef\".indexOf(\"cd\")", "2")]
+    [TestCase("\"abcdef\".indexOf(\"cd\", 3)", "-1")]
+    [TestCase("\"abcdef\".indexOf(\"\", 99)", "6")]
+    [TestCase("\"abcdef\".startsWith(\"ab\")", "true")]
+    [TestCase("\"abcdef\".startsWith(\"cd\", 2)", "true")]
+    [TestCase("\"abcdef\".startsWith(\"cd\", -1)", "false")]
+    [TestCase("\"abcdef\".endsWith(\"ef\")", "true")]
+    [TestCase("\"abcdef\".endsWith(\"cd\", 4)", "true")]
+    [TestCase("\"abcdef\".endsWith(\"ef\", 99)", "true")]
+    [TestCase("\"abcdef\".includes(\"cd\")", "true")]
+    [TestCase("\"abcdef\".includes(\"cd\", 3)", "false")]
+    [TestCase("\"abcdef\".includes(\"cd\", 1e10)", "false")]
+    [TestCase("\"abcdef\".at(1)", "b")]
+    [TestCase("\"abcdef\".at(-1)", "f")]
+    [TestCase("\"abcdef\".at()", "a")]
+    [TestCase("\"abcdef\".at(99)", "undefined")]
+    [TestCase("\"abcdef\".substr(1, 2)", "bc")]
+    [TestCase("\"abcdef\".substr(-2)", "ef")]
+    [TestCase("\"abcdef\".substr(2)", "cdef")]
+    [TestCase("Number.isFinite(1)", "true")]
+    [TestCase("Number.isFinite(Infinity)", "false")]
+    [TestCase("Number.isFinite(\"1\")", "false")]
+    [TestCase("Number.isInteger(1.5)", "false")]
+    [TestCase("Number.isInteger(2)", "true")]
+    [TestCase("Number.isNaN(NaN)", "true")]
+    [TestCase("Number.isNaN(\"NaN\")", "false")]
+    [TestCase("Number.isSafeInteger(9007199254740992)", "false")]
+    [TestCase("Number.isSafeInteger(9007199254740991)", "true")]
+    [TestCase("isNaN(NaN)", "true")]
+    [TestCase("isNaN(\"12\")", "false")]
+    [TestCase("isNaN(\"nope\")", "true")]
+    [TestCase("isNaN()", "true")]
+    [TestCase("isFinite(\"12\")", "true")]
+    [TestCase("isFinite(\"1e400\")", "false")]
+    [TestCase("isFinite()", "false")]
+    [TestCase("Array.isArray([])", "true")]
+    [TestCase("Array.isArray(\"[]\")", "false")]
     public void ANewlyLeafBuiltinGivesTheSameAnswerWarmAsCold(string expression, string expected)
     {
         var engine = new Engine();
@@ -687,7 +679,7 @@ public class FastCallLaneTests
     /// included. A body that started coercing would show up here as a <c>valueOf</c> that ran, and in
     /// a Debug build would have tripped the leaf audit first.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheNumberPredicatesAnswerAnObjectWithoutCoercingIt()
     {
         var engine = new Engine();
@@ -709,7 +701,7 @@ public class FastCallLaneTests
     /// and the site is warmed on the leaf branch first, so the declining call is made from the state
     /// the lane has to get right.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsArrayKeepsItsFrameForTheRevokedProxyItsGuardTurnsAway()
     {
         var engine = new Engine();
@@ -732,11 +724,10 @@ public class FastCallLaneTests
     /// still has to hold independently: a boxed or hosted receiver coerces through user code and must
     /// stay framed even when the argument is a plain number that satisfies its own guard.
     /// </summary>
-    [Theory]
-    [InlineData("charCodeAt", "1")]
-    [InlineData("charAt", "1")]
-    [InlineData("substring", "0, 2")]
-    [InlineData("slice", "0, 2")]
+    [TestCase("charCodeAt", "1")]
+    [TestCase("charAt", "1")]
+    [TestCase("substring", "0, 2")]
+    [TestCase("slice", "0, 2")]
     public void ADeclaredArgumentGuardDoesNotExcuseTheReceiverGuard(string method, string args)
     {
         var engine = new Engine();
@@ -760,12 +751,11 @@ public class FastCallLaneTests
     /// boolean, null, a symbol — fails them and must take the framed path with unchanged semantics,
     /// including the TypeError a symbol argument raises, which the frameless lane must never carry.
     /// </summary>
-    [Theory]
-    [InlineData("\"abcdef\".substring(\"2\")", "cdef")]
-    [InlineData("\"abcdef\".substring(true, \"3\")", "bc")]
-    [InlineData("\"abcdef\".slice(null, \"3\")", "abc")]
-    [InlineData("String(\"abc\".charCodeAt(\"1\"))", "98")]
-    [InlineData("\"abc\".charAt(false)", "a")]
+    [TestCase("\"abcdef\".substring(\"2\")", "cdef")]
+    [TestCase("\"abcdef\".substring(true, \"3\")", "bc")]
+    [TestCase("\"abcdef\".slice(null, \"3\")", "abc")]
+    [TestCase("String(\"abc\".charCodeAt(\"1\"))", "98")]
+    [TestCase("\"abc\".charAt(false)", "a")]
     public void NonConformingPrimitiveArgumentsKeepTheirSemanticsAtAWarmedSite(string expression, string expected)
     {
         var engine = new Engine();
@@ -774,18 +764,17 @@ public class FastCallLaneTests
         engine.Evaluate($"function g() {{ return {expression}; }} g(); g(); g();").AsString().Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("\"abc\".substring(p)")]
-    [InlineData("\"abc\".slice(0, p)")]
-    [InlineData("\"abc\".charCodeAt(p)")]
-    [InlineData("\"abc\".charAt(p)")]
-    [InlineData("\"abc\".at(p)")]
-    [InlineData("\"abc\".substr(p)")]
-    [InlineData("\"abc\".indexOf(p)")]
-    [InlineData("\"abc\".startsWith(p)")]
-    [InlineData("\"abc\".includes(\"b\", p)")]
-    [InlineData("isNaN(p)")]
-    [InlineData("isFinite(p)")]
+    [TestCase("\"abc\".substring(p)")]
+    [TestCase("\"abc\".slice(0, p)")]
+    [TestCase("\"abc\".charCodeAt(p)")]
+    [TestCase("\"abc\".charAt(p)")]
+    [TestCase("\"abc\".at(p)")]
+    [TestCase("\"abc\".substr(p)")]
+    [TestCase("\"abc\".indexOf(p)")]
+    [TestCase("\"abc\".startsWith(p)")]
+    [TestCase("\"abc\".includes(\"b\", p)")]
+    [TestCase("isNaN(p)")]
+    [TestCase("isFinite(p)")]
     public void ASymbolArgumentStillRaisesACatchableTypeErrorAtAWarmedSite(string call)
     {
         var engine = new Engine();
@@ -806,24 +795,23 @@ public class FastCallLaneTests
     /// here would change answer if the two argument registers were passed through padded, and each
     /// is asserted cold and warm because only the warm run reaches the lane.
     /// </summary>
-    [Theory]
-    [InlineData("Math.max()", "-Infinity")]
-    [InlineData("Math.max(undefined)", "NaN")]
-    [InlineData("Math.max(1)", "1")]
-    [InlineData("Math.max(1, 2)", "2")]
-    [InlineData("Math.max(1, 2, 3)", "3")]
-    [InlineData("Math.min()", "Infinity")]
-    [InlineData("Math.min(undefined)", "NaN")]
-    [InlineData("Math.min(4, 2)", "2")]
-    [InlineData("Math.hypot()", "0")]
-    [InlineData("Math.hypot(3, 4)", "5")]
-    [InlineData("[].push()", "0")]
-    [InlineData("[].push(undefined)", "1")]
-    [InlineData("[].push(1, 2)", "2")]
-    [InlineData("[].push(1, 2, 3)", "3")]
-    [InlineData("\"a\".concat()", "a")]
-    [InlineData("\"a\".concat(undefined)", "aundefined")]
-    [InlineData("\"a\".concat(\"b\", \"c\")", "abc")]
+    [TestCase("Math.max()", "-Infinity")]
+    [TestCase("Math.max(undefined)", "NaN")]
+    [TestCase("Math.max(1)", "1")]
+    [TestCase("Math.max(1, 2)", "2")]
+    [TestCase("Math.max(1, 2, 3)", "3")]
+    [TestCase("Math.min()", "Infinity")]
+    [TestCase("Math.min(undefined)", "NaN")]
+    [TestCase("Math.min(4, 2)", "2")]
+    [TestCase("Math.hypot()", "0")]
+    [TestCase("Math.hypot(3, 4)", "5")]
+    [TestCase("[].push()", "0")]
+    [TestCase("[].push(undefined)", "1")]
+    [TestCase("[].push(1, 2)", "2")]
+    [TestCase("[].push(1, 2, 3)", "3")]
+    [TestCase("\"a\".concat()", "a")]
+    [TestCase("\"a\".concat(undefined)", "aundefined")]
+    [TestCase("\"a\".concat(\"b\", \"c\")", "abc")]
     public void AVariadicBuiltinSeesTheSitesRealArity(string expression, string expected)
     {
         var engine = new Engine();
@@ -836,7 +824,7 @@ public class FastCallLaneTests
     /// A spread makes the arity dynamic, which is precisely what the lane cannot serve, so such a
     /// site must never take it — and must keep giving the right answer.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASpreadArgumentListStaysOffTheVariadicLane()
     {
         var engine = new Engine();
@@ -858,10 +846,9 @@ public class FastCallLaneTests
     /// <c>error.stack</c> must survive — at a warmed site, which is the only place the leaf branch
     /// is reachable from.
     /// </summary>
-    [Theory]
-    [InlineData("Math.max(1, p)", "max")]
-    [InlineData("Math.min(p, 1)", "min")]
-    [InlineData("Math.hypot(p)", "hypot")]
+    [TestCase("Math.max(1, p)", "max")]
+    [TestCase("Math.min(p, 1)", "min")]
+    [TestCase("Math.hypot(p)", "hypot")]
     public void AWarmedVariadicSiteKeepsTheBuiltinFrameWhenAnElementCoercesThroughUserCode(string call, string builtin)
     {
         var engine = new Engine();
@@ -881,7 +868,7 @@ public class FastCallLaneTests
     /// an arbitrary array-like, so a setter or a proxy trap is user code that needs the frame — and
     /// its exceptions must stay catchable.
     /// </summary>
-    [Fact]
+    [Test]
     public void PushKeepsItsFrameAndItsSemanticsForExoticReceivers()
     {
         var engine = new Engine();
@@ -918,7 +905,7 @@ public class FastCallLaneTests
     /// Sanity for the annotation sweep: each newly lane-eligible built-in must give the same answer
     /// warm as cold, including the receiver TypeError its brand check raises.
     /// </summary>
-    [Fact]
+    [Test]
     public void NewlyLaneEligibleBuiltinsAgreeWarmAndCold()
     {
         var engine = new Engine();
@@ -959,25 +946,24 @@ public class FastCallLaneTests
     /// explicit <c>undefined</c> become indistinguishable inside the body. Each pair below must therefore
     /// already agree — and each is checked cold as well as warm, since only the warm call takes the lane.
     /// </summary>
-    [Theory]
-    [InlineData("\"abcdef\".includes(\"cd\")", "true")]
-    [InlineData("\"abcdef\".includes(\"cd\", undefined)", "true")]
-    [InlineData("\"abcdef\".includes(\"cd\", 3)", "false")]
-    [InlineData("\"abcdef\".endsWith(\"ef\")", "true")]
-    [InlineData("\"abcdef\".endsWith(\"ef\", undefined)", "true")]
-    [InlineData("\"abcdef\".endsWith(\"cd\", 4)", "true")]
-    [InlineData("String([1,2,3].indexOf(2))", "1")]
-    [InlineData("String([1,2,3].indexOf(2, undefined))", "1")]
-    [InlineData("String([1,2,3].indexOf(2, 2))", "-1")]
-    [InlineData("String([1,2,3].some(function (v) { return v === 2; }))", "true")]
-    [InlineData("String([1,2,3].some(function (v) { return v === 2; }, undefined))", "true")]
-    [InlineData("String([1,2,3].find(function (v) { return v === 2; }))", "2")]
-    [InlineData("String([1,2,3].find(function (v) { return v === 2; }, undefined))", "2")]
-    [InlineData("String([1,2,3].findIndex(function (v) { return v === 2; }))", "1")]
-    [InlineData("String([1,2,3].findIndex(function (v) { return v === 2; }, undefined))", "1")]
-    [InlineData("(255).toString()", "255")]
-    [InlineData("(255).toString(undefined)", "255")]
-    [InlineData("(255).toString(16)", "ff")]
+    [TestCase("\"abcdef\".includes(\"cd\")", "true")]
+    [TestCase("\"abcdef\".includes(\"cd\", undefined)", "true")]
+    [TestCase("\"abcdef\".includes(\"cd\", 3)", "false")]
+    [TestCase("\"abcdef\".endsWith(\"ef\")", "true")]
+    [TestCase("\"abcdef\".endsWith(\"ef\", undefined)", "true")]
+    [TestCase("\"abcdef\".endsWith(\"cd\", 4)", "true")]
+    [TestCase("String([1,2,3].indexOf(2))", "1")]
+    [TestCase("String([1,2,3].indexOf(2, undefined))", "1")]
+    [TestCase("String([1,2,3].indexOf(2, 2))", "-1")]
+    [TestCase("String([1,2,3].some(function (v) { return v === 2; }))", "true")]
+    [TestCase("String([1,2,3].some(function (v) { return v === 2; }, undefined))", "true")]
+    [TestCase("String([1,2,3].find(function (v) { return v === 2; }))", "2")]
+    [TestCase("String([1,2,3].find(function (v) { return v === 2; }, undefined))", "2")]
+    [TestCase("String([1,2,3].findIndex(function (v) { return v === 2; }))", "1")]
+    [TestCase("String([1,2,3].findIndex(function (v) { return v === 2; }, undefined))", "1")]
+    [TestCase("(255).toString()", "255")]
+    [TestCase("(255).toString(undefined)", "255")]
+    [TestCase("(255).toString(16)", "ff")]
     public void AnAbsentOptionalArgumentMatchesAnExplicitUndefined(string expression, string expected)
     {
         var engine = new Engine();
@@ -991,7 +977,7 @@ public class FastCallLaneTests
     /// bodies had to be migrated off <c>JsCallArguments</c> to become lane-expressible. Callback-taking
     /// methods are included with a <c>thisArg</c>, since that is the second argument register.
     /// </summary>
-    [Fact]
+    [Test]
     public void MigratedLaneEligibleBuiltinsAgreeWarmAndCold()
     {
         var engine = new Engine();
@@ -1029,7 +1015,7 @@ public class FastCallLaneTests
     /// searched an empty prefix. test262 does not discriminate the two (its only <c>undefined</c> case
     /// uses an empty search string, which matches at any position).
     /// </summary>
-    [Fact]
+    [Test]
     public void EndsWithTreatsAnExplicitUndefinedEndPositionAsTheStringLength()
     {
         var engine = new Engine();
@@ -1051,7 +1037,7 @@ public class FastCallLaneTests
     /// itself on the infinity / signed-zero branches, which is only the same value when the argument
     /// was already a number.
     /// </summary>
-    [Fact]
+    [Test]
     public void F16RoundAlwaysReturnsANumber()
     {
         var engine = new Engine();
@@ -1071,7 +1057,7 @@ public class FastCallLaneTests
     /// A Prepared&lt;Script&gt; shares its handler tree across engines, so a call-site cache populated
     /// by one engine must never be honoured for another engine's built-in instances.
     /// </summary>
-    [Fact]
+    [Test]
     public void APreparedScriptReusedAcrossEnginesDoesNotLeakItsCachedCallee()
     {
         var prepared = Engine.PrepareScript("""
@@ -1092,7 +1078,7 @@ public class FastCallLaneTests
         first.Evaluate(prepared).AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsAreEvaluatedLeftToRightExactlyOnce()
     {
         var engine = new Engine();
@@ -1110,7 +1096,7 @@ public class FastCallLaneTests
     /// <summary>
     /// Spread cannot be served by a fixed-arity lane; it must fall through and stay correct.
     /// </summary>
-    [Fact]
+    [Test]
     public void SpreadArgumentsStillWork()
     {
         var engine = new Engine();
@@ -1122,7 +1108,7 @@ public class FastCallLaneTests
         result.AsString().Should().Be("bc,9");
     }
 
-    [Fact]
+    [Test]
     public void OptionalCallAndOptionalChainingStillWork()
     {
         var engine = new Engine();
@@ -1139,7 +1125,7 @@ public class FastCallLaneTests
     /// Generator frames suspend mid-argument-list, which requires ExpressionCache's resume buffer;
     /// the fast lane must decline there rather than evaluating arguments straight into locals.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArgumentsContainingYieldStillResumeCorrectly()
     {
         var engine = new Engine();
@@ -1157,7 +1143,7 @@ public class FastCallLaneTests
         result.Get("value").AsString().Should().Be("bcd");
     }
 
-    [Fact]
+    [Test]
     public void CallAndApplyAndBindAreUnaffected()
     {
         var engine = new Engine();
@@ -1170,7 +1156,7 @@ public class FastCallLaneTests
         result.AsString().Should().Be("97,98,99");
     }
 
-    [Fact]
+    [Test]
     public void ZeroArgumentDateGettersAgreeWithTheirFramedForm()
     {
         var engine = new Engine();
@@ -1189,7 +1175,7 @@ public class FastCallLaneTests
     /// A receiver of the wrong brand must still produce the spec TypeError, with the built-in's own
     /// frame present, rather than being silently served by a receiver-guarded fast path.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWrongBrandReceiverStillThrowsTypeError()
     {
         var engine = new Engine();

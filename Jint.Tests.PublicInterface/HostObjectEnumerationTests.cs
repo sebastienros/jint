@@ -24,9 +24,8 @@ public class HostObjectEnumerationTests
         return engine;
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void ExistenceChecksSeeExactlyTheProjectedProperties(bool overridesGet)
     {
         var engine = CreateEngineWithHost(overridesGet);
@@ -44,9 +43,8 @@ public class HostObjectEnumerationTests
         engine.Evaluate("host.propertyIsEnumerable('inheritedOnly')").Should().Be(false);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void ReflectionOverAHostObjectMatchesItsReads(bool overridesGet)
     {
         var engine = CreateEngineWithHost(overridesGet);
@@ -61,9 +59,8 @@ public class HostObjectEnumerationTests
             .Should().Be("alpha:1,beta:two,inheritedOnly:from-prototype");
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void CopyingAHostObjectProducesItsProjectedValues(bool overridesGet)
     {
         var engine = CreateEngineWithHost(overridesGet);

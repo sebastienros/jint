@@ -28,27 +28,27 @@ public class ReadableStreamTests
 
     private static JsValue Eval(string source) => StreamEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void ConstructsWithNoArgumentsAtAll()
     {
         Eval("new ReadableStream() instanceof ReadableStream").AsBoolean().Should().BeTrue();
         Eval("new ReadableStream(undefined, undefined).locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RefusesANonObjectUnderlyingSource()
     {
         // `optional object underlyingSource` is not nullable, so an explicit null is a TypeError while an
         // omitted argument is simply missing — https://webidl.spec.whatwg.org/#es-object.
         var engine = StreamEngine();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream(null)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream(null)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream(5)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream(5)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ConvertsTheStrategyBeforeTheUnderlyingSource()
     {
         // The strategy is a WebIDL dictionary and is converted at the IDL layer; the underlying source is
@@ -57,29 +57,29 @@ public class ReadableStreamTests
         engine.Execute("var e1 = new Error('source'); var e2 = new Error('strategy');");
 
         var error = Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-            "new ReadableStream({ get start() { throw e1; } }, { get size() { throw e2; } })"));
+            "new ReadableStream({ get start() { throw e1; } }, { get size() { throw e2; } })"))!;
 
         error.Error.Get("message").AsString().Should().Be("strategy");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnInvalidStreamType()
     {
         // "bytes" is the only value of the ReadableStreamType enumeration, and it builds a readable byte
         // stream (see ReadableByteStreamTests); anything else is the TypeError the enumeration conversion
         // raises — https://webidl.spec.whatwg.org/#es-enumeration.
         var engine = StreamEngine();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'nonsense' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream({ type: 'nonsense' })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Evaluate("new ReadableStream({ type: 'bytes' }) instanceof ReadableStream").AsBoolean().Should().BeTrue();
 
         // And a BYOB reader cannot be acquired from a stream that is not a byte stream.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream().getReader({ mode: 'byob' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new ReadableStream().getReader({ mode: 'byob' })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CallsStartSynchronouslyWithTheController()
     {
         var engine = StreamEngine();
@@ -93,19 +93,19 @@ public class ReadableStreamTests
         engine.Evaluate("Object.getPrototypeOf(seen).constructor.name").AsString().Should().Be("ReadableStreamDefaultController");
     }
 
-    [Fact]
+    [Test]
     public void RethrowsAnExceptionFromStart()
     {
         // start()'s return type is `any`, so its exception is not converted into a rejection —
         // "Any thrown exceptions will be re-thrown by the ReadableStream() constructor."
         var engine = StreamEngine();
         var error = Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-            "new ReadableStream({ start() { throw new Error('boom'); } })"));
+            "new ReadableStream({ start() { throw new Error('boom'); } })"))!;
 
         error.Error.Get("message").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ErrorsTheStreamWhenStartRejects()
     {
         var engine = StreamEngine();
@@ -117,7 +117,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("rejected:nope");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheChunksAnUnderlyingSourceEnqueued()
     {
         var engine = StreamEngine();
@@ -138,7 +138,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("a,b,done");
     }
 
-    [Fact]
+    [Test]
     public void ReadResultIsAPlainObjectWithValueAndDone()
     {
         var engine = StreamEngine();
@@ -154,7 +154,7 @@ public class ReadableStreamTests
         engine.Evaluate("Object.getPrototypeOf(result) === Object.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClosingLeavesAlreadyEnqueuedChunksReadable()
     {
         // "Consumers will still be able to read any previously-enqueued chunks from the stream, but once
@@ -172,7 +172,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("false,1:a:false,2:undefined:true,closed");
     }
 
-    [Fact]
+    [Test]
     public void EnqueueAndCloseThrowOnceCloseHasBeenRequested()
     {
         var engine = StreamEngine();
@@ -186,7 +186,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("close:TypeError,enqueue:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ErroringMakesEveryLaterInteractionFail()
     {
         var engine = StreamEngine();
@@ -200,7 +200,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("read:bad,closed:bad");
     }
 
-    [Fact]
+    [Test]
     public void ErrorOnAnAlreadyErroredStreamIsANoOp()
     {
         var engine = StreamEngine();
@@ -215,7 +215,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void DesiredSizeTracksTheQueueAgainstTheHighWaterMark()
     {
         var engine = StreamEngine();
@@ -233,7 +233,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("3,2,-1");
     }
 
-    [Fact]
+    [Test]
     public void DesiredSizeIsZeroWhenClosedAndNullWhenErrored()
     {
         var engine = StreamEngine();
@@ -249,7 +249,7 @@ public class ReadableStreamTests
         engine.Evaluate("b.desiredSize").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CallsPullOnceStartHasSettledAndTheQueueWantsMore()
     {
         var engine = StreamEngine();
@@ -266,7 +266,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("start,constructed,pull:2,pull:1");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotCallPullRepeatedlyForANoOpPull()
     {
         // "it will only be called repeatedly if it enqueues at least one chunk … a no-op pull()
@@ -279,7 +279,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("pull");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotCallPullAgainUntilItsPromiseFulfils()
     {
         var engine = StreamEngine();
@@ -305,7 +305,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("sync:true,pull,releasing,pull");
     }
 
-    [Fact]
+    [Test]
     public void ErrorsTheStreamWhenPullRejects()
     {
         var engine = StreamEngine();
@@ -317,7 +317,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("pull failed");
     }
 
-    [Fact]
+    [Test]
     public void APendingReadOutranksTheHighWaterMark()
     {
         // "If IsReadableStreamLocked(stream) is true and ReadableStreamGetNumReadRequests(stream) > 0,
@@ -332,7 +332,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("constructed,pull,read:x");
     }
 
-    [Fact]
+    [Test]
     public void HandsAChunkStraightToAWaitingReaderWithoutMeasuringIt()
     {
         // A chunk delivered to a pending read never enters the queue, so the strategy's size() is not called
@@ -352,7 +352,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("size:b,read:a");
     }
 
-    [Fact]
+    [Test]
     public void CallsTheStrategySizeOncePerQueuedChunk()
     {
         var engine = StreamEngine();
@@ -369,7 +369,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("size:a,size:bb,7");
     }
 
-    [Fact]
+    [Test]
     public void ErrorsTheStreamWhenTheStrategySizeThrows()
     {
         var engine = StreamEngine();
@@ -385,14 +385,14 @@ public class ReadableStreamTests
         Log(engine).Should().Be("threw:size failed,closed:size failed");
     }
 
-    [Fact]
+    [Test]
     public void RejectsANegativeOrNaNHighWaterMark()
     {
         var engine = StreamEngine();
 
         foreach (var value in new[] { "-1", "NaN", "'foo'" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ReadableStream({{}}, {{ highWaterMark: {value} }})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new ReadableStream({{}}, {{ highWaterMark: {value} }})"))!
                 .Error.Get("name").AsString().Should().Be("RangeError");
         }
 
@@ -400,14 +400,14 @@ public class ReadableStreamTests
         engine.Evaluate("new ReadableStream({}, { highWaterMark: Infinity }) instanceof ReadableStream").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LocksTheStreamForOneReaderAtATime()
     {
         var engine = StreamEngine();
         engine.Execute("var stream = new ReadableStream(); var reader = stream.getReader();");
 
         engine.Evaluate("stream.locked").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("reader.releaseLock();");
@@ -415,7 +415,7 @@ public class ReadableStreamTests
         engine.Evaluate("stream.getReader() !== reader").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReleasingTheLockRejectsOutstandingReadsAndKeepsTheChunks()
     {
         // "If the reader's lock is released while it still has pending read requests, then the promises
@@ -438,7 +438,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("closed:TypeError,read:TypeError,again:kept");
     }
 
-    [Fact]
+    [Test]
     public void AReleasedReaderRefusesEveryOperation()
     {
         var engine = StreamEngine();
@@ -454,7 +454,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("releaseLock:undefined,read:TypeError,cancel:TypeError,closed:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CancelClosesTheStreamAndTellsTheUnderlyingSource()
     {
         var engine = StreamEngine();
@@ -473,7 +473,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("cancel:because,read:undefined:true,fulfilled:undefined");
     }
 
-    [Fact]
+    [Test]
     public void CancelReportsAFailingUnderlyingSourceButStillCloses()
     {
         // "Even if the cancelation process fails, the stream will still close … The failure is only
@@ -488,7 +488,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("closed,cancel:cancel failed");
     }
 
-    [Fact]
+    [Test]
     public void CancelOnALockedStreamRejectsWithoutCancelling()
     {
         var engine = StreamEngine();
@@ -501,7 +501,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("cancel:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CancelIsAResolvedPromiseForAClosedStreamAndARejectionForAnErroredOne()
     {
         var engine = StreamEngine();
@@ -515,7 +515,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("closed:ok,errored:e");
     }
 
-    [Fact]
+    [Test]
     public void ReadFromInsidePullSeesTheChunkEnqueuedThere()
     {
         // Reentrancy: enqueueing from inside pull() while a read is outstanding is the ordinary case, and
@@ -544,7 +544,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("pull1,got1,pull2,got2,pull3,got3,done");
     }
 
-    [Fact]
+    [Test]
     public void EveryInterfaceObjectIsANonEnumerableGlobal()
     {
         var engine = StreamEngine();
@@ -573,7 +573,7 @@ public class ReadableStreamTests
             .AsString().Should().Be("ReadableStreamDefaultReader");
     }
 
-    [Fact]
+    [Test]
     public void TheReaderInterfaceObjectIsConstructibleWithAStream()
     {
         var engine = StreamEngine();
@@ -583,16 +583,16 @@ public class ReadableStreamTests
             """);
 
         // "This is equivalent to calling stream.getReader()", including the lock it takes.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor(stream)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor(stream)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("var fresh = new ReadableStream({ start(c) { c.enqueue('y'); } });");
         engine.Evaluate("new Ctor(fresh) && fresh.locked").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ControllerInterfaceObjectsAreNotConstructible()
     {
         var engine = StreamEngine();
@@ -601,11 +601,11 @@ public class ReadableStreamTests
             new ReadableStream({ start(c) { Ctor = Object.getPrototypeOf(c).constructor; } });
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void MembersCarryTheWebIdlShape()
     {
         var engine = StreamEngine();
@@ -624,7 +624,7 @@ public class ReadableStreamTests
         engine.Evaluate("typeof Object.getOwnPropertyDescriptor(ReadableStream.prototype, 'locked').get").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void EveryMemberBrandChecksItsReceiver()
     {
         var engine = StreamEngine();
@@ -639,15 +639,15 @@ public class ReadableStreamTests
         // … while everything else throws.
         foreach (var member in new[] { "getReader", "tee", "values" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"ReadableStream.prototype.{member}.call({{}})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"ReadableStream.prototype.{member}.call({{}})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", member);
         }
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(ReadableStream.prototype, 'locked').get.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(ReadableStream.prototype, 'locked').get.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void FromAcceptsSyncAndAsyncIterables()
     {
         var engine = StreamEngine();
@@ -673,19 +673,19 @@ public class ReadableStreamTests
         Log(engine).Should().Be("array:a,array:b,array:done,set:c,set:done,gen:d,gen:done,promise:e,promise:done");
     }
 
-    [Fact]
+    [Test]
     public void FromRefusesEverythingThatIsNotAnObject()
     {
         var engine = StreamEngine();
 
         foreach (var value in new[] { "null", "undefined", "0", "true", "'ab'", "Symbol()", "{}", "{ [Symbol.iterator]: 42 }", "{ [Symbol.iterator]: () => 42 }" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"ReadableStream.from({value})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"ReadableStream.from({value})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", value);
         }
     }
 
-    [Fact]
+    [Test]
     public void FromIgnoresTheSyncIteratorWhenAnAsyncOneExists()
     {
         var engine = StreamEngine();
@@ -700,7 +700,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("async,threw:stop");
     }
 
-    [Fact]
+    [Test]
     public void FromCallsReturnOnTheIteratorWhenTheStreamIsCancelled()
     {
         var engine = StreamEngine();
@@ -720,7 +720,7 @@ public class ReadableStreamTests
         Log(engine).Should().Be("return:bye,cancelled");
     }
 
-    [Fact]
+    [Test]
     public void FromOnlyAdvancesTheIteratorWhenAConsumerAsks()
     {
         // ReadableStreamFromIterable creates its stream with a high water mark of 0.

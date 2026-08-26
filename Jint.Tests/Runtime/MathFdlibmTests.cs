@@ -66,7 +66,7 @@ public class MathFdlibmTests
     // The eight values from the bug report: every one of them used to be catastrophically wrong.
     // ---------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AcoshDoesNotOverflowOnLargeArguments()
     {
         // was Infinity, because x*x overflows for x >= ~1.34e154
@@ -77,7 +77,7 @@ public class MathFdlibmTests
         UlpDistance(Eval("Math.acosh(1e300)"), 691.4686750787737).Should().BeLessThanOrEqualTo(1);
     }
 
-    [Fact]
+    [Test]
     public void AsinhDoesNotOverflowOnLargeArguments()
     {
         // was Infinity
@@ -85,7 +85,7 @@ public class MathFdlibmTests
         UlpDistance(Eval("Math.asinh(1e300)"), 691.4686750787737).Should().BeLessThanOrEqualTo(1);
     }
 
-    [Fact]
+    [Test]
     public void SmallArgumentsAreNotFlushedToZero()
     {
         // all four were 0
@@ -95,14 +95,14 @@ public class MathFdlibmTests
         ShouldBeExactly(Eval("Math.log1p(1e-300)"), 1e-300, "Math.log1p(1e-300)");
     }
 
-    [Fact]
+    [Test]
     public void Log1pIsAccurateNearZero()
     {
         // was 1.110223024625156e-15, an 11% error
         ShouldBeExactly(Eval("Math.log1p(1e-15)"), 9.999999999999995e-16, "Math.log1p(1e-15)");
     }
 
-    [Fact]
+    [Test]
     public void CbrtIsNotComputedThroughPow()
     {
         // was 1.0000000000000128e-100, some 58 ULP out
@@ -113,33 +113,27 @@ public class MathFdlibmTests
     // Ordinary values, domain edges and every special case ECMA-262 21.3.2 fixes.
     // ---------------------------------------------------------------------------------------
 
-    [Theory]
-    [MemberData(nameof(AcoshValues))]
+    [TestCaseSource(nameof(AcoshValues))]
     public void Acosh(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.acosh({argument})"), expected, $"Math.acosh({argument})");
 
-    [Theory]
-    [MemberData(nameof(AsinhValues))]
+    [TestCaseSource(nameof(AsinhValues))]
     public void Asinh(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.asinh({argument})"), expected, $"Math.asinh({argument})");
 
-    [Theory]
-    [MemberData(nameof(AtanhValues))]
+    [TestCaseSource(nameof(AtanhValues))]
     public void Atanh(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.atanh({argument})"), expected, $"Math.atanh({argument})");
 
-    [Theory]
-    [MemberData(nameof(CbrtValues))]
+    [TestCaseSource(nameof(CbrtValues))]
     public void Cbrt(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.cbrt({argument})"), expected, $"Math.cbrt({argument})");
 
-    [Theory]
-    [MemberData(nameof(Expm1Values))]
+    [TestCaseSource(nameof(Expm1Values))]
     public void Expm1(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.expm1({argument})"), expected, $"Math.expm1({argument})");
 
-    [Theory]
-    [MemberData(nameof(Log1pValues))]
+    [TestCaseSource(nameof(Log1pValues))]
     public void Log1p(string argument, double expected)
         => ShouldBeExactly(Eval($"Math.log1p({argument})"), expected, $"Math.log1p({argument})");
 
@@ -148,33 +142,27 @@ public class MathFdlibmTests
     // excluded from nothing any more; this keeps a representative slice inside the unit suite.
     // ---------------------------------------------------------------------------------------
 
-    [Theory]
-    [MemberData(nameof(AcoshReferenceTable))]
+    [TestCaseSource(nameof(AcoshReferenceTable))]
     public void AcoshMatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.acosh", argument, expected, tolerance);
 
-    [Theory]
-    [MemberData(nameof(AsinhReferenceTable))]
+    [TestCaseSource(nameof(AsinhReferenceTable))]
     public void AsinhMatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.asinh", argument, expected, tolerance);
 
-    [Theory]
-    [MemberData(nameof(AtanhReferenceTable))]
+    [TestCaseSource(nameof(AtanhReferenceTable))]
     public void AtanhMatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.atanh", argument, expected, tolerance);
 
-    [Theory]
-    [MemberData(nameof(CbrtReferenceTable))]
+    [TestCaseSource(nameof(CbrtReferenceTable))]
     public void CbrtMatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.cbrt", argument, expected, tolerance);
 
-    [Theory]
-    [MemberData(nameof(Expm1ReferenceTable))]
+    [TestCaseSource(nameof(Expm1ReferenceTable))]
     public void Expm1MatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.expm1", argument, expected, tolerance);
 
-    [Theory]
-    [MemberData(nameof(Log1pReferenceTable))]
+    [TestCaseSource(nameof(Log1pReferenceTable))]
     public void Log1pMatchesTest262References(string argument, double expected, int tolerance)
         => ShouldBeNear("Math.log1p", argument, expected, tolerance);
 
@@ -196,7 +184,7 @@ public class MathFdlibmTests
     // at |x| = 1 because inverting cosh is arbitrarily ill-conditioned as x approaches 0 (cosh(0.2)
     // is 1.0200667..., where an eight-ULP round trip error is expected and test262 allows nine).
 
-    [Fact]
+    [Test]
     public void AcoshInvertsCosh()
         => AssertRoundTrip(
             """
@@ -215,7 +203,7 @@ public class MathFdlibmTests
             """,
             tolerance: 6);
 
-    [Fact]
+    [Test]
     public void AsinhInvertsSinh()
         => AssertRoundTrip(
             """
@@ -233,7 +221,7 @@ public class MathFdlibmTests
             """,
             tolerance: 4);
 
-    [Fact]
+    [Test]
     public void AtanhInvertsTanh()
         => AssertRoundTrip(
             """
@@ -247,7 +235,7 @@ public class MathFdlibmTests
             """,
             tolerance: 5);
 
-    [Fact]
+    [Test]
     public void CbrtInvertsCubing()
         => AssertRoundTrip(
             """
@@ -262,7 +250,7 @@ public class MathFdlibmTests
             """,
             tolerance: 2);
 
-    [Fact]
+    [Test]
     public void Expm1AndLog1pInvertEachOther()
         => AssertRoundTrip(
             """
@@ -297,7 +285,7 @@ public class MathFdlibmTests
         }
     }
 
-    public static TheoryData<string, double> AcoshValues =>
+    public static TestCases<string, double> AcoshValues =>
         new()
         {
             { "1.0", 0.0 },
@@ -335,7 +323,7 @@ public class MathFdlibmTests
             { "-Infinity", double.NaN },
         };
 
-    public static TheoryData<string, double> AsinhValues =>
+    public static TestCases<string, double> AsinhValues =>
         new()
         {
             { "0", 0.0 },
@@ -377,7 +365,7 @@ public class MathFdlibmTests
             { "-1e+300", -691.4686750787736 }, // 1 ULP from correctly rounded -691.4686750787737
         };
 
-    public static TheoryData<string, double> AtanhValues =>
+    public static TestCases<string, double> AtanhValues =>
         new()
         {
             { "0", 0.0 },
@@ -415,7 +403,7 @@ public class MathFdlibmTests
             { "NaN", double.NaN },
         };
 
-    public static TheoryData<string, double> CbrtValues =>
+    public static TestCases<string, double> CbrtValues =>
         new()
         {
             { "0", 0.0 },
@@ -456,7 +444,7 @@ public class MathFdlibmTests
             { "-1e+300", -1e+100 },
         };
 
-    public static TheoryData<string, double> Expm1Values =>
+    public static TestCases<string, double> Expm1Values =>
         new()
         {
             { "0", 0.0 },
@@ -511,7 +499,7 @@ public class MathFdlibmTests
             { "NaN", double.NaN },
         };
 
-    public static TheoryData<string, double> Log1pValues =>
+    public static TestCases<string, double> Log1pValues =>
         new()
         {
             { "0", 0.0 },
@@ -563,7 +551,7 @@ public class MathFdlibmTests
             { "NaN", double.NaN },
         };
 
-    public static TheoryData<string, double, int> AcoshReferenceTable =>
+    public static TestCases<string, double, int> AcoshReferenceTable =>
         new()
         {
             { "1.0000014305114746", 0.0016914556651292944, 9 },
@@ -586,7 +574,7 @@ public class MathFdlibmTests
             { "1875817529344", 28.953212876533797, 9 },
         };
 
-    public static TheoryData<string, double, int> AsinhReferenceTable =>
+    public static TestCases<string, double, int> AsinhReferenceTable =>
         new()
         {
             { "-497.181640625", -6.902103625349695, 1 },
@@ -609,7 +597,7 @@ public class MathFdlibmTests
             { "1581915832320", 28.78280496108106, 1 },
         };
 
-    public static TheoryData<string, double, int> AtanhReferenceTable =>
+    public static TestCases<string, double, int> AtanhReferenceTable =>
         new()
         {
             { "-0.9999983310699463", -6.998237084679027, 2 },
@@ -632,7 +620,7 @@ public class MathFdlibmTests
             { "1e-10", 1e-10, 2 },
         };
 
-    public static TheoryData<string, double, int> CbrtReferenceTable =>
+    public static TestCases<string, double, int> CbrtReferenceTable =>
         new()
         {
             { "Math.E", 1.3956124250860895, 3 },
@@ -643,7 +631,7 @@ public class MathFdlibmTests
             { "-1e-300", -1e-100, 1 },
         };
 
-    public static TheoryData<string, double, int> Expm1ReferenceTable =>
+    public static TestCases<string, double, int> Expm1ReferenceTable =>
         new()
         {
             { "-1.875817529344e-70", -1.875817529344e-70, 1 },
@@ -666,7 +654,7 @@ public class MathFdlibmTests
             { "216.85489905212918", 1.5096839294759775e+94, 34 },
         };
 
-    public static TheoryData<string, double, int> Log1pReferenceTable =>
+    public static TestCases<string, double, int> Log1pReferenceTable =>
         new()
         {
             { "1.875817529344e-70", 1.875817529344e-70, 1 },

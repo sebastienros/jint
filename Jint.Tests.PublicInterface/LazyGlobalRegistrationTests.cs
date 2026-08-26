@@ -14,7 +14,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class LazyGlobalRegistrationTests
 {
-    [Fact]
+    [Test]
     public void LazyGlobalIsNotMaterializedUntilRead()
     {
         var calls = 0;
@@ -34,7 +34,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void FactoryRunsOnFirstReadOnly()
     {
         var calls = 0;
@@ -57,7 +57,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TypeofDoesMaterializeButExistenceChecksDoNot()
     {
         var calls = 0;
@@ -76,7 +76,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SharedOptionsBuildOnePerEngine()
     {
         var calls = 0;
@@ -107,7 +107,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void OverwritingBeforeFirstReadStillWinsButDoesMaterializeOnce()
     {
         var calls = 0;
@@ -130,7 +130,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DeletingBeforeFirstReadSkipsTheFactory()
     {
         var calls = 0;
@@ -146,7 +146,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RedefiningBeforeFirstReadWins()
     {
         var calls = 0;
@@ -164,7 +164,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NonEnumerableNonConfigurableFlagsAreHonoured()
     {
         var engine = new Engine(options => options.AddLazyGlobal(
@@ -181,7 +181,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("locked = 'other'; locked").AsString().Should().Be("value");
     }
 
-    [Fact]
+    [Test]
     public void HostObjectFactoriesSeeAFullyBuiltEngine()
     {
         var engine = new Engine(options => options.AddLazyGlobal("api", e =>
@@ -194,7 +194,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("api.ok").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ManyLazyGlobalsCostNothingUntilUsed()
     {
         var built = 0;
@@ -216,7 +216,7 @@ public class LazyGlobalRegistrationTests
         built.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NullArgumentsAreRejected()
     {
         var options = new Options();
@@ -237,7 +237,7 @@ public class LazyGlobalRegistrationTests
     // already hold a resolved binding for that very name. Everything below the first two tests is the
     // same contract as above; those two are about the caches.
 
-    [Fact]
+    [Test]
     public void PostConstructionInstallIsSeenByASiteThatAlreadyFailedToResolveTheName()
     {
         var engine = new Engine();
@@ -255,7 +255,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate(script).AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionInstallReplacesAWarmedEagerGlobal()
     {
         var engine = new Engine();
@@ -277,7 +277,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate(memberRead).AsString().Should().Be("lazy");
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionInstallReplacesAWarmedBuiltinGlobal()
     {
         var engine = new Engine();
@@ -298,7 +298,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate(memberRead).AsString().Should().Be("shadowed");
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionFactoryRunsLazilyAndAtMostOnce()
     {
         var calls = 0;
@@ -320,7 +320,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionExistenceChecksDoNotMaterialize()
     {
         var calls = 0;
@@ -341,7 +341,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionFlagsAreHonoured()
     {
         var engine = new Engine();
@@ -352,7 +352,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("hidden").AsString().Should().Be("value");
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionFactoryMayCaptureEngineAffineState()
     {
         var engine = new Engine();
@@ -366,7 +366,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("context === globalThis.context").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionNullFactoryResultBecomesUndefinedRatherThanReRunning()
     {
         var calls = 0;
@@ -382,7 +382,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionInstallAfterACaptureIsRemovedByTheRestore()
     {
         var calls = 0;
@@ -403,7 +403,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RestoreReArmsAFactoryThatWasUnmaterializedAtCapture()
     {
         var calls = 0;
@@ -426,7 +426,7 @@ public class LazyGlobalRegistrationTests
         calls.Should().Be(2, "a restore returns the binding to its state at capture, where the factory had not run");
     }
 
-    [Fact]
+    [Test]
     public void PostConstructionNullArgumentsAreRejected()
     {
         var engine = new Engine();
@@ -436,7 +436,7 @@ public class LazyGlobalRegistrationTests
             .Should().Throw<System.ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void StatefulFactoryReceivesTheStateAndTheEngine()
     {
         var engine = new Engine();
@@ -449,7 +449,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("greeting").AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void StatefulFactoryIsStillLazyAndRunsAtMostOnce()
     {
         var box = new Box();
@@ -473,7 +473,7 @@ public class LazyGlobalRegistrationTests
         box.Calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StatefulFactoryNullResultBecomesUndefinedRatherThanReRunning()
     {
         var box = new Box();
@@ -493,7 +493,7 @@ public class LazyGlobalRegistrationTests
         box.Calls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StatefulRegistrationReplacesAnExistingGlobalLikeTheNonGenericOverload()
     {
         var engine = new Engine();
@@ -504,7 +504,7 @@ public class LazyGlobalRegistrationTests
         engine.Evaluate("name").AsString().Should().Be("lazy");
     }
 
-    [Fact]
+    [Test]
     public void StatefulNullArgumentsAreRejected()
     {
         var engine = new Engine();

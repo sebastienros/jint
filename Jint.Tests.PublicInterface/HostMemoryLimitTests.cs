@@ -34,7 +34,7 @@ public class HostMemoryLimitTests
     /// </summary>
     private static readonly TimeSpan LoaderWait = TimeSpan.FromMilliseconds(500);
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncCarriesAllocationBudgetAcrossAThreadHop()
     {
         var allocations = new List<byte[]>();
@@ -74,13 +74,13 @@ public class HostMemoryLimitTests
 
         gate.SetResult(true);
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
         threads.Should().HaveCount(2);
         threads[1].Should().NotBe(threads[0], "the thread that began the evaluation has already exited");
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncCarriesAllocationBudgetAcrossAThreadHop()
     {
         var allocations = new List<byte[]>();
@@ -104,11 +104,11 @@ public class HostMemoryLimitTests
 
         gate.SetResult(true);
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public async Task TransferredHostCallbackCountsAllocationsOnItsThread()
     {
         var allocations = new List<byte[]>();
@@ -133,11 +133,11 @@ public class HostMemoryLimitTests
         })
             .Should().NotThrow("a budget failure belongs on the returned task, whichever thread trips it");
 
-        var exception = await Record.ExceptionAsync(() => pending!);
+        var exception = await Caught.ExceptionAsync(() => pending!);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void NestedTransferredCallbacksKeepTheOuterMemoryOperation()
     {
         var allocations = new List<byte[]>();
@@ -152,7 +152,7 @@ public class HostMemoryLimitTests
             """)).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public async Task HostTaskTimeoutRemainsACatchablePromiseRejection()
     {
         var engine = new Engine(options => options.LimitMemory(SingleAllocationBudget));
@@ -173,7 +173,7 @@ public class HostMemoryLimitTests
         result.AsString().Should().Be("caught");
     }
 
-    [Fact]
+    [Test]
     public async Task AggregateTaskFaultPropagatesContainedMemoryFailure()
     {
         var allocations = new List<byte[]>();
@@ -195,11 +195,11 @@ public class HostMemoryLimitTests
             """);
 
         gate.SetResult(true);
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public async Task PromiseContinuationRetainsItsOriginatingBudgetWhenPumpedOnAnotherThread()
     {
         var allocations = new List<byte[]>();
@@ -242,7 +242,7 @@ public class HostMemoryLimitTests
         failure.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void PendingPureJsReactionRetainsItsRegistrationBudgetAcrossHostEntries()
     {
         var allocations = new List<byte[]>();
@@ -262,7 +262,7 @@ public class HostMemoryLimitTests
     }
 
 #if NET8_0_OR_GREATER
-    [Fact]
+    [Test]
     public void TimerCallbackRetainsItsRegistrationBudget()
     {
         var allocations = new List<byte[]>();
@@ -280,7 +280,7 @@ public class HostMemoryLimitTests
         Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void AnIntervalStartsAFreshBudgetOnEveryTick()
     {
         var allocations = new List<byte[]>();
@@ -305,7 +305,7 @@ public class HostMemoryLimitTests
         allocations.Should().HaveCount(10);
     }
 
-    [Fact]
+    [Test]
     public void TimerAllocationLimitOutranksItsJavaScriptError()
     {
         var allocations = new List<byte[]>();
@@ -322,7 +322,7 @@ public class HostMemoryLimitTests
         Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void PersistentEventDeliveryStartsAFreshOrdinaryBudget()
     {
         var broker = new BroadcastChannelBroker();
@@ -346,7 +346,7 @@ public class HostMemoryLimitTests
         Invoking(listener.Tasks.ProcessTasks).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void NestedIdleCallbackRetainsItsRegistrationBudgetAcrossPumps()
     {
         var allocations = new List<byte[]>();
@@ -364,7 +364,7 @@ public class HostMemoryLimitTests
         Invoking(engine.Tasks.ProcessTasks).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void SchedulerTasksKeepTheirIndividualRegistrationBudgets()
     {
         var allocations = new List<byte[]>();
@@ -382,7 +382,7 @@ public class HostMemoryLimitTests
     }
 #endif
 
-    [Fact]
+    [Test]
     public void AsyncModuleBuildAndEvaluationRetainTheLoadBudgetAcrossAThreadHop()
     {
         var allocations = new List<byte[]>();
@@ -404,7 +404,7 @@ public class HostMemoryLimitTests
         failure.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public async Task SynchronousImportDoesNotChargeAsyncLoaderWaitToExecutionTimeout()
     {
         var loader = new DelayedModuleLoader(() => { });
@@ -434,7 +434,7 @@ public class HostMemoryLimitTests
         await import;
     }
 
-    [Fact]
+    [Test]
     public async Task AllocationsWhileAnAsyncOperationIsSuspendedAreNotCharged()
     {
         var allocations = new List<byte[]>();
@@ -453,7 +453,7 @@ public class HostMemoryLimitTests
         (await pending).AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AFinalHostCallbackCannotAllocatePastTheLimitUnobserved()
     {
         var allocations = new List<byte[]>();
@@ -463,7 +463,7 @@ public class HostMemoryLimitTests
         Invoking(() => engine.Evaluate("allocate()")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void AllocationLimitOutranksAnOrdinaryExceptionalExit()
     {
         var engine = new Engine(options => options.LimitMemory(1_000_000));
@@ -472,7 +472,7 @@ public class HostMemoryLimitTests
             .Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ShadowRealmEvaluationStartsAnAccountedOperation()
     {
         var allocations = new List<byte[]>();
@@ -484,7 +484,7 @@ public class HostMemoryLimitTests
             .Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void DirectScriptAccessorInvocationStartsAnAccountedOperation()
     {
         var allocations = new List<byte[]>();
@@ -495,7 +495,7 @@ public class HostMemoryLimitTests
         Invoking(() => target.Get("value")).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void DirectAccessorMemoryTeardownDoesNotMaskAStatementFailure()
     {
         var engine = new Engine(options =>
@@ -518,7 +518,7 @@ public class HostMemoryLimitTests
         Invoking(() => target.Get("value")).Should().ThrowExactly<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void DirectAccessorMemoryTeardownDoesNotMaskACustomConstraintFailure()
     {
         var custom = new ThrowOnSecondCheckConstraint();
@@ -541,7 +541,7 @@ public class HostMemoryLimitTests
             .WithMessage("custom constraint");
     }
 
-    [Fact]
+    [Test]
     public void AnExceededCompletedOperationIsNotReplayedByAnIdleCheck()
     {
         var allocations = new List<byte[]>();
@@ -552,7 +552,7 @@ public class HostMemoryLimitTests
         Invoking(() => engine.Constraints.Check()).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void NestedEntriesShareTheOutermostEntryBudget()
     {
         var allocations = new List<byte[]>();
@@ -564,7 +564,7 @@ public class HostMemoryLimitTests
             .Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ReusedEngineGetsAFreshBudgetForEveryTopLevelEntry()
     {
         var allocations = new List<byte[]>();
@@ -575,7 +575,7 @@ public class HostMemoryLimitTests
         engine.Evaluate("allocate()");
     }
 
-    [Fact]
+    [Test]
     public void BeginAndEndProvideAnOperationDeadlineStyleMultiEntryBudget()
     {
         var allocations = new List<byte[]>();
@@ -599,7 +599,7 @@ public class HostMemoryLimitTests
         engine.Evaluate("allocate()");
     }
 
-    [Fact]
+    [Test]
     public async Task OutstandingAsyncOperationOwnsTheMemoryScopeAndCarriesItsBudget()
     {
         var allocations = new List<byte[]>();
@@ -624,7 +624,7 @@ public class HostMemoryLimitTests
                 .WithMessage(ConcurrentUseMessage);
 
             gate.SetResult(true);
-            var exception = await Record.ExceptionAsync(() => pending);
+            var exception = await Caught.ExceptionAsync(() => pending);
             exception.Should().BeOfType<MemoryLimitExceededException>();
         }
         finally
@@ -633,7 +633,7 @@ public class HostMemoryLimitTests
         }
     }
 
-    [Fact]
+    [Test]
     public async Task EveryMutableMemoryScopeSurfaceRejectsConcurrentHostAccess()
     {
         using var entered = new ManualResetEventSlim();
@@ -679,7 +679,7 @@ public class HostMemoryLimitTests
         constraint.IsOperationActive.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public async Task ImportAsyncTransfersOwnershipWithItsMemoryOperation()
     {
         var allocations = new List<byte[]>();
@@ -710,12 +710,12 @@ public class HostMemoryLimitTests
 
         await Task.Run(() => loader.Complete("export const value = allocate();"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
         engine.Evaluate("1").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentStartImportFailsBeforeTouchingTheActiveMemoryScope()
     {
         using var entered = new ManualResetEventSlim();
@@ -756,7 +756,7 @@ public class HostMemoryLimitTests
         constraint.End();
     }
 
-    [Fact]
+    [Test]
     public void SameThreadCallbackCanInspectAndReenterTheActiveMemoryOperation()
     {
         var allocations = new List<byte[]>();
@@ -774,7 +774,7 @@ public class HostMemoryLimitTests
         observed.Should().BeGreaterThanOrEqualTo(AllocationSize);
     }
 
-    [Fact]
+    [Test]
     public void ReentrantNullStateJobCannotResetTheActiveOperation()
     {
         const int budget = 3_500_000;
@@ -808,7 +808,7 @@ public class HostMemoryLimitTests
             """)).Should().ThrowExactly<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ExceededOperationCannotRunItsNextQueuedCallback()
     {
         var allocations = new List<byte[]>();
@@ -826,7 +826,7 @@ public class HostMemoryLimitTests
         callbackRan.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AnEngineIsUsableAgainAfterAnAllocationFailureToreDownTheCycle()
     {
         var allocations = new List<byte[]>();
@@ -842,7 +842,7 @@ public class HostMemoryLimitTests
     }
 
 #if NET8_0_OR_GREATER
-    [Fact]
+    [Test]
     public void AnAllocationFailureDiscardsTheTimersTheFailedOperationScheduled()
     {
         var allocations = new List<byte[]>();
@@ -865,7 +865,7 @@ public class HostMemoryLimitTests
     }
 #endif
 
-    [Fact]
+    [Test]
     public async Task SharedOptionsCreateIsolatedMemoryAccountingPerEngine()
     {
         var options = new Options().LimitMemory(SingleAllocationBudget);
@@ -883,7 +883,7 @@ public class HostMemoryLimitTests
             Task.Run(() => second.Evaluate("allocate()")));
     }
 
-    [Fact]
+    [Test]
     public void ConstraintReportsItsAccountingAccuracyAndUsage()
     {
         MemoryLimitConstraint.Accuracy.Should().Be(MemoryLimitAccuracy.ExecutionThread);
@@ -901,7 +901,7 @@ public class HostMemoryLimitTests
         constraint.AllocatedBytes.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void MultipleMemoryConstraintsAreRejectedInsteadOfSilentlyDisablingOne()
     {
         var first = new MemoryLimitConstraint(1_000_000);
@@ -916,7 +916,7 @@ public class HostMemoryLimitTests
         new Engine(options).Constraints.Find<MemoryLimitConstraint>().Should().BeSameAs(first);
     }
 
-    [Fact]
+    [Test]
     public void ADirectMemoryConstraintInstanceCannotBeSharedAcrossEngines()
     {
         var constraint = new MemoryLimitConstraint(SingleAllocationBudget);

@@ -11,7 +11,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class SymbolRegistryTests
 {
-    [Fact]
+    [Test]
     public void KeyForAnswersForTheRegisteredSymbolOnly()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class SymbolRegistryTests
         result.Should().Be("""["moon",true,true,""]""");
     }
 
-    [Fact]
+    [Test]
     public void KeyForRejectsANonSymbolAndAWrappedSymbol()
     {
         var engine = new Engine();
@@ -45,7 +45,7 @@ public class SymbolRegistryTests
         result.Should().Be("[true,true,1]");
     }
 
-    [Fact]
+    [Test]
     public void ASymbolSharingADescriptionWithARegisteredOneCanStillBeHeldWeakly()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ public class SymbolRegistryTests
         result.Should().Be("[true,1]");
     }
 
-    [Fact]
+    [Test]
     public void ARegisteredSymbolCannotBeHeldWeakly()
     {
         var engine = new Engine();
@@ -82,7 +82,7 @@ public class SymbolRegistryTests
         result.Should().Be("[true,true,true,true]");
     }
 
-    [Fact]
+    [Test]
     public void SymbolForKeepsHandingBackTheSameSymbolForAKey()
     {
         var engine = new Engine();

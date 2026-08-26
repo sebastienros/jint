@@ -38,7 +38,7 @@ public class HostDictionaryEnumerationTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void ExistenceQuestionsAnswerFromTheDictionary()
     {
         var engine = CreateEngine(Document());
@@ -53,7 +53,7 @@ public class HostDictionaryEnumerationTests
         engine.Evaluate("doc.propertyIsEnumerable('missing')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void EnumerationSeesEveryKeyAndNothingElse()
     {
         var engine = CreateEngine(Document());
@@ -73,7 +73,7 @@ public class HostDictionaryEnumerationTests
     /// answering existence from a snapshot would go stale the moment the host mutates the target, so a key
     /// added or removed CLR-side between two questions has to be reflected by the next one.
     /// </summary>
-    [Fact]
+    [Test]
     public void KeysAddedAndRemovedHostSideAreSeenImmediately()
     {
         var document = Document();
@@ -94,7 +94,7 @@ public class HostDictionaryEnumerationTests
     /// A CLR member is still resolvable on a wrapped dictionary even though it does not enumerate, so a
     /// name the dictionary does not carry is not automatically absent.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClrMembersStayVisibleWithoutEnumerating()
     {
         var engine = CreateEngine(Document());
@@ -109,7 +109,7 @@ public class HostDictionaryEnumerationTests
     /// so it must be the dictionary's answer that existence and enumerability come from too — the key
     /// enumerates, where the CLR member of that name would not.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADictionaryKeyShadowingAClrMemberEnumerates()
     {
         var document = new Dictionary<string, object>(System.StringComparer.Ordinal) { ["Count"] = "shadow" };
@@ -124,7 +124,7 @@ public class HostDictionaryEnumerationTests
     /// A descriptor a script defined outranks the dictionary, so making a key non-enumerable has to remove
     /// it from every enumeration while leaving it present.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADefinedDescriptorOutranksTheDictionary()
     {
         var engine = CreateEngine(Document(), allowWrite: true);
@@ -141,7 +141,7 @@ public class HostDictionaryEnumerationTests
     /// The immutability promise memoizes a descriptor per key, which must not change any of the answers —
     /// it is a caching declaration, not a semantic one.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheImmutabilityPromiseDoesNotChangeAnyAnswer()
     {
         var engine = new Engine(options => options.AddImmutableCrossing(typeof(Dictionary<string, object>)));
@@ -161,7 +161,7 @@ public class HostDictionaryEnumerationTests
     /// A read-only dictionary reaches the same lane — <c>ContainsKey</c> is declared on
     /// <c>IReadOnlyDictionary&lt;,&gt;</c> too.
     /// </summary>
-    [Fact]
+    [Test]
     public void AReadOnlyDictionaryAnswersTheSameWay()
     {
         var engine = new Engine();
@@ -178,7 +178,7 @@ public class HostDictionaryEnumerationTests
     /// anything Jint keeps. The counter is the evidence: the existence questions must reach
     /// <c>ContainsKey</c> and must not have to produce the value.
     /// </summary>
-    [Fact]
+    [Test]
     public void ExistenceQuestionsAskTheTargetWithoutReadingValues()
     {
         var document = new CountingDictionary { ["a"] = 1d, ["b"] = 2d };
@@ -255,7 +255,7 @@ public class HostDictionaryEnumerationTests
     /// A non-string-keyed dictionary keeps the descriptor path for its keys — the lane is string-keyed —
     /// so this is the control that nothing about those answers moved.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANonStringKeyedDictionaryIsUnaffected()
     {
         var engine = new Engine();

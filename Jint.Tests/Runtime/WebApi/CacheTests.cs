@@ -54,7 +54,7 @@ public class CacheTests
     /// </summary>
     private static string Async(string body) => "(async () => {" + body + "})()";
 
-    [Fact]
+    [Test]
     public void PutAndMatchRoundTripTheWholeResponse()
     {
         var result = Run(Async("""
@@ -72,7 +72,7 @@ public class CacheTests
         result.AsString().Should().Be("201|Created|true|1|text/plain|hello");
     }
 
-    [Fact]
+    [Test]
     public void MatchAnswersUndefinedWhenNothingMatches()
     {
         Run(Async("""
@@ -82,7 +82,7 @@ public class CacheTests
             """)).AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AMatchedResponseCarriesImmutableHeaders()
     {
         // "Add a new Response object associated with response and a new Headers object whose guard is
@@ -101,7 +101,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PutReplacesAnEntryWithTheSameUrl()
     {
         // Batch Cache Operations' put arm: "set requestResponses to the result of running Query Cache with
@@ -116,7 +116,7 @@ public class CacheTests
             """)).AsString().Should().Be("1:second");
     }
 
-    [Fact]
+    [Test]
     public void PutConsumesTheResponseItWasGiven()
     {
         // "Let bodyReadPromise be the result of reading all bytes from reader" — the original is disturbed,
@@ -134,7 +134,7 @@ public class CacheTests
             """)).AsString().Should().Be("true|TypeError|hello");
     }
 
-    [Fact]
+    [Test]
     public void MatchAllAnswersEveryEntryInCacheOrder()
     {
         Run(Async("""
@@ -150,7 +150,7 @@ public class CacheTests
             """)).AsString().Should().Be("a,b,c");
     }
 
-    [Fact]
+    [Test]
     public void MatchAllKeepsVaryingEntriesApartAndInOrder()
     {
         // Two entries may share a URL when the cached responses vary by a header the two requests differ in;
@@ -186,7 +186,7 @@ public class CacheTests
             """)).AsString().Should().Be("first|second|undefined");
     }
 
-    [Fact]
+    [Test]
     public void MatchAllAndKeysAnswerFrozenArrays()
     {
         Run(Async("""
@@ -196,7 +196,7 @@ public class CacheTests
             """)).AsString().Should().Be("true:true");
     }
 
-    [Fact]
+    [Test]
     public void IgnoreSearchComparesUrlsWithoutTheirQuery()
     {
         var engine = CacheEngine();
@@ -225,7 +225,7 @@ public class CacheTests
             .AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AFragmentIsExcludedFromTheComparisonButKeptOnTheStoredRequest()
     {
         // "If queryURL does not equal cachedURL with the exclude fragment flag set" — matching ignores the
@@ -240,7 +240,7 @@ public class CacheTests
             """)).AsString().Should().Be("stored|https://example.org/a#one");
     }
 
-    [Fact]
+    [Test]
     public void IgnoreMethodDecidesWhetherANonGetQueryMatchesAnything()
     {
         var engine = CacheEngine();
@@ -271,7 +271,7 @@ public class CacheTests
             """)).AsString().Should().Be("stored|1");
     }
 
-    [Fact]
+    [Test]
     public void DeleteHonoursIgnoreMethodAndReportsWhetherAnythingWent()
     {
         var engine = CacheEngine();
@@ -299,7 +299,7 @@ public class CacheTests
             """)).AsString().Should().Be("false|1|true|0|false");
     }
 
-    [Fact]
+    [Test]
     public void PutRefusesANonGetRequest()
     {
         // "If innerRequest's url's scheme is not one of `http` and `https`, or innerRequest's method is not
@@ -315,7 +315,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError:0");
     }
 
-    [Fact]
+    [Test]
     public void PutRefusesANonHttpScheme()
     {
         Run(Async("""
@@ -329,7 +329,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PutRefusesAPartialResponseAndAVaryWildcard()
     {
         // Both refusals exist so that what a cache answers with later can be trusted: a 206 is a fragment of
@@ -351,7 +351,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError,TypeError,TypeError:0");
     }
 
-    [Fact]
+    [Test]
     public void PutRefusesAnAlreadyConsumedBody()
     {
         Run(Async("""
@@ -368,7 +368,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PutRefusesASecondArgumentThatIsNotAResponse()
     {
         Run(Async("""
@@ -378,7 +378,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void KeysAnswersTheStoredRequestsInCacheOrder()
     {
         Run(Async("""
@@ -392,7 +392,7 @@ public class CacheTests
             """)).AsString().Should().Be("https://example.org/b:GET,https://example.org/a:GET,https://example.org/c:GET");
     }
 
-    [Fact]
+    [Test]
     public void KeysNarrowsToOneRequestWhenGivenOne()
     {
         Run(Async("""
@@ -405,7 +405,7 @@ public class CacheTests
             """)).AsString().Should().Be("1:https://example.org/b");
     }
 
-    [Fact]
+    [Test]
     public void ARequestsHeadersSurviveTheRoundTrip()
     {
         Run(Async("""
@@ -417,7 +417,7 @@ public class CacheTests
             """)).AsString().Should().Be("1|2");
     }
 
-    [Fact]
+    [Test]
     public void CachesAreListedInCreationOrderAndDeletedByName()
     {
         Run(Async("""
@@ -435,7 +435,7 @@ public class CacheTests
             """)).AsString().Should().Be("0|v2,v1|true|false|true|false|v1");
     }
 
-    [Fact]
+    [Test]
     public void OpeningTheSameNameTwiceGivesTwoObjectsOverOneCache()
     {
         // "Resolve promise with a new Cache object that represents value" — a new object every time, over the
@@ -449,7 +449,7 @@ public class CacheTests
             """)).AsString().Should().Be("false:stored");
     }
 
-    [Fact]
+    [Test]
     public void ACacheKeepsWorkingAfterItsNameIsDeleted()
     {
         // The standard's own note: "the existing DOM objects … should remain functional".
@@ -463,7 +463,7 @@ public class CacheTests
             """)).AsString().Should().Be("false:stored");
     }
 
-    [Fact]
+    [Test]
     public void CachesMatchSearchesEveryCacheInCreationOrder()
     {
         Run(Async("""
@@ -483,7 +483,7 @@ public class CacheTests
             """)).AsString().Should().Be("from v1|only in v2");
     }
 
-    [Fact]
+    [Test]
     public void CachesMatchNarrowsToOneCacheByName()
     {
         Run(Async("""
@@ -500,7 +500,7 @@ public class CacheTests
             """)).AsString().Should().Be("from v2|undefined|v1,v2");
     }
 
-    [Fact]
+    [Test]
     public void CachesMatchAnswersUndefinedWhenNoCacheHoldsIt()
     {
         Run(Async("""
@@ -509,7 +509,7 @@ public class CacheTests
             """)).AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EveryOperationRejectsRatherThanThrows()
     {
         // Both interfaces are promise-returning throughout, so a brand-check failure and an argument that
@@ -537,7 +537,7 @@ public class CacheTests
             """)).AsString().Should().Be("brand:TypeError,storageBrand:TypeError,url:TypeError,options:TypeError,missing:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void NeitherInterfaceIsConstructible()
     {
         var engine = CacheEngine();
@@ -553,7 +553,7 @@ public class CacheTests
         engine.Evaluate("Object.prototype.toString.call(caches)").AsString().Should().Be("[object CacheStorage]");
     }
 
-    [Fact]
+    [Test]
     public void ACacheObjectHasTheShapeWebIdlDescribes()
     {
         var engine = CacheEngine();
@@ -569,7 +569,7 @@ public class CacheTests
             .AsString().Should().Be("1,1,1,1,0");
     }
 
-    [Fact]
+    [Test]
     public void InstallsTheCacheGlobalsBehindTheirOwnFlagOnly()
     {
         var engine = CacheEngine();
@@ -596,7 +596,7 @@ public class CacheTests
         engine.Evaluate("new ShadowRealm().evaluate('typeof caches')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void BringsTheObjectModelACacheIsMadeOfButNotFetch()
     {
         var engine = CacheEngine();
@@ -610,7 +610,7 @@ public class CacheTests
         engine.Evaluate("typeof fetch").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AddAndAddAllRejectWithoutTheFetchFeature()
     {
         var result = Run(Async("""
@@ -664,7 +664,7 @@ public class CacheTests
             }));
     }
 
-    [Fact]
+    [Test]
     public Task AddAllFetchesEveryRequestAndStoresThemAll() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -681,7 +681,7 @@ public class CacheTests
         handler.Requests.Should().BeEquivalentTo(["https://example.org/a", "https://example.org/b"]);
     });
 
-    [Fact]
+    [Test]
     public Task AddStoresTheOneResponseItFetched() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -693,7 +693,7 @@ public class CacheTests
             """)).AsString().Should().Be("body of https://example.org/a");
     });
 
-    [Fact]
+    [Test]
     public Task AddAllStoresNothingWhenAnyResponseIsNotOk() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -715,7 +715,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError:0");
     });
 
-    [Fact]
+    [Test]
     public Task AddAllStoresNothingWhenAResponseVariesByEverything() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -738,7 +738,7 @@ public class CacheTests
             """)).AsString().Should().Be("TypeError:0");
     });
 
-    [Fact]
+    [Test]
     public Task AddAllRefusesTwoRequestsThatMatchEachOther() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -755,7 +755,7 @@ public class CacheTests
             """)).AsString().Should().Be("InvalidStateError:0");
     });
 
-    [Fact]
+    [Test]
     public void AddAllRefusesANonHttpSchemeBeforeFetchingAnything()
     {
         var handler = new StubHandler();
@@ -773,7 +773,7 @@ public class CacheTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AddAllRefusesANonGetRequestObject()
     {
         var handler = new StubHandler();
@@ -787,7 +787,7 @@ public class CacheTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AddGoesThroughTheEnginesOwnFetchPolicy()
     {
         var handler = new StubHandler();
@@ -808,7 +808,7 @@ public class CacheTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AddAllWithNoRequestsResolvesWithoutFetchingAnything()
     {
         var handler = new StubHandler();
@@ -822,7 +822,7 @@ public class CacheTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AddAllRejectsForSomethingThatIsNotIterable()
     {
         var handler = new StubHandler();

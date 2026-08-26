@@ -21,7 +21,7 @@ public class AtomicsWaitAsyncPumpTests
 {
     private const string SharedInt32Array = "var i32a = new Int32Array(new SharedArrayBuffer(8));";
 
-    [Fact]
+    [Test]
     public void NothingButThePumpEverSettlesAFiniteTimeout()
     {
         // The structural proof that no Task is in the settlement path. The old timeout task did not need the
@@ -43,7 +43,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("outcome").AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public void ATimedOutWaitSettlesOnTheThreadThatPumped()
     {
         // The other half: the settlement runs as an ordinary event-loop job, so it runs wherever the host
@@ -57,7 +57,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("settledOn").AsNumber().Should().Be(pumpedOn, "the settlement is a job like any other, so it runs on the pumping thread");
     }
 
-    [Fact]
+    [Test]
     public void AMicrotaskSpinThatNeverEmptiesTheQueueStillSeesTheTimeout()
     {
         // The shape of test262's $262.agent.setTimeout polyfill, which is a promise chain rather than a real
@@ -84,7 +84,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("polls").AsNumber().Should().BeLessThan(500000, "the poll must have stopped because the wait settled, not because it gave up");
     }
 
-    [Fact]
+    [Test]
     public void ANotifyBeatsATimeoutThatHasNotElapsed()
     {
         var engine = new Engine();
@@ -101,7 +101,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("outcomes.join()").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void ATimeoutBeatsANotifyThatArrivesAfterIt()
     {
         var engine = new Engine();
@@ -120,7 +120,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("outcomes.join()").AsString().Should().Be("timed-out", "a promise settles exactly once");
     }
 
-    [Fact]
+    [Test]
     public void ManyWaitsOnOneIndexAllTimeOutInDeadlineOrder()
     {
         // The registry is a min-heap, so this is the pin that it orders and empties correctly: waits
@@ -152,7 +152,7 @@ public class AtomicsWaitAsyncPumpTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheBlockingUnwrapCompletesAShortTimeout()
     {
         // UnwrapIfPromise drives DrainEventLoopUntil, whose idle wait nothing wakes when a deadline passes —
@@ -165,7 +165,7 @@ public class AtomicsWaitAsyncPumpTests
         promise.UnwrapIfPromise(TestBudgets.WedgeCeiling).AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public async Task TheAsyncUnwrapCompletesAShortTimeout()
     {
         // The same for AwaitPromiseSettlementAsync, whose wait is bounded by the deadline instead.
@@ -175,7 +175,7 @@ public class AtomicsWaitAsyncPumpTests
         result.AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public void ARestoredEngineNeverSeesTheTimeoutOfAWaitTheEndedCycleRegistered()
     {
         var engine = new Engine();
@@ -192,7 +192,7 @@ public class AtomicsWaitAsyncPumpTests
         engine.Evaluate("outcome").AsString().Should().Be("pending", "a wait registered before the restore must not settle into the restored globals");
     }
 
-    [Fact]
+    [Test]
     public void AWaitAskingForNoTimeoutIsNeverSettledByThePump()
     {
         // An infinite wait registers no deadline at all, so nothing but Atomics.notify can end it. The

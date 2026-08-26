@@ -13,7 +13,7 @@ public class DestructuringTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
-    [Fact]
+    [Test]
     public void WithParameterStrings()
     {
         const string Script = @"
@@ -26,7 +26,7 @@ public class DestructuringTests
         _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void WithParameterObjectPrimitives()
     {
         const string Script = @"
@@ -39,7 +39,7 @@ public class DestructuringTests
         _engine.Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void WithParameterComputedProperties()
     {
         const string Script = @"
@@ -51,7 +51,7 @@ public class DestructuringTests
         _engine.Execute(Script);
     }
 
-    [Fact]
+    [Test]
     public void WithParameterFunctionLengthProperty()
     {
         _engine.Execute("equal(0, ((x = 42, y) => {}).length);");
@@ -60,19 +60,19 @@ public class DestructuringTests
         _engine.Execute("equal(2, function({a, b}, [c, d]){}.length);");
     }
 
-    [Fact]
+    [Test]
     public void WithNestedRest()
     {
         _engine.Execute("return function([x, ...[y, ...z]]) { equal(1, x); equal(2, y); equal('3,4', z + ''); }([1, 2, 3, 4]);");
     }
 
-    [Fact]
+    [Test]
     public void EmptyRest()
     {
         _engine.Execute("function test({ ...props }){}; test({});");
     }
 
-    [Fact]
+    [Test]
     public void ObjectRestFromPrimitiveCopiesOwnEnumerableProperties()
     {
         // RestBindingInitialization / RestDestructuringAssignmentEvaluation perform
@@ -90,7 +90,7 @@ public class DestructuringTests
         _engine.Evaluate("(function({ ...p }) { return JSON.stringify(p); })('ab')").AsString().Should().Be("""{"0":"a","1":"b"}""");
     }
 
-    [Fact]
+    [Test]
     public void VarDestructuringInForOfShouldHoistInStrictMode()
     {
         // Nested destructuring var names must be hoisted to function scope.
@@ -110,7 +110,7 @@ public class DestructuringTests
         result.AsString().Should().Be("4,5,6");
     }
 
-    [Fact]
+    [Test]
     public void VarObjectDestructuringInForOfShouldHoistInStrictMode()
     {
         var result = _engine.Evaluate("""
@@ -124,7 +124,7 @@ public class DestructuringTests
         result.AsString().Should().Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void VarDestructuringInForAwaitOfShouldHoistInStrictMode()
     {
         var engine = new Engine();
@@ -140,7 +140,7 @@ public class DestructuringTests
         result.AsInteger().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ComputedKeysEvaluateAnyExpressionType()
     {
         // TryGetComputedPropertyKey used to have a node-type allowlist with a silent Undefined
@@ -184,7 +184,7 @@ public class DestructuringTests
         result.AsString().Should().Be("3,4");
     }
 
-    [Fact]
+    [Test]
     public void FunctionShapedDefaultDoesNotClaimASuppliedNonFunction()
     {
         // The one-liner from the report: the initializer is syntactically a function, the supplied
@@ -223,7 +223,7 @@ public class DestructuringTests
     /// <c>DestructuringPatternAssignmentExpression.ProcessPatterns</c>. <c>#DEFAULT#</c> is the
     /// element carrying the initializer, <c>#VALUE#</c> the value the pattern is fed.
     /// </summary>
-    public static TheoryData<string> PatternShapes() =>
+    public static TestCases<string> PatternShapes() =>
     [
         "var { #DEFAULT# } = { a: #VALUE# }; describe(a)",
         "var [ #DEFAULT# ] = [ #VALUE# ]; describe(a)",
@@ -235,8 +235,7 @@ public class DestructuringTests
     private const string Describe =
         "function describe(v) { return typeof v === 'function' ? 'fn:' + v.name : typeof v + ':' + String(v); } ";
 
-    [Theory]
-    [MemberData(nameof(PatternShapes))]
+    [TestCaseSource(nameof(PatternShapes))]
     public void ADefaultIsOnlyNamedWhenTheDefaultIsWhatGotBound(string shape)
     {
         // NamedEvaluation applies when the initializer is an anonymous function definition *and* the
@@ -289,7 +288,7 @@ public class DestructuringTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NamedEvaluationOfADefaultFollowsTheBindingTarget()
     {
         // Expectations are node v24's. The bound name — not the source key — is what names the

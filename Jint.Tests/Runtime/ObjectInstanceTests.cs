@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime;
 
 public class ObjectInstanceTests
 {
-    [Fact]
+    [Test]
     public void KeysValuesEntriesCollectEnumerableStringKeys()
     {
         var engine = new Engine();
@@ -16,7 +16,7 @@ public class ObjectInstanceTests
         result.Should().Be("[[\"a\",\"b\"],[1,2],[[\"a\",1],[\"b\",2]]]");
     }
 
-    [Fact]
+    [Test]
     public void KeysValuesEntriesFilterNonEnumerableAndSymbolKeys()
     {
         var engine = new Engine();
@@ -31,7 +31,7 @@ public class ObjectInstanceTests
         result.Should().Be("[[\"a\",\"b\"],[1,4],2]");
     }
 
-    [Fact]
+    [Test]
     public void EntriesPairsAreRealArrays()
     {
         var engine = new Engine();
@@ -43,7 +43,7 @@ public class ObjectInstanceTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void KeysOnProxyConsultTraps()
     {
         var engine = new Engine();
@@ -59,7 +59,7 @@ public class ObjectInstanceTests
         result.Should().Be("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]");
     }
 
-    [Fact]
+    [Test]
     public void RemovingFirstPropertyFromObjectInstancePropertiesBucketAndEnumerating()
     {
         var engine = new Engine();
@@ -71,14 +71,13 @@ public class ObjectInstanceTests
         propertyNames.Should().Equal(new JsValue[] { "scope" });
     }
 
-    [Theory]
-    [InlineData("Array")]
-    [InlineData("Boolean")]
-    [InlineData("Date")]
-    [InlineData("Error")]
-    [InlineData("Number")]
-    [InlineData("Object")]
-    [InlineData("String")]
+    [TestCase("Array")]
+    [TestCase("Boolean")]
+    [TestCase("Date")]
+    [TestCase("Error")]
+    [TestCase("Number")]
+    [TestCase("Object")]
+    [TestCase("String")]
     public void ExtendingObjects(string baseType)
     {
         var code = $@"
@@ -94,7 +93,7 @@ public class ObjectInstanceTests
         engine.Evaluate(code).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldHavePrototypeInPlaceByDefault()
     {
         var engine = new Engine();

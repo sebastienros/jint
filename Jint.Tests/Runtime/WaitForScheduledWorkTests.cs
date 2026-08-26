@@ -1,7 +1,6 @@
 #nullable enable
 
 using System.Diagnostics;
-using Xunit.Sdk;
 
 namespace Jint.Tests.Runtime;
 
@@ -66,7 +65,7 @@ public class WaitForScheduledWorkTests
     /// An engine with nothing queued and nothing scheduled has nothing to report, so the wait spends its whole
     /// ceiling and answers <see langword="false"/> — and a zero ceiling answers it without waiting at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReturnsFalseOnTimeoutWhenNothingIsPending()
     {
         using var engine = new Engine();
@@ -83,7 +82,7 @@ public class WaitForScheduledWorkTests
     /// consulted, which a zero ceiling is what proves: it cannot block, so a <see langword="true"/> can only
     /// have come from there.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReturnsTrueImmediatelyWhenWorkIsAlreadyQueued()
     {
         using var engine = new Engine();
@@ -100,7 +99,7 @@ public class WaitForScheduledWorkTests
     /// The reason this API exists: a job enqueued from another thread has no due time, so nothing but a wake
     /// can tell a parked host about it.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task WakesOnACrossThreadEnqueue()
     {
         using var engine = new Engine();
@@ -144,7 +143,7 @@ public class WaitForScheduledWorkTests
     /// cancel, so the only interval measured is the one being asserted about.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task ThrowsOperationCanceledOnTheToken()
     {
         using var engine = new Engine();
@@ -195,7 +194,7 @@ public class WaitForScheduledWorkTests
     /// claim that beats it. That class documents the whole of it.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task AParkedWaitOwnsTheEngineForItsWholeDuration()
     {
         using var engine = new Engine();
@@ -221,7 +220,7 @@ public class WaitForScheduledWorkTests
     /// The wait is a guarded entry like any other, so an engine another thread is already using refuses it —
     /// both forms, and the asynchronous one before a <see cref="Task"/> exists at all.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ASecondThreadWaitingIsRefused()
     {
         using var entered = new ManualResetEventSlim();
@@ -258,7 +257,7 @@ public class WaitForScheduledWorkTests
     /// The asynchronous form times out the same way, and gives the engine back — the reservation it holds
     /// across the await is released when the task completes, not left behind to refuse the host's next call.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ReturnsFalseOnTimeoutWhenNothingIsPendingAsync()
     {
         using var engine = new Engine();
@@ -272,7 +271,7 @@ public class WaitForScheduledWorkTests
     /// <summary>
     /// The asynchronous form's pre-check, proved the same way: a zero ceiling cannot wait.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ReturnsTrueImmediatelyWhenWorkIsAlreadyQueuedAsync()
     {
         using var engine = new Engine();
@@ -290,7 +289,7 @@ public class WaitForScheduledWorkTests
     /// entry while it is outstanding, so the producer's handshake below is what an owned engine looks like from
     /// the other side.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task WakesOnACrossThreadEnqueueAsync()
     {
         using var engine = new Engine();
@@ -348,7 +347,7 @@ public class WaitForScheduledWorkTests
                 // Deliberately not `await running`: that throws whatever stopped the call and loses the
                 // sentence saying what was being waited for, which is what a reader needs first.
                 var failure = running.Exception?.GetBaseException();
-                throw new XunitException(
+                throw new AssertionException(
                     "the owning call returned without ever entering block(): "
                     + (failure is null ? "it returned normally" : $"it failed with {failure.GetType().Name}: {failure.Message}"),
                     failure);
@@ -356,7 +355,7 @@ public class WaitForScheduledWorkTests
 
             if (elapsed.Elapsed > WedgeCeiling)
             {
-                throw new XunitException($"the owning thread did not enter block() within {WedgeCeiling}");
+                throw new AssertionException($"the owning thread did not enter block() within {WedgeCeiling}");
             }
         }
     }

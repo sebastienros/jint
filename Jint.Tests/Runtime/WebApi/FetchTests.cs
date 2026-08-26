@@ -120,7 +120,7 @@ public class FetchTests
         return WebEngine(handler, configure).Evaluate(source).UnwrapIfPromise(TransportSignalCeiling);
     }
 
-    [Fact]
+    [Test]
     public Task ResolvesWithAResponseCarryingTheStatusAndBody() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -138,7 +138,7 @@ public class FetchTests
         engine.Evaluate("fetch('https://example.org/a').then(r => r.text())").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("hello");
     });
 
-    [Fact]
+    [Test]
     public void SendsTheMethodHeadersAndBodyTheRequestDescribes()
     {
         var handler = new StubHandler();
@@ -160,7 +160,7 @@ public class FetchTests
     /// A <c>ReadableStream</c> body is streamed to the wire — the standard's <c>duplex: 'half'</c> — and
     /// arrives as the bytes the stream produced, chunked because nothing can compute its length in advance.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AStreamRequestBodyReachesTheTransport() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -189,7 +189,7 @@ public class FetchTests
     /// <c>duplex</c> is a <c>TypeError</c>, which <c>fetch</c> turns into a rejection rather than a throw
     /// because the whole of its synchronous half does.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStreamRequestBodyWithoutDuplexRejects()
     {
         var handler = new StubHandler();
@@ -209,7 +209,7 @@ public class FetchTests
     /// so what the promise rejects with is the one network-error <c>TypeError</c> — not the stream's own
     /// error, which a buffered upload would have propagated verbatim.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AStreamRequestBodyThatErrorsFailsTheFetch() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -227,7 +227,7 @@ public class FetchTests
     /// request's body is non-null, and request's body's source is null, then return a network error." The
     /// bytes have gone down the first hop's socket and cannot go down a second one.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AStreamRequestBodyCannotSurviveABodyPreservingRedirect() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -260,7 +260,7 @@ public class FetchTests
     /// A 303 is the exemption the step above carves out: it drops the body along with the method, so there
     /// is nothing left to re-send and the redirect is followed as it would be for any other body.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AStreamRequestBodyFollowsA303ThatDropsIt() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -290,7 +290,7 @@ public class FetchTests
         handler.Requests[1].Body.Should().BeNull();
     });
 
-    [Fact]
+    [Test]
     public void MapsEveryResponseHeaderIncludingRepeatedOnes()
     {
         var handler = new StubHandler
@@ -318,7 +318,7 @@ public class FetchTests
         engine.Evaluate("h.get('content-type')").AsString().Should().StartWith("text/plain");
     }
 
-    [Fact]
+    [Test]
     public void RejectsRatherThanThrowsForAnUnparsableUrl()
     {
         var handler = new StubHandler();
@@ -331,7 +331,7 @@ public class FetchTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void RejectsForAPreAbortedSignalWithItsOwnReason()
     {
         var handler = new StubHandler();
@@ -347,7 +347,7 @@ public class FetchTests
         handler.Requests.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void FollowsARedirectAndReportsTheFinalUrl()
     {
         var handler = Redirecting("https://example.org/b");
@@ -360,7 +360,7 @@ public class FetchTests
         handler.Requests[1].Url.Should().Be("https://example.org/b");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesARelativeLocationAgainstTheUrlThatSentIt()
     {
         var handler = Redirecting("/b?q");
@@ -369,7 +369,7 @@ public class FetchTests
             .AsString().Should().Be("https://example.org/b?q");
     }
 
-    [Fact]
+    [Test]
     public void RewritesPostToGetOnA303AndDropsTheBody()
     {
         // https://fetch.spec.whatwg.org/#http-redirect-fetch step 11.
@@ -385,7 +385,7 @@ public class FetchTests
         handler.Requests[1].Header("content-type").Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void RewritesPostToGetOnA302ButNotOnA307()
     {
         var to302 = Redirecting("https://example.org/b", HttpStatusCode.Found);
@@ -399,7 +399,7 @@ public class FetchTests
         to307.Requests[1].Body.Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void StripsCredentialHeadersWhenARedirectCrossesOrigin()
     {
         var handler = Redirecting("https://other.example/b");
@@ -411,7 +411,7 @@ public class FetchTests
         handler.Requests[1].Header("x-keep").Should().Be("yes");
     }
 
-    [Fact]
+    [Test]
     public void KeepsCredentialHeadersOnASameOriginRedirect()
     {
         var handler = Redirecting("https://example.org/b");
@@ -421,7 +421,7 @@ public class FetchTests
         handler.Requests[1].Header("authorization").Should().Be("Bearer secret");
     }
 
-    [Fact]
+    [Test]
     public void HonoursTheThreeRedirectModes()
     {
         // 'error' refuses outright.
@@ -436,7 +436,7 @@ public class FetchTests
         manual.Requests.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void ARedirectWithoutALocationIsAnOrdinaryResponse()
     {
         // "If locationURL is null, then return actualResponse."
@@ -449,7 +449,7 @@ public class FetchTests
             .AsString().Should().Be("301:false");
     }
 
-    [Fact]
+    [Test]
     public void RefusesMoreRedirectsThanTheLimitAllows()
     {
         var handler = new StubHandler
@@ -469,7 +469,7 @@ public class FetchTests
         handler.Requests.Should().HaveCount(4);
     }
 
-    [Fact]
+    [Test]
     public void ANullBodyStatusCarriesNoBody()
     {
         var handler = new StubHandler
@@ -493,7 +493,7 @@ public class FetchTests
     /// https://fetch.spec.whatwg.org/#concept-fetch step 12 — the <c>Accept</c> a request that named none of
     /// its own is given, and <c>*/*</c> is the value for every destination but the handful a browser knows.
     /// </summary>
-    [Fact]
+    [Test]
     public void SendsTheDefaultAcceptAndLeavesAScriptSetOneAlone()
     {
         var handler = new StubHandler();
@@ -509,7 +509,7 @@ public class FetchTests
         named.Requests.Should().ContainSingle().Which.Header("accept").Should().Be("custom/*");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultAcceptIsNotVisibleOnTheRequestTheScriptHolds()
     {
         // The step appends to the header list fetch is working with, which is a copy: a browser sends
@@ -523,7 +523,7 @@ public class FetchTests
     /// reaches the wire whether or not the request has a body — which is what the BCL's split of the same
     /// list into request headers and content headers stood in the way of.
     /// </summary>
-    [Fact]
+    [Test]
     public void CarriesContentHeadersOnARequestThatHasNoBody()
     {
         var handler = new StubHandler();
@@ -545,7 +545,7 @@ public class FetchTests
         request.Body.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ABodilessPostStillAnnouncesTheZeroLengthTheStandardGivesIt()
     {
         var handler = new StubHandler();
@@ -561,7 +561,7 @@ public class FetchTests
         request.ContentLength.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ARequestWithNoBodyDoesNotCarryAScriptSetContentLength()
     {
         var handler = new StubHandler();
@@ -578,7 +578,7 @@ public class FetchTests
         request.ContentLength.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AResponseToHeadCarriesNoBody()
     {
         // https://fetch.spec.whatwg.org/#concept-main-fetch step 22: "If response is not a network error and
@@ -607,7 +607,7 @@ public class FetchTests
         engine.Evaluate("r.headers.get('content-length')").AsString().Should().Be("11");
     }
 
-    [Fact]
+    [Test]
     public void AHeadOfSomethingLargerThanTheCapIsNotRefused()
     {
         // The cap bounds what a response spends, and a HEAD spends nothing: refusing one for the length it
@@ -634,7 +634,7 @@ public class FetchTests
             .AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public Task TheResponseBodyObeysTheUsualConsumeRules() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -664,7 +664,7 @@ public class FetchTests
         engine.Evaluate("copy.text()").UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("{\"a\":1}");
     });
 
-    [Fact]
+    [Test]
     public void ANetworkFailureRejectsWithAnUninformativeTypeError()
     {
         var handler = new ThrowingHandler();

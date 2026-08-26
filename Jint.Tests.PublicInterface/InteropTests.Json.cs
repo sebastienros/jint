@@ -7,7 +7,7 @@ namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void EngineShouldStringifyAnExpandoObjectCorrectly()
     {
         var engine = new Engine();
@@ -21,7 +21,7 @@ public partial class InteropTests
         result.Should().Be("{\"foo\":5,\"bar\":\"A string\"}");
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyAnExpandoObjectWithValuesCorrectly()
     {
         // https://github.com/sebastienros/jint/issues/995
@@ -35,7 +35,7 @@ public partial class InteropTests
     }
 
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyAnJObjectArrayWithValuesCorrectly()
     {
         //https://github.com/OrchardCMS/OrchardCore/issues/10648
@@ -50,7 +50,7 @@ public partial class InteropTests
         result2.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyDynamicObjectListWithValuesCorrectly()
     {
         var engine = new Engine();
@@ -63,7 +63,7 @@ public partial class InteropTests
         result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyDynamicObjectArrayWithValuesCorrectly()
     {
         var engine = new Engine();
@@ -75,7 +75,7 @@ public partial class InteropTests
         result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2}]");
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyTimeSpanUsingCustomToJsonHook()
     {
         var engine = new Engine(options =>
@@ -105,7 +105,7 @@ public partial class InteropTests
         value.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyUsingSerializeToJson()
     {
         object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Foobar = new DateTime(2022, 7, 16, 0, 0, 0, DateTimeKind.Utc) } };
@@ -156,7 +156,7 @@ public partial class InteropTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyUsingSerializeToJsonWithIndentation()
     {
         object testObject = new { Foo = "bar", FooBar = new { Foo = 123.45, Array = Array.Empty<int>() } };
@@ -237,7 +237,7 @@ public partial class InteropTests
         }
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyClrObjectWithToJsonMethod()
     {
         // Test for GitHub issue: CLR class with toJSON method throws error on JSON.stringify
@@ -251,7 +251,7 @@ public partial class InteropTests
         result.Should().Be("\"custom:Test:42\"");
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyClrObjectWithToJsonMethodReturningObject()
     {
         // Test toJSON method that returns an object
@@ -264,7 +264,7 @@ public partial class InteropTests
         result.Should().Be("{\"customName\":\"Test\",\"customValue\":42}");
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyArrayOfClrObjectsWithToJsonMethod()
     {
         // Test that toJSON works in arrays
@@ -280,7 +280,7 @@ public partial class InteropTests
         result.Should().Be("[{\"customName\":\"First\",\"customValue\":1},{\"customName\":\"Second\",\"customValue\":2}]");
     }
 
-    [Fact]
+    [Test]
     public void ToJsonMethodIsNotEnumerable()
     {
         // Verify that toJSON is non-enumerable like built-in JS toJSON methods

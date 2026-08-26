@@ -18,7 +18,7 @@ public class ArrayIteratorExhaustionTests
 {
     private readonly Engine _engine = new();
 
-    [Fact]
+    [Test]
     public void AnExhaustedTypedArrayIteratorIgnoresALaterDetach()
     {
         const string Script = """
@@ -45,9 +45,8 @@ public class ArrayIteratorExhaustionTests
     /// That includes the all-but-exhausted case, where the elements are gone but the closure has not
     /// returned yet.
     /// </summary>
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
+    [TestCase(1)]
+    [TestCase(2)]
     public void AnUnfinishedTypedArrayIteratorStillReportsADetach(int stepsBeforeDetaching)
     {
         var script = $$"""
@@ -70,7 +69,7 @@ public class ArrayIteratorExhaustionTests
     /// count stops moving, not what it reached - how many times the iterator consults <c>length</c> on its
     /// way to <c>done</c> is a separate question this fix does not touch.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnExhaustedArrayLikeIteratorDoesNotReReadLength()
     {
         const string Script = """

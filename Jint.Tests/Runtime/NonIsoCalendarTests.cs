@@ -37,9 +37,8 @@ public class NonIsoCalendarTests
     /// here so that a future widening of a year range or a change to a leap-year rule cannot make it
     /// reachable unnoticed.
     /// </remarks>
-    [Theory]
-    [InlineData("constrain")]
-    [InlineData("reject")]
+    [TestCase("constrain")]
+    [TestCase("reject")]
     public void CalendarDateToIsoNeverThrowsForAnyFieldCombination(string overflow)
     {
         var failures = new StringBuilder();

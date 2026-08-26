@@ -7,12 +7,11 @@ namespace Jint.Tests.PublicInterface;
 
 public class TimeSystemTests
 {
-    [Theory]
-    [InlineData("401, 0, 1, 0, 0, 0, 0", -49512821989000)]
-    [InlineData("1900, 0, 1, 0, 0, 0, 0", -2208994789000)]
-    [InlineData("1920, 0, 1, 0, 0, 0, 0", -1577929189000)]
-    [InlineData("1969, 0, 1, 0, 0, 0, 0", -31543200000)]
-    [InlineData("2000, 1, 1, 1, 1, 1, 1", 949359661001)]
+    [TestCase("401, 0, 1, 0, 0, 0, 0", -49512821989000)]
+    [TestCase("1900, 0, 1, 0, 0, 0, 0", -2208994789000)]
+    [TestCase("1920, 0, 1, 0, 0, 0, 0", -1577929189000)]
+    [TestCase("1969, 0, 1, 0, 0, 0, 0", -31543200000)]
+    [TestCase("2000, 1, 1, 1, 1, 1, 1", 949359661001)]
     public void CanProduceValidDatesUsingNodaTimeIntegration(string input, long expected)
     {
         var dateTimeZone = DateTimeZoneProviders.Tzdb["Europe/Helsinki"];
@@ -35,7 +34,7 @@ public class TimeSystemTests
         engine.Evaluate($"new Date({input}) * 1").AsNumber().Should().Be(expected);
     }
     
-    [Fact]
+    [Test]
     public void CanUseTimeProvider()
     {
         // Bracket the evaluation instead of assuming it completes within a fixed window: the

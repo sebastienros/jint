@@ -77,7 +77,7 @@ public class IdleCallbackTests
     /// is what makes this assertable at all. Against a real clock it would be "50 minus however long the pump
     /// took", i.e. a number no test could name.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ARequestedCallbackRunsOnTheNextPumpWithTheWholeBudgetLeft()
     {
         var (engine, _) = IdleEngine();
@@ -91,7 +91,7 @@ public class IdleCallbackTests
     /// <c>Options.WebApi.Timers.IdleBudget</c> is what <c>timeRemaining()</c> counts down from, so a host that
     /// narrows it narrows what a callback believes it may do.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDeadlineIsTheHostsIdleBudget()
     {
         var (engine, _) = IdleEngine(idleBudget: TimeSpan.FromMilliseconds(7));
@@ -110,7 +110,7 @@ public class IdleCallbackTests
     /// installs — which is the only way a manual clock can model a callback that overruns. That is exactly the
     /// case the budget exists for.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ACallbackThatOverrunsTheBudgetEndsTheIdlePeriod()
     {
         var (engine, clock) = IdleEngine(idleBudget: TimeSpan.FromMilliseconds(50));
@@ -134,7 +134,7 @@ public class IdleCallbackTests
     /// from inside a callback belongs to the <i>next</i> period — which is what stops a self-re-arming
     /// <c>requestIdleCallback</c> monopolising the pump it was started from.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACallbackRequestedDuringAnIdlePeriodWaitsForTheNextPump()
     {
         var (engine, _) = IdleEngine();
@@ -157,7 +157,7 @@ public class IdleCallbackTests
     /// a <c>background</c> scheduler task — the lowest priority the scheduler offers — and a due timer all run
     /// first, in that order.
     /// </summary>
-    [Fact]
+    [Test]
     public void EveryOtherKindOfWorkRunsBeforeAnIdleCallback()
     {
         var (engine, _) = IdleEngine();
@@ -176,7 +176,7 @@ public class IdleCallbackTests
     /// A timer that is not yet due does not hold an idle callback back — idleness is about having nothing to
     /// run <i>now</i>, not about having nothing scheduled at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void ATimerThatIsNotYetDueDoesNotHoldAnIdleCallbackBack()
     {
         var (engine, clock) = IdleEngine();
@@ -197,7 +197,7 @@ public class IdleCallbackTests
     /// https://w3c.github.io/requestidlecallback/#the-cancelidlecallback-method — the entry is removed from
     /// both lists, so the callback never runs.
     /// </summary>
-    [Fact]
+    [Test]
     public void CancelIdleCallbackStopsTheCallbackRunning()
     {
         var (engine, _) = IdleEngine();
@@ -216,7 +216,7 @@ public class IdleCallbackTests
     /// <summary>
     /// An unknown handle is not an error — "if there is such an entry" simply does not hold.
     /// </summary>
-    [Fact]
+    [Test]
     public void CancellingAnUnknownHandleIsSilent()
     {
         var (engine, _) = IdleEngine();
@@ -242,7 +242,7 @@ public class IdleCallbackTests
     /// The timeout rides the timer queue, so the manual clock drives it and this test touches no wall clock.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void ATimeoutRunsTheCallbackOutsideAnyIdlePeriod()
     {
         var (engine, clock) = IdleEngine(idleBudget: TimeSpan.Zero);
@@ -267,7 +267,7 @@ public class IdleCallbackTests
     /// A callback that an idle period reached first must not run a second time when its timeout comes due —
     /// the idle path removes the entry from both lists, which is what the timeout algorithm looks for.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACallbackThatAlreadyRanDoesNotRunAgainWhenItsTimeoutElapses()
     {
         var (engine, clock) = IdleEngine();
@@ -285,7 +285,7 @@ public class IdleCallbackTests
     /// A callback with no <c>timeout</c> occupies no timer slot: it waits in a list for the next pump, exactly
     /// as a queued job does, so it is not something a script can exhaust the timer quota with.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACallbackWithoutATimeoutCostsNoTimerSlot()
     {
         var (engine, _) = IdleEngine(maxActiveTimers: 0);
@@ -299,7 +299,7 @@ public class IdleCallbackTests
     /// A <c>timeout</c> is a timer, so it does count against <c>MaxActiveTimers</c> — a script that can request
     /// idle callbacks must not be able to register timers without bound through the back door.
     /// </summary>
-    [Fact]
+    [Test]
     public void ATimeoutCountsAgainstTheTimerQuota()
     {
         var (engine, _) = IdleEngine(idleBudget: TimeSpan.Zero, maxActiveTimers: 1);
@@ -322,7 +322,7 @@ public class IdleCallbackTests
     /// Cancelling a callback frees the timer slot its timeout held, rather than leaving it to expire into
     /// nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void CancellingACallbackFreesItsTimeoutSlot()
     {
         var (engine, _) = IdleEngine(idleBudget: TimeSpan.Zero, maxActiveTimers: 1);
@@ -341,12 +341,12 @@ public class IdleCallbackTests
     /// A callback that is not callable is a <c>TypeError</c>, per the WebIDL <c>IdleRequestCallback</c>
     /// conversion.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANonCallableCallbackIsATypeError()
     {
         var (engine, _) = IdleEngine();
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("requestIdleCallback(42);"));
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("requestIdleCallback(42);"))!;
         exception.Error.Get("name").Should().Be(new JsString("TypeError"));
     }
 
@@ -355,7 +355,7 @@ public class IdleCallbackTests
     /// conversion is <c>ToUint32</c>'s and not <c>[EnforceRange]</c>'s refusal: a non-number becomes 0 rather
     /// than an exception.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnparsableTimeoutIsZeroRatherThanAnError()
     {
         var (engine, _) = IdleEngine(idleBudget: TimeSpan.Zero);
@@ -371,7 +371,7 @@ public class IdleCallbackTests
     /// writable, enumerable and configurable properties of the global, as operations of a global interface
     /// mixin are — https://webidl.spec.whatwg.org/#es-operations.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheOperationsHaveTheirWebIdlShape()
     {
         var (engine, _) = IdleEngine();
@@ -392,7 +392,7 @@ public class IdleCallbackTests
     /// <c>deadline instanceof IdleDeadline</c> and feature detection work — and, being an interface object, it
     /// is non-enumerable and refuses to construct.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheIdleDeadlineInterfaceObjectIsExposedButNotConstructible()
     {
         var (engine, _) = IdleEngine();
@@ -418,7 +418,7 @@ public class IdleCallbackTests
     /// Both members brand-check their receiver, as WebIDL requires: <c>IdleDeadline.prototype</c> is not an
     /// <c>IdleDeadline</c>, and neither is a plain object borrowed into the receiver position.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheMembersBrandCheckTheirReceiver()
     {
         var (engine, _) = IdleEngine();
@@ -437,7 +437,7 @@ public class IdleCallbackTests
     /// enumeration and existence checks from the start, and the function object behind it is built only when
     /// something reads it.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheGlobalsAreInstalledLazily()
     {
         var (engine, _) = IdleEngine();
@@ -461,7 +461,7 @@ public class IdleCallbackTests
     /// A callback requested by the evaluation cycle a <c>RestoreGlobalSnapshot</c> ends must never run against
     /// the globals that restore put back — the same fence a timer and a scheduler task sit behind.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreForgetsPendingIdleCallbacks()
     {
         var (engine, _) = IdleEngine();
@@ -488,7 +488,7 @@ public class IdleCallbackTests
     /// A callback that throws erupts from whatever was pumping — the contract a timer callback and a promise
     /// reaction already have — and the callbacks behind it still run on the next pump.
     /// </summary>
-    [Fact]
+    [Test]
     public void AThrowingCallbackEruptsFromThePump()
     {
         var (engine, _) = IdleEngine();
@@ -496,7 +496,7 @@ public class IdleCallbackTests
         var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("""
             requestIdleCallback(() => { throw new Error('boom'); });
             requestIdleCallback(() => log.push('after'));
-            """));
+            """))!;
 
         exception.Message.Should().Be("boom");
 

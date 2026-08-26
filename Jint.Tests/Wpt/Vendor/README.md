@@ -18,7 +18,7 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 
 ## What runs this
 
-`Jint.Tests/Wpt/WptTestRunner.cs`, one xUnit theory case per `.any.js` file, on a fresh engine built with
+`Jint.Tests/Wpt/WptTestRunner.cs`, one test case per `.any.js` file, on a fresh engine built with
 `UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and,
 for every file but the seventeen the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
 gets outbound network access — and a `DiagnosticsSink`, which is what makes
@@ -1109,7 +1109,7 @@ rows were arithmetic the driver already did, and nothing checked the prose again
 Three of those rows are worth a caveat. The Fetch row is the only one whose files reach a socket at all — the
 seventeen [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
 process — so it is the only row whose figures could in principle depend on the machine. They do not: the
-suite was run five times over and reported the same 458 xUnit cases every time, and the driver's own idle rule
+suite was run five times over and reported the same 458 cases every time, and the driver's own idle rule
 is reset by a test settling rather than by a wall clock. The Encoding figure is dominated by
 `textdecoder-fatal-single-byte.any.js`, 7,168 assertions of it and every one passing; of the 322 that do not,
 168 are the `XMLHttpRequest` half of `single-byte-decoder.any.js` and the rest are the legacy multi-byte

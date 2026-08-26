@@ -44,7 +44,7 @@ public class WorkerMechanismTests
     // Construction and refusals
     // -------------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void NoProviderMeansNoWorkerGlobal()
     {
         var withFlagOnly = new Engine(options => options.UseWebApis(WebApiFeatures.Default | WebApiFeatures.Workers));
@@ -63,30 +63,29 @@ public class WorkerMechanismTests
         withBoth.Evaluate("typeof Worker").AsString().Should().Be("function");
     }
 
-    [Theory]
-    [InlineData("new Worker('./worker.js')", "type: 'module'")]
-    [InlineData("new Worker('./worker.js', { type: 'classic' })", "type: 'module'")]
-    [InlineData("new Worker('./worker.js', { type: 'nope' })", "WorkerType")]
+    [TestCase("new Worker('./worker.js')", "type: 'module'")]
+    [TestCase("new Worker('./worker.js', { type: 'classic' })", "type: 'module'")]
+    [TestCase("new Worker('./worker.js', { type: 'nope' })", "WorkerType")]
     public void AClassicWorkerRequestIsATypeError(string source, string expectedInMessage)
     {
         var host = new TestWorkerHost();
         var parent = Parent(host);
 
-        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute(source));
+        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute(source))!;
 
         exception.Error.Get("name").AsString().Should().Be("TypeError");
         exception.Message.Should().Contain(expectedInMessage);
         host.Requests.Should().Be(0, "WebIDL runs before the host is ever consulted");
     }
 
-    [Fact]
+    [Test]
     public void AProviderRefusalIsASecurityError()
     {
         var host = new TestWorkerHost { Refuse = true };
         var parent = Parent(host);
 
         var exception = Assert.Throws<JavaScriptException>(
-            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         exception.Error.Get("name").AsString().Should().Be(
             "SecurityError",
@@ -95,7 +94,7 @@ public class WorkerMechanismTests
         host.Started.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AProviderExceptionPropagatesUnchanged()
     {
         var failure = new InvalidTimeZoneException("the tenant has no worker budget");
@@ -103,12 +102,12 @@ public class WorkerMechanismTests
         var parent = Parent(host);
 
         var thrown = Assert.Throws<InvalidTimeZoneException>(
-            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         thrown.Should().BeSameAs(failure, "nothing a provider throws is translated");
     }
 
-    [Fact]
+    [Test]
     public void MoreThanMaxWorkersIsAQuotaExceededError()
     {
         var host = new TestWorkerHost(Module("")) ;
@@ -118,7 +117,7 @@ public class WorkerMechanismTests
         parent.Execute("var b = new Worker('./worker.js', { type: 'module' });");
 
         var exception = Assert.Throws<JavaScriptException>(
-            () => parent.Execute("var c = new Worker('./worker.js', { type: 'module' });"));
+            () => parent.Execute("var c = new Worker('./worker.js', { type: 'module' });"))!;
 
         exception.Error.Get("name").AsString().Should().Be("QuotaExceededError");
         exception.Error.Get("quota").AsNumber().Should().Be(2);
@@ -130,7 +129,7 @@ public class WorkerMechanismTests
         parent.Execute("var d = new Worker('./worker.js', { type: 'module' });");
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheTerminationTokenIsRefused()
     {
         var host = new TestWorkerHost
@@ -140,13 +139,13 @@ public class WorkerMechanismTests
         var parent = Parent(host);
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         exception.Message.Should().Contain("request.TerminationToken");
         exception.Message.Should().Contain("options.ObserveCancellation", "the message names the one-line fix");
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutMessagingIsRefused()
     {
         var host = new TestWorkerHost
@@ -156,12 +155,12 @@ public class WorkerMechanismTests
         var parent = Parent(host);
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         exception.Message.Should().Contain("WebApiFeatures.Messaging");
     }
 
-    [Fact]
+    [Test]
     public void TheParentEngineItselfIsRefused()
     {
         var host = new TestWorkerHost();
@@ -170,7 +169,7 @@ public class WorkerMechanismTests
         parent = Parent(host);
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         exception.Message.Should().Contain("returned the parent engine");
     }
@@ -179,7 +178,7 @@ public class WorkerMechanismTests
     /// A pre-warmed engine another thread is already inside is the bug this validates against, and the answer
     /// is the engine's own admission error at <c>new Worker()</c> rather than silent corruption later.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnQuiescentWorkerEngineIsRefused()
     {
         using var owned = new ManualResetEventSlim(false);
@@ -208,7 +207,7 @@ public class WorkerMechanismTests
         try
         {
             var exception = Assert.Throws<InvalidOperationException>(
-                () => parent.Execute("new Worker('./worker.js', { type: 'module' })"));
+                () => parent.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
             exception.Message.Should().Contain("already in use by another thread");
         }
@@ -223,7 +222,7 @@ public class WorkerMechanismTests
     /// Nothing of the worker's script runs during <c>new Worker()</c>, and what runs it is whichever thread
     /// pumps the worker engine — never the parent's.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerScriptDoesNotRunOnTheParentsThread()
     {
         using var evaluated = new ManualResetEventSlim(false);
@@ -278,7 +277,7 @@ public class WorkerMechanismTests
     /// at construction the delivery job would run during that suspension and the first message would be
     /// dropped on the floor.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AMessagePostedBeforeTheWorkerEvaluatesIsBuffered()
     {
         var host = new TestWorkerHost(Module("""
@@ -300,7 +299,7 @@ public class WorkerMechanismTests
         host.Log.Should().Be("evaluating,ready,msg:1,msg:2");
     }
 
-    [Fact]
+    [Test]
     public void MessagesArriveInPostOrder()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -320,7 +319,7 @@ public class WorkerMechanismTests
     /// A message is a task, so everything a listener queues runs before the next message is even looked at —
     /// the timers' rule, inherited whole.
     /// </summary>
-    [Fact]
+    [Test]
     public void EachMessageGetsItsOwnMicrotaskCheckpoint()
     {
         var host = new TestWorkerHost(Module("""
@@ -346,7 +345,7 @@ public class WorkerMechanismTests
     /// The parent half is enabled by the engine at construction, so a message the worker posts during its own
     /// evaluation waits on the parent's queue until the parent is pumped — whenever the handler was assigned.
     /// </summary>
-    [Fact]
+    [Test]
     public void AMessageSentBeforeTheParentAssignsOnmessageIsNotLost()
     {
         var host = new TestWorkerHost(Module("postMessage('hello');"));
@@ -367,7 +366,7 @@ public class WorkerMechanismTests
     /// <c>addEventListener('message', …)</c> alone receives on both façades. The <c>onmessage</c>-implies-
     /// <c>start()</c> rule is scoped to the <c>MessagePort</c> interface and must not be reused here.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWorkerDeliversToAddEventListenerWithoutStart()
     {
         var host = new TestWorkerHost(Module("""
@@ -388,7 +387,7 @@ public class WorkerMechanismTests
         parent.Evaluate("got.join(',')").AsString().Should().Be("out:x");
     }
 
-    [Fact]
+    [Test]
     public void ATransferredArrayBufferIsMovedNotCopied()
     {
         var host = new TestWorkerHost(Module("""
@@ -412,7 +411,7 @@ public class WorkerMechanismTests
         host.Log.Should().Be("bytes:7-8-9");
     }
 
-    [Fact]
+    [Test]
     public void ASharedArrayBufferIsADataCloneError()
     {
         var host = new TestWorkerHost(Module(""));
@@ -421,12 +420,12 @@ public class WorkerMechanismTests
         var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("""
             var w = new Worker('./worker.js', { type: 'module' });
             w.postMessage(new SharedArrayBuffer(8));
-            """));
+            """))!;
 
         exception.Error.Get("name").AsString().Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void APortTransferredToAWorkerIsReEntangledOnTheWorkerSide()
     {
         var host = new TestWorkerHost(Module("""
@@ -452,7 +451,7 @@ public class WorkerMechanismTests
         host.Log.Should().Be("private:ping");
     }
 
-    [Fact]
+    [Test]
     public void MoreThanMaxQueuedMessagesIsAQuotaExceededError()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -464,7 +463,7 @@ public class WorkerMechanismTests
             w.postMessage('a');
             w.postMessage('b');
             w.postMessage('c');
-            """));
+            """))!;
 
         exception.Error.Get("name").AsString().Should().Be("QuotaExceededError");
         exception.Error.Get("quota").AsNumber().Should().Be(2);
@@ -483,7 +482,7 @@ public class WorkerMechanismTests
     // terminate()
     // -------------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void APostMessageAfterTerminateIsNeverDelivered()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -503,7 +502,7 @@ public class WorkerMechanismTests
     /// "Silent no-op" is true only for serializable values: HTML's step 5 runs before step 6, so the message is
     /// serialized — and any transfer performed — before there turns out to be nowhere to deliver it.
     /// </summary>
-    [Fact]
+    [Test]
     public void APostMessageAfterTerminateStillThrowsDataCloneError()
     {
         var host = new TestWorkerHost(Module(""));
@@ -511,7 +510,7 @@ public class WorkerMechanismTests
 
         parent.Execute("var w = new Worker('./worker.js', { type: 'module' }); w.terminate();");
 
-        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("w.postMessage(function () {})"));
+        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("w.postMessage(function () {})"))!;
         exception.Error.Get("name").AsString().Should().Be("DataCloneError");
 
         parent.Execute("""
@@ -523,7 +522,7 @@ public class WorkerMechanismTests
         parent.Evaluate("lengthAfter").AsNumber().Should().Be(0, "a transfer-listed buffer is still detached");
     }
 
-    [Fact]
+    [Test]
     public void TerminateIsIdempotent()
     {
         var host = new TestWorkerHost(Module(""));
@@ -550,7 +549,7 @@ public class WorkerMechanismTests
     /// Termination is cooperative and bounded by the engine's amortized check interval on the <i>worker's</i>
     /// thread: a running worker stops, and the cancellation erupts from whatever is pumping it.
     /// </summary>
-    [Fact]
+    [Test]
     public void TerminateStopsARunningWorkerWithinTheAmortizedInterval()
     {
         using var running = new ManualResetEventSlim(false);
@@ -594,7 +593,7 @@ public class WorkerMechanismTests
     /// Terminate's fourth step — "empty the port message queue of the port entangled with the worker's" — is
     /// the specification's own licence for discarding what the worker had already posted.
     /// </summary>
-    [Fact]
+    [Test]
     public void TerminateDiscardsAMessageTheWorkerAlreadyPosted()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', () => postMessage('from-worker'));"));
@@ -620,7 +619,7 @@ public class WorkerMechanismTests
     // close()
     // -------------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void CloseFromTheWorkerEndsTheConnection()
     {
         var host = new TestWorkerHost(Module("record('before'); close(); record('after');"));
@@ -643,7 +642,7 @@ public class WorkerMechanismTests
     /// <i>Close a worker</i> discards the worker's queued tasks and sets the closing flag. It does not abort
     /// the running script, which is what makes <c>close(); flushMetrics();</c> work.
     /// </summary>
-    [Fact]
+    [Test]
     public void CloseDoesNotAbortTheCurrentlyRunningScript()
     {
         var host = new TestWorkerHost(Module("""
@@ -668,7 +667,7 @@ public class WorkerMechanismTests
     /// The parent-side queue drains rather than being discarded, so <c>postMessage(result); close();</c> — the
     /// commonest <c>close()</c> idiom there is — reaches the parent whether or not it had pumped in between.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFinalPostMessageBeforeCloseIsDelivered()
     {
         var host = new TestWorkerHost(Module("""
@@ -696,7 +695,7 @@ public class WorkerMechanismTests
     // Startup failure
     // -------------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ALoadFailureEndsTheConnectionAsStartupFailedWithACLRError()
     {
         var host = new TestWorkerHost();
@@ -716,7 +715,7 @@ public class WorkerMechanismTests
         host.Ended.Should().ContainSingle().Which.Reason.Should().Be(WorkerEndReason.StartupFailed);
     }
 
-    [Fact]
+    [Test]
     public void AModuleThatThrowsEndsTheConnectionAsStartupFailedWithASummaryException()
     {
         var host = new TestWorkerHost(Module("throw new RangeError('boom');"));
@@ -745,7 +744,7 @@ public class WorkerMechanismTests
     /// Firing an <c>ErrorEvent</c> here instead would make every assertion below but the first still pass,
     /// which is why the shape is asserted rather than the arrival.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ALoadFailureFiresAPlainEventNotAnErrorEvent()
     {
         var host = new TestWorkerHost();
@@ -774,7 +773,7 @@ public class WorkerMechanismTests
     /// message and the location — and <c>error: null</c>, which is the specification's own value and not a
     /// limitation dressed up as one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWorkerErrorReachesTheParentWithNullError()
     {
         var host = new TestWorkerHost(Module("""
@@ -808,7 +807,7 @@ public class WorkerMechanismTests
     /// Step 5.2.3: the <c>ErrorEvent</c> at the <c>Worker</c> object was not cancelled either, so the failure is
     /// reported one level further up — at the parent's own global scope, and to the parent's sink.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnhandledWorkerErrorReachesTheParentsGlobalErrorEvent()
     {
         var host = new TestWorkerHost(Module("""
@@ -838,7 +837,7 @@ public class WorkerMechanismTests
     /// to false — and it is deliberately not the <see cref="DiagnosticsSink"/>, whose contract is that a script
     /// may not switch it off.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWorkerSidePreventDefaultStopsPropagationToTheParent()
     {
         var host = new TestWorkerHost(Module("""
@@ -872,7 +871,7 @@ public class WorkerMechanismTests
     /// The worker global's <c>onerror</c> is HTML's legacy shape — «message, filename, lineno, colno, error»,
     /// and returning <see langword="true"/> cancels. That is what decides <i>notHandled</i> on the worker side.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerGlobalOnErrorTakesFiveArgumentsAndCancelsByReturningTrue()
     {
         var host = new TestWorkerHost(Module("""
@@ -907,7 +906,7 @@ public class WorkerMechanismTests
     /// the event, and cancelled by <c>preventDefault()</c> or by returning <see langword="false"/> — the
     /// opposite boolean from the global's.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerObjectOnErrorTakesTheEventAndCancelsByReturningFalse()
     {
         var host = new TestWorkerHost(Module("""
@@ -936,7 +935,7 @@ public class WorkerMechanismTests
     /// An unhandled rejection fires at the worker's own global and reaches the parent through nothing at all.
     /// The sink wiring makes the opposite easy to fall into, which is why it is pinned.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnhandledRejectionInAWorkerDoesNotReachTheParent()
     {
         var host = new TestWorkerHost(Module("""
@@ -973,7 +972,7 @@ public class WorkerMechanismTests
     /// the parent, which is what the request replays — each engine gets its own instance over one shared
     /// switch.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AWorkerConstraintFailureEruptsFromTheHostsPump()
     {
         var tripwire = new Tripwire();
@@ -997,7 +996,7 @@ public class WorkerMechanismTests
 
         tripwire.Tripped = true;
 
-        var escaped = Record.Exception(() => DrainWorker(host.Connection));
+        var escaped = Caught.Exception(() => DrainWorker(host.Connection));
 
         escaped.Should().BeOfType<MemoryLimitExceededException>("a constraint bounds the host's pump, it does not become an event");
         host.Log.Should().NotContain("worker-error-event");
@@ -1012,7 +1011,7 @@ public class WorkerMechanismTests
     // The worker global scope
     // -------------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ImportScriptsThrowsTypeError()
     {
         var host = new TestWorkerHost(Module("""
@@ -1030,7 +1029,7 @@ public class WorkerMechanismTests
             "the specification's own step 1 for a module worker prescribes the throw, so the function is present");
     }
 
-    [Fact]
+    [Test]
     public void TheWorkerGlobalCarriesTheNamesHtmlGivesIt()
     {
         var host = new TestWorkerHost(Module("""
@@ -1064,7 +1063,7 @@ public class WorkerMechanismTests
     /// only one would be half a fix — the module body is strict, and an indirect <c>eval</c> is global code
     /// with no directive prologue, which is the only sloppy code a module worker can reach at all.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheWorkerGlobalsSelfIsAReadOnlyAttribute()
     {
         var host = new TestWorkerHost(Module("""
@@ -1104,7 +1103,7 @@ public class WorkerMechanismTests
     /// https://html.spec.whatwg.org/multipage/workers.html#dom-dedicatedworkerglobalscope-name — so the
     /// writable data property that simplification installs is right for it and wrong for <c>self</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerGlobalsNameIsReplaceable()
     {
         var host = new TestWorkerHost(Module("""
@@ -1131,7 +1130,7 @@ public class WorkerMechanismTests
     /// so a host's own <i>lazy</i> global is not forced into existence merely by our looking at it — the rule
     /// every install in <c>WebApiRegistration</c> and beside it follows.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AHostThatInstalledItsOwnSelfKeepsIt()
     {
         var factoryCalls = 0;
@@ -1163,7 +1162,7 @@ public class WorkerMechanismTests
         factoryCalls.Should().Be(1, "the worker's own first read is what materializes it");
     }
 
-    [Fact]
+    [Test]
     public void TheWorkerObjectCarriesTheEventHandlerAttributes()
     {
         var host = new TestWorkerHost(Module(""));
@@ -1197,7 +1196,7 @@ public class WorkerMechanismTests
     /// <c>End()</c> on the caller's thread. No wall-clock assertion anywhere; the ceilings only stop a
     /// deadlock from hanging the run.
     /// </remarks>
-    [Fact]
+    [Test]
     public void EndingTheConnectionFromTheParentWhileTheWorkerPumpsDoesNotThrow()
     {
         using var inside = new ManualResetEventSlim(false);
@@ -1247,7 +1246,7 @@ public class WorkerMechanismTests
         inside.Wait(Ceiling).Should().BeTrue("the worker's thread has to own its engine before End() means anything");
 
         // From the parent's thread, with the worker's thread demonstrably inside the worker engine.
-        var end = Record.Exception(connection.End);
+        var end = Caught.Exception(connection.End);
         end.Should().BeNull("ending a connection touches only endpoints, a token and interlocked bookkeeping");
 
         release.Set();
@@ -1258,7 +1257,7 @@ public class WorkerMechanismTests
         host.Ended.Should().ContainSingle();
     }
 
-    [Fact]
+    [Test]
     public void TerminateIsObservableOnTheConnection()
     {
         var host = new TestWorkerHost(Module(""));
@@ -1289,7 +1288,7 @@ public class WorkerMechanismTests
     /// A <c>RestoreGlobalSnapshot</c> on the parent ends every connection it is a party to — both endpoints,
     /// the token, and the host told with a reason of its own.
     /// </summary>
-    [Fact]
+    [Test]
     public void AParentRestoreEndsTheConnection()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -1321,7 +1320,7 @@ public class WorkerMechanismTests
     /// host wants every cycle to start from — and is also what keeps the binding pointing at the same
     /// <c>Worker</c> object afterwards, so the pin can ask it questions.
     /// </remarks>
-    [Fact]
+    [Test]
     public void APostMessageAfterAParentRestoreIsASilentNoOp()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -1342,7 +1341,7 @@ public class WorkerMechanismTests
             "terminate() on an ended connection is idempotent, not a second end");
 
         // Still post-serialization, which is HTML's own step order: step 5 runs before step 6.
-        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("w.postMessage(function () {})"));
+        var exception = Assert.Throws<JavaScriptException>(() => parent.Execute("w.postMessage(function () {})"))!;
         exception.Error.Get("name").AsString().Should().Be("DataCloneError");
     }
 
@@ -1363,7 +1362,7 @@ public class WorkerMechanismTests
     /// is what covers a failure landing after the loop has already been cleared.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void AParentRestoreDropsAQueuedErrorEvent()
     {
         var fired = 0;
@@ -1393,7 +1392,7 @@ public class WorkerMechanismTests
     /// A <c>RestoreGlobalSnapshot</c> on the <i>worker</i> ends the connection too, and from the other side:
     /// the reason says which engine it was.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWorkerRestoreEndsTheConnection()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -1417,7 +1416,7 @@ public class WorkerMechanismTests
         host.Log.Should().Be("before", "the parent's half closed with the connection");
     }
 
-    [Fact]
+    [Test]
     public void ParentDisposeEndsEveryConnection()
     {
         var host = new TestWorkerHost(new Dictionary<string, string> { ["./a.js"] = "", ["./b.js"] = "" });
@@ -1446,7 +1445,7 @@ public class WorkerMechanismTests
     /// not stay a <c>Worker</c> object that looks alive while every <c>postMessage</c> pays a full
     /// serialization into a queue nothing will ever drain.
     /// </summary>
-    [Fact]
+    [Test]
     public void DisposingTheWorkerEngineEndsTheConnectionAsWorkerDisposed()
     {
         var host = new TestWorkerHost(Module("addEventListener('message', e => record(e.data));"));
@@ -1477,7 +1476,7 @@ public class WorkerMechanismTests
     /// Closing the parent-side endpoint outright — terminate's treatment — strands the transferred stream's own
     /// channel side in the discarded record, and the parent's <c>read()</c> then never completes.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ATransferredStreamStillClosesCleanlyAcrossAWorkerClose()
     {
         var host = new TestWorkerHost(Module("""
@@ -1532,7 +1531,7 @@ public class WorkerMechanismTests
     /// <c>'DedicatedWorkerGlobalScope' in self &amp;&amp; self instanceof DedicatedWorkerGlobalScope</c>, which
     /// every fixture of wpt's <c>workers/modules/</c> corpus opens with.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheCanonicalWorkerSniffTakesTheDedicatedBranch()
     {
         var host = new TestWorkerHost(Module("""
@@ -1557,7 +1556,7 @@ public class WorkerMechanismTests
     /// the worker's global object genuinely inherits from
     /// <c>DedicatedWorkerGlobalScope.prototype</c>, which inherits from <c>WorkerGlobalScope.prototype</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerGlobalHasARealPrototypeChain()
     {
         var host = new TestWorkerHost(Module("""
@@ -1588,7 +1587,7 @@ public class WorkerMechanismTests
     /// Neither interface declares a constructor operation, so both refuse <c>new</c> —
     /// https://webidl.spec.whatwg.org/#es-interface-call.
     /// </summary>
-    [Fact]
+    [Test]
     public void NeitherWorkerScopeInterfaceIsConstructible()
     {
         var host = new TestWorkerHost(Module("""
@@ -1612,7 +1611,7 @@ public class WorkerMechanismTests
     /// Both interfaces are <c>[Exposed=Worker]</c> / <c>[Exposed=DedicatedWorker]</c>, so the engine that
     /// <i>created</i> the worker carries neither — a parent is not a worker global however many it makes.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheParentCarriesNeitherWorkerScopeInterface()
     {
         var parent = Parent(new TestWorkerHost());
@@ -1628,7 +1627,7 @@ public class WorkerMechanismTests
     /// <c>self instanceof DedicatedWorkerGlobalScope</c> then answers <see langword="false"/> — the truth
     /// about that object rather than a claim planted on it.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostThatGaveItsGlobalAPrototypeKeepsIt()
     {
         var host = new TestWorkerHost(Module("""
@@ -1666,7 +1665,7 @@ public class WorkerMechanismTests
     /// The worker global's own names are unaffected: they stay own properties of the global object, which is
     /// what makes them per-connection state rather than a realm intrinsic's.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheWorkerNamesRemainOwnPropertiesOfTheGlobal()
     {
         var host = new TestWorkerHost(Module("""

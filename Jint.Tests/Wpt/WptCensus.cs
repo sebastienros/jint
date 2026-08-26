@@ -35,8 +35,8 @@ namespace Jint.Tests.Wpt;
 /// <para>
 /// <b>The measured check pays for at most one pass over the corpus, and usually much less.</b> Every outcome
 /// the theories produce is handed here on the way back out of <see cref="WptHarness.Run"/>, so a file the
-/// driver has already run is tallied rather than re-run. The two classes are separate collections and xUnit
-/// runs them in parallel, so in a full <c>Jint.Tests</c> pass most of the corpus is already recorded by the
+/// driver has already run is tallied rather than re-run. The two classes are separate fixtures and the
+/// runner runs them in parallel, so in a full <c>Jint.Tests</c> pass most of the corpus is already recorded by the
 /// time the census reaches it. What it cannot reuse it runs itself, which is what makes the check work as a
 /// standalone command as well: filter to that class and it censuses the corpus from cold.
 /// </para>

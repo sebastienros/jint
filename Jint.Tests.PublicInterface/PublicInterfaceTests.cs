@@ -5,7 +5,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class PublicInterfaceTests
 {
-    [Fact]
+    [Test]
     public void CanCallEval()
     {
         var engine = new Engine();
@@ -13,7 +13,7 @@ public class PublicInterfaceTests
         value.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void BindFunctionInstancesArePublic()
     {
         var engine = new Engine(options =>
@@ -41,7 +41,7 @@ var coolingObject = {
         emulator.ProcessQueue();
     }
 
-    [Fact]
+    [Test]
     public void JsArgumentsIsPublic()
     {
         // debuggers might want to access the information
@@ -50,7 +50,7 @@ var coolingObject = {
         arguments.Length.Should().Be((uint) 3);
     }
 
-    [Fact]
+    [Test]
     public void IsCallableReturnsTrueForFunctions()
     {
         var engine = new Engine();
@@ -61,7 +61,7 @@ var coolingObject = {
         arrow.IsCallable().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IsCallableReturnsFalseForNonFunctions()
     {
         var engine = new Engine();
@@ -72,7 +72,7 @@ var coolingObject = {
         engine.Evaluate("({})").IsCallable().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IsConstructorReturnsTrueForConstructors()
     {
         var engine = new Engine();
@@ -83,7 +83,7 @@ var coolingObject = {
         func.IsConstructor().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IsConstructorReturnsFalseForNonConstructors()
     {
         var engine = new Engine();

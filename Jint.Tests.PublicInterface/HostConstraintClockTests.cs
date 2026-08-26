@@ -38,7 +38,7 @@ public class HostConstraintClockTests
         }
         """;
 
-    [Fact]
+    [Test]
     public void ATimeoutIntervalIsMeasuredAgainstTheConfiguredClock()
     {
         var clock = new ManualClock();
@@ -74,7 +74,7 @@ public class HostConstraintClockTests
             .Should().Throw<TimeoutException>("the clock passed the deadline while the entry was running");
     }
 
-    [Fact]
+    [Test]
     public void TheClockMayBeConfiguredAfterTheIntervalItAppliesTo()
     {
         // The factory the extension method registers runs while the engine is being constructed, not when
@@ -98,7 +98,7 @@ public class HostConstraintClockTests
         Invoking(() => lateEngine.GetValue("work").Call()).Should().Throw<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultClockIsTheSystemOneAndBehavesExactlyAsItAlwaysDid()
     {
         var options = new Options();
@@ -116,7 +116,7 @@ public class HostConstraintClockTests
         Invoking(() => engine.GetValue("work").Call()).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void AClockThatReportsNoTickRateIsRejectedWhereItIsSupplied()
     {
         // A zero frequency turns every interval into zero ticks, which would arm a deadline equal to the
@@ -133,7 +133,7 @@ public class HostConstraintClockTests
             .Should().Throw<ArgumentException>().WithMessage("*TimestampFrequency*");
     }
 
-    [Fact]
+    [Test]
     public void AnOperationDeadlineWithoutAClockIsTheOneItAlwaysWas()
     {
         // The parameterless constructor and an explicit null are the same constraint, so the overload is

@@ -51,7 +51,7 @@ public class PerformanceTests
         return (engine, clock);
     }
 
-    [Fact]
+    [Test]
     public void NowCountsMillisecondsFromTheTimeOrigin()
     {
         var (engine, clock) = PerformanceEngine();
@@ -66,7 +66,7 @@ public class PerformanceTests
         engine.Evaluate("performance.now()").AsNumber().Should().Be(1000);
     }
 
-    [Fact]
+    [Test]
     public void NowHasSubMillisecondResolution()
     {
         var (engine, clock) = PerformanceEngine();
@@ -81,7 +81,7 @@ public class PerformanceTests
         engine.Evaluate("performance.now()").AsNumber().Should().Be(0.5);
     }
 
-    [Fact]
+    [Test]
     public void TimeOriginIsTheWallClockMomentTheEngineWasBuilt()
     {
         var clock = new ManualClock();
@@ -95,7 +95,7 @@ public class PerformanceTests
         engine.Evaluate("performance.now()").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TimeOriginPlusNowIsTheCurrentWallClockTime()
     {
         var (engine, clock) = PerformanceEngine();
@@ -106,7 +106,7 @@ public class PerformanceTests
         engine.Evaluate("performance.timeOrigin + performance.now()").AsNumber().Should().Be(1234);
     }
 
-    [Fact]
+    [Test]
     public void TimeOriginDoesNotMove()
     {
         var (engine, clock) = PerformanceEngine();
@@ -117,7 +117,7 @@ public class PerformanceTests
         engine.Evaluate("performance.timeOrigin").AsNumber().Should().Be(origin);
     }
 
-    [Fact]
+    [Test]
     public void NeverGoesBackwardsOnTheRealClock()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -137,7 +137,7 @@ public class PerformanceTests
             """).AsString().Should().Be("monotonic");
     }
 
-    [Fact]
+    [Test]
     public void SharesItsClockWithTheTimers()
     {
         var (engine, clock) = PerformanceEngine(WebApiFeatures.Performance | WebApiFeatures.Timers);
@@ -153,7 +153,7 @@ public class PerformanceTests
         engine.Evaluate("firedAt").AsNumber().Should().Be(100);
     }
 
-    [Fact]
+    [Test]
     public void WorksWithoutTheTimersFeature()
     {
         var (engine, clock) = PerformanceEngine();
@@ -166,7 +166,7 @@ public class PerformanceTests
         engine.Evaluate("performance.now()").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void TheTimersFeatureAloneDoesNotBringPerformance()
     {
         var (engine, _) = PerformanceEngine(WebApiFeatures.Timers);
@@ -175,7 +175,7 @@ public class PerformanceTests
         engine.Evaluate("typeof setTimeout").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void KeepsItsTimeOriginAcrossAGlobalSnapshotRestore()
     {
         var (engine, clock) = PerformanceEngine();
@@ -196,22 +196,22 @@ public class PerformanceTests
         engine.Evaluate("performance.now()").AsNumber().Should().Be(1500);
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksBothMembers()
     {
         var (engine, _) = PerformanceEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.now.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("performance.now.call({})"))!
             .Message.Should().Contain("Performance");
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Performance.prototype, 'timeOrigin').get.call({})"))!
             .Message.Should().Contain("Performance");
 
         engine.Evaluate("(() => { const f = performance.now; return typeof f.call(performance); })()")
             .AsString().Should().Be("number");
     }
 
-    [Fact]
+    [Test]
     public void IsOneStableObjectWithTheInterfacesToStringTag()
     {
         var (engine, _) = PerformanceEngine();
@@ -221,7 +221,7 @@ public class PerformanceTests
         engine.Evaluate("performance[Symbol.toStringTag]").AsString().Should().Be("Performance");
     }
 
-    [Fact]
+    [Test]
     public void ExposesTimeOriginAsAReadOnlyAccessor()
     {
         var (engine, _) = PerformanceEngine();
@@ -248,7 +248,7 @@ public class PerformanceTests
         engine.Evaluate("JSON.stringify(Object.keys(performance))").AsString().Should().Be("[]");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheUserTimingSurface()
     {
         var (engine, _) = PerformanceEngine();
@@ -259,7 +259,7 @@ public class PerformanceTests
         }
     }
 
-    [Fact]
+    [Test]
     public void HasNoObserverAndNoResourceTiming()
     {
         var (engine, _) = PerformanceEngine();
@@ -274,7 +274,7 @@ public class PerformanceTests
         engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArity()
     {
         var (engine, _) = PerformanceEngine();
@@ -283,7 +283,7 @@ public class PerformanceTests
         engine.Evaluate("performance.now.name").AsString().Should().Be("now");
     }
 
-    [Fact]
+    [Test]
     public void IsNotInstalledWithoutItsFlag()
     {
         new Engine(options => options.UseWebApis(WebApiFeatures.Console))

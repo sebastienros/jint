@@ -17,7 +17,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiStorageTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoStorage()
     {
         var engine = new Engine();
@@ -28,7 +28,7 @@ public class WebApiStorageTests
         engine.Evaluate("'localStorage' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisDoesNotBringStorage()
     {
         // Storage is the one non-network feature that is not in the default set: a host asking for "the web
@@ -41,7 +41,7 @@ public class WebApiStorageTests
         new Options().UseWebApis().WebApi.Features.Should().NotHaveFlag(WebApiFeatures.Storage);
     }
 
-    [Fact]
+    [Test]
     public void UseStorageInstallsBothGlobalsAndTheInterfaceObject()
     {
         var engine = new Engine(options => options.UseStorage());
@@ -54,7 +54,7 @@ public class WebApiStorageTests
         new Options().UseStorage().WebApi.Features.Should().HaveFlag(WebApiFeatures.Storage);
     }
 
-    [Fact]
+    [Test]
     public void NamingTheFlagIsEnough()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Storage));
@@ -65,7 +65,7 @@ public class WebApiStorageTests
         engine.Evaluate("typeof console").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultStoreIsPerEngineAndDiesWithIt()
     {
         var options = new Options().UseStorage();
@@ -80,7 +80,7 @@ public class WebApiStorageTests
         second.Evaluate("String(localStorage.getItem('who'))").AsString().Should().Be("null");
     }
 
-    [Fact]
+    [Test]
     public void AHostProviderIsWhatMakesStoragePersist()
     {
         // The provider outlives the engine, so this is how a host gives a pooled or per-request engine a
@@ -99,7 +99,7 @@ public class WebApiStorageTests
         provider.Keys.Should().ContainSingle().Which.Should().Be("visits");
     }
 
-    [Fact]
+    [Test]
     public void AHostCanImplementTheProviderItself()
     {
         var provider = new DictionaryStorageProvider();
@@ -120,7 +120,7 @@ public class WebApiStorageTests
         provider.Read("fromScript").Should().Be("hello");
     }
 
-    [Fact]
+    [Test]
     public void AProviderThatRefusesAWriteRaisesACatchableQuotaExceededError()
     {
         var engine = new Engine(options => options.UseStorage(new RefusingStorageProvider()));
@@ -147,7 +147,7 @@ public class WebApiStorageTests
             """).AsString().Should().Be("QuotaExceededError|this store is full|true|true|22|null|null");
     }
 
-    [Fact]
+    [Test]
     public void AProviderCanReportHowMuchRoomThereWasAndHowMuchWasWanted()
     {
         var engine = new Engine(options => options.UseStorage(new BudgetedStorageProvider()));
@@ -163,9 +163,8 @@ public class WebApiStorageTests
             """).AsString().Should().Be("QuotaExceededError|100|140");
     }
 
-    [Theory]
-    [InlineData(0L)]
-    [InlineData(-1L)]
+    [TestCase(0L)]
+    [TestCase(-1L)]
     public void ABudgetOfZeroOrLessReportsAQuotaOfZeroRatherThanANegativeOne(long maxTotalBytes)
     {
         var engine = new Engine(options =>
@@ -186,20 +185,19 @@ public class WebApiStorageTests
             """).AsString().Should().Be("QuotaExceededError|0|4");
     }
 
-    [Theory]
     // The three things the interface forbids, refused where the host makes the mistake rather than reaching
     // the script as a pair of numbers that cannot both be true.
-    [InlineData(-1d, 5d)]
-    [InlineData(5d, -1d)]
-    [InlineData(9d, 8d)]
-    [InlineData(double.NaN, 1d)]
-    [InlineData(1d, double.PositiveInfinity)]
+    [TestCase(-1d, 5d)]
+    [TestCase(5d, -1d)]
+    [TestCase(9d, 8d)]
+    [TestCase(double.NaN, 1d)]
+    [TestCase(1d, double.PositiveInfinity)]
     public void AnIllFormedQuotaPairIsRefusedAtTheExceptionsOwnConstructor(double quota, double requested)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new StorageQuotaExceededException("x", quota, requested));
     }
 
-    [Fact]
+    [Test]
     public void AWellFormedQuotaPairIsKeptOnTheException()
     {
         var exception = new StorageQuotaExceededException("x", quota: 8, requested: 8);
@@ -212,7 +210,7 @@ public class WebApiStorageTests
         new StorageQuotaExceededException().Requested.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void TheInBoxQuotaIsConfigurable()
     {
         var engine = new Engine(options =>
@@ -232,7 +230,7 @@ public class WebApiStorageTests
             """).AsString().Should().Be("QuotaExceededError|1");
     }
 
-    [Fact]
+    [Test]
     public void TheHostDecidesWhetherTheTwoGlobalsAreOneStore()
     {
         var shared = new InMemoryStorageProvider();
@@ -245,7 +243,7 @@ public class WebApiStorageTests
         engine.Evaluate("localStorage === sessionStorage").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void SessionStorageCanBeGivenItsOwnProviderAlone()
     {
         var session = new InMemoryStorageProvider();
@@ -262,7 +260,7 @@ public class WebApiStorageTests
         engine.Evaluate("localStorage.getItem('b')").AsString().Should().Be("2");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("the host's own storage");
@@ -276,7 +274,7 @@ public class WebApiStorageTests
         engine.Evaluate("typeof sessionStorage").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void HasTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseStorage());
@@ -293,7 +291,7 @@ public class WebApiStorageTests
         interfaceObject.Get("configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseStorage());
@@ -303,7 +301,7 @@ public class WebApiStorageTests
         engine.Evaluate("typeof localStorage").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void KeepsWhatTheProviderHoldsAcrossAGlobalSnapshotRestore()
     {
         var provider = new InMemoryStorageProvider();
@@ -323,7 +321,7 @@ public class WebApiStorageTests
         engine.Evaluate("localStorage.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TheInBoxProviderIsUsableOnItsOwn()
     {
         var provider = new InMemoryStorageProvider(maxTotalBytes: 32);
@@ -339,7 +337,7 @@ public class WebApiStorageTests
         provider.UsedBytes.Should().Be(8);
 
         // The quota is enforced against the host too, and by the same exception it hands the engine.
-        var quota = Assert.Throws<StorageQuotaExceededException>(() => provider.SetItem("c", new string('x', 32)));
+        var quota = Assert.Throws<StorageQuotaExceededException>(() => provider.SetItem("c", new string('x', 32)))!;
         quota.Message.Should().Contain("quota");
         provider.Count.Should().Be(2);
 

@@ -25,61 +25,60 @@ public class DirectEvalArgumentsTests
         return function._functionDefinition!.Initialize();
     }
 
-    [Theory]
     // Sloppy mode: nothing but a direct eval names the arguments object.
-    [InlineData("function f() { return eval('arguments').length; } f(1, 2)", "2")]
-    [InlineData("function f() { let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
-    [InlineData("function f() { var x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
-    [InlineData("function f() { let x = 1; const y = 2; return eval('arguments').length + x + y; } f(1, 2)", "5")]
-    [InlineData("function f() { { return eval('arguments').length; } } f(1, 2)", "2")]
+    [TestCase("function f() { return eval('arguments').length; } f(1, 2)", "2")]
+    [TestCase("function f() { let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
+    [TestCase("function f() { var x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
+    [TestCase("function f() { let x = 1; const y = 2; return eval('arguments').length + x + y; } f(1, 2)", "5")]
+    [TestCase("function f() { { return eval('arguments').length; } } f(1, 2)", "2")]
     // An arrow has no arguments object of its own, so its direct eval names the enclosing one.
-    [InlineData("function f() { const g = () => eval('arguments').length; return g(); } f(1, 2)", "2")]
-    [InlineData("function f() { const g = () => () => eval('arguments').length; return g()(); } f(1, 2)", "2")]
+    [TestCase("function f() { const g = () => eval('arguments').length; return g(); } f(1, 2)", "2")]
+    [TestCase("function f() { const g = () => () => eval('arguments').length; return g()(); } f(1, 2)", "2")]
     // A parameter default is evaluated after the arguments object exists.
-    [InlineData("function f(a = eval('arguments').length) { return a; } f()", "0")]
+    [TestCase("function f(a = eval('arguments').length) { return a; } f()", "0")]
     // The eval call site is an argument of another call — the scan has to walk into it.
-    [InlineData("function id(x) { return x; } function f() { return id(eval('arguments').length); } f(1, 2)", "2")]
+    [TestCase("function id(x) { return x; } function f() { return id(eval('arguments').length); } f(1, 2)", "2")]
     // Sloppy gets the mapped flavour: the parameter and arguments[0] are the same binding.
-    [InlineData("function f(a) { a = 42; return eval('arguments[0]'); } f(1)", "42")]
-    [InlineData("function f() { return eval('var q = arguments.length; q'); } f(1, 2)", "2")]
-    [InlineData("function f() { return typeof eval('arguments.callee'); } f(1)", "function")]
-    [InlineData("function f() { var n = 0; for (var i = 0; i < 3; i++) { n += eval('arguments').length; } return n; } f(1, 2)", "6")]
-    [InlineData("var o = { m() { return eval('arguments').length; } }; o.m(1, 2)", "2")]
-    [InlineData("function* f() { yield eval('arguments').length; } f(1, 2).next().value", "2")]
+    [TestCase("function f(a) { a = 42; return eval('arguments[0]'); } f(1)", "42")]
+    [TestCase("function f() { return eval('var q = arguments.length; q'); } f(1, 2)", "2")]
+    [TestCase("function f() { return typeof eval('arguments.callee'); } f(1)", "function")]
+    [TestCase("function f() { var n = 0; for (var i = 0; i < 3; i++) { n += eval('arguments').length; } return n; } f(1, 2)", "6")]
+    [TestCase("var o = { m() { return eval('arguments').length; } }; o.m(1, 2)", "2")]
+    [TestCase("function* f() { yield eval('arguments').length; } f(1, 2).next().value", "2")]
     // A non-simple parameter list forces the unmapped flavour even in sloppy mode.
-    [InlineData("function f(...xs) { return eval('arguments').length; } f(1, 2)", "2")]
+    [TestCase("function f(...xs) { return eval('arguments').length; } f(1, 2)", "2")]
 
     // Strict mode: the eval gets its own variable environment, but not a fresh arguments object.
-    [InlineData("function f() { 'use strict'; return eval('arguments').length; } f(1, 2)", "2")]
-    [InlineData("function f() { 'use strict'; let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
-    [InlineData("function f() { 'use strict'; var x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
-    [InlineData("function f() { 'use strict'; let x = 1; const y = 2; return eval('arguments').length + x + y; } f(1, 2)", "5")]
-    [InlineData("function f() { 'use strict'; { return eval('arguments').length; } } f(1, 2)", "2")]
-    [InlineData("function f() { 'use strict'; const g = () => eval('arguments').length; return g(); } f(1, 2)", "2")]
-    [InlineData("function f() { 'use strict'; return eval('var q = arguments.length; q'); } f(1, 2)", "2")]
-    [InlineData("function f() { 'use strict'; var n = 0; for (var i = 0; i < 3; i++) { n += eval('arguments').length; } return n; } f(1, 2)", "6")]
+    [TestCase("function f() { 'use strict'; return eval('arguments').length; } f(1, 2)", "2")]
+    [TestCase("function f() { 'use strict'; let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
+    [TestCase("function f() { 'use strict'; var x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
+    [TestCase("function f() { 'use strict'; let x = 1; const y = 2; return eval('arguments').length + x + y; } f(1, 2)", "5")]
+    [TestCase("function f() { 'use strict'; { return eval('arguments').length; } } f(1, 2)", "2")]
+    [TestCase("function f() { 'use strict'; const g = () => eval('arguments').length; return g(); } f(1, 2)", "2")]
+    [TestCase("function f() { 'use strict'; return eval('var q = arguments.length; q'); } f(1, 2)", "2")]
+    [TestCase("function f() { 'use strict'; var n = 0; for (var i = 0; i < 3; i++) { n += eval('arguments').length; } return n; } f(1, 2)", "6")]
     // Strict gets the unmapped flavour: writing the parameter leaves arguments[0] alone.
-    [InlineData("function f(a) { 'use strict'; a = 42; return eval('arguments[0]'); } f(1)", "1")]
+    [TestCase("function f(a) { 'use strict'; a = 42; return eval('arguments[0]'); } f(1)", "1")]
     // A class body is strict code.
-    [InlineData("class C { m() { return eval('arguments').length; } } new C().m(1, 2)", "2")]
-    [InlineData("class C { static s() { return eval('arguments').length; } } C.s(1, 2)", "2")]
-    [InlineData("'use strict'; function f() { let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
-    [InlineData("'use strict'; function f(a = eval('arguments').length) { return a; } f()", "0")]
-    [InlineData("'use strict'; function f(a, b) { let x = 1; const y = 2; var z = 3; return [a, b, x, y, z, eval('arguments').length].join(','); } f(8, 9)", "8,9,1,2,3,2")]
+    [TestCase("class C { m() { return eval('arguments').length; } } new C().m(1, 2)", "2")]
+    [TestCase("class C { static s() { return eval('arguments').length; } } C.s(1, 2)", "2")]
+    [TestCase("'use strict'; function f() { let x = 1; return eval('arguments').length + x; } f(1, 2)", "3")]
+    [TestCase("'use strict'; function f(a = eval('arguments').length) { return a; } f()", "0")]
+    [TestCase("'use strict'; function f(a, b) { let x = 1; const y = 2; var z = 3; return [a, b, x, y, z, eval('arguments').length].join(','); } f(8, 9)", "8,9,1,2,3,2")]
 
     // Shadowed: the name resolves to the shadowing binding, and no arguments object is involved.
-    [InlineData("function f(arguments) { return eval('arguments'); } f(7)", "7")]
-    [InlineData("function f() { function arguments() { } return typeof eval('arguments'); } f(1, 2)", "function")]
-    [InlineData("function f() { let arguments = 5; return eval('arguments'); } f(1, 2)", "5")]
-    [InlineData("function f() { var arguments = 5; return eval('arguments'); } f(1, 2)", "5")]
+    [TestCase("function f(arguments) { return eval('arguments'); } f(7)", "7")]
+    [TestCase("function f() { function arguments() { } return typeof eval('arguments'); } f(1, 2)", "function")]
+    [TestCase("function f() { let arguments = 5; return eval('arguments'); } f(1, 2)", "5")]
+    [TestCase("function f() { var arguments = 5; return eval('arguments'); } f(1, 2)", "5")]
 
     // A nested function has an arguments object of its own, and that is the one its eval names.
-    [InlineData("function f() { return (function () { return eval('arguments').length; })(1, 2, 3); } f()", "3")]
-    [InlineData("function f() { function g() { return eval('arguments').length; } return g(1, 2, 3); } f()", "3")]
-    [InlineData("function f() { 'use strict'; return (function () { return eval('arguments').length; })(1, 2, 3); } f()", "3")]
+    [TestCase("function f() { return (function () { return eval('arguments').length; })(1, 2, 3); } f()", "3")]
+    [TestCase("function f() { function g() { return eval('arguments').length; } return g(1, 2, 3); } f()", "3")]
+    [TestCase("function f() { 'use strict'; return (function () { return eval('arguments').length; })(1, 2, 3); } f()", "3")]
 
     // An indirect eval runs at global scope, where there is no arguments object to reach.
-    [InlineData("function f() { const e = eval; return e('typeof arguments'); } f(1, 2)", "undefined")]
+    [TestCase("function f() { const e = eval; return e('typeof arguments'); } f(1, 2)", "undefined")]
     public void ADirectEvalReachesTheEnclosingFunctionsArgumentsObject(string source, string expected)
     {
         var engine = new Engine();
@@ -87,7 +86,7 @@ public class DirectEvalArgumentsTests
         engine.Evaluate(source).ToString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void AnIndirectEvalStillFindsNoArgumentsObject()
     {
         var engine = new Engine();
@@ -103,7 +102,7 @@ public class DirectEvalArgumentsTests
         result.ToString().Should().Be("ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void AWarmedCallSiteKeepsSeeingItsOwnArguments()
     {
         var engine = new Engine();
@@ -116,7 +115,7 @@ public class DirectEvalArgumentsTests
         engine.Evaluate("f()").ToString().Should().Be("0");
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncFunctionsDirectEvalReachesItsArguments()
     {
         var engine = new Engine();
@@ -128,25 +127,24 @@ public class DirectEvalArgumentsTests
             .Be("2");
     }
 
-    [Theory]
     // A generator or async function's argument array can be a pooled one, and its arguments object
     // outlives the suspension — which is what RequiresInputArgumentsOwnership copies for, and the
     // direct eval is now what asks for the copy.
-    [InlineData("function* f() { yield 0; return eval('arguments').length; } var it = f(1, 2, 3, 4); it.next(); it.next().value", "4")]
-    [InlineData("function* f() { 'use strict'; yield 0; return eval('arguments').length; } var it = f(1, 2, 3, 4, 5); it.next(); it.next().value", "5")]
+    [TestCase("function* f() { yield 0; return eval('arguments').length; } var it = f(1, 2, 3, 4); it.next(); it.next().value", "4")]
+    [TestCase("function* f() { 'use strict'; yield 0; return eval('arguments').length; } var it = f(1, 2, 3, 4, 5); it.next(); it.next().value", "5")]
     // Sloppy mapping is two-way: the eval writes through the arguments object into the parameter.
-    [InlineData("function f(a) { eval('arguments[0] = 9'); return a; } f(1)", "9")]
-    [InlineData("function f(a) { 'use strict'; eval('arguments[0] = 9'); return a; } f(1)", "1")]
+    [TestCase("function f(a) { eval('arguments[0] = 9'); return a; } f(1)", "9")]
+    [TestCase("function f(a) { 'use strict'; eval('arguments[0] = 9'); return a; } f(1)", "1")]
     // Several frames of one function are live at once, each with its own arguments object.
-    [InlineData("function f(n) { 'use strict'; if (n === 0) { return eval('arguments').length; } return f(n - 1) + eval('arguments[0]'); } f(3)", "7")]
+    [TestCase("function f(n) { 'use strict'; if (n === 0) { return eval('arguments').length; } return f(n - 1) + eval('arguments[0]'); } f(3)", "7")]
     // A warm call site reusing its environment and its pooled argument array, 200 times over.
-    [InlineData("function f(a, b) { 'use strict'; return eval('arguments').length + a + b; } var t = 0; for (var i = 0; i < 200; i++) { t += f(1, 2); } t", "1000")]
+    [TestCase("function f(a, b) { 'use strict'; return eval('arguments').length + a + b; } var t = 0; for (var i = 0; i < 200; i++) { t += f(1, 2); } t", "1000")]
     // The arguments object escapes the call that made it.
-    [InlineData("function f(a) { 'use strict'; return eval('arguments'); } var a1 = f(1, 2), a2 = f(3); [a1.length, a1[0], a2.length, a2[0]].join(',')", "2,1,1,3")]
+    [TestCase("function f(a) { 'use strict'; return eval('arguments'); } var a1 = f(1, 2), a2 = f(3); [a1.length, a1[0], a2.length, a2[0]].join(',')", "2,1,1,3")]
     // The Function constructor's one-shot instances share one definition and one cached environment.
-    [InlineData("var f = new Function(\"return eval('arguments').length;\"); f(1, 2) + ',' + f(1, 2, 3)", "2,3")]
-    [InlineData("function f(o) { with (o) { return eval('arguments').length; } } f({ x: 1 }, 2)", "2")]
-    [InlineData("function f(a, b = eval('arguments').length + a) { return b; } f(10)", "11")]
+    [TestCase("var f = new Function(\"return eval('arguments').length;\"); f(1, 2) + ',' + f(1, 2, 3)", "2,3")]
+    [TestCase("function f(o) { with (o) { return eval('arguments').length; } } f({ x: 1 }, 2)", "2")]
+    [TestCase("function f(a, b = eval('arguments').length + a) { return b; } f(10)", "11")]
     public void TheArgumentsObjectSurvivesWhatTheCallLaneDoesToIt(string source, string expected)
     {
         var engine = new Engine();
@@ -154,7 +152,7 @@ public class DirectEvalArgumentsTests
         engine.Evaluate(source).ToString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncArrowReachesTheEnclosingFunctionsArguments()
     {
         var engine = new Engine();
@@ -166,7 +164,7 @@ public class DirectEvalArgumentsTests
             .Be("2");
     }
 
-    [Fact]
+    [Test]
     public void AStrictEngineIsNoDifferentFromAStrictFunction()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -177,7 +175,7 @@ public class DirectEvalArgumentsTests
             .Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void ADirectEvalMakesTheArgumentsObjectNeeded()
     {
         var engine = new Engine();
@@ -197,7 +195,7 @@ public class DirectEvalArgumentsTests
         strict.NeedsEvalContext.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ADirectEvalCostsTheFastInstantiationArms()
     {
         var engine = new Engine();
@@ -221,7 +219,7 @@ public class DirectEvalArgumentsTests
         withoutEval.SupportsRegisterCall.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnEvalFreeFunctionKeepsTheEmptyInstantiationArm()
     {
         var engine = new Engine();
@@ -241,7 +239,7 @@ public class DirectEvalArgumentsTests
         evalLeaf.SupportsLeafCall.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ADebuggerStatementDoesNotMakeTheArgumentsObjectNeeded()
     {
         var engine = new Engine();
@@ -262,7 +260,7 @@ public class DirectEvalArgumentsTests
         strict.CanUseEmptyFDI.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AShadowedArgumentsNameDoesNotMakeTheArgumentsObjectNeeded()
     {
         var engine = new Engine();
@@ -279,7 +277,7 @@ public class DirectEvalArgumentsTests
         StateOf(engine, "byArrow").ArgumentsObjectNeeded.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AnEvalInsideANestedFunctionIsThatFunctionsBusiness()
     {
         var engine = new Engine();

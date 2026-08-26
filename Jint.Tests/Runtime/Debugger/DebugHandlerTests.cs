@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime.Debugger;
 
 public class DebugHandlerTests
 {
-    [Fact]
+    [Test]
     public void AvoidsPauseRecursion()
     {
         // While the DebugHandler is in a paused state, it shouldn't relay further OnStep calls to Break/Step.

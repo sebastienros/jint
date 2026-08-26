@@ -22,15 +22,14 @@ public class OwnPropertyCreationOrderTests
 {
     private static string Keys(Engine engine, string expression) => engine.Evaluate(expression).AsString();
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    [InlineData(7)]
-    [InlineData(8)]  // last size backed by ListDictionary
-    [InlineData(9)]  // first size backed by StringDictionarySlim
-    [InlineData(10)]
-    [InlineData(16)]
-    [InlineData(40)]
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(7)]
+    [TestCase(8)]  // last size backed by ListDictionary
+    [TestCase(9)]  // first size backed by StringDictionarySlim
+    [TestCase(10)]
+    [TestCase(16)]
+    [TestCase(40)]
     public void ADeletedKeyThatIsAddedBackIsTheNewestKey(int n)
     {
         var engine = new Engine();
@@ -52,10 +51,9 @@ public class OwnPropertyCreationOrderTests
         actual.Should().Be(string.Join(",", expected));
     }
 
-    [Theory]
-    [InlineData(8)]
-    [InlineData(9)]
-    [InlineData(24)]
+    [TestCase(8)]
+    [TestCase(9)]
+    [TestCase(24)]
     public void ADeletedKeyInTheMiddleThatIsAddedBackIsTheNewestKey(int n)
     {
         var engine = new Engine();
@@ -85,7 +83,7 @@ public class OwnPropertyCreationOrderTests
     /// This is the half of the defect the free list made worst: two deletes and two unrelated adds put the
     /// new names into the two holes, in reverse order (the free list is LIFO).
     /// </summary>
-    [Fact]
+    [Test]
     public void NewKeysAddedAfterADeleteAppendRatherThanFillingTheGap()
     {
         var engine = new Engine();
@@ -102,7 +100,7 @@ public class OwnPropertyCreationOrderTests
         actual.Should().Be("k0,k2,k4,k5,k6,k7,k8,a,b");
     }
 
-    [Fact]
+    [Test]
     public void EmptyingAndRefillingRebuildsTheOrderFromScratch()
     {
         var engine = new Engine();
@@ -121,19 +119,18 @@ public class OwnPropertyCreationOrderTests
     /// Every own-key listing goes through the one enumeration, so each of these is the same defect seen
     /// from a different built-in. Kept explicit because they are what an embedder actually calls.
     /// </summary>
-    [Theory]
-    [InlineData("Object.keys(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Object.values(o).join(',')", "1,2,3,4,5,6,7,8,99")]
-    [InlineData("Object.entries(o).map(function (e) { return e[0]; }).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Object.getOwnPropertyNames(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Object.keys(Object.getOwnPropertyDescriptors(o)).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Reflect.ownKeys(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Reflect.ownKeys(new Proxy(o, {})).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("var r = []; for (var k in o) r.push(k); r.join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Object.keys(Object.assign({}, o)).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("Object.keys({ ...o }).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
-    [InlineData("var { k5, ...rest } = o; Object.keys(rest).join(',')", "k1,k2,k3,k4,k6,k7,k8,k0")]
-    [InlineData("JSON.stringify(o)", """{"k1":1,"k2":2,"k3":3,"k4":4,"k5":5,"k6":6,"k7":7,"k8":8,"k0":99}""")]
+    [TestCase("Object.keys(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Object.values(o).join(',')", "1,2,3,4,5,6,7,8,99")]
+    [TestCase("Object.entries(o).map(function (e) { return e[0]; }).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Object.getOwnPropertyNames(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Object.keys(Object.getOwnPropertyDescriptors(o)).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Reflect.ownKeys(o).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Reflect.ownKeys(new Proxy(o, {})).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("var r = []; for (var k in o) r.push(k); r.join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Object.keys(Object.assign({}, o)).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("Object.keys({ ...o }).join(',')", "k1,k2,k3,k4,k5,k6,k7,k8,k0")]
+    [TestCase("var { k5, ...rest } = o; Object.keys(rest).join(',')", "k1,k2,k3,k4,k6,k7,k8,k0")]
+    [TestCase("JSON.stringify(o)", """{"k1":1,"k2":2,"k3":3,"k4":4,"k5":5,"k6":6,"k7":7,"k8":8,"k0":99}""")]
     public void EveryOwnKeyListingSeesTheReAddedKeyLast(string expression, string expected)
     {
         var engine = new Engine();
@@ -148,7 +145,7 @@ public class OwnPropertyCreationOrderTests
         actual.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyAsTheReAddIsAlsoACreation()
     {
         var engine = new Engine();
@@ -163,7 +160,7 @@ public class OwnPropertyCreationOrderTests
         actual.Should().Be("k1,k2,k3,k4,k5,k6,k7,k8,k0");
     }
 
-    [Fact]
+    [Test]
     public void ReflectDeleteAndSetBehaveLikeTheOperators()
     {
         var engine = new Engine();
@@ -182,7 +179,7 @@ public class OwnPropertyCreationOrderTests
     /// Integer-like keys are listed first in ascending numeric order whatever happens to them, so the
     /// mixed case pins that the string half moves and the index half does not.
     /// </summary>
-    [Fact]
+    [Test]
     public void IndexKeysStayAscendingWhileStringKeysFollowCreationOrder()
     {
         var engine = new Engine();
@@ -199,7 +196,7 @@ public class OwnPropertyCreationOrderTests
         actual.Should().Be("0,2,s1,s2,s3,s4,s5,s6,s7,s8,s0");
     }
 
-    [Fact]
+    [Test]
     public void AnArrayWithStringPropertiesFollowsTheSameRule()
     {
         var engine = new Engine();
@@ -219,11 +216,10 @@ public class OwnPropertyCreationOrderTests
     /// chronological rule. The symbol store has no small-size backing to hide behind, so two keys are
     /// already enough.
     /// </summary>
-    [Theory]
-    [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(9)]
-    [InlineData(12)]
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(9)]
+    [TestCase(12)]
     public void ADeletedSymbolThatIsAddedBackIsTheNewestSymbol(int n)
     {
         var engine = new Engine();
@@ -251,7 +247,7 @@ public class OwnPropertyCreationOrderTests
     /// <see cref="PropertyDictionary"/> first. <c>Map.prototype</c> has enough members (13) to land in the
     /// hash backing rather than the list backing, so it is the shape path's witness for this bug.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADeoptedBuiltinShapeFollowsTheSameRule()
     {
         var engine = new Engine();
@@ -268,7 +264,7 @@ public class OwnPropertyCreationOrderTests
         after.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void RepeatedDeleteAndReAddOfTheSameKeyKeepsItLast()
     {
         var engine = new Engine();
@@ -289,9 +285,8 @@ public class OwnPropertyCreationOrderTests
     /// so a mismatch means the store diverged from creation order somewhere in the churn rather than in
     /// any one hand-picked scenario. Deterministic seed, so a failure is reproducible.
     /// </summary>
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void RandomizedChurnKeepsTheStoreInCreationOrder(bool symbolKeys)
     {
         var subject = symbolKeys
@@ -336,7 +331,7 @@ public class OwnPropertyCreationOrderTests
     /// storage of a long add/delete churn bounded by the live key count rather than by the number of
     /// operations, which is the property that keeps the fix from being a leak.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChurningAKeyDoesNotGrowTheEntryArrayWithoutBound()
     {
         var dictionary = new StringDictionarySlim<int>();
@@ -360,7 +355,7 @@ public class OwnPropertyCreationOrderTests
     /// name and deletes one from the middle of the table, so no entry slot can be reclaimed on removal and
     /// only compaction keeps the array in check.
     /// </summary>
-    [Fact]
+    [Test]
     public void ChurningDistinctKeysDoesNotGrowTheEntryArrayWithoutBound()
     {
         var dictionary = new StringDictionarySlim<int>();
@@ -381,7 +376,7 @@ public class OwnPropertyCreationOrderTests
         EntryCapacityOf(dictionary).Should().BeLessThan(256);
     }
 
-    [Fact]
+    [Test]
     public void RemovalAndReAdditionKeepsTheCollectionEnumerableInInsertionOrder()
     {
         var dictionary = new StringDictionarySlim<int>();

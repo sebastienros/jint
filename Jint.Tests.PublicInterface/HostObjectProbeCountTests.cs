@@ -101,10 +101,9 @@ public class HostObjectProbeCountTests
         _ => new ProbeCosts(OwnHit: 1, OwnMiss: 1, PrototypeHit: 1, MemberCallBase: 1),
     };
 
-    [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
-    [InlineData(ProbeCountingHostKind.Exotic)]
+    [TestCase(ProbeCountingHostKind.Ordinary)]
+    [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [TestCase(ProbeCountingHostKind.Exotic)]
     public void AnOwnPropertyReadProbesTheHostObject(ProbeCountingHostKind kind)
     {
         var expectedProbes = CostsFor(kind).OwnHit;
@@ -124,10 +123,9 @@ public class HostObjectProbeCountTests
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
-    [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
-    [InlineData(ProbeCountingHostKind.Exotic)]
+    [TestCase(ProbeCountingHostKind.Ordinary)]
+    [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [TestCase(ProbeCountingHostKind.Exotic)]
     public void EachOwnPropertyReadCostsItsOwnProbes(ProbeCountingHostKind kind)
     {
         var expectedProbes = 3 * CostsFor(kind).OwnHit;
@@ -144,10 +142,9 @@ public class HostObjectProbeCountTests
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
-    [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
-    [InlineData(ProbeCountingHostKind.Exotic)]
+    [TestCase(ProbeCountingHostKind.Ordinary)]
+    [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [TestCase(ProbeCountingHostKind.Exotic)]
     public void AMissingOwnPropertyReadIsNoCheaperThanAHit(ProbeCountingHostKind kind)
     {
         var expectedProbes = CostsFor(kind).OwnMiss;
@@ -167,10 +164,9 @@ public class HostObjectProbeCountTests
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
-    [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
-    [InlineData(ProbeCountingHostKind.Exotic)]
+    [TestCase(ProbeCountingHostKind.Ordinary)]
+    [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [TestCase(ProbeCountingHostKind.Exotic)]
     public void APrototypeReadReEstablishesTheOwnMissOnTheHost(ProbeCountingHostKind kind)
     {
         var expectedProbes = CostsFor(kind).PrototypeHit;
@@ -190,10 +186,9 @@ public class HostObjectProbeCountTests
         host.GetOwnPropertyCallCount.Should().Be(expectedProbes);
     }
 
-    [Theory]
-    [InlineData(ProbeCountingHostKind.Ordinary)]
-    [InlineData(ProbeCountingHostKind.OrdinaryWithValueHook)]
-    [InlineData(ProbeCountingHostKind.Exotic)]
+    [TestCase(ProbeCountingHostKind.Ordinary)]
+    [TestCase(ProbeCountingHostKind.OrdinaryWithValueHook)]
+    [TestCase(ProbeCountingHostKind.Exotic)]
     public void AMemberCallBaseProbesOnceUnlessTheHostAnswersItself(ProbeCountingHostKind kind)
     {
         var expectedProbes = CostsFor(kind).MemberCallBase;

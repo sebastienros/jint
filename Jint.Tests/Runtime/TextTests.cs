@@ -23,7 +23,7 @@ public sealed class TextTests
         return _engine.Evaluate(source).ToObject();
     }
 
-    [Fact]
+    [Test]
     public void CanDecode()
     {
         RunTest($"new TextDecoder().decode()").Should().Be("");

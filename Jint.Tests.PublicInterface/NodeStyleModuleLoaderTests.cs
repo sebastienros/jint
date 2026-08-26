@@ -11,7 +11,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class NodeStyleModuleLoaderTests
 {
-    [Fact]
+    [Test]
     public void AHostCanBuildTheLoaderAndImportAPackageByName()
     {
         using var tree = new PackageTree();
@@ -25,7 +25,7 @@ public class NodeStyleModuleLoaderTests
         engine.Modules.Import("./main.js").Get("message").AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void TheLoaderIsAModuleLoaderAndAnIModuleLoader()
     {
         using var tree = new PackageTree();
@@ -35,7 +35,7 @@ public class NodeStyleModuleLoaderTests
         loader.Should().BeAssignableTo<ModuleLoader>().And.BeAssignableTo<IModuleLoader>();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionIsReachableWithoutAnEngine()
     {
         using var tree = new PackageTree();
@@ -52,7 +52,7 @@ public class NodeStyleModuleLoaderTests
         ModuleFactory.LocationOf(resolved).Should().Be(tree.PathOf("node_modules/pkg/lib/entry.js"));
     }
 
-    [Fact]
+    [Test]
     public void ARefusalNamesTheRuleThatRefusedIt()
     {
         using var tree = new PackageTree();
@@ -73,7 +73,7 @@ public class NodeStyleModuleLoaderTests
         exception.Message.Should().NotContain(tree.Root);
     }
 
-    [Fact]
+    [Test]
     public void OneLoaderServesSeveralEngines()
     {
         using var tree = new PackageTree();
@@ -89,7 +89,7 @@ public class NodeStyleModuleLoaderTests
         }
     }
 
-    [Fact]
+    [Test]
     public void OptionsAreSnapshotWhenTheLoaderIsBuilt()
     {
         using var tree = new PackageTree();
@@ -110,7 +110,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/default.js"));
     }
 
-    [Fact]
+    [Test]
     public void ANameWithNoPackageOnDiskStillReachesTheModuleRegistry()
     {
         // The one documented deviation from PACKAGE_RESOLVE step 11, pinned from the embedder's side because
@@ -122,7 +122,7 @@ public class NodeStyleModuleLoaderTests
         engine.Modules.Import("lib").Get("version").AsNumber().Should().Be(15);
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineStillHasNoModuleLoader()
     {
         using var tree = new PackageTree();
@@ -137,7 +137,7 @@ public class NodeStyleModuleLoaderTests
             .WithMessage("*disabled*");
     }
 
-    [Fact]
+    [Test]
     public void AJsonModuleNeedsItsImportAttribute()
     {
         using var tree = new PackageTree();
@@ -155,7 +155,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Missing Import Attribute");
     }
 
-    [Fact]
+    [Test]
     public void ABasePathThatIsNotAFileSystemLocationIsRejected()
     {
         Invoking(() => new NodeStyleModuleLoader("https://example.com/modules/"))

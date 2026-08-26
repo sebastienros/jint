@@ -44,7 +44,7 @@ public class NullPropagation
         }
     }
 
-    [Fact]
+    [Test]
     public void CanCallFilterOnNull()
     {
         var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
@@ -62,7 +62,7 @@ var output = { Tags : input.Tags.filter(x=>x!=null) };
         output.Get("Tags").IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NullPropagationTest()
     {
         var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
@@ -97,7 +97,7 @@ var output = {
         output.Get("Count2").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void NullPropagationFromArg()
     {
         var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));
@@ -122,7 +122,7 @@ function test2(arg) {
         result.Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void CanCallUnresolvableReference()
     {
         // A call to an unresolvable identifier must be routed through the reference resolver,
@@ -136,7 +136,7 @@ function test2(arg) {
         act.Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public void NullPropagationShouldNotAffectOperators()
     {
         var engine = new Engine(cfg => cfg.SetReferenceResolver(new NullPropagationReferenceResolver()));

@@ -2,7 +2,7 @@
 
 public class GlobalTests
 {
-    [Fact]
+    [Test]
     public void UnescapeAtEndOfString()
     {
         var e = new Engine();
@@ -19,21 +19,20 @@ public class GlobalTests
     /// before step 10 tests S for a "0x"/"0X" prefix, so a signed hexadecimal string is hexadecimal.
     /// Expectations checked against node v24.
     /// </summary>
-    [Theory]
-    [InlineData("parseInt('  -0X10 ')", -16d)]
-    [InlineData("parseInt('-0x10')", -16d)]
-    [InlineData("parseInt('+0x10')", 16d)]
-    [InlineData("parseInt('  +0X10  ')", 16d)]
-    [InlineData("parseInt('-0X1f')", -31d)]
-    [InlineData("parseInt('-0x10', 16)", -16d)]
-    [InlineData("parseInt('+0x10', 16)", 16d)]
-    [InlineData("parseInt('-0X10', 0)", -16d)]
-    [InlineData("parseInt('-0x7ffffffff')", -34359738367d)]
+    [TestCase("parseInt('  -0X10 ')", -16d)]
+    [TestCase("parseInt('-0x10')", -16d)]
+    [TestCase("parseInt('+0x10')", 16d)]
+    [TestCase("parseInt('  +0X10  ')", 16d)]
+    [TestCase("parseInt('-0X1f')", -31d)]
+    [TestCase("parseInt('-0x10', 16)", -16d)]
+    [TestCase("parseInt('+0x10', 16)", 16d)]
+    [TestCase("parseInt('-0X10', 0)", -16d)]
+    [TestCase("parseInt('-0x7ffffffff')", -34359738367d)]
     // radix 36 is not 16, so stripPrefix is false and "0Xz" is read as a base-36 numeral
-    [InlineData("parseInt('-0Xz', 36)", -1223d)]
+    [TestCase("parseInt('-0Xz', 36)", -1223d)]
     // the unsigned path was always right, and a signed decimal never went near the prefix test
-    [InlineData("parseInt('0x10')", 16d)]
-    [InlineData("parseInt('-10')", -10d)]
+    [TestCase("parseInt('0x10')", 16d)]
+    [TestCase("parseInt('-10')", -10d)]
     public void ParseIntStripsTheSignBeforeTestingForAHexPrefix(string source, double expected)
     {
         new Engine().Evaluate(source).AsNumber().Should().Be(expected);
@@ -43,16 +42,15 @@ public class GlobalTests
     /// https://tc39.es/ecma262/#sec-parseint-string-radix step 13 — an empty Z is NaN, whether the
     /// string ran out after the sign, after the stripped prefix, or on a digit the radix rejects.
     /// </summary>
-    [Theory]
-    [InlineData("parseInt('-0xg')")]
-    [InlineData("parseInt('-0x', 16)")]
-    [InlineData("parseInt('-0X')")]
-    [InlineData("parseInt('-', 16)")]
-    [InlineData("parseInt('-')")]
-    [InlineData("parseInt('+')")]
-    [InlineData("parseInt('0x')")]
-    [InlineData("parseInt('- 0x10')")]
-    [InlineData("parseInt('--0x10')")]
+    [TestCase("parseInt('-0xg')")]
+    [TestCase("parseInt('-0x', 16)")]
+    [TestCase("parseInt('-0X')")]
+    [TestCase("parseInt('-', 16)")]
+    [TestCase("parseInt('-')")]
+    [TestCase("parseInt('+')")]
+    [TestCase("parseInt('0x')")]
+    [TestCase("parseInt('- 0x10')")]
+    [TestCase("parseInt('--0x10')")]
     public void ParseIntReturnsNaNWhenNoDigitFollowsTheSign(string source)
     {
         new Engine().Evaluate(source).AsNumber().Should().Be(double.NaN);
@@ -62,16 +60,15 @@ public class GlobalTests
     /// https://tc39.es/ecma262/#sec-parseint-string-radix step 15 — a zero magnitude carrying a
     /// recorded minus sign is -0, not +0.
     /// </summary>
-    [Theory]
-    [InlineData("parseInt('-0')")]
-    [InlineData("parseInt('-0', 10)")]
-    [InlineData("parseInt('-0.9')")]
-    [InlineData("parseInt('-0b11')")]
-    [InlineData("parseInt('-00x10')")]
-    [InlineData("parseInt('-0x0')")]
-    [InlineData("parseInt('-0x0', 16)")]
-    [InlineData("parseInt('-0x10', 8)")]
-    [InlineData("parseInt('-0x10', 10)")]
+    [TestCase("parseInt('-0')")]
+    [TestCase("parseInt('-0', 10)")]
+    [TestCase("parseInt('-0.9')")]
+    [TestCase("parseInt('-0b11')")]
+    [TestCase("parseInt('-00x10')")]
+    [TestCase("parseInt('-0x0')")]
+    [TestCase("parseInt('-0x0', 16)")]
+    [TestCase("parseInt('-0x10', 8)")]
+    [TestCase("parseInt('-0x10', 10)")]
     public void ParseIntReturnsNegativeZeroForAZeroMagnitudeWithAMinusSign(string source)
     {
         var value = new Engine().Evaluate(source).AsNumber();
@@ -79,11 +76,10 @@ public class GlobalTests
         IsNegativeZero(value).Should().BeTrue("the spec returns -0 when mathInt is 0 and sign is -1");
     }
 
-    [Theory]
-    [InlineData("parseInt('0')")]
-    [InlineData("parseInt('+0')")]
-    [InlineData("parseInt('+0x0')")]
-    [InlineData("parseInt('0.9')")]
+    [TestCase("parseInt('0')")]
+    [TestCase("parseInt('+0')")]
+    [TestCase("parseInt('+0x0')")]
+    [TestCase("parseInt('0.9')")]
     public void ParseIntReturnsPositiveZeroWithoutAMinusSign(string source)
     {
         var value = new Engine().Evaluate(source).AsNumber();
@@ -97,7 +93,7 @@ public class GlobalTests
     /// <c>===</c>: the two used to be distinct ClrFunctions over one delegate, which answered the
     /// strict-equality test while disagreeing about <c>length</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void NumbersParseIntAndParseFloatAreTheGlobalFunctionObjectsThemselves()
     {
         var engine = new Engine();
@@ -115,7 +111,7 @@ public class GlobalTests
     /// the realm-reading <c>ClrFunction</c> constructor from a lazy factory, so which realm it
     /// belonged to depended on which one happened to be running when it was first read.
     /// </summary>
-    [Fact]
+    [Test]
     public void EachRealmHasItsOwnParseIntAndParseFloat()
     {
         var engine = new Engine();

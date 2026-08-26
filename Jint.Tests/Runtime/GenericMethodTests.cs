@@ -2,7 +2,7 @@
 
 public class GenericMethodTests
 {
-    [Fact]
+    [Test]
     public void TestGeneric()
     {
         var engine = new Engine();
@@ -20,7 +20,7 @@ public class GenericMethodTests
         TestGenericClass.FooInvoked.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TestGeneric2()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class GenericMethodTests
         testGenericObj.Count.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TestFancyGenericPass()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class GenericMethodTests
         testGenericObj.FancyInvoked.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TestFancyGenericFail()
     {
         var engine = new Engine();
@@ -68,7 +68,7 @@ public class GenericMethodTests
         argException.Message.Should().Be("No public methods with the specified arguments were found.");
     }
 
-    [Fact]
+    [Test]
     public void TestGenericConstraintViolationIsACatchableTypeError()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public class GenericMethodTests
     // we _may_ be able to address this by simply instantiating generic types using System.Object for the generic arguments
     // This test currently generates the following error:
     // No public methods with the specified arguments were found.
-    [Fact(Skip = "not supported yet")]
+    [Test, Ignore("not supported yet")]
     public void TestGenericClassDeriveFromGenericInterface()
     {
         var engine = new Engine(cfg => cfg.AllowClr(typeof(OpenGenericTest<>).Assembly));
@@ -108,7 +108,7 @@ public class GenericMethodTests
         ");
     }
 
-    [Fact]
+    [Test]
     public void TestGenericMethodUsingCovarianceOrContraviance()
     {
         var engine = new Engine(cfg => cfg.AllowClr(typeof(PlayerChoiceManager).Assembly));

@@ -18,7 +18,7 @@ namespace Jint.Tests.PublicInterface;
 public class WebApiInterfaceObjectTests
 {
     /// <summary>Every one of the eleven, with the flag that provides it.</summary>
-    public static TheoryData<string, WebApiFeatures> Exposed => new()
+    public static TestCases<string, WebApiFeatures> Exposed => new()
     {
         { "ReadableStreamDefaultReader", WebApiFeatures.Streams },
         { "ReadableStreamBYOBReader", WebApiFeatures.Streams },
@@ -33,8 +33,7 @@ public class WebApiInterfaceObjectTests
         { "Performance", WebApiFeatures.Performance },
     };
 
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void ArrivesWithItsFeatureAndNeverOnItsOwn(string name, WebApiFeatures feature)
     {
         new Engine(options => options.UseWebApis(feature))
@@ -50,8 +49,7 @@ public class WebApiInterfaceObjectTests
     /// A <c>ShadowRealm</c> carries none of the web APIs, which is deliberately more conservative than a
     /// browser — and widening the exposure did not widen that.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void DoesNotReachIntoAShadowRealm(string name, WebApiFeatures feature)
     {
         new Engine(options => options.UseWebApis(feature))
@@ -62,8 +60,7 @@ public class WebApiInterfaceObjectTests
     /// A host that registered a global of its own keeps it. The install probes rather than reads, so a host's
     /// own lazy global is not forced into existence merely by our looking.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(Exposed))]
+    [TestCaseSource(nameof(Exposed))]
     public void LeavesAGlobalTheHostAlreadyOwns(string name, WebApiFeatures feature)
     {
         var built = 0;
@@ -76,17 +73,16 @@ public class WebApiInterfaceObjectTests
         built.Should().Be(1, name);
     }
 
-    [Theory]
-    [InlineData("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
-    [InlineData("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
-    [InlineData("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
-    [InlineData("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
-    [InlineData("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
-    [InlineData("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
-    [InlineData("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
-    [InlineData("Crypto", "crypto")]
-    [InlineData("SubtleCrypto", "crypto.subtle")]
-    [InlineData("Performance", "performance")]
+    [TestCase("ReadableStreamDefaultReader", "new ReadableStream().getReader()")]
+    [TestCase("ReadableStreamBYOBReader", "new ReadableStream({ type: 'bytes' }).getReader({ mode: 'byob' })")]
+    [TestCase("WritableStreamDefaultWriter", "new WritableStream().getWriter()")]
+    [TestCase("ReadableStreamDefaultController", "captured(c => new ReadableStream({ start: c }))")]
+    [TestCase("ReadableByteStreamController", "captured(c => new ReadableStream({ type: 'bytes', start: c }))")]
+    [TestCase("WritableStreamDefaultController", "captured(c => new WritableStream({ start: c }))")]
+    [TestCase("TransformStreamDefaultController", "captured(c => new TransformStream({ start: c }))")]
+    [TestCase("Crypto", "crypto")]
+    [TestCase("SubtleCrypto", "crypto.subtle")]
+    [TestCase("Performance", "performance")]
     public void IsTheObjectItsInstancesInheritFrom(string name, string instance)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -106,18 +102,17 @@ public class WebApiInterfaceObjectTests
     /// gives an interface object a <c>[[Construct]]</c> only when the interface declares a constructor
     /// operation.
     /// </summary>
-    [Theory]
-    [InlineData("ReadableStreamDefaultReader", true)]
-    [InlineData("ReadableStreamBYOBReader", true)]
-    [InlineData("WritableStreamDefaultWriter", true)]
-    [InlineData("ReadableStreamDefaultController", false)]
-    [InlineData("ReadableByteStreamController", false)]
-    [InlineData("ReadableStreamBYOBRequest", false)]
-    [InlineData("WritableStreamDefaultController", false)]
-    [InlineData("TransformStreamDefaultController", false)]
-    [InlineData("Crypto", false)]
-    [InlineData("SubtleCrypto", false)]
-    [InlineData("Performance", false)]
+    [TestCase("ReadableStreamDefaultReader", true)]
+    [TestCase("ReadableStreamBYOBReader", true)]
+    [TestCase("WritableStreamDefaultWriter", true)]
+    [TestCase("ReadableStreamDefaultController", false)]
+    [TestCase("ReadableByteStreamController", false)]
+    [TestCase("ReadableStreamBYOBRequest", false)]
+    [TestCase("WritableStreamDefaultController", false)]
+    [TestCase("TransformStreamDefaultController", false)]
+    [TestCase("Crypto", false)]
+    [TestCase("SubtleCrypto", false)]
+    [TestCase("Performance", false)]
     public void IsConstructibleOnlyWhereTheStandardSaysSo(string name, bool constructible)
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -144,10 +139,9 @@ public class WebApiInterfaceObjectTests
     /// so the object itself has no own property, and <c>Object.keys</c> answers the empty array as it always
     /// did.
     /// </summary>
-    [Theory]
-    [InlineData("crypto", "Crypto", "randomUUID")]
-    [InlineData("crypto.subtle", "SubtleCrypto", "digest")]
-    [InlineData("performance", "Performance", "now")]
+    [TestCase("crypto", "Crypto", "randomUUID")]
+    [TestCase("crypto.subtle", "SubtleCrypto", "digest")]
+    [TestCase("performance", "Performance", "now")]
     public void KeepsTheSingletonsMembersOnTheInterfacePrototype(string instance, string name, string member)
     {
         var engine = new Engine(options => options.UseWebApis());

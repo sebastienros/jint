@@ -10,7 +10,7 @@
 /// </summary>
 public class ForInEnumerationTests
 {
-    [Fact]
+    [Test]
     public void EnumeratesOwnKeysInInsertionOrder()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class ForInEnumerationTests
         result.Should().Be("a,b,c,d,e,f");
     }
 
-    [Fact]
+    [Test]
     public void HasOwnPropertyGuardLoopCountsOnlyOwnKeys()
     {
         // The census idiom: the guard filters inherited keys, and the loop must produce the same count
@@ -42,7 +42,7 @@ public class ForInEnumerationTests
         result.Should().Be(600);
     }
 
-    [Fact]
+    [Test]
     public void ShadowingOverTwoLevelChain()
     {
         // A key present (enumerable) on a shallower level suppresses the same key on a deeper level;
@@ -61,7 +61,7 @@ public class ForInEnumerationTests
         result.Should().Be("a=2,y=20,x=10");
     }
 
-    [Fact]
+    [Test]
     public void NonEnumerableShallowerKeyStillShadowsDeeperEnumerableKey()
     {
         // A present-but-non-enumerable own key on a shallower level must still shadow a deeper
@@ -79,7 +79,7 @@ public class ForInEnumerationTests
         result.Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void DeleteDuringIterationSkipsNotYetVisitedKey()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public class ForInEnumerationTests
         result.Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void VisitedShallowerKeyDeletedMidLoopStillShadowsDeeperKey()
     {
         // Regression: a shallower own key that was already visited and is then deleted must still
@@ -113,7 +113,7 @@ public class ForInEnumerationTests
         result.Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void VisitedKeyDeletedMidLoopShadowsAcrossThreeLevels()
     {
         // Same invariant across a three-level chain: the deleted-after-visit own key must not
@@ -131,7 +131,7 @@ public class ForInEnumerationTests
         result.Should().Be("x,z,y");
     }
 
-    [Fact]
+    [Test]
     public void PooledIteratorReuseKeepsShadowingInheritedEnumerableKey()
     {
         // Regression: the pooled ForInIterator must reset its shadow-set sentinel to null (not merely
@@ -157,7 +157,7 @@ public class ForInEnumerationTests
         result.Should().Be("type,id | type,id | type,id");
     }
 
-    [Fact]
+    [Test]
     public void AddDuringIterationDoesNotYieldNewKey()
     {
         // Spec permits either; this pins Jint's current behaviour (level keys are snapshotted at entry).
@@ -172,7 +172,7 @@ public class ForInEnumerationTests
         result.Should().Be("a");
     }
 
-    [Fact]
+    [Test]
     public void ReAddingADeletedKeyDuringIterationKeepsItInSnapshot()
     {
         // Deleting then re-adding a key that hasn't been visited yet: it was in the entry snapshot, so it
@@ -188,7 +188,7 @@ public class ForInEnumerationTests
         result.Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void ProxyOwnKeysAndDescriptorTrapCountsUnchanged()
     {
         var engine = new Engine();
@@ -206,7 +206,7 @@ public class ForInEnumerationTests
         result.Should().Be("[[\"a\",\"b\"],[\"ownKeys\",\"gopd:a\",\"gopd:b\"]]");
     }
 
-    [Fact]
+    [Test]
     public void TwoNestedForInOverSameObjectSimultaneously()
     {
         // Pooling must not share live iterator state: the inner loop runs a full enumeration on each
@@ -223,7 +223,7 @@ public class ForInEnumerationTests
         result.Should().Be("36,aa,bb,ff");
     }
 
-    [Fact]
+    [Test]
     public void RecursiveForInOfSameStatementKeepsOuterState()
     {
         // The same for-in statement re-entered recursively must allocate/keep independent state per level.
@@ -241,7 +241,7 @@ public class ForInEnumerationTests
         result.Should().Be("p,p,q,q,p,q");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedGeneratorsOverSameObjectDoNotShareState()
     {
         // Generators suspend across the for-in body; the iterator lives in suspend data and must never be
@@ -266,7 +266,7 @@ public class ForInEnumerationTests
         result.Should().Be("a,a,b,b,c,c,true");
     }
 
-    [Fact]
+    [Test]
     public void BreakThenReuseResetsPooledIterator()
     {
         // Breaking out early parks a partially-advanced iterator; the next entry must reset it.
@@ -285,7 +285,7 @@ public class ForInEnumerationTests
         result.Should().Be("ab,ab,ab");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverDictionaryModeObjectWithIntegerKeys()
     {
         // Integer-index-like keys enumerate first in ascending numeric order, then string keys in
@@ -304,7 +304,7 @@ public class ForInEnumerationTests
         result.Should().Be("1,2,10,key0,key1,key2,key3,key4");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayEnumeratesIndicesThenExtraProperties()
     {
         var engine = new Engine();
@@ -319,7 +319,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,2,foo");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayIncludesInheritedEnumerableArrayPrototypeIndex()
     {
         // Regression: Array.prototype is itself array-backed, so script-placed elements on it live in
@@ -340,7 +340,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,5");
     }
 
-    [Fact]
+    [Test]
     public void ForInKeysAreStrings()
     {
         var engine = new Engine();
@@ -354,7 +354,7 @@ public class ForInEnumerationTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CachedKeyStringsEqualByValueAcrossEntries()
     {
         // The shape memo shares JsString instances across enumerations; value equality (and thus keyed
@@ -373,7 +373,7 @@ public class ForInEnumerationTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ForInOverDenseArrayYieldsAscendingIndicesAsStrings()
     {
         var engine = new Engine();
@@ -387,7 +387,7 @@ public class ForInEnumerationTests
         result.Should().Be("string:0,string:1,string:2,string:3");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverHoleyArraySkipsHoles()
     {
         var engine = new Engine();
@@ -402,7 +402,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,3,7");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverEmptyArrayWithLargeLengthYieldsNothing()
     {
         var engine = new Engine();
@@ -417,7 +417,7 @@ public class ForInEnumerationTests
         result.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayWithEnumerablePropOnObjectPrototype()
     {
         var engine = new Engine();
@@ -432,7 +432,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,zzz");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayDeleteDuringIterationSkipsNotYetVisitedIndex()
     {
         var engine = new Engine();
@@ -446,7 +446,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,3");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayPushDuringIterationDoesNotYieldNewIndex()
     {
         // Pins snapshot behaviour: elements appended mid-enumeration are not visited (matches the
@@ -462,7 +462,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayLengthTruncationDuringIterationSkipsRemovedIndices()
     {
         var engine = new Engine();
@@ -476,7 +476,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,2");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayNonEnumerableIndexIsSkipped()
     {
         var engine = new Engine();
@@ -491,7 +491,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,2");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayDefinePropertyMidLoopHonorsNewEnumerability()
     {
         // Materializing a non-enumerable descriptor mid-loop must stop the not-yet-visited index
@@ -510,7 +510,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,3");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArraySparseConversionMidLoopKeepsEnumeratingOriginalIndices()
     {
         // A far write mid-loop converts the backing store dense->sparse; the remaining original
@@ -526,7 +526,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void NestedForInOverSameArrayDoNotShareState()
     {
         var engine = new Engine();
@@ -540,7 +540,7 @@ public class ForInEnumerationTests
         result.Should().Be("00,01,02,10,11,12,20,21,22");
     }
 
-    [Fact]
+    [Test]
     public void InterleavedGeneratorsOverSameArrayDoNotShareState()
     {
         var engine = new Engine();
@@ -562,7 +562,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,0,1,1,2,2,true");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArraySubclassInstanceYieldsIndices()
     {
         // The subclass prototype is a plain object between the instance and Array.prototype; the
@@ -580,7 +580,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverArrayBreakThenReuseResetsPooledIterator()
     {
         var engine = new Engine();
@@ -598,7 +598,7 @@ public class ForInEnumerationTests
         result.Should().Be("01,01,01");
     }
 
-    [Fact]
+    [Test]
     public void ForInOverBuiltinPrototypeYieldsNoEnumerableKeys()
     {
         // The deeper for-in level is often a built-in (Object.prototype): all its members are
@@ -621,9 +621,8 @@ public class ForInEnumerationTests
     /// down over the hole, so index 1 becomes present and index 2 becomes the hole. Only "0" was ever in
     /// the key set.
     /// </summary>
-    [Theory]
-    [InlineData("Array.prototype.unshift", "[0]")]
-    [InlineData("Array.prototype.splice", "[0, 0, 0]")]
+    [TestCase("Array.prototype.unshift", "[0]")]
+    [TestCase("Array.prototype.splice", "[0, 0, 0]")]
     public void FillingAHoleDuringEnumerationDoesNotAddItToTheEnumeration(string method, string args)
     {
         var engine = new Engine();
@@ -649,7 +648,7 @@ public class ForInEnumerationTests
     /// evaluation, so an index that goes missing mid-loop was "deleted before it is processed" and skipping
     /// it is what the specification requires.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShiftingDuringEnumerationOfADenseArraySkipsTheVanishedTail()
     {
         var engine = new Engine();
@@ -667,7 +666,7 @@ public class ForInEnumerationTests
         result.Should().Be("0,1");
     }
 
-    [Fact]
+    [Test]
     public void HolesAreSkippedWhenNothingMutatesTheArray()
     {
         var engine = new Engine();

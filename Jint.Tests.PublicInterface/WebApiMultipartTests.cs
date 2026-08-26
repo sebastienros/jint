@@ -71,7 +71,7 @@ public class WebApiMultipartTests
         return contentType.Substring(TypePrefix.Length);
     }
 
-    [Fact]
+    [Test]
     public void PostsAFormDataBodyAServerCanRead()
     {
         var handler = new CapturingHandler();
@@ -105,7 +105,7 @@ public class WebApiMultipartTests
             + $"--{boundary}--\r\n"));
     }
 
-    [Fact]
+    [Test]
     public void GivesEveryRequestItsOwnBoundary()
     {
         var handler = new CapturingHandler();
@@ -127,7 +127,7 @@ public class WebApiMultipartTests
         Encoding.Latin1.GetString(handler.Bodies[1]).Should().Be($"--{second}--\r\n");
     }
 
-    [Fact]
+    [Test]
     public Task ReadsAMultipartResponseBackAsFormData() => DedicatedThread.RunAsync(() =>
     {
         var handler = new CapturingHandler
@@ -163,7 +163,7 @@ public class WebApiMultipartTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("done|r.txt|text/plain");
     });
 
-    [Fact]
+    [Test]
     public Task RejectsAMalformedMultipartResponseWithATypeError() => DedicatedThread.RunAsync(() =>
     {
         var handler = new CapturingHandler

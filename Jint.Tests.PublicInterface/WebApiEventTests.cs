@@ -17,7 +17,7 @@ public class WebApiEventTests
 {
     private static readonly string[] _globals = ["Event", "CustomEvent", "EventTarget", "AbortController", "AbortSignal"];
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoEventGlobals()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class WebApiEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheEventsFlagInstallsThemAndNothingElseDoes()
     {
         var enabled = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -45,7 +45,7 @@ public class WebApiEventTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Events);
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own EventTarget");
@@ -61,7 +61,7 @@ public class WebApiEventTests
         engine.Evaluate("typeof AbortController").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmGetsNothing()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -72,7 +72,7 @@ public class WebApiEventTests
         }
     }
 
-    [Fact]
+    [Test]
     public void GivesEveryMemberTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -119,7 +119,7 @@ public class WebApiEventTests
         engine.Evaluate($"{ctor}.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ScriptsGetTheInterfaceShapeTheyExpect()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -130,7 +130,7 @@ public class WebApiEventTests
         engine.Evaluate("new AbortController().signal instanceof EventTarget").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DispatchesAnEventToAHostReadableResult()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -146,7 +146,7 @@ public class WebApiEventTests
         detail.AsString().Should().Be("payload");
     }
 
-    [Fact]
+    [Test]
     public void AbortsAnOperationTheWayTheSpecificationRecommends()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -162,7 +162,7 @@ public class WebApiEventTests
         reason.AsString().Should().Be("host asked to stop");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Events);
@@ -180,7 +180,7 @@ public class WebApiEventTests
         first.Evaluate("Event").Should().NotBeSameAs(second.Evaluate("Event"));
     }
 
-    [Fact]
+    [Test]
     public void ATimeoutSignalFiresOnlyWhileTheEngineIsPumped()
     {
         // A manual clock rather than a real 1ms timeout: Evaluate itself pumps the event loop, so with a
@@ -214,7 +214,7 @@ public class WebApiEventTests
         public void Advance(TimeSpan by) => _timestamp += (long) (by.TotalSeconds * TimestampFrequency);
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));

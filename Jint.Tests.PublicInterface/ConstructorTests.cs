@@ -16,7 +16,7 @@ public class ConstructorTests
         _engine.SetValue("DateOnly", new DateOnlyConstructor(_engine));
     }
 
-    [Fact]
+    [Test]
     public void CanConstructWithParameters()
     {
         var wrapper = (IObjectWrapper) _engine.Evaluate("new DateOnly(1982, 6, 28);");
@@ -30,7 +30,7 @@ public class ConstructorTests
         _engine.Evaluate("new DateOnly(1982, 6, 28).day").AsNumber().Should().Be(28);
     }
 
-    [Fact]
+    [Test]
     public void CanConstructWithoutParameters()
     {
         _engine.Evaluate("new DateOnly().year").AsNumber().Should().Be(DateTime.Today.Year);
@@ -38,14 +38,14 @@ public class ConstructorTests
         _engine.Evaluate("new DateOnly().day").AsNumber().Should().Be(DateTime.Today.Day);
     }
 
-    [Fact]
+    [Test]
     public void CallThrows()
     {
         var ex = Invoking(() => _engine.Evaluate("DateOnly(1982, 6, 28);")).Should().ThrowExactly<JavaScriptException>().Which;
         ex.Message.Should().Be("Constructor DateOnly requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void CanThrowTypeError()
     {
         var ex = Invoking(() => _engine.Evaluate("new DateOnly(undefined, 1, 1);")).Should().ThrowExactly<JavaScriptException>().Which;

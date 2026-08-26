@@ -15,7 +15,7 @@ public class FileTests
 
     private static JsValue Eval(string source) => WebEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void CarriesTheBitsTheNameAndTheOptions()
     {
         var engine = WebEngine();
@@ -28,7 +28,7 @@ public class FileTests
         engine.Evaluate("f.text()").UnwrapIfPromise().AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void InheritsBlob()
     {
         var engine = WebEngine();
@@ -49,7 +49,7 @@ public class FileTests
     /// prototype chain above — including <c>textStream()</c>, https://w3c.github.io/FileAPI/#dom-blob-textstream,
     /// which brand-checks for a <c>Blob</c> and a <c>File</c> is one.
     /// </summary>
-    [Fact]
+    [Test]
     public void InheritsEveryBlobReadMethodIncludingTextStream()
     {
         var engine = WebEngine();
@@ -77,7 +77,7 @@ public class FileTests
         engine.Evaluate("Object.prototype.toString.call(f.stream())").AsString().Should().Be("[object ReadableStream]");
     }
 
-    [Fact]
+    [Test]
     public void SlicingAFileProducesAPlainBlob()
     {
         // "Return a new Blob object S" — a slice has no name to carry.
@@ -88,7 +88,7 @@ public class FileTests
         engine.Evaluate("s instanceof File").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RequiresBothOfItsRequiredArguments()
     {
         Assert.Throws<JavaScriptException>(() => Eval("new File()"));
@@ -99,7 +99,7 @@ public class FileTests
         Assert.Throws<JavaScriptException>(() => Eval("new File(undefined, 'a')"));
     }
 
-    [Fact]
+    [Test]
     public void ConvertsTheNameToAScalarValueString()
     {
         // USVString: an unpaired surrogate becomes U+FFFD.
@@ -112,7 +112,7 @@ public class FileTests
         Eval("new File([], 5).name").AsString().Should().Be("5");
     }
 
-    [Fact]
+    [Test]
     public void DefaultsLastModifiedToTheEngineClock()
     {
         var engine = WebEngine();
@@ -125,7 +125,7 @@ public class FileTests
         engine.Evaluate("f.lastModified === f.lastModified").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsLastModifiedAsAWebIdlLongLong()
     {
         // long long truncates towards zero, and every non-finite value is zero.
@@ -137,7 +137,7 @@ public class FileTests
         Eval("new File([], 'a', { lastModified: 0 }).lastModified").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheInheritedDictionaryMembersFirst()
     {
         var engine = WebEngine();
@@ -154,7 +154,7 @@ public class FileTests
         engine.Evaluate("seen.join(',')").AsString().Should().Be("endings,type,lastModified");
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksNameAndLastModified()
     {
         var engine = WebEngine();
@@ -166,7 +166,7 @@ public class FileTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(File.prototype, 'name').get.call(new Blob())"));
     }
 
-    [Fact]
+    [Test]
     public void ExposesNameAndLastModifiedAsAccessorsOnItsOwnPrototype()
     {
         var engine = WebEngine();
@@ -180,7 +180,7 @@ public class FileTests
         engine.Evaluate("d.set").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaresTheArityTheIdlDoes()
     {
         var engine = WebEngine();
@@ -190,7 +190,7 @@ public class FileTests
         engine.Evaluate("new File([], 'a').constructor === File").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassing()
     {
         var engine = WebEngine();

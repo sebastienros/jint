@@ -50,45 +50,44 @@ public class ParserOptionsPropagationTests
         }
     }
 
-    [Theory]
-    [InlineData(SourceKind.Script, @"'' + eval('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.Script, @"'' + eval('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.Script, @"('',) + eval('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.Script, @"('',) + eval('(1, 2,)')", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.Script, @"'' + eval('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.Script, @"'' + eval('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.Script, @"('',) + eval('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.Script, @"('',) + eval('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + eval('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + eval('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + eval('(1, 2,)')", true, true, "2")]
 
-    [InlineData(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", false, false, null)]
-    [InlineData(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", true, false, null)]
-    [InlineData(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", false, true, "2")]
-    [InlineData(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
+    [TestCase(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", false, false, null)]
+    [TestCase(SourceKind.Script, @"'' + new Function('return (1, 2,)')()", true, false, null)]
+    [TestCase(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [TestCase(SourceKind.Script, @"('',) + new Function('return (1, 2,)')()", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", false, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + new Function('return (1, 2,)')()", true, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + new Function('return (1, 2,)')()", true, true, "2")]
 
-    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
-    [InlineData(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.Script, @"'' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.Script, @"('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaBuilder, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", false, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default '' + new ShadowRealm().evaluate('(1, 2,)')", true, false, null)]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", false, true, "2")]
+    [TestCase(SourceKind.ModuleViaFactory, @"export default ('',) + new ShadowRealm().evaluate('(1, 2,)')", true, true, "2")]
     public void DynamicCodeShouldBeParsedWithCallerParserOptions(SourceKind sourceKind, string code, bool prepare, bool tolerant, string? expectedReturnValue)
     {
         Engine engine;
@@ -157,11 +156,10 @@ public class ParserOptionsPropagationTests
         }
     }
 
-    [Theory]
-    [InlineData(false, false, null)]
-    [InlineData(false, true, "2")]
-    [InlineData(true, false, null)]
-    [InlineData(true, true, "2")]
+    [TestCase(false, false, null)]
+    [TestCase(false, true, "2")]
+    [TestCase(true, false, null)]
+    [TestCase(true, true, "2")]
     public void TransitivelyImportedModuleShouldBeParsedWithOwnParserOptions(bool mainTolerant, bool otherTolerant, string? expectedReturnValue)
     {
         var engine = new Engine();
@@ -185,7 +183,7 @@ public class ParserOptionsPropagationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RealmsShouldBeIsolatedWithRegardToParserOptions()
     {
         var engine = new Engine();

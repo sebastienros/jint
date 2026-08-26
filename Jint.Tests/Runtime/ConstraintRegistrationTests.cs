@@ -34,26 +34,24 @@ public class ConstraintRegistrationTests
         return Register(configure).Count(c => c is T);
     }
 
-    [Theory]
-    [InlineData(int.MinValue)]
-    [InlineData(-1)]
-    [InlineData(0)]
-    [InlineData(int.MaxValue)]
+    [TestCase(int.MinValue)]
+    [TestCase(-1)]
+    [TestCase(0)]
+    [TestCase(int.MaxValue)]
     public void MaxStatementsRegistersNothingForValuesThatCannotExpressALimit(int maxStatements)
     {
         CountOf<MaxStatementsConstraint>(o => o.LimitStatements(maxStatements)).Should().Be(0);
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(1000)]
-    [InlineData(int.MaxValue - 1)]
+    [TestCase(1)]
+    [TestCase(1000)]
+    [TestCase(int.MaxValue - 1)]
     public void MaxStatementsRegistersOneForARealLimit(int maxStatements)
     {
         CountOf<MaxStatementsConstraint>(o => o.LimitStatements(maxStatements)).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MaxStatementsReplacesAndCanBeCleared()
     {
         Register(o => o.LimitStatements(10).LimitStatements(20))
@@ -62,17 +60,16 @@ public class ConstraintRegistrationTests
         CountOf<MaxStatementsConstraint>(o => o.LimitStatements(10).LimitStatements(int.MaxValue)).Should().Be(0);
     }
 
-    [Theory]
-    [InlineData(long.MinValue)]
-    [InlineData(-1L)]
-    [InlineData(0L)]
-    [InlineData(long.MaxValue)]
+    [TestCase(long.MinValue)]
+    [TestCase(-1L)]
+    [TestCase(0L)]
+    [TestCase(long.MaxValue)]
     public void LimitMemoryRegistersNothingForValuesThatCannotExpressALimit(long memoryLimit)
     {
         CountOf<MemoryLimitConstraint>(o => o.LimitMemory(memoryLimit)).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void LimitMemoryReplacesAndCanBeCleared()
     {
         CountOf<MemoryLimitConstraint>(o => o.LimitMemory(1024).LimitMemory(2048)).Should().Be(1);
@@ -85,7 +82,7 @@ public class ConstraintRegistrationTests
         return Register(configure).Count(c => c is not MaxStatementsConstraint and not MemoryLimitConstraint and not CancellationConstraint);
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIntervalRegistersNothingForIntervalsThatCannotExpressALimit()
     {
         TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.Zero)).Should().Be(0);
@@ -93,7 +90,7 @@ public class ConstraintRegistrationTests
         TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.MaxValue)).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TimeoutIntervalReplacesInsteadOfAccumulating()
     {
         // the second call must win outright; two live time constraints would silently leave the
@@ -103,13 +100,13 @@ public class ConstraintRegistrationTests
         TimeConstraintCount(o => o.LimitExecutionTime(TimeSpan.FromSeconds(1)).LimitExecutionTime(TimeSpan.MaxValue)).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CancellationTokenRegistersNothingForTheDefaultToken()
     {
         CountOf<CancellationConstraint>(o => o.ObserveCancellation(default)).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CancellationTokenReplacesAndCanBeCleared()
     {
         using var source = new System.Threading.CancellationTokenSource();

@@ -21,7 +21,7 @@ public class InteropDictionaryValueAccessTests
 
     #region 1. reference-typed values
 
-    [Fact]
+    [Test]
     public void ReadsAStringValue()
     {
         var engine = CreateEngine(new Dictionary<string, string> { ["a"] = "one" });
@@ -30,7 +30,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("d['a']").Should().Be("one");
     }
 
-    [Fact]
+    [Test]
     public void MissingKeyIsUndefined()
     {
         var engine = CreateEngine(new Dictionary<string, string> { ["a"] = "one" });
@@ -41,7 +41,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("'a' in d").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void StoredNullIsNull()
     {
         var engine = CreateEngine(new Dictionary<string, string?> { ["a"] = null });
@@ -51,7 +51,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("'a' in d").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void ReadsAfterMutation()
     {
         var dictionary = new Dictionary<string, string>();
@@ -70,7 +70,7 @@ public class InteropDictionaryValueAccessTests
 
     #region 2. value-typed values
 
-    [Fact]
+    [Test]
     public void ReadsAnIntValue()
     {
         var engine = CreateEngine(new Dictionary<string, int> { ["a"] = 1, ["zero"] = 0 });
@@ -79,7 +79,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("d.zero").Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void MissingValueTypedKeyIsUndefinedNotTheDefaultValue()
     {
         var engine = CreateEngine(new Dictionary<string, int> { ["a"] = 1 });
@@ -88,7 +88,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("d.missing === 0").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void ReadsAStructValue()
     {
         var engine = CreateEngine(new Dictionary<string, DateTimeOffset>
@@ -100,7 +100,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.missing").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReadsANullableValue()
     {
         var engine = CreateEngine(new Dictionary<string, int?> { ["a"] = 1, ["b"] = null });
@@ -114,7 +114,7 @@ public class InteropDictionaryValueAccessTests
 
     #region 3. dictionary shapes
 
-    [Fact]
+    [Test]
     public void ReadsThroughAReadOnlyDictionary()
     {
         IReadOnlyDictionary<string, string> host = new Dictionary<string, string> { ["a"] = "one" };
@@ -124,7 +124,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.missing").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReadsThroughAnExplicitInterfaceImplementation()
     {
         var engine = CreateEngine(new ExplicitDictionary());
@@ -133,7 +133,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.missing").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReadsFromANonStringKeyedDictionary()
     {
         var engine = CreateEngine(new Dictionary<int, string> { [1] = "one" });
@@ -142,7 +142,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d[2]").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReadsFromANonPublicValueTypedDictionary()
     {
         // the compiled lane declines when the closed generic interface is not visible, the reflection
@@ -153,7 +153,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.missing").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TraversesNestedDictionaries()
     {
         var host = new Dictionary<string, object>
@@ -172,7 +172,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.b.c.missing").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EnumerationStillWorks()
     {
         var engine = CreateEngine(new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 });
@@ -181,7 +181,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("JSON.stringify(d)").Should().Be("{\"a\":1,\"b\":2}");
     }
 
-    [Fact]
+    [Test]
     public void WritesAndDeletesStillWork()
     {
         var dictionary = new Dictionary<string, int> { ["a"] = 1 };
@@ -200,7 +200,7 @@ public class InteropDictionaryValueAccessTests
 
     #region 4. throwing implementations
 
-    [Fact]
+    [Test]
     public void KeyNotFoundFromTheImplementationIsAMiss()
     {
         var engine = CreateEngine(new ThrowingDictionary(new KeyNotFoundException()));
@@ -208,7 +208,7 @@ public class InteropDictionaryValueAccessTests
         engine.Evaluate("typeof d.anything").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void OtherFailuresStillSurface()
     {
         var engine = CreateEngine(new ThrowingDictionary(new InvalidOperationException("boom")));
@@ -223,7 +223,7 @@ public class InteropDictionaryValueAccessTests
 
 #if NET8_0_OR_GREATER
 
-    [Fact]
+    [Test]
     public void CompiledReaderIsBuiltForAVisibleDictionary()
     {
         var getter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(
@@ -240,7 +240,7 @@ public class InteropDictionaryValueAccessTests
         value.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void CompiledReaderBoxesValueTypedValues()
     {
         var getter = Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(
@@ -257,7 +257,7 @@ public class InteropDictionaryValueAccessTests
         value.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CompiledReaderDeclinesWhenTheClosedGenericIsNotVisible()
     {
         var method = typeof(IDictionary<,>).MakeGenericType(typeof(string), typeof(Hidden)).GetMethod("TryGetValue");
@@ -265,13 +265,13 @@ public class InteropDictionaryValueAccessTests
         Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(method).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void CompiledReaderDeclinesWithoutAMethod()
     {
         Jint.Runtime.Interop.Reflection.CompiledKeyedAccessor.GetValueGetter(null).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void CompiledKeyPredicateMatchesReflectionForContainsKeyAndRemove()
     {
         var containsKeyMethod = typeof(IDictionary<string, string>).GetMethod("ContainsKey")!;
@@ -293,7 +293,7 @@ public class InteropDictionaryValueAccessTests
         dictionary.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void CompiledValueSetterMatchesReflectionForTheIndexer()
     {
         var setMethod = typeof(IDictionary<string, int>).GetProperty("Item")!.GetSetMethod()!;
@@ -311,7 +311,7 @@ public class InteropDictionaryValueAccessTests
         compiled.Should().Equal(reflected);
     }
 
-    [Fact]
+    [Test]
     public void CompiledIndexerGetterMatchesReflectionAndRethrowsRaw()
     {
         var getMethod = typeof(Dictionary<string, string>).GetProperty("Item")!.GetGetMethod()!;
@@ -327,7 +327,7 @@ public class InteropDictionaryValueAccessTests
         Invoking(() => getMethod.Invoke(dictionary, ["missing"])).Should().Throw<System.Reflection.TargetInvocationException>();
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesDeclineForANonVisibleClosedGeneric()
     {
         var hiddenDictionary = typeof(IDictionary<,>).MakeGenericType(typeof(string), typeof(Hidden));
@@ -338,7 +338,7 @@ public class InteropDictionaryValueAccessTests
             .GetValueSetter(hiddenDictionary.GetProperty("Item")!.GetSetMethod()).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void CompiledLanesDeclineForAValueTypeReceiver()
     {
         // a compiled call would run against the unboxed copy, so a write through it would be lost

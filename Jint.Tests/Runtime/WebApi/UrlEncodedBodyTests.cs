@@ -42,7 +42,7 @@ public class UrlEncodedBodyTests
     private static string Response(string body, string parameters = "")
         => $"new Response('{body}', {{ headers: {{ 'content-type': 'application/x-www-form-urlencoded{parameters}' }} }})";
 
-    [Fact]
+    [Test]
     public void PlusIsASpaceAndPercentEscapesAreDecoded()
     {
         var engine = WebEngine();
@@ -57,7 +57,7 @@ public class UrlEncodedBodyTests
             .Should().Be("""[["d e","f"],["+","+"]]""");
     }
 
-    [Fact]
+    [Test]
     public void TheEssenceAloneSelectsTheParserAndEveryParameterIsIgnored()
     {
         var engine = WebEngine();
@@ -78,7 +78,7 @@ public class UrlEncodedBodyTests
             .Should().Be("""[["a","1"]]""");
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyBodyIsAnEmptyFormDataRatherThanAFailure()
     {
         var engine = WebEngine();
@@ -91,7 +91,7 @@ public class UrlEncodedBodyTests
             .Should().Be("[]");
     }
 
-    [Fact]
+    [Test]
     public void ATupleWithNoEqualsHasAnEmptyValueAndAnEmptySequenceIsSkipped()
     {
         var engine = WebEngine();
@@ -105,7 +105,7 @@ public class UrlEncodedBodyTests
         Entries(engine, Response("=v&k=")).Should().Be("""[["","v"],["k",""]]""");
     }
 
-    [Fact]
+    [Test]
     public void ArbitraryBytesParseRatherThanFail()
     {
         var engine = WebEngine();
@@ -132,7 +132,7 @@ public class UrlEncodedBodyTests
             """).UnwrapIfPromise().AsString().Should().Be("true|65279");
     }
 
-    [Fact]
+    [Test]
     public void EveryEntryIsAString()
     {
         // "Return a new FormData object whose entry list is entries" — the format cannot carry a file, so
@@ -150,7 +150,7 @@ public class UrlEncodedBodyTests
             .UnwrapIfPromise().AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnyOtherMimeTypeIsATypeError()
     {
         var engine = WebEngine();
@@ -167,7 +167,7 @@ public class UrlEncodedBodyTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ARequestParsesItsOwnBodyTheSameWay()
     {
         var engine = WebEngine();

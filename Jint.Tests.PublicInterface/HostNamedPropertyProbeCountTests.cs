@@ -66,7 +66,7 @@ public class HostNamedPropertyProbeCountTests
     private static HookCalls Expected(HookCalls unverified, HookCalls verified)
         => HostContractVerificationSwitch.Enabled ? verified : unverified;
 
-    [Fact]
+    [Test]
     public void AnOwnNameReadCostsOneValueProjectionAndNoDescriptor()
     {
         var calls = Measure("host.alpha;", out var engine);
@@ -77,7 +77,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 5, Existence: 0, Flags: 3)));
     }
 
-    [Fact]
+    [Test]
     public void EachReadCostsItsOwnProjection()
     {
         var calls = Measure("host.alpha; host.beta; host.alpha;", out _);
@@ -88,7 +88,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 15, Existence: 0, Flags: 9)));
     }
 
-    [Fact]
+    [Test]
     public void ANameAbsentEverywhereCostsTwoProjections()
     {
         var calls = Measure("host.missing;", out var engine);
@@ -102,7 +102,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 7, Existence: 0, Flags: 0)));
     }
 
-    [Fact]
+    [Test]
     public void ANameOnThePrototypeCostsOneProjection()
     {
         var calls = Measure("host.inherited;", out var engine, withPrototypeMember: true);
@@ -116,7 +116,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 5, Existence: 0, Flags: 0)));
     }
 
-    [Fact]
+    [Test]
     public void AMemberCallBaseCostsOneProjection()
     {
         var calls = Measure("host.alpha.toUpperCase();", out var engine);
@@ -130,7 +130,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 2, Existence: 0, Flags: 1)));
     }
 
-    [Fact]
+    [Test]
     public void AnExistenceQuestionProjectsNoValue()
     {
         var calls = Measure("'alpha' in host;", out _);
@@ -142,7 +142,7 @@ public class HostNamedPropertyProbeCountTests
             verified: new HookCalls(Values: 1, Existence: 1, Flags: 1)));
     }
 
-    [Fact]
+    [Test]
     public void KeyEnumerationProjectsNoValues()
     {
         var calls = Measure("Object.keys(host);", out var engine);

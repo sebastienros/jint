@@ -293,7 +293,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Module count
 
-    [Fact]
+    [Test]
     public void ModuleCount_ExactBoundary_Succeeds()
     {
         var modules = new Dictionary<string, string>
@@ -309,7 +309,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("b.js");
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_OverLimit_ThrowsModuleGraphLimitException()
     {
         var modules = new Dictionary<string, string>
@@ -326,7 +326,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_DuplicateImportCountsOnce()
     {
         var modules = new Dictionary<string, string>
@@ -342,7 +342,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_ProgrammaticModuleParticipates()
     {
         var engine = new Engine(o =>
@@ -359,7 +359,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("b.js");
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_DiamondCountsOnce()
     {
         // a -> b, a -> c, b -> d, c -> d: diamond, d should count once.
@@ -377,7 +377,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_CycleCountsOnce()
     {
         // a -> b -> a cycle: each module is registered once.
@@ -395,7 +395,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Total source bytes
 
-    [Fact]
+    [Test]
     public void SourceBytes_ExactBoundary_Succeeds()
     {
         var source = "export const x = 1;";
@@ -408,7 +408,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_OverLimit_ThrowsModuleGraphLimitException()
     {
         var source = "export const x = 1;";
@@ -422,7 +422,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_ProgrammaticExportsOnlyChargesZero()
     {
         var engine = new Engine(o =>
@@ -437,7 +437,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("lib");
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_PreparedModuleChargesZero()
     {
         var engine = new Engine(o =>
@@ -449,7 +449,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("prepared");
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_RawBytesUseExactLength()
     {
         var bytes = new byte[] { 1, 2, 3, 4 };
@@ -463,7 +463,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_JsonAndTextModulesUseUtf8Length()
     {
         var limit = Encoding.UTF8.GetByteCount(TextAndJsonLoader.Json)
@@ -478,7 +478,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("text");
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_ProgrammaticSourcesIncludeInsertedLineBreaks()
     {
         const string first = "export const a = 1;";
@@ -491,7 +491,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_AsynchronousBytesAreRejectedByTheEnginePump()
     {
         var loader = new DeferredLoader();
@@ -509,7 +509,7 @@ public sealed class HostModuleGraphSecurityTests
         operation.IsCompleted.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void SourceBytes_AsynchronousStringLoadsAreCumulative()
     {
         const string first = "export const first = 1;";
@@ -537,7 +537,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Graph depth
 
-    [Fact]
+    [Test]
     public void GraphDepth_ExactBoundary_Succeeds()
     {
         // Chain: a -> b -> c, depth = 3.
@@ -554,7 +554,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void GraphDepth_OverLimit_ThrowsModuleGraphLimitException()
     {
         // Chain: a -> b -> c, depth = 3, limit = 2.
@@ -572,7 +572,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void GraphDepth_CycleContributesEachDistinctModule()
     {
         var modules = new Dictionary<string, string>
@@ -587,9 +587,8 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Theory]
-    [InlineData("import './shared.js'; import './one.js';")]
-    [InlineData("import './one.js'; import './shared.js';")]
+    [TestCase("import './shared.js'; import './one.js';")]
+    [TestCase("import './one.js'; import './shared.js';")]
     public void GraphDepth_SharedSubtreeUsesLongestPathRegardlessOfSiblingOrder(string imports)
     {
         var modules = new Dictionary<string, string>
@@ -653,7 +652,7 @@ public sealed class HostModuleGraphSecurityTests
     /// <see cref="GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases"/> keeps the
     /// import covered, on a stack chosen for it.
     /// </remarks>
-    [Fact]
+    [Test]
     public void GraphDepth_LongSynchronousChainLoadsIteratively()
     {
         var modules = ImportChain(LongChainLength);
@@ -672,7 +671,7 @@ public sealed class HostModuleGraphSecurityTests
     /// recurse once per module (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>) —
     /// see the remarks on <see cref="GraphDepth_LongSynchronousChainLoadsIteratively"/>.
     /// </summary>
-    [Fact]
+    [Test]
     public void GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases()
     {
         var modules = ImportChain(LongChainLength);
@@ -697,7 +696,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Resolution hops
 
-    [Fact]
+    [Test]
     public void ResolutionHops_ExactBoundary_Succeeds()
     {
         // a -> b -> c = 3 hops (one per resolve: a, b, c).
@@ -714,7 +713,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionHops_OverLimit_ThrowsModuleGraphLimitException()
     {
         var modules = new Dictionary<string, string>
@@ -731,7 +730,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionHops_PerOperation_NotCumulative()
     {
         var modules = new Dictionary<string, string>
@@ -748,7 +747,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("b.js");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionHops_AsyncGraphKeepsOneBudgetAfterRootSettles()
     {
         var loader = new DeferredLoader();
@@ -764,7 +763,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionHops_RegistrationIndexingDoesNotConsumeTheBudget()
     {
         var engine = new Engine(o => o.UseModules(new PrefixingLoader())
@@ -777,7 +776,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("module-19");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionHops_InFlightDuplicateRequestsEachConsumeAHop()
     {
         var loader = new DeferredLoader();
@@ -794,7 +793,7 @@ public sealed class HostModuleGraphSecurityTests
         loader.LoadsFor("./dep.js").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void GraphDepth_AsyncGraphFailsFromThePump()
     {
         var loader = new DeferredLoader();
@@ -812,7 +811,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void ModuleCount_AsyncDiamondCoalescesSharedLoad()
     {
         var loader = new DeferredLoader();
@@ -835,7 +834,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Limit exception propagation
 
-    [Fact]
+    [Test]
     public void LimitException_IsNotJavaScriptException()
     {
         var modules = new Dictionary<string, string>
@@ -860,7 +859,7 @@ public sealed class HostModuleGraphSecurityTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LimitException_NotCatchableByScript()
     {
         // Dynamic import that would exceed the limit should not be catchable as a rejection.
@@ -880,7 +879,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void LimitException_FromDynamicImportIsNotARejection()
     {
         var modules = new Dictionary<string, string>
@@ -896,7 +895,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleGraphLimitException>();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryCancellationFromSynchronousLoaderIsALoadFailure()
     {
         var engine = new Engine(o => o.UseModules(
@@ -907,7 +906,7 @@ public sealed class HostModuleGraphSecurityTests
             .WithMessage("Could not load module.");
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryTimeoutFromSynchronousLoaderIsALoadFailure()
     {
         var engine = new Engine(o => o.UseModules(
@@ -918,7 +917,7 @@ public sealed class HostModuleGraphSecurityTests
             .WithMessage("Could not load module.");
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryTimeoutFromStartImportResolveIsALoadFailure()
     {
         var engine = new Engine(o => o.UseModules(
@@ -931,7 +930,7 @@ public sealed class HostModuleGraphSecurityTests
         Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryTimeoutFromAsyncLoaderIsALoadFailure()
     {
         var engine = new Engine(o => o.UseModules(
@@ -944,7 +943,7 @@ public sealed class HostModuleGraphSecurityTests
         Invoking(() => operation.GetResult()).Should().Throw<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public void RegisteredCancellationFromSynchronousLoaderPropagates()
     {
         using var cancellation = new CancellationTokenSource();
@@ -960,7 +959,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void EngineTimeoutFromSynchronousLoaderPropagates()
     {
         var engine = new Engine(o =>
@@ -973,7 +972,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void EngineTimeoutFromAsyncLoaderPropagates()
     {
         var engine = new Engine(o =>
@@ -986,7 +985,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void EngineRegexTimeoutFromSynchronousLoaderPropagates()
     {
         var engine = new Engine(o =>
@@ -999,7 +998,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().ThrowExactly<RegexMatchTimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void RegisteredCancellationFromAsyncLoaderPropagates()
     {
         using var cancellation = new CancellationTokenSource();
@@ -1016,7 +1015,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Custom policy
 
-    [Fact]
+    [Test]
     public void CustomPolicy_DenyAll_ThrowsModuleResolutionException()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1031,7 +1030,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void CustomPolicy_AllowAll_Succeeds()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1047,7 +1046,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Built-in allowlist policy
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_AllowedScheme_Succeeds()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1063,7 +1062,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_DisallowedScheme_Denied()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1080,7 +1079,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_BareSpecifier_DeniedByDefault()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1098,7 +1097,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_BareSpecifier_AllowedWhenExplicit()
     {
         var modules = new Dictionary<string, string> { ["a.js"] = "export default 1;" };
@@ -1118,7 +1117,7 @@ public sealed class HostModuleGraphSecurityTests
         engine.Modules.Import("a.js");
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_RequiresEveryConfiguredUriDimension()
     {
         var policy = new ModuleAllowlistPolicy
@@ -1140,7 +1139,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_FileRootUsesASeparatorBoundary()
     {
         var policy = new ModuleAllowlistPolicy { AllowedFileRoots = { "/allowed" } };
@@ -1164,7 +1163,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_FileRootsDenyNonFileUris()
     {
         var engine = new Engine(o =>
@@ -1180,7 +1179,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void AllowlistPolicy_HostsDenyFileUris()
     {
         var engine = new Engine(o =>
@@ -1198,7 +1197,7 @@ public sealed class HostModuleGraphSecurityTests
             .Should().Throw<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void DefaultModuleLoader_RemainsRestrictedToItsBasePath()
     {
         var root = Path.Combine(Path.GetTempPath(), "jint-module-policy-" + Guid.NewGuid().ToString("N"));
@@ -1223,7 +1222,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Invalid limits at construction
 
-    [Fact]
+    [Test]
     public void InvalidLimits_Zero_ThrowsArgumentException()
     {
         Invoking(() => new Engine(o =>
@@ -1233,7 +1232,7 @@ public sealed class HostModuleGraphSecurityTests
         })).Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void InvalidLimits_Negative_ThrowsArgumentException()
     {
         Invoking(() => new Engine(o =>
@@ -1245,7 +1244,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Default (unlimited) behavior unchanged
 
-    [Fact]
+    [Test]
     public void DefaultLimits_NoRestriction()
     {
         var modules = new Dictionary<string, string>();
@@ -1264,7 +1263,7 @@ public sealed class HostModuleGraphSecurityTests
 
     // Modules disabled unchanged
 
-    [Fact]
+    [Test]
     public void ModulesDisabled_UnchangedBehavior()
     {
         var engine = new Engine();

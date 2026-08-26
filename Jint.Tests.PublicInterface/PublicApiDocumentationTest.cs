@@ -47,14 +47,14 @@ public class PublicApiDocumentationTest
     /// re-deriving one from the other is the work this test exists to make unnecessary. What it catches is
     /// the failure that matters: an enumerator that stops seeing a whole category of member.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheEnumeratedSurfaceIsTheApprovedBaseline()
     {
         var targetFramework = ShippedJintBuildOutput.NewestTargetFramework;
         var enumerated = Surface(targetFramework).Count(declaration => declaration.AppearsInBaseline);
         var approved = BaselineDeclarationCount(targetFramework);
 
-        Assert.True(
+        Assert.That(
             enumerated == approved,
             $"""
             The public API surface enumerated from the {targetFramework} assembly has {enumerated} declarations,
@@ -82,7 +82,7 @@ public class PublicApiDocumentationTest
     /// stops being a count of what is left.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void EveryDeclarationOfThePublicApiSurfaceCarriesASummary()
     {
         var targetFramework = ShippedJintBuildOutput.NewestTargetFramework;
@@ -97,7 +97,7 @@ public class PublicApiDocumentationTest
         if (UndocumentedPublicApiAllowlist.UpdateRequested())
         {
             var written = UndocumentedPublicApiAllowlist.Write(undocumented);
-            Assert.Skip($"{UndocumentedPublicApiAllowlist.UpdateVariable} rewrote {written} with {undocumented.Count} entries.");
+            Assert.Ignore($"{UndocumentedPublicApiAllowlist.UpdateVariable} rewrote {written} with {undocumented.Count} entries.");
         }
 
         var allowed = UndocumentedPublicApiAllowlist.Read();
@@ -162,7 +162,7 @@ public class PublicApiDocumentationTest
     /// <em>subset</em> of the newest one, so nothing is measured on a target framework nobody looked at.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void NoTargetFrameworkIsDocumentedLessThanTheNewest()
     {
         var newest = ShippedJintBuildOutput.NewestTargetFramework;
@@ -212,7 +212,7 @@ public class PublicApiDocumentationTest
     /// cannot contain a paragraph, and the one that did closed three of them into the wrong place. There is
     /// no allowlist because there is nothing to allow — the count was one, and it is now zero.
     /// </remarks>
-    [Fact]
+    [Test]
     public void NoDocumentationCommentNestsAParagraph()
     {
         var nesting = new SortedSet<string>(StringComparer.Ordinal);

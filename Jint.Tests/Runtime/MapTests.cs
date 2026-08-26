@@ -4,14 +4,14 @@ namespace Jint.Tests.Runtime;
 
 public class MapTests
 {
-    [Fact]
+    [Test]
     public void ShouldThrowWhenCalledWithoutNew()
     {
         var e = Invoking(() => new Engine().Execute("const m = new Map(); Map.call(m,[]);")).Should().ThrowExactly<JavaScriptException>().Which;
         e.Message.Should().Be("Constructor Map requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void NegativeZeroKeyConvertsToPositiveZero()
     {
         const string Script = @"
@@ -26,7 +26,7 @@ public class MapTests
         new Engine().Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void KeysIteratorToleratesDeletionDuringIteration()
     {
         const string Script = @"
@@ -38,7 +38,7 @@ public class MapTests
         new Engine().Evaluate(Script).AsString().Should().Be("3/0");
     }
 
-    [Fact]
+    [Test]
     public void ValuesIteratorToleratesDeletionDuringIteration()
     {
         const string Script = @"
@@ -51,7 +51,7 @@ public class MapTests
         new Engine().Evaluate(Script).AsString().Should().Be("3/0");
     }
 
-    [Fact]
+    [Test]
     public void KeysIteratorSeesEntryAddedDuringIteration()
     {
         const string Script = @"
@@ -63,7 +63,7 @@ public class MapTests
         new Engine().Evaluate(Script).AsString().Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void ValuesIteratorSkipsEntryDeletedAhead()
     {
         const string Script = @"
@@ -75,7 +75,7 @@ public class MapTests
         new Engine().Evaluate(Script).AsString().Should().Be("1,3");
     }
 
-    [Fact]
+    [Test]
     public void KeysAndValuesIteratorsProduceExpectedSequence()
     {
         var engine = new Engine();
@@ -84,7 +84,7 @@ public class MapTests
         engine.Evaluate("[...map.values()].join(',')").AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void HasProperIteratorPrototypeChain()
     {
         const string Script = @"

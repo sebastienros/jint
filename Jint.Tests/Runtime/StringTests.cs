@@ -16,7 +16,7 @@ public class StringTests
 
     private readonly Engine _engine;
 
-    [Fact]
+    [Test]
     public void MixedTypeAdditionShouldEvaluateLeftToRight()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class StringTests
         engine.Evaluate("2 + 'm' + 3").AsString().Should().Be("2m3");
     }
 
-    [Fact]
+    [Test]
     public void StringConcatenationAndReferences()
     {
         const string script = @"
@@ -48,7 +48,7 @@ bar += 'bar';
         bar.Should().Be("foofoobar");
     }
 
-    [Fact]
+    [Test]
     public void TrimLeftRightShouldBeSameAsTrimStartEnd()
     {
         _engine.Execute(@"
@@ -57,7 +57,7 @@ bar += 'bar';
 ");
     }
 
-    [Fact]
+    [Test]
     public void HasProperIteratorPrototypeChain()
     {
         const string Script = @"
@@ -76,7 +76,7 @@ bar += 'bar';
         engine.Evaluate("iterator[Symbol.iterator]() === iterator").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IndexOf()
     {
         var engine = new Engine();
@@ -84,7 +84,7 @@ bar += 'bar';
         engine.Evaluate("''.indexOf('', 1)").Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RepeatRejectsCountsThatExceedTheMaximumStringLength()
     {
         var engine = new Engine();
@@ -95,7 +95,7 @@ bar += 'bar';
         exception.Error.InstanceofOperator(engine.Intrinsics.RangeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TemplateLiteralsWithArrays()
     {
         var engine = new Engine();
@@ -104,7 +104,7 @@ bar += 'bar';
         engine.Evaluate("`test ${a}`").Should().Be("test 1,2,three,true");
     }
 
-    [Fact]
+    [Test]
     public void TemplateLiteralAsObjectKey()
     {
         var engine=new Engine();
@@ -113,7 +113,7 @@ bar += 'bar';
         result["key"].Should().Be("value");
     }
 
-    [Fact]
+    [Test]
     public void TaggedTemplateCachesTemplateObjectPerCallSite()
     {
         var engine = new Engine();
@@ -140,7 +140,7 @@ bar += 'bar';
         result.Should().Be("""{"r1":"a 1\n","r2":"a 2\n","sameIdentity":true,"frozen":true,"cooked":true,"raw":true,"distinctSites":true}""");
     }
 
-    [Fact]
+    [Test]
     public void TaggedTemplateMemberTagPreservesThisBinding()
     {
         var engine = new Engine();
@@ -175,7 +175,7 @@ bar += 'bar';
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldCompareWithLocale()
     {
         var engine = new Engine();
@@ -183,7 +183,7 @@ bar += 'bar';
         engine.Evaluate("'王五'.localeCompare('张三', 'zh-CN')").AsInteger().Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void SlicedStringSearchMatchesFlatString()
     {
         // A large slice is represented internally as a zero-copy view (SlicedString) whose
@@ -240,7 +240,7 @@ first + '|' + second + '|' + (abs ? 'ok' : 'absfail');
         _engine.Evaluate(script).AsString().Should().Be("ok|ok|ok");
     }
 
-    [Fact]
+    [Test]
     public void StringReceiverMethodCallsInLoopReturnCorrectValues()
     {
         // Repeated str.method() calls on a primitive string receiver go through the per-node
@@ -263,7 +263,7 @@ last + '|' + sum + '|' + upper + '|' + deep;
         engine.Evaluate(script).AsString().Should().Be("bcdef|" + (1666 * 597 + 394) + "|ABCDEF|true");
     }
 
-    [Fact]
+    [Test]
     public void ReplacingStringPrototypeMethodMidLoopIsHonored()
     {
         // The call cache is guarded by holder identity + properties version and caches the live
@@ -311,7 +311,7 @@ assignPhase + '|' + definePhase + '|' + deletePhase + '|' + accResult + '|' + ge
         engine.Evaluate(script).AsString().Should().Be("bbbbbXXXXX|cccccYYYYY|TypeError|g:abcdef|5");
     }
 
-    [Fact]
+    [Test]
     public void StringLengthAccessIsUnaffectedByCallFastPath()
     {
         // `length` is an own property of the boxed string and is excluded from the prototype-only
@@ -328,7 +328,7 @@ len + '|' + error;
         engine.Evaluate(script).AsString().Should().Be("3|TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PlantedStringPrototypeIndexOrLengthFunctionIsNotCalledOnStringReceiver()
     {
         // Index-coercible names ('0', '0x1', ...) resolve to OWN character properties on a string
@@ -347,7 +347,7 @@ ownChar + '|' + error;
         engine.Evaluate(script).AsString().Should().Be("a|TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SliceOfSliceMatchesMaterializedExpectation()
     {
         // Build a ~128K backing string; slice/substring/substr produce a zero-copy view over it, and a
@@ -390,7 +390,7 @@ ok && d.length === ed.length && d === ed ? 'ok' : 'fail';
         _engine.Evaluate(script).AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void SliceOfSliceStaysZeroCopyForLargeResult()
     {
         // A moderate slice of a large view whose unused remainder stays within the retention budget is
@@ -405,7 +405,7 @@ var v1 = s.slice(0, 100000);");
         _engine.Evaluate("v1.slice(1000, 60000)").GetType().Name.Should().Contain("Sliced");
     }
 
-    [Fact]
+    [Test]
     public void ChainedSliceOfViewCopiesAgainstOriginalSource()
     {
         // Evaluating the retention policy against the ORIGINAL backing string (not the intermediate
@@ -428,7 +428,7 @@ var small = v1.slice(0, 200000);          // rebased; copies against the 512K so
             "small.length === 200000 && small === JSON.parse(JSON.stringify(s.slice(0, 200000))) ? 'ok' : 'fail'").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void SplitEmptySeparatorAscii()
     {
         _engine.Evaluate(@"JSON.stringify('hello'.split(''))").AsString().Should().Be(@"[""h"",""e"",""l"",""l"",""o""]");
@@ -441,7 +441,7 @@ var small = v1.slice(0, 200000);          // rebased; copies against the 512K so
         _engine.Evaluate("'aba'.split('')[0] === 'a' && 'aba'.split('')[2] === 'a'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SplitEmptySeparatorNonAscii()
     {
         // BMP chars above the ASCII cache (é = U+00E9, Greek U+03B1..) must round-trip correctly.
@@ -455,7 +455,7 @@ var small = v1.slice(0, 200000);          // rebased; copies against the 512K so
             "var p = '😀'.split(''); p[0] === '\uD83D' && p[1] === '\uDE00'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SplitTailAndSegmentsAreCorrect()
     {
         // Small segments and tail
@@ -483,7 +483,7 @@ parts.length === 2 &&
         _engine.Evaluate(script).AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void SplitPolicyCopiesSmallSegmentsAndViewsLargeOnes()
     {
         _engine.Execute(@"
@@ -507,17 +507,16 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// expansion exists below that point — so U+00DF itself is the boundary that must NOT be
     /// rejected, and these cases pin both sides of it.
     /// </summary>
-    [Theory]
     // below the boundary: plain framework casing
-    [InlineData("abc", "ABC", "abc")]
-    [InlineData("Þ", "Þ", "þ")]                      // U+00DE, last character with no expansion
+    [TestCase("abc", "ABC", "abc")]
+    [TestCase("Þ", "Þ", "þ")]                      // U+00DE, last character with no expansion
     // at and above the boundary: must reach the per-character expansion path
-    [InlineData("ß", "SS", "ß")]                     // U+00DF LATIN SMALL LETTER SHARP S
-    [InlineData("aßb", "ASSB", "aßb")]               // expansion in the middle of ASCII
-    [InlineData("ﬄ", "FFL", "ﬄ")]                    // U+FB04 LATIN SMALL LIGATURE FFL
-    [InlineData("İ", "İ", "i̇")]                // U+0130, lower-cases to an expansion
-    [InlineData("ΑΣ", "ΑΣ", "ας")]                   // Final_Sigma: sigma at end lower-cases to final form
-    [InlineData("ΑΣΒ", "ΑΣΒ", "ασβ")]                // non-final sigma keeps the medial form
+    [TestCase("ß", "SS", "ß")]                     // U+00DF LATIN SMALL LETTER SHARP S
+    [TestCase("aßb", "ASSB", "aßb")]               // expansion in the middle of ASCII
+    [TestCase("ﬄ", "FFL", "ﬄ")]                    // U+FB04 LATIN SMALL LIGATURE FFL
+    [TestCase("İ", "İ", "i̇")]                // U+0130, lower-cases to an expansion
+    [TestCase("ΑΣ", "ΑΣ", "ας")]                   // Final_Sigma: sigma at end lower-cases to final form
+    [TestCase("ΑΣΒ", "ΑΣΒ", "ασβ")]                // non-final sigma keeps the medial form
     public void CasingHandlesTheSpecialCasingBoundary(string input, string upper, string lower)
     {
         _engine.Evaluate($"('{input}').toUpperCase()").AsString().Should().Be(upper);
@@ -533,21 +532,20 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// maps differently from machine to machine. Both sides are evaluated so the supplementary
     /// expectations stay readable; String.fromCodePoint is independent of case conversion.
     /// </summary>
-    [Theory]
     // U+0131 LATIN SMALL LETTER DOTLESS I. ToUpperInvariant deliberately maps it to itself.
-    [InlineData("'\\u0131'.toUpperCase()", "'I'")]
+    [TestCase("'\\u0131'.toUpperCase()", "'I'")]
     // The locale entry points must agree with the language-insensitive ones when no locale tailors casing.
-    [InlineData("'\\u0131'.toLocaleUpperCase()", "'I'")]
-    [InlineData("'\\u0131'.toLocaleUpperCase('en')", "'I'")]
+    [TestCase("'\\u0131'.toLocaleUpperCase()", "'I'")]
+    [TestCase("'\\u0131'.toLocaleUpperCase('en')", "'I'")]
     // GARAY, added in Unicode 16.0 — newer than the ICU most hosts carry.
-    [InlineData("String.fromCodePoint(0x10D70).toUpperCase()", "String.fromCodePoint(0x10D50)")]
-    [InlineData("String.fromCodePoint(0x10D50).toLowerCase()", "String.fromCodePoint(0x10D70)")]
+    [TestCase("String.fromCodePoint(0x10D70).toUpperCase()", "String.fromCodePoint(0x10D50)")]
+    [TestCase("String.fromCodePoint(0x10D50).toLowerCase()", "String.fromCodePoint(0x10D70)")]
     // VITHKUQI, added in Unicode 14.0.
-    [InlineData("String.fromCodePoint(0x10597).toUpperCase()", "String.fromCodePoint(0x10570)")]
+    [TestCase("String.fromCodePoint(0x10597).toUpperCase()", "String.fromCodePoint(0x10570)")]
     // A supplementary code point in a string that also needs a SpecialCasing expansion: the
     // expansion path used to pass every surrogate pair through unmapped.
-    [InlineData("('\\u00DF' + String.fromCodePoint(0x10428)).toUpperCase()", "'SS' + String.fromCodePoint(0x10400)")]
-    [InlineData("('\\u0130' + String.fromCodePoint(0x10400)).toLowerCase()", "'i\\u0307' + String.fromCodePoint(0x10428)")]
+    [TestCase("('\\u00DF' + String.fromCodePoint(0x10428)).toUpperCase()", "'SS' + String.fromCodePoint(0x10400)")]
+    [TestCase("('\\u0130' + String.fromCodePoint(0x10400)).toLowerCase()", "'i\\u0307' + String.fromCodePoint(0x10428)")]
     public void CaseConversionUsesTheUnicodeDefaultCaseConversionAlgorithm(string actual, string expected)
     {
         var actualValue = _engine.Evaluate(actual).AsString();
@@ -561,14 +559,13 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// every other locale now goes through the language-insensitive tables.
     /// https://tc39.es/ecma402/#sup-string.prototype.tolocaleuppercase
     /// </summary>
-    [Theory]
-    [InlineData("'i'.toLocaleUpperCase('tr')", "İ")]
-    [InlineData("'i'.toLocaleUpperCase('tr-TR')", "İ")]
-    [InlineData("'i'.toLocaleUpperCase('az')", "İ")]
-    [InlineData("'I'.toLocaleLowerCase('tr')", "ı")]
-    [InlineData("'I'.toLocaleLowerCase('az')", "ı")]
-    [InlineData("'İ'.toLocaleLowerCase('tr')", "i")]
-    [InlineData("'İ'.toLocaleLowerCase('und')", "i̇")]
+    [TestCase("'i'.toLocaleUpperCase('tr')", "İ")]
+    [TestCase("'i'.toLocaleUpperCase('tr-TR')", "İ")]
+    [TestCase("'i'.toLocaleUpperCase('az')", "İ")]
+    [TestCase("'I'.toLocaleLowerCase('tr')", "ı")]
+    [TestCase("'I'.toLocaleLowerCase('az')", "ı")]
+    [TestCase("'İ'.toLocaleLowerCase('tr')", "i")]
+    [TestCase("'İ'.toLocaleLowerCase('und')", "i̇")]
     public void LocaleTailoredCasingIsPreserved(string expression, string expected)
     {
         _engine.Evaluate(expression).AsString().Should().Be(expected);
@@ -578,36 +575,35 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// lastIndexOf's position argument bounds where a match may <em>start</em>, not where the search
     /// begins, which is easy to get off by one. Every expectation here was verified against V8.
     /// </summary>
-    [Theory]
     // no position: whole string
-    [InlineData("'abcabc'.lastIndexOf('abc')", 3)]
-    [InlineData("'abcabc'.lastIndexOf('abcabc')", 0)]
-    [InlineData("'abcabc'.lastIndexOf('x')", -1)]
-    [InlineData("'abc'.lastIndexOf('abcd')", -1)]
-    [InlineData("'aaa'.lastIndexOf('aa')", 1)]
+    [TestCase("'abcabc'.lastIndexOf('abc')", 3)]
+    [TestCase("'abcabc'.lastIndexOf('abcabc')", 0)]
+    [TestCase("'abcabc'.lastIndexOf('x')", -1)]
+    [TestCase("'abc'.lastIndexOf('abcd')", -1)]
+    [TestCase("'aaa'.lastIndexOf('aa')", 1)]
     // position clamps the start of the match, so a match may extend past it
-    [InlineData("'abcabc'.lastIndexOf('abc', 2)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', 3)", 3)]
-    [InlineData("'abcabc'.lastIndexOf('bc', 1)", 1)]
-    [InlineData("'abcabc'.lastIndexOf('bc', 0)", -1)]
-    [InlineData("'abcabc'.lastIndexOf('c', 4)", 2)]
-    [InlineData("'hello world hello'.lastIndexOf('hello', 11)", 0)]
-    [InlineData("'hello world hello'.lastIndexOf('hello', 12)", 12)]
+    [TestCase("'abcabc'.lastIndexOf('abc', 2)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', 3)", 3)]
+    [TestCase("'abcabc'.lastIndexOf('bc', 1)", 1)]
+    [TestCase("'abcabc'.lastIndexOf('bc', 0)", -1)]
+    [TestCase("'abcabc'.lastIndexOf('c', 4)", 2)]
+    [TestCase("'hello world hello'.lastIndexOf('hello', 11)", 0)]
+    [TestCase("'hello world hello'.lastIndexOf('hello', 12)", 12)]
     // out-of-range, fractional and negative-zero positions
-    [InlineData("'abcabc'.lastIndexOf('abc', 0)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', -1)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', -100)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', -0)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', 1.9)", 0)]
-    [InlineData("'abcabc'.lastIndexOf('abc', 100)", 3)]
-    [InlineData("'abcabc'.lastIndexOf('abc', NaN)", 3)]
+    [TestCase("'abcabc'.lastIndexOf('abc', 0)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', -1)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', -100)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', -0)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', 1.9)", 0)]
+    [TestCase("'abcabc'.lastIndexOf('abc', 100)", 3)]
+    [TestCase("'abcabc'.lastIndexOf('abc', NaN)", 3)]
     // the empty needle matches at the clamped position
-    [InlineData("'abcabc'.lastIndexOf('')", 6)]
-    [InlineData("'abcabc'.lastIndexOf('', 3)", 3)]
-    [InlineData("'abcabc'.lastIndexOf('', 100)", 6)]
-    [InlineData("'abcabc'.lastIndexOf('', -5)", 0)]
-    [InlineData("''.lastIndexOf('')", 0)]
-    [InlineData("''.lastIndexOf('a')", -1)]
+    [TestCase("'abcabc'.lastIndexOf('')", 6)]
+    [TestCase("'abcabc'.lastIndexOf('', 3)", 3)]
+    [TestCase("'abcabc'.lastIndexOf('', 100)", 6)]
+    [TestCase("'abcabc'.lastIndexOf('', -5)", 0)]
+    [TestCase("''.lastIndexOf('')", 0)]
+    [TestCase("''.lastIndexOf('a')", -1)]
     public void LastIndexOfMatchesSpecPositionSemantics(string expression, int expected)
     {
         _engine.Evaluate(expression).AsNumber().Should().Be(expected);
@@ -619,33 +615,32 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// nothing needs replacing. These cases pin the surrogate range boundary and every unpaired shape;
     /// all expectations were verified against V8.
     /// </summary>
-    [Theory]
     // no surrogates at all — the vectorized reject path
-    [InlineData("''", true, "")]
-    [InlineData("'abc'", true, "abc")]
+    [TestCase("''", true, "")]
+    [TestCase("'abc'", true, "abc")]
     // just outside the surrogate range on both sides, so still well-formed
-    [InlineData("'\\uD7FF\\uE000'", true, "퟿")]
+    [TestCase("'\\uD7FF\\uE000'", true, "퟿")]
     // valid pairs
-    [InlineData("'a\\uD83D\\uDE00b'", true, "a😀b")]
+    [TestCase("'a\\uD83D\\uDE00b'", true, "a😀b")]
     // unpaired leading surrogate
-    [InlineData("'a\\uD800'", false, "a�")]
-    [InlineData("'ab\\uD83D'", false, "ab�")]
-    [InlineData("'\\uD800\\uD800'", false, "��")]
+    [TestCase("'a\\uD800'", false, "a�")]
+    [TestCase("'ab\\uD83D'", false, "ab�")]
+    [TestCase("'\\uD800\\uD800'", false, "��")]
     // unpaired trailing surrogate
-    [InlineData("'a\\uDC00b'", false, "a�b")]
-    [InlineData("'x\\uDFFFy'", false, "x�y")]
+    [TestCase("'a\\uDC00b'", false, "a�b")]
+    [TestCase("'x\\uDFFFy'", false, "x�y")]
     // reversed pair: both halves are unpaired
-    [InlineData("'\\uDC00\\uD800'", false, "��")]
-    [InlineData("'\\uD800a\\uDC00'", false, "�a�")]
+    [TestCase("'\\uDC00\\uD800'", false, "��")]
+    [TestCase("'\\uD800a\\uDC00'", false, "�a�")]
     // an unpaired lead immediately followed by a valid pair
-    [InlineData("'\\uD83D\\uD83D\\uDE00'", false, "�😀")]
+    [TestCase("'\\uD83D\\uD83D\\uDE00'", false, "�😀")]
     public void WellFormedHandlesSurrogateBoundaries(string literal, bool wellFormed, string toWellFormed)
     {
         _engine.Evaluate($"({literal}).isWellFormed()").AsBoolean().Should().Be(wellFormed);
         _engine.Evaluate($"({literal}).toWellFormed()").AsString().Should().Be(toWellFormed);
     }
 
-    [Fact]
+    [Test]
     public void ToWellFormedReturnsAnEquivalentPrimitiveForObjectReceivers()
     {
         // toWellFormed must produce a primitive string even when `this` is a String object, including
@@ -660,7 +655,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
 
     // ---- coercion order and receiver coercion ----
 
-    [Fact]
+    [Test]
     public void SliceCoercesTheReceiverBeforeItsArguments()
     {
         // https://tc39.es/ecma262/#sec-string.prototype.slice - step 2 (ToString of the receiver)
@@ -676,14 +671,14 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         order.Should().Be("bc|this,start,end");
     }
 
-    [Fact]
+    [Test]
     public void SliceThrowsForASymbolReceiverWhateverTheStartIs()
     {
         Invoking(() => _engine.Evaluate("String.prototype.slice.call(Symbol(), Infinity)"))
             .Should().Throw<JavaScriptException>().WithMessage("Cannot convert a Symbol value to a string");
     }
 
-    [Fact]
+    [Test]
     public void SliceCoercesEndEvenWhenStartIsInfinite()
     {
         // An infinite start clamps to the end of the string, but step 8 still coerces end.
@@ -696,7 +691,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         coerced.Should().Be("|true");
     }
 
-    [Fact]
+    [Test]
     public void AtCoercesTheReceiverPerSpec()
     {
         // https://tc39.es/ecma262/#sec-string.prototype.at - step 2 is ToString(O), which rejects a Symbol
@@ -708,7 +703,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
             .AsString().Should().Be("q");
     }
 
-    [Fact]
+    [Test]
     public void IncludesHandlesAnOutOfRangeFromIndex()
     {
         // https://tc39.es/ecma262/#sec-string.prototype.includes step 8 clamps pos between 0 and the
@@ -720,9 +715,8 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
 
     // ---- split's empty-regexp shortcut ----
 
-    [Theory]
-    [InlineData("u")]
-    [InlineData("v")]
+    [TestCase("u")]
+    [TestCase("v")]
     public void SplitOnAnEmptyUnicodeRegExpKeepsSurrogatePairsTogether(string flags)
     {
         // RegExp.prototype[@@split] advances by code point under u/v, so the shortcut that rewrites
@@ -732,7 +726,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         result.Should().Be("1:\uD83D\uDE00");
     }
 
-    [Fact]
+    [Test]
     public void SplitOnAnEmptyRegExpHonoursAUserSuppliedSplitSymbol()
     {
         // https://tc39.es/ecma262/#sec-string.prototype.split step 2: an own @@split wins over the
@@ -746,7 +740,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         result.Should().Be("custom");
     }
 
-    [Fact]
+    [Test]
     public void SplitOnAnEmptyNonUnicodeRegExpStillYieldsCodeUnits()
     {
         _engine.Evaluate("""var a = '\u{1F600}'.split(/(?:)/); a.length + ':' + a[0].charCodeAt(0)""")
@@ -755,7 +749,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""JSON.stringify('abc'.split(/(?:)/, 2))""").AsString().Should().Be("""["a","b"]""");
     }
 
-    [Fact]
+    [Test]
     public void SubstitutionTailIsEmptyWhenTheMatchRunsPastTheEndOfTheString()
     {
         // GetSubstitution step 5.e (https://tc39.es/ecma262/#sec-getsubstitution): tailPos is
@@ -777,7 +771,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""'abcde'.replace(evil, "$'")""").AsString().Should().Be("abdede");
     }
 
-    [Fact]
+    [Test]
     public void SubstitutionClampsAMatchIndexTheExecLiedAbout()
     {
         // @@replace step 14.e (https://tc39.es/ecma262/#sec-regexp.prototype-@@replace) clamps
@@ -800,7 +794,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""'abc'.replace(evil, "[$`|$']")""").AsString().Should().Be("[|bc]bc");
     }
 
-    [Fact]
+    [Test]
     public void ReplaceAllRunsTheSameSubstitutionClamps()
     {
         // replaceAll reaches GetSubstitution through the very same @@replace, so a lying exec has to be
@@ -825,7 +819,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""'abc'.replaceAll(lying('x', -5), "[$`|$']")""").AsString().Should().Be("[|bc]bc");
     }
 
-    [Fact]
+    [Test]
     public void SubstitutionOfAWellBehavedMatchIsUnchanged()
     {
         // The control: an honest exec, so position and matched agree with the string and no clamp bites.
@@ -842,7 +836,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
         _engine.Evaluate("""'abc'.replace(/b/, "$1$&")""").AsString().Should().Be("a$1bc");
     }
 
-    public static TheoryData<string, string> GetLithuaniaTestsData()
+    public static TestCases<string, string> GetLithuaniaTestsData()
     {
         return new StringTetsLithuaniaData().TestData();
     }
@@ -852,8 +846,7 @@ var big = (s + '|tail').split('|');       // [s, 'tail']: first segment is ~the 
     /// https://github.com/tc39/test262/blob/main/test/intl402/String/prototype/toLocaleUpperCase/special_casing_Lithuanian.js
     /// Added logic in the engine needs to parse full strings and not only spare characters. This is what these tests cover.
     /// </summary>
-    [Theory]
-    [MemberData(nameof(GetLithuaniaTestsData))]
+    [TestCaseSource(nameof(GetLithuaniaTestsData))]
     public void LithuanianToLocaleUpperCase(string parseStr, string result)
     {
         var value = _engine.Evaluate($"('{parseStr}').toLocaleUpperCase('lt')").AsString();

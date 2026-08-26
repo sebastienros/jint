@@ -7,7 +7,7 @@
 /// </summary>
 public class RelationalComparisonTests
 {
-    [Fact]
+    [Test]
     public void NanComparisonsAreFalseInTestAndValuePositions()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -29,7 +29,7 @@ public class RelationalComparisonTests
         result.Should().Be("|falsefalsefalsefalse");
     }
 
-    [Fact]
+    [Test]
     public void ComparisonFallsBackWhenBindingTurnsNonNumeric()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -50,7 +50,7 @@ public class RelationalComparisonTests
         result.Should().Be("13");
     }
 
-    [Fact]
+    [Test]
     public void ValuePositionsProduceBooleans()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -69,7 +69,7 @@ public class RelationalComparisonTests
         result.Should().Be("false,true,true,false,false,true,true,false");
     }
 
-    [Fact]
+    [Test]
     public void ConstAndZeroEdgeCases()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -91,7 +91,7 @@ public class RelationalComparisonTests
         result.Should().Be("abcabc");
     }
 
-    [Fact]
+    [Test]
     public void VariableBoundComparisons()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -114,7 +114,7 @@ public class RelationalComparisonTests
         result.Should().Be("true,false,false,true,false,true,false,false,true,false,false,true");
     }
 
-    [Fact]
+    [Test]
     public void CachedEvalComparisonRespectsBlockShadowing()
     {
         // the lane resolves through the shadow-aware slot-cache walk; a block-shadowed

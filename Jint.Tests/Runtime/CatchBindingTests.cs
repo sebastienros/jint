@@ -8,7 +8,7 @@
 /// </summary>
 public class CatchBindingTests
 {
-    [Fact]
+    [Test]
     public void CaughtValueAndMutationWork()
     {
         var engine = new Engine();
@@ -17,7 +17,7 @@ public class CatchBindingTests
         engine.Evaluate("try { throw undefined; } catch (e) { e === undefined; }").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RethrowReusesValue()
     {
         var engine = new Engine();
@@ -25,7 +25,7 @@ public class CatchBindingTests
         result.Should().Be("inner");
     }
 
-    [Fact]
+    [Test]
     public void CatchBindingShadowsOuterAndDoesNotLeak()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ caught + '|' + e;").AsString();
         result.Should().Be("shadow|outer");
     }
 
-    [Fact]
+    [Test]
     public void SequentialCatchesAreIndependent()
     {
         var engine = new Engine();
@@ -47,7 +47,7 @@ seq.join(',');").AsString();
         result.Should().Be("0,2,4");
     }
 
-    [Fact]
+    [Test]
     public void RecursionThroughSameCatchIsIsolated()
     {
         var engine = new Engine();
@@ -64,7 +64,7 @@ rec(3);").AsNumber();
         result.Should().Be(6); // 3 + 2 + 1 + 0
     }
 
-    [Fact]
+    [Test]
     public void ClosureCapturingCatchBindingIsNotPooled()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ closures[0]() + ',' + closures[1]() + ',' + closures[2]();").AsString();
         result.Should().Be("v0,v1,v2");
     }
 
-    [Fact]
+    [Test]
     public void CapturedCatchBindingSurvivesLaterPooledCatches()
     {
         var engine = new Engine();
@@ -90,7 +90,7 @@ saved();").AsString();
         result.Should().Be("keepme");
     }
 
-    [Fact]
+    [Test]
     public void CatchBlockWithLexicalDeclarationWorks()
     {
         var engine = new Engine();

@@ -63,7 +63,7 @@ public class SchedulerTests
 
     // --- postTask: the callback, its result and its failures ------------------------------------------
 
-    [Fact]
+    [Test]
     public void PostTaskRunsTheCallbackAsATaskAndResolvesWithItsReturnValue()
     {
         var (engine, _) = SchedulerEngine();
@@ -79,7 +79,7 @@ public class SchedulerTests
         engine.Evaluate("result").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ACallbackThatThrowsRejectsThePromiseWithWhatItThrew()
     {
         var (engine, _) = SchedulerEngine();
@@ -92,7 +92,7 @@ public class SchedulerTests
         Log(engine).Should().Be("RangeError:boom");
     }
 
-    [Fact]
+    [Test]
     public void NeitherOperationEverThrows()
     {
         var (engine, _) = SchedulerEngine();
@@ -121,7 +121,7 @@ public class SchedulerTests
             "callable:TypeError,priority:TypeError,signal:TypeError,delay:TypeError,options:TypeError,receiver:TypeError,yield:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ADictionaryMembersAreReadInLexicographicalOrder()
     {
         var (engine, _) = SchedulerEngine();
@@ -143,7 +143,7 @@ public class SchedulerTests
 
     // --- Priority ordering ----------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TasksRunInStrictPriorityOrder()
     {
         var (engine, _) = SchedulerEngine();
@@ -157,7 +157,7 @@ public class SchedulerTests
         Log(engine).Should().Be("user-blocking,user-visible,background");
     }
 
-    [Fact]
+    [Test]
     public void TasksOfEqualPriorityRunInTheOrderTheyWerePosted()
     {
         var (engine, _) = SchedulerEngine();
@@ -171,7 +171,7 @@ public class SchedulerTests
         Log(engine).Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void AUserBlockingTaskPostedLaterPreemptsQueuedUserVisibleOnes()
     {
         var (engine, _) = SchedulerEngine();
@@ -192,7 +192,7 @@ public class SchedulerTests
 
     // --- Ordering against microtasks and timers -------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void EveryMicrotaskRunsBeforeTheNextTaskWhicheverWasQueuedFirst()
     {
         var (engine, _) = SchedulerEngine();
@@ -208,7 +208,7 @@ public class SchedulerTests
         Log(engine).Should().Be("script,microtask,task");
     }
 
-    [Fact]
+    [Test]
     public void EachTaskGetsItsOwnMicrotaskCheckpoint()
     {
         var (engine, _) = SchedulerEngine();
@@ -224,7 +224,7 @@ public class SchedulerTests
         Log(engine).Should().Be("t1,t1-micro,t2");
     }
 
-    [Fact]
+    [Test]
     public void EveryRunnableTaskRunsBeforeADueTimer()
     {
         var (engine, _) = SchedulerEngine();
@@ -242,7 +242,7 @@ public class SchedulerTests
 
     // --- Signals: priority inheritance and reprioritization -------------------------------------------
 
-    [Fact]
+    [Test]
     public void ATaskSignalGovernsThePriorityWhenNoPriorityOptionIsGiven()
     {
         var (engine, _) = SchedulerEngine();
@@ -256,7 +256,7 @@ public class SchedulerTests
         Log(engine).Should().Be("plain,signal");
     }
 
-    [Fact]
+    [Test]
     public void SetPriorityReprioritizesTasksThatAreStillQueued()
     {
         var (engine, _) = SchedulerEngine();
@@ -272,7 +272,7 @@ public class SchedulerTests
         Log(engine).Should().Be("signal,plain");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitPriorityOptionWinsOverTheSignalAndIsImmutable()
     {
         var (engine, _) = SchedulerEngine();
@@ -288,7 +288,7 @@ public class SchedulerTests
         Log(engine).Should().Be("plain,fixed");
     }
 
-    [Fact]
+    [Test]
     public void APriorityChangeFiresPrioritychangeAtTheSignalInListenerOrder()
     {
         var (engine, _) = SchedulerEngine();
@@ -305,7 +305,7 @@ public class SchedulerTests
         Log(engine).Should().Be("listener:user-visible,handler:user-visible,third:background,after:background");
     }
 
-    [Fact]
+    [Test]
     public void ThePrioritychangeEventIsATrustedTaskPriorityChangeEvent()
     {
         var (engine, _) = SchedulerEngine();
@@ -327,7 +327,7 @@ public class SchedulerTests
         Log(engine).Should().Be("prioritychange,true,true,true,user-blocking,true,background");
     }
 
-    [Fact]
+    [Test]
     public void SettingThePriorityASignalAlreadyHasChangesNothing()
     {
         var (engine, _) = SchedulerEngine();
@@ -342,7 +342,7 @@ public class SchedulerTests
         Log(engine).Should().Be("done");
     }
 
-    [Fact]
+    [Test]
     public void ChangingThePriorityFromInsideAPrioritychangeListenerIsANotAllowedError()
     {
         var (engine, _) = SchedulerEngine();
@@ -370,7 +370,7 @@ public class SchedulerTests
 
     // --- Aborting -------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AnAlreadyAbortedSignalRejectsWithoutQueueingAnything()
     {
         var (engine, _) = SchedulerEngine();
@@ -385,7 +385,7 @@ public class SchedulerTests
         Log(engine).Should().Be("rejected:early");
     }
 
-    [Fact]
+    [Test]
     public void AbortingBeforeTheTaskRunsRejectsWithTheReasonAndDropsTheTask()
     {
         var (engine, _) = SchedulerEngine();
@@ -402,7 +402,7 @@ public class SchedulerTests
         Log(engine).Should().Be("rejected:AbortError,survivor");
     }
 
-    [Fact]
+    [Test]
     public void AbortingFromInsideTheCallbackRejectsRatherThanResolves()
     {
         var (engine, _) = SchedulerEngine();
@@ -418,7 +418,7 @@ public class SchedulerTests
         Log(engine).Should().Be("rejected:AbortError");
     }
 
-    [Fact]
+    [Test]
     public void AbortingAfterTheTaskRanLeavesItsResultAlone()
     {
         var (engine, _) = SchedulerEngine();
@@ -435,7 +435,7 @@ public class SchedulerTests
         Log(engine).Should().Be("resolved:done,aborted");
     }
 
-    [Fact]
+    [Test]
     public void APlainAbortSignalIsEnoughToCancelATask()
     {
         var (engine, _) = SchedulerEngine();
@@ -457,7 +457,7 @@ public class SchedulerTests
 
     // --- delay ----------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ADelayedTaskIsNotEvenQueuedUntilItsDelayElapses()
     {
         var (engine, clock) = SchedulerEngine();
@@ -476,7 +476,7 @@ public class SchedulerTests
         Log(engine).Should().Be("background,delayed");
     }
 
-    [Fact]
+    [Test]
     public void ADelayedTaskArrivesOnlyOnceTheTasksAheadOfItHaveDrained()
     {
         var (engine, clock) = SchedulerEngine();
@@ -500,7 +500,7 @@ public class SchedulerTests
         Log(engine).Should().Be("blocking,visible,delayed-blocking");
     }
 
-    [Fact]
+    [Test]
     public void ADelayedTaskCountsAgainstTheTimerLimitAndTheRefusalIsARejection()
     {
         var (engine, _) = SchedulerEngine(maxActiveTimers: 1);
@@ -516,7 +516,7 @@ public class SchedulerTests
         Log(engine).Should().Be("second:QuotaExceededError:true:1:2");
     }
 
-    [Fact]
+    [Test]
     public void AbortingADelayedTaskGivesItsTimerSlotBack()
     {
         var (engine, clock) = SchedulerEngine(maxActiveTimers: 1);
@@ -541,7 +541,7 @@ public class SchedulerTests
 
     // --- yield ----------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AContinuationOutranksATaskOfTheSamePriority()
     {
         var (engine, _) = SchedulerEngine();
@@ -559,7 +559,7 @@ public class SchedulerTests
         Log(engine).Should().Be("a1,a2,other");
     }
 
-    [Fact]
+    [Test]
     public void AContinuationInheritsThePriorityOfTheTaskItWasCalledIn()
     {
         var (engine, _) = SchedulerEngine();
@@ -577,7 +577,7 @@ public class SchedulerTests
         Log(engine).Should().Be("background,other,continuation");
     }
 
-    [Fact]
+    [Test]
     public void AContinuationFollowsASignalsPriorityToo()
     {
         var (engine, _) = SchedulerEngine();
@@ -594,7 +594,7 @@ public class SchedulerTests
         Log(engine).Should().Be("task,other,continuation");
     }
 
-    [Fact]
+    [Test]
     public void AYieldOutsideATaskIsAUserVisibleContinuation()
     {
         var (engine, _) = SchedulerEngine();
@@ -609,7 +609,7 @@ public class SchedulerTests
         Log(engine).Should().Be("blocking,continuation,visible");
     }
 
-    [Fact]
+    [Test]
     public void AContinuationInheritsTheAbortSignalOfTheTaskItWasCalledIn()
     {
         var (engine, _) = SchedulerEngine();
@@ -625,7 +625,7 @@ public class SchedulerTests
         Log(engine).Should().Be("rejected:AbortError");
     }
 
-    [Fact]
+    [Test]
     public void AYieldInsideAnAlreadyAbortedTaskRejectsImmediately()
     {
         var (engine, _) = SchedulerEngine();
@@ -642,7 +642,7 @@ public class SchedulerTests
         Log(engine).Should().Be("still running,rejected:gone");
     }
 
-    [Fact]
+    [Test]
     public void AnAwaitedYieldChunksWorkWithoutLosingItsPlace()
     {
         var (engine, _) = SchedulerEngine();
@@ -664,7 +664,7 @@ public class SchedulerTests
 
     // --- TaskController, TaskSignal, TaskPriorityChangeEvent ------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheInterfacesInheritFromTheirAbortAndEventCounterparts()
     {
         var (engine, _) = SchedulerEngine();
@@ -688,7 +688,7 @@ public class SchedulerTests
             "true,true,true,true,true,true,true,true,[object TaskController],[object TaskSignal],[object Scheduler]");
     }
 
-    [Fact]
+    [Test]
     public void ATaskControllersSignalCarriesTheInitialPriority()
     {
         var (engine, _) = SchedulerEngine();
@@ -702,27 +702,27 @@ public class SchedulerTests
         engine.Evaluate("(() => { const c = new TaskController(); return c.signal === c.signal; })()").AsBoolean().Should().BeTrue();
 
         // An unknown enumeration value is a TypeError, never a silent default.
-        var error = Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskController({ priority: 'urgent' })"));
+        var error = Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskController({ priority: 'urgent' })"))!;
         error.Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TaskSignalIsNotConstructibleAndSetPriorityIsBranded()
     {
         var (engine, _) = SchedulerEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskSignal()"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskSignal()"))!
             .Error.Get("message").AsString().Should().Be("Illegal constructor");
 
         // A plain AbortController has no priority to change.
-        Assert.Throws<JavaScriptException>(() => engine.Execute("TaskController.prototype.setPriority.call(new AbortController(), 'background')"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("TaskController.prototype.setPriority.call(new AbortController(), 'background')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("Object.getOwnPropertyDescriptor(TaskSignal.prototype, 'priority').get.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("Object.getOwnPropertyDescriptor(TaskSignal.prototype, 'priority').get.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TaskPriorityChangeEventRequiresItsPreviousPriority()
     {
         var (engine, _) = SchedulerEngine();
@@ -739,15 +739,15 @@ public class SchedulerTests
         Log(engine).Should().Be("background,prioritychange,true,false,true");
 
         // The dictionary is not optional and previousPriority is required.
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x')"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x', {})"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x', {})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x', { previousPriority: 'nope' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new TaskPriorityChangeEvent('x', { previousPriority: 'nope' })"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TaskSignalAnyIsATaskSignalWithItsOwnPriority()
     {
         var (engine, _) = SchedulerEngine();
@@ -769,7 +769,7 @@ public class SchedulerTests
         Log(engine).Should().Be("true:stop");
     }
 
-    [Fact]
+    [Test]
     public void TaskSignalAnyCanFollowAnotherSignalsPriority()
     {
         var (engine, _) = SchedulerEngine();
@@ -792,7 +792,7 @@ public class SchedulerTests
 
     // --- Installation ---------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void NothingIsInstalledUnlessTheSchedulerFeatureIsNamed()
     {
         var plain = new Engine();
@@ -813,7 +813,7 @@ public class SchedulerTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof scheduler").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Scheduler));
@@ -841,7 +841,7 @@ public class SchedulerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own");
@@ -852,7 +852,7 @@ public class SchedulerTests
         engine.Evaluate("scheduler").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void TheOperationsHaveTheirWebIdlShape()
     {
         var (engine, _) = SchedulerEngine();
@@ -886,7 +886,7 @@ public class SchedulerTests
     /// <c>[Exposed=(Window, Worker)] interface Scheduler</c> with no constructor operation, which is what
     /// Chrome ships and what these lines assert.
     /// </summary>
-    [Fact]
+    [Test]
     public void HasARealInterfaceObjectAndInterfacePrototypeObject()
     {
         var (engine, _) = SchedulerEngine();
@@ -906,7 +906,7 @@ public class SchedulerTests
 
         // No constructor operation means an interface object that refuses to construct —
         // https://webidl.spec.whatwg.org/#es-interface-call.
-        Assert.Throws<JavaScriptException>(() => engine.Execute("new Scheduler()"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("new Scheduler()"))!
             .Error.Get("message").AsString().Should().Be("Illegal constructor");
     }
 
@@ -915,7 +915,7 @@ public class SchedulerTests
     /// <c>console</c> and left open here: while the singleton sat directly on <c>%Object.prototype%</c>,
     /// <c>scheduler.__proto__.foo = …</c> poisoned every object in the realm.
     /// </summary>
-    [Fact]
+    [Test]
     public void PatchingSchedulersPrototypeDoesNotReachObjectPrototype()
     {
         var (engine, _) = SchedulerEngine();
@@ -933,7 +933,7 @@ public class SchedulerTests
 
     // --- Engine lifecycle -----------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AGlobalSnapshotRestoreDropsEverythingStillScheduled()
     {
         var (engine, clock) = SchedulerEngine();
@@ -962,7 +962,7 @@ public class SchedulerTests
         Log(engine).Should().Be("next");
     }
 
-    [Fact]
+    [Test]
     public void ABlockingUnwrapRunsTheWholeChain()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -983,7 +983,7 @@ public class SchedulerTests
         result.AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public async Task AnAsynchronousEvaluationRunsTheWholeChain()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -1014,7 +1014,7 @@ public class SchedulerTests
     /// middle state as well — due, and still not run, which is the actual claim and which no amount of
     /// polling could have asserted.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AHostsOwnPumpRunsTheTasks()
     {
         var (engine, clock) = SchedulerEngine();

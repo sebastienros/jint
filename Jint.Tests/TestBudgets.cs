@@ -18,8 +18,8 @@ internal static class TestBudgets
     /// This is a <b>wedge ceiling, never an assertion</b>. A test using it asserts an outcome — a value, an
     /// exception type, a message — and never a duration, so a healthy run spends none of this budget and
     /// widening it can hide nothing. What it removes is the thread pool from the set of things that decide
-    /// the outcome: xUnit runs test bodies on pool workers, a saturated pool injects a further worker at
-    /// roughly one per 500 ms, and a continuation that misses the engine's default ten-second
+    /// the outcome: a saturated pool injects a further worker at roughly one per 500 ms, and a
+    /// continuation that misses the engine's default ten-second
     /// <c>PromiseTimeout</c> fails the test with "Timeout of 00:00:10 reached" — a symptom with nothing to
     /// do with what the test is about. Two minutes cannot be reached by a loaded runner, only by a genuine
     /// hang, and a hang reported after two minutes is still a reported failure.

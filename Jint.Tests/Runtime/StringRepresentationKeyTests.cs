@@ -22,7 +22,7 @@ public class StringRepresentationKeyTests
 
     private static Engine CreateEngine() => new();
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringIsBuiltUpWithALiveBuffer()
     {
         // guards the premise of every other test here: if the interpreter ever starts flattening
@@ -35,7 +35,7 @@ public class StringRepresentationKeyTests
         value.ToString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringHashesLikeTheEquivalentFlatString()
     {
         var engine = CreateEngine();
@@ -46,7 +46,7 @@ public class StringRepresentationKeyTests
         concatenated.GetHashCode().Should().Be(new JsString("abc").GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void StringConcatResultHashesLikeTheEquivalentFlatString()
     {
         var engine = CreateEngine();
@@ -58,7 +58,7 @@ public class StringRepresentationKeyTests
         concatenated.GetHashCode().Should().Be(new JsString("abc").GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringHashesLikeTheFlatStringAfterMaterializing()
     {
         // asking for the flat text caches it, but the growable buffer is still around; the hash
@@ -71,7 +71,7 @@ public class StringRepresentationKeyTests
         concatenated.GetHashCode().Should().Be(new JsString("abc").GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringWorksAsAHostDictionaryKey()
     {
         // a host that keys its own dictionary by JsValue relies on the same contract
@@ -84,7 +84,7 @@ public class StringRepresentationKeyTests
         set.Add(new JsString("abc")).Should().BeFalse("an equal string must not create a second entry");
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringIsFoundInASetByALiteral()
     {
         var engine = CreateEngine();
@@ -92,7 +92,7 @@ public class StringRepresentationKeyTests
         engine.Evaluate(ConcatenatedInArray + " new Set(a).has('abc')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringIsFoundInAMapByALiteral()
     {
         var engine = CreateEngine();
@@ -101,7 +101,7 @@ public class StringRepresentationKeyTests
             .AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringDoesNotCreateADuplicateSetEntry()
     {
         var engine = CreateEngine();
@@ -111,7 +111,7 @@ public class StringRepresentationKeyTests
             .AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ALiteralSetFindsAConcatenatedString()
     {
         // the other direction: the stored keys are flat and the probed value is concatenated
@@ -127,7 +127,7 @@ public class StringRepresentationKeyTests
             .AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AppendChainIsFoundInASetByALiteral()
     {
         var engine = CreateEngine();
@@ -136,7 +136,7 @@ public class StringRepresentationKeyTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedObjectPropertyIsFoundInASetByALiteral()
     {
         var engine = CreateEngine();
@@ -145,7 +145,7 @@ public class StringRepresentationKeyTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringRemovedFromASetByALiteral()
     {
         // removal happened to work already (the ordering list compares by content), but it left the
@@ -158,7 +158,7 @@ public class StringRepresentationKeyTests
             .AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringWorksAsAPropertyKey()
     {
         // property keys are converted to a flat .NET string before they are hashed, so they were
@@ -170,7 +170,7 @@ public class StringRepresentationKeyTests
         engine.Evaluate(ConcatenatedInArray + " var o = { abc: 7 }; a[0] in o").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringComparesEqualToTheEquivalentLiteral()
     {
         // equality was always content based -- that is precisely why an identity hash is a contract
@@ -191,7 +191,7 @@ public class StringRepresentationKeyTests
     /// and cannot be deleted. The Set holds the string <em>value</em> as of the insertion, so appending
     /// to the variable afterwards must leave the entry exactly as it was.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatenatedStringMutatedAfterInsertionLeavesTheSetEntryIntact()
     {
         var engine = CreateEngine();
@@ -209,7 +209,7 @@ public class StringRepresentationKeyTests
             .AsString().Should().Be("false|1");
     }
 
-    [Fact]
+    [Test]
     public void ConcatenatedStringMutatedAfterInsertionDoesNotSplitASetEntry()
     {
         // re-adding the mutated value is a genuinely new value, so the set holds two distinct strings —
@@ -234,7 +234,7 @@ public class StringRepresentationKeyTests
     /// collection boundary, whereas the constructor's entry-iterable route reads it straight out of the
     /// array and hands it to the adder untouched.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatenatedStringMutatedAfterInsertionLeavesTheMapEntryIntact()
     {
         const string ConcatenatedEntry = "var a = ['a', 'v']; a[0] += 'b'; a[0] += 'c';";
@@ -258,7 +258,7 @@ public class StringRepresentationKeyTests
     /// <c>Set.prototype.union</c> is the one adder that reaches the ordering set directly instead of
     /// going through the JS-visible <c>add</c>, so it needs the same treatment.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatenatedStringMutatedAfterASetOperationLeavesTheResultIntact()
     {
         var engine = CreateEngine();
@@ -273,7 +273,7 @@ public class StringRepresentationKeyTests
             """).AsString().Should().Be("true|2|z,abc");
     }
 
-    [Fact]
+    [Test]
     public void SlicedStringIsUsableAsACollectionKey()
     {
         // the sibling lazily materialized representation already hashes its content; regression guard
@@ -295,7 +295,7 @@ public class StringRepresentationKeyTests
     /// </summary>
     private const string DeferredConcatenation = "var d = ''; for (var i = 0; i < 200; i++) { d = d + 'abc'; }";
 
-    [Fact]
+    [Test]
     public void DeferredConcatenationIsLeftUnflattened()
     {
         // guards the premise of the two rows below, exactly as the first test in this file does for the
@@ -308,7 +308,7 @@ public class StringRepresentationKeyTests
         value.ToString().Should().Be(string.Concat(Enumerable.Repeat("abc", 200)));
     }
 
-    [Fact]
+    [Test]
     public void DeferredConcatenationHashesLikeTheEquivalentFlatString()
     {
         var engine = CreateEngine();
@@ -320,7 +320,7 @@ public class StringRepresentationKeyTests
         deferred.GetHashCode().Should().Be(flat.GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void DeferredConcatenationIsUsableAsACollectionKey()
     {
         var engine = CreateEngine();

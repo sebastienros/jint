@@ -24,8 +24,8 @@ namespace Jint.Tests.PublicInterface;
 /// <para>
 /// <b>The three tests that wait for a hanging handler's token run on
 /// <see cref="DedicatedThread.RunAsync"/>.</b> A handler that hangs is parked in <c>Task.Delay</c>, so the
-/// <c>catch</c> that sets <see cref="StubHandler.Cancelled"/> is a thread-pool continuation — and blocking an
-/// xUnit pool worker to wait for one is the resource inversion described on
+/// <c>catch</c> that sets <see cref="StubHandler.Cancelled"/> is a thread-pool continuation — and blocking a
+/// pool worker to wait for one is the resource inversion described on
 /// <see cref="DedicatedThread.RunAsync"/>, which is exactly the claim and exactly the treatment
 /// sebastienros/jint#3207 gave the in-assembly sibling of these tests. Every other test here drives a handler
 /// that answers synchronously, so its connection loop runs inline on the thread that started it and there is
@@ -217,7 +217,7 @@ public class WebApiEventSourceTests
             """);
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineAndAUseWebApisEngineHaveNoEventSource()
     {
         new Engine().Evaluate("typeof EventSource").AsString().Should().Be("undefined");
@@ -237,7 +237,7 @@ public class WebApiEventSourceTests
         engine.Evaluate("typeof EventTarget").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASchemeTheHostDidNotAllow()
     {
         var handler = new StubHandler();
@@ -250,7 +250,7 @@ public class WebApiEventSourceTests
         handler.RequestCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAUrlTheHostFilterRejects()
     {
         var handler = new StubHandler();
@@ -268,7 +268,7 @@ public class WebApiEventSourceTests
         Pump(engine, () => handler.RequestCount == 1, "the allowed stream");
     }
 
-    [Fact]
+    [Test]
     public void ReRunsTheFilterOnEveryRedirectHop()
     {
         // The SSRF shape, and the reason Jint follows redirects itself: the first URL passes the filter and
@@ -315,7 +315,7 @@ public class WebApiEventSourceTests
         handler.RequestCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public Task CloseCancelsTheRequestInFlight() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
@@ -336,7 +336,7 @@ public class WebApiEventSourceTests
         Joined(records).Should().BeEmpty();
     });
 
-    [Fact]
+    [Test]
     public Task ARestoreCancelsTheConnectionAndDeliversNothingIntoTheRestoredEngine() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
@@ -360,7 +360,7 @@ public class WebApiEventSourceTests
         engine.Evaluate("typeof es").AsString().Should().Be("undefined");
     });
 
-    [Fact]
+    [Test]
     public void ARestoreAlsoTakesTheReconnectDelayWithIt()
     {
         // The stream ends by itself, which is a reestablish: an error event and a delay on the timer queue.
@@ -384,7 +384,7 @@ public class WebApiEventSourceTests
         Count(records).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public Task AnEngineCancellationEndsTheConnectionSilently() => DedicatedThread.RunAsync(() =>
     {
         // A constraint that became an error event would let the script carry on — and reconnect — which is
@@ -407,7 +407,7 @@ public class WebApiEventSourceTests
         handler.RequestCount.Should().Be(1);
     });
 
-    [Fact]
+    [Test]
     public void BoundsHowManyStreamsOneEngineMayHaveOpen()
     {
         var handler = new StubHandler { Hang = true };
@@ -425,7 +425,7 @@ public class WebApiEventSourceTests
         handler.RequestCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheHostClientFactoryWinsAndSeesTheEngine()
     {
         var byFactory = new StubHandler();
@@ -458,7 +458,7 @@ public class WebApiEventSourceTests
         }
     }
 
-    [Fact]
+    [Test]
     public void SeveralEnginesFromOneOptionsInstanceCountTheirStreamsSeparately()
     {
         var handler = new StubHandler { Hang = true };
@@ -480,7 +480,7 @@ public class WebApiEventSourceTests
         second.Evaluate("es.readyState").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseEventSource());
@@ -499,7 +499,7 @@ public class WebApiEventSourceTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostGlobalOfTheSameNameWins()
     {
         var engine = new Engine(options => options
@@ -509,7 +509,7 @@ public class WebApiEventSourceTests
         engine.Evaluate("EventSource").AsString().Should().Be("host's own");
     }
 
-    [Fact]
+    [Test]
     public void EveryListenerRunsOnTheHostsOwnThread()
     {
         // The shape a game loop or a message pump uses. The response is read on a thread pool thread, but

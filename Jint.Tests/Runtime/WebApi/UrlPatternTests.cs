@@ -23,7 +23,7 @@ public class UrlPatternTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Url));
 
-    [Fact]
+    [Test]
     public void IsInstalledOnlyWithTheUrlFeature()
     {
         new Engine().Evaluate("typeof URLPattern").AsString().Should().Be("undefined");
@@ -36,7 +36,7 @@ public class UrlPatternTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof URLPattern").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void IsAWebIdlInterfaceObject()
     {
         var engine = WebEngine();
@@ -56,11 +56,11 @@ public class UrlPatternTests
         engine.Evaluate("URLPattern.prototype.constructor === URLPattern").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.prototype.toString.call(new URLPattern({}))").AsString().Should().Be("[object URLPattern]");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("URLPattern({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("URLPattern({})"))!
             .Error.ToString().Should().Contain("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EveryAttributeIsAReadOnlyAccessorOnThePrototype()
     {
         var engine = WebEngine();
@@ -79,7 +79,7 @@ public class UrlPatternTests
         engine.Evaluate("Object.getOwnPropertyNames(new URLPattern({})).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ParsesTheStandardsIntroductoryConstructorString()
     {
         // https://urlpattern.spec.whatwg.org/#example-intro
@@ -103,7 +103,7 @@ public class UrlPatternTests
         engine.Evaluate("p.test('https://example.com:8443/blog/our-greatest-product-ever')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ParsesTheStandardsModifierAndRegexpConstructorString()
     {
         // https://urlpattern.spec.whatwg.org/#example-intro-2
@@ -129,7 +129,7 @@ public class UrlPatternTests
             .AsString().Should().Be("voyager");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesARelativeConstructorStringAgainstItsBaseUrl()
     {
         // https://urlpattern.spec.whatwg.org/#example-intro-3
@@ -150,7 +150,7 @@ public class UrlPatternTests
         engine.Evaluate("p.test('http://discussion.example:8080/admin/update?id=1')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ResolvesTheTwoArgumentOverloadByTheSecondArgumentsType()
     {
         var engine = WebEngine();
@@ -171,7 +171,7 @@ public class UrlPatternTests
             () => engine.Evaluate("new URLPattern('/foo', { ignoreCase: true }, 'https://example.com')"));
     }
 
-    [Fact]
+    [Test]
     public void IgnoreCaseReachesOnlyThePathnameSearchAndHash()
     {
         var engine = WebEngine();
@@ -192,7 +192,7 @@ public class UrlPatternTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new URLPattern({ pathname: '/f' }, 1, 2)"));
     }
 
-    [Fact]
+    [Test]
     public void HasRegExpGroupsReportsOnlyCustomRegularExpressions()
     {
         var engine = WebEngine();
@@ -210,7 +210,7 @@ public class UrlPatternTests
         engine.Evaluate("new URLPattern({ pathname: '/:id([^\\\\/]+?)' }).hasRegExpGroups").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void HasRegExpGroupsAnswersForEveryComponent()
     {
         // A port of WPT's urlpattern/resources/urlpattern-hasregexpgroups-tests.js at the pinned commit, which is
@@ -252,7 +252,7 @@ public class UrlPatternTests
         failures.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ExecReturnsTheDictionaryTheStandardDeclares()
     {
         var engine = WebEngine();
@@ -289,7 +289,7 @@ public class UrlPatternTests
         engine.Evaluate("r3.pathname.groups.b === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TestIsExecReducedToABoolean()
     {
         var engine = WebEngine();
@@ -308,7 +308,7 @@ public class UrlPatternTests
         engine.Evaluate("new URLPattern({ pathname: '/foo' }).test()").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RejectsThePatternsTheStandardRejects()
     {
         var engine = WebEngine();
@@ -334,7 +334,7 @@ public class UrlPatternTests
         engine.Evaluate("new URLPattern({}).exec({ port: 'invalid80' })").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MembersBrandCheckTheirReceiver()
     {
         var engine = WebEngine();
@@ -347,7 +347,7 @@ public class UrlPatternTests
                      "URLPattern.prototype.exec.call({}, {})",
                  })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate(expression))!
                 .Error.ToString().Should().Contain("TypeError");
         }
 
@@ -355,7 +355,7 @@ public class UrlPatternTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("URLPattern.prototype.pathname"));
     }
 
-    [Fact]
+    [Test]
     public void SubclassingUsesTheNewTargetsPrototype()
     {
         var engine = WebEngine();
@@ -368,7 +368,7 @@ public class UrlPatternTests
         engine.Evaluate("p.pathname").AsString().Should().Be("/foo");
     }
 
-    [Fact]
+    [Test]
     public void IsAbsentFromAShadowRealm()
     {
         var engine = WebEngine();
@@ -377,7 +377,7 @@ public class UrlPatternTests
         engine.Evaluate("typeof URLPattern").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void MatchingIsUnaffectedByAPatchedRegExpPrototypeExec()
     {
         var engine = WebEngine();
@@ -390,7 +390,7 @@ public class UrlPatternTests
         engine.Evaluate("p.exec({ pathname: '/42' }).pathname.groups.id").AsString().Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void ComponentRegularExpressionsAreBuiltByTheEnginesOwnRegExpMachinery()
     {
         // A structural pin on the claim the timeout test below rests on: each component's regular expression is a
@@ -419,7 +419,7 @@ public class UrlPatternTests
         pattern.Pattern.Pathname.RegularExpression.UsesDotNetEngine.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AHostileRegExpGroupEndsInTheEnginesRegexTimeout()
     {
         // The pattern below backtracks exponentially: the group has to partition a run of "a"s that can never be
@@ -432,7 +432,7 @@ public class UrlPatternTests
         engine.Execute("const p = new URLPattern({ pathname: '/:x((?:a+)+)' });");
         engine.SetValue("hostileInput", "/" + new string('a', 40) + "!");
 
-        var timeout = Assert.Throws<RegexMatchTimeoutException>(() => engine.Evaluate("p.test({ pathname: hostileInput })"));
+        var timeout = Assert.Throws<RegexMatchTimeoutException>(() => engine.Evaluate("p.test({ pathname: hostileInput })"))!;
 
         // The deadline is the engine's own regex constraint, not a constant of this feature's own.
         timeout.MatchTimeout.Should().Be(TimeSpan.FromMilliseconds(50));

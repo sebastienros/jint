@@ -30,7 +30,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// outgoing queue is a <c>Channel</c>, which does not allow synchronous continuations, so everything past a
 /// <c>send()</c> or a <c>close()</c> — the write itself, the <c>bufferedAmount</c> release, the Close frame,
 /// and the <c>await sender</c> that has to finish before a <c>close</c> event is dispatched — resumes on a
-/// thread-pool worker. Waiting for one from a body that is itself occupying an xUnit pool worker is the
+/// thread-pool worker. Waiting for one from a body that is itself occupying a pool worker is the
 /// resource inversion <see cref="DedicatedThread.RunAsync"/> exists for, and it is what turned fixed windows
 /// elsewhere in this suite into flakes (sebastienros/jint#3201, #3213). Tests driven only by the test
 /// thread's own hand-offs — a delivered message, a completed handshake, a refused URL — stay where they are,
@@ -286,7 +286,7 @@ public class WebSocketTests
         return (engine, sockets);
     }
 
-    [Fact]
+    [Test]
     public void TheConstructorOpensTheConnectionItWasGiven()
     {
         var (engine, sockets) = SocketEngine();
@@ -306,7 +306,7 @@ public class WebSocketTests
         engine.Evaluate("ws.binaryType").AsString().Should().Be("arraybuffer");
     }
 
-    [Fact]
+    [Test]
     public void AFinishedHandshakeFiresOpenAndPublishesTheSubprotocol()
     {
         var (engine, sockets) = SocketEngine();
@@ -329,11 +329,10 @@ public class WebSocketTests
     /// https://websockets.spec.whatwg.org/#dom-websocket-websocket steps 4 and 5 — the current text maps the
     /// two HTTP schemes rather than refusing them.
     /// </summary>
-    [Theory]
-    [InlineData("http://example.org/s", "ws://example.org/s")]
-    [InlineData("https://example.org/s", "wss://example.org/s")]
-    [InlineData("ws://example.org/s", "ws://example.org/s")]
-    [InlineData("wss://example.org/s", "wss://example.org/s")]
+    [TestCase("http://example.org/s", "ws://example.org/s")]
+    [TestCase("https://example.org/s", "wss://example.org/s")]
+    [TestCase("ws://example.org/s", "ws://example.org/s")]
+    [TestCase("wss://example.org/s", "wss://example.org/s")]
     public void MapsTheHttpSchemesOntoTheWebSocketOnes(string input, string expected)
     {
         var (engine, sockets) = SocketEngine();
@@ -347,18 +346,17 @@ public class WebSocketTests
     /// <summary>
     /// Steps 3, 6 and 7: an unparsable URL, a scheme that is not one of the four, and a fragment.
     /// </summary>
-    [Theory]
-    [InlineData("not a url")]
-    [InlineData("/relative")]
-    [InlineData("ftp://example.org/")]
-    [InlineData("file:///tmp/x")]
-    [InlineData("wss://example.org/s#fragment")]
-    [InlineData("ws://example.org/s#")]
+    [TestCase("not a url")]
+    [TestCase("/relative")]
+    [TestCase("ftp://example.org/")]
+    [TestCase("file:///tmp/x")]
+    [TestCase("wss://example.org/s#fragment")]
+    [TestCase("ws://example.org/s#")]
     public void RefusesAUrlTheStandardRefuses(string url)
     {
         var (engine, sockets) = SocketEngine();
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('{url}');"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('{url}');"))!;
 
         thrown.Error.Get("name").AsString().Should().Be("SyntaxError");
         engine.Evaluate($"(() => {{ try {{ new WebSocket('{url}'); }} catch (e) {{ return e instanceof DOMException; }} }})()")
@@ -370,24 +368,23 @@ public class WebSocketTests
     /// <summary>
     /// Step 10: every element must be a <c>Sec-WebSocket-Protocol</c> token and none may repeat.
     /// </summary>
-    [Theory]
-    [InlineData("['']")]
-    [InlineData("['a b']")]
-    [InlineData("['a,b']")]
-    [InlineData("['a;b']")]
-    [InlineData("['a\\u00e9']")]
-    [InlineData("['chat', 'chat']")]
+    [TestCase("['']")]
+    [TestCase("['a b']")]
+    [TestCase("['a,b']")]
+    [TestCase("['a;b']")]
+    [TestCase("['a\\u00e9']")]
+    [TestCase("['chat', 'chat']")]
     public void RefusesASubprotocolTheProtocolWouldRefuse(string protocols)
     {
         var (engine, sockets) = SocketEngine();
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('wss://example.org/', {protocols});"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"new WebSocket('wss://example.org/', {protocols});"))!;
 
         thrown.Error.Get("name").AsString().Should().Be("SyntaxError");
         sockets.Created.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AcceptsASingleStringProtocolAndAnIterableOfThem()
     {
         var (engine, sockets) = SocketEngine();
@@ -405,7 +402,7 @@ public class WebSocketTests
         sockets.Created[3].Protocols.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ATextMessageArrivesAsAStringOnATrustedMessageEvent()
     {
         var (engine, sockets) = OpenSocket("""
@@ -418,7 +415,7 @@ public class WebSocketTests
         Log(engine).Should().Be("open:1:|string,héllo,wss://example.org,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void ABinaryMessageArrivesAsAnArrayBufferByDefault()
     {
         var (engine, sockets) = OpenSocket("""
@@ -431,7 +428,7 @@ public class WebSocketTests
         Log(engine).Should().Be("open:1:|ArrayBuffer:1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void ABinaryMessageArrivesAsABlobWhenBinaryTypeSaysSo()
     {
         var (engine, sockets) = OpenSocket("""
@@ -449,7 +446,7 @@ public class WebSocketTests
     /// https://webidl.spec.whatwg.org/#es-enumeration — assigning something that is not one of the
     /// enumeration's values to an attribute of enumeration type is ignored, not refused.
     /// </summary>
-    [Fact]
+    [Test]
     public void BinaryTypeIgnoresAValueThatIsNotOneOfTheTwo()
     {
         var (engine, _) = OpenSocket();
@@ -463,7 +460,7 @@ public class WebSocketTests
     /// A message that arrives once the socket is no longer OPEN is dropped — step 1 of "when a WebSocket
     /// message has been received".
     /// </summary>
-    [Fact]
+    [Test]
     public Task AMessageThatArrivesAfterTheCloseIsDropped() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
@@ -488,7 +485,7 @@ public class WebSocketTests
         Log(engine).Should().Be("open:1:|close:1000");
     });
 
-    [Fact]
+    [Test]
     public Task SendMarshalsOnTheEngineThreadAndBufferedAmountFallsWhenTheBytesGoOut() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -519,7 +516,7 @@ public class WebSocketTests
         socket.Sent[1].Payload.Should().Equal([7, 8, 9], "the bytes were copied when send() was called, not when they were written");
     });
 
-    [Fact]
+    [Test]
     public Task SendAcceptsEveryArmOfTheUnion() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -545,14 +542,14 @@ public class WebSocketTests
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-send step 1.
     /// </summary>
-    [Fact]
+    [Test]
     public void SendBeforeTheHandshakeFinishesIsAnInvalidStateError()
     {
         var (engine, sockets) = SocketEngine();
 
         engine.Execute("var ws = new WebSocket('wss://example.org/');");
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("ws.send('too early');"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("ws.send('too early');"))!;
         thrown.Error.Get("name").AsString().Should().Be("InvalidStateError");
         engine.Evaluate("(() => { try { ws.send('x'); } catch (e) { return e instanceof DOMException; } })()")
             .AsBoolean().Should().BeTrue();
@@ -565,7 +562,7 @@ public class WebSocketTests
     /// "If the WebSocket connection is closed, this attribute's value will only increase with each call to the
     /// send() method" — https://websockets.spec.whatwg.org/#dom-websocket-bufferedamount.
     /// </summary>
-    [Fact]
+    [Test]
     public Task SendAfterTheCloseOnlyCountsBytesAndWritesNothing() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -589,7 +586,7 @@ public class WebSocketTests
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close step 3.3, then the peer's answer.
     /// </summary>
-    [Fact]
+    [Test]
     public Task CloseStartsTheHandshakeAndStaysClosingUntilThePeerAnswers() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
@@ -613,7 +610,7 @@ public class WebSocketTests
         engine.Evaluate("ws.readyState").AsNumber().Should().Be(3);
     });
 
-    [Fact]
+    [Test]
     public Task CloseWithNoArgumentsSendsAFrameWithNoBody() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -624,7 +621,7 @@ public class WebSocketTests
         sockets.Last.CloseFrames.Should().Equal((null, string.Empty));
     });
 
-    [Fact]
+    [Test]
     public Task QueuedMessagesAreWrittenBeforeTheCloseFrame() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -642,7 +639,7 @@ public class WebSocketTests
     /// The peer's Close frame: "when the WebSocket closing handshake is started" moves the ready state, and
     /// this endpoint answers with a Close frame of its own before the connection ends.
     /// </summary>
-    [Fact]
+    [Test]
     public Task APeerInitiatedCloseIsEchoedAndReportedAsClean() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
@@ -663,7 +660,7 @@ public class WebSocketTests
     /// A Close frame with no status code is 1005, "no status received" —
     /// https://www.rfc-editor.org/rfc/rfc6455#section-7.4.1 — and is answered with a body-less frame.
     /// </summary>
-    [Fact]
+    [Test]
     public Task APeerCloseWithNoCodeIsReportedAs1005() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("ws.onclose = e => log.push('close:' + e.code + ':' + e.wasClean);");
@@ -679,7 +676,7 @@ public class WebSocketTests
     /// https://websockets.spec.whatwg.org/#dom-websocket-close step 3.2: closing before the connection is
     /// established <i>fails</i> it, so the script sees the error and the 1006 every abnormal closure has.
     /// </summary>
-    [Fact]
+    [Test]
     public void ClosingDuringTheHandshakeFailsTheConnection()
     {
         var (engine, sockets) = SocketEngine();
@@ -707,7 +704,7 @@ public class WebSocketTests
     /// The same close, one turn later: the handshake had already finished, so an <c>open</c> event was
     /// queued — and must not be dispatched into a socket the script has since closed.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AnOpenThatWasAlreadyQueuedIsSuppressedByAClose() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = SocketEngine();
@@ -735,7 +732,7 @@ public class WebSocketTests
     /// https://websockets.spec.whatwg.org/#feedback-from-the-protocol requires: no failure may be told from
     /// another.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFailedHandshakeFiresErrorThenClose()
     {
         var (engine, sockets) = SocketEngine();
@@ -753,7 +750,7 @@ public class WebSocketTests
         Log(engine).Should().Be("error|close,1006,,false");
     }
 
-    [Fact]
+    [Test]
     public Task ADroppedConnectionFiresErrorThenClose() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
@@ -771,7 +768,7 @@ public class WebSocketTests
     /// A message larger than <c>Options.WebApi.Fetch.MaxResponseBytes</c> is the host's own limit rather than
     /// the network's, so unlike every other failure it names itself with RFC 6455's 1009.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AMessageOverTheCeilingClosesWith1009() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket("""
@@ -790,29 +787,27 @@ public class WebSocketTests
     /// <summary>
     /// https://websockets.spec.whatwg.org/#dom-websocket-close steps 1 and 2.
     /// </summary>
-    [Theory]
-    [InlineData("999", "InvalidAccessError")]
-    [InlineData("1001", "InvalidAccessError")]
-    [InlineData("2999", "InvalidAccessError")]
-    [InlineData("5000", "InvalidAccessError")]
-    [InlineData("-1", "InvalidAccessError")]
-    [InlineData("NaN", "InvalidAccessError")]
-    [InlineData("1e10", "InvalidAccessError")]
+    [TestCase("999", "InvalidAccessError")]
+    [TestCase("1001", "InvalidAccessError")]
+    [TestCase("2999", "InvalidAccessError")]
+    [TestCase("5000", "InvalidAccessError")]
+    [TestCase("-1", "InvalidAccessError")]
+    [TestCase("NaN", "InvalidAccessError")]
+    [TestCase("1e10", "InvalidAccessError")]
     public void CloseRefusesACodeTheProtocolReserves(string code, string expected)
     {
         var (engine, sockets) = OpenSocket();
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"ws.close({code});"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute($"ws.close({code});"))!;
         thrown.Error.Get("name").AsString().Should().Be(expected);
 
         engine.Evaluate("ws.readyState").AsNumber().Should().Be(1, "a refused close leaves the socket open");
         sockets.Last.CloseFrames.Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData("1000")]
-    [InlineData("3000")]
-    [InlineData("4999")]
+    [TestCase("1000")]
+    [TestCase("3000")]
+    [TestCase("4999")]
     public Task CloseAcceptsTheCodesAnApplicationMaySend(string code) => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -823,7 +818,7 @@ public class WebSocketTests
         sockets.Last.CloseFrames.Should().Equal((int.Parse(code, System.Globalization.CultureInfo.InvariantCulture), string.Empty));
     });
 
-    [Fact]
+    [Test]
     public void CloseRefusesAReasonLongerThan123Utf8Bytes()
     {
         var (engine, _) = OpenSocket();
@@ -831,12 +826,12 @@ public class WebSocketTests
         engine.Execute("ws.close(1000, 'x'.repeat(123));");
 
         var (second, _) = OpenSocket();
-        var thrown = Assert.Throws<JavaScriptException>(() => second.Execute("ws.close(1000, 'x'.repeat(124));"));
+        var thrown = Assert.Throws<JavaScriptException>(() => second.Execute("ws.close(1000, 'x'.repeat(124));"))!;
         thrown.Error.Get("name").AsString().Should().Be("SyntaxError");
 
         // Bytes, not characters: 62 two-byte characters are 124 bytes.
         var (third, _) = OpenSocket();
-        Assert.Throws<JavaScriptException>(() => third.Execute("ws.close(1000, 'é'.repeat(62));"))
+        Assert.Throws<JavaScriptException>(() => third.Execute("ws.close(1000, 'é'.repeat(62));"))!
             .Error.Get("name").AsString().Should().Be("SyntaxError");
     }
 
@@ -844,7 +839,7 @@ public class WebSocketTests
     /// Both arguments are converted before either is validated, which is the order
     /// https://webidl.spec.whatwg.org/#js-operations puts them in.
     /// </summary>
-    [Fact]
+    [Test]
     public void CloseConvertsBothArgumentsBeforeValidatingEither()
     {
         var (engine, _) = OpenSocket();
@@ -856,7 +851,7 @@ public class WebSocketTests
         Log(engine).Should().Be("open:1:|reason converted");
     }
 
-    [Fact]
+    [Test]
     public Task CloseIsIdempotentAndSendsOneFrame() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -871,7 +866,7 @@ public class WebSocketTests
     /// A reason with no code has nowhere to live in the protocol's Close frame, so it travels behind a normal
     /// closure rather than being dropped.
     /// </summary>
-    [Fact]
+    [Test]
     public Task AReasonWithNoCodeTravelsAsANormalClosure() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = OpenSocket();
@@ -886,7 +881,7 @@ public class WebSocketTests
     /// The policy refuses the URL, and the script cannot tell that from a refused connection — which
     /// https://websockets.spec.whatwg.org/#feedback-from-the-protocol requires.
     /// </summary>
-    [Fact]
+    [Test]
     public void APolicyDenialLooksExactlyLikeARefusedConnection()
     {
         var (engine, sockets) = SocketEngine(net => net.UrlFilter = _ => false);
@@ -911,13 +906,12 @@ public class WebSocketTests
     /// The scheme list is written in fetch's terms, and read in the socket's: <c>http</c> admits <c>ws</c> and
     /// <c>https</c> admits <c>wss</c>.
     /// </summary>
-    [Theory]
-    [InlineData("ws://example.org/", "https", false)]
-    [InlineData("ws://example.org/", "http", true)]
-    [InlineData("ws://example.org/", "ws", true)]
-    [InlineData("wss://example.org/", "http", false)]
-    [InlineData("wss://example.org/", "https", true)]
-    [InlineData("wss://example.org/", "wss", true)]
+    [TestCase("ws://example.org/", "https", false)]
+    [TestCase("ws://example.org/", "http", true)]
+    [TestCase("ws://example.org/", "ws", true)]
+    [TestCase("wss://example.org/", "http", false)]
+    [TestCase("wss://example.org/", "https", true)]
+    [TestCase("wss://example.org/", "wss", true)]
     public void TheSchemeListIsTranslatedIntoTheSocketsOwnSchemes(string url, string allowed, bool opens)
     {
         var (engine, sockets) = SocketEngine(net =>
@@ -931,7 +925,7 @@ public class WebSocketTests
         sockets.Created.Should().HaveCount(opens ? 1 : 0);
     }
 
-    [Fact]
+    [Test]
     public void TheFilterIsShownTheWebSocketUrl()
     {
         var seen = new List<Uri>();
@@ -950,14 +944,14 @@ public class WebSocketTests
     /// <c>Options.WebApi.Fetch.MaxConcurrentRequests</c> bounds sockets too — separately from the requests in
     /// flight, since a socket is meant to be long-lived.
     /// </summary>
-    [Fact]
+    [Test]
     public Task TooManyOpenSocketsIsAQuotaExceededError() => DedicatedThread.RunAsync(() =>
     {
         var (engine, sockets) = SocketEngine(net => net.MaxConcurrentRequests = 2);
 
         engine.Execute("var a = new WebSocket('wss://example.org/1'); var b = new WebSocket('wss://example.org/2');");
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/3');"));
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('wss://example.org/3');"))!;
         thrown.Error.Get("name").AsString().Should().Be("QuotaExceededError");
 
         // https://webidl.spec.whatwg.org/#quotaexceedederror — the interface, carrying the ceiling and the
@@ -988,7 +982,7 @@ public class WebSocketTests
     /// A restore ends the evaluation cycle, so the socket is dropped rather than left delivering into globals
     /// that no longer exist.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreAbortsTheSocketAndDeliversNothingIntoTheRestoredEngine()
     {
         var (engine, sockets) = SocketEngine();
@@ -1021,7 +1015,7 @@ public class WebSocketTests
         engine.Evaluate("typeof ws").AsString().Should().Be("undefined", "the binding belonged to the cycle that ended");
     }
 
-    [Fact]
+    [Test]
     public void TheReadyStateConstantsAreOnBothTheInterfaceObjectAndThePrototype()
     {
         var engine = new Engine(options => options.UseWebSocket());
@@ -1043,7 +1037,7 @@ public class WebSocketTests
         descriptor.Get("configurable").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceInheritsFromEventTarget()
     {
         var (engine, _) = OpenSocket();
@@ -1058,14 +1052,14 @@ public class WebSocketTests
     /// <summary>
     /// The attributes brand-check their receiver, so the prototype itself answers none of them.
     /// </summary>
-    [Fact]
+    [Test]
     public void ThePrototypeIsNotASocket()
     {
         var engine = new Engine(options => options.UseWebSocket());
 
         foreach (var member in new[] { "url", "readyState", "bufferedAmount", "protocol", "extensions", "binaryType" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"WebSocket.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"WebSocket.prototype.{member}"))!
                 .Error.Get("name").AsString().Should().Be("TypeError");
         }
     }
@@ -1074,7 +1068,7 @@ public class WebSocketTests
     /// An <c>addEventListener</c> registration and the handler attribute are the same list, in registration
     /// order — https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes.
     /// </summary>
-    [Fact]
+    [Test]
     public void ListenersAndHandlerAttributesShareOneList()
     {
         var (engine, sockets) = SocketEngine();
@@ -1094,7 +1088,7 @@ public class WebSocketTests
         Log(engine).Should().Be("listener|handler|second listener");
     }
 
-    [Fact]
+    [Test]
     public void AHandlerAttributeCanBeClearedAndReassigned()
     {
         var (engine, sockets) = SocketEngine();

@@ -16,7 +16,7 @@ public class ResponseTests
 
     private static JsValue Eval(string source) => WebEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void DefaultsToAnEmpty200()
     {
         Eval("new Response().status").AsNumber().Should().Be(200);
@@ -29,7 +29,7 @@ public class ResponseTests
         Eval("[...new Response().headers].length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void OkIsExactlyTheTwoHundreds()
     {
         Eval("new Response(null, { status: 200 }).ok").AsBoolean().Should().BeTrue();
@@ -38,12 +38,12 @@ public class ResponseTests
         Eval("new Response(null, { status: 404 }).ok").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RefusesAStatusOutsideTheAllowedRange()
     {
         foreach (var status in new[] { "199", "600", "0" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"new Response(null, {{ status: {status} }})"))
+            Assert.Throws<JavaScriptException>(() => Eval($"new Response(null, {{ status: {status} }})"))!
                 .Message.Should().Contain("outside the range");
         }
 
@@ -51,22 +51,22 @@ public class ResponseTests
         Eval("new Response(null, { status: 65736 }).status").AsNumber().Should().Be(200);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAStatusTextThatIsNotAReasonPhrase()
     {
         Eval("new Response(null, { statusText: 'All good' }).statusText").AsString().Should().Be("All good");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Response(null, { statusText: 'a\\r\\nb' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Response(null, { statusText: 'a\\r\\nb' })"))!
             .Message.Should().Contain("Invalid status text");
     }
 
-    [Fact]
+    [Test]
     public void RefusesABodyOnANullBodyStatus()
     {
         // https://fetch.spec.whatwg.org/#null-body-status
         foreach (var status in new[] { "204", "205", "304" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"new Response('x', {{ status: {status} }})"))
+            Assert.Throws<JavaScriptException>(() => Eval($"new Response('x', {{ status: {status} }})"))!
                 .Message.Should().Contain("null body status");
         }
 
@@ -74,17 +74,17 @@ public class ResponseTests
         Eval("new Response(null, { status: 204 }).status").AsNumber().Should().Be(204);
     }
 
-    [Fact]
+    [Test]
     public void ExtractsTheBodyBeforeTheRangeCheck()
     {
         // https://fetch.spec.whatwg.org/#dom-response steps 3-5: the body is extracted before "initialize a
         // response" runs its checks, so what the extraction raises is what is reported — the status never
         // gets as far as being called out of range.
-        Assert.Throws<JavaScriptException>(() => Eval("new Response({ toString() { throw new Error('extracted first'); } }, { status: 999 })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Response({ toString() { throw new Error('extracted first'); } }, { status: 999 })"))!
             .Message.Should().Contain("extracted first");
     }
 
-    [Fact]
+    [Test]
     public void TakesAFormDataBodyAsMultipart()
     {
         var engine = WebEngine();
@@ -95,7 +95,7 @@ public class ResponseTests
         engine.Evaluate("r.formData().then(parsed => parsed.get('a'))").UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheBodyBackInEveryShape()
     {
         var engine = WebEngine();
@@ -112,7 +112,7 @@ public class ResponseTests
         engine.Evaluate("new Response('x').blob().then(b => b.type)").UnwrapIfPromise().AsString().Should().Be("text/plain;charset=utf-8");
     }
 
-    [Fact]
+    [Test]
     public void ConsumingANullBodyIsAlwaysAllowed()
     {
         // https://fetch.spec.whatwg.org/#body-unusable — only a *non-null* body can be unusable, so a
@@ -125,7 +125,7 @@ public class ResponseTests
         engine.Evaluate("r.text()").UnwrapIfPromise().AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ASecondConsumeRejectsRatherThanThrowing()
     {
         // https://fetch.spec.whatwg.org/#concept-body-consume-body — "return a promise rejected with a
@@ -141,7 +141,7 @@ public class ResponseTests
         second.UnwrapIfPromise().AsString().Should().Be("TypeError: Body has already been consumed");
     }
 
-    [Fact]
+    [Test]
     public void MalformedJsonRejectsWithASyntaxError()
     {
         var engine = WebEngine();
@@ -154,7 +154,7 @@ public class ResponseTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CloneSharesTheBytesAndNotTheUsedFlag()
     {
         var engine = WebEngine();
@@ -174,17 +174,17 @@ public class ResponseTests
         engine.Evaluate("a.headers.has('x-b')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CloneThrowsSynchronouslyForAnUsedBody()
     {
         var engine = WebEngine();
         engine.Execute("var r = new Response('hi'); r.text();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.clone()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.clone()"))!
             .Message.Should().Contain("already used");
     }
 
-    [Fact]
+    [Test]
     public void ErrorIsAnImmutableZeroStatusResponse()
     {
         // https://fetch.spec.whatwg.org/#dom-response-error
@@ -196,15 +196,15 @@ public class ResponseTests
         engine.Evaluate("r.ok").AsBoolean().Should().BeFalse();
         engine.Evaluate("r.body").Should().Be(JsValue.Null);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.set('a', '1')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.set('a', '1')"))!
             .Message.Should().Contain("immutable");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.append('a', '1')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.append('a', '1')"))!
             .Message.Should().Contain("immutable");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.delete('a')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.headers.delete('a')"))!
             .Message.Should().Contain("immutable");
     }
 
-    [Fact]
+    [Test]
     public void RedirectCarriesTheLocationAndRefusesANonRedirectStatus()
     {
         // https://fetch.spec.whatwg.org/#dom-response-redirect
@@ -212,18 +212,18 @@ public class ResponseTests
         Eval("Response.redirect('https://example.org/a').headers.get('location')").AsString().Should().Be("https://example.org/a");
         Eval("Response.redirect('https://example.org/a', 301).status").AsNumber().Should().Be(301);
 
-        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('https://example.org/a', 200)"))
+        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('https://example.org/a', 200)"))!
             .Message.Should().Contain("Invalid status code");
 
-        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('nope')"))
+        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('nope')"))!
             .Message.Should().Contain("Failed to parse URL");
 
         // The headers are immutable, so a script cannot rewrite where the redirect points.
-        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('https://example.org/a').headers.set('location', 'https://evil.example/')"))
+        Assert.Throws<JavaScriptException>(() => Eval("Response.redirect('https://example.org/a').headers.set('location', 'https://evil.example/')"))!
             .Message.Should().Contain("immutable");
     }
 
-    [Fact]
+    [Test]
     public void JsonSerializesAndCarriesTheJsonContentType()
     {
         // https://fetch.spec.whatwg.org/#dom-response-json
@@ -238,30 +238,30 @@ public class ResponseTests
             .AsString().Should().Be("application/problem+json");
 
         // "If result is undefined, throw a TypeError" — https://infra.spec.whatwg.org/#serialize-a-javascript-value-to-a-json-string.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Response.json(undefined)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Response.json(undefined)"))!
             .Message.Should().Contain("not JSON serializable");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Response.json(() => {})"));
 
         // The body goes through "initialize a response" too, so a null body status is a TypeError here as well.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Response.json(null, { status: 204 })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Response.json(null, { status: 204 })"))!
             .Message.Should().Contain("null body status");
     }
 
-    [Fact]
+    [Test]
     public void HasNoOwnPropertiesAndTheRightToStringTag()
     {
         Eval("Object.getOwnPropertyNames(new Response()).length").AsNumber().Should().Be(0);
         Eval("Object.prototype.toString.call(new Response())").AsString().Should().Be("[object Response]");
     }
 
-    [Fact]
+    [Test]
     public void HasAFormDataMember()
     {
         // What it does with a body is MultipartTests' business; that it exists is this file's.
         Eval("typeof Response.prototype.formData").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheBodyMixinIsPerInterfaceRatherThanShared()
     {
         // A WebIDL mixin's members are copied onto every interface that includes it, so the two `text`
@@ -269,36 +269,35 @@ public class ResponseTests
         Eval("Request.prototype.text === Response.prototype.text").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksEveryMember()
     {
         foreach (var member in new[] { "type", "url", "redirected", "status", "ok", "statusText", "headers", "body", "bodyUsed" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"Response.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => Eval($"Response.prototype.{member}"))!
                 .Message.Should().Contain("Response");
         }
 
         foreach (var member in new[] { "clone()", "text()", "json()", "blob()", "bytes()", "arrayBuffer()" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"Response.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => Eval($"Response.prototype.{member}"))!
                 .Message.Should().Contain("Response");
         }
     }
 
-    [Fact]
+    [Test]
     public void IsConstructibleAsABaseClass()
     {
         Eval("(() => { class R extends Response {}; const r = new R('hi'); return r.status + ':' + (r instanceof R); })()")
             .AsString().Should().Be("200:true");
     }
 
-    [Theory]
-    [InlineData("text")]
-    [InlineData("json")]
-    [InlineData("arrayBuffer")]
-    [InlineData("blob")]
-    [InlineData("bytes")]
-    [InlineData("formData")]
+    [TestCase("text")]
+    [TestCase("json")]
+    [TestCase("arrayBuffer")]
+    [TestCase("blob")]
+    [TestCase("bytes")]
+    [TestCase("formData")]
     public void ConsumingABufferedBodyLeavesItsStreamDisturbedAndLocked(string consume)
     {
         // https://fetch.spec.whatwg.org/#concept-body-consume-body ends in *fully read*, whose step 3 is
@@ -319,7 +318,7 @@ public class ResponseTests
         engine.Evaluate("r.body === null").AsBoolean().Should().BeFalse("the body concept is still non-null");
         engine.Evaluate("r.body.locked").AsBoolean().Should().BeTrue("fully read never releases its reader");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.body.getReader()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.body.getReader()"))!
             .Message.Should().Contain("locked");
 
         // The same object every time, and asking again does not un-disturb it.
@@ -327,7 +326,7 @@ public class ResponseTests
         engine.Evaluate("r.bodyUsed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AskingForTheBodyBeforeConsumingItDoesNotDisturbIt()
     {
         // The other side of the same coin, and what response-stream-disturbed-1.any.js pins: materializing
@@ -344,7 +343,7 @@ public class ResponseTests
         engine.Evaluate("s.locked").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CloneAfterConsumingStillThrows()
     {
         // https://fetch.spec.whatwg.org/#dom-response-clone step 1 refuses a body that is *unusable*, which
@@ -353,12 +352,12 @@ public class ResponseTests
         var engine = WebEngine();
         engine.Execute("var r = new Response('hi'); r.text();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.clone()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("r.clone()"))!
             .Message.Should().Contain("already used");
 
         // And reading `body` first — which is what materializes the stream — does not change it either.
         engine.Execute("var q = new Response('hi'); q.text(); var b = q.body;");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("q.clone()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("q.clone()"))!
             .Message.Should().Contain("already used");
     }
 }

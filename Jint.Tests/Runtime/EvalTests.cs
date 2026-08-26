@@ -11,7 +11,7 @@ public class EvalTests
 {
     private static Engine NewStrictEngine() => new(static options => options.Strict = true);
 
-    [Fact]
+    [Test]
     public void RepeatedSameSourceEvalStartsFromFreshBindings()
     {
         var engine = NewStrictEngine();
@@ -26,7 +26,7 @@ public class EvalTests
         engine.Evaluate("leaked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ClosuresCreatedInEvalKeepIndependentEnvironments()
     {
         var engine = NewStrictEngine();
@@ -40,7 +40,7 @@ public class EvalTests
         engine.Evaluate("getters.map(function (g) { return g(); }).join(',')").AsString().Should().Be("1,2,3,4");
     }
 
-    [Fact]
+    [Test]
     public void ReentrantSameSourceEvalKeepsCallLocalsSeparate()
     {
         var engine = NewStrictEngine();
@@ -59,7 +59,7 @@ public class EvalTests
         engine.Evaluate("results.join(',')").AsString().Should().Be("2,1,0");
     }
 
-    [Fact]
+    [Test]
     public void FunctionDeclarationsInStrictEvalAreHoistedAndCallable()
     {
         var engine = NewStrictEngine();
@@ -73,7 +73,7 @@ public class EvalTests
         engine.Evaluate("eval('var r = early(); function early() { return v; } var v = 5; r === undefined ? early() : -1;')").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ConstInEvalThrowsOnAssignment()
     {
         var engine = NewStrictEngine();
@@ -82,7 +82,7 @@ public class EvalTests
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LetInEvalThrowsInTemporalDeadZone()
     {
         var engine = NewStrictEngine();
@@ -91,7 +91,7 @@ public class EvalTests
         ex.Error.InstanceofOperator(engine.Intrinsics.ReferenceError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void StrictEvalWithManyBindingsFallsBackCorrectly()
     {
         var engine = NewStrictEngine();
@@ -109,7 +109,7 @@ public class EvalTests
         engine.Evaluate("total").AsNumber().Should().Be(190);
     }
 
-    [Fact]
+    [Test]
     public void SloppyDirectEvalStillLeaksVarsToCaller()
     {
         var engine = new Engine();
@@ -118,7 +118,7 @@ public class EvalTests
         engine.Evaluate("sloppyLeak").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void SloppyDirectEvalSupportsVarDestructuring()
     {
         var engine = new Engine();
@@ -135,7 +135,7 @@ public class EvalTests
         result.AsString().Should().Be("Jane Doe");
     }
 
-    [Fact]
+    [Test]
     public void SloppyDirectEvalSupportsVarDestructuringInNestedScopes()
     {
         var engine = new Engine();
@@ -158,7 +158,7 @@ public class EvalTests
         result.AsString().Should().Be("block,parameter");
     }
 
-    [Fact]
+    [Test]
     public void IndirectEvalWithUseStrictKeepsVarsLocal()
     {
         var engine = new Engine();
@@ -168,7 +168,7 @@ public class EvalTests
         engine.Evaluate("typeof iv").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void CachedEvalRespectsBlockShadowing()
     {
         // the same cached eval body runs under different scope chains; the per-node slot
@@ -189,7 +189,7 @@ public class EvalTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("q!,h!!");
     }
 
-    [Fact]
+    [Test]
     public void CachedEvalRespectsConstShadowing()
     {
         var engine = NewStrictEngine();
@@ -206,7 +206,7 @@ public class EvalTests
         ex.Error.InstanceofOperator(engine.Intrinsics.TypeError).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NestedSelfEvalKeepsActivationsSeparate()
     {
         // each nested eval of the same source gets its own environment; the shared statement
@@ -222,7 +222,7 @@ public class EvalTests
         engine.Evaluate("results.join(',')").AsString().Should().Be("ab,ab,ab,ab");
     }
 
-    [Fact]
+    [Test]
     public void SloppyEvalVarInjectionShadowsOuterBinding()
     {
         // sloppy direct eval injects `s` into mid's environment on the second call; both the
@@ -243,7 +243,7 @@ public class EvalTests
         engine.Evaluate("results.join(',')").AsString().Should().Be("A!,B!,outerS=A!");
     }
 
-    [Fact]
+    [Test]
     public void EvalCanRedeclareExistingNonConfigurableGlobals()
     {
         // https://tc39.es/ecma262/#sec-candeclareglobalvar: an existing global property is
@@ -254,7 +254,7 @@ public class EvalTests
         engine.Evaluate("typeof undefined").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedEvalObservesCurrentOuterState()
     {
         var engine = NewStrictEngine();

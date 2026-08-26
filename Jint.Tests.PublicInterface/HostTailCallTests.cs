@@ -4,7 +4,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class HostTailCallTests
 {
-    [Fact]
+    [Test]
     public void StrictTailRecursionHonorsRecursionLimit()
     {
         var engine = new Engine(options =>
@@ -22,7 +22,7 @@ public class HostTailCallTests
             """)).Should().ThrowExactly<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public void StrictTailRecursionWithoutLimitDoesNotConsumeCallStack()
     {
         var result = new Engine().Evaluate("""
@@ -36,7 +36,7 @@ public class HostTailCallTests
         result.Should().Be(50_005_000);
     }
 
-    [Fact]
+    [Test]
     public void DistinctTailDelegationDoesNotCountAsRecursion()
     {
         var result = new Engine(options => options.Constraints.MaxRecursionDepth = 0).Evaluate("""
@@ -68,7 +68,7 @@ public class HostTailCallTests
     /// exactly the frame the tail call replaces.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void RecursionLimitStillFiresWhenATailCallIsOnThePath()
     {
         var engine = new Engine(options =>
@@ -97,7 +97,7 @@ public class HostTailCallTests
     /// displaced caller back to the recursion budget, or a loop calling one bounded tail delegation
     /// would accumulate against the limit and fail on its second iteration.
     /// </summary>
-    [Fact]
+    [Test]
     public void CompletedTailDelegationDoesNotAccumulateAgainstTheLimit()
     {
         var result = new Engine(options => options.Constraints.MaxRecursionDepth = 0).Evaluate("""

@@ -36,7 +36,7 @@ public class HostModuleImportStateTests
         protected override string LoadModuleContents(Engine engine, ResolvedSpecifier resolved) => _sources[resolved.Key];
     }
 
-    [Fact]
+    [Test]
     public void ImportingAModuleADeferredImportLeftLinkedEvaluatesIt()
     {
         var engine = new Engine(options => options.UseModules(new DictionaryModuleLoader(new Dictionary<string, string>
@@ -54,7 +54,7 @@ public class HostModuleImportStateTests
         engine.Evaluate("globalThis.depEvaluations").AsNumber().Should().Be(1, "the import that needs the value is what evaluates it");
     }
 
-    [Fact]
+    [Test]
     public void ImportingAModuleStillSuspendedOnTopLevelAwaitWaitsForIt()
     {
         var gate = new TaskCompletionSource<int>();

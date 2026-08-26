@@ -5,7 +5,7 @@ namespace Jint.Tests.PublicInterface;
 
 public class JavaScriptExceptionTests
 {
-    [Fact]
+    [Test]
     public void CanCreateAndThrowJavaScriptException()
     {
         var engine = new Engine();
@@ -34,7 +34,7 @@ public class JavaScriptExceptionTests
         jsString.ToString().Should().Be("message 2");
     }
 
-    [Fact]
+    [Test]
     public void GetBaseExceptionReturnsJavaScriptException()
     {
         // https://github.com/sebastienros/jint/issues/2210
@@ -47,7 +47,7 @@ public class JavaScriptExceptionTests
         baseException.Should().BeSameAs(ex);
     }
 
-    [Fact]
+    [Test]
     public void GetBaseExceptionAllowsPatternMatching()
     {
         // https://github.com/sebastienros/jint/issues/2210
@@ -59,7 +59,7 @@ public class JavaScriptExceptionTests
         jsError.Error.AsObject().Get("message").ToString().Should().Be("test error");
     }
 
-    [Fact]
+    [Test]
     public void GetBaseExceptionWorksWithExplicitlyThrownJavaScriptException()
     {
         // https://github.com/sebastienros/jint/issues/2210

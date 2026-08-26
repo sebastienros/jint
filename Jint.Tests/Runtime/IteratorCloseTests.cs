@@ -81,7 +81,7 @@ public class IteratorCloseTests
 
     private static string Run(string script) => new Engine().Evaluate(Harness + "\n" + script).AsString();
 
-    [Fact]
+    [Test]
     public void ArrayFromClosesOnlyForTheMappersOwnFailure()
     {
         Run("""
@@ -98,7 +98,7 @@ public class IteratorCloseTests
     /// The same, through the other <c>Array.from</c> branch: a subclass receiver drives the shared
     /// <c>IteratorProtocol.Execute</c> loop instead of the plain-array builder.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArraySubclassFromClosesOnlyForTheMappersOwnFailure()
     {
         Run("""
@@ -112,7 +112,7 @@ public class IteratorCloseTests
             """).Should().Be(Expected);
     }
 
-    [Fact]
+    [Test]
     public void MapConstructorClosesOnlyForTheAddersOwnFailure()
     {
         Run("""
@@ -124,7 +124,7 @@ public class IteratorCloseTests
             """).Should().Be(Expected);
     }
 
-    [Fact]
+    [Test]
     public void SetConstructorClosesOnlyForTheAddersOwnFailure()
     {
         Run("""
@@ -136,7 +136,7 @@ public class IteratorCloseTests
             """).Should().Be(Expected);
     }
 
-    [Fact]
+    [Test]
     public void WeakMapConstructorClosesOnlyForTheAddersOwnFailure()
     {
         Run("""
@@ -148,7 +148,7 @@ public class IteratorCloseTests
             """).Should().Be(Expected);
     }
 
-    [Fact]
+    [Test]
     public void WeakSetConstructorClosesOnlyForTheAddersOwnFailure()
     {
         Run("""
@@ -160,7 +160,7 @@ public class IteratorCloseTests
             """).Should().Be(Expected);
     }
 
-    [Fact]
+    [Test]
     public void ForOfClosesOnlyForTheBodysOwnFailure()
     {
         Run("""
@@ -178,7 +178,7 @@ public class IteratorCloseTests
     /// closes, which is what <c>staging/sm/statements/for-of-iterator-close.js</c> already asserted
     /// and what must not regress while the exhaustion case is fixed.
     /// </summary>
-    [Fact]
+    [Test]
     public void ForOfStillClosesOnBreakReturnAndAnAbruptLhs()
     {
         Run("""
@@ -201,7 +201,7 @@ public class IteratorCloseTests
     /// The <c>value</c> read is part of the step for a destructuring for-of too — a throwing getter
     /// there must not close, while the destructuring itself failing must.
     /// </summary>
-    [Fact]
+    [Test]
     public void ForOfWithADestructuringTargetSeparatesTheStepFromThePattern()
     {
         Run("""

@@ -24,7 +24,7 @@ public class ConstructorShapeEligibilityTests
         return o.ShapeOf;
     }
 
-    [Fact]
+    [Test]
     public void EligibleConstructorShapesFromThirdInstance()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("'a' in t3 && 'b' in t3 && !('c' in t3)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EarlierAssignmentsAreVisibleToLaterOnesWhileShaping()
     {
         var engine = new Engine();
@@ -62,7 +62,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("t3.b").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ThisFreeCallsAndBareReturnAreEligible()
     {
         var engine = new Engine();
@@ -74,7 +74,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("abs,t");
     }
 
-    [Fact]
+    [Test]
     public void DirectivePrologueDoesNotBlockEligibility()
     {
         var engine = new Engine();
@@ -86,7 +86,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("t3.a").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SelfAliasClosurePatternIsEligible()
     {
         var engine = new Engine();
@@ -107,7 +107,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("t3.get()").AsString().Should().Be("self");
     }
 
-    [Fact]
+    [Test]
     public void ConditionalThisAssignmentsAreEligible()
     {
         // The sunspider-3d-raytrace Triangle pattern: branches assigning the same key set.
@@ -140,7 +140,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("Object.keys(t3).join(',')").AsString().Should().Be("dyn,a");
     }
 
-    [Fact]
+    [Test]
     public void IneligibleBodiesBehaveExactlyAsBeforeAndStayUnshaped()
     {
         // Ineligible constructors keep the sampling window: with eligible ones now shaping from
@@ -189,7 +189,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("t.k").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void IneligibleConstructorKeepsSamplingThresholdPacing()
     {
         var engine = new Engine();
@@ -206,7 +206,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("arr.every(function (x) { return x.a === 1; })").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ClassFieldOnlyInstanceShapesFromThirdInstance()
     {
         var engine = new Engine();
@@ -224,7 +224,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("a3.x").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ClassFieldsRunBeforeConstructorBodyAssignments()
     {
         var engine = new Engine();
@@ -236,7 +236,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("Object.keys(d3).join(',')").AsString().Should().Be("y,z");
     }
 
-    [Fact]
+    [Test]
     public void IndexLikeComputedFieldNameFallsBackToSamplingWithCorrectOrder()
     {
         var engine = new Engine();
@@ -251,7 +251,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("b1.b").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void PrivateFieldsDoNotBlockEligibility()
     {
         var engine = new Engine();
@@ -265,7 +265,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("Object.keys(c3).join(',')").AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void DerivedConstructorOverEligibleBaseShapesFromThirdInstance()
     {
         var engine = new Engine();
@@ -292,7 +292,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("b3 instanceof B && b3 instanceof A").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReflectConstructWithForeignNewTargetUsesForeignPrototype()
     {
         var engine = new Engine();
@@ -317,7 +317,7 @@ public class ConstructorShapeEligibilityTests
         ShapeOf(a3).Should().NotBeSameAs(ShapeOf(r));
     }
 
-    [Fact]
+    [Test]
     public void MegamorphicGuardTripConvertsMidBuildKeepingAllPropertiesInOrder()
     {
         var assignments = string.Concat(Enumerable.Range(0, 70).Select(i => $"this.p{i} = {i};"));
@@ -333,7 +333,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("(function () { for (var i = 0; i < 70; i++) { if (t['p' + i] !== i) return false; } return true; })()").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PrototypeReassignmentBetweenConstructionsIsHonoured()
     {
         var engine = new Engine();
@@ -361,7 +361,7 @@ public class ConstructorShapeEligibilityTests
         engine.Evaluate("'tag' in t1").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeleteAndDefinePropertyOnShapedInstanceDeoptCorrectly()
     {
         var engine = new Engine();

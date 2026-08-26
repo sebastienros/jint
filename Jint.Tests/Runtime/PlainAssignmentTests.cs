@@ -9,7 +9,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class PlainAssignmentTests
 {
-    [Fact]
+    [Test]
     public void AnonymousFunctionAndClassGetAssignedName()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -27,7 +27,7 @@ public class PlainAssignmentTests
         result.Should().Be("g|C|realName|arrow");
     }
 
-    [Fact]
+    [Test]
     public void ValuePositionAndChainedAssignments()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -43,7 +43,7 @@ public class PlainAssignmentTests
         result.Should().Be("11");
     }
 
-    [Fact]
+    [Test]
     public void ThrowingRightHandSideDoesNotAssign()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -59,7 +59,7 @@ public class PlainAssignmentTests
         result.Should().Be("initial");
     }
 
-    [Fact]
+    [Test]
     public void RightHandSideRewritingTargetIsOverwritten()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -68,7 +68,7 @@ public class PlainAssignmentTests
         result.Should().Be(9);
     }
 
-    [Fact]
+    [Test]
     public void ConstTargetThrowsTypeErrorAfterEvaluatingRightHandSide()
     {
         var engine = new Engine(static options => options.Strict = true);
@@ -85,7 +85,7 @@ public class PlainAssignmentTests
         engine.Evaluate("globalThis.order").AsString().Should().Be("rhs");
     }
 
-    [Fact]
+    [Test]
     public void AssignmentBeforeLetDeclarationThrowsReferenceError()
     {
         var engine = new Engine(static options => options.Strict = true);

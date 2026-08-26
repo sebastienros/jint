@@ -38,7 +38,7 @@ public class StackOverflowGuardTests
     /// proper tail calls apply to strict functions only, so none of these is trampolined and every one
     /// really does grow the native stack.
     /// </summary>
-    public static TheoryData<string, string> UnboundedRecursions => new()
+    public static TestCases<string, string> UnboundedRecursions => new()
     {
         { "call", "function f() { return f(); } f();" },
         { "new", "function F() { new F(); } new F();" },
@@ -50,8 +50,7 @@ public class StackOverflowGuardTests
         { "class field", "class C { x = new C(); } new C();" },
     };
 
-    [Theory]
-    [MemberData(nameof(UnboundedRecursions))]
+    [TestCaseSource(nameof(UnboundedRecursions))]
     public void UnboundedRecursionThrowsARangeErrorInsteadOfKillingTheProcess(string route, string script)
     {
         _ = route;
@@ -61,15 +60,14 @@ public class StackOverflowGuardTests
             {
                 var engine = Guarded();
 
-                var exception = Assert.Throws<JavaScriptException>(() => engine.Execute(script));
+                var exception = Assert.Throws<JavaScriptException>(() => engine.Execute(script))!;
                 exception.Message.Should().Be("Maximum call stack size exceeded");
                 exception.Error.Get("name").AsString().Should().Be("RangeError");
             },
             maxStackSize: SmallStack);
     }
 
-    [Theory]
-    [MemberData(nameof(UnboundedRecursions))]
+    [TestCaseSource(nameof(UnboundedRecursions))]
     public void ScriptCanCatchTheRangeErrorItself(string route, string script)
     {
         _ = route;
@@ -106,7 +104,7 @@ public class StackOverflowGuardTests
     /// while a recompilation steps once and holds. The assertion below therefore fails only on the march.
     /// </para>
     /// </summary>
-    [Fact]
+    [Test]
     public void TheEngineIsUnchangedAfterTheGuardFires()
     {
         DedicatedThread.Run(
@@ -169,7 +167,7 @@ public class StackOverflowGuardTests
     /// a balanced workload run afterwards must settle back at the pool's capacity instead of allocating a
     /// fresh instance per rent forever.
     /// </summary>
-    [Fact]
+    [Test]
     public void ThePoolsStillRecycleAfterTheGuardFires()
     {
         DedicatedThread.Run(
@@ -197,7 +195,7 @@ public class StackOverflowGuardTests
     /// counts frames and is checked before the callee is entered, so it is what a host configuring both
     /// gets to see.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARecursionLimitStillFiresFirst()
     {
         DedicatedThread.Run(
@@ -214,14 +212,14 @@ public class StackOverflowGuardTests
     /// process dies before the count is reached. The backstop is what answers instead, which is the point
     /// of it being a backstop rather than a replacement.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnreachableRecursionLimitFallsThroughToTheGuard()
     {
         DedicatedThread.Run(
             () =>
             {
                 var engine = Guarded(options => options.Constraints.MaxRecursionDepth = 1_000_000);
-                var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { return f(); } f();"));
+                var exception = Assert.Throws<JavaScriptException>(() => engine.Execute("function f() { return f(); } f();"))!;
                 exception.Message.Should().Be("Maximum call stack size exceeded");
             },
             maxStackSize: SmallStack);
@@ -235,7 +233,7 @@ public class StackOverflowGuardTests
     /// <c>CallOnce</c>/<c>CallCore</c>, which the tail-call trampoline re-enters from a loop. Put it there
     /// and this recursion would pay a probe per hop for a stack that never moves.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProperTailCallIsNotGuardedBecauseItGrowsNoStack()
     {
         DedicatedThread.Run(
@@ -261,7 +259,7 @@ public class StackOverflowGuardTests
     /// The other half of the pair: strict mode alone buys nothing, because <c>1 + f(n - 1)</c> is not a
     /// tail position. This recursion does grow the stack, and the guard is what answers.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStrictRecursionOutOfTailPositionStillReachesTheGuard()
     {
         DedicatedThread.Run(
@@ -274,7 +272,7 @@ public class StackOverflowGuardTests
                     "use strict";
                     function f(n) { return 1 + f(n - 1); }
                     f(1);
-                    """));
+                    """))!;
 
                 exception.Message.Should().Be("Maximum call stack size exceeded");
             },
@@ -288,7 +286,7 @@ public class StackOverflowGuardTests
     /// sitting a few frames deeper, would always reach the condition first and leave the older lane
     /// nothing to hop with. This pins that the older lane still behaves as it did.
     /// </summary>
-    [Fact]
+    [Test]
     public void MaxExecutionStackCountTakesPrecedenceOverTheGuard()
     {
         DedicatedThread.Run(
@@ -301,7 +299,7 @@ public class StackOverflowGuardTests
                 engine.Evaluate("f(2000)").AsNumber().Should().Be(2001);
 
                 // and it still throws its RangeError once the configured count is passed
-                var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("(function g() { return g(); })()"));
+                var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("(function g() { return g(); })()"))!;
                 exception.Message.Should().Be("Maximum call stack size exceeded");
             },
             maxStackSize: SmallStack);

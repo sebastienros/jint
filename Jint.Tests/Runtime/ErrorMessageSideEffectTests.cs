@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class ErrorMessageSideEffectTests
 {
-    [Fact]
+    [Test]
     public void SetLikeWithNonCallableHasDoesNotRunUserCodeWhileBuildingTheError()
     {
         var engine = new Engine();
@@ -39,7 +39,7 @@ public class ErrorMessageSideEffectTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("size,has");
     }
 
-    [Fact]
+    [Test]
     public void SetLikeWithNonCallableKeysDoesNotRunUserCodeWhileBuildingTheError()
     {
         var engine = new Engine();
@@ -61,7 +61,7 @@ public class ErrorMessageSideEffectTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("size,has,keys");
     }
 
-    [Fact]
+    [Test]
     public void SetLikeWhoseToStringThrowsStillReportsTheTypeError()
     {
         var engine = new Engine();
@@ -81,7 +81,7 @@ public class ErrorMessageSideEffectTests
         value.AsString().Should().StartWith("TypeError:");
     }
 
-    [Fact]
+    [Test]
     public void DateToPrimitiveWithAThrowingToStringHintReportsTypeError()
     {
         var engine = new Engine();
@@ -95,7 +95,7 @@ public class ErrorMessageSideEffectTests
         value.AsString().Should().StartWith("TypeError:");
     }
 
-    [Fact]
+    [Test]
     public void DateToPrimitiveWithANonStringHintDoesNotCoerceIt()
     {
         var engine = new Engine();
@@ -116,28 +116,27 @@ public class ErrorMessageSideEffectTests
     /// The same hazard reached far past the two sites that first exposed it. Every row here threw the
     /// user's own <c>Error</c> instead of the engine's <c>TypeError</c> before the sweep.
     /// </summary>
-    [Theory]
-    [InlineData("(function () { return victim; })()();", "callee that is not a reference")]
-    [InlineData("[1].flatMap(victim);", "Array.prototype.flatMap mapper")]
-    [InlineData("Symbol.keyFor(victim);", "Symbol.keyFor argument")]
-    [InlineData("var a = [1]; a.constructor = {}; a.constructor[Symbol.species] = victim; a.filter(function () { return true; });", "ArraySpeciesCreate")]
-    [InlineData("Reflect.construct(victim, []);", "Reflect.construct target")]
-    [InlineData("Reflect.construct(function () {}, [], victim);", "Reflect.construct newTarget")]
-    [InlineData("var t = new Int8Array(4); t.constructor = {}; t.constructor[Symbol.species] = victim; t.slice(0, 1);", "TypedArray species")]
-    [InlineData("Object.getOwnPropertyDescriptor(Map.prototype, 'size').get.call(victim);", "Map.prototype.size brand check")]
-    [InlineData("Object.getOwnPropertyDescriptor(Set.prototype, 'size').get.call(victim);", "Set.prototype.size brand check")]
-    [InlineData("Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get.call(victim);", "ArrayBuffer.prototype.byteLength brand check")]
-    [InlineData("ArrayBuffer.prototype.slice.call(victim);", "ArrayBuffer.prototype.slice brand check")]
-    [InlineData("Object.getOwnPropertyDescriptor(DataView.prototype, 'buffer').get.call(victim);", "DataView.prototype.buffer brand check")]
-    [InlineData("DataView.prototype.getInt8.call(victim, 0);", "DataView.prototype.getInt8 brand check")]
-    [InlineData("Object.getOwnPropertyDescriptor(Int8Array.prototype.__proto__, 'byteLength').get.call(victim);", "TypedArray.prototype.byteLength brand check")]
-    [InlineData("RegExp.prototype.exec.call(victim, 'x');", "RegExp.prototype.exec brand check")]
-    [InlineData("new ShadowRealm().evaluate(victim);", "ShadowRealm.prototype.evaluate source text")]
-    [InlineData("Object.defineProperty({}, 'p', { get: victim });", "property descriptor getter")]
-    [InlineData("Object.defineProperty({}, 'p', { set: victim });", "property descriptor setter")]
-    [InlineData("new Promise(victim);", "Promise resolver")]
-    [InlineData("var it = {}; it[Symbol.iterator] = function () { return { next: function () { return Object.assign(Object.create(victim), { value: {}, done: false }); } }; }; Math.sumPrecise(it);", "Math.sumPrecise iterator result")]
-    [InlineData("victim in 1;", "'in' operator left operand")]
+    [TestCase("(function () { return victim; })()();", "callee that is not a reference")]
+    [TestCase("[1].flatMap(victim);", "Array.prototype.flatMap mapper")]
+    [TestCase("Symbol.keyFor(victim);", "Symbol.keyFor argument")]
+    [TestCase("var a = [1]; a.constructor = {}; a.constructor[Symbol.species] = victim; a.filter(function () { return true; });", "ArraySpeciesCreate")]
+    [TestCase("Reflect.construct(victim, []);", "Reflect.construct target")]
+    [TestCase("Reflect.construct(function () {}, [], victim);", "Reflect.construct newTarget")]
+    [TestCase("var t = new Int8Array(4); t.constructor = {}; t.constructor[Symbol.species] = victim; t.slice(0, 1);", "TypedArray species")]
+    [TestCase("Object.getOwnPropertyDescriptor(Map.prototype, 'size').get.call(victim);", "Map.prototype.size brand check")]
+    [TestCase("Object.getOwnPropertyDescriptor(Set.prototype, 'size').get.call(victim);", "Set.prototype.size brand check")]
+    [TestCase("Object.getOwnPropertyDescriptor(ArrayBuffer.prototype, 'byteLength').get.call(victim);", "ArrayBuffer.prototype.byteLength brand check")]
+    [TestCase("ArrayBuffer.prototype.slice.call(victim);", "ArrayBuffer.prototype.slice brand check")]
+    [TestCase("Object.getOwnPropertyDescriptor(DataView.prototype, 'buffer').get.call(victim);", "DataView.prototype.buffer brand check")]
+    [TestCase("DataView.prototype.getInt8.call(victim, 0);", "DataView.prototype.getInt8 brand check")]
+    [TestCase("Object.getOwnPropertyDescriptor(Int8Array.prototype.__proto__, 'byteLength').get.call(victim);", "TypedArray.prototype.byteLength brand check")]
+    [TestCase("RegExp.prototype.exec.call(victim, 'x');", "RegExp.prototype.exec brand check")]
+    [TestCase("new ShadowRealm().evaluate(victim);", "ShadowRealm.prototype.evaluate source text")]
+    [TestCase("Object.defineProperty({}, 'p', { get: victim });", "property descriptor getter")]
+    [TestCase("Object.defineProperty({}, 'p', { set: victim });", "property descriptor setter")]
+    [TestCase("new Promise(victim);", "Promise resolver")]
+    [TestCase("var it = {}; it[Symbol.iterator] = function () { return { next: function () { return Object.assign(Object.create(victim), { value: {}, done: false }); } }; }; Math.sumPrecise(it);", "Math.sumPrecise iterator result")]
+    [TestCase("victim in 1;", "'in' operator left operand")]
     public void BuildingTheErrorNeverRunsAUserToString(string script, string _)
     {
         var engine = new Engine();
@@ -158,9 +157,8 @@ public class ErrorMessageSideEffectTests
     /// ordinary expression statement, the write is silently ignored in sloppy mode and the test would
     /// pass without ever reaching the message.
     /// </summary>
-    [Theory]
-    [InlineData("Object.defineProperty(victim, 'p', { value: 1, writable: false }); victim.p = 2;")]
-    [InlineData("Object.defineProperty(victim, 'p', { value: 1, configurable: false }); delete victim.p;")]
+    [TestCase("Object.defineProperty(victim, 'p', { value: 1, writable: false }); victim.p = 2;")]
+    [TestCase("Object.defineProperty(victim, 'p', { value: 1, configurable: false }); delete victim.p;")]
     public void AStrictModeRefusalDoesNotRenderTheBaseObject(string script)
     {
         var engine = new Engine();
@@ -177,7 +175,7 @@ public class ErrorMessageSideEffectTests
         result.AsString().Should().NotBe("Error:BOOM");
     }
 
-    [Fact]
+    [Test]
     public void AFailedStrictAssignmentCoercesTheComputedKeyExactlyOnce()
     {
         var engine = new Engine();
@@ -203,7 +201,7 @@ public class ErrorMessageSideEffectTests
     /// this passes both before and after the fix. It is kept because the message now reads the field
     /// directly, and nothing else would notice if a future change let a tampered <c>name</c> land there.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConstructorRequiresNewDoesNotCoerceATamperedNameProperty()
     {
         var engine = new Engine();
@@ -219,7 +217,7 @@ public class ErrorMessageSideEffectTests
         value.AsString().Should().StartWith("TypeError:");
     }
 
-    [Fact]
+    [Test]
     public void InstanceOfWithASymbolPrototypeReportsTheIntendedError()
     {
         var engine = new Engine();
@@ -241,9 +239,8 @@ public class ErrorMessageSideEffectTests
     /// it produces is the single most recognizable error message in JavaScript. Rendering the value's
     /// <c>Type</c> instead would silently turn it into "... of Undefined" for every embedder.
     /// </summary>
-    [Theory]
-    [InlineData("var u; typeof u.x;", "Cannot read property 'x' of undefined")]
-    [InlineData("var n = null; typeof n.x;", "Cannot read property 'x' of null")]
+    [TestCase("var u; typeof u.x;", "Cannot read property 'x' of undefined")]
+    [TestCase("var n = null; typeof n.x;", "Cannot read property 'x' of null")]
     public void ANullishReadKeepsTheLowercaseLiteralWording(string script, string expected)
     {
         var engine = new Engine();
@@ -259,11 +256,10 @@ public class ErrorMessageSideEffectTests
     /// Safety must not cost the diagnostic. Where the offending <i>value</i> is what the reader needs,
     /// the message names it — rendering its type instead would leave "search for 'String' in ...".
     /// </summary>
-    [Theory]
-    [InlineData("'foo' in 1;", "Cannot use 'in' operator to search for 'foo' in 1")]
-    [InlineData("Symbol('s') in 1;", "Cannot use 'in' operator to search for 'Symbol(s)' in 1")]
-    [InlineData("Symbol.keyFor(5);", "5 is not a symbol")]
-    [InlineData("(function () { return 5; })()();", "5 is not a function")]
+    [TestCase("'foo' in 1;", "Cannot use 'in' operator to search for 'foo' in 1")]
+    [TestCase("Symbol('s') in 1;", "Cannot use 'in' operator to search for 'Symbol(s)' in 1")]
+    [TestCase("Symbol.keyFor(5);", "5 is not a symbol")]
+    [TestCase("(function () { return 5; })()();", "5 is not a function")]
     public void ASafeMessageStillNamesTheOffendingValue(string script, string expected)
     {
         var engine = new Engine();
@@ -275,7 +271,7 @@ public class ErrorMessageSideEffectTests
         value.AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ASymbolKeyOnANullishBaseReportsTheReadError()
     {
         var engine = new Engine();
@@ -291,7 +287,7 @@ public class ErrorMessageSideEffectTests
         value.AsString().Should().Be("Cannot read properties of undefined (reading 'Symbol(Symbol.iterator)')");
     }
 
-    [Fact]
+    [Test]
     public void DateToPrimitiveStillNamesAnInvalidStringHint()
     {
         var engine = new Engine();

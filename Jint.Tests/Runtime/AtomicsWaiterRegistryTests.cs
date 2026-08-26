@@ -15,12 +15,12 @@ namespace Jint.Tests.Runtime;
 /// kept that engine, its realm and everything they root alive for the life of the process. A wait that
 /// <i>ended</i> was no better off at the other end: its entry key held the shared data block itself forever.
 /// </summary>
-// Shares the garbage-collection collection: these tests read GC state, which cannot be isolated from tests
-// running in parallel with them.
-[Collection(nameof(GarbageCollectionTests))]
+// Non-parallel for the reason <see cref="GarbageCollectionTests"/> is: these tests read GC state, which
+// cannot be isolated from tests running in parallel with them.
+[NonParallelizable]
 public class AtomicsWaiterRegistryTests
 {
-    [Fact]
+    [Test]
     public void ADefaultAgentCannotSuspendAndDoesNotRegisterAnIndefiniteWaiter()
     {
         var options = new Options();
@@ -31,7 +31,7 @@ public class AtomicsWaiterRegistryTests
         var block = BlockOf(engine, "sab");
         Exception? error = null;
 
-        var thread = new Thread(() => error = Record.Exception(() => engine.Evaluate("Atomics.wait(i32a, 0, 0);")))
+        var thread = new Thread(() => error = Caught.Exception(() => engine.Evaluate("Atomics.wait(i32a, 0, 0);")))
         {
             IsBackground = true
         };
@@ -71,7 +71,7 @@ public class AtomicsWaiterRegistryTests
         AtomicsInstance.WaiterListCount(block).Should().Be(0, "a rejected wait must not register a waiter");
     }
 
-    [Fact]
+    [Test]
     public void AWorkerLikeAgentCanOptIntoSynchronousWait()
     {
         var engine = new Engine(static options => options.AgentCanSuspend = true);
@@ -82,7 +82,7 @@ public class AtomicsWaiterRegistryTests
             """).AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public void WaitAsyncRemainsAvailableToTheDefaultAgent()
     {
         var engine = new Engine();
@@ -94,7 +94,7 @@ public class AtomicsWaiterRegistryTests
             """).AsString().Should().Be("false:not-equal");
     }
 
-    [Fact]
+    [Test]
     public void AWaitAsyncNobodyNotifiesDoesNotKeepItsEngineAlive()
     {
         // The three lines #3025 reports. The wait asks for no timeout, so it never resolves and nothing ever
@@ -118,7 +118,7 @@ public class AtomicsWaiterRegistryTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AWaitThatEndedDoesNotKeepItsSharedDataBlockAlive()
     {
         // The registry key is the shared data block itself, so an entry left behind pins the whole block —
@@ -143,7 +143,7 @@ public class AtomicsWaiterRegistryTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AWaiterStaysVisibleToAnotherAgentThatCanStillReachTheSharedBlock()
     {
         // The deliberate half of the lifetime decision. A waiter belongs to the shared data block, not to the
@@ -175,7 +175,7 @@ public class AtomicsWaiterRegistryTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AWaitRegisteredAfterAnEarlierOneEndedIsStillNotified()
     {
         // Removing the emptied list is only safe if the next wait on the same index builds a new one and the
@@ -204,7 +204,7 @@ public class AtomicsWaiterRegistryTests
         engine.Evaluate("outcome").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void AWaiterListThatHasEmptiedIsRemoved()
     {
         // Every index ever waited on used to leave its own list behind, for as long as the block lived. The

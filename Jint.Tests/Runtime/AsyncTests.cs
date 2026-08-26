@@ -22,7 +22,7 @@ public class AsyncTests
     // Raising a budget only buys time against a shortage the test was itself contributing to.
     private static readonly TimeSpan GenerousPromiseTimeout = TimeSpan.FromMinutes(2);
 
-    [Fact]
+    [Test]
     public void AwaitPropagationAgainstPrimitiveValue()
     {
         var engine = new Engine();
@@ -31,7 +31,7 @@ public class AsyncTests
         result.Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideCatchWithoutReexecutingTryBlock()
     {
         var engine = new Engine();
@@ -52,7 +52,7 @@ public class AsyncTests
         result.AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeForAwaitInsideElseWithoutReevaluatingIfTest()
     {
         // A `for await...of` records its suspension against the LOOP STATEMENT - its implicit
@@ -94,7 +94,7 @@ public class AsyncTests
         result.AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void RejectedAwaitInARightHandSideMustNotClobberALocalTarget()
     {
         // `x = await p` suspends in the middle of the assignment: the right-hand side value on
@@ -114,7 +114,7 @@ public class AsyncTests
         result.Should().Be("""{"value":"initial","caught":"boom"}""");
     }
 
-    [Fact]
+    [Test]
     public void RejectedAwaitInARightHandSideMustNotClobberAMemberTarget()
     {
         var result = EvaluateAsyncJson("""
@@ -130,7 +130,7 @@ public class AsyncTests
         result.Should().Be("""{"value":"initial"}""");
     }
 
-    [Fact]
+    [Test]
     public void RejectedAwaitInARightHandSideMustNotClobberAGlobalTarget()
     {
         // Repeated so the write goes through the warmed cached-global-binding lane too, not
@@ -153,7 +153,7 @@ public class AsyncTests
         result.AsString().Should().Be("initial");
     }
 
-    [Fact]
+    [Test]
     public void ResolvedAwaitInARightHandSideStillAssigns()
     {
         var result = EvaluateAsyncJson("""
@@ -167,7 +167,7 @@ public class AsyncTests
         result.Should().Be("""{"local":"local-ok","member":"member-ok"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotLeakCatchBindingAfterAwaitInsideCatch()
     {
         var result = EvaluateAsyncJson("""
@@ -187,7 +187,7 @@ public class AsyncTests
         result.Should().Be("""{"leaked":false,"name":"ReferenceError"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveCatchBindingAfterAwaitInsideCatch()
     {
         var result = EvaluateAsyncJson("""
@@ -202,7 +202,7 @@ public class AsyncTests
         result.Should().Be("""{"value":42}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveCatchReturnAcrossAwaitedFinallyAfterCatchResume()
     {
         var engine = new Engine();
@@ -223,7 +223,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveCatchThrowAcrossAwaitedFinallyAfterCatchResume()
     {
         var engine = new Engine();
@@ -245,7 +245,7 @@ public class AsyncTests
         exception.RejectedValue.AsInteger().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideIfWithoutReexecutingTest()
     {
         var result = EvaluateAsyncJson("""
@@ -260,7 +260,7 @@ public class AsyncTests
         result.Should().Be("""{"tests":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotExecuteElseWhileIfTestIsSuspended()
     {
         var result = EvaluateAsyncJson("""
@@ -275,7 +275,7 @@ public class AsyncTests
         result.Should().Be("""{"sideEffects":0}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideWhileBodyWithoutReexecutingTest()
     {
         var result = EvaluateAsyncJson("""
@@ -292,7 +292,7 @@ public class AsyncTests
         result.Should().Be("""{"tests":1,"bodies":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideForBodyWithoutReexecutingTest()
     {
         var result = EvaluateAsyncJson("""
@@ -311,7 +311,7 @@ public class AsyncTests
         result.Should().Be("""{"inits":1,"tests":1,"updates":0,"bodies":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideForUpdateWithoutReexecutingBody()
     {
         var result = EvaluateAsyncJson("""
@@ -325,7 +325,7 @@ public class AsyncTests
         result.Should().Be("""{"bodies":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideSwitchCaseWithoutReexecutingDiscriminant()
     {
         var result = EvaluateAsyncJson("""
@@ -342,7 +342,7 @@ public class AsyncTests
         result.Should().Be("""{"discriminants":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideSwitchCaseTestBeforeMatchingCase()
     {
         var result = EvaluateAsyncJson("""
@@ -357,7 +357,7 @@ public class AsyncTests
         result.Should().Be("""{"matched":false}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveSwitchLexicalBindingAfterAwaitInsideCase()
     {
         var result = EvaluateAsyncJson("""
@@ -374,7 +374,7 @@ public class AsyncTests
         result.Should().Be("""{"x":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldClearSwitchSuspendDataAfterResumedBreak()
     {
         var result = EvaluateAsyncJson("""
@@ -394,7 +394,7 @@ public class AsyncTests
         result.Should().Be("""{"values":[0,1]}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeAwaitInsideDoWhileTestWithoutReexecutingBody()
     {
         var result = EvaluateAsyncJson("""
@@ -409,7 +409,7 @@ public class AsyncTests
         result.Should().Be("""{"tests":1,"bodies":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateBinaryLeftOperandAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -421,7 +421,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"sum":11}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateLogicalAndLeftOperandAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -433,7 +433,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"ok":true}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateLogicalOrLeftOperandAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -445,7 +445,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"ok":true}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateConditionalTestAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -457,7 +457,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"value":"yes"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateConditionalTestWhenAlternateAwaits()
     {
         var result = EvaluateAsyncJson("""
@@ -469,7 +469,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"value":"no"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldShortCircuitLogicalAndWithoutSavingLeftOperand()
     {
         // Left short-circuits to false: right (await) should never run, and a
@@ -486,7 +486,7 @@ public class AsyncTests
         result.Should().Be("""{"a":false,"b":1,"awaits":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCompoundAssignmentLhsAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -499,7 +499,7 @@ public class AsyncTests
         result.Should().Be("""{"obj":{"0":5},"i":0}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluatePropertyAssignmentLhsAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -513,7 +513,7 @@ public class AsyncTests
         result.Should().Be("""{"obj":{"x":7},"touches":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveCompoundAssignmentLhsAcrossNullishCoalescing()
     {
         var result = EvaluateAsyncJson("""
@@ -526,7 +526,7 @@ public class AsyncTests
         result.Should().Be("""{"obj":{"0":"filled"},"i":0}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCompoundAssignmentLhsOnSimpleIdentifierAfterAwait()
     {
         // Simple-identifier LHS goes through the fast path (no observable side
@@ -540,7 +540,7 @@ public class AsyncTests
         result.Should().Be("""{"x":21}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCallArgumentsBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -553,7 +553,7 @@ public class AsyncTests
         result.Should().Be("""{"r":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateCallArgumentsAcrossMultipleAwaits()
     {
         var result = EvaluateAsyncJson("""
@@ -566,7 +566,7 @@ public class AsyncTests
         result.Should().Be("""{"r":{"a":1,"b":2,"c":3,"d":4},"i":4}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateNewExpressionArgumentsBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -581,7 +581,7 @@ public class AsyncTests
         result.Should().Be("""{"obj":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleCallExpressionWithAwaitOnlyInLastArgument()
     {
         // Confirms the suspend-data is cleared after completion: a subsequent
@@ -597,7 +597,7 @@ public class AsyncTests
         result.Should().Be("""{"first":11,"second":22,"i":2}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateArrayLiteralElementsBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -609,7 +609,7 @@ public class AsyncTests
         result.Should().Be("""{"a":[1,2,3],"i":3}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateArrayLiteralAcrossMultipleAwaits()
     {
         var result = EvaluateAsyncJson("""
@@ -621,7 +621,7 @@ public class AsyncTests
         result.Should().Be("""{"a":[1,2,3,4],"i":4}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldClearArrayLiteralSuspendDataBetweenCalls()
     {
         var result = EvaluateAsyncJson("""
@@ -634,7 +634,7 @@ public class AsyncTests
         result.Should().Be("""{"first":[1,10],"second":[2,20],"i":2}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReiterateOneShotSpreadIteratorAcrossAwaitInArrayLiteral()
     {
         // A custom iterator stored in `g` is drained on first pass. Without
@@ -649,7 +649,7 @@ public class AsyncTests
         result.Should().Be("""{"r":["a","b","c","d"]}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReiterateOneShotSpreadIteratorAcrossAwaitInCallArguments()
     {
         var result = EvaluateAsyncJson("""
@@ -663,7 +663,7 @@ public class AsyncTests
         result.Should().Be("""{"total":16}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveTargetAcrossMultipleSuspensionsInSpreadArguments()
     {
         var result = EvaluateAsyncJson("""
@@ -680,7 +680,7 @@ public class AsyncTests
         result.Should().Be("""{"a":["start","x","y","end"]}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotEvaluateLaterArgumentsAfterSuspensionInSpread()
     {
         // Without the IsSuspended-check-before-Add fix, `++j` would run during
@@ -695,7 +695,7 @@ public class AsyncTests
         result.Should().Be("""{"r":[1,"mid",1],"j":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateNullishCoalescingLeftOperandAfterAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -708,7 +708,7 @@ public class AsyncTests
         result.Should().Be("""{"d":1,"v":"filled"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateMemberExpressionObjectAcrossPropertyAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -722,7 +722,7 @@ public class AsyncTests
         result.Should().Be("""{"v":1,"calls":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateMemberExpressionObjectAcrossAwaitInChain()
     {
         var result = EvaluateAsyncJson("""
@@ -736,7 +736,7 @@ public class AsyncTests
         result.Should().Be("""{"v":42,"calls":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateObjectLiteralPropertiesBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -748,7 +748,7 @@ public class AsyncTests
         result.Should().Be("""{"o":{"a":1,"b":2,"c":3},"i":3}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateObjectLiteralPropertiesAcrossMultipleAwaits()
     {
         var result = EvaluateAsyncJson("""
@@ -765,7 +765,7 @@ public class AsyncTests
         result.Should().Be("""{"o":{"a":1,"b":2,"c":3,"d":4},"i":4}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateComputedKeyAcrossAwaitInObjectLiteral()
     {
         var result = EvaluateAsyncJson("""
@@ -778,7 +778,7 @@ public class AsyncTests
         result.Should().Be("""{"o":{"k1":1,"value":"done"},"i":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateTemplateLiteralInterpolationsBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -790,7 +790,7 @@ public class AsyncTests
         result.Should().Be("""{"s":"1-x-2","i":2}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotEvaluateLaterInterpolationsAfterSuspensionInTemplateLiteral()
     {
         // Without the IsSuspended-break inside the interpolation loop, `++j` would
@@ -804,7 +804,7 @@ public class AsyncTests
         result.Should().Be("""{"s":"mid-1","j":1}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotReevaluateTaggedTemplateInterpolationsBeforeAwait()
     {
         var result = EvaluateAsyncJson("""
@@ -817,7 +817,7 @@ public class AsyncTests
         result.Should().Be("""{"s":"1|x|2","i":2}""");
     }
 
-    [Fact]
+    [Test]
     public Task ShouldTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
@@ -844,7 +844,7 @@ public class AsyncTests
             """).UnwrapIfPromise(TimeSpan.FromSeconds(1)).AsString();
     }
 
-    [Fact]
+    [Test]
     public Task ShouldReturnedTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -854,7 +854,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     });
 
-    [Fact]
+    [Test]
     public void ShouldRespectCustomProvidedTimeoutWhenUnwrapping()
     {
         // A promise that never settles makes the timeout deterministic. The previous version raced
@@ -867,7 +867,7 @@ public class AsyncTests
         exception.Message.Should().Be($"Promise was rejected with value Timeout of {timeout} reached");
     }
 
-    [Fact]
+    [Test]
     public Task ShouldAwaitUnwrapPromiseWithCustomTimeout() => DedicatedThread.RunAsync(() =>
     {
         // the custom budget must be generous: this asserts the SUCCESS path, and a tight budget
@@ -883,7 +883,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     });
 
-    [Fact]
+    [Test]
     public void ShouldReturnedCompletedTaskConvertedToPromiseInJS()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -893,7 +893,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     }
 
-    [Fact]
+    [Test]
     public void ShouldTaskCatchWhenCancelled()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -913,7 +913,7 @@ public class AsyncTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnedTaskCatchWhenCancelled()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -930,7 +930,7 @@ public class AsyncTests
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public Task ShouldTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -949,7 +949,7 @@ public class AsyncTests
         }
     });
 
-    [Fact]
+    [Test]
     public Task ShouldReturnedTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -961,7 +961,7 @@ public class AsyncTests
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     });
 
-    [Fact]
+    [Test]
     public Task ShouldTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
@@ -1015,7 +1015,7 @@ public class AsyncTests
     // every one of them an authorized callback. Left alone deliberately: lengthening the delay before the
     // callback would only move the race, and asserting less would stop these tests pinning the
     // task-callback path at all.
-    [Fact]
+    [Test]
     public Task ShouldCompleteWithAsyncTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
@@ -1032,7 +1032,7 @@ public class AsyncTests
         result.Should().Be("Hello World");
     });
 
-    [Fact]
+    [Test]
     public Task ShouldFromAsyncTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
@@ -1049,7 +1049,7 @@ public class AsyncTests
         result.Should().Be("Hello World");
     });
 
-    [Fact]
+    [Test]
     public void ShouldAllowLetReassignmentInsideAsyncLoop()
     {
         Engine engine = new(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; });
@@ -1079,7 +1079,7 @@ public class AsyncTests
         result.Should().Be("success");
     }
 
-    [Fact]
+    [Test]
     public Task ShouldResolveTopLevelAwaitOfDelayedTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // #2663: top-level await of a .NET Task<T> in a module must block Modules.Import until the
@@ -1108,7 +1108,7 @@ public class AsyncTests
         ns.Get("answer").AsInteger().Should().Be(42);
     });
 
-    [Fact]
+    [Test]
     public Task ShouldPropagateRejectionOfTopLevelAwaitedTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // The rejection path of the same #2663 flow: a faulted top-level awaited Task must surface
@@ -1133,7 +1133,7 @@ public class AsyncTests
         Invoking(() => engine.Modules.Import("main")).Should().ThrowExactly<JavaScriptException>();
     });
 
-    [Fact]
+    [Test]
     public Task ShouldObserveCancellationDuringTopLevelAwaitOfNeverCompletingTaskInModule() => DedicatedThread.RunAsync(() =>
     {
         // Robustness gap in the #2663 drain: when an embedder registers a cancellation-based
@@ -1196,7 +1196,7 @@ public class AsyncTests
         neverCompletes.TrySetCanceled();
     });
 
-    [Fact]
+    [Test]
     public Task ShouldTimeOutTopLevelAwaitOfNeverCompletingTaskInModuleWithoutCancellation() => DedicatedThread.RunAsync(() =>
     {
         // Invariant: with NO cancellation registered, a genuinely never-settling top-level await must
@@ -1234,7 +1234,7 @@ public class AsyncTests
 
 #if !NETFRAMEWORK
 
-    [Fact]
+    [Test]
     public Task ShouldCompleteWithAsyncValueTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
@@ -1250,7 +1250,7 @@ public class AsyncTests
         result.Should().Be("Hello World");
     });
 
-    [Fact]
+    [Test]
     public Task ShouldFromAsyncValueTaskCallbacks() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options =>
@@ -1266,7 +1266,7 @@ public class AsyncTests
         result.Should().Be("Hello World");
     });
 
-    [Fact]
+    [Test]
     public Task ShouldValueTaskConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
@@ -1283,7 +1283,7 @@ public class AsyncTests
         }
     });
 
-    [Fact]
+    [Test]
     public void ShouldValueTaskCatchWhenCancelled()
     {
         Engine engine = new();
@@ -1302,7 +1302,7 @@ public class AsyncTests
         }
     }
 
-    [Fact]
+    [Test]
     public Task ShouldValueTaskCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
@@ -1320,7 +1320,7 @@ public class AsyncTests
         }
     });
 
-    [Fact]
+    [Test]
     public Task ShouldValueTaskAwaitCurrentStack() => DedicatedThread.RunAsync(() =>
     {
         //https://github.com/sebastienros/jint/issues/514#issuecomment-1507127509
@@ -1344,7 +1344,7 @@ public class AsyncTests
         log.Should().Be("12");
     });
 
-    [Fact]
+    [Test]
     public Task ShouldReturnedValueTaskOfTConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         // A loaded CI runner can starve the thread pool past the default 10 s PromiseTimeout while the
@@ -1360,7 +1360,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     });
 
-    [Fact]
+    [Test]
     public void ShouldReturnedCompletedValueTaskOfTConvertedToPromiseInJS()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -1370,7 +1370,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnedValueTaskOfTCatchWhenCancelled()
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -1386,7 +1386,7 @@ public class AsyncTests
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public Task ShouldReturnedValueTaskOfTCatchWhenThrowError() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -1398,7 +1398,7 @@ public class AsyncTests
         engine.Evaluate("cancelled").AsBoolean().Should().BeTrue();
     });
 
-    [Fact]
+    [Test]
     public Task ShouldAwaitUnwrapValueTaskOfTPromiseWithCustomTimeout() => DedicatedThread.RunAsync(() =>
     {
         // see ShouldAwaitUnwrapPromiseWithCustomTimeout — success path must not race CI load
@@ -1413,7 +1413,7 @@ public class AsyncTests
         result.Should().Be(AsyncTestClass.TestString);
     });
 
-    [Fact]
+    [Test]
     public Task ShouldIterateOverAsyncEnumeratorConvertedToPromiseInJS() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new(options => options.ExperimentalFeatures = ExperimentalFeature.TaskInterop);
@@ -1433,7 +1433,7 @@ public class AsyncTests
     });
 #endif
 
-    [Fact]
+    [Test]
     public void ShouldHaveCorrectOrder()
     {
         var engine = new Engine();
@@ -1465,7 +1465,7 @@ public class AsyncTests
         log.Select(x => x.AsString()).ToArray().Should().Equal(expected);
     }
 
-    [Fact]
+    [Test]
     public void ShouldPromiseBeResolved()
     {
         var log = new List<string>();
@@ -1493,7 +1493,7 @@ public class AsyncTests
         log[1].Should().Be("Resolved!");
     }
 
-    [Fact]
+    [Test]
     public Task ShouldPromiseBeResolved2() => DedicatedThread.RunAsync(() =>
     {
         Engine engine = new();
@@ -1516,7 +1516,7 @@ public class AsyncTests
     });
 
 #if !NETFRAMEWORK // we are having trouble with timeouts on .NET Framework CI runs
-    [Fact]
+    [Test]
     public async Task ShouldEventLoopBeThreadSafeWhenCalledConcurrently()
     {
         // This test verifies that multiple independent Engine instances can safely
@@ -1576,12 +1576,12 @@ public class AsyncTests
             }
 
             await Task.WhenAll(tasks.Select(t => t.Task));
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.CurrentContext.CancellationToken);
         }
     }
 #endif
 
-    [Fact]
+    [Test]
     public void AsyncFunctionShouldNotBlockWhenCalledWithoutAwait()
     {
         // #2069: https://github.com/sebastienros/jint/issues/2069
@@ -1630,7 +1630,7 @@ public class AsyncTests
         engine.Evaluate("x").AsString().Should().Be("f() called - promise resolved - ");
     }
 
-    [Fact]
+    [Test]
     public void WrappedAsyncFunctionsShouldExecuteConcurrently()
     {
         // #2199: https://github.com/sebastienros/jint/issues/2199
@@ -1698,7 +1698,7 @@ public class AsyncTests
     // Promise.allSettled() Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void PromiseAllSettledShouldReportAllResults()
     {
         var engine = new Engine();
@@ -1713,7 +1713,7 @@ public class AsyncTests
         result.AsString().Should().Be("[\"fulfilled\",\"rejected\",\"fulfilled\"]");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAllSettledShouldIncludeValues()
     {
         var engine = new Engine();
@@ -1731,7 +1731,7 @@ public class AsyncTests
         parsed.Should().Contain("\"value\":\"hello\"");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAllSettledShouldHandleEmptyArray()
     {
         var engine = new Engine();
@@ -1744,7 +1744,7 @@ public class AsyncTests
     // Promise.any() Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void PromiseAnyShouldResolveWithFirstFulfilled()
     {
         var engine = new Engine();
@@ -1759,7 +1759,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void PromiseAnyShouldThrowAggregateErrorWhenAllRejected()
     {
         var engine = new Engine();
@@ -1774,7 +1774,7 @@ public class AsyncTests
         result.AsString().Should().Be("aggregate");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAnyShouldExposeErrorsOnAggregateError()
     {
         var engine = new Engine();
@@ -1792,7 +1792,7 @@ public class AsyncTests
     // Async Generator Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void AsyncGeneratorShouldYieldValues()
     {
         var engine = new Engine();
@@ -1824,7 +1824,7 @@ public class AsyncTests
         result.AsString().Should().Be("[1,2,3,true]");
     }
 
-    [Fact]
+    [Test]
     public void AsyncGeneratorShouldAwaitInsideYield()
     {
         var engine = new Engine();
@@ -1847,7 +1847,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public void AsyncGeneratorShouldSupportReturn()
     {
         var engine = new Engine();
@@ -1875,7 +1875,7 @@ public class AsyncTests
     // Pure JS for-await-of Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithAsyncGenerator()
     {
         var engine = new Engine();
@@ -1900,7 +1900,7 @@ public class AsyncTests
         result.AsString().Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithPromiseArray()
     {
         var engine = new Engine();
@@ -1924,7 +1924,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfInsideAsyncGenerator()
     {
         // Regression: for-await-of inside an async generator was not resuming
@@ -1948,7 +1948,7 @@ public class AsyncTests
         log.Should().Equal(new[] { "item:1", "item:2", "done", "resolved" });
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfInsideAsyncGeneratorWithArrayDestructuring()
     {
         // Reproduces the minimal case from the issue report:
@@ -1967,7 +1967,7 @@ public class AsyncTests
         log.Should().Equal(new[] { "iteration", "OK" });
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfInsideAsyncGeneratorSuspensionIsProperlyResumed()
     {
         // Verify that multiple suspensions/resumptions in a for-await-of inside
@@ -1996,7 +1996,7 @@ public class AsyncTests
         log.Should().Equal(new[] { "got:a", "got:b", "got:c", "consumer-done", "outer-resolved" });
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfInsideAsyncGeneratorIteratorRejectPropagatesOutward()
     {
         // Regression: when the async iterator's next() Promise rejects inside a
@@ -2029,7 +2029,7 @@ public class AsyncTests
         log.Should().Equal(new[] { "rejected:iterator-error" });
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfInsideAsyncGeneratorIteratorRejectCaughtInsideGenerator()
     {
         // When the async iterator's next() Promise rejects and the for-await-of is
@@ -2067,7 +2067,7 @@ public class AsyncTests
     // Thenable Protocol Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void ShouldResolveCustomThenableObject()
     {
         var engine = new Engine();
@@ -2084,7 +2084,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(84);
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleThenableThatRejects()
     {
         var engine = new Engine();
@@ -2101,7 +2101,7 @@ public class AsyncTests
         result.AsString().Should().Be("caught: thenable error");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAwaitCustomThenable()
     {
         var engine = new Engine();
@@ -2126,7 +2126,7 @@ public class AsyncTests
     // HostPromiseRejectionTracker Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void ShouldFireRejectionTrackerOnUnhandledRejection()
     {
         var engine = new Engine();
@@ -2145,7 +2145,7 @@ public class AsyncTests
         rejections[0].Value.AsString().Should().Be("unhandled");
     }
 
-    [Fact]
+    [Test]
     public void ShouldFireHandleOperationWhenHandlerAdded()
     {
         var engine = new Engine();
@@ -2169,7 +2169,7 @@ public class AsyncTests
         operations[1].Should().Be(PromiseRejectionOperation.Handle);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotFireRejectionTrackerWhenPromiseConstructorHasHandler()
     {
         var engine = new Engine();
@@ -2207,7 +2207,7 @@ public class AsyncTests
     // ========================================================================
 
 #if !NETFRAMEWORK
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldResolvePromise()
     {
         var engine = new Engine();
@@ -2220,7 +2220,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldReturnDirectValueForNonPromise()
     {
         var engine = new Engine();
@@ -2228,7 +2228,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldRejectOnException()
     {
         var engine = new Engine();
@@ -2243,7 +2243,7 @@ public class AsyncTests
         }).Should().ThrowExactlyAsync<PromiseRejectedException>();
     }
 
-    [Fact]
+    [Test]
     public async Task ExecuteAsyncShouldCompleteSuccessfully()
     {
         var engine = new Engine();
@@ -2255,7 +2255,7 @@ public class AsyncTests
         returnedEngine.Should().BeSameAs(engine);
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncShouldResolvePromise()
     {
         var engine = new Engine();
@@ -2268,7 +2268,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldRespectCancellation()
     {
         var engine = new Engine();
@@ -2289,7 +2289,7 @@ public class AsyncTests
         }).Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncWithTaskInteropShouldWork()
     {
         var engine = new Engine(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
@@ -2304,7 +2304,7 @@ public class AsyncTests
         result.AsString().Should().Be(AsyncTestClass.TestString);
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncWithMultipleAwaitsShouldWork()
     {
         var engine = new Engine(options => { options.ExperimentalFeatures = ExperimentalFeature.TaskInterop; options.Constraints.PromiseTimeout = GenerousPromiseTimeout; });
@@ -2324,7 +2324,7 @@ public class AsyncTests
     // Async Wake (Thread Release) Tests — verify zero-thread IO waiting
     // ========================================================================
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldNotBlockDuringClrTaskDelay()
     {
         // Verifies the async wake path: EvaluateAsync releases the thread during
@@ -2346,7 +2346,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldHandleMultipleSequentialClrTasks()
     {
         // Multiple sequential .NET async calls, each releasing and re-acquiring the thread.
@@ -2386,7 +2386,7 @@ public class AsyncTests
         callOrder.Should().Equal(["step1", "step2", "step3"]);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldHandleConcurrentClrTasksViaPromiseAll()
     {
         // Promise.all with multiple .NET Tasks running concurrently.
@@ -2417,7 +2417,7 @@ public class AsyncTests
         startTimes.Should().HaveCount(3);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncTimeoutShouldFireDuringPendingClrTask()
     {
         // Verify that the PromiseTimeout constraint works with the async wake path. The IO never completes at
@@ -2444,7 +2444,7 @@ public class AsyncTests
         neverCompletes.TrySetCanceled();
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldHandleClrTaskRejection()
     {
         // .NET Task that throws should propagate as a rejected promise.
@@ -2470,7 +2470,7 @@ public class AsyncTests
         result.AsString().Should().Be("caught");
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldHandleNestedJsToClrToJsAsync()
     {
         // Nested async: JS → .NET async → back into JS engine (via callback) → .NET async
@@ -2500,7 +2500,7 @@ public class AsyncTests
         result.AsString().Should().Be("DATA");
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncCancellationDuringClrTask()
     {
         // Cancellation token fires while a .NET Task is in flight.
@@ -2524,7 +2524,7 @@ public class AsyncTests
         }).Should().ThrowAsync<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldNotBlockCallerThread()
     {
         // Proves the caller thread is released: start EvaluateAsync, then verify
@@ -2568,7 +2568,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncMultipleEnginesConcurrently()
     {
         // Multiple independent engines running async operations concurrently.
@@ -2602,7 +2602,7 @@ public class AsyncTests
         }
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncWithClrTaskInterop()
     {
         // InvokeAsync with .NET Task interop, verifying the complete path.
@@ -2620,7 +2620,7 @@ public class AsyncTests
         result.AsString().Should().Be("Hello World!");
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncWithSetTimeoutPattern()
     {
         // setTimeout pattern using .NET Task.Delay, exercising the async wake path
@@ -2650,7 +2650,7 @@ public class AsyncTests
     // Engine Reuse & State Recovery Edge Cases
     // ========================================================================
 
-    [Fact]
+    [Test]
     public async Task SequentialEvaluateAsyncOnSameEngineShouldWork()
     {
         // Exercises the stale TCS recovery path in EventLoop.WaitForEventAsync.
@@ -2674,7 +2674,7 @@ public class AsyncTests
         r3.AsInteger().Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public async Task MixedSyncThenAsyncOnSameEngineShouldWork()
     {
         // Sync Evaluate+UnwrapIfPromise sets _waitingThreadId during the spin-wait.
@@ -2700,7 +2700,7 @@ public class AsyncTests
         syncResult2.AsString().Should().Be("hello");
     }
 
-    [Fact]
+    [Test]
     public async Task EngineReusableAfterEvaluateAsyncTimeout()
     {
         // If EvaluateAsync hits PromiseTimeout, the CancellationTokenSource fires
@@ -2768,7 +2768,7 @@ public class AsyncTests
     /// </remarks>
     private static readonly TimeSpan ReuseAfterTimeoutBudget = TimeSpan.FromSeconds(5);
 
-    [Fact]
+    [Test]
     public async Task EngineReusableAfterEvaluateAsyncCancellation()
     {
         // CancellationToken fires during a pending EvaluateAsync. The TCS in
@@ -2828,7 +2828,7 @@ public class AsyncTests
     // Error Propagation Edge Cases
     // ========================================================================
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldPropagateUncaughtClrTaskFailure()
     {
         // A .NET Task that throws, with NO try/catch in JS, should surface
@@ -2850,7 +2850,7 @@ public class AsyncTests
         ex.Message.Should().Contain("backend error");
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncShouldThrowJavaScriptExceptionForSyncThrow()
     {
         // A synchronous throw happens during Evaluate() inside EvaluateAsync,
@@ -2868,7 +2868,7 @@ public class AsyncTests
     // Void Task & Prepared<Script> Edge Cases
     // ========================================================================
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncWithVoidTaskShouldResolveUndefined()
     {
         // Func<Task> (no return value) goes through a different reflection
@@ -2889,7 +2889,7 @@ public class AsyncTests
         sideEffect.Should().BeTrue("Side effect from void Task should have executed");
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncWithPreparedScriptShouldWork()
     {
         // Tests the EvaluateAsync(Prepared<Script>) overload which has its own
@@ -2906,7 +2906,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task EvaluateAsyncFastPathForAlreadyResolvedPromise()
     {
         // Promise.resolve(42) is already settled after microtask processing.
@@ -2922,7 +2922,7 @@ public class AsyncTests
     // Chained Promise Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void PromiseChainingShouldWork()
     {
         var engine = new Engine();
@@ -2936,7 +2936,7 @@ public class AsyncTests
         result.AsString().Should().Be("6");
     }
 
-    [Fact]
+    [Test]
     public void PromiseCatchAndThenChainingShouldWork()
     {
         var engine = new Engine();
@@ -2953,7 +2953,7 @@ public class AsyncTests
     // Async/Await with Try/Catch
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void AsyncAwaitWithTryCatchShouldWork()
     {
         var engine = new Engine();
@@ -2972,7 +2972,7 @@ public class AsyncTests
         result.AsString().Should().Be("caught: boom");
     }
 
-    [Fact]
+    [Test]
     public void AsyncAwaitWithTryFinallyShouldWork()
     {
         var engine = new Engine();
@@ -2998,7 +2998,7 @@ public class AsyncTests
     // Nested Await Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void NestedAwaitShouldWork()
     {
         var engine = new Engine();
@@ -3019,7 +3019,7 @@ public class AsyncTests
         result.AsInteger().Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void DoubleAwaitShouldWork()
     {
         var engine = new Engine();
@@ -3037,7 +3037,7 @@ public class AsyncTests
     // Promise.all Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void PromiseAllShouldResolveWhenAllFulfilled()
     {
         var engine = new Engine();
@@ -3052,7 +3052,7 @@ public class AsyncTests
         result.AsString().Should().Be("[1,2,3]");
     }
 
-    [Fact]
+    [Test]
     public void PromiseAllShouldRejectOnFirstRejection()
     {
         var engine = new Engine();
@@ -3071,7 +3071,7 @@ public class AsyncTests
     // Promise.race Tests
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void PromiseRaceShouldResolveWithFirstSettled()
     {
         var engine = new Engine();
@@ -3090,7 +3090,7 @@ public class AsyncTests
     // Multiple Sequential Awaits
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void MultipleSequentialAwaitsShouldMaintainOrder()
     {
         var engine = new Engine();
@@ -3112,7 +3112,7 @@ public class AsyncTests
     // Async IIFE (Immediately Invoked Function Expression)
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void AsyncIIFEShouldWork()
     {
         var engine = new Engine();
@@ -3131,7 +3131,7 @@ public class AsyncTests
     // Stress Test
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void StressTestManyPromises()
     {
         var engine = new Engine();
@@ -3155,7 +3155,7 @@ public class AsyncTests
     // For-of loop with await inside body
     // ========================================================================
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldReturnDistinctResults()
     {
         // Verifies that each await inside a for-of loop returns a distinct result based on
@@ -3183,7 +3183,7 @@ public class AsyncTests
         result.AsString().Should().Be("response for a\nresponse for b\nresponse for c\nresponse for d\nresponse for e\nresponse for f\n");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldWorkWithVarBinding()
     {
         // Test with var (not let) binding in for-of loop
@@ -3203,7 +3203,7 @@ public class AsyncTests
         result.AsString().Should().Be("10,20,30");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldWorkWithHeadDestructuring()
     {
         var engine = new Engine();
@@ -3223,7 +3223,7 @@ public class AsyncTests
         result.AsString().Should().Be("a:10,b:20");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuring()
     {
         var engine = new Engine();
@@ -3243,7 +3243,7 @@ public class AsyncTests
         result.AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuringAcrossIterations()
     {
         var engine = new Engine();
@@ -3263,7 +3263,7 @@ public class AsyncTests
         result.AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuringWithLetBinding()
     {
         var engine = new Engine();
@@ -3283,7 +3283,7 @@ public class AsyncTests
         result.AsString().Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void AwaitInsideForOfLoopShouldPreserveOneShotIteratorDestructuringWithAssignmentTarget()
     {
         var engine = new Engine();
@@ -3304,7 +3304,7 @@ public class AsyncTests
         result.AsString().Should().Be("7");
     }
 
-    [Fact]
+    [Test]
     public async Task ShouldNotThrowWhenAsyncArrowWithDefaultParameterAwaitsHostTaskInsidePromiseAll()
     {
         // https://github.com/sebastienros/jint/issues/2564
@@ -3332,7 +3332,7 @@ public class AsyncTests
         result.AsString().Should().Be("""[{"meta":{"index":1},"value":"x"}]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotThrowWhenAsyncArrowWithNullDefaultParameterAwaitsHostTask()
     {
         var engine = new Engine();
@@ -3348,7 +3348,7 @@ public class AsyncTests
         result.AsString().Should().Be("""{"meta":{"index":1},"value":"x"}""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateDefaultParameterExpressionOnlyOnceAcrossAwaitResume()
     {
         var engine = new Engine();
@@ -3366,7 +3366,7 @@ public class AsyncTests
         result.AsString().Should().Be("""["d",1]""");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPreserveParameterMutationAcrossAwaitResumeInConciseBody()
     {
         // With an all-literal argument list the arguments array is the expression cache's
@@ -3385,7 +3385,7 @@ public class AsyncTests
         result.AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResumeConciseBodyWithMultipleAwaitsAndExplicitArgument()
     {
         var engine = new Engine();
@@ -3401,7 +3401,7 @@ public class AsyncTests
         result.AsString().Should().Be("12!");
     }
 
-    [Fact]
+    [Test]
     public async Task ShouldEvaluateDefaultParameterDuringAsyncEventLoopDrain()
     {
         // A genuinely pending host Task makes the resume run inside EvaluateAsync's
@@ -3425,7 +3425,7 @@ public class AsyncTests
         result.AsString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void ShouldEvaluateDefaultParameterDuringUnwrapIfPromiseDrain()
     {
         var engine = new Engine();
@@ -3447,7 +3447,7 @@ public class AsyncTests
     }
 
 #if !NETFRAMEWORK
-    [Fact]
+    [Test]
     public async Task EventLoopShouldSignalAllConcurrentWaiters()
     {
         // Regression: a second concurrent caller of WaitForEventAsync used to receive

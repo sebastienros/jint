@@ -33,7 +33,7 @@ public class DefaultTypeConverterTests
 
     private static Engine CreateEngine() => new(options => options.SetTypeConverter(e => new PointTypeConverter(e)));
 
-    [Fact]
+    [Test]
     public void ShouldUseOverriddenTryConvertWhenConvertingDelegateArguments()
     {
         var engine = CreateEngine();
@@ -46,7 +46,7 @@ public class DefaultTypeConverterTests
         received.Should().Be(new Point(10, 20));
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseOverriddenTryConvertForNestedElementConversions()
     {
         var engine = CreateEngine();
@@ -63,7 +63,7 @@ public class DefaultTypeConverterTests
         (receivedList!).Should().Equal(new[] { new Point(5, 6) });
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseOverriddenTryConvertWhenConvertCalledDirectly()
     {
         var converter = new PointTypeConverter(new Engine());
@@ -79,7 +79,7 @@ public class DefaultTypeConverterTests
         converter.Convert("42", typeof(int), CultureInfo.InvariantCulture).Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ShouldReportDetailedErrorWhenOverriddenTryConvertCannotConvert()
     {
         var engine = new Engine(options => options
@@ -94,7 +94,7 @@ public class DefaultTypeConverterTests
         ex.Message.Should().ContainEquivalentOf(" was not in a correct format");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateConversionExceptionWhenClrExceptionsAreNotCaught()
     {
         var engine = CreateEngine();
@@ -110,7 +110,7 @@ public class DefaultTypeConverterTests
     /// which then dies inside a reflection invoke as a raw ArgumentException
     /// (https://github.com/sebastienros/jint/issues/2987).
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldNotPassIncompatibleTypeArgumentsThrough()
     {
         var converter = new DefaultTypeConverter(new Engine());
@@ -121,7 +121,7 @@ public class DefaultTypeConverterTests
             .Should().BeFalse("boxing is not variance");
     }
 
-    [Fact]
+    [Test]
     public void ShouldStillPassGenuinelyAssignableValuesThrough()
     {
         var converter = new DefaultTypeConverter(new Engine());
@@ -148,7 +148,7 @@ public class DefaultTypeConverterTests
     /// used to be converted "successfully" and then silently dropped by ReflectionExtensions.SetValue.
     /// An error is the better answer, but it is a behavior change worth pinning.
     /// </summary>
-    [Fact]
+    [Test]
     public void ObjectLiteralMemberThatCannotBeAssignedNowErrorsInsteadOfBeingDropped()
     {
         var engine = new Engine();

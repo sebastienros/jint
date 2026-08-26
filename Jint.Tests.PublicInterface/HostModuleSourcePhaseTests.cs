@@ -55,7 +55,7 @@ public class HostModuleSourcePhaseTests
     private static Engine CreateEngine(SourceProvidingModuleLoader loader)
         => new Engine(options => options.UseModules(loader));
 
-    [Fact]
+    [Test]
     public void DynamicImportSourceResolvesWithTheHostSuppliedModuleSource()
     {
         // ContinueDynamicImport step 3: for the source phase the promise settles with module.[[ModuleSource]]
@@ -77,7 +77,7 @@ public class HostModuleSourcePhaseTests
         engine.Evaluate("globalThis.captured").Should().BeSameAs(loader.Provided);
     }
 
-    [Fact]
+    [Test]
     public void StaticImportSourceBindsTheHostSuppliedModuleSource()
     {
         // InitializeEnvironment step 7.c: `import source x from` binds x to importedModule.[[ModuleSource]].
@@ -94,7 +94,7 @@ public class HostModuleSourcePhaseTests
         engine.Evaluate("globalThis.captured").Should().BeSameAs(loader.Provided);
     }
 
-    [Fact]
+    [Test]
     public void DynamicImportSourceOfAModuleWithoutASourceRejectsWithSyntaxError()
     {
         // ContinueDynamicImport step 3.b: "If moduleSource is empty ... a newly created SyntaxError object".
@@ -112,7 +112,7 @@ public class HostModuleSourcePhaseTests
         engine.Evaluate("globalThis.errorName").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void StaticImportSourceOfAModuleWithoutASourceThrowsSyntaxError()
     {
         // InitializeEnvironment step 7.c.ii: "If moduleSourceObject is empty, throw a SyntaxError exception."
@@ -121,11 +121,11 @@ public class HostModuleSourcePhaseTests
 
         var engine = CreateEngine(loader);
 
-        var ex = Assert.Throws<JavaScriptException>(() => engine.Modules.Import("main"));
+        var ex = Assert.Throws<JavaScriptException>(() => engine.Modules.Import("main"))!;
         ex.Error.Get("name").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void SourcePhaseImportDoesNotEvaluateTheModule()
     {
         // The source phase stops before Link and Evaluate, so the module body never runs.

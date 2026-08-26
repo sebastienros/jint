@@ -105,7 +105,7 @@ public class HostErrorDisclosureTests
             => throw new InvalidOperationException("Resolve must fail first.");
     }
 
-    [Fact]
+    [Test]
     public void CaughtHostExceptionsAreGenericToScriptButCompleteToHost()
     {
         var original = new HostFailure(new InvalidOperationException("inner-secret"));
@@ -122,7 +122,7 @@ public class HostErrorDisclosureTests
         clrException!.InnerException!.Message.Should().Be("inner-secret");
     }
 
-    [Fact]
+    [Test]
     public void DetailedDevelopmentOptInRestoresHostExceptionMessages()
     {
         var engine = new Engine(options => options.CatchClrExceptions().ExposeDetailedErrors());
@@ -131,7 +131,7 @@ public class HostErrorDisclosureTests
         engine.Evaluate("try { fail(); } catch (e) { e.message }").AsString().Should().Be(Secret);
     }
 
-    [Fact]
+    [Test]
     public void NullJavaScriptExceptionMessageUsesTheSafeDefault()
     {
         var original = new HostFailure();
@@ -145,7 +145,7 @@ public class HostErrorDisclosureTests
         clrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void HostCancellationIsNeverConvertedIntoAScriptError()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -155,7 +155,7 @@ public class HostErrorDisclosureTests
             .Should().Throw<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionFailuresHideTypesAndSignaturesByDefault()
     {
         ClrResolutionErrorInfo? resolution = null;
@@ -179,7 +179,7 @@ public class HostErrorDisclosureTests
         resolution!.DetailedMessage.Should().Contain(nameof(SecretApi)).And.Contain("SecretApi(String value)");
     }
 
-    [Fact]
+    [Test]
     public void SetErrorExceptionIsGenericAndRetainsTheOriginal()
     {
         var original = new HostFailure(new InvalidOperationException("inner-secret"));
@@ -197,7 +197,7 @@ public class HostErrorDisclosureTests
         clrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void ModuleParseFailuresHideCanonicalUrlsAndPaths()
     {
         var loader = new DeferredLoader();
@@ -220,7 +220,7 @@ public class HostErrorDisclosureTests
         decoratorCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ModuleErrorDecoratorReceivesOriginalBeforeCustomizingSafeError()
     {
         Exception? decorated = null;
@@ -248,7 +248,7 @@ public class HostErrorDisclosureTests
         import.Error.Get("code").AsString().Should().Be("MODULE_LOAD_FAILED");
     }
 
-    [Fact]
+    [Test]
     public async Task FaultedTasksAreGenericAndRetainTheOriginal()
     {
         var original = new HostFailure();
@@ -262,7 +262,7 @@ public class HostErrorDisclosureTests
         clrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryLoaderCancellationIsSanitizedWhileHostCancellationRemainsControlFlow()
     {
         var canceled = new Engine(options => options.UseModules(new CanceledTaskLoader()));
@@ -299,7 +299,7 @@ public class HostErrorDisclosureTests
             .Should().Throw<OperationCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public void SynchronousLoaderFailuresAreGenericToDynamicImportAndOriginalToHostImport()
     {
         var original = new HostFailure();
@@ -327,7 +327,7 @@ public class HostErrorDisclosureTests
         synchronousClrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void ReimplementedModuleLoaderCannotBypassTheDisclosurePolicy()
     {
         var engine = new Engine(options => options.UseModules(new ReimplementedModuleLoader()));
@@ -339,7 +339,7 @@ public class HostErrorDisclosureTests
         import.Error.Get("message").AsString().Should().NotContain(Secret);
     }
 
-    [Fact]
+    [Test]
     public void BlockingImportDoesNotRethrowAnUnprocessedLoaderError()
     {
         var decoratorCalls = 0;
@@ -359,7 +359,7 @@ public class HostErrorDisclosureTests
         original.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be(Secret);
     }
 
-    [Fact]
+    [Test]
     public void ModulePolicyProvenanceIsSpecificToTheActiveEngineAndConfiguration()
     {
         var trustedLoader = new DeferredLoader();
@@ -405,7 +405,7 @@ public class HostErrorDisclosureTests
         redactedImport.Error.Get("message").AsString().Should().NotContain(Secret);
     }
 
-    [Fact]
+    [Test]
     public void DebuggerFailureCannotBypassTheDisclosurePolicy()
     {
         var decoratorCalls = 0;
@@ -427,7 +427,7 @@ public class HostErrorDisclosureTests
         decoratorCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DetailedResolveFailureStillCrossesTheDecoratorBoundaryOnce()
     {
         var decoratorCalls = 0;
@@ -445,7 +445,7 @@ public class HostErrorDisclosureTests
         decoratorCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void DetailedJavaScriptSetErrorStillCrossesTheDecoratorBoundaryOnce()
     {
         var decoratorCalls = 0;
@@ -466,7 +466,7 @@ public class HostErrorDisclosureTests
         decoratorCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CanceledCompletionDoesNotRetainItsPendingImportGraph()
     {
         var (completion, operation) = CreateCanceledImport();
@@ -497,7 +497,7 @@ public class HostErrorDisclosureTests
         return (completion, new WeakReference(operation));
     }
 
-    [Fact]
+    [Test]
     public void DetailedDevelopmentOptInRestoresModuleFailureMessages()
     {
         var loader = new DeferredLoader();

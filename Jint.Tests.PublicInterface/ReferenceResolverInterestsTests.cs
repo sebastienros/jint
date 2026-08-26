@@ -107,7 +107,7 @@ public class ReferenceResolverInterestsTests
     // The interest-free overload keeps the pre-filter behaviour exactly.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void InterestFreeOverloadGetsEveryInterest()
     {
         var options = new Options();
@@ -119,7 +119,7 @@ public class ReferenceResolverInterestsTests
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.All);
     }
 
-    [Fact]
+    [Test]
     public void UnfilteredResolverBehavesAsBefore()
     {
         var (engine, resolver) = CreateEngine(interests: null);
@@ -138,7 +138,7 @@ public class ReferenceResolverInterestsTests
         resolver.CallableCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NoneMeansTheResolverIsNeverConsulted()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.None);
@@ -158,7 +158,7 @@ public class ReferenceResolverInterestsTests
     // NullishPropertyBase only: the documented "not consulted for object bases" case.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void NullishOnlyResolverIsNotConsultedForObjectBases()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NullishPropertyBase);
@@ -177,7 +177,7 @@ public class ReferenceResolverInterestsTests
         resolver.PropertyCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void NullishOnlyResolverStillHandlesNullishBases()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NullishPropertyBase);
@@ -189,7 +189,7 @@ public class ReferenceResolverInterestsTests
         resolver.CoercibleCalls.Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void NullishOnlyResolverHandlesNullishBasesInComputedReads()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NullishPropertyBase);
@@ -199,7 +199,7 @@ public class ReferenceResolverInterestsTests
         resolver.PropertyBases.Should().OnlyContain(kind => kind == "nullish");
     }
 
-    [Fact]
+    [Test]
     public void NullishOnlyResolverDoesNotAnswerUnresolvableOrCallee()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NullishPropertyBase);
@@ -215,7 +215,7 @@ public class ReferenceResolverInterestsTests
     // ObjectPropertyBase / PrimitivePropertyBase
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ObjectBaseOnlyResolverSeesObjectBasesAndNotNullishOrPrimitiveOnes()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.ObjectPropertyBase);
@@ -234,7 +234,7 @@ public class ReferenceResolverInterestsTests
         resolver.CoercibleCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void PrimitiveBaseOnlyResolverSeesPrimitiveBasesOnly()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.PrimitivePropertyBase);
@@ -250,7 +250,7 @@ public class ReferenceResolverInterestsTests
     // UnresolvableReference / NonCallableCallee
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void UnresolvableOnlyResolverAnswersMissingIdentifiersOnly()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.UnresolvableReference);
@@ -265,7 +265,7 @@ public class ReferenceResolverInterestsTests
         resolver.CoercibleCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void UnresolvableOnlyResolverAnswersCallsToMissingIdentifiers()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.UnresolvableReference);
@@ -277,7 +277,7 @@ public class ReferenceResolverInterestsTests
         resolver.CallableCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CalleeOnlyResolverSubstitutesNonCallableCallees()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NonCallableCallee);
@@ -292,7 +292,7 @@ public class ReferenceResolverInterestsTests
         resolver.CallableCalls.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CalleeInterestDoesNotDisableTheMemberCallFastPath()
     {
         var (engine, resolver) = CreateEngine(ReferenceResolverInterests.NonCallableCallee);
@@ -306,11 +306,10 @@ public class ReferenceResolverInterestsTests
     // Optional chaining short-circuits before any resolver involvement, under every filter.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData(ReferenceResolverInterests.None)]
-    [InlineData(ReferenceResolverInterests.NullishPropertyBase)]
-    [InlineData(ReferenceResolverInterests.ObjectPropertyBase)]
-    [InlineData(ReferenceResolverInterests.All)]
+    [TestCase(ReferenceResolverInterests.None)]
+    [TestCase(ReferenceResolverInterests.NullishPropertyBase)]
+    [TestCase(ReferenceResolverInterests.ObjectPropertyBase)]
+    [TestCase(ReferenceResolverInterests.All)]
     public void OptionalChainingShortCircuitsRegardlessOfInterests(ReferenceResolverInterests interests)
     {
         var (engine, _) = CreateEngine(interests);
@@ -325,14 +324,13 @@ public class ReferenceResolverInterestsTests
     // situations outside it.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData(ReferenceResolverInterests.None)]
-    [InlineData(ReferenceResolverInterests.NullishPropertyBase)]
-    [InlineData(ReferenceResolverInterests.ObjectPropertyBase)]
-    [InlineData(ReferenceResolverInterests.PrimitivePropertyBase)]
-    [InlineData(ReferenceResolverInterests.UnresolvableReference)]
-    [InlineData(ReferenceResolverInterests.NonCallableCallee)]
-    [InlineData(ReferenceResolverInterests.All)]
+    [TestCase(ReferenceResolverInterests.None)]
+    [TestCase(ReferenceResolverInterests.NullishPropertyBase)]
+    [TestCase(ReferenceResolverInterests.ObjectPropertyBase)]
+    [TestCase(ReferenceResolverInterests.PrimitivePropertyBase)]
+    [TestCase(ReferenceResolverInterests.UnresolvableReference)]
+    [TestCase(ReferenceResolverInterests.NonCallableCallee)]
+    [TestCase(ReferenceResolverInterests.All)]
     public void OrdinaryReadsProduceTheSameValuesUnderEveryFilter(ReferenceResolverInterests interests)
     {
         var (engine, _) = CreateEngine(interests);

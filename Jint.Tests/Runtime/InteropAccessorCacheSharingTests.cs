@@ -91,7 +91,7 @@ public class InteropAccessorCacheSharingTests
 
     #region 1. sharing
 
-    [Fact]
+    [Test]
     public void SecondEngineReusesTheResolutionOfTheFirst()
     {
         var counting = new CountingResolver();
@@ -106,7 +106,7 @@ public class InteropAccessorCacheSharingTests
         counting.Reset().Should().Be(0, "the resolution is shared through the resolver");
     }
 
-    [Fact]
+    [Test]
     public void SharingCoversMethodsAndWrites()
     {
         var counting = new CountingResolver();
@@ -125,7 +125,7 @@ public class InteropAccessorCacheSharingTests
         host2.Name.Should().Be("second");
     }
 
-    [Fact]
+    [Test]
     public void UnresolvedMembersAreSharedToo()
     {
         var counting = new CountingResolver();
@@ -139,7 +139,7 @@ public class InteropAccessorCacheSharingTests
         counting.Reset().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ResolversOfTheirOwnDoNotShare()
     {
         var counting1 = new CountingResolver();
@@ -152,7 +152,7 @@ public class InteropAccessorCacheSharingTests
         counting2.Reset().Should().BeGreaterThan(0);
     }
 
-    [Fact]
+    [Test]
     public void EnginesOnTheDefaultResolverStayCorrect()
     {
         // no explicit resolver: both engines land on TypeResolver.Default, the process-wide one
@@ -170,7 +170,7 @@ public class InteropAccessorCacheSharingTests
 
     #region 2. partitioning by interop configuration
 
-    [Fact]
+    [Test]
     public void BindingFlagsPartitionTheCache()
     {
         var resolver = new TypeResolver();
@@ -194,7 +194,7 @@ public class InteropAccessorCacheSharingTests
         restrictedSecond.Evaluate("typeof host.Hidden").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AllowGetTypePartitionsTheCache()
     {
         var resolver = new TypeResolver();
@@ -206,7 +206,7 @@ public class InteropAccessorCacheSharingTests
         restricted.Evaluate("typeof host.GetType").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ExtensionMethodsPartitionTheCache()
     {
         var resolver = new TypeResolver();
@@ -218,7 +218,7 @@ public class InteropAccessorCacheSharingTests
         without.Evaluate("typeof host.Doubled").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void EnginesRegisteringTheSameExtensionMethodsShareTheResolution()
     {
         // Partitioning by extension method configuration is done by the *identity* of the built lookup, so
@@ -236,7 +236,7 @@ public class InteropAccessorCacheSharingTests
         counting.Reset().Should().Be(0, "the resolution is shared through the resolver");
     }
 
-    [Fact]
+    [Test]
     public void ExtensionMethodEnginesDoNotGrowTheSharedCachePerEngine()
     {
         // The cache never evicts and lives as long as the resolver, so an entry set per engine is a leak for
@@ -262,7 +262,7 @@ public class InteropAccessorCacheSharingTests
         resolver.ResolvedAccessorCount.Should().Be(countAfterFirstEngine);
     }
 
-    [Fact]
+    [Test]
     public void IdenticallyConfiguredExtensionMethodEnginesShareOneLookup()
     {
         var resolver = new TypeResolver();
@@ -273,7 +273,7 @@ public class InteropAccessorCacheSharingTests
         engine2._interopResolutionProfile.Should().Be(engine1._interopResolutionProfile);
     }
 
-    [Fact]
+    [Test]
     public void RegistrationOrderKeepsTheLookupsApart()
     {
         // Order decides which container's overloads are considered first, so it is part of the lookup's
@@ -292,7 +292,7 @@ public class InteropAccessorCacheSharingTests
     /// with its stock siblings, and a string-keyed indexer is re-resolved only by an engine whose converter
     /// could have produced a different key.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACustomTypeConverterOnlyCostsTheIndexerAccessorsItCouldHaveKeyedDifferently()
     {
         var counting = new CountingResolver();
@@ -313,7 +313,7 @@ public class InteropAccessorCacheSharingTests
         counting.Reset().Should().BeGreaterThan(0, "this converter may key the indexer differently, so it must resolve its own");
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithACustomTypeConverterStillSharesOrdinaryMembers()
     {
         // The converter used to partition the whole cache through InteropResolutionProfile, so an engine with
@@ -340,7 +340,7 @@ public class InteropAccessorCacheSharingTests
 
     #region 3. nothing engine-affine is shared
 
-    [Fact]
+    [Test]
     public void NestedTypeReferencesStayWithTheirOwnEngine()
     {
         var resolver = new TypeResolver();

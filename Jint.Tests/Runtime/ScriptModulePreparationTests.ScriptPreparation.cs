@@ -8,14 +8,14 @@ namespace Jint.Tests.Runtime;
 
 public partial class ScriptModulePreparationTests
 {
-    [Fact]
+    [Test]
     public void ScriptPreparationAcceptsReturnOutsideOfFunctions()
     {
         var preparedScript = Engine.PrepareScript("return 1;");
         preparedScript.Program.Body[0].Should().BeOfType<ReturnStatement>();
     }
 
-    [Fact]
+    [Test]
     public void CanPreCompileRegex()
     {
         var script = Engine.PrepareScript("var x = /[cgt]/ig; var y = /[cgt]/ig; 'g'.match(x).length;");
@@ -31,7 +31,7 @@ public partial class ScriptModulePreparationTests
         new Engine().Evaluate(script).AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationFoldsConstants()
     {
         var preparedScript = Engine.PrepareScript("return 1 + 2;");
@@ -42,7 +42,7 @@ public partial class ScriptModulePreparationTests
         new Engine().Evaluate(preparedScript).AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationOptimizesNegatingUnaryExpression()
     {
         var preparedScript = Engine.PrepareScript("-1");
@@ -54,7 +54,7 @@ public partial class ScriptModulePreparationTests
         new Engine().Evaluate(preparedScript).AsNumber().Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationOptimizesConstantReturn()
     {
         var preparedScript = Engine.PrepareScript("return false;");
@@ -68,7 +68,7 @@ public partial class ScriptModulePreparationTests
         result.Should().Be(JsBoolean.False);
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationCachesTheHoistingScopeOfAScriptRootOnly()
     {
         // A script root's cached scope is what GlobalDeclarationInstantiation, direct eval and ShadowRealm read.
@@ -79,7 +79,7 @@ public partial class ScriptModulePreparationTests
         Engine.PrepareModule("export const a = 1; const b = 2;").Program.UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationBuildsNoBlockStateForFunctionBodies()
     {
         // A function body is a BlockStatement by node type, but the only reader of a block's UserData takes a
@@ -96,7 +96,7 @@ public partial class ScriptModulePreparationTests
         body.UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ScriptPreparationBuildsBlockStateForNestedBlocks()
     {
         var preparedScript = Engine.PrepareScript("{ let outer = 1; } function f() { { let inner = 2; return inner; } } f();");
@@ -112,7 +112,7 @@ public partial class ScriptModulePreparationTests
         new Engine().Evaluate(preparedScript).AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void CompiledRegexShouldProduceSameResultAsNonCompiled()
     {
         const string Script = """JSON.stringify(/(.*?)a(?!(a+)b\2c)\2(.*)/.exec("baaabaac"))""";
@@ -124,7 +124,7 @@ public partial class ScriptModulePreparationTests
         nonCompiledResult.Should().Be(compiledResult);
     }
 
-    [Fact]
+    [Test]
     public void PrepareScriptShouldNotLeakAcornimaException()
     {
         var ex = Invoking(() => Engine.PrepareScript("class A { } A().#nonexistent = 1;")).Should().ThrowExactly<ScriptPreparationException>().Which;
@@ -132,7 +132,7 @@ public partial class ScriptModulePreparationTests
         ex.InnerException.Should().BeOfType<SyntaxErrorException>();
     }
 
-    [Fact]
+    [Test]
     public void PrepareModuleShouldNotLeakAcornimaException()
     {
         var ex = Invoking(() => Engine.PrepareModule("class A { } A().#nonexistent = 1;")).Should().ThrowExactly<ScriptPreparationException>().Which;

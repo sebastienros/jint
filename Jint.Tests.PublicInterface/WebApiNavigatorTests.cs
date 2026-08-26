@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiNavigatorTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoNavigator()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class WebApiNavigatorTests
         engine.Evaluate("'navigator' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsNavigator()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -35,7 +35,7 @@ public class WebApiNavigatorTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Navigator);
     }
 
-    [Fact]
+    [Test]
     public void AskingForConsoleAloneDoesNotBringNavigator()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -44,7 +44,7 @@ public class WebApiNavigatorTests
         engine.Evaluate("typeof navigator").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ReportsJintAndItsVersion()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Navigator));
@@ -54,7 +54,7 @@ public class WebApiNavigatorTests
             .Should().Be($"Jint/{version.Major}.{version.Minor}.{version.Build}");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredNavigatorGlobalWins()
     {
         var marker = new JsString("the host's own navigator");
@@ -66,7 +66,7 @@ public class WebApiNavigatorTests
         engine.Evaluate("navigator").Should().BeSameAs(marker);
     }
 
-    [Fact]
+    [Test]
     public void IsAnEnumerableDataPropertyOfTheGlobal()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Navigator));
@@ -77,7 +77,7 @@ public class WebApiNavigatorTests
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis());

@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class ArrayBufferTests
 {
-    [Fact]
+    [Test]
     public void CanConvertByteArrayToArrayBuffer()
     {
         var engine = new Engine(o => o.AddObjectConverter(new BytesToArrayBufferConverter()));
@@ -28,7 +28,7 @@ public class ArrayBufferTests
         engine.Evaluate("a[0]").Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void CanCreateArrayBufferAndTypedArrayUsingCode()
     {
         var engine = new Engine();

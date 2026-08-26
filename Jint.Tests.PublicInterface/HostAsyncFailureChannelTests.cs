@@ -35,29 +35,29 @@ public class HostAsyncFailureChannelTests
     // Through the task: everything the operation itself does.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task AStatementBudgetReachesTheTaskRatherThanTheCall()
     {
         var engine = new Engine(options => options.LimitStatements(10));
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("for (var i = 0; i < 1000; i++) { }"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task AWallClockBudgetReachesTheTaskRatherThanTheCall()
     {
         var engine = new Engine(options => options.LimitExecutionTime(TimeSpan.FromMilliseconds(50)));
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("while (true) { }"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public async Task AnAllocationBudgetReachesTheTaskRatherThanTheCall()
     {
         var allocations = new List<byte[]>();
@@ -65,22 +65,22 @@ public class HostAsyncFailureChannelTests
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("allocate(); allocate();"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public async Task ARecursionLimitReachesTheTaskRatherThanTheCall()
     {
         var engine = new Engine(options => options.Constraints.MaxRecursionDepth = 5);
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("function f() { return f(); } f();"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<RecursionDepthOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task ACancellationConstraintReachesTheTaskRatherThanTheCall()
     {
         using var cts = new CancellationTokenSource();
@@ -89,35 +89,35 @@ public class HostAsyncFailureChannelTests
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("cancel(); for (var i = 0; i < 1000000; i++) { }"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<ExecutionCanceledException>();
     }
 
-    [Fact]
+    [Test]
     public async Task ASyntaxErrorReachesTheTaskRatherThanTheCall()
     {
         var engine = new Engine();
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("var ="));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<JavaScriptException>();
         exception!.Message.Should().Contain("Unexpected token");
     }
 
-    [Fact]
+    [Test]
     public async Task AScriptThrowReachesTheTaskRatherThanTheCall()
     {
         var engine = new Engine();
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync("throw new Error('boom')"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<JavaScriptException>();
         exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public async Task ThePreparedScriptOverloadReportsItsBudgetThroughTheTaskToo()
     {
         var engine = new Engine(options => options.LimitStatements(10));
@@ -125,11 +125,11 @@ public class HostAsyncFailureChannelTests
 
         var pending = StartWithoutThrowing(() => engine.EvaluateAsync(prepared));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task ExecuteAsyncReportsItsBudgetThroughTheTaskToo()
     {
         var engine = new Engine(options => options.LimitStatements(10));
@@ -138,11 +138,11 @@ public class HostAsyncFailureChannelTests
         Invoking(() => { pending = engine.ExecuteAsync("for (var i = 0; i < 1000; i++) { }"); })
             .Should().NotThrow("a budget failure belongs on the returned task");
 
-        var exception = await Record.ExceptionAsync(() => pending!);
+        var exception = await Caught.ExceptionAsync(() => pending!);
         exception.Should().BeOfType<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncReportsItsBudgetThroughTheTaskToo()
     {
         var engine = new Engine(options => options.LimitStatements(10));
@@ -150,23 +150,23 @@ public class HostAsyncFailureChannelTests
 
         var pending = StartWithoutThrowing(() => engine.InvokeAsync("work"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<StatementsCountOverflowException>();
     }
 
-    [Fact]
+    [Test]
     public async Task InvokeAsyncReportsANonFunctionThroughTheTaskToo()
     {
         var engine = new Engine();
 
         var pending = StartWithoutThrowing(() => engine.InvokeAsync("missing"));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<JavaScriptException>();
         exception!.Message.Should().Be("Can only invoke functions");
     }
 
-    [Fact]
+    [Test]
     public async Task ImportAsyncReportsItsBudgetThroughTheTaskToo()
     {
         var engine = new Engine(options => options.LimitStatements(10));
@@ -176,7 +176,7 @@ public class HostAsyncFailureChannelTests
         Invoking(() => { pending = engine.Modules.ImportAsync("module"); })
             .Should().NotThrow("a budget failure belongs on the returned task");
 
-        var exception = await Record.ExceptionAsync(() => pending!);
+        var exception = await Caught.ExceptionAsync(() => pending!);
         exception.Should().BeOfType<StatementsCountOverflowException>();
     }
 
@@ -191,7 +191,7 @@ public class HostAsyncFailureChannelTests
     /// the synchronous phase. Joining the other thread inside the host function forces that ordering on every
     /// run, so this fails deterministically against an engine that reports such a failure synchronously.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task AChargeLandedByAnotherThreadBeforeThePostScriptCheckStillFaultsTheTask()
     {
         var allocations = new List<byte[]>();
@@ -217,7 +217,7 @@ public class HostAsyncFailureChannelTests
             })()
             """));
 
-        var exception = await Record.ExceptionAsync(() => pending);
+        var exception = await Caught.ExceptionAsync(() => pending);
         exception.Should().BeOfType<MemoryLimitExceededException>();
     }
 
@@ -225,16 +225,16 @@ public class HostAsyncFailureChannelTests
     // The constraint is unchanged: same type, same message, still fatal, and the engine recovers.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public async Task TheTaskCarriesTheSameExceptionTheSynchronousEntryThrows()
     {
         const string Script = "globalThis.marker = 1; for (var i = 0; i < 1000; i++) { } globalThis.finished = true;";
 
         var synchronous = new Engine(options => options.LimitStatements(10));
-        var fromEvaluate = Record.Exception(() => synchronous.Evaluate(Script));
+        var fromEvaluate = Caught.Exception(() => synchronous.Evaluate(Script));
 
         var asynchronous = new Engine(options => options.LimitStatements(10));
-        var fromEvaluateAsync = await Record.ExceptionAsync(() => asynchronous.EvaluateAsync(Script));
+        var fromEvaluateAsync = await Caught.ExceptionAsync(() => asynchronous.EvaluateAsync(Script));
 
         fromEvaluate.Should().BeOfType<StatementsCountOverflowException>();
         fromEvaluateAsync.Should().BeOfType<StatementsCountOverflowException>();
@@ -245,12 +245,12 @@ public class HostAsyncFailureChannelTests
         asynchronous.Evaluate("typeof globalThis.finished").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public async Task TheEngineIsUsableAgainAfterATaskFaultedBudgetFailure()
     {
         var engine = new Engine(options => options.LimitStatements(50));
 
-        var first = await Record.ExceptionAsync(() => engine.EvaluateAsync("for (var i = 0; i < 1000; i++) { }"));
+        var first = await Caught.ExceptionAsync(() => engine.EvaluateAsync("for (var i = 0; i < 1000; i++) { }"));
         first.Should().BeOfType<StatementsCountOverflowException>();
 
         // The reservation is released by the body's finally even when the body never reached an await, so a
@@ -260,7 +260,7 @@ public class HostAsyncFailureChannelTests
         second.AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public async Task TheBudgetStillFiresWhenTheFailureOnlyReachesTheTask()
     {
         var engine = new Engine(options => options.LimitStatements(10));
@@ -287,7 +287,7 @@ public class HostAsyncFailureChannelTests
     // Out of the call: usage errors, which say the operation never started.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ANullScriptIsRefusedSynchronously()
     {
         var engine = new Engine();
@@ -301,7 +301,7 @@ public class HostAsyncFailureChannelTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ANullInvokeArgumentIsRefusedSynchronously()
     {
         var engine = new Engine();
@@ -315,7 +315,7 @@ public class HostAsyncFailureChannelTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AnUnpreparedScriptIsRefusedSynchronously()
     {
         var engine = new Engine();
@@ -326,7 +326,7 @@ public class HostAsyncFailureChannelTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public async Task EveryAsyncEntryRefusesAConcurrentCallSynchronously()
     {
         using var entered = new ManualResetEventSlim();

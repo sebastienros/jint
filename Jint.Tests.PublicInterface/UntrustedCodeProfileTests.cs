@@ -14,7 +14,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class UntrustedCodeProfileTests
 {
-    [Fact]
+    [Test]
     public void ProfileOverridesPreviouslyEnabledStaticCapabilities()
     {
         var limits = CreateLimits();
@@ -56,7 +56,7 @@ public class UntrustedCodeProfileTests
         engine.Constraints.Find<OperationDeadlineConstraint>().Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ProfileIsReappliedAfterEarlierDeferredConfiguration()
     {
         var limits = CreateLimits();
@@ -101,7 +101,7 @@ public class UntrustedCodeProfileTests
             .Should().Throw<InvalidOperationException>().WithMessage("*disabled*");
     }
 
-    [Fact]
+    [Test]
     public void SharedOptionsGiveEachEngineItsOwnOperationDeadline()
     {
         var options = new Options().ForUntrustedCode(CreateLimits());
@@ -112,7 +112,7 @@ public class UntrustedCodeProfileTests
             second.Constraints.Find<OperationDeadlineConstraint>());
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentConstructionNeverMutatesSharedOptionsOrReopensAnExistingEngine()
     {
         var limits = CreateLimits();
@@ -146,7 +146,7 @@ public class UntrustedCodeProfileTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ProfileSettingsAreObservedByScriptAndProjectedObjects()
     {
         var host = new WritableHost();
@@ -181,7 +181,7 @@ public class UntrustedCodeProfileTests
             .WithMessage("Atomics.wait cannot be used in this agent");
     }
 
-    [Fact]
+    [Test]
     public void ProfileClearsHostFactoryAndOperatorCapabilities()
     {
         var factoryInvoked = false;
@@ -202,7 +202,7 @@ public class UntrustedCodeProfileTests
         OperatorHost.InvocationCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ProfileDoesNotExposeNonPublicClrMembers()
     {
         var options = new Options();
@@ -216,7 +216,7 @@ public class UntrustedCodeProfileTests
         engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void CopiedClrArraysRespectTheProfileArrayLimit()
     {
         var engine = new Engine(options => options.ForUntrustedCode(CreateLimits(maxArraySize: 2)));
@@ -226,7 +226,7 @@ public class UntrustedCodeProfileTests
             .WithMessage("*larger than maximum allowed*2*");
     }
 
-    [Fact]
+    [Test]
     public void PerEntryTimeoutIsEnforced()
     {
         var limits = CreateLimits(timeoutInterval: TimeSpan.FromMilliseconds(1));
@@ -236,7 +236,7 @@ public class UntrustedCodeProfileTests
         Invoking(() => engine.Evaluate("pause(); 1;")).Should().Throw<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeEnforcesAndThenDisarmsTheMultiEntryDeadline()
     {
         var limits = CreateLimits(maxOperationDuration: TimeSpan.FromMilliseconds(1));
@@ -254,7 +254,7 @@ public class UntrustedCodeProfileTests
         engine.Constraints.Find<MemoryLimitConstraint>()!.IsOperationActive.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void NestedOperationScopeIsRejectedWithoutDisarmingTheOuterScope()
     {
         var limits = CreateLimits(maxOperationDuration: TimeSpan.FromMilliseconds(1));
@@ -274,7 +274,7 @@ public class UntrustedCodeProfileTests
         Invoking(engine.Constraints.Check).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentOperationScopesCannotBothAcquireTheDeadline()
     {
         var limits = CreateLimits();
@@ -324,7 +324,7 @@ public class UntrustedCodeProfileTests
         Invoking(engine.Constraints.Check).Should().NotThrow();
     }
 
-    [Fact]
+    [Test]
     public async Task OperationScopeCannotEndWhileAsyncWorkOwnsTheEngine()
     {
         // Every wall-clock limit here is a wedge ceiling rather than part of the claim: what is asserted is
@@ -355,7 +355,7 @@ public class UntrustedCodeProfileTests
         engine.Constraints.Find<MemoryLimitConstraint>()!.IsOperationActive.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeFailsClosedWhenTheProfileWasNotInstalled()
     {
         var limits = CreateLimits();
@@ -366,7 +366,7 @@ public class UntrustedCodeProfileTests
             .WithMessage("*ForUntrustedCode*");
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeRejectsAGeneralPurposeDeadlineWithoutTheProfile()
     {
         var limits = CreateLimits();
@@ -379,7 +379,7 @@ public class UntrustedCodeProfileTests
             .WithMessage("*ForUntrustedCode*");
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeRejectsADifferentLimitsInstance()
     {
         var configuredLimits = CreateLimits();
@@ -392,7 +392,7 @@ public class UntrustedCodeProfileTests
             .WithMessage("*this UntrustedCodeLimits instance*");
     }
 
-    [Fact]
+    [Test]
     public void RejectsNonPositiveLimits()
     {
         AssertInvalid(() => CreateLimits(timeoutInterval: TimeSpan.Zero), "timeoutInterval");
@@ -405,7 +405,7 @@ public class UntrustedCodeProfileTests
         AssertInvalid(() => CreateLimits(maxOperationDuration: TimeSpan.Zero), "maxOperationDuration");
     }
 
-    [Fact]
+    [Test]
     public void RejectsSaturatedUnlimitedLimits()
     {
         AssertInvalid(() => CreateLimits(timeoutInterval: TimeSpan.MaxValue), "timeoutInterval");
@@ -418,7 +418,7 @@ public class UntrustedCodeProfileTests
         AssertInvalid(() => CreateLimits(maxOperationDuration: TimeSpan.MaxValue), "maxOperationDuration");
     }
 
-    [Fact]
+    [Test]
     public void ProfileRequiresLimits()
     {
         Action act = () => new Options().ForUntrustedCode(null!);
@@ -426,7 +426,7 @@ public class UntrustedCodeProfileTests
         act.Should().Throw<ArgumentNullException>().WithParameterName("limits");
     }
 
-    [Fact]
+    [Test]
     public void RejectsUnboundedResultLimits()
     {
         Invoking(() => new UntrustedCodeLimits(
@@ -443,7 +443,7 @@ public class UntrustedCodeProfileTests
             .WithParameterName("resultLimits");
     }
 
-    [Fact]
+    [Test]
     public void EffectiveDiagnosticsDoNotRetainProfileState()
     {
         var (limits, options, engine, report) = CreateCollectibleProfileReport();
@@ -456,7 +456,7 @@ public class UntrustedCodeProfileTests
         report.Diagnostics.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeRequiresACancellableToken()
     {
         var limits = CreateLimits();
@@ -467,7 +467,7 @@ public class UntrustedCodeProfileTests
             .WithParameterName("cancellationToken");
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeSpansEvaluationConversionSerializationAndErrorRendering()
     {
         var limits = CreateLimits();
@@ -486,7 +486,7 @@ public class UntrustedCodeProfileTests
         }
     }
 
-    [Fact]
+    [Test]
     public void OperationScopeCancellationIsHostVisibleAndCleansUp()
     {
         var limits = CreateLimits();
@@ -504,7 +504,7 @@ public class UntrustedCodeProfileTests
         engine.Constraints.Find<MemoryLimitConstraint>()!.IsOperationActive.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ProfileDiagnosticsAreExactAndUserCallbacksRemainVisible()
     {
         var cleanOptions = new Options().ForUntrustedCode(CreateLimits());
@@ -520,7 +520,7 @@ public class UntrustedCodeProfileTests
             .Should().Equal(SecurityDiagnosticCodes.EngineConstructionCallback);
     }
 
-    [Fact]
+    [Test]
     public void ProfileBoundsParserAndResults()
     {
         var limits = new UntrustedCodeLimits(

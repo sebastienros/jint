@@ -30,7 +30,7 @@ public class HostValueVocabularyTests
         "UnwrapIfPromise", "UnwrapIfPromiseAsync",
     ];
 
-    [Fact]
+    [Test]
     public void AHostThatImportedOnlyJintNativeReachesTheVocabulary()
     {
         var engine = new Engine();
@@ -52,7 +52,7 @@ public class HostValueVocabularyTests
         ValueDescriber.Describe(engine.Evaluate("({ a: 1 })")).Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void TheSameHostReachesTheAssertingHalfAndThePromiseUnwrap()
     {
         var engine = new Engine();
@@ -66,7 +66,7 @@ public class HostValueVocabularyTests
         ValueDescriber.Settle(engine.Evaluate("Promise.resolve('done')")).AsString().Should().Be("done");
     }
 
-    [Fact]
+    [Test]
     public void PromotionLeftExactlyOneSpellingOfEachName()
     {
         // A host with `using Jint;` keeps compiling because an instance member wins over an extension
@@ -87,7 +87,7 @@ public class HostValueVocabularyTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AUsingJintHostGetsTheSameAnswersItAlwaysDid()
     {
         // This file has `using Jint;` implicitly, its namespace being nested under it, so every call below
@@ -120,7 +120,7 @@ public class HostValueVocabularyTests
         engine.Evaluate("Promise.resolve(7)").UnwrapIfPromise().AsNumber().Should().Be(7d);
     }
 
-    [Fact]
+    [Test]
     public void TryGetStringAnswersOnAHitAndDeclinesOnAMiss()
     {
         var engine = new Engine();
@@ -135,7 +135,7 @@ public class HostValueVocabularyTests
         JsValue.Undefined.TryGetString(out _).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TryGetNumberAnswersOnAHitAndDeclinesOnAMiss()
     {
         var engine = new Engine();
@@ -150,7 +150,7 @@ public class HostValueVocabularyTests
         miss.Should().Be(0d);
     }
 
-    [Fact]
+    [Test]
     public void TryGetBooleanAnswersOnAHitAndDeclinesOnAMiss()
     {
         var engine = new Engine();
@@ -166,7 +166,7 @@ public class HostValueVocabularyTests
         miss.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TryGetObjectAnswersOnAHitAndDeclinesOnAMiss()
     {
         var engine = new Engine();
@@ -179,7 +179,7 @@ public class HostValueVocabularyTests
         miss.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void TryGetArrayAnswersOnAHitAndDeclinesOnAMiss()
     {
         var engine = new Engine();
@@ -196,7 +196,7 @@ public class HostValueVocabularyTests
         proxied.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void TheArrayGuardAndTheArrayCastNowAgree()
     {
         var engine = new Engine();
@@ -216,7 +216,7 @@ public class HostValueVocabularyTests
         engine.Evaluate("Array.isArray(new Proxy([], {}))").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheSpecialisedAccessorsStayedExtensionsInTheSameNamespace()
     {
         var engine = new Engine();

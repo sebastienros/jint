@@ -91,13 +91,13 @@ public class WebApiFetchHandlerTests
         return operation.GetResult();
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheObjectModelRefusesToRegisterAHandler()
     {
         var engine = new Engine();
         engine.Execute("function handle(request) { return null; }");
 
-        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.SetFetchHandler(engine.GetValue("handle")));
+        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.SetFetchHandler(engine.GetValue("handle")))!;
         failure.Message.Should().Contain("WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files");
         failure.Message.Should().Contain("UseFetch");
 
@@ -113,7 +113,7 @@ public class WebApiFetchHandlerTests
         fetching.WebApi.HasFetchHandler.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RegisteringAHandlerInstallsTheObjectModelButNeverFetch()
     {
         var engine = Host();
@@ -140,7 +140,7 @@ public class WebApiFetchHandlerTests
         descriptor.Get("configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AGlobalTheHostRegisteredItselfIsNotReplaced()
     {
         var engine = Host(configure: options => options.Configure(e => e.SetValue("Response", "mine")));
@@ -150,7 +150,7 @@ public class WebApiFetchHandlerTests
         engine.Evaluate("Response").AsString().Should().Be("mine");
     }
 
-    [Fact]
+    [Test]
     public void RoutesASynchronousHandlerAndAnswersWithItsResponse()
     {
         var engine = Handler("globalThis.handler = { fetch(request) { return new Response('hello ' + request.method, { status: 201, statusText: 'Created' }); } };");
@@ -167,7 +167,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("hello GET");
     }
 
-    [Fact]
+    [Test]
     public void TheRequestTheScriptSeesCarriesTheUrlMethodHeadersAndBody()
     {
         var engine = Handler("""
@@ -210,7 +210,7 @@ public class WebApiFetchHandlerTests
         payload.Dispose();
     }
 
-    [Fact]
+    [Test]
     public void TheMethodIsNormalizedTheWayTheRequestConstructorNormalizesIt()
     {
         var engine = Handler("globalThis.handler = request => new Response(request.method);");
@@ -223,7 +223,7 @@ public class WebApiFetchHandlerTests
         Text(untouched).Should().Be("patch");
     }
 
-    [Fact]
+    [Test]
     public void MultiValuedHeadersSurviveInBothDirections()
     {
         var engine = Handler("""
@@ -257,7 +257,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AContentHeaderLandsOnTheContentAndAFramingHeaderIsTheHostsOwn()
     {
         var engine = Handler("""
@@ -283,7 +283,7 @@ public class WebApiFetchHandlerTests
         response.Content.Headers.ContentLength.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AContentHeaderOnABodilessResponseStillReachesTheWire()
     {
         var engine = Handler("globalThis.handler = () => new Response(null, { status: 200, headers: { 'content-type': 'application/json' } });");
@@ -293,7 +293,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ThePromiseHandlerCompletesOnAPumpedTurn()
     {
         var engine = Handler("globalThis.handler = { async fetch(request) { return new Response('async'); } };");
@@ -308,7 +308,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("async");
     }
 
-    [Fact]
+    [Test]
     public async Task ThePromiseHandlerCompletesThroughTheAwaitableVariant()
     {
         var engine = Handler("globalThis.handler = { async fetch(request) { return new Response('awaited ' + request.url); } };");
@@ -317,7 +317,7 @@ public class WebApiFetchHandlerTests
         (await response.Content.ReadAsStringAsync()).Should().Be("awaited https://example.org/x");
     }
 
-    [Fact]
+    [Test]
     public async Task TheAwaitableVariantReadsARequestBodyWithoutABufferedContent()
     {
         var engine = Handler("globalThis.handler = { async fetch(request) { return new Response(await request.text()); } };");
@@ -331,7 +331,7 @@ public class WebApiFetchHandlerTests
         (await response.Content.ReadAsStringAsync()).Should().Be("streamed");
     }
 
-    [Fact]
+    [Test]
     public void ATimerInsideTheHandlerRunsWhileTheHostPumps()
     {
         var engine = Handler(
@@ -345,7 +345,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("late");
     }
 
-    [Fact]
+    [Test]
     public void AHandlerThatThrowsFaultsTheOperationWithTheJavaScriptException()
     {
         var engine = Handler("globalThis.handler = () => { throw new TypeError('boom'); };");
@@ -358,14 +358,14 @@ public class WebApiFetchHandlerTests
 
         // Never a synthesized 500: what a failure means on the wire is the host's decision, so the failure
         // arrives as the exception it was.
-        var failure = Assert.IsType<JavaScriptException>(operation.Error);
+        var failure = operation.Error.Should().BeOfType<JavaScriptException>().Which;
         failure.Error.Get("name").AsString().Should().Be("TypeError");
         failure.Message.Should().Be("boom");
 
         Assert.Throws<JavaScriptException>(() => operation.GetResult());
     }
 
-    [Fact]
+    [Test]
     public void AnAsyncHandlerThatThrowsFaultsWithTheRejection()
     {
         var engine = Handler("globalThis.handler = { async fetch() { throw new Error('later'); } };");
@@ -381,23 +381,23 @@ public class WebApiFetchHandlerTests
 
         // A throw inside an async function is a rejection, and a rejection reaching a host is a
         // PromiseRejectedException everywhere else in Jint too.
-        var failure = Assert.IsType<PromiseRejectedException>(operation.Error);
+        var failure = operation.Error.Should().BeOfType<PromiseRejectedException>().Which;
         failure.RejectedValue.AsObject().Get("message").AsString().Should().Be("later");
     }
 
-    [Fact]
+    [Test]
     public async Task TheAwaitableVariantThrowsWhatTheHandlerFailedWith()
     {
         var throwing = Handler("globalThis.handler = () => { throw new TypeError('sync boom'); };");
-        var syncFailure = await Assert.ThrowsAsync<JavaScriptException>(() => throwing.WebApi.InvokeFetchHandlerAsync(Get()));
+        var syncFailure = Assert.ThrowsAsync<JavaScriptException>(() => throwing.WebApi.InvokeFetchHandlerAsync(Get()))!;
         syncFailure.Message.Should().Be("sync boom");
 
         var rejecting = Handler("globalThis.handler = { async fetch() { throw new Error('async boom'); } };");
-        var asyncFailure = await Assert.ThrowsAsync<PromiseRejectedException>(() => rejecting.WebApi.InvokeFetchHandlerAsync(Get()));
+        var asyncFailure = Assert.ThrowsAsync<PromiseRejectedException>(() => rejecting.WebApi.InvokeFetchHandlerAsync(Get()))!;
         asyncFailure.RejectedValue.AsObject().Get("message").AsString().Should().Be("async boom");
     }
 
-    [Fact]
+    [Test]
     public void AnExecutionConstraintThatFiresFaultsTheOperation()
     {
         var engine = Handler(
@@ -408,7 +408,7 @@ public class WebApiFetchHandlerTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<StatementsCountOverflowException>(operation.Error);
+        operation.Error.Should().BeOfType<StatementsCountOverflowException>();
 
         // The budget is per entry into the engine, so the engine is still usable afterwards — a handler that
         // stays inside it answers normally.
@@ -418,7 +418,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("cheap");
     }
 
-    [Fact]
+    [Test]
     public void TheWorkersModuleConventionIsRegisteredFromAModuleNamespace()
     {
         var engine = Host();
@@ -431,7 +431,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("from https://example.org/m");
     }
 
-    [Fact]
+    [Test]
     public void TheHandlerObjectIsTheReceiverSoItsSiblingsAreReachable()
     {
         var engine = Handler("""
@@ -445,7 +445,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void APlainFunctionIsAcceptedAndSeesNoReceiver()
     {
         var engine = Handler("globalThis.handler = function (request) { return new Response(this === globalThis ? 'global' : 'other'); };");
@@ -457,21 +457,21 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("global");
     }
 
-    [Fact]
+    [Test]
     public void SomethingThatIsNotAHandlerIsRefusedAtRegistration()
     {
         var engine = Host();
         engine.Execute("globalThis.notAHandler = { fetch: 42 };");
 
         // Refused where the host made the mistake, not on the first request in production.
-        var failure = Assert.Throws<ArgumentException>(() => engine.WebApi.SetFetchHandler(engine.GetValue("notAHandler")));
+        var failure = Assert.Throws<ArgumentException>(() => engine.WebApi.SetFetchHandler(engine.GetValue("notAHandler")))!;
         failure.Message.Should().Contain("export default { fetch(request)");
 
         Assert.Throws<ArgumentException>(() => engine.WebApi.SetFetchHandler(JsNumber.Create(1)));
         engine.WebApi.HasFetchHandler.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheHandlerCanBeReplacedAndCleared()
     {
         var engine = Handler("globalThis.handler = () => new Response('first');");
@@ -486,37 +486,37 @@ public class WebApiFetchHandlerTests
         engine.WebApi.SetFetchHandler(null);
         engine.WebApi.HasFetchHandler.Should().BeFalse();
 
-        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()));
+        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()))!;
         failure.Message.Should().Contain("SetFetchHandler");
     }
 
-    [Fact]
+    [Test]
     public void AHandlerThatAnswersSomethingOtherThanAResponseFails()
     {
         var direct = Handler("globalThis.handler = () => 'just a string';");
         var operation = direct.WebApi.InvokeFetchHandler(Get());
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("must answer with a Response");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("must answer with a Response");
 
         // ... and the same when it arrives a turn later, where escaping would erupt out of the host's pump.
         var deferred = Handler("globalThis.handler = { async fetch() { return { status: 200 }; } };");
         var deferredOperation = deferred.WebApi.InvokeFetchHandler(Get());
         deferred.Tasks.ProcessTasks();
         deferredOperation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(deferredOperation.Error);
+        deferredOperation.Error.Should().BeOfType<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void ANetworkErrorResponseIsNotSendable()
     {
         var engine = Handler("globalThis.handler = () => Response.error();");
 
         var operation = engine.WebApi.InvokeFetchHandler(Get());
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("Response.error()");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("Response.error()");
     }
 
-    [Fact]
+    [Test]
     public void TheRequestUriMustBeAbsolute()
     {
         var engine = Handler("globalThis.handler = () => new Response('x');");
@@ -525,10 +525,10 @@ public class WebApiFetchHandlerTests
         var operation = engine.WebApi.InvokeFetchHandler(relative);
 
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("relative");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("relative");
     }
 
-    [Fact]
+    [Test]
     public void ArgumentFailuresAreTheHostsOwn()
     {
         var engine = Handler("globalThis.handler = () => new Response('x');");
@@ -537,11 +537,11 @@ public class WebApiFetchHandlerTests
 
         var pending = Handler("globalThis.handler = { async fetch() { return new Response('x'); } };");
         var operation = pending.WebApi.InvokeFetchHandler(Get());
-        Assert.Throws<InvalidOperationException>(() => operation.GetResult())
+        Assert.Throws<InvalidOperationException>(() => operation.GetResult())!
             .Message.Should().Contain("ProcessTasks");
     }
 
-    [Fact]
+    [Test]
     public void SequentialInvocationsReuseTheEngine()
     {
         var engine = Handler("""
@@ -566,7 +566,7 @@ public class WebApiFetchHandlerTests
             .Should().Be("https://example.org/1,https://example.org/2,https://example.org/3");
     }
 
-    [Fact]
+    [Test]
     public void APooledEngineRestoresItsGlobalsBetweenRequests()
     {
         var engine = Handler("""
@@ -596,7 +596,7 @@ public class WebApiFetchHandlerTests
         engine.WebApi.HasFetchHandler.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnInvocationTheEngineFencedOffCompletesAsFaulted()
     {
         var engine = Handler("globalThis.handler = { async fetch() { return new Response('never'); } };");
@@ -611,7 +611,7 @@ public class WebApiFetchHandlerTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("abandoned");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("abandoned");
 
         // The handler itself is host state and survives, like Engine.HostDefined.
         engine.WebApi.HasFetchHandler.Should().BeTrue();
@@ -649,7 +649,7 @@ public class WebApiFetchHandlerTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void AScriptRegisteredListenerServesTheRequestThroughThePolledShape()
     {
         var engine = Listener("addEventListener('fetch', event => event.respondWith(new Response('from ' + event.request.url, { status: 201 })));");
@@ -663,7 +663,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("from https://example.org/w");
     }
 
-    [Fact]
+    [Test]
     public async Task AScriptRegisteredListenerServesTheRequestThroughTheAwaitableShape()
     {
         var engine = Listener("""
@@ -681,7 +681,7 @@ public class WebApiFetchHandlerTests
         (await response.Content.ReadAsStringAsync()).Should().Be("echo:payload");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitHandlerAlwaysWinsOverTheScriptsListeners()
     {
         var engine = Listener("""
@@ -706,7 +706,7 @@ public class WebApiFetchHandlerTests
         Text(second).Should().Be("listener");
     }
 
-    [Fact]
+    [Test]
     public void WithoutTheFeatureFlagAListenerIsNotConsulted()
     {
         // Everything the listener form needs except the flag itself: the global addEventListener is there, so
@@ -716,12 +716,12 @@ public class WebApiFetchHandlerTests
 
         engine.Evaluate("typeof FetchEvent").AsString().Should().Be("undefined");
 
-        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()));
+        var failure = Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()))!;
         failure.Message.Should().Contain("SetFetchHandler");
         failure.Message.Should().Contain("WebApiFeatures.FetchEvents");
     }
 
-    [Fact]
+    [Test]
     public void NoListenerRespondingFailsTheOperation()
     {
         var engine = Listener("addEventListener('fetch', () => { /* looks at the request and shrugs */ });");
@@ -732,19 +732,19 @@ public class WebApiFetchHandlerTests
         // other — and it arrives through the operation rather than being thrown at the start call.
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("respondWith");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("respondWith");
     }
 
-    [Fact]
+    [Test]
     public async Task NoListenerRespondingThrowsFromTheAwaitableShape()
     {
         var engine = Listener("addEventListener('fetch', () => { });");
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get()));
+        var failure = Assert.ThrowsAsync<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get()))!;
         failure.Message.Should().Contain("respondWith");
     }
 
-    [Fact]
+    [Test]
     public void AListenerThatThrowsFaultsTheOperationWhenNoSinkIsSet()
     {
         var engine = Listener("addEventListener('fetch', () => { throw new TypeError('listener boom'); });");
@@ -755,12 +755,12 @@ public class WebApiFetchHandlerTests
         // unchanged — and the invoke turns it into the operation's failure, exactly as it does for a handler
         // that threw.
         operation.IsFaulted.Should().BeTrue();
-        var failure = Assert.IsType<JavaScriptException>(operation.Error);
+        var failure = operation.Error.Should().BeOfType<JavaScriptException>().Which;
         failure.Error.Get("name").AsString().Should().Be("TypeError");
         failure.Message.Should().Be("listener boom");
     }
 
-    [Fact]
+    [Test]
     public void AListenerThatThrowsIsReportedAndALaterOneStillAnswers()
     {
         var sink = new RecordingSink();
@@ -779,7 +779,7 @@ public class WebApiFetchHandlerTests
         sink.Reports.Should().Contain(report => report.Kind == DiagnosticEventKind.UncaughtCallbackError);
     }
 
-    [Fact]
+    [Test]
     public void AConstraintThatFiresDuringTheDispatchFaultsTheOperation()
     {
         var engine = Listener(
@@ -793,7 +793,7 @@ public class WebApiFetchHandlerTests
         // polling a promise that can never settle.
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<StatementsCountOverflowException>(operation.Error);
+        operation.Error.Should().BeOfType<StatementsCountOverflowException>();
     }
 
     // ---- the dispatch is one constraint run, however many listeners it invokes ----
@@ -869,7 +869,7 @@ public class WebApiFetchHandlerTests
         return probe.StatementsInLastRun;
     }
 
-    [Fact]
+    [Test]
     public void TheWholeDispatchIsOneConstraintRunWhateverTheListenerCount()
     {
         var log = new List<string>();
@@ -896,7 +896,7 @@ public class WebApiFetchHandlerTests
         log.Should().Equal("reset", "first", "second", "third", "reset");
     }
 
-    [Fact]
+    [Test]
     public void EveryListenerInTheDispatchDrawsOnOneStatementAllowance()
     {
         // Half again as much as one listener's whole dispatch costs. The two listeners here carry the same
@@ -918,7 +918,7 @@ public class WebApiFetchHandlerTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<StatementsCountOverflowException>(operation.Error);
+        operation.Error.Should().BeOfType<StatementsCountOverflowException>();
 
         // Said the other way round, and without a limit involved at all: one dispatch is charged for every
         // listener it invokes, so adding one costs statements rather than starting a fresh count.
@@ -934,7 +934,7 @@ public class WebApiFetchHandlerTests
     private const string AllocatingResponder =
         "addEventListener('fetch', event => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); event.respondWith(new Response('ok')); });";
 
-    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    [Test, IgnoreUnless(nameof(MemoryAccountingAvailable), "Managed allocation accounting is unavailable on this runtime.")]
     public void EveryListenerInTheDispatchDrawsOnOneAllocationBudget()
     {
         var observed = new List<long>();
@@ -971,7 +971,7 @@ public class WebApiFetchHandlerTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<MemoryLimitExceededException>(operation.Error);
+        operation.Error.Should().BeOfType<MemoryLimitExceededException>();
     }
 
     /// <summary>Satisfies the <c>note()</c> call in the allocating listeners for a run that is not metering.</summary>
@@ -984,7 +984,7 @@ public class WebApiFetchHandlerTests
         "addEventListener('fetch', event => { var n = 0; for (var i = 0; i < 200; i++) { n += i; } "
         + "event.respondWith(Promise.resolve().then(() => { var m = 0; for (var j = 0; j < 200; j++) { m += j; } return new Response('late'); })); });";
 
-    [Fact]
+    [Test]
     public void TheTurnsPumpedAfterTheDispatchGetAFreshStatementAllowance()
     {
         // The dispatch is synchronous and so is the bracket around it. A listener that answers with a promise
@@ -1004,7 +1004,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("late");
     }
 
-    [Fact(Skip = "Managed allocation accounting is unavailable on this runtime.", SkipUnless = nameof(MemoryAccountingAvailable))]
+    [Test, IgnoreUnless(nameof(MemoryAccountingAvailable), "Managed allocation accounting is unavailable on this runtime.")]
     public void TheTurnsPumpedAfterTheDispatchStayInsideTheDispatchsAllocationBudget()
     {
         // Allocation is the one budget that does follow the answer out of the dispatch: a promise reaction
@@ -1053,7 +1053,7 @@ public class WebApiFetchHandlerTests
         });
     }
 
-    [Fact]
+    [Test]
     public void AListenerThatAnswersAndThenThrowsServesItsResponseWhenASinkIsSet()
     {
         var sink = new RecordingSink();
@@ -1069,7 +1069,7 @@ public class WebApiFetchHandlerTests
         sink.Reports.Should().Contain(report => report.Kind == DiagnosticEventKind.UncaughtCallbackError);
     }
 
-    [Fact]
+    [Test]
     public void AListenerThatAnswersAndThenThrowsFailsTheOperationWithNoSink()
     {
         var engine = Listener("addEventListener('fetch', event => { event.respondWith(new Response('answered')); throw new Error('after answering'); });");
@@ -1080,10 +1080,10 @@ public class WebApiFetchHandlerTests
         // to report to, preferring the response would lose the exception entirely — so the exception wins and
         // the host sees the failure, which is the same bargain every other engine-invoked callback makes.
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<JavaScriptException>(operation.Error).Message.Should().Be("after answering");
+        operation.Error.Should().BeOfType<JavaScriptException>().Which.Message.Should().Be("after answering");
     }
 
-    [Fact]
+    [Test]
     public void TheDispatchIsAHostEntryAndArmsTheConstraintsAfresh()
     {
         // The loop is there so the listener runs past the amortized check cadence: a wall-clock constraint is
@@ -1104,7 +1104,7 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("answered");
     }
 
-    [Fact]
+    [Test]
     public void AListenerInvocationTheEngineFencedOffCompletesAsFaulted()
     {
         var engine = Listener("addEventListener('fetch', event => event.respondWith(new Promise(() => { })));");
@@ -1120,10 +1120,10 @@ public class WebApiFetchHandlerTests
 
         operation.IsCompleted.Should().BeTrue();
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<InvalidOperationException>(operation.Error).Message.Should().Contain("abandoned");
+        operation.Error.Should().BeOfType<InvalidOperationException>().Which.Message.Should().Contain("abandoned");
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureInstallsTheObjectModelBeforeAnyScriptRuns()
     {
         // Unlike the SetFetchHandler door, whose install happens when the host registers, this one is part of

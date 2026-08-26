@@ -10,7 +10,7 @@ public class NodeStyleModuleLoaderTests
     // Relative and absolute specifiers: DefaultModuleLoader behaviour, base-path restriction included.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ResolvesARelativeSpecifierAgainstTheImportingModule()
     {
         using var tree = new PackageTree();
@@ -25,7 +25,7 @@ public class NodeStyleModuleLoaderTests
         resolved.Uri!.LocalPath.Should().Be(tree.PathOf("app/lib/util.js"));
     }
 
-    [Fact]
+    [Test]
     public void ResolvesARelativeSpecifierAgainstTheBasePathWhenThereIsNoReferrer()
     {
         using var tree = new PackageTree();
@@ -38,9 +38,8 @@ public class NodeStyleModuleLoaderTests
         resolved.Uri!.LocalPath.Should().Be(tree.PathOf("main.js"));
     }
 
-    [Theory]
-    [InlineData("../outside.js")]
-    [InlineData("./../../outside.js")]
+    [TestCase("../outside.js")]
+    [TestCase("./../../outside.js")]
     public void RefusesAPathAboveTheBasePath(string specifier)
     {
         using var tree = new PackageTree();
@@ -54,7 +53,7 @@ public class NodeStyleModuleLoaderTests
         exception.ResolverAlgorithmError.Should().Be("Unauthorized Module Path");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnAbsoluteUriThatIsNotAFile()
     {
         using var tree = new PackageTree();
@@ -65,7 +64,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().Be("Unauthorized Module Path");
     }
 
-    [Fact]
+    [Test]
     public void RefusesANodeBuiltinSpecifier()
     {
         using var tree = new PackageTree();
@@ -76,9 +75,8 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Unsupported Module Scheme");
     }
 
-    [Theory]
-    [InlineData("./lib%2F../../outside.js")]
-    [InlineData("./lib%5Cutil.js")]
+    [TestCase("./lib%2F../../outside.js")]
+    [TestCase("./lib%5Cutil.js")]
     public void RefusesAPercentEncodedSeparator(string specifier)
     {
         using var tree = new PackageTree();
@@ -89,7 +87,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Module Specifier");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnImportsSpecifier()
     {
         using var tree = new PackageTree();
@@ -104,7 +102,7 @@ public class NodeStyleModuleLoaderTests
     // PACKAGE_RESOLVE: the node_modules walk, "main" and the index fallback.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ResolvesAPackageThroughItsMainField()
     {
         using var tree = new PackageTree();
@@ -117,7 +115,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/lib/entry.js"));
     }
 
-    [Fact]
+    [Test]
     public void FallsBackToIndexJsWhenThereIsNoMain()
     {
         using var tree = new PackageTree();
@@ -130,7 +128,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void FallsBackToIndexJsWhenMainNamesNothingThatExists()
     {
         // Node's legacyMainResolve falls through to the index candidates rather than failing on a stale "main".
@@ -144,7 +142,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void ResolvesAPackageDirectoryThatCarriesNoPackageJsonAtAll()
     {
         using var tree = new PackageTree();
@@ -156,7 +154,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void ReportsAPackageThatResolvesToNothing()
     {
         using var tree = new PackageTree();
@@ -171,7 +169,7 @@ public class NodeStyleModuleLoaderTests
         exception.ResolverAlgorithmError.Should().Contain("index.js");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesASubpathOfAPackageWithoutExports()
     {
         using var tree = new PackageTree();
@@ -184,7 +182,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/extra/feature.js"));
     }
 
-    [Fact]
+    [Test]
     public void WalksUpwardsFromTheImportingModule()
     {
         using var tree = new PackageTree();
@@ -198,7 +196,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/dep/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void ANestedNodeModulesShadowsTheOuterPackage()
     {
         using var tree = new PackageTree();
@@ -215,7 +213,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/host/node_modules/dep/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void TheWalkNeverLeavesTheBasePath()
     {
         using var tree = new PackageTree();
@@ -230,7 +228,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(SpecifierType.Bare);
     }
 
-    [Fact]
+    [Test]
     public void ResolvesAScopedPackage()
     {
         using var tree = new PackageTree();
@@ -243,7 +241,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/@org/pkg/src/feature.js"));
     }
 
-    [Fact]
+    [Test]
     public void RefusesAScopeWithoutAPackageName()
     {
         using var tree = new PackageTree();
@@ -254,7 +252,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Module Specifier");
     }
 
-    [Fact]
+    [Test]
     public void ABareSpecifierThatMatchesNoPackageIsHandedBackUnresolved()
     {
         using var tree = new PackageTree();
@@ -267,7 +265,7 @@ public class NodeStyleModuleLoaderTests
         resolved.Uri.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AModuleRegisteredWithModulesAddIsStillImportable()
     {
         using var tree = new PackageTree();
@@ -277,7 +275,7 @@ public class NodeStyleModuleLoaderTests
         engine.Modules.Import("registered").Get("value").AsString().Should().Be("from the registry");
     }
 
-    [Fact]
+    [Test]
     public void AnImportOfANameThatIsNeitherAPackageNorRegisteredSaysSo()
     {
         using var tree = new PackageTree();
@@ -292,7 +290,7 @@ public class NodeStyleModuleLoaderTests
     // PACKAGE_EXPORTS_RESOLVE.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ExportsTakesPrecedenceOverMain()
     {
         using var tree = new PackageTree();
@@ -306,7 +304,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/exported.js"));
     }
 
-    [Fact]
+    [Test]
     public void ResolvesTheDotEntryOfAnExportsMap()
     {
         using var tree = new PackageTree();
@@ -322,7 +320,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/src/extra.js"));
     }
 
-    [Fact]
+    [Test]
     public void ASubpathTheExportsMapDoesNotNameIsRefused()
     {
         using var tree = new PackageTree();
@@ -339,7 +337,7 @@ public class NodeStyleModuleLoaderTests
         exception.ResolverAlgorithmError.Should().Contain("./internal.js");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitNullTargetBlocksASubpath()
     {
         using var tree = new PackageTree();
@@ -357,7 +355,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Package Path Not Exported");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitNullTargetStopsTheConditionLoopRatherThanFallingThrough()
     {
         // The one place null and "no match" differ: PACKAGE_TARGET_RESOLVE step 2.2.3 continues only for
@@ -377,7 +375,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/fallback.js"));
     }
 
-    [Fact]
+    [Test]
     public void ExportsNullFallsThroughToMain()
     {
         // "exports": null is "not null or undefined" being false, so the package is not encapsulated at all.
@@ -391,7 +389,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/main.js"));
     }
 
-    [Fact]
+    [Test]
     public void ATargetThatLeavesThePackageIsAnInvalidPackageTarget()
     {
         using var tree = new PackageTree();
@@ -405,7 +403,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Package Target");
     }
 
-    [Fact]
+    [Test]
     public void ATargetThatDoesNotStartWithDotSlashIsAnInvalidPackageTarget()
     {
         using var tree = new PackageTree();
@@ -419,7 +417,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().Contain("must start with './'");
     }
 
-    [Fact]
+    [Test]
     public void MixingSubpathKeysWithConditionKeysIsAnInvalidPackageConfiguration()
     {
         using var tree = new PackageTree();
@@ -433,7 +431,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Package Configuration");
     }
 
-    [Fact]
+    [Test]
     public void AMalformedPackageJsonIsAnInvalidPackageConfiguration()
     {
         using var tree = new PackageTree();
@@ -447,7 +445,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Package Configuration");
     }
 
-    [Fact]
+    [Test]
     public void ADirectoryNamedByAnExportsTargetIsAnUnsupportedDirectoryImport()
     {
         using var tree = new PackageTree();
@@ -465,7 +463,7 @@ public class NodeStyleModuleLoaderTests
     // Conditional exports: order-sensitive, and decided by the package's own key order.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ConditionsAreTriedInThePackagesOwnKeyOrder()
     {
         // Both objects hold the same two conditions, and both of them match. Only the order differs, and the
@@ -486,7 +484,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/default-first/fallback.js"));
     }
 
-    [Fact]
+    [Test]
     public void AConditionThatIsNotConfiguredIsSkipped()
     {
         using var tree = new PackageTree();
@@ -503,7 +501,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/node.js"));
     }
 
-    [Fact]
+    [Test]
     public void APackageOfferingOnlyRequireIsRefused()
     {
         using var tree = new PackageTree();
@@ -517,7 +515,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Package Path Not Exported");
     }
 
-    [Fact]
+    [Test]
     public void ConditionsNestNestedObjects()
     {
         using var tree = new PackageTree();
@@ -530,7 +528,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/esm.js"));
     }
 
-    [Fact]
+    [Test]
     public void AFallbackArrayTriesEachEntryInTurn()
     {
         using var tree = new PackageTree();
@@ -547,7 +545,7 @@ public class NodeStyleModuleLoaderTests
     // Subpath patterns.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void APatternExportExpandsEveryStar()
     {
         using var tree = new PackageTree();
@@ -561,7 +559,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/src/features/nested/one.js"));
     }
 
-    [Fact]
+    [Test]
     public void TheMostSpecificPatternWins()
     {
         // PATTERN_KEY_COMPARE orders by prefix length first: "./a/b/*" has to beat "./a/*" for "./a/b/x.js"
@@ -577,7 +575,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/specific/x.js"));
     }
 
-    [Fact]
+    [Test]
     public void AnExactKeyBeatsAPatternThatWouldAlsoMatch()
     {
         using var tree = new PackageTree();
@@ -591,7 +589,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/special-impl.js"));
     }
 
-    [Fact]
+    [Test]
     public void APatternMatchThatTraversesIsRefused()
     {
         using var tree = new PackageTree();
@@ -605,7 +603,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Invalid Module Specifier");
     }
 
-    [Fact]
+    [Test]
     public void ASubpathEndingInASlashIsRefused()
     {
         using var tree = new PackageTree();
@@ -623,7 +621,7 @@ public class NodeStyleModuleLoaderTests
     // PACKAGE_SELF_RESOLVE.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void APackageCanImportItselfByNameThroughItsExports()
     {
         using var tree = new PackageTree();
@@ -638,7 +636,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("foo.js"));
     }
 
-    [Fact]
+    [Test]
     public void ASelfReferenceOnlyReachesWhatExportsAllows()
     {
         using var tree = new PackageTree();
@@ -655,7 +653,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Package Path Not Exported");
     }
 
-    [Fact]
+    [Test]
     public void ASelfReferenceNeedsAnExportsField()
     {
         using var tree = new PackageTree();
@@ -671,7 +669,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(SpecifierType.Bare);
     }
 
-    [Fact]
+    [Test]
     public void ThePackageScopeStopsAtNodeModules()
     {
         // LOOKUP_PACKAGE_SCOPE returns null once it reaches a node_modules segment, so a package inside
@@ -691,7 +689,7 @@ public class NodeStyleModuleLoaderTests
     // JSON modules and extension probing.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void AJsonTargetNeedsTheTypeImportAttribute()
     {
         using var tree = new PackageTree();
@@ -708,7 +706,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("node_modules/pkg/data.json"));
     }
 
-    [Fact]
+    [Test]
     public void JsonModulesCanBeTurnedOffAltogether()
     {
         using var tree = new PackageTree();
@@ -721,7 +719,7 @@ public class NodeStyleModuleLoaderTests
             .Which.ResolverAlgorithmError.Should().StartWith("Unsupported JSON Module");
     }
 
-    [Fact]
+    [Test]
     public void ExtensionProbingIsOffByDefault()
     {
         using var tree = new PackageTree();
@@ -739,7 +737,7 @@ public class NodeStyleModuleLoaderTests
             .Should().ThrowExactly<ModuleResolutionException>();
     }
 
-    [Fact]
+    [Test]
     public void ExtensionProbingResolvesAnExtensionlessSpecifierAndADirectoryIndex()
     {
         using var tree = new PackageTree();
@@ -755,7 +753,7 @@ public class NodeStyleModuleLoaderTests
             .Should().Be(tree.PathOf("app/dir/index.js"));
     }
 
-    [Fact]
+    [Test]
     public void ExtensionProbingReachesAPackageMainWithoutAnExtension()
     {
         using var tree = new PackageTree();
@@ -776,7 +774,7 @@ public class NodeStyleModuleLoaderTests
     // Error messages, and what they are allowed to name.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ErrorMessagesNamePathsRelativeToTheBasePath()
     {
         using var tree = new PackageTree();
@@ -798,7 +796,7 @@ public class NodeStyleModuleLoaderTests
     // End to end.
     // ---------------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void ATwoPackageGraphExecutes()
     {
         using var tree = new PackageTree();
@@ -816,7 +814,7 @@ public class NodeStyleModuleLoaderTests
         ns.Get("message").AsString().Should().Be("hello WORLD");
     }
 
-    [Fact]
+    [Test]
     public void APackageImportedByNameExecutes()
     {
         using var tree = new PackageTree();
@@ -829,7 +827,7 @@ public class NodeStyleModuleLoaderTests
         engine.Modules.Import("pkg").Get("value").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void APackageIsLoadedOnceHoweverManyModulesImportIt()
     {
         using var tree = new PackageTree();

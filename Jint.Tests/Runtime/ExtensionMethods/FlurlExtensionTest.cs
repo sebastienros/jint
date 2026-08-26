@@ -4,7 +4,7 @@ namespace Jint.Tests.Runtime.ExtensionMethods;
 
 public class FlurlExtensionTest
 {
-    [RunnableInDebugOnlyAttribute]
+    [Test, RunnableInDebugOnly]
     public void CanUseFlurlExtensionMethods()
     {
         var engine = new Engine(options =>

@@ -56,7 +56,7 @@ public partial class InteropTests : IDisposable
         public string Test { get; set; } = "123";
     }
 
-    [Fact]
+    [Test]
     public void ShouldStringifyNetObjects()
     {
         _engine.SetValue("foo", typeof(Foo));
@@ -65,7 +65,7 @@ public partial class InteropTests : IDisposable
     }
 
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyADictionary()
     {
         var engine = new Engine();
@@ -77,7 +77,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate($"JSON.stringify(d)").AsString().Should().Be("{\"Values\":1}");
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyADictionaryOfStringAndObjectCorrectly()
     {
         var engine = new Engine();
@@ -93,7 +93,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("{\"foo\":5,\"bar\":\"A string\"}");
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyDictionaryShouldNotBeTreatedAsArrayLike()
     {
         var engine = new Engine();
@@ -112,7 +112,7 @@ public partial class InteropTests : IDisposable
         keys.Length.Should().Be((uint) 2);
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldRoundtripParsedJSONBackToStringCorrectly()
     {
         var engine = new Engine();
@@ -125,7 +125,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be(json);
     }
 
-    [Fact]
+    [Test]
     public void PrimitiveTypesCanBeSet()
     {
         _engine.SetValue("x", 10);
@@ -139,7 +139,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void TypePropertyAccess()
     {
         var userClass = new Person();
@@ -152,7 +152,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("Person");
     }
 
-    [Fact]
+    [Test]
     public void CanAccessMemberNamedItem()
     {
         _engine.Execute(@"
@@ -185,7 +185,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("c['key']").Should().Be("value");
     }
 
-    [Fact]
+    [Test]
     public void DelegatesCanBeSet()
     {
         _engine.SetValue("square", new Func<double, double>(x => x * x));
@@ -195,7 +195,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithNullableParameterCanBePassedANull()
     {
         _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
@@ -205,7 +205,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithObjectParameterCanBePassedANull()
     {
         _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
@@ -215,7 +215,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithNullableParameterCanBePassedAnUndefined()
     {
         _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
@@ -225,7 +225,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithObjectParameterCanBePassedAnUndefined()
     {
         _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
@@ -235,7 +235,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithNullableParameterCanBeExcluded()
     {
         _engine.SetValue("isnull", new Func<double?, bool>(x => x == null));
@@ -245,7 +245,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DelegateWithObjectParameterCanBeExcluded()
     {
         _engine.SetValue("isnull", new Func<object, bool>(x => x == null));
@@ -255,7 +255,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DynamicDelegateCanBeSet()
     {
 #if NETFRAMEWORK
@@ -275,7 +275,7 @@ public partial class InteropTests : IDisposable
 #endif
     }
 
-    [Fact]
+    [Test]
     public void ExtraParametersAreIgnored()
     {
         _engine.SetValue("passNumber", new Func<int, int>(x => x));
@@ -303,7 +303,7 @@ public partial class InteropTests : IDisposable
         }
     }
 
-    [Fact]
+    [Test]
     public void ExchangeGenericViaFunc()
     {
         _engine.SetValue("Example", new Example());
@@ -319,7 +319,7 @@ public partial class InteropTests : IDisposable
         ");
     }
 
-    [Fact]
+    [Test]
     public void ExchangeObjectViaFunc()
     {
         _engine.SetValue("Example", new Example());
@@ -335,7 +335,7 @@ public partial class InteropTests : IDisposable
         ");
     }
 
-    [Fact]
+    [Test]
     public void ExchangeValueViaFunc()
     {
         _engine.SetValue("Example", new Example());
@@ -353,7 +353,7 @@ public partial class InteropTests : IDisposable
 
     private delegate string callArgumentAndParams(string firstParam, params object[] values);
 
-    [Fact]
+    [Test]
     public void DelegatesWithParamsParameterCanBeInvoked()
     {
         var a = new A();
@@ -372,7 +372,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanGetObjectProperties()
     {
         var p = new Person
@@ -387,7 +387,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeObjectMethods()
     {
         var p = new Person
@@ -402,7 +402,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanInvokeObjectMethodsWithPascalCase()
     {
         var p = new Person
@@ -417,7 +417,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetObjectProperties()
     {
         var p = new Person
@@ -435,7 +435,7 @@ public partial class InteropTests : IDisposable
         p.Name.Should().Be("Donald Duck");
     }
 
-    [Fact]
+    [Test]
     public void CanGetIndexUsingStringKey()
     {
         var dictionary = new Dictionary<string, Person>();
@@ -450,7 +450,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetIndexUsingStringKey()
     {
         var dictionary = new Dictionary<string, Person>();
@@ -467,7 +467,7 @@ public partial class InteropTests : IDisposable
         dictionary["person2"].Name.Should().Be("Donald Duck");
     }
 
-    [Fact]
+    [Test]
     public void CanGetIndexUsingIntegerKey()
     {
         var dictionary = new Dictionary<int, string>();
@@ -482,7 +482,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetIndexUsingIntegerKey()
     {
         var dictionary = new Dictionary<int, string>();
@@ -507,7 +507,7 @@ public partial class InteropTests : IDisposable
         public string this[string index] => index;
     }
 
-    [Fact]
+    [Test]
     public void CanGetIndexUsingBothIntAndStringIndex()
     {
         var dictionary = new DoubleIndexedClass();
@@ -520,7 +520,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanUseGenericMethods()
     {
         var dictionary = new Dictionary<int, string>();
@@ -538,7 +538,7 @@ public partial class InteropTests : IDisposable
         dictionary[2].Should().Be("Goofy");
     }
 
-    [Fact]
+    [Test]
     public void CanUseMultiGenericTypes()
     {
         RunTest(@"
@@ -565,7 +565,7 @@ public partial class InteropTests : IDisposable
         Bar,
     }
 
-    [Fact]
+    [Test]
     public void CanGetIndexUsingObjectKey()
     {
         // repro from https://github.com/sebastienros/jint/issues/2441
@@ -581,7 +581,7 @@ public partial class InteropTests : IDisposable
         result.AsString().Should().Be("value1");
     }
 
-    [Fact]
+    [Test]
     public void CanSetIndexUsingObjectKey()
     {
         var model = new DictionaryKeyModel();
@@ -596,7 +596,7 @@ public partial class InteropTests : IDisposable
         dictionary[model].Should().Be("updated");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_MissingKeyReturnsUndefined()
     {
         var model = new DictionaryKeyModel();
@@ -613,7 +613,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("obj[absent] === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_HasReturnsTrueForPresentKey()
     {
         var present = new DictionaryKeyModel();
@@ -630,7 +630,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("absent in obj").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_DeleteRemovesEntry()
     {
         var model = new DictionaryKeyModel();
@@ -645,7 +645,7 @@ public partial class InteropTests : IDisposable
         dictionary.ContainsKey(model).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyDictionary_WithObjectKey_AllowsRead()
     {
         var model = new DictionaryKeyModel();
@@ -660,7 +660,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("'' + obj[model]").AsString().Should().Be("value1");
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyDictionary_WithObjectKey_HasReturnsTrueForPresentKey()
     {
         var present = new DictionaryKeyModel();
@@ -677,7 +677,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("absent in obj").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_DerivedKeyTypeWorks()
     {
         var derived = new DictionaryKeyDerivedModel();
@@ -691,7 +691,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("'' + obj[model]").AsString().Should().Be("fromDerived");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_StructKey()
     {
         var key = Guid.NewGuid();
@@ -705,7 +705,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("'' + obj[key]").AsString().Should().Be("valueForGuid");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_SetWithIncompatibleValueType_SloppyMode_NoOp()
     {
         var model = new DictionaryKeyModel();
@@ -721,7 +721,7 @@ public partial class InteropTests : IDisposable
         dictionary[model].Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_EnumKey()
     {
         var dictionary = new Dictionary<DictionaryKeyEnum, string>
@@ -737,7 +737,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("'' + obj[bar]").AsString().Should().Be("barValue");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_IntegerKeyReturnsUndefined()
     {
         // a JS number key against an object-keyed dictionary should return undefined cleanly,
@@ -752,7 +752,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("obj[42] === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IntegerKeyedDictionary_ResolvesByNumericKey()
     {
         // Dictionary<int, T> went through the IsStringKeyedGenericDictionary path before this
@@ -778,7 +778,7 @@ public partial class InteropTests : IDisposable
         dictionary.ContainsKey(1).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_SymbolKeyHandledByBase()
     {
         // symbol keys must not be hijacked by the new non-string-keyed dict branches —
@@ -793,7 +793,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("typeof obj[Symbol.iterator]").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_NullKeyReturnsUndefined()
     {
         // null/undefined JS keys must short-circuit cleanly, not crash with ArgumentNullException
@@ -810,7 +810,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("delete obj[null]; null in obj").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_NullKeyAssignment_SloppyMode_NoOp()
     {
         // mirror of the read-side null guard: assigning to obj[null] must not crash with
@@ -827,7 +827,7 @@ public partial class InteropTests : IDisposable
         dictionary.Values.Should().NotContain("should not stick");
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_ObjectValuedDictionary_StoresUnwrappedClrValue()
     {
         // Dictionary<TKey, object> must receive the unwrapped CLR value, not the raw JsValue —
@@ -842,7 +842,7 @@ public partial class InteropTests : IDisposable
         dictionary[model].Should().BeOfType<string>();
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_SetWithIncompatibleValueType_StrictMode_Throws()
     {
         // strict mode must escalate the [[Set]] failure to a TypeError
@@ -859,7 +859,7 @@ public partial class InteropTests : IDisposable
         dictionary[model].Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ObjectKeyDictionary_FrozenWrapper_BlocksWrites()
     {
         // Object.freeze on the wrapper sets Extensible=false, which the [[Set]] path treats as
@@ -884,7 +884,7 @@ public partial class InteropTests : IDisposable
         dictionary[model].Should().Be("value1");
     }
 
-    [Fact]
+    [Test]
     public void NonWritableArrayElement_ThrowsOnIndexWrite_StrictMode()
     {
         // https://github.com/sebastienros/jint/issues/2541
@@ -929,7 +929,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("context.property[0]").Should().Be(before);
     }
 
-    [Fact]
+    [Test]
     public void NonWritableArrayElement_SilentlyIgnoresIndexWrite_NonStrict()
     {
         // Non-strict counterpart of https://github.com/sebastienros/jint/issues/2541:
@@ -989,7 +989,7 @@ public partial class InteropTests : IDisposable
         }
     }
 
-    [Fact]
+    [Test]
     public void FrozenListWrapper_BlocksIndexWrite_StrictMode()
     {
         // https://github.com/sebastienros/jint/issues/2541 (interop-wrapper variant)
@@ -1006,7 +1006,7 @@ public partial class InteropTests : IDisposable
         list[0].Should().Be("a"); // not mutated
     }
 
-    [Fact]
+    [Test]
     public void FrozenListWrapper_SilentlyIgnoresIndexWrite_NonStrict()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -1018,7 +1018,7 @@ public partial class InteropTests : IDisposable
         list[0].Should().Be("a"); // ...but silently ignored, not mutated
     }
 
-    [Fact]
+    [Test]
     public void WritableListWrapper_AllowsIndexWrite()
     {
         // The frozen guard must not regress ordinary writable element assignment through the wrapper.
@@ -1030,7 +1030,7 @@ public partial class InteropTests : IDisposable
         list[0].Should().Be("changed");
     }
 
-    [Fact]
+    [Test]
     public void ReadOnlyCollectionWrapper_RejectsIndexWriteCleanly()
     {
         // A runtime read-only IList<T> (e.g. List<T>.AsReadOnly()) reaches GenericListWrapper, whose
@@ -1052,7 +1052,7 @@ public partial class InteropTests : IDisposable
         readOnly[0].Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CanUseIndexOnCollection()
     {
         var collection = new System.Collections.ObjectModel.Collection<string>();
@@ -1070,7 +1070,7 @@ public partial class InteropTests : IDisposable
         collection[1].Should().Be("Donald Duck");
     }
 
-    [Fact]
+    [Test]
     public void CanUseIndexOnList()
     {
         var list = new List<object>(2);
@@ -1085,7 +1085,7 @@ public partial class InteropTests : IDisposable
         list[1].Should().Be("Donald Duck");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnLists()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1095,7 +1095,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnArrays()
     {
         _engine.SetValue("arr", new[] { "a", "b" });
@@ -1105,7 +1105,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnDictionaries()
     {
         _engine.SetValue("dict", new Dictionary<string, string> { { "a", "1" }, { "b", "2" } });
@@ -1115,7 +1115,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("a,1b,2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnEnumerable()
     {
         _engine.SetValue("c", new Company("name"));
@@ -1125,7 +1125,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("n,a,m,e,");
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowWhenForOfOnObject()
     {
         // normal objects are not iterable in javascript
@@ -1136,7 +1136,7 @@ public partial class InteropTests : IDisposable
         ex.Message.Should().Be("The value is not iterable");
     }
 
-    [Fact]
+    [Test]
     public void ShouldForOfOnProxiedList()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1149,7 +1149,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void ExtractedClrIteratorCalledWithForeignObjectThisThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1162,7 +1162,7 @@ public partial class InteropTests : IDisposable
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExtractedClrIteratorCalledWithPrimitiveThisThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1172,7 +1172,7 @@ public partial class InteropTests : IDisposable
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExtractedClrLengthGetterCalledWithForeignThisThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1184,7 +1184,7 @@ public partial class InteropTests : IDisposable
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LazilyMaterializedLengthPropertyBehavesLikeEagerOne()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1207,7 +1207,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("list.hasOwnProperty('length')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ForOfOverRevokedProxyOfClrListThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1222,7 +1222,7 @@ public partial class InteropTests : IDisposable
         ex.Error.AsObject().Prototype.Should().BeSameAs(_engine.Realm.Intrinsics.TypeError.PrototypeObject);
     }
 
-    [Fact]
+    [Test]
     public void ExtractedClrIteratorCalledOnRevokedProxyThrowsTypeError()
     {
         _engine.SetValue("list", new List<string> { "a", "b" });
@@ -1239,7 +1239,7 @@ public partial class InteropTests : IDisposable
         ex.Error.AsObject().Prototype.Should().BeSameAs(_engine.Realm.Intrinsics.TypeError.PrototypeObject);
     }
 
-    [Fact]
+    [Test]
     public void CanAccessAnonymousObject()
     {
         var p = new
@@ -1254,7 +1254,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanAccessAnonymousObjectProperties()
     {
         var p = new
@@ -1272,7 +1272,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void PocosCanReturnJsValueDirectly()
     {
         var o = new
@@ -1289,7 +1289,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void PocosCanReturnObjectInstanceDirectly()
     {
         var x = new JsObject(_engine);
@@ -1307,7 +1307,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeIsConvertedToDate()
     {
         var o = new
@@ -1322,7 +1322,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void DateTimeOffsetIsConvertedToDate()
     {
         var o = new
@@ -1337,7 +1337,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void EcmaValuesAreAutomaticallyConvertedWhenSetInPoco()
     {
         var p = new Person
@@ -1358,7 +1358,7 @@ public partial class InteropTests : IDisposable
         p.Age.Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void EcmaValuesAreAutomaticallyConvertedToBestMatchWhenSetInPoco()
     {
         var p = new Person
@@ -1377,7 +1377,7 @@ public partial class InteropTests : IDisposable
         p.Age.Should().Be(20);
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallInstanceMethodWithoutArgument()
     {
         _engine.SetValue("a", new A());
@@ -1387,7 +1387,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallInstanceMethodOverloadArgument()
     {
         _engine.SetValue("a", new A());
@@ -1397,7 +1397,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallInstanceMethodWithString()
     {
         var p = new Person();
@@ -1412,7 +1412,7 @@ public partial class InteropTests : IDisposable
         p.Name.Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void CanUseTrim()
     {
         var p = new Person { Name = "Mickey Mouse " };
@@ -1427,7 +1427,7 @@ public partial class InteropTests : IDisposable
         p.Name.Should().Be("Mickey Mouse");
     }
 
-    [Fact]
+    [Test]
     public void CanUseMathFloor()
     {
         var p = new Person();
@@ -1441,7 +1441,7 @@ public partial class InteropTests : IDisposable
         p.Age.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CanUseDelegateAsFunction()
     {
         var even = new Func<int, bool>(x => x % 2 == 0);
@@ -1489,7 +1489,7 @@ public partial class InteropTests : IDisposable
         }
     }
 
-    [Fact]
+    [Test]
     public void CanSetNullablePropertiesOnPocos()
     {
         var instance = new TestClass();
@@ -1535,7 +1535,7 @@ public partial class InteropTests : IDisposable
         public Person this[int index] => _data[index];
     }
 
-    [Fact]
+    [Test]
     public void CanAddArrayPrototypeForArrayLikeClrObjects()
     {
         var e = new Engine(cfg => cfg
@@ -1560,7 +1560,7 @@ public partial class InteropTests : IDisposable
     }
 
 
-    [Fact]
+    [Test]
     public void CanSetIsConcatSpreadableForArrays()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -1592,7 +1592,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("JSON.stringify(list1.concat(list2));").Should().Be("[[\"A\",\"B\",\"C\"],[\"D\",\"E\",\"F\"]]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertArrayToArrayInstance()
     {
         var result = _engine
@@ -1608,7 +1608,7 @@ public partial class InteropTests : IDisposable
         ((object[]) parts)[2].Should().Be(6d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertListsToArrayInstance()
     {
         var result = _engine
@@ -1624,7 +1624,7 @@ public partial class InteropTests : IDisposable
         ((object[]) parts)[2].Should().Be(6d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertArrayInstanceToArray()
     {
         var parts = _engine.Evaluate("'foo@bar.com'.split('@');").ToObject();
@@ -1635,7 +1635,7 @@ public partial class InteropTests : IDisposable
         ((object[]) parts)[1].Should().Be("bar.com");
     }
 
-    [Fact]
+    [Test]
     public void ShouldLoopWithNativeEnumerator()
     {
         JsValue adder(JsValue argValue)
@@ -1659,7 +1659,7 @@ public partial class InteropTests : IDisposable
         result.Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertBooleanInstanceToBool()
     {
         var value = _engine.Evaluate("new Boolean(true)").ToObject();
@@ -1668,7 +1668,7 @@ public partial class InteropTests : IDisposable
         value.Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowBooleanCoercion()
     {
         var engine = new Engine(options =>
@@ -1702,7 +1702,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("o.SetBool([ 1, 2, 3].length); return o.Bool;").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowNumberCoercion()
     {
         var engine = new Engine(options =>
@@ -1735,7 +1735,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("o.SetInt([ 1, 2, 3].length); return o.Int;").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowStringCoercion()
     {
         var engine = new Engine(options =>
@@ -1782,7 +1782,7 @@ public partial class InteropTests : IDisposable
         engine.Evaluate("o.SetString([ 1, 2, 3]); return o.String;").AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertDateInstanceToDateTime()
     {
         var result = _engine.Evaluate("new Date(0)");
@@ -1792,7 +1792,7 @@ public partial class InteropTests : IDisposable
         value.Kind.Should().Be(DateTimeKind.Utc);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertDateInstanceToLocalDateTime()
     {
         TimeZoneInfo timeZone;
@@ -1818,7 +1818,7 @@ public partial class InteropTests : IDisposable
         value.Kind.Should().Be(DateTimeKind.Local);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertNumberInstanceToDouble()
     {
         var result = _engine.Evaluate("new Number(10)");
@@ -1828,7 +1828,7 @@ public partial class InteropTests : IDisposable
         value.Should().Be(10d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertStringInstanceToString()
     {
         var value = _engine.Evaluate("new String('foo')").ToObject();
@@ -1837,7 +1837,7 @@ public partial class InteropTests : IDisposable
         value.Should().Be("foo");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotTryToConvertCompatibleTypes()
     {
         _engine.SetValue("a", new A());
@@ -1848,7 +1848,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotTryToConvertDerivedTypes()
     {
         _engine.SetValue("a", new A());
@@ -1859,7 +1859,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunctionCallBackAsDelegate()
     {
         _engine.SetValue("a", new A());
@@ -1869,7 +1869,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunctionCallBackAsFuncAndThisCanBeAssigned()
     {
         _engine.SetValue("a", new A());
@@ -1879,7 +1879,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunctionCallBackAsPredicate()
     {
         _engine.SetValue("a", new A());
@@ -1890,7 +1890,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunctionWithParameterCallBackAsPredicate()
     {
         _engine.SetValue("a", new A());
@@ -1901,7 +1901,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteActionCallBackAsPredicate()
     {
         _engine.SetValue("a", new A());
@@ -1914,7 +1914,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteActionWithParameterCallBackAsPredicate()
     {
         _engine.SetValue("a", new A());
@@ -1927,7 +1927,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteActionWithMultipleParametersCallBackAsPredicate()
     {
         _engine.SetValue("a", new A());
@@ -1940,7 +1940,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunc()
     {
         _engine.SetValue("a", new A());
@@ -1952,7 +1952,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteActionCallbackOnEventChanged()
     {
         var collection = new System.Collections.ObjectModel.ObservableCollection<string>();
@@ -1979,7 +1979,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("json").Should().Be("[]");
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseSystemIO()
     {
         RunTest(@"
@@ -1995,7 +1995,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportNamespace()
     {
         RunTest(@"
@@ -2006,7 +2006,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportEmptyNamespace()
     {
         RunTest("""
@@ -2022,7 +2022,7 @@ public partial class InteropTests : IDisposable
                 """);
     }
 
-    [Fact]
+    [Test]
     public void ShouldConstructReferenceTypeWithParameters()
     {
         RunTest(@"
@@ -2033,7 +2033,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConstructValueTypeWithoutParameters()
     {
         RunTest(@"
@@ -2042,7 +2042,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldInvokeAFunctionByName()
     {
         RunTest(@"
@@ -2052,7 +2052,7 @@ public partial class InteropTests : IDisposable
         _engine.Invoke("add", 1, 2).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotInvokeNonFunctionValue()
     {
         RunTest(@"
@@ -2062,7 +2062,7 @@ public partial class InteropTests : IDisposable
         Invoking(() => _engine.Invoke("x", 1, 2)).Should().ThrowExactly<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void CanGetField()
     {
         var o = new ClassWithField
@@ -2077,7 +2077,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetField()
     {
         var o = new ClassWithField();
@@ -2092,7 +2092,7 @@ public partial class InteropTests : IDisposable
         o.Field.Should().Be("Mickey Mouse");
     }
 
-    [Fact]
+    [Test]
     public void CanGetStaticField()
     {
         RunTest(@"
@@ -2102,7 +2102,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetStaticField()
     {
         RunTest(@"
@@ -2115,7 +2115,7 @@ public partial class InteropTests : IDisposable
         "hello".Should().Be(ClassWithStaticFields.Set);
     }
 
-    [Fact]
+    [Test]
     public void CanGetStaticAccessor()
     {
         RunTest(@"
@@ -2125,7 +2125,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetStaticAccessor()
     {
         RunTest(@"
@@ -2138,7 +2138,7 @@ public partial class InteropTests : IDisposable
         "hello".Should().Be(ClassWithStaticFields.Setter);
     }
 
-    [Fact]
+    [Test]
     public void CantSetStaticReadonly()
     {
         RunTest(@"
@@ -2151,7 +2151,7 @@ public partial class InteropTests : IDisposable
         "Readonly".Should().Be(ClassWithStaticFields.Readonly);
     }
 
-    [Fact]
+    [Test]
     public void CanSetCustomConverters()
     {
         var engine1 = new Engine();
@@ -2165,7 +2165,7 @@ public partial class InteropTests : IDisposable
         ((bool) engine2.GetValue("result").ToObject()).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CanConvertEnumsToString()
     {
         var engine1 = new Engine(o => o.AddObjectConverter(new EnumsToStringConverter()))
@@ -2176,7 +2176,7 @@ public partial class InteropTests : IDisposable
         ((string) engine1.GetValue("result").ToObject()).Should().Be("CurrentCulture");
     }
 
-    [Fact]
+    [Test]
     public void CanUserIncrementOperator()
     {
         var p = new Person
@@ -2193,7 +2193,7 @@ public partial class InteropTests : IDisposable
         p.Age.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void CanOverwriteValues()
     {
         _engine.SetValue("x", 3);
@@ -2204,7 +2204,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCreateGenericType()
     {
         RunTest(@"
@@ -2216,7 +2216,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void EnumComparesByName()
     {
         var o = new
@@ -2240,7 +2240,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSetEnumProperty()
     {
         var s = new Circle
@@ -2309,7 +2309,7 @@ public partial class InteropTests : IDisposable
         RunTest("assert(o.Item1 === " + s + ");");
     }
 
-    [Fact]
+    [Test]
     public void ShouldWorkWithEnumInt32()
     {
         TestEnum(TestEnumInt32.None);
@@ -2318,7 +2318,7 @@ public partial class InteropTests : IDisposable
         TestEnum(TestEnumInt32.Max);
     }
 
-    [Fact]
+    [Test]
     public void ShouldWorkWithEnumUInt32()
     {
         TestEnum(TestEnumUInt32.None);
@@ -2327,7 +2327,7 @@ public partial class InteropTests : IDisposable
         TestEnum(TestEnumUInt32.Max);
     }
 
-    [Fact]
+    [Test]
     public void ShouldWorkWithEnumInt64()
     {
         TestEnum(TestEnumInt64.None);
@@ -2336,7 +2336,7 @@ public partial class InteropTests : IDisposable
         TestEnum(TestEnumInt64.Max);
     }
 
-    [Fact]
+    [Test]
     public void ShouldWorkWithEnumUInt64()
     {
         TestEnum(TestEnumUInt64.None);
@@ -2345,7 +2345,7 @@ public partial class InteropTests : IDisposable
         TestEnum(TestEnumUInt64.Max);
     }
 
-    [Fact]
+    [Test]
     public void EnumIsConvertedToNumber()
     {
         var o = new
@@ -2364,7 +2364,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertToEnum()
     {
         var s = new Circle
@@ -2390,14 +2390,14 @@ public partial class InteropTests : IDisposable
         s.Color.Should().Be(Colors.Blue | Colors.Green);
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseExplicitPropertyGetter()
     {
         _engine.SetValue("c", new Company("ACME"));
         _engine.Evaluate("c.Name").Should().Be("ACME");
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseExplicitIndexerPropertyGetter()
     {
         var company = new Company("ACME");
@@ -2406,7 +2406,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("c.Foo").Should().Be("Bar");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertIndexerHitByTheIndexersOwnType()
     {
         // The indexer is probed before the member itself, so it can answer for a name that a
@@ -2416,7 +2416,7 @@ public partial class InteropTests : IDisposable
         _engine.Evaluate("h.Value").Should().Be("from indexer");
     }
 
-    [Fact]
+    [Test]
     public void ShouldFallBackToMemberWhenIndexerDoesNotAnswer()
     {
         // the same object, on a name the indexer returns null for: the declared member wins and is
@@ -2432,14 +2432,14 @@ public partial class InteropTests : IDisposable
         public string this[string key] => key == "Value" ? "from indexer" : null;
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseExplicitPropertySetter()
     {
         _engine.SetValue("c", new Company("ACME"));
         _engine.Evaluate("c.Name = 'Foo'; c.Name;").Should().Be("Foo");
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseExplicitIndexerPropertySetter()
     {
         var company = new Company("ACME");
@@ -2452,7 +2452,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldUseExplicitMethod()
     {
         _engine.SetValue("c", new Company("ACME"));
@@ -2462,7 +2462,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallInstanceMethodWithParams()
     {
         _engine.SetValue("a", new A());
@@ -2484,7 +2484,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallInstanceMethodWithJsValueParams()
     {
         _engine.SetValue("a", new A());
@@ -2498,7 +2498,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void NullValueAsArgumentShouldWork()
     {
         _engine.SetValue("a", new A());
@@ -2509,7 +2509,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSetPropertyToNull()
     {
         var p = new Person { Name = "Mickey" };
@@ -2524,7 +2524,7 @@ public partial class InteropTests : IDisposable
         p.Name.Should().Be(null);
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallMethodWithNull()
     {
         _engine.SetValue("a", new A());
@@ -2536,7 +2536,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReturnUndefinedProperty()
     {
         _engine.SetValue("uo", new { foo = "bar" });
@@ -2555,7 +2555,7 @@ public partial class InteropTests : IDisposable
         public int this[int index] => throw new ArgumentException("index is bad", nameof(index));
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateIndexerExceptions()
     {
         var engine = new Engine();
@@ -2565,7 +2565,7 @@ public partial class InteropTests : IDisposable
         Invoking(() => engine.Invoke("f2", failingObject)).Should().ThrowExactly<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAutomaticallyConvertArraysToFindBestInteropResolution()
     {
         _engine.SetValue("a", new ArrayConverterTestClass());
@@ -2582,7 +2582,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportNamespaceNestedType()
     {
         RunTest(@"
@@ -2594,7 +2594,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportNamespaceNestedNestedType()
     {
         RunTest(@"
@@ -2606,7 +2606,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldGetNestedTypeFromParentType()
     {
         RunTest(@"
@@ -2618,7 +2618,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldGetNestedNestedProp()
     {
         RunTest(@"
@@ -2628,7 +2628,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSetNestedNestedProp()
     {
         RunTest(@"
@@ -2639,7 +2639,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanGetStaticNestedField()
     {
         RunTest(@"
@@ -2649,7 +2649,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetStaticNestedField()
     {
         RunTest(@"
@@ -2662,7 +2662,7 @@ public partial class InteropTests : IDisposable
         "hello".Should().Be(Nested.ClassWithStaticFields.Set);
     }
 
-    [Fact]
+    [Test]
     public void CanGetStaticNestedAccessor()
     {
         RunTest(@"
@@ -2672,7 +2672,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void CanSetStaticNestedAccessor()
     {
         RunTest(@"
@@ -2685,7 +2685,7 @@ public partial class InteropTests : IDisposable
         "hello".Should().Be(Nested.ClassWithStaticFields.Setter);
     }
 
-    [Fact]
+    [Test]
     public void CantSetStaticNestedReadonly()
     {
         RunTest(@"
@@ -2698,7 +2698,7 @@ public partial class InteropTests : IDisposable
         "Readonly".Should().Be(Nested.ClassWithStaticFields.Readonly);
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteFunctionWithValueTypeParameterCorrectly()
     {
         _engine.SetValue("a", new A());
@@ -2708,7 +2708,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExecuteActionWithValueTypeParameterCorrectly()
     {
         _engine.SetValue("a", new A());
@@ -2718,7 +2718,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertToJsValue()
     {
         RunTest(@"
@@ -2730,7 +2730,7 @@ public partial class InteropTests : IDisposable
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotCatchClrExceptions()
     {
         var engine = new Engine()
@@ -2762,7 +2762,7 @@ public partial class InteropTests : IDisposable
         Invoking(() => engine.Invoke("throwException2")).Should().Throw<NotSupportedException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldCatchAllClrExceptions()
     {
         var exceptionMessage = "myExceptionMessage";
@@ -2800,7 +2800,7 @@ public partial class InteropTests : IDisposable
         exceptionMessage.Should().Be(engine.Invoke("throwException2").AsString());
     }
 
-    [Fact]
+    [Test]
     public void CaughtClrExceptionShouldExposeJavaScriptLocation()
     {
         var engine = new Engine(o =>
@@ -2822,7 +2822,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         ex.JavaScriptStackTrace.Should().Contain("3:");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotCatchClrFromApply()
     {
         var handlerCalled = false;
@@ -2878,7 +2878,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldCatchClrMemberExceptions()
     {
         var engine = new Engine(cfg =>
@@ -2955,7 +2955,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldCatchSomeExceptions()
     {
         var exceptionMessage = "myExceptionMessage";
@@ -3016,7 +3016,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         Invoking(() => engine.Invoke("throwException4")).Should().ThrowExactly<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldDecorateClrExceptionErrors()
     {
         var exceptionMessage = "Test exception";
@@ -3064,7 +3064,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         errorObject.Get("message").AsString().Should().Be("[Decorated] A host operation failed.");
     }
 
-    [Fact]
+    [Test]
     public void ShouldDecorateClrExceptionErrorsFromMemberCalls()
     {
         var decoratorCallCount = 0;
@@ -3095,7 +3095,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         decoratorCallCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotCallDecoratorWhenExceptionNotCaught()
     {
         var decoratorCalled = false;
@@ -3116,7 +3116,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         decoratorCalled.Should().BeFalse("Decorator should not be called when exception is not caught");
     }
 
-    [Fact]
+    [Test]
     public void DecoratorCanAccessEngineContext()
     {
         var engine = new Engine(options =>
@@ -3144,7 +3144,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.Get("hasTimestamp").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromShouldConvertListToArrayLike()
     {
         var list = new List<Person>
@@ -3169,7 +3169,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromShouldConvertArrayToArrayLike()
     {
         var list = new[]
@@ -3194,7 +3194,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             ");
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromShouldConvertIEnumerable()
     {
         var enumerable = new[]
@@ -3220,7 +3220,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToPlusAssignStringProperty()
     {
         var p = new Person();
@@ -3231,7 +3231,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         p.Name.Should().Be("bc");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotResolveToPrimitiveSymbol()
     {
         var engine = new Engine(options =>
@@ -3274,7 +3274,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToPassDictionaryToMethod()
     {
         var engine = new Engine();
@@ -3282,7 +3282,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("dictionaryTest.test1({ a: 1 });");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToPassDictionaryInObjectToMethod()
     {
         var engine = new Engine();
@@ -3290,7 +3290,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("dictionaryTest.test2({ values: { a: 1 } });");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToPassConcreteDictionaryToMethod()
     {
         var engine = new Engine();
@@ -3298,7 +3298,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("dictionaryTest.test3({ a: 1 });");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToPassConcreteDictionaryToOptionalParameter()
     {
         var engine = new Engine();
@@ -3306,7 +3306,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("dictionaryTest.test4({ value: 'world' });");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotChangeFunctionArgumentsWhenFunctionStoredInDictionary()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -3322,7 +3322,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.AsString().Should().Be("abc:xyz");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportSpreadForDictionary()
     {
         var engine = new Engine();
@@ -3340,7 +3340,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result["number"].Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportSpreadForDictionary2()
     {
         var engine = new Engine();
@@ -3359,7 +3359,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result["number"].Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportSpreadForObject()
     {
         var engine = new Engine();
@@ -3379,7 +3379,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result["Age"].Should().Be(20d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToJsonStringifyClrObjects()
     {
         var engine = new Engine();
@@ -3415,7 +3415,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         clrValue.Should().Be(jsValue);
     }
 
-    [Fact]
+    [Test]
     public void SettingValueViaIntegerIndexer()
     {
         var engine = new Engine(cfg => cfg
@@ -3433,7 +3433,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("fia[0]").AsNumber().Should().Be(678);
     }
 
-    [Fact]
+    [Test]
     public void IndexingBsonProperties()
     {
         const string jsonAnimals = @" { ""Animals"": [ { ""Id"": 1, ""Type"": ""Cat"" } ] }";
@@ -3446,7 +3446,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.Evaluate("animals[0].Id == 1").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void IntegerAndFloatInFunctionOverloads()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -3455,7 +3455,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("a.testFunc(12.3);").AsString().Should().Be("float-val");
     }
 
-    [Fact]
+    [Test]
     public void TypeConversionWithTemporaryInvalidValuesShouldNotCache()
     {
         var engine = new Engine(options => options.AllowClr());
@@ -3467,7 +3467,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("new IntValueInput().testFunc(123);").AsNumber().Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void CanConvertFloatingPointToIntegerWithoutError()
     {
         var engine = new Engine(options => options.AllowClr());
@@ -3519,7 +3519,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         }
     }
 
-    [Fact]
+    [Test]
     public void DelegateCanReturnValue()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -3540,7 +3540,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("lst.Where(x => x.Name == 'b').Sum(x => x.Age);").AsNumber().Should().Be(30);
     }
 
-    [Fact]
+    [Test]
     public void ObjectWrapperOverridingEquality()
     {
         // equality same via name
@@ -3561,18 +3561,17 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.Evaluate("arr.includes(b)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ObjectWrapperWrappingDictionaryShouldNotBeArrayLike()
     {
         var wrapper = ObjectWrapper.Create(_engine, new Dictionary<string, object>());
         wrapper.IsArrayLike.Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("result")]
-    [InlineData("result1", "result2")]
-    [InlineData("result1", "result2", "result3")]
-    [InlineData("result1", "result2", "result3", "result4")]
+    [TestCase("result")]
+    [TestCase("result1", "result2")]
+    [TestCase("result1", "result2", "result3")]
+    [TestCase("result1", "result2", "result3", "result4")]
     public void ObjectWrapperFrozenDictionaryShouldPreventDelete(params string[] names)
     {
         var access = string.Join(".", names);
@@ -3611,7 +3610,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         ex.Message.Should().StartWith($"Cannot delete property '{names[^1]}'");
     }
 
-    [Fact]
+    [Test]
     public void ShouldHandleCyclicReferences()
     {
         var engine = new Engine();
@@ -3644,7 +3643,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         }
     }
 
-    [Fact]
+    [Test]
     public void CanConfigurePropertyNameMatcher()
     {
         // defaults
@@ -3679,7 +3678,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         e.Evaluate("a.CALL1").IsObject().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotEnumerateClassMethods()
     {
         var engine = new Engine();
@@ -3700,7 +3699,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.Should().Be("foo,bar");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotEnumerateExtensionMethods()
     {
         var engine = new Engine(cfg => cfg.AddExtensionMethods(typeof(Enumerable)));
@@ -3718,7 +3717,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.Should().Be("0,1,2");
     }
 
-    [Fact]
+    [Test]
     public void ForInEnumeratesClrObjectUsingReportedPropertyKeys()
     {
         // https://github.com/sebastienros/jint/discussions/2513
@@ -3750,7 +3749,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("people.Count").AsNumber().Should().Be(2d);
     }
 
-    [Fact]
+    [Test]
     public void ReportedPropertyKeysDefaultsToExistingEnumeration()
     {
         var engine = new Engine();
@@ -3787,7 +3786,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         public IEnumerable<string> Names => _people.Select(p => p.Name);
     }
 
-    [Fact]
+    [Test]
     public void CanCheckIfCallable()
     {
         var engine = new Engine();
@@ -3800,7 +3799,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.Call().AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanGiveCustomNameToInteropMembers()
     {
         static IEnumerable<string> MemberNameCreator(MemberInfo prop)
@@ -3858,7 +3857,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engineWithStaticsReported.Evaluate("o.staticStringField").AsString().Should().Be("StaticStringField");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToHandleInvalidClrConversionViaCatchClrExceptions()
     {
         var engine = new Engine(cfg => cfg.CatchClrExceptions().Interop.AllowWrite = true);
@@ -3868,7 +3867,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         ex.Message.Should().ContainEquivalentOf(" was not in a correct format");
     }
 
-    [Fact]
+    [Test]
     public void ShouldLetNotSupportedExceptionBubble()
     {
         _engine.SetValue("profile", new Profile());
@@ -3876,7 +3875,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         ex.Message.Should().Be("NOT SUPPORTED");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToUseConvertibleStructAsMethodParameter()
     {
         _engine.SetValue("test", new DiscordTestClass());
@@ -3887,7 +3886,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.Evaluate("test.create(12345)").AsString().Should().Be("12345");
     }
 
-    [Fact]
+    [Test]
     public void ShouldGetIteratorForListAndDictionary()
     {
         const string Script = @"
@@ -3907,7 +3906,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.Evaluate(Script).Should().Be("a,1b,2c,3");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotIntroduceNewPropertiesWhenTraversing()
     {
         _engine.SetValue("x", new Dictionary<string, int> { { "First", 1 }, { "Second", 2 } });
@@ -3936,7 +3935,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         _engine.Evaluate("Object.prototype.hasOwnProperty.call(x, 'Third')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CanConfigureCustomObjectTypeForJsToClrConversion()
     {
         var engine = new Engine(options =>
@@ -3954,7 +3953,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         dictionary["a"].Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeIndexOfWithInteropList()
     {
         var engine = new Jint.Engine();
@@ -3968,7 +3967,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("Array.prototype.lastIndexOf.call(list, 'B')").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeFindWithInteropList()
     {
         var engine = new Jint.Engine();
@@ -3980,7 +3979,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("list.find((x) => x === 'B')").Should().Be('B');
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypePushWithInteropList()
     {
         var engine = new Jint.Engine(options => options.Interop.AllowWrite = true);
@@ -3995,7 +3994,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("list.lastIndexOf('D')").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypePopWithInteropList()
     {
         var engine = new Jint.Engine(options => options.Interop.AllowWrite = true);
@@ -4010,7 +4009,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("list.lastIndexOf('C')").Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void ListReverseDefaultsToClrSemantics()
     {
         // Default: List<T>.Reverse() (void) wins over Array.prototype.reverse — locks in current behavior.
@@ -4024,7 +4023,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         list.Should().Equal(new[] { 3, 2, 1 });
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsMakesArrayReverseWin()
     {
         var engine = new Jint.Engine(cfg => { cfg.Interop.PreferJsPrototypeMethods = true; cfg.Interop.AllowWrite = true; });
@@ -4035,7 +4034,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         list.Should().Equal(new[] { 3, 2, 1 });
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsMakesArraySortWin()
     {
         // Without the flag List<int>.Sort gives ascending int sort and returns void.
@@ -4048,7 +4047,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("JSON.stringify(list.sort())").AsString().Should().Be("[1,10,2]");
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsLeavesNonClashingClrMethodsAlone()
     {
         // Methods without an Array.prototype counterpart must still resolve to CLR.
@@ -4064,7 +4063,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         list.Should().Equal(new[] { "B", "C" });
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsKeepsLengthMappedToCount()
     {
         // length is served by the fast path in ObjectWrapper.Get — must be unaffected.
@@ -4075,7 +4074,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("list.length").AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void PreferJsPrototypeMethodsDoesNotAffectPlainObjectWrapper()
     {
         // POCOs get Object.prototype, which the check explicitly skips, so CLR ToString still wins.
@@ -4085,7 +4084,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         engine.Evaluate("obj.toString()").AsString().Should().Be("Test");
     }
 
-    [Fact]
+    [Test]
     public void ListReverseCanBeFixedTodayWithMemberFilter()
     {
         // Documents the workaround that works without the new flag, on existing Jint versions.
@@ -4114,7 +4113,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         list.Should().Equal(new[] { 3, 2, 1 });
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeJavaScriptException()
     {
         var engine = new Engine(cfg =>
@@ -4147,7 +4146,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         public int AnyProperty => throw new NotSupportedException("NOT SUPPORTED");
     }
 
-    [Fact]
+    [Test]
     public void GenericParameterResolutionShouldWorkWithNulls()
     {
         var result = new Engine()
@@ -4165,7 +4164,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
 
     private delegate void ParamsTestDelegate(params Action[] callbacks);
 
-    [Fact]
+    [Test]
     public void CanUseParamsActions()
     {
         var engine = new Engine();
@@ -4189,7 +4188,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         }
     }
 
-    [Fact]
+    [Test]
     public void ObjectWrapperIdentityIsMaintained()
     {
         // run in separate method so stack won't keep reference
@@ -4220,7 +4219,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         return reference;
     }
 
-    [Fact]
+    [Test]
     public void CanUseClrFunction()
     {
         var engine = new Engine();
@@ -4231,7 +4230,7 @@ new Thrower().ThrowExceptionWithMessage('boom');";
         result.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowClrExceptionsThrough()
     {
         var engine = new Engine(opts => opts.Interop.ExceptionHandler = exc => false);
@@ -4246,7 +4245,7 @@ wrap();
         Invoking(() => engine.Execute(Source)).Should().ThrowExactly<InvalidOperationException>();
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertClrExceptionsToErrors()
     {
         var engine = new Engine(opts =>
@@ -4266,7 +4265,7 @@ wrap();
         "This is a C# error".Should().Be(exc.Message);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowCatchingConvertedClrExceptions()
     {
         var engine = new Engine(opts =>
@@ -4306,7 +4305,7 @@ try {
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallEnumeratorDisposeOnNormalTermination()
     {
         var engine = new Engine();
@@ -4319,7 +4318,7 @@ for (let i of baz.Enumerator) {
         baz.DisposeCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallEnumeratorDisposeOnBreak()
     {
         var engine = new Engine();
@@ -4333,7 +4332,7 @@ for (let i of baz.Enumerator) {
         baz.DisposeCalls.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldCallEnumeratorDisposeOnException()
     {
         var engine = new Engine();
@@ -4355,7 +4354,7 @@ try {
         public object Value;
     }
 
-    [Fact]
+    [Test]
     public void PropertiesOfJsObjectPassedToClrShouldBeReadable()
     {
         _engine.SetValue("MyClass", typeof(PropertyTestClass));
@@ -4366,7 +4365,7 @@ try {
             ");
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToDeleteDictionaryEntries()
     {
         var engine = new Engine(options => { options.Strict = true; options.Interop.AllowWrite = true; });
@@ -4431,7 +4430,7 @@ try {
         public string this[string name] => name != nameof(MyProp) ? "from indexer" : null;
     }
 
-    [Fact]
+    [Test]
     public void CanToStringObjectWithoutToPrimitiveSymbol()
     {
         var engine = new Engine();
@@ -4443,7 +4442,7 @@ try {
         engine.Evaluate("obj + ''").AsString().Should().Be("Jint.Tests.Runtime.Domain.Company");
     }
 
-    [Fact]
+    [Test]
     public void CanConstructOptionalRecordClass()
     {
         _engine.SetValue("Context", new RecordTestClassContext());
@@ -4451,7 +4450,7 @@ try {
         _engine.Evaluate("Context.method({ value: 5 });").AsInteger().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void CanPassDateTimeMinAndMaxViaInterop()
     {
         var engine = new Engine(cfg => cfg.Interop.AllowWrite = true);
@@ -4483,7 +4482,7 @@ try {
     {
     }
 
-    [Fact]
+    [Test]
     public void AccessingBaseTypeShouldBeEqualToAccessingDerivedType()
     {
         var engine = new Engine().SetValue("container", new Container());
@@ -4526,7 +4525,7 @@ try {
         public IStringCollection GetStrings() => new Strings(["a", "b", "c"]);
     }
 
-    [Fact]
+    [Test]
     public void AccessingInterfaceShouldContainExtendedInterfaces()
     {
         var engine = new Engine();
@@ -4535,7 +4534,7 @@ try {
         result.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void IntegerIndexerIfPreferredOverStringIndexerWhenFound()
     {
         var engine = new Engine();
@@ -4544,7 +4543,7 @@ try {
         result.Should().Be("c");
     }
 
-    [Fact]
+    [Test]
     public void CanDestructureInteropTargetMethod()
     {
         var engine = new Engine();
@@ -4650,7 +4649,7 @@ try {
         public IEnumerable<object> Values => _dictionary.Values;
     }
 
-    [Fact]
+    [Test]
     public void CanSelectShadowedPropertiesBasedOnReadableAndWritable()
     {
         var engine = new Engine();
@@ -4664,7 +4663,7 @@ try {
         result.Should().Be("from-wrapper");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRespectConcreteGenericReturnTypes()
     {
         var engine = new Engine(opt =>
@@ -4706,7 +4705,7 @@ try {
         public string Extras { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void PropertiesShouldNotSeeReportMethodsWhenMemberTypesActive()
     {
         var engine = new Engine(opt =>
@@ -4724,7 +4723,7 @@ try {
         props.Should().BeEquivalentTo("Property", "Extras", "Field");
     }
 
-    [Fact]
+    [Test]
     public void PropertyKeysShouldReportMethods()
     {
         var engine = new Engine();
@@ -4738,7 +4737,7 @@ try {
         props.Should().BeEquivalentTo("Property", "Extras", "Field", "Method");
     }
 
-    [Fact]
+    [Test]
     public void PropertyKeysShouldObeyMemberFilter()
     {
         var engine = new Engine(options =>
@@ -4763,7 +4762,7 @@ try {
         public int Get_A { get; set; } = 5;
     }
 
-    [Fact]
+    [Test]
     public void ShouldSeeClrMethods2()
     {
         var engine = new Engine();
@@ -4778,7 +4777,7 @@ try {
         props.Should().BeEquivalentTo("Get_A");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotThrowOnInspectingClrFunction()
     {
         var engine = new Engine();
@@ -4801,7 +4800,7 @@ try {
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotThrowOnInspectingClrClassFunction()
     {
         var engine = new Engine();
@@ -4817,7 +4816,7 @@ try {
         decl.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void StringifyShouldIncludeInheritedFieldsAndProperties()
     {
         var engine = new Engine();
@@ -4848,7 +4847,7 @@ try {
         public Animal[] animals { get => [new Lion(), new Elephant()]; }
     }
 
-    [Fact]
+    [Test]
     public void CanFindDerivedPropertiesFail() // Fails in 4.01 but success in 2.11
     {
         var engine = new Engine();
@@ -4857,7 +4856,7 @@ try {
         kingManeLength.AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void CanFindDerivedPropertiesSucceed() // Similar case that continues to succeed
     {
         var engine = new Engine();
@@ -4866,7 +4865,7 @@ try {
         lionManeLength.AsNumber().Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void StaticFieldsShouldFollowJsSemantics()
     {
         _engine.Evaluate("Number.MAX_SAFE_INTEGER").AsNumber().Should().Be(NumberConstructor.MaxSafeInteger);
@@ -4886,7 +4885,7 @@ try {
         public static JsNumber MAX_SAFE_INTEGER = new JsNumber(NumberConstructor.MaxSafeInteger);
     }
 
-    [Fact]
+    [Test]
     public void ShouldFindShortOverload()
     {
         _engine.SetValue("target", new ShortOverloadWithBoolean());
@@ -4906,7 +4905,7 @@ try {
         }
     }
 
-    [Fact]
+    [Test]
     public void MultipleInteropCallsShouldNotCacheFunctionEnvironment()
     {
         var engine = new Engine();
@@ -4948,7 +4947,7 @@ try {
         found2.Should().Be(values[1]);
     }
 
-    [Fact]
+    [Test]
     public void CanCallBoundJavascriptFunctionFromDotnet()
     {
         var ticker = new Ticker();
@@ -4991,7 +4990,7 @@ try {
         }
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToWriteLengthOfListLike()
     {
         var list = new List<string> { "a", "b", "c" };
@@ -5036,7 +5035,7 @@ try {
         public WrapperWithIndexer Geometry { get; set; } = new GeometryWrapperWithProperty { X = 10.5, Y = 20.5 };
     }
 
-    [Fact]
+    [Test]
     public void ShouldAccessDerivedTypePropertyWhenDeclaredTypeHasIndexer()
     {
         // GitHub issue #2173: When a property is declared with a base type that has an indexer,
@@ -5053,7 +5052,7 @@ try {
         resultY.Should().Be(20.5);
     }
 
-    [Fact]
+    [Test]
     public void ShouldStillAccessIndexerWhenPropertyDoesNotExist()
     {
         // Ensure the indexer still works when the property doesn't exist on the derived type
@@ -5066,7 +5065,7 @@ try {
         result.AsString().Should().Be("customValue");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSetDerivedTypePropertyWhenDeclaredTypeHasIndexer()
     {
         var engine = new Engine(cfg => cfg.Interop.AllowWrite = true);
@@ -5104,7 +5103,7 @@ try {
         public void SetIReadOnlyCollectionItems(IReadOnlyCollection<string> items) => IReadOnlyCollectionItems = items;
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertJsArrayToListWhenPassedToConstructor()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -5120,7 +5119,7 @@ try {
         obj.Items[2].Should().Be("c");
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertJsArrayToEmptyListWhenPassedToConstructor()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));
@@ -5133,7 +5132,7 @@ try {
         obj.Items.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ShouldConvertJsArrayToGenericCollectionTypes()
     {
         var engine = new Engine(options => options.AllowClr(GetType().Assembly));

@@ -165,16 +165,15 @@ public class NullPropagatingResolverTests
     // are new capability, so this is what pins that they are actually testing something.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("absent.x")]
-    [InlineData("nothing.x")]
-    [InlineData("obj.missing.deeper")]
-    [InlineData("obj.nulled.deeper")]
-    [InlineData("obj.missing.a.b.c")]
-    [InlineData("obj.missing[key]")]
-    [InlineData("obj.nulled[0]")]
-    [InlineData("obj.inner.missing.deeper")]
-    [InlineData("typeof obj.missing.deeper")]
+    [TestCase("absent.x")]
+    [TestCase("nothing.x")]
+    [TestCase("obj.missing.deeper")]
+    [TestCase("obj.nulled.deeper")]
+    [TestCase("obj.missing.a.b.c")]
+    [TestCase("obj.missing[key]")]
+    [TestCase("obj.nulled[0]")]
+    [TestCase("obj.inner.missing.deeper")]
+    [TestCase("typeof obj.missing.deeper")]
     public void WithoutAResolverEveryNullishReadThrows(string script)
     {
         var engine = CreateEngine(Setup.Default);
@@ -188,7 +187,7 @@ public class NullPropagatingResolverTests
             .WithMessage("Cannot read propert*");
     }
 
-    [Fact]
+    [Test]
     public void DefaultEngineIsCompletelyUnaffected()
     {
         var engine = CreateEngine(Setup.Default);
@@ -206,8 +205,7 @@ public class NullPropagatingResolverTests
     // stays null.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void AnUndefinedBaseYieldsUndefined(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -216,8 +214,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("obj.missing.deeper").IsUndefined().Should().BeTrue();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void ANullBaseYieldsNull(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -226,8 +223,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("obj.nulled.deeper").Should().Be(JsValue.Null);
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void PropagationSurvivesAWholeChain(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -239,8 +235,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("nothing.a.b.c.d").Should().Be(JsValue.Null);
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void AnIntermediateNullishLinkPropagatesTheRest(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -252,8 +247,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("obj.inner.missing !== undefined").AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void ComputedKeysPropagateToo(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -266,8 +260,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("var i = 0; obj.missing[i][i]").IsUndefined().Should().BeTrue();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void TypeofSeesThePropagatedValue(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -276,8 +269,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("typeof obj.nulled.deeper").AsString().Should().Be("object");
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void PropagationReachesLanesThatSkipTheMemberReadFastPath(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -303,8 +295,7 @@ public class NullPropagatingResolverTests
     // The boundaries: reads propagate, everything else keeps standard behaviour.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void CallsOnANullishBaseStillThrowTypeError(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -322,8 +313,7 @@ public class NullPropagatingResolverTests
             .WithMessage("Property 'foo' of object is not a function");
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void WritesAreUnaffected(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -337,8 +327,7 @@ public class NullPropagatingResolverTests
         Invoking(() => engine.Evaluate("obj.missing.deeper++")).Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void OtherNullishOperationsKeepThrowing(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -351,8 +340,7 @@ public class NullPropagatingResolverTests
         Invoking(() => engine.Evaluate("'x' in obj.missing")).Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void UnresolvableIdentifiersStillThrow(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -365,8 +353,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("typeof neverDeclaredAnywhere").AsString().Should().Be("undefined");
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void NonCallableCalleesStillThrow(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -375,8 +362,7 @@ public class NullPropagatingResolverTests
         Invoking(() => engine.Evaluate("obj.notCallable()")).Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void OrdinaryReadsAreUntouched(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -398,8 +384,7 @@ public class NullPropagatingResolverTests
     // base, since `?.` yields undefined where propagation yields null.
     // ---------------------------------------------------------------------------------------------
 
-    [Theory]
-    [MemberData(nameof(AllSetups))]
+    [TestCaseSource(nameof(AllSetups))]
     public void OptionalChainingBehavesIdenticallyEverywhere(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -412,8 +397,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("obj.missing?.foo()").IsUndefined().Should().BeTrue();
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void PropagationAndOptionalChainingDisagreeOnANullBase(Setup setup)
     {
         var engine = CreateEngine(setup);
@@ -426,7 +410,7 @@ public class NullPropagatingResolverTests
     // Registration: the interest set is a filter the inline lane obeys exactly as the interface lane does.
     // ---------------------------------------------------------------------------------------------
 
-    [Fact]
+    [Test]
     public void TheRecommendedRegistrationPropagates()
     {
         var engine = new Engine(options => options.SetReferenceResolver(
@@ -436,7 +420,7 @@ public class NullPropagatingResolverTests
         engine.Evaluate("var o = {}; o.a.b.c").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RegistrationWithoutInterestsPropagatesIdentically()
     {
         var narrow = new Engine(options => options.SetReferenceResolver(
@@ -450,7 +434,7 @@ public class NullPropagatingResolverTests
         }
     }
 
-    [Fact]
+    [Test]
     public void WithoutTheNullishInterestTheSingletonDoesNotPropagate()
     {
         // the interest set is a filter, and the inline lane has to honour it: a host that registered the
@@ -464,7 +448,7 @@ public class NullPropagatingResolverTests
             .WithMessage("Cannot read propert*");
     }
 
-    [Fact]
+    [Test]
     public void NoneMeansTheSingletonIsNeverConsulted()
     {
         var engine = new Engine(options => options.SetReferenceResolver(
@@ -474,7 +458,7 @@ public class NullPropagatingResolverTests
         Invoking(() => engine.Evaluate("var o = {}; o.a.b")).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void TheSingletonIsTheOnlyWayToGetAnInstance()
     {
         NullPropagatingReferenceResolver.Instance.Should().NotBeNull();
@@ -482,7 +466,7 @@ public class NullPropagatingResolverTests
         typeof(NullPropagatingReferenceResolver).GetConstructors().Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void TheResolverAnswersItsInterfaceAsDocumented()
     {
         var engine = new Engine();
@@ -516,9 +500,9 @@ public class NullPropagatingResolverTests
     // The core invariant: the inline lane and a hand-written equivalent are indistinguishable.
     // ---------------------------------------------------------------------------------------------
 
-    public static TheoryData<string> EquivalenceScripts()
+    public static TestCases<string> EquivalenceScripts()
     {
-        var data = new TheoryData<string>();
+        var data = new TestCases<string>();
         foreach (var script in EquivalenceScriptList)
         {
             data.Add(script);
@@ -588,8 +572,7 @@ public class NullPropagatingResolverTests
         "JSON.stringify({ v: obj.nulled.deeper })",
     ];
 
-    [Theory]
-    [MemberData(nameof(EquivalenceScripts))]
+    [TestCaseSource(nameof(EquivalenceScripts))]
     public void EveryPropagatingConfigurationObservesTheSameThing(string script)
     {
         var outcomes = PropagatingSetups
@@ -608,8 +591,7 @@ public class NullPropagatingResolverTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(EquivalenceScripts))]
+    [TestCaseSource(nameof(EquivalenceScripts))]
     public void TheSameEquivalenceHoldsInStrictMode(string script)
     {
         var outcomes = PropagatingSetups
@@ -628,8 +610,7 @@ public class NullPropagatingResolverTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(Propagating))]
+    [TestCaseSource(nameof(Propagating))]
     public void PropagationWorksTheSameInStrictAndSloppyMode(Setup setup)
     {
         var sloppy = CreateEngine(setup);
@@ -654,9 +635,9 @@ public class NullPropagatingResolverTests
 
     // ---------------------------------------------------------------------------------------------
 
-    public static TheoryData<Setup> Propagating()
+    public static TestCases<Setup> Propagating()
     {
-        var data = new TheoryData<Setup>();
+        var data = new TestCases<Setup>();
         foreach (var setup in PropagatingSetups)
         {
             data.Add(setup);
@@ -665,9 +646,9 @@ public class NullPropagatingResolverTests
         return data;
     }
 
-    public static TheoryData<Setup> AllSetups()
+    public static TestCases<Setup> AllSetups()
     {
-        var data = new TheoryData<Setup>();
+        var data = new TestCases<Setup>();
         foreach (var setup in (IEnumerable<Setup>) Enum.GetValues(typeof(Setup)))
         {
             data.Add(setup);

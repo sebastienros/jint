@@ -76,7 +76,7 @@ public class WebApiWorkerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostWorkerProviderIsSubclassableOutsideTheAssembly()
     {
         var provider = new RecordingWorkerProvider();
@@ -88,7 +88,7 @@ public class WebApiWorkerTests
         provider.LastReason.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void UseWorkersIsReachableAndSetsFlagAndProviderTogether()
     {
         var provider = new RecordingWorkerProvider();
@@ -98,7 +98,7 @@ public class WebApiWorkerTests
         options.WebApi.Workers.Provider.Should().BeSameAs(provider);
     }
 
-    [Fact]
+    [Test]
     public void TheWorkerOptionsGroupIsReachableAndCarriesTheDocumentedDefaults()
     {
         var options = new Options();
@@ -108,7 +108,7 @@ public class WebApiWorkerTests
         options.WebApi.Workers.MaxQueuedMessages.Should().Be(16384);
     }
 
-    [Fact]
+    [Test]
     public void TheWorkersFlagIsNotPartOfTheDefaultFeatureSet()
     {
         (WebApiFeatures.Default & WebApiFeatures.Workers).Should().Be(WebApiFeatures.None);
@@ -118,7 +118,7 @@ public class WebApiWorkerTests
     /// The <c>Worker</c> global needs the flag <b>and</b> a provider, and there is deliberately no way to get a
     /// constructor that can only throw: a worker needs a thread and a pump, and Jint never starts either.
     /// </summary>
-    [Fact]
+    [Test]
     public void TypeofWorkerAnswersOnlyWithBothTheFlagAndAProvider()
     {
         var provider = new RecordingWorkerProvider();
@@ -150,14 +150,14 @@ public class WebApiWorkerTests
     /// <summary>
     /// A provider that refuses everything is still reachable, and its refusal is what the script sees.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProviderRefusalIsReachableFromScript()
     {
         var provider = new RecordingWorkerProvider();
         var engine = new Engine(options => options.UseWebApis().UseWorkers(provider));
 
         var exception = Assert.Throws<JavaScriptException>(
-            () => engine.Execute("new Worker('./worker.js', { type: 'module' })"));
+            () => engine.Execute("new Worker('./worker.js', { type: 'module' })"))!;
 
         exception.Error.Get("name").AsString().Should().Be("SecurityError");
         provider.Requests.Should().Be(1);
@@ -167,7 +167,7 @@ public class WebApiWorkerTests
     /// A worker gets strictly fewer capabilities than its creator, and the one that matters most is the
     /// network. Reachable through the real constructor now, rather than through a hand-built request.
     /// </summary>
-    [Fact]
+    [Test]
     public void AWorkerDoesNotInheritNetworkAccess()
     {
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
@@ -210,7 +210,7 @@ public class WebApiWorkerTests
     /// brand check. That is asserted here rather than merely documented, because a host reading the chain is
     /// entitled to know where it ends.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheWorkerGlobalIsADedicatedWorkerGlobalScope()
     {
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
@@ -250,7 +250,7 @@ public class WebApiWorkerTests
     /// One provider serving a pool of engines reaches per-request policy through
     /// <c>request.Parent.HostDefined</c>, which is per engine and which the engine never reads.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheProviderCanReachPerRequestStateThroughHostDefined()
     {
         var seen = new List<string>();
@@ -283,7 +283,7 @@ public class WebApiWorkerTests
     /// concurrent-use exception. Pumping from the callback's own thread would prove nothing — same-thread
     /// re-entry is always allowed.
     /// </remarks>
-    [Fact]
+    [Test]
     public void OnWorkerStartedSeesAPumpableEngine()
     {
         Exception? pumpFailure = null;
@@ -329,7 +329,7 @@ public class WebApiWorkerTests
     /// Several workers cooperating on one host loop — the game-frame shape — each make progress, and neither
     /// starves the other.
     /// </summary>
-    [Fact]
+    [Test]
     public void TwoWorkersPumpedFromOneLoopBothMakeProgress()
     {
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>
@@ -375,7 +375,7 @@ public class WebApiWorkerTests
     /// passed. A ceiling that ran out and a wrong value are different failures and now say so.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void AHostProviderThreadPerWorkerRoundTrips()
     {
         using var host = new ThreadPerWorkerHost();
@@ -425,7 +425,7 @@ public class WebApiWorkerTests
     /// script-facing half — a plain <c>Event</c> named <c>error</c> at the <c>Worker</c> object — is asserted
     /// beside it, because a host that does wire a listener gets both.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AHostSeesAStartupFailureWithoutWiringAnySink()
     {
         var host = new PumpOnDemandWorkerHost(new Dictionary<string, string>());
@@ -463,7 +463,7 @@ public class WebApiWorkerTests
     /// <c>UncaughtCallbackError</c> even though the parent cancelled the propagation, and the parent's sink
     /// stays silent because cancelling is exactly what HTML's <i>notHandled</i> gate is for.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ADiagnosticsSinkChainedByTheProviderStillSeesWorkerErrors()
     {
         var workerSink = new CollectingSink();
@@ -504,7 +504,7 @@ public class WebApiWorkerTests
     /// The same failure with nothing cancelling it reaches the parent's sink as its own kind, so a host that
     /// wires one sink for a parent and its workers can still tell the two reports apart.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnhandledWorkerErrorReachesTheParentsSinkAsItsOwnKind()
     {
         var sink = new CollectingSink();

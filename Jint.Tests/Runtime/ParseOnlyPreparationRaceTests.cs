@@ -35,7 +35,7 @@ public class ParseOnlyPreparationRaceTests
         function sum(arr) { let total = 0; for (const v of arr) { { let scaled = v * 2; total += scaled; } } return total; }
         """;
 
-    [Fact]
+    [Test]
     public void RacingFirstEvaluationsOfAParseOnlyPreparedScriptAllSucceedAndConverge()
     {
         const string Code = $$"""
@@ -58,7 +58,7 @@ public class ParseOnlyPreparationRaceTests
         }
     }
 
-    [Fact]
+    [Test]
     public void RacingFirstImportsOfAParseOnlyPreparedModuleAllSucceedAndConverge()
     {
         const string Code = $$"""

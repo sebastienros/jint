@@ -27,7 +27,7 @@ public class EnumerableSnapshotTests
         });
     }
 
-    [Fact]
+    [Test]
     public void SnapshotMakesTheIssueReproWork()
     {
         var engine = CreateEngine(snapshot: true);
@@ -39,7 +39,7 @@ public class EnumerableSnapshotTests
         engine.Evaluate("coll.map(x => x).includes('Nope')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void SnapshotIsArrayLikeButNotAnArray()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);
@@ -56,7 +56,7 @@ public class EnumerableSnapshotTests
         engine.Evaluate("JSON.stringify(coll)").AsString().Should().Be("""["Hello","World"]""");
     }
 
-    [Fact]
+    [Test]
     public void SnapshotIsFixedSize()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);
@@ -66,7 +66,7 @@ public class EnumerableSnapshotTests
         Invoking(() => engine.Evaluate("coll.push('World')")).Should().Throw<Exception>();
     }
 
-    [Fact]
+    [Test]
     public void SequenceIsEnumeratedExactlyOnce()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);
@@ -82,7 +82,7 @@ public class EnumerableSnapshotTests
         source.EnumerationCount.Should().Be(1, "every later read comes from the snapshot");
     }
 
-    [Fact]
+    [Test]
     public void LazyIsTheDefaultAndUnchanged()
     {
         var engine = CreateEngine(snapshot: false);
@@ -97,7 +97,7 @@ public class EnumerableSnapshotTests
         engine.Evaluate("Array.from(coll).join()").AsString().Should().Be("Hello,World");
     }
 
-    [Fact]
+    [Test]
     public void CountedCollectionsAreNotSnapshotted()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);
@@ -115,7 +115,7 @@ public class EnumerableSnapshotTests
         list.Should().Equal("Hello", "World");
     }
 
-    [Fact]
+    [Test]
     public void DictionariesAreNotSnapshotted()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);
@@ -129,7 +129,7 @@ public class EnumerableSnapshotTests
         engine.Evaluate("dict.b").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void NonGenericSequenceIsSnapshottedAsObjects()
     {
         var engine = CreateEngine(snapshot: true, withExtensions: false);

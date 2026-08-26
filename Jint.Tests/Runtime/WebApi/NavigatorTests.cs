@@ -18,7 +18,7 @@ public class NavigatorTests
     private static Engine NavigatorEngine(WebApiFeatures features = WebApiFeatures.Navigator)
         => new(options => options.UseWebApis(features));
 
-    [Fact]
+    [Test]
     public void ReportsAJintProductToken()
     {
         var userAgent = NavigatorEngine().Evaluate("navigator.userAgent").AsString();
@@ -32,7 +32,7 @@ public class NavigatorTests
         userAgent.Should().Be($"Jint/{version.Major}.{version.Minor}.{version.Build}");
     }
 
-    [Fact]
+    [Test]
     public void IsOneStableObjectWithTheInterfacesToStringTag()
     {
         var engine = NavigatorEngine();
@@ -49,7 +49,7 @@ public class NavigatorTests
     /// <c>{ [[Enumerable]]: true, [[Configurable]]: true }</c>. Node 24 answers exactly that for
     /// <c>Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ExposesUserAgentAsAReadOnlyAccessorOnTheInterfacePrototypeObject()
     {
         var engine = NavigatorEngine();
@@ -72,20 +72,20 @@ public class NavigatorTests
         engine.Evaluate("Object.keys(Navigator.prototype).indexOf('userAgent') >= 0").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksItsReceiver()
     {
         var engine = NavigatorEngine();
 
         Assert.Throws<JavaScriptException>(
-            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})"))
+            () => engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call({})"))!
             .Message.Should().Contain("Navigator");
 
         engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call(navigator)")
             .AsString().Should().StartWith("Jint/");
     }
 
-    [Fact]
+    [Test]
     public void CarriesNothingABrowsersNavigatorWouldLieAbout()
     {
         var engine = NavigatorEngine();
@@ -112,7 +112,7 @@ public class NavigatorTests
     /// <c>[[Prototype]]</c> is <c>Navigator.prototype</c>, that object's is <c>%Object.prototype%</c>, and
     /// <c>Reflect.ownKeys(navigator)</c> is the empty array.
     /// </summary>
-    [Fact]
+    [Test]
     public void HasARealInterfaceObjectAndInterfacePrototypeObject()
     {
         var engine = NavigatorEngine();
@@ -132,7 +132,7 @@ public class NavigatorTests
         // https://html.spec.whatwg.org/multipage/system-state.html#the-navigator-object declares no
         // constructor operation, so the interface object is a function that refuses to construct —
         // https://webidl.spec.whatwg.org/#es-interface-call. Node 24 answers 'TypeError: Illegal constructor'.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Navigator()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Navigator()"))!
             .Message.Should().Be("Illegal constructor");
     }
 
@@ -142,7 +142,7 @@ public class NavigatorTests
     /// <c>navigator.__proto__.foo = …</c> a realm-wide poisoning. An interface prototype object is the
     /// landing pad that contains it.
     /// </summary>
-    [Fact]
+    [Test]
     public void PatchingNavigatorsPrototypeDoesNotReachObjectPrototype()
     {
         var engine = NavigatorEngine();
@@ -164,7 +164,7 @@ public class NavigatorTests
     /// <summary>
     /// The interface prototype object is per realm, so one engine's patch is not another's.
     /// </summary>
-    [Fact]
+    [Test]
     public void GivesEachEngineItsOwnNavigatorPrototype()
     {
         var options = new Options().UseWebApis();
@@ -179,7 +179,7 @@ public class NavigatorTests
         second.Evaluate("Object.prototype.hasOwnProperty.call(Object.prototype, 'decorated')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IsAnEnumerableDataPropertyOfTheGlobal()
     {
         var engine = NavigatorEngine();
@@ -197,7 +197,7 @@ public class NavigatorTests
         descriptor._value.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void IsPartOfTheDefaultSetButNotOfAnyOtherFeature()
     {
         new Engine(options => options.UseWebApis()).Evaluate("typeof navigator.userAgent").AsString().Should().Be("string");
@@ -207,7 +207,7 @@ public class NavigatorTests
             .Evaluate("typeof navigator").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheBitReservedForFetch()
     {
         // The layout is a promise to hosts that persist a feature set: 1 << 10 stays free for fetch, so
@@ -216,7 +216,7 @@ public class NavigatorTests
         ((int) WebApiFeatures.Default & (1 << 10)).Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = NavigatorEngine();

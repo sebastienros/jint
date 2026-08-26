@@ -38,7 +38,7 @@ public class OptionalChainShortCircuitTests
 
     private static JsValue Evaluate(string source) => new Engine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void CallingAValueThatIsUndefinedThrowsRatherThanShortCircuiting()
     {
         // The sequence expression yields the JsValue.Undefined singleton; nothing here is an optional
@@ -47,7 +47,7 @@ public class OptionalChainShortCircuitTests
         Throws("(0, undefined)()").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CallingAnUndefinedNewTargetThrows()
     {
         // Engine.GetNewTarget hands back the JsValue.Undefined singleton for a [[Call]]ed function.
@@ -55,7 +55,7 @@ public class OptionalChainShortCircuitTests
         Throws("(function () { new.target(); })()").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ANonOptionalLinkAfterAnOptionalOneStillThrows()
     {
         // `({})?.a` does not short-circuit — {} is not nullish — so it is a legitimate undefined and
@@ -65,7 +65,7 @@ public class OptionalChainShortCircuitTests
         Throws("({ a: { b: undefined } }).a?.b.b.c").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CallingTheUndefinedResultOfACompletedOptionalCallThrows()
     {
         // `b?.()` does not short-circuit: b is callable. It simply returns undefined, and calling that
@@ -73,7 +73,7 @@ public class OptionalChainShortCircuitTests
         Throws("(({ a: { b: () => undefined } }).a.b?.())()").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ParenthesesEndTheChainSoTheNextLinkThrows()
     {
         // `(a?.b)` is a complete ChainExpression: its short circuit produces a real undefined, and the
@@ -82,7 +82,7 @@ public class OptionalChainShortCircuitTests
         Throws("var a = null; (a?.b)()").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ShortCircuitStopsTheWholeChain()
     {
         Evaluate("undefined?.a").Should().BeUndefined();
@@ -94,7 +94,7 @@ public class OptionalChainShortCircuitTests
         Evaluate("({ a: { b: undefined } }).a.b?.()()()").Should().BeUndefined();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryChainsKeepResolving()
     {
         Evaluate("({ a: 1 })?.a").Should().Be(1);
@@ -122,7 +122,7 @@ public class OptionalChainShortCircuitTests
         deep.AsString().Should().Be("42,42,42,");
     }
 
-    [Fact]
+    [Test]
     public void ShortCircuitSkipsTheRestOfTheChainWithoutEvaluatingIt()
     {
         // `y` is not declared: reaching the computed property expression at all would raise a
@@ -148,7 +148,7 @@ public class OptionalChainShortCircuitTests
         counts.AsString().Should().Be("1,2");
     }
 
-    [Fact]
+    [Test]
     public void DeleteOfAShortCircuitedChainIsTrue()
     {
         Evaluate("delete undefined?.foo").Should().Be(true);
@@ -157,7 +157,7 @@ public class OptionalChainShortCircuitTests
         Evaluate("delete ({ a: { b: undefined } }).a?.b?.b").Should().Be(true);
     }
 
-    [Fact]
+    [Test]
     public void TheVerdictSurvivesHandlerTreeReuseAndPreparedScripts()
     {
         // Whether a link propagates its short circuit is decided once, when the handler tree is built, so
@@ -181,7 +181,7 @@ public class OptionalChainShortCircuitTests
         new Engine().Evaluate(prepared).AsString().Should().Be("undefined,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ShortCircuitedChainStaysAnOrdinaryUndefinedForItsConsumers()
     {
         // The short-circuit marker must never reach a consumer of the chain's value.

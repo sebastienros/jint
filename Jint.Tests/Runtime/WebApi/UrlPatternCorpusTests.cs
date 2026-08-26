@@ -57,7 +57,7 @@ public class UrlPatternCorpusTests
     /// </remarks>
     private static readonly Dictionary<string, Divergence> _exclusions = new(StringComparer.Ordinal);
 
-    [Fact]
+    [Test]
     public void MatchesEveryRowOfTheWebPlatformTestsCorpus()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Url));

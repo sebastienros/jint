@@ -23,8 +23,8 @@ public class LazyHostStringTests
     private const string Text = "abc";
 
     /// <summary>
-    /// Whether this run has host-contract verification on. Public and static so xUnit can read it for
-    /// <c>SkipUnless</c>.
+    /// Whether this run has host-contract verification on. Static so
+    /// <see cref="IgnoreUnlessAttribute" /> can read it while the test tree is built.
     /// </summary>
     public static bool Verifying => HostContractVerificationSwitch.Enabled;
 
@@ -39,7 +39,7 @@ public class LazyHostStringTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void CanConcatWithoutMaterializedBackingValue()
     {
         // String.prototype.concat asks the receiver for a growable buffer first; the base
@@ -51,7 +51,7 @@ public class LazyHostStringTests
         host.MaterializationCount.Should().Be(1, "the flat value is produced once and cached");
     }
 
-    [Fact]
+    [Test]
     public void CanBuildUpWithCompoundAssignmentChain()
     {
         var engine = CreateEngine(out _);
@@ -61,7 +61,7 @@ public class LazyHostStringTests
         result.Should().Be("abc-1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void CanBeConcatenatedWithPlusOperator()
     {
         var engine = CreateEngine(out _);
@@ -70,7 +70,7 @@ public class LazyHostStringTests
         engine.Evaluate("'xyz' + host").AsString().Should().Be("xyzabc");
     }
 
-    [Fact]
+    [Test]
     public void CanBeUsedInTemplateLiteral()
     {
         var engine = CreateEngine(out _);
@@ -79,7 +79,7 @@ public class LazyHostStringTests
         engine.Evaluate("`${host}${host}`").AsString().Should().Be("abcabc");
     }
 
-    [Fact]
+    [Test]
     public void ReportsLengthWithoutMaterializing()
     {
         var engine = CreateEngine(out var host);
@@ -89,7 +89,7 @@ public class LazyHostStringTests
         host.MaterializationCount.Should().Be(0, "the length was declared to the constructor, so nothing has to be produced to answer it");
     }
 
-    [Fact]
+    [Test]
     public void SupportsCharacterAccess()
     {
         var engine = CreateEngine(out _);
@@ -99,7 +99,7 @@ public class LazyHostStringTests
         engine.Evaluate("host.charCodeAt(2)").AsNumber().Should().Be('c');
     }
 
-    [Fact]
+    [Test]
     public void IsEqualToTheEquivalentPlainString()
     {
         var engine = CreateEngine(out _);
@@ -113,7 +113,7 @@ public class LazyHostStringTests
         engine.Evaluate("host !== 'abcd'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasTheSameEqualityAndHashAsTheEquivalentPlainString()
     {
         // the base Equals/GetHashCode implementations are what an unspecialized host subclass
@@ -127,7 +127,7 @@ public class LazyHostStringTests
         host.GetHashCode().Should().Be(flat.GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void CanBeUsedAsPropertyKey()
     {
         var engine = CreateEngine(out _);
@@ -138,7 +138,7 @@ public class LazyHostStringTests
         engine.Evaluate("host in { abc: 1 }").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanBeUsedAsCollectionKey()
     {
         var engine = CreateEngine(out _);
@@ -147,7 +147,7 @@ public class LazyHostStringTests
         engine.Evaluate("new Set([host, 'abc']).size").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void CanBeSerializedToJson()
     {
         var engine = CreateEngine(out _);
@@ -158,7 +158,7 @@ public class LazyHostStringTests
         engine.Evaluate("JSON.stringify([host])").AsString().Should().Be("[\"abc\"]");
     }
 
-    [Fact]
+    [Test]
     public void SupportsCommonStringPrototypeMethods()
     {
         var engine = CreateEngine(out _);
@@ -175,19 +175,18 @@ public class LazyHostStringTests
     /// The laziness itself, expressed as a count. Every script below is answered from the declared length
     /// (or, for the indexer, from the host's own encoded buffer) and never asks for the text.
     /// </summary>
-    [Theory]
-    [InlineData("host.length")]
-    [InlineData("for (var i = 0, n = 0; i < host.length; i++) n++;")]
-    [InlineData("typeof host")]
-    [InlineData("!!host")]
-    [InlineData("host ? 1 : 0")]
-    [InlineData("host[0]")]
-    [InlineData("host.charAt(1)")]
-    [InlineData("host.charCodeAt(2)")]
-    [InlineData("host === host")]
-    [InlineData("host === 'abcd'")]
-    [InlineData("host !== 'ab'")]
-    [InlineData("host == 'abcd'")]
+    [TestCase("host.length")]
+    [TestCase("for (var i = 0, n = 0; i < host.length; i++) n++;")]
+    [TestCase("typeof host")]
+    [TestCase("!!host")]
+    [TestCase("host ? 1 : 0")]
+    [TestCase("host[0]")]
+    [TestCase("host.charAt(1)")]
+    [TestCase("host.charCodeAt(2)")]
+    [TestCase("host === host")]
+    [TestCase("host === 'abcd'")]
+    [TestCase("host !== 'ab'")]
+    [TestCase("host == 'abcd'")]
     public void NothingThatOnlyNeedsTheLengthMaterializes(string script)
     {
         var engine = CreateEngine(out var host);
@@ -197,7 +196,7 @@ public class LazyHostStringTests
         host.MaterializationCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ComparingTwoLazyStringsOfDifferentLengthsMaterializesNeither()
     {
         var shorter = new LazyHostString("abc");
@@ -212,7 +211,7 @@ public class LazyHostStringTests
         longer.MaterializationCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ReadingTheTextMaterializesExactlyOnceAndStaysThere()
     {
         var engine = CreateEngine(out var host);
@@ -232,21 +231,20 @@ public class LazyHostStringTests
     /// produce the text. So does anything that writes it out: <c>JSON.stringify</c>, string concatenation,
     /// and every <c>String.prototype</c> method that reads more than one character.
     /// </summary>
-    [Theory]
-    [InlineData("host in { abc: 1 }")]
-    [InlineData("host in { zzz: 1 }")]
-    [InlineData("var o = {}; o[host] = 1;")]
-    [InlineData("({ [host]: 1 })")]
-    [InlineData("({ abc: 7 })[host]")]
-    [InlineData("new Map().set(host, 1)")]
-    [InlineData("JSON.stringify(host)")]
-    [InlineData("JSON.stringify({ value: host })")]
-    [InlineData("JSON.stringify([host])")]
-    [InlineData("host + ''")]
-    [InlineData("`${host}`")]
-    [InlineData("host === 'abd'")]
-    [InlineData("host.toUpperCase()")]
-    [InlineData("String(host)")]
+    [TestCase("host in { abc: 1 }")]
+    [TestCase("host in { zzz: 1 }")]
+    [TestCase("var o = {}; o[host] = 1;")]
+    [TestCase("({ [host]: 1 })")]
+    [TestCase("({ abc: 7 })[host]")]
+    [TestCase("new Map().set(host, 1)")]
+    [TestCase("JSON.stringify(host)")]
+    [TestCase("JSON.stringify({ value: host })")]
+    [TestCase("JSON.stringify([host])")]
+    [TestCase("host + ''")]
+    [TestCase("`${host}`")]
+    [TestCase("host === 'abd'")]
+    [TestCase("host.toUpperCase()")]
+    [TestCase("String(host)")]
     public void TheOperationsThatNeedTheCharactersMaterializeExactlyOnce(string script)
     {
         var engine = CreateEngine(out var host);
@@ -256,7 +254,7 @@ public class LazyHostStringTests
         host.MaterializationCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MaterializeIsCalledOncePerInstanceAcrossEveryRead()
     {
         var engine = CreateEngine(out var host);
@@ -266,7 +264,7 @@ public class LazyHostStringTests
         host.MaterializationCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ADeclaredLengthThatIsNotAStringLengthIsRefusedAtConstruction()
     {
         Invoking(() => new FixedLengthString(-1, "abc")).Should().Throw<ArgumentOutOfRangeException>()
@@ -276,7 +274,7 @@ public class LazyHostStringTests
             .WithParameterName("length");
     }
 
-    [Fact]
+    [Test]
     public void AMaterializeThatReturnsNullIsRefusedByName()
     {
         var engine = new Engine();
@@ -292,7 +290,7 @@ public class LazyHostStringTests
     /// and an index the engine considers in range reads past the end. Host-contract verification catches the
     /// disagreement at the moment both answers exist.
     /// </summary>
-    [Fact(Skip = "host-contract verification is off in this run", SkipUnless = nameof(Verifying))]
+    [Test, IgnoreUnless(nameof(Verifying), "host-contract verification is off in this run")]
     public void ADeclaredLengthThatContradictsTheTextIsCaughtWhenVerifying()
     {
         var engine = new Engine();
@@ -307,7 +305,7 @@ public class LazyHostStringTests
     /// The other side of the same gate: with verification off the check is not merely skipped, it is not
     /// emitted, so the lie goes through and the host sees the broken behaviour the verifier describes.
     /// </remarks>
-    [Fact(Skip = "host-contract verification is on in this run", SkipUnless = nameof(NotVerifying))]
+    [Test, IgnoreUnless(nameof(NotVerifying), "host-contract verification is on in this run")]
     public void ADeclaredLengthThatContradictsTheTextIsNotCheckedWhenNotVerifying()
     {
         var engine = new Engine();

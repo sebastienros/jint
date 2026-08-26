@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using PublicApiGenerator;
 using VerifyTests;
 using VerifyTests.DiffPlex;
-using VerifyXunit;
+using VerifyNUnit;
 
 namespace Jint.Tests.PublicInterface;
 
@@ -52,10 +52,9 @@ public class PublicApiTest
     /// </summary>
     private static readonly string[] _shippedTargetFrameworks = ShippedJintBuildOutput.TargetFrameworks;
 
-    public static TheoryData<string> ShippedTargetFrameworks() => new(_shippedTargetFrameworks);
+    public static TestCases<string> ShippedTargetFrameworks() => new(_shippedTargetFrameworks);
 
-    [Theory]
-    [MemberData(nameof(ShippedTargetFrameworks))]
+    [TestCaseSource(nameof(ShippedTargetFrameworks))]
     public async Task PublicApiHasNotChangedUnintentionally(string targetFramework)
     {
         var assemblyPath = ShippedJintBuildOutput.AssemblyPath(targetFramework);
@@ -103,7 +102,7 @@ public class PublicApiTest
     /// version id is exact — a deterministic compilation derives it from the content — and can only fail
     /// when the artifacts tree and this test binary came from different builds.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheSnapshottedAssembliesAreTheOnesThisTestRunWasBuiltFrom()
     {
         var loaded = typeof(Engine).Assembly.ManifestModule.ModuleVersionId;

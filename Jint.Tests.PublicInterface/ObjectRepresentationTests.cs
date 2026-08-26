@@ -55,7 +55,7 @@ public class ObjectRepresentationTests
 
     // ---- reachability ----
 
-    [Fact]
+    [Test]
     public void TheDiagnosticIsReachableFromOutsideTheJintAssembly()
     {
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee. The
@@ -68,14 +68,14 @@ public class ObjectRepresentationTests
             .Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void NullIsRejected()
     {
         var engine = new Engine();
         Invoking(() => engine.Diagnostics.GetObjectRepresentation(null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void AnObjectFromAnotherEngineIsRejected()
     {
         // Hidden classes are interned per engine and the fallback thresholds are per-engine counters, so
@@ -89,7 +89,7 @@ public class ObjectRepresentationTests
 
     // ---- what the factories produce ----
 
-    [Fact]
+    [Test]
     public void AnObjectBuiltFromALayoutIsShaped()
     {
         var engine = new Engine();
@@ -108,7 +108,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(wide).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
-    [Fact]
+    [Test]
     public void AnObjectBuiltFromEntriesIsShaped()
     {
         var engine = new Engine();
@@ -119,7 +119,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(fromEnumerable).Should().Be(ObjectRepresentation.HiddenClass);
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyEntrySetStaysInTheDictionaryRepresentation()
     {
         // Shaping starts on the first entry, so an object that never got one was never shaped. This is a
@@ -131,7 +131,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(empty).Should().Be(ObjectRepresentation.Dictionary);
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryObjectLiteralIsShapedAndAnEmptyOneIsNot()
     {
         var engine = new Engine();
@@ -145,10 +145,9 @@ public class ObjectRepresentationTests
 
     // ---- fallback triggers ----
 
-    [Theory]
-    [InlineData("0")]
-    [InlineData("7")]
-    [InlineData("2nd")]
+    [TestCase("0")]
+    [TestCase("7")]
+    [TestCase("2nd")]
     public void AnIntegerIndexLikeEntryKeyFallsBackToTheDictionaryRepresentation(string name)
     {
         var engine = new Engine();
@@ -170,7 +169,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(trailing).Should().Be(ObjectRepresentation.Dictionary);
     }
 
-    [Fact]
+    [Test]
     public void TooManyEntriesFallBackToTheDictionaryRepresentation()
     {
         var engine = new Engine();
@@ -184,7 +183,7 @@ public class ObjectRepresentationTests
             .Should().Be(ObjectRepresentation.Dictionary);
     }
 
-    [Fact]
+    [Test]
     public void VaryingKeySetsEventuallyStopBeingShaped()
     {
         // The first object of a brand-new key set is shaped; after enough *different* key sets have branched
@@ -218,7 +217,7 @@ public class ObjectRepresentationTests
         engine.Evaluate("o.shared").Should().Be(fellBackAt);
     }
 
-    [Fact]
+    [Test]
     public void TheEnginesLayoutBudgetIsCumulativeAndEventuallyRunsOut()
     {
         // Same layout, same call, different answer depending only on how many *other* layouts this engine
@@ -269,13 +268,12 @@ public class ObjectRepresentationTests
 
     // ---- deopt after construction ----
 
-    [Theory]
-    [InlineData("o.extra = 1;")]
-    [InlineData("delete o.name;")]
-    [InlineData("Object.freeze(o);")]
-    [InlineData("Object.seal(o);")]
-    [InlineData("Object.defineProperty(o, 'g', { get: function () { return 1; } });")]
-    [InlineData("Object.defineProperty(o, 'name', { value: 2, writable: false });")]
+    [TestCase("o.extra = 1;")]
+    [TestCase("delete o.name;")]
+    [TestCase("Object.freeze(o);")]
+    [TestCase("Object.seal(o);")]
+    [TestCase("Object.defineProperty(o, 'g', { get: function () { return 1; } });")]
+    [TestCase("Object.defineProperty(o, 'name', { value: 2, writable: false });")]
     public void MutationsAShapeCannotExpressDropTheObjectToTheDictionaryRepresentation(string script)
     {
         var engine = new Engine();
@@ -290,7 +288,7 @@ public class ObjectRepresentationTests
         engine.Evaluate("o.id").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void MutationsAShapeCanExpressKeepTheObjectShaped()
     {
         var engine = new Engine();
@@ -314,7 +312,7 @@ public class ObjectRepresentationTests
 
     // ---- the other representations ----
 
-    [Fact]
+    [Test]
     public void ABuiltinUsesItsSharedLayout()
     {
         var engine = new Engine();
@@ -329,7 +327,7 @@ public class ObjectRepresentationTests
             .Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void SpecializedObjectTypesReportThemselvesAsSuch()
     {
         var engine = new Engine();
@@ -345,7 +343,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(proxy).Should().Be(ObjectRepresentation.Specialized);
     }
 
-    [Fact]
+    [Test]
     public void AHostDefinedObjectSubclassIsNotReportedAsADictionary()
     {
         // A subclass that answers its own properties stores nothing in Jint's dictionary, so calling it a

@@ -7,7 +7,7 @@
 /// </summary>
 public class ThisBindingElisionTests
 {
-    [Fact]
+    [Test]
     public void LeafClosuresBehaveIdenticallyUnderAnyReceiver()
     {
         var engine = new Engine();
@@ -30,7 +30,7 @@ public class ThisBindingElisionTests
         result.Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ThisUsingFunctionsKeepSloppyToObjectSemantics()
     {
         var engine = new Engine();
@@ -47,7 +47,7 @@ public class ThisBindingElisionTests
         result.Should().Be("object:5:object");
     }
 
-    [Fact]
+    [Test]
     public void ThisUsingFunctionsKeepStrictPassThroughSemantics()
     {
         var engine = new Engine();
@@ -62,7 +62,7 @@ public class ThisBindingElisionTests
         result.Should().Be("number:undefined");
     }
 
-    [Fact]
+    [Test]
     public void NestedArrowResolvingThisForcesBinding()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class ThisBindingElisionTests
         result.Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void NewTargetUsingFunctionKeepsBinding()
     {
         var engine = new Engine();
@@ -94,7 +94,7 @@ public class ThisBindingElisionTests
         result.Should().Be("true:object");
     }
 
-    [Fact]
+    [Test]
     public void LeafGettersAndMethodShorthandWork()
     {
         var engine = new Engine();
@@ -114,7 +114,7 @@ public class ThisBindingElisionTests
         result.Should().Be("7:2");
     }
 
-    [Fact]
+    [Test]
     public void CapturedStateClosuresKeepDistinctInstances()
     {
         var engine = new Engine();

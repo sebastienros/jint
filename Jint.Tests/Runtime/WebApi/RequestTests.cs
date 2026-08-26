@@ -16,7 +16,7 @@ public class RequestTests
 
     private static JsValue Eval(string source) => WebEngine().Evaluate(source);
 
-    [Fact]
+    [Test]
     public void DefaultsToAGetOfTheParsedUrl()
     {
         Eval("new Request('https://example.org').method").AsString().Should().Be("GET");
@@ -29,24 +29,24 @@ public class RequestTests
         Eval("new Request('https://example.org').bodyUsed").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void HasNoBaseUrlSoARelativeInputFails()
     {
         // The specification parses against the entry settings object's API base URL — a document's URL, which
         // an embedded engine has none of.
-        Assert.Throws<JavaScriptException>(() => Eval("new Request('/a')"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('/a')"))!
             .Message.Should().Contain("Failed to parse URL");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAUrlCarryingCredentials()
     {
         // https://fetch.spec.whatwg.org/#dom-request step 5.3.
-        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://u:p@example.org/')"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://u:p@example.org/')"))!
             .Message.Should().Contain("credentials");
     }
 
-    [Fact]
+    [Test]
     public void NormalizesOnlyTheSixStandardMethods()
     {
         // https://fetch.spec.whatwg.org/#concept-method-normalize
@@ -58,7 +58,7 @@ public class RequestTests
         Eval("new Request('https://example.org', { method: 'weird' }).method").AsString().Should().Be("weird");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAMethodThatIsNotATokenOrIsForbidden()
     {
         Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { method: 'a b' })"));
@@ -67,15 +67,15 @@ public class RequestTests
         // https://fetch.spec.whatwg.org/#forbidden-method — a script must not open a proxy tunnel.
         foreach (var method in new[] { "CONNECT", "trace", "TrAcK" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"new Request('https://example.org', {{ method: '{method}' }})"))
+            Assert.Throws<JavaScriptException>(() => Eval($"new Request('https://example.org', {{ method: '{method}' }})"))!
                 .Message.Should().Contain("not a valid HTTP method");
         }
     }
 
-    [Fact]
+    [Test]
     public void RefusesABodyOnGetAndHead()
     {
-        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { body: 'x' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { body: 'x' })"))!
             .Message.Should().Contain("cannot have body");
 
         Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { method: 'HEAD', body: 'x' })"));
@@ -84,7 +84,7 @@ public class RequestTests
         Eval("new Request('https://example.org', { body: null }).method").AsString().Should().Be("GET");
     }
 
-    [Fact]
+    [Test]
     public void ExtractsEveryBodyInitAndItsImpliedContentType()
     {
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract
@@ -114,7 +114,7 @@ public class RequestTests
         engine.Evaluate("req(42).text()").UnwrapIfPromise().AsString().Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void TakesAFormDataBodyAsMultipart()
     {
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract: "Set type to `multipart/form-data;
@@ -131,7 +131,7 @@ public class RequestTests
         engine.Evaluate("r.formData().then(parsed => parsed.get('a'))").UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void CopiesTheBytesOfABufferSourceBody()
     {
         // A body that could change under the engine after it was set would be a request-smuggling primitive.
@@ -143,7 +143,7 @@ public class RequestTests
             })().text()").UnwrapIfPromise().AsString().Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void AnExplicitContentTypeWins()
     {
         // The headers are filled before the body's implied type is appended, so an explicit one survives.
@@ -151,7 +151,7 @@ public class RequestTests
             .AsString().Should().Be("text/csv");
     }
 
-    [Fact]
+    [Test]
     public void CopiesFromAnotherRequest()
     {
         var engine = WebEngine();
@@ -169,18 +169,18 @@ public class RequestTests
         engine.Evaluate("new Request(a, { headers: { 'x-b': '2' } }).headers.has('x-a')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RefusesToCopyAnAlreadyReadRequest()
     {
         var engine = WebEngine();
         engine.Execute("var a = new Request('https://example.org', { method: 'POST', body: 'hi' }); a.text();");
 
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request(a)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request(a)"))!
             .Message.Should().Contain("already used");
     }
 
-    [Fact]
+    [Test]
     public void AlwaysHasASignalThatFollowsTheOneGiven()
     {
         var engine = WebEngine();
@@ -204,21 +204,21 @@ public class RequestTests
 
         // An explicit null means no signal to follow, not a type error.
         engine.Evaluate("new Request('https://example.org', { signal: null }).signal.aborted").AsBoolean().Should().BeFalse();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { signal: {} })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { signal: {} })"))!
             .Message.Should().Contain("AbortSignal");
     }
 
-    [Fact]
+    [Test]
     public void ValidatesTheRedirectEnumeration()
     {
         Eval("new Request('https://example.org', { redirect: 'manual' }).redirect").AsString().Should().Be("manual");
         Eval("new Request('https://example.org', { redirect: 'error' }).redirect").AsString().Should().Be("error");
 
-        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { redirect: 'nope' })"))
+        Assert.Throws<JavaScriptException>(() => Eval("new Request('https://example.org', { redirect: 'nope' })"))!
             .Message.Should().Contain("RequestRedirect");
     }
 
-    [Fact]
+    [Test]
     public void ReadsInitMembersInLexicographicalOrder()
     {
         // WebIDL converts a dictionary's members in lexicographical order of their identifiers, which is
@@ -234,7 +234,7 @@ public class RequestTests
             })()").AsString().Should().Be("body,headers,method,redirect,signal");
     }
 
-    [Fact]
+    [Test]
     public void CloneSharesTheBytesAndNotTheUsedFlag()
     {
         var engine = WebEngine();
@@ -250,18 +250,18 @@ public class RequestTests
         engine.Evaluate("a.headers.has('x-b')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CloneThrowsSynchronouslyForAnUsedBody()
     {
         // clone does not return a promise, so this is the one Body member that throws rather than rejects.
         var engine = WebEngine();
         engine.Execute("var a = new Request('https://example.org', { method: 'POST', body: 'hi' }); a.text();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("a.clone()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("a.clone()"))!
             .Message.Should().Contain("already used");
     }
 
-    [Fact]
+    [Test]
     public void ClonesSignalFollowsTheOriginal()
     {
         var engine = WebEngine();
@@ -271,7 +271,7 @@ public class RequestTests
         engine.Evaluate("b.signal.aborted").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BodyIsAStreamAndBodyUsedTracksConsumption()
     {
         var engine = WebEngine();
@@ -290,7 +290,7 @@ public class RequestTests
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadingTheBodyStreamDirectlyIsWhatDisturbsIt()
     {
         // bodyUsed is the stream's disturbed flag, so touching the stream is what flips it — not calling one
@@ -310,7 +310,7 @@ public class RequestTests
         engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AcceptsAReadableStreamAsTheBody()
     {
         var engine = WebEngine();
@@ -338,13 +338,13 @@ public class RequestTests
     /// refused. And it keys on <c>initBody</c>, not on the final body, so a request built <i>from another
     /// request</i> that has a stream body needs no <c>duplex</c> of its own.
     /// </remarks>
-    [Fact]
+    [Test]
     public void RequiresDuplexForAStreamBodyAndForNothingElse()
     {
         var engine = WebEngine();
         engine.Execute("function stream() { return new ReadableStream({ start(c) { c.enqueue(new Uint8Array([104])); c.close(); } }); }");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: stream() })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: stream() })"))!
             .Message.Should().Contain("duplex");
 
         engine.Evaluate("new Request('https://example.org', { method: 'POST', body: stream(), duplex: 'half' }).method")
@@ -365,7 +365,7 @@ public class RequestTests
     /// standard reserves for a duplex fetch nobody has specified. The attribute always reads back
     /// <c>"half"</c>: https://fetch.spec.whatwg.org/#dom-request-duplex.
     /// </summary>
-    [Fact]
+    [Test]
     public void HasADuplexAttributeThatOnlyAcceptsHalf()
     {
         var engine = WebEngine();
@@ -375,7 +375,7 @@ public class RequestTests
 
         foreach (var invalid in new[] { "'full'", "'HALF'", "''", "null", "1" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new Request('https://example.org', {{ duplex: {invalid} }})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new Request('https://example.org', {{ duplex: {invalid} }})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", invalid);
         }
 
@@ -385,51 +385,51 @@ public class RequestTests
 
         // The attribute is an accessor on the prototype with a brand check, like every other one.
         engine.Evaluate("Object.getOwnPropertyDescriptor(Request.prototype, 'duplex').get.name").AsString().Should().Be("get duplex");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(Request.prototype, 'duplex').get.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(Request.prototype, 'duplex').get.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReadableStreamThatIsAlreadyDisturbedOrLocked()
     {
         var engine = WebEngine();
         engine.Execute("var locked = new ReadableStream(); locked.getReader();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: locked })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request('https://example.org', { method: 'POST', body: locked })"))!
             .Message.Should().Contain("disturbed or locked");
     }
 
-    [Fact]
+    [Test]
     public void HasNoOwnPropertiesAndTheRightToStringTag()
     {
         Eval("Object.getOwnPropertyNames(new Request('https://example.org')).length").AsNumber().Should().Be(0);
         Eval("Object.prototype.toString.call(new Request('https://example.org'))").AsString().Should().Be("[object Request]");
     }
 
-    [Fact]
+    [Test]
     public void HasAFormDataMember()
     {
         // What it does with a body is MultipartTests' business; that it exists is this file's.
         Eval("typeof Request.prototype.formData").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksEveryMember()
     {
         foreach (var member in new[] { "method", "url", "headers", "redirect", "signal", "body", "bodyUsed" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"Request.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => Eval($"Request.prototype.{member}"))!
                 .Message.Should().Contain("Request");
         }
 
         foreach (var member in new[] { "clone()", "text()", "json()", "blob()", "bytes()", "arrayBuffer()" })
         {
-            Assert.Throws<JavaScriptException>(() => Eval($"Request.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => Eval($"Request.prototype.{member}"))!
                 .Message.Should().Contain("Request");
         }
     }
 
-    [Fact]
+    [Test]
     public void ConsumingABufferedRequestBodyLeavesItsStreamDisturbedAndLocked()
     {
         // The Body mixin is one mixin — https://fetch.spec.whatwg.org/#body-mixin — so what
@@ -442,7 +442,7 @@ public class RequestTests
         engine.Evaluate("a.body === null").AsBoolean().Should().BeFalse();
         engine.Evaluate("a.body.locked").AsBoolean().Should().BeTrue();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("a.body.getReader()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("a.body.getReader()"))!
             .Message.Should().Contain("locked");
 
         // And the neighbour: reading `body` first, then consuming, locks that same stream rather than a new

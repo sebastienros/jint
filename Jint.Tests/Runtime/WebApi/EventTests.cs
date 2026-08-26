@@ -13,7 +13,7 @@ public class EventTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Events));
 
-    [Fact]
+    [Test]
     public void StartsInTheStateTheInnerEventCreationStepsLeaveIt()
     {
         var engine = WebEngine();
@@ -32,7 +32,7 @@ public class EventTests
         engine.Evaluate("e.isTrusted").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheEventInitDictionary()
     {
         var engine = WebEngine();
@@ -50,7 +50,7 @@ public class EventTests
         engine.Evaluate("new Event('x', undefined).cancelable").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheDictionaryMembersInWebIdlOrder()
     {
         var engine = WebEngine();
@@ -68,12 +68,12 @@ public class EventTests
         engine.Evaluate("order.join(',')").AsString().Should().Be("bubbles,cancelable,composed");
     }
 
-    [Fact]
+    [Test]
     public void RequiresATypeArgument()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Event()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Event()"))!
             .Message.Should().Contain("1 argument required");
 
         // Anything else is a DOMString, so it is stringified rather than refused.
@@ -81,7 +81,7 @@ public class EventTests
         engine.Evaluate("new Event(undefined).type").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RefusesANonObjectInitDictionary()
     {
         var engine = WebEngine();
@@ -90,7 +90,7 @@ public class EventTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Event('x', 'nope')"));
     }
 
-    [Fact]
+    [Test]
     public void ExposesThePhaseConstantsOnBothTheInterfaceObjectAndThePrototype()
     {
         var engine = WebEngine();
@@ -112,7 +112,7 @@ public class EventTests
         engine.Evaluate($"{descriptor}.configurable").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void CancelsOnlyWhenCancelable()
     {
         var engine = WebEngine();
@@ -124,7 +124,7 @@ public class EventTests
         engine.Evaluate("cancelable.defaultPrevented").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ComposedPathIsEmptyOutsideADispatchAndTheTargetInsideOne()
     {
         var engine = WebEngine();
@@ -146,7 +146,7 @@ public class EventTests
         engine.Evaluate("e.composedPath().length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CarriesATimeStampRelativeToTheEngineTimeOrigin()
     {
         var engine = WebEngine();
@@ -155,7 +155,7 @@ public class EventTests
         engine.Evaluate("new Event('x').timeStamp >= 0").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExposesEveryAttributeAsAPrototypeAccessor()
     {
         var engine = WebEngine();
@@ -189,7 +189,7 @@ public class EventTests
     /// https://webidl.spec.whatwg.org/#es-attributes gives it
     /// <c>{ [[Enumerable]]: true, [[Configurable]]: false }</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsTrustedIsAnUnforgeableOwnAccessorOfEveryInstance()
     {
         var engine = WebEngine();
@@ -249,7 +249,7 @@ public class EventTests
     /// An event's own <c>isTrusted</c> is the earliest of its own string keys, so a subclass field declared
     /// in a JavaScript constructor comes after it — the ordering the interface's own creation implies.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheUnforgeableOwnPropertyComesBeforeAnythingScriptAdds()
     {
         var engine = WebEngine();
@@ -275,7 +275,7 @@ public class EventTests
     /// The engine's own events are trusted, which is the whole point of the attribute —
     /// https://dom.spec.whatwg.org/#concept-event-fire.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineFiredEventIsTrusted()
     {
         var engine = WebEngine();
@@ -296,7 +296,7 @@ public class EventTests
     /// <c>readonly attribute EventTarget? srcElement</c>, whose "getter steps are to return this's target" —
     /// https://dom.spec.whatwg.org/#dom-event-srcelement.
     /// </summary>
-    [Fact]
+    [Test]
     public void SrcElementIsAnAliasOfTarget()
     {
         var engine = WebEngine();
@@ -325,7 +325,7 @@ public class EventTests
     /// this if the given value is false; otherwise do nothing" —
     /// https://dom.spec.whatwg.org/#dom-event-returnvalue.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReturnValueIsTheCanceledFlagInverted()
     {
         var engine = WebEngine();
@@ -363,7 +363,7 @@ public class EventTests
     /// is ignored just as its <c>preventDefault()</c> is — which is what
     /// <c>dom/events/AddEventListenerOptions-passive.any.js</c> asserts.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReturnValueIsIgnoredInsideAPassiveListener()
     {
         var engine = WebEngine();
@@ -394,7 +394,7 @@ public class EventTests
     /// <i>initialize an event</i> (https://dom.spec.whatwg.org/#concept-event-initialize) also unsets the
     /// three propagation/cancel flags, clears <c>isTrusted</c> and clears <c>target</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void InitEventReinitializesTheEvent()
     {
         var engine = WebEngine();
@@ -449,7 +449,7 @@ public class EventTests
     /// "Initialize event's target to null" and "Set event's isTrusted attribute to false" — the two steps of
     /// <i>initialize an event</i> that are not about the type or the flags.
     /// </summary>
-    [Fact]
+    [Test]
     public void InitEventClearsTargetAndTrust()
     {
         var engine = WebEngine();
@@ -481,7 +481,7 @@ public class EventTests
     /// Step 1 of both init methods: "If this's dispatch flag is set, then return." An event being dispatched
     /// cannot be re-initialized out from under the dispatch.
     /// </summary>
-    [Fact]
+    [Test]
     public void InitEventIsIgnoredDuringADispatch()
     {
         var engine = WebEngine();
@@ -505,7 +505,7 @@ public class EventTests
     /// <c>initCustomEvent(type, bubbles, cancelable, detail)</c> — the same two steps plus "Set this's detail
     /// attribute to detail" (https://dom.spec.whatwg.org/#dom-customevent-initcustomevent).
     /// </summary>
-    [Fact]
+    [Test]
     public void InitCustomEventAlsoSetsTheDetail()
     {
         var engine = WebEngine();
@@ -531,19 +531,19 @@ public class EventTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("CustomEvent.prototype.initCustomEvent.call(new Event('x'), 'y')"));
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReceiverThatIsNotAnEvent()
     {
         var engine = WebEngine();
 
         // Event.prototype is an interface prototype object, not an instance of the interface.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Event.prototype.type"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Event.prototype.type"))!
             .Message.Should().Contain("Event");
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Event.prototype.preventDefault.call({})"));
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlShape()
     {
         var engine = WebEngine();
@@ -555,11 +555,11 @@ public class EventTests
         engine.Evaluate("Object.getPrototypeOf(Event.prototype) === Object.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.prototype.toString.call(new Event('x'))").AsString().Should().Be("[object Event]");
 
-        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("Event('x')"));
+        var exception = Assert.Throws<JavaScriptException>(() => engine.Evaluate("Event('x')"))!;
         exception.Message.Should().Contain("requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void SupportsBeingSubclassed()
     {
         var engine = WebEngine();
@@ -587,7 +587,7 @@ public class EventTests
         engine.Evaluate("got === e").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CustomEventCarriesItsDetail()
     {
         var engine = WebEngine();
@@ -602,7 +602,7 @@ public class EventTests
         engine.Evaluate("new CustomEvent('x', { detail: 1, bubbles: true }).bubbles").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CustomEventInheritsFromEvent()
     {
         var engine = WebEngine();
@@ -620,7 +620,7 @@ public class EventTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(CustomEvent.prototype, 'detail').get.call(new Event('x'))"));
     }
 
-    [Fact]
+    [Test]
     public void ReachingCustomEventFirstStillBuildsEventUnderneath()
     {
         // The intrinsics are lazy and CustomEvent depends on Event, so the inheritance has to hold whichever

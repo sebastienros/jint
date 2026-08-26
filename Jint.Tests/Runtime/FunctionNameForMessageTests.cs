@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class FunctionNameForMessageTests
 {
-    [Fact]
+    [Test]
     public void APendingLazyNameFallsBackToTheClrTypeNameInsteadOfThrowing()
     {
         using var engine = new Engine();
@@ -21,16 +21,16 @@ public class FunctionNameForMessageTests
 
         var name = function.GetOwnFunctionNameForMessage();
 
-        Assert.Equal(function.GetType().Name, name);
+        Assert.That(name, Is.EqualTo(function.GetType().Name));
     }
 
-    [Fact]
+    [Test]
     public void AMaterializedNameIsQuoted()
     {
         using var engine = new Engine();
 
         var function = (Function) engine.Evaluate("const f = function foo() {}; void f.name; f");
 
-        Assert.Equal("foo", function.GetOwnFunctionNameForMessage());
+        Assert.That(function.GetOwnFunctionNameForMessage(), Is.EqualTo("foo"));
     }
 }

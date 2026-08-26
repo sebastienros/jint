@@ -56,7 +56,7 @@ public class SharedShapeTests
 
     // ---- reachability and guards ----
 
-    [Fact]
+    [Test]
     public void ThePredicateIsReachableFromOutsideTheJintAssembly()
     {
         // This project has no InternalsVisibleTo, so the call below compiling at all is the guarantee. The
@@ -68,14 +68,14 @@ public class SharedShapeTests
             .Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void NullIsRejected()
     {
         var engine = new Engine();
         Invoking(() => engine.Advanced.HasSharedShape(null!)).Should().Throw<ArgumentNullException>();
     }
 
-    [Fact]
+    [Test]
     public void AnObjectFromAnotherEngineIsRejected()
     {
         // Hidden classes are interned per engine, so asking one engine about another's object is a mistake
@@ -89,7 +89,7 @@ public class SharedShapeTests
 
     // ---- the documented success cases a host may pin ----
 
-    [Fact]
+    [Test]
     public void AnObjectBuiltFromALayoutHasASharedShape()
     {
         var engine = new Engine();
@@ -105,7 +105,7 @@ public class SharedShapeTests
         engine.Advanced.HasSharedShape(wide).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ObjectsBuiltFromTheSameEntriesAllHaveASharedShape()
     {
         // The adoption assertion in one line, and the reason the answer is worth having: "shared" is a claim
@@ -121,7 +121,7 @@ public class SharedShapeTests
         engine.Advanced.HasSharedShape(third).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AnInstantiatedShapeObjectHasASharedShape()
     {
         var engine = new Engine();
@@ -137,7 +137,7 @@ public class SharedShapeTests
 
     // ---- and the cases that are not shared ----
 
-    [Fact]
+    [Test]
     public void AShapedObjectDeoptedByARawDescriptorWriteNoLongerHasASharedShape()
     {
         // Storing a raw descriptor under a string key is a dictionary-mode operation, so it permanently
@@ -155,7 +155,7 @@ public class SharedShapeTests
         engine.Evaluate("o.id + ',' + o.extra").Should().Be("1,7");
     }
 
-    [Fact]
+    [Test]
     public void MutationsAShapeCannotExpressDropTheSharedShape()
     {
         var engine = new Engine();
@@ -167,7 +167,7 @@ public class SharedShapeTests
         engine.Advanced.HasSharedShape(obj).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AHostObjectSubclassNeverHasASharedShape()
     {
         // A host subclass keeps its own-property set outside the engine's storage, so no shared layout
@@ -180,7 +180,7 @@ public class SharedShapeTests
         engine.Advanced.HasSharedShape(host).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void SpecializedObjectTypesDoNotHaveASharedShape()
     {
         var engine = new Engine();
@@ -189,7 +189,7 @@ public class SharedShapeTests
         engine.Advanced.HasSharedShape(engine.Evaluate("new Proxy({}, {})").AsObject()).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AnObjectPopulatedThroughSetIsPinnedAsUnshared()
     {
         // PINNED BEHAVIOUR, NOT CONTRACT. A bare JsObject starts in the ordinary property dictionary and
@@ -210,7 +210,7 @@ public class SharedShapeTests
 
     // ---- the predicate and the diagnostic can never disagree ----
 
-    [Fact]
+    [Test]
     public void ThePredicateAgreesWithTheFinerGrainedDiagnostic()
     {
         var engine = new Engine();

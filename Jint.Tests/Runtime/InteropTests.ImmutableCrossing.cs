@@ -82,7 +82,7 @@ public partial class InteropTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingAnswersRepeatedNestedReadsWithoutProbingTheHost()
     {
         var leaf = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -99,7 +99,7 @@ public partial class InteropTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void UndeclaredTypeKeepsProbingOnEveryRead()
     {
         var leaf = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -115,7 +115,7 @@ public partial class InteropTests
         leaf.Probes.Should().Be(10);
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingCoversImplementationsOfADeclaredInterface()
     {
         var leaf = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -131,7 +131,7 @@ public partial class InteropTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingIgnoresAnUnrelatedDeclaration()
     {
         var root = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -164,7 +164,7 @@ public partial class InteropTests
         }
         """;
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingSurvivesMoreNodesThanTheRecentWrapperRingHolds()
     {
         var (root, children) = BuildWideGraph();
@@ -179,7 +179,7 @@ public partial class InteropTests
         children.Should().OnlyContain(c => c.Probes == 1);
     }
 
-    [Fact]
+    [Test]
     public void UndeclaredWideWalkRereadsEveryNode()
     {
         var (root, children) = BuildWideGraph();
@@ -193,7 +193,7 @@ public partial class InteropTests
         children.Should().OnlyContain(c => c.Probes == 2);
     }
 
-    [Fact]
+    [Test]
     public void WriteThroughEvictsTheMemoAndTheNextReadSeesTheNewValue()
     {
         var target = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
@@ -209,7 +209,7 @@ public partial class InteropTests
         target["country"].Should().Be("SE");
     }
 
-    [Fact]
+    [Test]
     public void WriteThroughEvictsTheMemoForAReflectedMember()
     {
         var host = new MutableHost();
@@ -227,7 +227,7 @@ public partial class InteropTests
         public string name { get; set; } = "first";
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingMemoizesAReflectedMemberWithoutReinvokingTheGetter()
     {
         var host = new CountingHost();
@@ -256,7 +256,7 @@ public partial class InteropTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EnumerationStaysLiveFromTheTarget()
     {
         var target = new Dictionary<string, object>(StringComparer.Ordinal)
@@ -279,7 +279,7 @@ public partial class InteropTests
         engine.Evaluate("Object.values(record).join(',')").AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringifyOfADeclaredGraphIsUnchanged()
     {
         var undeclared = new Engine();
@@ -293,7 +293,7 @@ public partial class InteropTests
         declared.Evaluate("JSON.stringify(record)").AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void FreezeStillWinsOverTheMemo()
     {
         var target = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
@@ -310,7 +310,7 @@ public partial class InteropTests
         engine.Evaluate("record.country = 'SE'; record.country").AsString().Should().Be("FI");
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyStillWinsOverTheMemo()
     {
         var target = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
@@ -323,7 +323,7 @@ public partial class InteropTests
         engine.Evaluate("record.country").AsString().Should().Be("SE");
     }
 
-    [Fact]
+    [Test]
     public void DeleteEvictsTheMemo()
     {
         var target = new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" };
@@ -338,7 +338,7 @@ public partial class InteropTests
         engine.Evaluate("record.country").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConverterClaimsTheChildValueOnceAndTheMemoKeepsTheConvertedResult()
     {
         var converter = new CountingUriConverter();
@@ -359,7 +359,7 @@ public partial class InteropTests
         converter.Conversions.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesOverTheSameTargetKeepIndependentMemos()
     {
         var target = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -376,7 +376,7 @@ public partial class InteropTests
         target.Probes.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEngines()
     {
         var options = new Options().AddImmutableCrossing(typeof(CountingDictionary));
@@ -397,7 +397,7 @@ public partial class InteropTests
         second.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingSupersedesTheRecentWrapperCacheOptOut()
     {
         var leaf = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -416,7 +416,7 @@ public partial class InteropTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ImmutableCrossingComposesWithIdentityTracking()
     {
         var leaf = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -435,7 +435,7 @@ public partial class InteropTests
         leaf.Probes.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AddImmutableCrossingValidatesItsArguments()
     {
         var noTypes = () => new Options().AddImmutableCrossing();
@@ -445,7 +445,7 @@ public partial class InteropTests
         nullEntry.Should().Throw<ArgumentException>();
     }
 
-    [Fact]
+    [Test]
     public void AnOpenGenericDeclarationClaimsNothing()
     {
         var root = new CountingDictionary(new Dictionary<string, object>(StringComparer.Ordinal) { ["country"] = "FI" });
@@ -460,7 +460,7 @@ public partial class InteropTests
     }
 
 #if NET
-    [Fact]
+    [Test]
     public void ImmutableCrossingRemovesThePerReadAllocationOfANestedWalk()
     {
         var script = Engine.PrepareScript("var s = 0; for (var i = 0; i < 200; i++) { s = record.value.customer.country; } 1");

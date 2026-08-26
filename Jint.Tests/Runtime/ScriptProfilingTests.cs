@@ -95,18 +95,18 @@ public class ScriptProfilingTests
             .Where(static e => e.Kind == ScriptProfileEventKind.Open)
             .Select(e => profile.Frames[e.FrameIndex].Name);
 
-    [Fact]
+    [Test]
     public void StartProfilingOnADisabledEngineThrowsAndNamesTheOption()
     {
         var engine = new Engine();
 
-        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling());
+        var exception = Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StartProfiling())!;
 
         exception.Message.Should().Contain("Options.Profiling.Enabled");
         engine.Diagnostics.IsProfiling.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ADisabledEngineStillRunsAndRecordsNothing()
     {
         var engine = new Engine();
@@ -116,7 +116,7 @@ public class ScriptProfilingTests
         Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
-    [Fact]
+    [Test]
     public void StopProfilingWithoutStartingThrows()
     {
         var engine = CreateProfilingEngine();
@@ -124,7 +124,7 @@ public class ScriptProfilingTests
         Assert.Throws<InvalidOperationException>(() => engine.Diagnostics.StopProfiling());
     }
 
-    [Fact]
+    [Test]
     public void StartProfilingTwiceThrows()
     {
         var engine = CreateProfilingEngine();
@@ -135,7 +135,7 @@ public class ScriptProfilingTests
         engine.Diagnostics.StopProfiling();
     }
 
-    [Fact]
+    [Test]
     public void AnEnabledButUnstartedEngineRecordsNothing()
     {
         var engine = CreateProfilingEngine();
@@ -151,7 +151,7 @@ public class ScriptProfilingTests
         profile.Truncated.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void EveryEnterIsMatchedByAnExit()
     {
         var engine = CreateProfilingEngine();
@@ -163,7 +163,7 @@ public class ScriptProfilingTests
         RenderCallTree(profile).Should().Be("outer\n  inner\n  inner\n");
     }
 
-    [Fact]
+    [Test]
     public void NestedCallTreeShapeIsReconstructable()
     {
         var engine = CreateProfilingEngine();
@@ -179,7 +179,7 @@ public class ScriptProfilingTests
         RenderCallTree(profile).Should().Be("root\n  middle\n    leaf\n  leaf\n");
     }
 
-    [Fact]
+    [Test]
     public void AThrowCaughtInScriptStillClosesEveryFrame()
     {
         var engine = CreateProfilingEngine();
@@ -198,7 +198,7 @@ public class ScriptProfilingTests
         OpenedNames(profile).Should().Contain("thrower");
     }
 
-    [Fact]
+    [Test]
     public void AThrowEscapingToTheHostStillClosesEveryFrame()
     {
         var engine = CreateProfilingEngine();
@@ -222,7 +222,7 @@ public class ScriptProfilingTests
         DepthOfFirstOpen(profile, "after").Should().Be(0, "the abandoned frames were closed, not left open");
     }
 
-    [Fact]
+    [Test]
     public void ResetCallStackClosesEveryOpenFrame()
     {
         var engine = CreateProfilingEngine();
@@ -242,7 +242,7 @@ public class ScriptProfilingTests
         DepthOfFirstOpen(profile, "after").Should().Be(0, "the abandoned frames were closed, not left open");
     }
 
-    [Fact]
+    [Test]
     public void RecursionIsRecordedAsNestedActivationsOfOneFrame()
     {
         var engine = CreateProfilingEngine();
@@ -264,7 +264,7 @@ public class ScriptProfilingTests
     /// is what keeps a future change to tail-call bookkeeping from silently turning a bounded profile into
     /// an unbounded one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProperTailCallIsRecordedAsACloseFollowedByAnOpen()
     {
         var engine = CreateProfilingEngine();
@@ -283,7 +283,7 @@ public class ScriptProfilingTests
         profile.Events.Should().HaveCount(102, "51 activations, each one open and one close");
     }
 
-    [Fact]
+    [Test]
     public void ClosuresOfOneSourceFunctionShareAFrame()
     {
         var engine = CreateProfilingEngine();
@@ -300,7 +300,7 @@ public class ScriptProfilingTests
         OpenedNames(profile).Count(static n => n == "adder").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void FramesCarryTheDeclarationName_And_SourceLocation()
     {
         var engine = CreateProfilingEngine();
@@ -314,7 +314,7 @@ public class ScriptProfilingTests
         frame.Column.Should().Be(1, "columns are reported one-based, as in a stack trace");
     }
 
-    [Fact]
+    [Test]
     public void AnInferredNameIsPreferredToAnonymity()
     {
         var engine = CreateProfilingEngine();
@@ -325,7 +325,7 @@ public class ScriptProfilingTests
         OpenedNames(profile).Should().Contain("inferred");
     }
 
-    [Fact]
+    [Test]
     public void AFunctionWithNoNameAtAllIsAnonymous()
     {
         var engine = CreateProfilingEngine();
@@ -341,7 +341,7 @@ public class ScriptProfilingTests
         frame.Column.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void AGetterIsProfiledUnderTheAccessorName()
     {
         var engine = CreateProfilingEngine();
@@ -352,7 +352,7 @@ public class ScriptProfilingTests
         RenderCallTree(profile).Should().Be("g\n  get p\n");
     }
 
-    [Fact]
+    [Test]
     public void HostCallablesAreProfiledButCarryNoSourceLocation()
     {
         var engine = CreateProfilingEngine();
@@ -379,7 +379,7 @@ public class ScriptProfilingTests
     /// </summary>
     public class Elisions
     {
-        [Fact]
+        [Test]
         public void AFramelessLeafBuiltInDisappearsOnceItsCallSiteIsWarm()
         {
             var engine = CreateProfilingEngine();
@@ -395,7 +395,7 @@ public class ScriptProfilingTests
             OpenedNames(profile).Count(static n => n == "abs").Should().Be(1);
         }
 
-        [Fact]
+        [Test]
         public void ACallbackABuiltInInvokesHasNoFrameButItsCalleesDo()
         {
             var engine = CreateProfilingEngine();
@@ -408,7 +408,7 @@ public class ScriptProfilingTests
             RenderCallTree(profile).Should().Be("map\n  helper\n  helper\n");
         }
 
-        [Fact]
+        [Test]
         public void APromiseReactionHandlerHasNoFrameButItsCalleesDo()
         {
             var engine = CreateProfilingEngine();
@@ -429,7 +429,7 @@ public class ScriptProfilingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TruncationStopsRecordingAndFlagsTheProfile()
     {
         var engine = new Engine(options =>
@@ -450,7 +450,7 @@ public class ScriptProfilingTests
         RenderCallTree(profile);
     }
 
-    [Fact]
+    [Test]
     public void TruncationInsideADeepStackClosesEveryOpenFrame()
     {
         var engine = new Engine(options =>
@@ -468,7 +468,7 @@ public class ScriptProfilingTests
         RenderCallTree(profile);
     }
 
-    [Fact]
+    [Test]
     public void AProfileStoppedMidCallClosesWhatIsStillOpen()
     {
         var engine = CreateProfilingEngine();
@@ -483,7 +483,7 @@ public class ScriptProfilingTests
         engine.Diagnostics.IsProfiling.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AProfileStartedMidCallDropsTheExitsItNeverSaw()
     {
         var engine = CreateProfilingEngine();
@@ -502,7 +502,7 @@ public class ScriptProfilingTests
         profile.Events.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ProfilingIsPerEngine()
     {
         var options = new Options();
@@ -520,7 +520,7 @@ public class ScriptProfilingTests
         OpenedNames(profile).Should().Equal("mine");
     }
 
-    [Fact]
+    [Test]
     public void NonPositiveMaxEventsIsRejected()
     {
         var options = new Options();
@@ -530,7 +530,7 @@ public class ScriptProfilingTests
         options.Profiling.MaxEvents.Should().Be(Options.ProfilingOptions.DefaultMaxEvents);
     }
 
-    [Fact]
+    [Test]
     public void DurationCoversTheWholeSession()
     {
         var engine = CreateProfilingEngine();
@@ -544,7 +544,7 @@ public class ScriptProfilingTests
         profile.Duration.Ticks.Should().Be(profile.DurationNanoseconds / 100);
     }
 
-    [Fact]
+    [Test]
     public void ASecondSessionOnTheSameEngineStartsClean()
     {
         var engine = CreateProfilingEngine();

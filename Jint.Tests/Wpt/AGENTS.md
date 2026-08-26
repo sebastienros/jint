@@ -10,7 +10,7 @@
 ### Web platform tests
 
 The web APIs have a conformance suite the way the language has test262: `Jint.Tests/Wpt/` runs vendored
-web-platform-tests `.any.js` files, one xUnit theory case per file, against an engine built with
+web-platform-tests `.any.js` files, one test case per file, against an engine built with
 `UseWebApis(WebApiFeatures.Default)`. `Vendor/` is copied verbatim from a pinned upstream commit — provenance,
 the pin, and the table of files deliberately *not* vendored are in `Vendor/README.md`, and the driver enforces
 that table. `Prelude/testharness-shim.js` is Jint's own file, not a vendored one: it implements the slice of

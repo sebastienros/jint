@@ -69,7 +69,7 @@ public class ReferenceResolverPoolingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ClaimedNullishPropertyReadReturnsItsReferenceToThePool()
     {
         var resolver = new InstanceTrackingResolver();
@@ -81,7 +81,7 @@ public class ReferenceResolverPoolingTests
         resolver.DistinctReferences.Should().BeLessThanOrEqualTo(ReferencePool.PoolSize);
     }
 
-    [Fact]
+    [Test]
     public void ClaimedUnresolvableReadReturnsItsReferenceToThePool()
     {
         var resolver = new InstanceTrackingResolver();

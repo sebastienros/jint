@@ -26,7 +26,7 @@ public class EventTargetTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void InvokesAListenerWithTheEventAndTheTargetAsThis()
     {
         var engine = WebEngine();
@@ -42,7 +42,7 @@ public class EventTargetTests
         Log(engine).Should().Be("ping,true,true,true,2");
     }
 
-    [Fact]
+    [Test]
     public void ClearsTheDispatchStateWhenTheDispatchEnds()
     {
         var engine = WebEngine();
@@ -59,7 +59,7 @@ public class EventTargetTests
         engine.Evaluate("e.eventPhase").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void OnlyInvokesListenersOfTheMatchingType()
     {
         var engine = WebEngine();
@@ -73,7 +73,7 @@ public class EventTargetTests
         Log(engine).Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsAnObjectWithHandleEvent()
     {
         var engine = WebEngine();
@@ -88,7 +88,7 @@ public class EventTargetTests
         Log(engine).Should().Be("handled,true");
     }
 
-    [Fact]
+    [Test]
     public void LooksUpHandleEventOnEveryInvocation()
     {
         var engine = WebEngine();
@@ -104,18 +104,18 @@ public class EventTargetTests
         Log(engine).Should().Be("first,second");
     }
 
-    [Fact]
+    [Test]
     public void RaisesATypeErrorForAnObjectWhoseHandleEventIsNotCallable()
     {
         var engine = WebEngine();
 
         engine.Execute("target.addEventListener('ping', {});");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(new Event('ping'))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(new Event('ping'))"))!
             .Message.Should().Contain("handleEvent");
     }
 
-    [Fact]
+    [Test]
     public void IgnoresADuplicateRegistration()
     {
         var engine = WebEngine();
@@ -131,7 +131,7 @@ public class EventTargetTests
         Log(engine).Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void TreatsADifferentCaptureFlagAsADifferentListener()
     {
         var engine = WebEngine();
@@ -146,7 +146,7 @@ public class EventTargetTests
         Log(engine).Should().Be("x,x");
     }
 
-    [Fact]
+    [Test]
     public void RunsCapturingListenersBeforeNonCapturingOnes()
     {
         var engine = WebEngine();
@@ -162,7 +162,7 @@ public class EventTargetTests
         Log(engine).Should().Be("capture,bubble");
     }
 
-    [Fact]
+    [Test]
     public void RemovesAListenerByIdentityAndCaptureFlag()
     {
         var engine = WebEngine();
@@ -183,7 +183,7 @@ public class EventTargetTests
         Log(engine).Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void RemovesAOnceListenerBeforeItRuns()
     {
         var engine = WebEngine();
@@ -198,7 +198,7 @@ public class EventTargetTests
         Log(engine).Should().Be("once");
     }
 
-    [Fact]
+    [Test]
     public void RemovesAOnceListenerEvenWhenItThrows()
     {
         var engine = WebEngine();
@@ -211,7 +211,7 @@ public class EventTargetTests
         Log(engine).Should().Be("once");
     }
 
-    [Fact]
+    [Test]
     public void StopImmediatePropagationSkipsTheRemainingListeners()
     {
         var engine = WebEngine();
@@ -225,7 +225,7 @@ public class EventTargetTests
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void StopPropagationEndsTheDispatchAfterTheCurrentPass()
     {
         var engine = WebEngine();
@@ -241,7 +241,7 @@ public class EventTargetTests
         Log(engine).Should().Be("capture,capture2");
     }
 
-    [Fact]
+    [Test]
     public void IgnoresAListenerAddedDuringTheDispatchAndHonoursOneRemoved()
     {
         var engine = WebEngine();
@@ -265,7 +265,7 @@ public class EventTargetTests
         Log(engine).Should().Be("first,first,late");
     }
 
-    [Fact]
+    [Test]
     public void ReturnsFalseOnlyWhenTheEventWasCanceled()
     {
         var engine = WebEngine();
@@ -279,7 +279,7 @@ public class EventTargetTests
         engine.Evaluate("target.dispatchEvent(new Event('ping', { cancelable: true }))").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void APassiveListenerCannotCancelTheEvent()
     {
         var engine = WebEngine();
@@ -302,7 +302,7 @@ public class EventTargetTests
         engine.Evaluate("e2.defaultPrevented").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesToDispatchAnEventThatIsAlreadyBeingDispatched()
     {
         var engine = WebEngine();
@@ -322,24 +322,24 @@ public class EventTargetTests
         engine.Evaluate("target.dispatchEvent(new Event('ping'))").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RefusesADispatchArgumentThatIsNotAnEvent()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent({})"))!
             .Message.Should().Contain("Event");
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent()"));
     }
 
-    [Fact]
+    [Test]
     public void EnforcesTheWebIdlArityAndCallbackType()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping')"))!
             .Message.Should().Contain("2 arguments required");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping', 42)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.addEventListener('ping', 42)"))!
             .Message.Should().Contain("EventListener");
 
         // null and undefined are the null callback, which is not an error — it is simply nothing to add.
@@ -347,7 +347,7 @@ public class EventTargetTests
         engine.Evaluate("target.dispatchEvent(new Event('ping'))").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FlattensABooleanOrANonObjectAsTheCaptureFlag()
     {
         var engine = WebEngine();
@@ -361,7 +361,7 @@ public class EventTargetTests
         Log(engine).Should().Be("capture,bubble");
     }
 
-    [Fact]
+    [Test]
     public void AListenerThatThrowsEruptsFromDispatchEvent()
     {
         // The specification says to report the exception and carry on, which needs somewhere to report to.
@@ -376,7 +376,7 @@ public class EventTargetTests
             var e = new Event('ping');
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))!
             .Message.Should().Be("boom");
 
         Log(engine).Should().Be("first");
@@ -386,7 +386,7 @@ public class EventTargetTests
         engine.Evaluate("e.eventPhase").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void IsConstructibleAndSubclassable()
     {
         var engine = WebEngine();
@@ -406,7 +406,7 @@ public class EventTargetTests
         engine.Evaluate("Object.prototype.toString.call(new EventTarget())").AsString().Should().Be("[object EventTarget]");
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArities()
     {
         var engine = WebEngine();
@@ -416,12 +416,12 @@ public class EventTargetTests
         engine.Evaluate("EventTarget.prototype.dispatchEvent.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReceiverThatIsNotAnEventTarget()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("EventTarget.prototype.dispatchEvent.call({}, new Event('x'))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("EventTarget.prototype.dispatchEvent.call({}, new Event('x'))"))!
             .Message.Should().Contain("EventTarget");
     }
 }

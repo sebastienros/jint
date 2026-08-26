@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostFunctionTests
 {
-    [Fact]
+    [Test]
     public void AHostFunctionIsCallableFromScript()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class HostFunctionTests
         engine.Evaluate("greet('world')").AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void ItReportsItselfAsAFunction()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class HostFunctionTests
         engine.Evaluate("Object.prototype.toString.call(greet)").AsString().Should().Be("[object Function]");
     }
 
-    [Fact]
+    [Test]
     public void ItCarriesTheNameAndLengthItWasBuiltWith()
     {
         var engine = new Engine();
@@ -51,7 +51,7 @@ public class HostFunctionTests
     /// <c>name</c> and <c>length</c> are <c>{ writable: false, enumerable: false, configurable: true }</c>.
     /// Configurable is the half that matters in practice — it is what lets a wrapper rename the function.
     /// </summary>
-    [Fact]
+    [Test]
     public void NameAndLengthCarryTheAttributesTheSpecificationGivesABuiltIn()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class HostFunctionTests
             .AsString().Should().Be("renamed");
     }
 
-    [Fact]
+    [Test]
     public void ItWorksAsACallback()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class HostFunctionTests
         engine.Evaluate("['a', 'b'].map(greet).join('|')").AsString().Should().Be("hello a|hello b");
     }
 
-    [Fact]
+    [Test]
     public void CallApplyAndBindAllWork()
     {
         var engine = new Engine();
@@ -89,7 +89,7 @@ public class HostFunctionTests
         engine.Evaluate("greet.bind(null, 'bind')()").AsString().Should().Be("hello bind");
     }
 
-    [Fact]
+    [Test]
     public void TheHostCanInvokeItToo()
     {
         var engine = new Engine();
@@ -105,7 +105,7 @@ public class HostFunctionTests
     /// function object that is not a constructor. A host that wants <c>new</c> derives from
     /// <see cref="Constructor"/> instead.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConstructingOneIsATypeError()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class HostFunctionTests
             .WithMessage("*is not a constructor*");
     }
 
-    [Fact]
+    [Test]
     public void ItIsAnObjectAndCanCarryItsOwnState()
     {
         var engine = new Engine();
@@ -129,7 +129,7 @@ public class HostFunctionTests
         engine.Evaluate("next.tag = 'x'; next.tag").AsString().Should().Be("x");
     }
 
-    [Fact]
+    [Test]
     public void ToStringReportsNativeCode()
     {
         var engine = new Engine();
@@ -143,7 +143,7 @@ public class HostFunctionTests
     /// built after a <c>ShadowRealm</c> exists must still be a <c>Function</c> of the realm the surrounding
     /// script can reach.
     /// </summary>
-    [Fact]
+    [Test]
     public void ItBelongsToThePrincipalRealmEvenWhenBuiltAfterAShadowRealm()
     {
         var engine = new Engine();
@@ -159,7 +159,7 @@ public class HostFunctionTests
     /// script-catchable error when the engine is configured to catch them — the same two behaviours a
     /// <c>ClrFunction</c> body has, so which of the two spellings a host chose is not observable.
     /// </summary>
-    [Fact]
+    [Test]
     public void AClrExceptionFromTheBodyPropagatesToTheHostByDefault()
     {
         var engine = new Engine();
@@ -169,7 +169,7 @@ public class HostFunctionTests
             .WithMessage("from the host");
     }
 
-    [Fact]
+    [Test]
     public void AClrExceptionFromTheBodyIsCatchableWhenTheEngineCatchesThem()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -181,7 +181,7 @@ public class HostFunctionTests
             .AsString().Should().Be("caught");
     }
 
-    [Fact]
+    [Test]
     public void TheConstructorValidatesItsArguments()
     {
         var engine = new Engine();
@@ -201,7 +201,7 @@ public class HostFunctionTests
     /// from <c>Object.prototype</c> — the default every <c>ObjectInstance</c> starts with — so it was not
     /// <c>instanceof Function</c> and had no <c>call</c>, <c>apply</c> or <c>bind</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostConstructorIsAFunctionToo()
     {
         var engine = new Engine();
@@ -218,7 +218,7 @@ public class HostFunctionTests
     /// The three coercion helpers that used to take a <c>Realm</c> — which no public member returns — now
     /// take the <see cref="Engine"/> a host has. That this file compiles is the whole assertion.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheCoercionHelpersTakeAnEngineAHostCanActuallyHold()
     {
         var engine = new Engine();
@@ -239,7 +239,7 @@ public class HostFunctionTests
     /// than asking it for one it has no way to obtain. That this subclass compiles and runs is the assertion;
     /// <c>CreateRealm</c> is the only one that has to produce a realm, and <c>base</c> produces it.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheRealmsLeftInTheSurfaceAreOnesAHostIsHandedRatherThanAskedFor()
     {
         var host = new RealmObservingHost();

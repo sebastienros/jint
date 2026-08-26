@@ -40,7 +40,7 @@ public class WptCensusTests
     /// whose rows and total disagree fails here too.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheInventoryTableNamesEveryStandardAndCountsItsFilesAndSuites()
     {
         var lines = WptCensus.ReadReadme().Split('\n');
@@ -101,17 +101,20 @@ public class WptCensusTests
     /// and are held everywhere.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheInventoryTableMatchesWhatTheCorpusMeasures()
     {
-        Assert.SkipUnless(
-            WptCensus.CensusRequested(),
-            $"the census runs the corpus to total it, so it is opt-in: set {WptCensus.UpdateVariable}=1 to "
-            + $"check the inventory table, or {WptCensus.UpdateVariable}=update to rewrite it.");
+        if (!WptCensus.CensusRequested())
+        {
+            Assert.Ignore(
+                $"the census runs the corpus to total it, so it is opt-in: set {WptCensus.UpdateVariable}=1 to "
+                + $"check the inventory table, or {WptCensus.UpdateVariable}=update to rewrite it.");
+        }
 
-        Assert.SkipUnless(
-            OperatingSystem.IsWindows(),
-            "the inventory table is measured on Windows, and assertion counts move per platform.");
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("the inventory table is measured on Windows, and assertion counts move per platform.");
+        }
 
         var updating = WptCensus.UpdateRequested();
         WptCensus.Measure();
@@ -127,7 +130,7 @@ public class WptCensusTests
             }
 
             var path = WptCensus.WriteReadmeTable(measured);
-            Assert.Skip($"{WptCensus.UpdateVariable} rewrote the inventory table in {path}.");
+            Assert.Ignore($"{WptCensus.UpdateVariable} rewrote the inventory table in {path}.");
         }
 
         if (WptCensus.Reconcile(measured, stated, countsIncluded: true) is { } differences)
@@ -148,13 +151,13 @@ public class WptCensusTests
 
          """;
 
-    [Fact]
+    [Test]
     public void ATableTheCorpusAgreesWithIsNotADifference()
     {
         WptCensus.Reconcile(Table(49, 714, 154), Table(49, 714, 154), countsIncluded: true).Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void MoreFailingAssertionsThanTheTableAllowsIsReportedAsARegression()
     {
         // The shape of every complaint on #3339: fourteen fetch assertions that passed on one run and did not
@@ -170,7 +173,7 @@ public class WptCensusTests
         message.Should().NotContain("out of date", "a regression is not the author forgetting to re-census");
     }
 
-    [Fact]
+    [Test]
     public void FewerFailingAssertionsThanTheTableStatesIsReportedAsStaleness()
     {
         // The other direction, and the one case where "out of date" is the truthful sentence: a fix removed an
@@ -183,20 +186,19 @@ public class WptCensusTests
         message.Should().Contain($"{WptCensus.UpdateVariable}=update");
     }
 
-    [Theory]
     // One more file than the table names, and one more assertion. Neither counts an outcome, so both are
     // equalities in both directions and a change either way is the corpus having moved.
-    [InlineData(50, 714, 154)]
-    [InlineData(48, 714, 154)]
-    [InlineData(49, 715, 154)]
-    [InlineData(49, 713, 154)]
+    [TestCase(50, 714, 154)]
+    [TestCase(48, 714, 154)]
+    [TestCase(49, 715, 154)]
+    [TestCase(49, 713, 154)]
     public void AColumnThatIsNotAnOutcomeIsHeldExactly(int files, int assertions, int notPassing)
     {
         WptCensus.Reconcile(Table(files, assertions, notPassing), Table(49, 714, 154), countsIncluded: true)
             .Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ASuiteRegroupedOrAStandardRenamedIsReportedByName()
     {
         // The other two equalities, which are text rather than figures: a directory split into one more
@@ -216,7 +218,7 @@ public class WptCensusTests
         renamed.Should().Contain("Fetch: the table has a row for it and the corpus does not");
     }
 
-    [Fact]
+    [Test]
     public void TheFreeCheckHasNoOpinionOnTheTwoCountedColumns()
     {
         // It has not run the suites, so it knows nothing about either — which is what lets it run on every
@@ -225,7 +227,7 @@ public class WptCensusTests
         WptCensus.Reconcile(Table(50, 0, 0), Table(49, 714, 154), countsIncluded: false).Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void TheRewriteRefusesToRaiseTheCeilingAndSaysWhatWouldNotBe()
     {
         // Without this the ceiling is a suggestion: a rise fails the check, the author reaches for the one
@@ -239,10 +241,9 @@ public class WptCensusTests
         refusal.Should().Contain(WptCensus.RaiseVariableValue);
     }
 
-    [Theory]
     // A fall and an exact match are both fine to write: neither can be a bad run being made the new floor.
-    [InlineData(140)]
-    [InlineData(154)]
+    [TestCase(140)]
+    [TestCase(154)]
     public void TheRewriteWritesAnythingThatIsNotARise(int notPassing)
     {
         WptCensus.RefusalToRaise(Table(49, 714, notPassing), Table(49, 714, 154)).Should().BeNull();

@@ -1,9 +1,8 @@
 ﻿namespace Jint.Tests.PublicInterface;
 
-[Collection("ConstraintUsageTests")]
 public class ConstraintUsageTests
 {
-    [Fact]
+    [Test]
     public void CanObserveConstraintsFromCustomCode()
     {
         var engine = new Engine(o => o.LimitExecutionTime(TimeSpan.FromMilliseconds(100)));

@@ -9,7 +9,7 @@
 /// </summary>
 public class LengthBoundLaneTests
 {
-    [Fact]
+    [Test]
     public void ArrayLengthBoundIsReadLiveWhenArrayGrows()
     {
         var engine = new Engine();
@@ -27,7 +27,7 @@ public class LengthBoundLaneTests
         result.Should().Be("5:5");
     }
 
-    [Fact]
+    [Test]
     public void ArrayLengthBoundIsReadLiveWhenArrayShrinks()
     {
         var engine = new Engine();
@@ -45,7 +45,7 @@ public class LengthBoundLaneTests
         result.Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void StringLengthBoundCountsCharacters()
     {
         var engine = new Engine();
@@ -60,7 +60,7 @@ public class LengthBoundLaneTests
         result.Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void RopeAndSlicedStringLengthsWorkThroughTheLane()
     {
         var engine = new Engine();
@@ -81,7 +81,7 @@ public class LengthBoundLaneTests
         result.Should().Be(15);
     }
 
-    [Fact]
+    [Test]
     public void BaseTypeChangeMidLoopIsFollowed()
     {
         var engine = new Engine();
@@ -100,7 +100,7 @@ public class LengthBoundLaneTests
         result.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void PlainObjectLengthGetterStaysObservable()
     {
         var engine = new Engine();
@@ -118,7 +118,7 @@ public class LengthBoundLaneTests
         result.Should().Be("3:4");
     }
 
-    [Fact]
+    [Test]
     public void ProxyLengthTrapStaysObservable()
     {
         var engine = new Engine();
@@ -140,7 +140,7 @@ public class LengthBoundLaneTests
         result.Should().Be("3:4");
     }
 
-    [Fact]
+    [Test]
     public void UndefinedBaseStillThrowsTypeError()
     {
         var engine = new Engine();
@@ -159,7 +159,7 @@ public class LengthBoundLaneTests
         result.Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TypedArrayAndArgumentsBasesDeclineButStayCorrect()
     {
         var engine = new Engine();
@@ -179,7 +179,7 @@ public class LengthBoundLaneTests
         result.Should().Be("4:3");
     }
 
-    [Fact]
+    [Test]
     public void GlobalBaseFallsBackToGenericPath()
     {
         var engine = new Engine();
@@ -195,7 +195,7 @@ public class LengthBoundLaneTests
         result.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void EqualityAgainstLengthTakesTheLaneShape()
     {
         var engine = new Engine();
@@ -214,7 +214,7 @@ public class LengthBoundLaneTests
         result.Should().Be(31);
     }
 
-    [Fact]
+    [Test]
     public void OptionalChainLengthIsNotClaimedByTheLane()
     {
         var engine = new Engine();

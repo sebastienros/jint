@@ -62,7 +62,7 @@ public class AlgorithmJobBoundaryTests
         return turns;
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromAsyncOverASyncIterableSpendsNoJobOnReEnteringItsLoop()
     {
         // Was 14: the non-mapping path re-enqueued twice per element, once to store the value and once to
@@ -71,7 +71,7 @@ public class AlgorithmJobBoundaryTests
         TurnsBefore(log, "done:123").Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromAsyncOverAnArrayLikeSpendsNoJobOnReEnteringItsLoop()
     {
         // Was 6: one re-enqueue per element.
@@ -79,7 +79,7 @@ public class AlgorithmJobBoundaryTests
         TurnsBefore(log, "done:123").Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ArrayFromAsyncWithAMapperSpendsNoJobOnReEnteringItsLoop()
     {
         // Was 14: two re-enqueues per element.
@@ -94,10 +94,9 @@ public class AlgorithmJobBoundaryTests
     /// next one starts however many elements there are. Twenty thousand of them is far more than a nested
     /// frame per element would survive.
     /// </summary>
-    [Theory]
-    [InlineData("arrayLike")]
-    [InlineData("array")]
-    [InlineData("arrayLike, x => x + 1")]
+    [TestCase("arrayLike")]
+    [TestCase("array")]
+    [TestCase("arrayLike, x => x + 1")]
     public void ArrayFromAsyncDoesNotRecurPerElement(string arguments)
     {
         var engine = new Engine();
@@ -119,7 +118,7 @@ public class AlgorithmJobBoundaryTests
         engine.Evaluate("outcome").AsString().Should().Be("20000/" + expectedLast);
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitInsideAnAsyncGeneratorResumesInsideItsOwnReactionJob()
     {
         // https://tc39.es/ecma262/#await: the fulfilled closure pushes the suspended context back on and

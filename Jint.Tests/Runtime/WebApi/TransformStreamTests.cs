@@ -31,7 +31,7 @@ public class TransformStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ExposesAReadableAndAWritableSide()
     {
         var engine = StreamEngine();
@@ -45,7 +45,7 @@ public class TransformStreamTests
         engine.Evaluate("TransformStream.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void WithNoTransformerItIsAnIdentityTransform()
     {
         var engine = StreamEngine();
@@ -61,7 +61,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:a,out:b,out:done");
     }
 
-    [Fact]
+    [Test]
     public void RunsTheTransformerForEveryChunk()
     {
         var engine = StreamEngine();
@@ -79,7 +79,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("transform:a,out:A,transform:b,out:B,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ATransformerMayProduceZeroOrManyChunksPerInput()
     {
         var engine = StreamEngine();
@@ -101,7 +101,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:x1,out:x2,out:done");
     }
 
-    [Fact]
+    [Test]
     public void CallsStartWithTheControllerAndRethrowsItsException()
     {
         var engine = StreamEngine();
@@ -113,11 +113,11 @@ public class TransformStreamTests
 
         Log(engine).Should().Be("start:function,out:prefix,out:done");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ start() { throw new Error('boom'); } })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ start() { throw new Error('boom'); } })"))!
             .Error.Get("message").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void NeitherSideRunsBeforeStartHasSettled()
     {
         var engine = StreamEngine();
@@ -138,7 +138,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("written,transform:a,out:a");
     }
 
-    [Fact]
+    [Test]
     public void CallsFlushWhenTheWritableSideIsClosed()
     {
         var engine = StreamEngine();
@@ -156,7 +156,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:a,flush,out:tail,out:done,closed");
     }
 
-    [Fact]
+    [Test]
     public void AFailingTransformErrorsBothSides()
     {
         var engine = StreamEngine();
@@ -171,7 +171,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:error:transform failed,write:transform failed,writable:transform failed");
     }
 
-    [Fact]
+    [Test]
     public void AFailingFlushErrorsTheReadableSideAndTheClose()
     {
         var engine = StreamEngine();
@@ -184,7 +184,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:error:flush failed,close:flush failed");
     }
 
-    [Fact]
+    [Test]
     public void ControllerErrorErrorsBothSides()
     {
         var engine = StreamEngine();
@@ -200,7 +200,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:error:stopped,writable:stopped");
     }
 
-    [Fact]
+    [Test]
     public void TerminateClosesTheReadableSideAndErrorsTheWritableOne()
     {
         var engine = StreamEngine();
@@ -219,7 +219,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:a,out:stop,out:done,after:TypeError,writable:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EnqueueAfterTheReadableSideIsGoneThrows()
     {
         var engine = StreamEngine();
@@ -234,7 +234,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("enqueue:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CancellingTheReadableSideRunsTheTransformersCancel()
     {
         var engine = StreamEngine();
@@ -252,7 +252,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:no more,cancelled,writable:no more");
     }
 
-    [Fact]
+    [Test]
     public void AbortingTheWritableSideRunsTheTransformersCancel()
     {
         var engine = StreamEngine();
@@ -266,7 +266,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:stop,readable:stop,aborted");
     }
 
-    [Fact]
+    [Test]
     public void TheTransformersCancelRunsAtMostOnce()
     {
         // [[finishPromise]] is what makes cancel() and flush() mutually exclusive, and each of them run only
@@ -289,7 +289,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:one,readable:ok,writable:ok");
     }
 
-    [Fact]
+    [Test]
     public void AFailingCancelIsReportedToTheCaller()
     {
         var engine = StreamEngine();
@@ -302,7 +302,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("out:error:cancel failed,abort:cancel failed");
     }
 
-    [Fact]
+    [Test]
     public void BackpressureFromTheReadableSideThrottlesTheTransformer()
     {
         // The readable side's default high water mark is 0, so a transform runs only when a consumer asks
@@ -328,7 +328,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("transform:a,read:a,transform:b,read:b");
     }
 
-    [Fact]
+    [Test]
     public void HonoursExplicitHighWaterMarksOnBothSides()
     {
         var engine = StreamEngine();
@@ -346,20 +346,20 @@ public class TransformStreamTests
         Log(engine).Should().Be("desired:5,transform:a,transform:b");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAReadableOrWritableType()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ readableType: 'bytes' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ readableType: 'bytes' })"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ writableType: 'bytes' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream({ writableType: 'bytes' })"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream(null)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TransformStream(null)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheControllerReportsTheReadableSidesDesiredSize()
     {
         var engine = StreamEngine();
@@ -374,7 +374,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("3,2");
     }
 
-    [Fact]
+    [Test]
     public void TheControllerBrandChecksItsReceiverAndIsNotConstructible()
     {
         var engine = StreamEngine();
@@ -385,20 +385,20 @@ public class TransformStreamTests
             """);
 
         engine.Evaluate("Ctor.name").AsString().Should().Be("TransformStreamDefaultController");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         foreach (var member in new[] { "enqueue.call({}, 'x')", "error.call({})", "terminate.call({})" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Ctor.prototype.{member}"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"Ctor.prototype.{member}"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", member);
         }
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(Ctor.prototype, 'desiredSize').get.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(Ctor.prototype, 'desiredSize').get.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void PipeThroughChainsTwoTransformStreams()
     {
         var engine = StreamEngine();
@@ -425,7 +425,7 @@ public class TransformStreamTests
     // land *after* the cancel's, which is only true when "a promise resolved with" builds a new promise
     // rather than handing back the transform's own start promise; see StreamPromises.ResolvedWith.
 
-    [Fact]
+    [Test]
     public void CancellingTheReadableSideFulfilsWhenTheControllerErrorsInTheSameTurn()
     {
         var engine = StreamEngine();
@@ -443,7 +443,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:fulfilled,closed:rejected:thrown");
     }
 
-    [Fact]
+    [Test]
     public void CancellingTheReadableSideFulfilsWhenTheControllerTerminatesInTheSameTurn()
     {
         var engine = StreamEngine();
@@ -461,7 +461,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:fulfilled,closed:rejected:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AnAbortBeforeTheCancelSetsTheCloseReasonAndBothPromisesFulfil()
     {
         // The abort is queued while the transformer's start() microtask is still outstanding, so the
@@ -480,7 +480,7 @@ public class TransformStreamTests
         Log(engine).Should().Be("cancel:fulfilled,abort:fulfilled,closed:rejected:thrown");
     }
 
-    [Fact]
+    [Test]
     public void TheTransformsStartPromiseIsAdoptedRatherThanReusedByBothControllers()
     {
         // A transformer whose start() returns a promise gates both sides on it — and the writable side's

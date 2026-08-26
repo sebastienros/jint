@@ -8,7 +8,7 @@ public class PrototypeAccessorReceiverTests
 {
     private readonly Engine _engine = new();
 
-    [Fact]
+    [Test]
     public void ArrayDestructuringPassesTheReceiverToAnInheritedLengthGetter()
     {
         // Array destructuring probes 'length' via IsArrayLike before choosing between the
@@ -29,7 +29,7 @@ public class PrototypeAccessorReceiverTests
         result.AsString().Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void ArrayDestructuringWorksWhenTheGetterIsInheritedFromAGrandparent()
     {
         var result = _engine.Evaluate("""
@@ -48,7 +48,7 @@ public class PrototypeAccessorReceiverTests
         result.AsString().Should().Be("1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ArrayPrototypeKeysPassesTheReceiverToAnInheritedLengthGetter()
     {
         // Array.prototype.keys/values used to gate on the same IsArrayLike probe; the probe moved into
@@ -65,7 +65,7 @@ public class PrototypeAccessorReceiverTests
         result.AsString().Should().Be("0,1,2");
     }
 
-    [Fact]
+    [Test]
     public void InheritedGetterOnAnObjectLiteralPrototypeSeesTheReceiver()
     {
         var result = _engine.Evaluate("""
@@ -82,7 +82,7 @@ public class PrototypeAccessorReceiverTests
         result.AsString().Should().Be("p,q");
     }
 
-    [Fact]
+    [Test]
     public void OwnAccessorStillReceivesTheObjectItself()
     {
         // The receiver threading must not disturb the ordinary own-accessor case.

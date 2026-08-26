@@ -43,7 +43,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- storage ----
 
-    [Fact]
+    [Test]
     public void AnUnmaterializedSlotHoldsOneSentinelSharedByEveryLazySlot()
     {
         var engine = new Engine();
@@ -60,7 +60,7 @@ public class LazyLayoutSlotInternalsTests
         second.Should().BeSameAs(first);
     }
 
-    [Fact]
+    [Test]
     public void ALazyLayoutInternsTheSameShapeAsAnEquivalentEagerOneAndAsALiteral()
     {
         var engine = new Engine();
@@ -75,7 +75,7 @@ public class LazyLayoutSlotInternalsTests
         lazy.ShapeOf.Should().BeSameAs(literal.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void EveryObjectOfALazyLayoutSharesOneShape()
     {
         var engine = new Engine();
@@ -90,7 +90,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- flag lifecycle ----
 
-    [Fact]
+    [Test]
     public void TheFlagClearsWhenTheLastSentinelIsMaterialized()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class LazyLayoutSlotInternalsTests
         counter.B.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AWriteOverASentinelDiscardsTheFactoryAndTheFlagClearsOnTheNextMaterialization()
     {
         var engine = new Engine();
@@ -135,7 +135,7 @@ public class LazyLayoutSlotInternalsTests
         HasLazyFlag(obj).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void DeoptClearsTheFlagAndTheSlots()
     {
         var engine = new Engine();
@@ -151,7 +151,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- deopt ----
 
-    [Fact]
+    [Test]
     public void DeoptEmitsAFieldBackedLazyDescriptorForAnUnmaterializedSlotOnly()
     {
         var engine = new Engine();
@@ -182,7 +182,7 @@ public class LazyLayoutSlotInternalsTests
         (lazy.Flags & PropertyFlag.CustomJsValue).Should().Be(PropertyFlag.None);
     }
 
-    [Fact]
+    [Test]
     public void FreezingLeavesTheDescriptorLazyAndOnlyFlipsItsFlags()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- the dictionary fallback arm ----
 
-    [Fact]
+    [Test]
     public void TheBudgetExhaustedFallbackBuildsTheSameObjectWithTheSameLaziness()
     {
         var engine = new Engine();
@@ -233,7 +233,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- spread ----
 
-    [Fact]
+    [Test]
     public void SpreadDeclinesShapeAdoptionWhileASentinelIsLiveAndReadsTheSourceOnce()
     {
         var engine = new Engine();
@@ -257,7 +257,7 @@ public class LazyLayoutSlotInternalsTests
         counter.B.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SpreadAdoptsTheShapeAgainOnceEveryLazySlotIsMaterialized()
     {
         var engine = new Engine();
@@ -273,7 +273,7 @@ public class LazyLayoutSlotInternalsTests
         target.ShapeOf.Should().BeSameAs(obj.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void ShapeAdoptionIsRefusedWhileTheFlagIsSet()
     {
         var engine = new Engine();
@@ -286,7 +286,7 @@ public class LazyLayoutSlotInternalsTests
 
     // ---- global snapshot corner ----
 
-    [Fact]
+    [Test]
     public void ASubstitutedLazyGlobalIsCapturedAndRestoredWithoutMaterializing()
     {
         // The only way a lazy layout slot reaches snapshot capture: a host substitutes a hidden-class JsObject

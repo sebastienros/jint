@@ -31,7 +31,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostObjectPropertySetChangeTests
 {
-    [Fact]
+    [Test]
     public void AProjectedPropertyAppearingOnAReceiverShadowsThePrototypeOnTheNextRead()
     {
         var engine = new Engine();
@@ -56,7 +56,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-prototype,from-host,from-host");
     }
 
-    [Fact]
+    [Test]
     public void AProjectedMethodAppearingOnAReceiverShadowsThePrototypeOnTheNextCall()
     {
         // The member-call callee lane shares the same non-plain-receiver completion, so it needs the same guard.
@@ -84,7 +84,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-prototype,from-host,from-host");
     }
 
-    [Fact]
+    [Test]
     public void AProjectedPropertyDisappearingFromAReceiverFallsBackToThePrototype()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class HostObjectPropertySetChangeTests
     /// of them ever holds a descriptor produced by a host — which is observable here, because this host builds
     /// a fresh descriptor per probe and a cached one would freeze the value.
     /// </summary>
-    [Fact]
+    [Test]
     public void AProjectedPropertyChangingValueOnAReceiverIsSeenByTheNextRead()
     {
         var engine = new Engine();
@@ -138,7 +138,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("v1,v2,v2");
     }
 
-    [Fact]
+    [Test]
     public void AHostUsedAsAPrototypeIsRereadWhenItsProjectionChanges()
     {
         // The holder side of the same cache. Here the receiver is an ordinary script object whose version the
@@ -165,7 +165,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("v1,v2,v2");
     }
 
-    [Fact]
+    [Test]
     public void AHostUsedAsAPrototypeIsRereadWhenAProjectedMemberDisappears()
     {
         var engine = new Engine();
@@ -190,7 +190,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-host-prototype,absent,absent");
     }
 
-    [Fact]
+    [Test]
     public void AProjectedPropertyAppearingOnAValueAnsweringReceiverShadowsThePrototypeOnTheNextRead()
     {
         // The ordering guard for the descriptor-free lane. A host that answers its own reads never has a
@@ -219,7 +219,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-prototype,from-host,from-host");
     }
 
-    [Fact]
+    [Test]
     public void AProjectedPropertyDisappearingFromAValueAnsweringReceiverFallsBackToThePrototype()
     {
         // The other direction, and the one that pins what a false from the hook is taken to mean: the engine
@@ -248,7 +248,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-host,from-prototype,from-prototype");
     }
 
-    [Fact]
+    [Test]
     public void AProjectedMethodAppearingOnAValueAnsweringReceiverShadowsThePrototypeOnTheNextCall()
     {
         // The member-call callee lane shares the same non-plain-receiver completion, and therefore the same
@@ -277,7 +277,7 @@ public class HostObjectPropertySetChangeTests
         seen.Should().Be("from-prototype,from-host,from-host");
     }
 
-    [Fact]
+    [Test]
     public void AReceiverThatGainsAProjectedPropertyStillReportsItThroughTheObjectProtocol()
     {
         // The same change seen from outside the member-read lane, so a failure of the lane is distinguishable

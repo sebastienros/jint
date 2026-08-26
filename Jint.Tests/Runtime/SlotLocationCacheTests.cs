@@ -8,7 +8,7 @@
 /// </summary>
 public class SlotLocationCacheTests
 {
-    [Fact]
+    [Test]
     public void RepeatedPreparedEvaluationsKeepProducingCorrectResults()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class SlotLocationCacheTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AlternatingFunctionInstancesSharingOneTreeStayCorrect()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public class SlotLocationCacheTests
         result.Should().Be(4 * (100 + 100_000));
     }
 
-    [Fact]
+    [Test]
     public void AlternatingClosureInstancesReadingOuterBindingsStayCorrect()
     {
         var engine = new Engine();
@@ -82,7 +82,7 @@ public class SlotLocationCacheTests
         result.Should().Be("AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;AAAAAAAA|BBBBBBBB;");
     }
 
-    [Fact]
+    [Test]
     public void SloppyDirectEvalShadowingVarInvalidatesChainMemoMidLoop()
     {
         var engine = new Engine();
@@ -111,7 +111,7 @@ public class SlotLocationCacheTests
         result.Should().Be("outer,outer,outer,inner,inner,inner,|outer");
     }
 
-    [Fact]
+    [Test]
     public void SloppyDirectEvalHoistedVarShadowsFromInjectionOn()
     {
         var engine = new Engine();
@@ -136,7 +136,7 @@ public class SlotLocationCacheTests
         result.Should().Be("outer,outer,undefined,undefined,");
     }
 
-    [Fact]
+    [Test]
     public void WithBlockAroundClosureReadIsNeverSkipped()
     {
         var engine = new Engine();
@@ -169,7 +169,7 @@ public class SlotLocationCacheTests
         result.Should().Be("free,free,|free,free,shadowed,shadowed,|free,free,");
     }
 
-    [Fact]
+    [Test]
     public void DeeplyNestedClosureChainsResolveCorrectly()
     {
         var engine = new Engine();
@@ -208,7 +208,7 @@ public class SlotLocationCacheTests
         result.Should().Be("root10root10root10|root10root10root10");
     }
 
-    [Fact]
+    [Test]
     public void PooledLoopEnvironmentsReattachedAcrossEntriesKeepMemoValid()
     {
         var engine = new Engine();
@@ -237,7 +237,7 @@ public class SlotLocationCacheTests
     }
 
 #if NET
-    [Fact]
+    [Test]
     public void SlotLanesSurviveRepeatedPreparedEvaluations()
     {
         var engine = new Engine();

@@ -62,7 +62,7 @@ public class WebApiSchedulingSurfaceTests
     /// A web-API engine with nothing outstanding answers <see langword="null"/>, so a host loop can tell "there
     /// is nothing for me to do" from "there is something, in a while".
     /// </summary>
-    [Fact]
+    [Test]
     public void NothingScheduledIsReportedAsNothingScheduled()
     {
         var (engine, _) = WebEngine();
@@ -76,7 +76,7 @@ public class WebApiSchedulingSurfaceTests
     /// A pending timer reports exactly how long is left, which is what lets a host sleep rather than poll. The
     /// clock is the host's own, so the answer is a number this test can name.
     /// </summary>
-    [Fact]
+    [Test]
     public void APendingTimerReportsItsRemainingDelay()
     {
         var (engine, clock) = WebEngine();
@@ -93,7 +93,7 @@ public class WebApiSchedulingSurfaceTests
     /// A timer that came due while nobody was pumping reports zero rather than a negative span: the host is
     /// being told to pump, and "how late am I" is not something it could act on.
     /// </summary>
-    [Fact]
+    [Test]
     public void ATimerThatIsAlreadyDueReportsZero()
     {
         var (engine, clock) = WebEngine();
@@ -114,7 +114,7 @@ public class WebApiSchedulingSurfaceTests
     /// A delayed <c>scheduler.postTask</c> rides the timer queue, so it is reported exactly as a
     /// <c>setTimeout</c> is — a host does not have to know which of the two a script used.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADelayedSchedulerTaskIsReportedLikeATimer()
     {
         var (engine, clock) = WebEngine();
@@ -138,7 +138,7 @@ public class WebApiSchedulingSurfaceTests
     /// pending list being what the <i>next</i> idle period picks up — is left waiting for the next pump. That
     /// is the state this property has to describe.
     /// </remarks>
-    [Fact]
+    [Test]
     public void APendingIdleCallbackIsWorkForNow()
     {
         var (engine, _) = WebEngine();
@@ -161,7 +161,7 @@ public class WebApiSchedulingSurfaceTests
     /// idle period can ever start, so reporting zero would spin the host's loop over a callback that can never
     /// run.
     /// </summary>
-    [Fact]
+    [Test]
     public void AZeroIdleBudgetMeansAnIdleCallbackIsNotWorkAtAll()
     {
         var (engine, _) = WebEngine(idleBudget: TimeSpan.Zero);
@@ -178,7 +178,7 @@ public class WebApiSchedulingSurfaceTests
     /// <c>Options.WebApi.Timers.IdleBudget</c> is reachable from outside the assembly and is what an idle
     /// callback's <c>timeRemaining()</c> counts down from.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheIdleBudgetIsTheHostsToChoose()
     {
         var (engine, _) = WebEngine(idleBudget: TimeSpan.FromMilliseconds(12));
@@ -201,7 +201,7 @@ public class WebApiSchedulingSurfaceTests
     /// waiting thread and the test would then be asserting nothing. The waits are liveness guards, not
     /// intervals: nothing here is measured against a clock.
     /// </remarks>
-    [Fact]
+    [Test]
     public void CancellingTheTokenNeverRunsScriptOnTheCancellingThread()
     {
         var (engine, _) = WebEngine();
@@ -251,7 +251,7 @@ public class WebApiSchedulingSurfaceTests
     /// Observable from outside through the property: had the registration survived, the cancellation would have
     /// enqueued a job and the engine would report work to do.
     /// </remarks>
-    [Fact]
+    [Test]
     public void DisposingTheEngineReleasesTheHostToken()
     {
         var (engine, _) = WebEngine();
@@ -269,7 +269,7 @@ public class WebApiSchedulingSurfaceTests
     /// <summary>
     /// The idle-callback globals are behind their own flag, and a default engine has none of them.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheIdleCallbackGlobalsAreOptIn()
     {
         var names = new[] { "requestIdleCallback", "cancelIdleCallback", "IdleDeadline" };
@@ -293,7 +293,7 @@ public class WebApiSchedulingSurfaceTests
     /// <see cref="WebApiFeatures.Default"/> — what <c>UseWebApis()</c> enables — includes the idle callbacks,
     /// since they need no network and no host decision beyond the budget.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDefaultFeatureSetIncludesTheIdleCallbacks()
     {
         WebApiFeatures.Default.Should().HaveFlag(WebApiFeatures.IdleCallback);

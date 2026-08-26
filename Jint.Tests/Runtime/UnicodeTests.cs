@@ -18,42 +18,42 @@ public class UnicodeTests
         _engine.Execute(source);
     }
 
-    [Fact]
+    [Test]
     public void EscapeUnicodeUnits()
     {
         var value = _engine.Evaluate(@"var a = '\uD83D\uDE80'; return a;").AsString();
         value.Should().Be("🚀");
     }
 
-    [Fact]
+    [Test]
     public void EscapeUnicodeEscaped()
     {
         var value = _engine.Evaluate(@"var a = '\u{1F680}'; return a;").AsString();
         value.Should().Be("🚀");
     }
 
-    [Fact]
+    [Test]
     public void UnicodeIdentifiers()
     {
         var value = _engine.Evaluate(@"const hello = 123; return hell\u{6F}").AsNumber();
         value.Should().Be(123);
     }
 
-    [Fact]
+    [Test]
     public void RegexDontParseUnicodeEscapesWithoutFlag()
     {
         var value = _engine.Evaluate(@"return /^\u{3}$/.test('uuu')").AsBoolean();
         value.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RegexParseUnicodeEscapesWithFlag()
     {
         var value = _engine.Evaluate(@"return /^\u{3}$/u.test('uuu')").AsBoolean();
         value.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RegexParseUnicodeDoesntChangeSource()
     {
         var value = _engine.Evaluate(@"return /a\u0041/.source").AsString();

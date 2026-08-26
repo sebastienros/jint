@@ -13,7 +13,7 @@ public class ConstTests
                     actual.Should().BeEquivalentTo(expected, static options => options.WithStrictOrdering())));
     }
 
-    [Fact]
+    [Test]
     public void ConstInsideIife()
     {
         _engine.Execute(@"
@@ -27,7 +27,7 @@ public class ConstTests
             ");
     }
 
-    [Fact]
+    [Test]
     public void ConstDestructuring()
     {
         _engine.Execute(@"
@@ -38,7 +38,7 @@ public class ConstTests
             ");
     }
 
-    [Fact]
+    [Test]
     public void DestructuringWithFunctionArgReferenceInStrictMode()
     {
         _engine.Execute(@"

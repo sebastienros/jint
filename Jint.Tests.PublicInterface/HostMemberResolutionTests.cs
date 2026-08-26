@@ -34,7 +34,7 @@ public class HostMemberResolutionTests
 
     #region resolver settings mutated after a resolution
 
-    [Fact]
+    [Test]
     public void TighteningTheMemberFilterAppliesToLaterResolutions()
     {
         var resolver = new TypeResolver();
@@ -45,7 +45,7 @@ public class HostMemberResolutionTests
         CreateEngine(resolver).Evaluate("typeof host.Value").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RelaxingTheMemberFilterAppliesToLaterResolutions()
     {
         var resolver = new TypeResolver
@@ -59,7 +59,7 @@ public class HostMemberResolutionTests
         CreateEngine(resolver).Evaluate("host.Value").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ChangingTheNameCreatorAppliesToLaterResolutions()
     {
         var resolver = new TypeResolver();
@@ -72,7 +72,7 @@ public class HostMemberResolutionTests
         engine.Evaluate("typeof host.Value").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ChangingTheNameComparerAppliesToLaterResolutions()
     {
         var resolver = new TypeResolver();
@@ -83,7 +83,7 @@ public class HostMemberResolutionTests
         CreateEngine(resolver).Evaluate("host.VALUE").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AssigningTheSameSettingBackKeepsWhatWasResolved()
     {
         // Only a real change may discard the resolutions; re-assigning what is already there is a no-op, so
@@ -110,7 +110,7 @@ public class HostMemberResolutionTests
 
     #region a host-supplied MemberInfo
 
-    [Fact]
+    [Test]
     public void AHostSuppliedMemberInfoDoesNotNarrowOrdinaryResolutions()
     {
         // The accessor built from the host's MemberInfo covers exactly that member — one overload out of a
@@ -133,7 +133,7 @@ public class HostMemberResolutionTests
         consumer.Evaluate("host.Describe(1, 'x')").Should().Be("two:1x");
     }
 
-    [Fact]
+    [Test]
     public void AHostSuppliedMemberInfoIsHonouredAfterAnOrdinaryResolution()
     {
         // The converse direction: once ordinary resolution has cached the whole overload set under that
@@ -153,7 +153,7 @@ public class HostMemberResolutionTests
             .WithMessage("No public methods with the specified arguments were found.");
     }
 
-    [Fact]
+    [Test]
     public void AHostSuppliedMemberInfoStillResolvesOnAFreshResolver()
     {
         // The plain case the API exists for, with nothing warm anywhere.

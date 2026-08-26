@@ -25,7 +25,7 @@ namespace Jint.Tests.PublicInterface;
 /// <b>A test that waits for the transport runs on <see cref="DedicatedThread.RunAsync"/>.</b> Two things here
 /// only finish on a thread-pool worker: a hanging handler resuming from <c>Task.Delay</c> when its token
 /// fires, and a response body, which the engine pumps from the <c>Task.Run</c> loop inside
-/// <c>FetchBodyStream</c>. Blocking an xUnit pool worker to wait for one is the resource inversion described
+/// <c>FetchBodyStream</c>. Blocking a pool worker to wait for one is the resource inversion described
 /// on <see cref="DedicatedThread.RunAsync"/> — a saturated pool injects workers at roughly one per 500 ms —
 /// and it is why every window in this class is now <see cref="TransportSignalCeiling"/>, a bound only a
 /// genuine failure can reach, rather than the five and ten second intervals a loaded runner could lose
@@ -96,7 +96,7 @@ public class WebApiFetchTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineAndAUseWebApisEngineHaveNoFetch()
     {
         new Engine().Evaluate("typeof fetch").AsString().Should().Be("undefined");
@@ -107,7 +107,7 @@ public class WebApiFetchTests
         new Engine(options => options.UseFetch()).Evaluate("typeof fetch").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheFetchGlobalCarriesTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -126,7 +126,7 @@ public class WebApiFetchTests
         engine.Evaluate("new ShadowRealm().evaluate('typeof fetch')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void RefusesASchemeTheHostDidNotAllow()
     {
         var handler = new StubHandler();
@@ -142,7 +142,7 @@ public class WebApiFetchTests
         engine.Evaluate("fetch('https://example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
     }
 
-    [Fact]
+    [Test]
     public void RefusesAUrlTheHostFilterRejects()
     {
         var handler = new StubHandler();
@@ -156,7 +156,7 @@ public class WebApiFetchTests
         engine.Evaluate("fetch('https://api.example.org/').then(r => r.status)").UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(200);
     }
 
-    [Fact]
+    [Test]
     public void ReRunsTheFilterOnEveryRedirectHop()
     {
         // The SSRF shape: the first URL passes the filter and the server answers with a redirect to a URL
@@ -190,7 +190,7 @@ public class WebApiFetchTests
         handler.Urls.Should().Equal("https://api.example.org/a");
     }
 
-    [Fact]
+    [Test]
     public void CapsTheResponseBodyWhenContentLengthDeclaresIt()
     {
         var handler = new StubHandler
@@ -205,7 +205,7 @@ public class WebApiFetchTests
             .Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
     }
 
-    [Fact]
+    [Test]
     public Task CapsTheResponseBodyWithoutAContentLengthWhileItStreams() => DedicatedThread.RunAsync(() =>
     {
         // A server that lies about the length, or uses chunked encoding, is caught by the running total
@@ -227,7 +227,7 @@ public class WebApiFetchTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("TypeError|Failed to fetch: The response body exceeded the 1024 byte limit set by Options.WebApi.Fetch.MaxResponseBytes.");
     });
 
-    [Fact]
+    [Test]
     public Task TheCapReachesAConsumerThatReadsTheStreamItself() => DedicatedThread.RunAsync(() =>
     {
         // The same failure through the other door: a script draining response.body chunk by chunk sees the
@@ -278,7 +278,7 @@ public class WebApiFetchTests
         }
     }
 
-    [Fact]
+    [Test]
     public Task ABodyUnderTheCapIsReadInFull() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler
@@ -291,7 +291,7 @@ public class WebApiFetchTests
             .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(1024);
     });
 
-    [Fact]
+    [Test]
     public Task AnAbortMidFlightRejectsWithTheReasonAndCancelsTheRequest() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
@@ -309,7 +309,7 @@ public class WebApiFetchTests
         handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("aborting a fetch must cancel the request in flight, not merely reject the promise");
     });
 
-    [Fact]
+    [Test]
     public Task ADeadlineRejectsWithATimeoutErrorDomException() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
@@ -321,7 +321,7 @@ public class WebApiFetchTests
         handler.Cancelled.Wait(TransportSignalCeiling).Should().BeTrue("the deadline must reach the request in flight, not merely reject the promise");
     });
 
-    [Fact]
+    [Test]
     public void RefusesMoreConcurrentRequestsThanTheHostAllows()
     {
         var handler = new StubHandler { Hang = true };
@@ -344,7 +344,7 @@ public class WebApiFetchTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ASlotIsFreedWhenARequestSettles()
     {
         var handler = new StubHandler();
@@ -358,7 +358,7 @@ public class WebApiFetchTests
         handler.Urls.Should().HaveCount(3);
     }
 
-    [Fact]
+    [Test]
     public Task ARestoreCancelsTheRequestAndTheOldPromiseNeverSettles() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler { Hang = true };
@@ -392,7 +392,7 @@ public class WebApiFetchTests
     /// What a host's own <c>HttpClient</c> — or the <c>DelegatingHandler</c> in front of it — sees of a
     /// request the engine composed.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostsHandlerSeesTheStandardsAcceptAndABodilessRequestsContentHeaders()
     {
         var handler = new RecordingHandler();
@@ -447,7 +447,7 @@ public class WebApiFetchTests
             => headers.NonValidated.TryGetValues(name, out var values) ? values.ToString() : null;
     }
 
-    [Fact]
+    [Test]
     public Task AnEngineCancellationSettlesNothingAtAll() => DedicatedThread.RunAsync(() =>
     {
         // A constraint that became a promise rejection would no longer bound anything: script would observe
@@ -476,7 +476,7 @@ public class WebApiFetchTests
         Volatile.Read(ref settled).Should().Be(0);
     });
 
-    [Fact]
+    [Test]
     public Task CompletesUnderABlockingUnwrap() => DedicatedThread.RunAsync(() =>
     {
         var handler = new StubHandler();
@@ -486,7 +486,7 @@ public class WebApiFetchTests
             .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("ok");
     });
 
-    [Fact]
+    [Test]
     public async Task CompletesUnderEvaluateAsync()
     {
         var handler = new StubHandler();
@@ -496,7 +496,7 @@ public class WebApiFetchTests
         result.AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public Task CompletesUnderAHostProcessTasksLoop() => DedicatedThread.RunAsync(() =>
     {
         // The shape a game loop or a message pump uses: every turn provably runs on the host's own thread,
@@ -519,7 +519,7 @@ public class WebApiFetchTests
         engine.Evaluate("text").AsString().Should().Be("ok");
     });
 
-    [Fact]
+    [Test]
     public void TheHostReadsTheClrExceptionBehindAFailure()
     {
         // The script sees only "Failed to fetch"; the host gets the real cause off the error value.
@@ -542,7 +542,7 @@ public class WebApiFetchTests
             => throw new HttpRequestException("no such host is known");
     }
 
-    [Fact]
+    [Test]
     public void TheHostClientFactoryWinsAndSeesTheEngine()
     {
         var byFactory = new StubHandler { Responder = _ => new HttpResponseMessage(HttpStatusCode.Accepted) };
@@ -568,7 +568,7 @@ public class WebApiFetchTests
         byProperty.Urls.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void SeveralEnginesFromOneOptionsInstanceCountTheirRequestsSeparately()
     {
         var handler = new StubHandler { Hang = true };

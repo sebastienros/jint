@@ -34,7 +34,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostNonIndexedCollectionTests
 {
-    public static TheoryData<string> CountedButNotIndexed => new TheoryData<string>
+    public static TestCases<string> CountedButNotIndexed => new TestCases<string>
     {
         nameof(Queue<int>),
         nameof(Stack<int>),
@@ -62,8 +62,7 @@ public class HostNonIndexedCollectionTests
         return engine;
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void TheIndexReadingGenericsHonourLengthAndFindNoElements(string kind)
     {
         var engine = CreateEngine(CreateCollection(kind));
@@ -90,8 +89,7 @@ public class HostNonIndexedCollectionTests
             """).Should().Be(0);
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void EveryIteratingFormYieldsTheRealElements(string kind)
     {
         var engine = CreateEngine(CreateCollection(kind));
@@ -102,8 +100,7 @@ public class HostNonIndexedCollectionTests
             .Should().Be("1-2-3");
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void ArrayDestructuringAgreesWithSpread(string kind)
     {
         // Both are GetIterator over the same value (https://tc39.es/ecma262/#sec-runtime-semantics-bindinginitialization),
@@ -117,8 +114,7 @@ public class HostNonIndexedCollectionTests
         engine.Evaluate("(function () { var [, second] = host; return second; })()").Should().Be(2);
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void NoClrExceptionEscapesIntoScript(string kind)
     {
         // The unambiguous half of #3302: whatever the answer is, it must be a JavaScript one. Every mutating
@@ -159,8 +155,7 @@ public class HostNonIndexedCollectionTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void AGrowingGenericFailsAsACatchableTypeError(string kind)
     {
         // What still throws, and why that is right: push writes "length", which forwards to a read-only
@@ -180,8 +175,7 @@ public class HostNonIndexedCollectionTests
         throwsFromHost.Should().Throw<JavaScriptException>();
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void ASortingGenericIsANoOp(string kind)
     {
         // The other half of the write side, and equally specified: sort collects the present elements
@@ -194,7 +188,7 @@ public class HostNonIndexedCollectionTests
         engine.Evaluate("[...host].join('-')").Should().Be("1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void AnIndexerIsWhatDecidesWhetherTheElementsAreFound()
     {
         // The boundary from the other side: the same non-generic ICollection, with an integer indexer added.
@@ -210,7 +204,7 @@ public class HostNonIndexedCollectionTests
         engine.Evaluate("(function () { var [...r] = host; return r.join('-'); })()").Should().Be("1-2-3");
     }
 
-    [Fact]
+    [Test]
     public void AnIndexableCollectionIsUnchanged()
     {
         // The control: List<T> has an indexer and keeps the indexed lane untouched.
@@ -225,8 +219,7 @@ public class HostNonIndexedCollectionTests
         engine.Evaluate("(function () { var [...r] = host; return r.join('-'); })()").Should().Be("1-2-3");
     }
 
-    [Theory]
-    [MemberData(nameof(CountedButNotIndexed))]
+    [TestCaseSource(nameof(CountedButNotIndexed))]
     public void TheConversionModesDoNotChangeAnyOfIt(string kind)
     {
         // ArrayConversionMode is about CLR arrays and EnumerableConversionMode about sequences with no count,
@@ -245,7 +238,7 @@ public class HostNonIndexedCollectionTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LengthStaysLive()
     {
         var queue = new Queue<int>(new[] { 1, 2, 3 });

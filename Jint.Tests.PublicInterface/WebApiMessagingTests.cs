@@ -31,7 +31,7 @@ public class WebApiMessagingTests
 
     // ---------------------------------------------------------------- the opt-in
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoChannelMessaging()
     {
         var engine = new Engine();
@@ -42,7 +42,7 @@ public class WebApiMessagingTests
         engine.Evaluate("'MessageChannel' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureFlagInstallsIt()
     {
         var engine = MessagingEngine();
@@ -54,7 +54,7 @@ public class WebApiMessagingTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesIt()
     {
         WebApiFeatures.Default.Should().HaveFlag(WebApiFeatures.Messaging);
@@ -62,7 +62,7 @@ public class WebApiMessagingTests
         new Engine(options => options.UseWebApis()).Evaluate("typeof MessageChannel").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own MessageChannel");
@@ -77,7 +77,7 @@ public class WebApiMessagingTests
         engine.Evaluate("typeof MessagePort").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmHasNoChannelMessaging()
     {
         var engine = MessagingEngine();
@@ -87,7 +87,7 @@ public class WebApiMessagingTests
 
     // ---------------------------------------------------------------- CreateMessagePortPair
 
-    [Fact]
+    [Test]
     public void CreateMessagePortPairRefusesAnEngineWithoutTheFeature()
     {
         var enabled = MessagingEngine();
@@ -98,7 +98,7 @@ public class WebApiMessagingTests
         Assert.Throws<ArgumentNullException>(() => enabled.WebApi.CreateMessagePortPair(null!));
     }
 
-    [Fact]
+    [Test]
     public void CreateMessagePortPairGivesEachEngineItsOwnPort()
     {
         var first = MessagingEngine();
@@ -120,7 +120,7 @@ public class WebApiMessagingTests
         second.Evaluate("Object.getPrototypeOf(port) === MessagePort.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CreateMessagePortPairWithTheSameEngineIsASameEngineChannel()
     {
         var engine = MessagingEngine();
@@ -135,7 +135,7 @@ public class WebApiMessagingTests
 
     // ---------------------------------------------------------------- cross-engine round trips
 
-    [Fact]
+    [Test]
     public void MessagesCrossBetweenTwoEnginesPumpedAlternately()
     {
         var (host, worker) = ConnectedPair();
@@ -157,7 +157,7 @@ public class WebApiMessagingTests
         host.Evaluate("received[0]").AsString().Should().Be("pong");
     }
 
-    [Fact]
+    [Test]
     public void MessagesCrossInTheOrderTheyWerePosted()
     {
         var (host, worker) = ConnectedPair();
@@ -168,7 +168,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received.join(',')").AsString().Should().Be("0,1,2,3");
     }
 
-    [Fact]
+    [Test]
     public void ACrossEngineMessageIsACloneNotASharedObject()
     {
         var (host, worker) = ConnectedPair();
@@ -183,7 +183,7 @@ public class WebApiMessagingTests
         worker.Evaluate("Object.getPrototypeOf(received[0]) === Map.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ATransferredArrayBufferMovesToTheOtherEngineAndLeavesTheSenderDetached()
     {
         var (host, worker) = ConnectedPair();
@@ -207,7 +207,7 @@ public class WebApiMessagingTests
         worker.Evaluate("new Uint8Array(received[0])[3]").AsNumber().Should().Be(255);
     }
 
-    [Fact]
+    [Test]
     public void ACrossEnginePortHoldsMessagesUntilItIsStarted()
     {
         var host = MessagingEngine();
@@ -228,7 +228,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received[0]").AsString().Should().Be("waiting");
     }
 
-    [Fact]
+    [Test]
     public void ClosingOneEnginesPortStopsTheOther()
     {
         var (host, worker) = ConnectedPair();
@@ -240,7 +240,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void NothingIsDeliveredToAnEngineThatIsNeverPumped()
     {
         var (host, worker) = ConnectedPair();
@@ -262,7 +262,7 @@ public class WebApiMessagingTests
 
     // ---------------------------------------------------------------- the generation fence
 
-    [Fact]
+    [Test]
     public void AMessageInFlightWhenTheReceiverRestoresIsDropped()
     {
         var (host, worker) = ConnectedPair();
@@ -282,7 +282,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AMessagePostedAfterTheReceiverRestoresIsDropped()
     {
         var (host, worker) = ConnectedPair();
@@ -308,7 +308,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received[0]").AsString().Should().Be("next cycle");
     }
 
-    [Fact]
+    [Test]
     public void ARestoreOnTheSenderDoesNotStopTheReceiver()
     {
         var (host, worker) = ConnectedPair();
@@ -325,7 +325,7 @@ public class WebApiMessagingTests
 
     // ---------------------------------------------------------------- transferring a port between engines
 
-    [Fact]
+    [Test]
     public void APortTransferredToAnotherEngineIsEntangledWithTheOriginalPeer()
     {
         var (host, worker) = ConnectedPair();
@@ -351,7 +351,7 @@ public class WebApiMessagingTests
         host.Evaluate("received.join(',')").AsString().Should().Be("side:hello from the worker");
     }
 
-    [Fact]
+    [Test]
     public void ATransferredPortIsInertOnTheSendingEngine()
     {
         var (host, worker) = ConnectedPair();
@@ -379,7 +379,7 @@ public class WebApiMessagingTests
         worker.Evaluate("received.join(',')").AsString().Should().Be("through the moved port");
     }
 
-    [Fact]
+    [Test]
     public void ATransferCarriesTheQueuedMessagesAndKeepsThemAhead()
     {
         var (host, worker) = ConnectedPair();
@@ -408,7 +408,7 @@ public class WebApiMessagingTests
     /// The shape the whole design is for: the peer of a transferred port lives on an engine that is neither
     /// the sender nor the receiver, and never hears about the move.
     /// </summary>
-    [Fact]
+    [Test]
     public void APortRelayedThroughAThirdEngineStillTalksToTheFirst()
     {
         var a = MessagingEngine();
@@ -448,7 +448,7 @@ public class WebApiMessagingTests
         b.Evaluate("typeof ab").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void ATransferredPortIsEndedWhenTheReceivingEngineRestores()
     {
         var (host, worker) = ConnectedPair();
@@ -475,7 +475,7 @@ public class WebApiMessagingTests
         Refusal(host, "port.postMessage('again', [side.port2])").Should().Be("DataCloneError");
     }
 
-    [Fact]
+    [Test]
     public void ADoubleTransferOfTheSamePortIsRefused()
     {
         var (host, worker) = ConnectedPair();
@@ -490,7 +490,7 @@ public class WebApiMessagingTests
         worker.Evaluate("ports").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void APortCannotBeSentThroughItself()
     {
         var (host, _) = ConnectedPair();

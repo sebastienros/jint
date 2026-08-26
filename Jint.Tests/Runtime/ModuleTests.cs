@@ -14,7 +14,7 @@ public class ModuleTests
         _engine = new Engine();
     }
 
-    [Fact]
+    [Test]
     public void ShouldExportNamed()
     {
         _engine.Modules.Add("my-module", "export const value = 'exported value';");
@@ -23,7 +23,7 @@ public class ModuleTests
         ns.Get("value").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExportNamedListRenamed()
     {
         _engine.Modules.Add("my-module", "const value1 = 1; const value2 = 2; export { value1 as renamed1, value2 as renamed2 }");
@@ -33,7 +33,7 @@ public class ModuleTests
         ns.Get("renamed2").AsInteger().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldExportDefault()
     {
         _engine.Modules.Add("my-module", "export default 'exported value';");
@@ -42,7 +42,7 @@ public class ModuleTests
         ns.Get("default").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExportDefaultFunctionWithoutName()
     {
         _engine.Modules.Add("module1", "export default function main() { return 1; }");
@@ -58,7 +58,7 @@ public class ModuleTests
         func.Call().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldExportAll()
     {
         _engine.Modules.Add("module1", "export const value = 'exported value';");
@@ -68,7 +68,7 @@ public class ModuleTests
         ns.Get("value").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportNamed()
     {
         _engine.Modules.Add("imported-module", "export const value = 'exported value';");
@@ -78,7 +78,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportRenamed()
     {
         _engine.Modules.Add("imported-module", "export const value = 'exported value';");
@@ -88,7 +88,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportDefault()
     {
         _engine.Modules.Add("imported-module", "export default 'exported value';");
@@ -98,7 +98,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportAll()
     {
         _engine.Modules.Add("imported-module", "export const value = 'exported value';");
@@ -108,7 +108,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportDynamically()
     {
         var received = false;
@@ -120,7 +120,7 @@ public class ModuleTests
         received.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CanDynamicallyImportFromScriptCode()
     {
         // https://github.com/sebastienros/jint/discussions/1472
@@ -135,7 +135,7 @@ public class ModuleTests
         _engine.Evaluate("globalThis.result").AsInteger().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void CanAwaitDynamicImportFromScriptCode()
     {
         _engine.Modules.Add("imported-module", "export const value = 'exported value';");
@@ -151,7 +151,7 @@ public class ModuleTests
         _engine.Evaluate("globalThis.result").AsString().Should().Be("exported value");
     }
 
-    [Fact]
+    [Test]
     public void CanExposeModuleNamespaceToScriptCode()
     {
         // Importing from .NET and exposing the namespace object as a global lets
@@ -164,7 +164,7 @@ public class ModuleTests
         _engine.Evaluate("lib.add(1, 2)").AsInteger().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void NestedEvaluateFromModuleExecutionDoesNotClobberCompletionValue()
     {
         // Regression test for https://github.com/sebastienros/jint/issues/2492
@@ -218,7 +218,7 @@ public class ModuleTests
         result.Get("someText").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateParseError()
     {
         // Its own engine: Options are read-only once an engine has been built from them, and the shared
@@ -232,7 +232,7 @@ public class ModuleTests
         exc.Location.SourceFile.Should().Be("imported");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateLinkError()
     {
         var engine = new Engine(options => options.Modules.ExposeDetailedLoadErrors = true);
@@ -244,7 +244,7 @@ public class ModuleTests
         exc.Location.SourceFile.Should().Be("imported");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateExecuteError()
     {
         _engine.Modules.Add("my-module", "throw new Error('imported successfully');");
@@ -254,7 +254,7 @@ public class ModuleTests
         exc.Location.SourceFile.Should().Be("my-module");
     }
 
-    [Fact]
+    [Test]
     public void ShouldPropagateThrowStatementThroughJavaScriptImport()
     {
         _engine.Modules.Add("imported-module", "throw new Error('imported successfully');");
@@ -264,7 +264,7 @@ public class ModuleTests
         exc.Message.Should().Be("imported successfully");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAddModuleFromJsValue()
     {
         _engine.Modules.Add("my-module", builder => builder.ExportValue("value", JsString.Create("hello world")));
@@ -273,7 +273,7 @@ public class ModuleTests
         ns.Get("value").AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAddModuleFromClrInstance()
     {
         _engine.Modules.Add("imported-module", builder => builder.ExportObject("value", new ImportedClass
@@ -286,7 +286,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("instance value");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowInvokeUserDefinedClass()
     {
         _engine.Modules.Add("user", "export class UserDefined { constructor(v) { this._v = v; } hello(c) { return `hello ${this._v}${c}`; } }");
@@ -297,7 +297,7 @@ public class ModuleTests
         result.Should().Be("hello world!");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAddModuleFromClrType()
     {
         _engine.Modules.Add("imported-module", builder => builder.ExportType<ImportedClass>());
@@ -307,7 +307,7 @@ public class ModuleTests
         ns.Get("exported").AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAddModuleFromClrFunction()
     {
         var received = new List<string>();
@@ -349,7 +349,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         public string Value { get; set; } = "hello world";
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowExportMultipleImports()
     {
         _engine.Modules.Add("@mine/import1", builder => builder.ExportValue("value1", JsNumber.Create(1)));
@@ -361,7 +361,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         ns.Get("result").AsString().Should().Be("1 2");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowNamedStarExport()
     {
         _engine.Modules.Add("imported-module", builder => builder.ExportValue("value1", 5));
@@ -371,7 +371,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         ns.Get("ns").Get("value1").AsNumber().Should().Be(5);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowChaining()
     {
         _engine.Modules.Add("dependent-module", "export const dependency = 1;");
@@ -386,7 +386,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         ns.Get("num").AsInteger().Should().Be(-1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldImportOnlyOnce()
     {
         var called = 0;
@@ -398,7 +398,7 @@ export const result = [fns.act_noargs(), fns.act_args('ok'), fns.fn_noargs(), fn
         called.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowSelfImport()
     {
         _engine.Modules.Add("my-globals", "export const globals = { counter: 0 };");
@@ -413,7 +413,7 @@ export const count = globals.counter;
         ns.Get("count").AsInteger().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowCyclicImport()
     {
         // https://tc39.es/ecma262/#sec-example-cyclic-module-record-graphs
@@ -428,7 +428,7 @@ export const count = globals.counter;
         nsB.Get("b").AsString().Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportConstraints()
     {
         var engine = new Engine(opts => opts.LimitExecutionTime(TimeSpan.FromTicks(1)));
@@ -438,7 +438,7 @@ export const count = globals.counter;
         Invoking(() => engine.Modules.Import("my-module")).Should().ThrowExactly<TimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void CanLoadModuleImportsFromFiles()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -448,7 +448,7 @@ export const count = globals.counter;
         ns["user"].Get("name").AsString().Should().Be("John Doe");
     }
 
-    [Fact]
+    [Test]
     public void CanImportFromFile()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -458,7 +458,7 @@ export const count = globals.counter;
         result.Should().Be("John Doe");
     }
 
-    [Fact]
+    [Test]
     public void CanImportFromFileWithSpacesInPath()
     {
         var engine = new Engine(options => options.UseModules(GetBasePath()));
@@ -468,7 +468,7 @@ export const count = globals.counter;
         result.Should().Be("John Doe");
     }
 
-    [Fact]
+    [Test]
     public void CanReuseModule()
     {
         const string Code = "export function formatName(firstName, lastName) {\r\n    return `${firstName} ${lastName}`;\r\n}";
@@ -483,7 +483,7 @@ export const count = globals.counter;
         }
     }
 
-    [Fact]
+    [Test]
     public void EngineExecutePassesSourceForModuleResolving()
     {
         var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
@@ -507,7 +507,7 @@ export const count = globals.counter;
             s => s.Should().Be("myModuleConst"));
     }
 
-    [Fact]
+    [Test]
     public void EngineExecuteUsesScriptSourceForSource()
     {
         var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
@@ -532,7 +532,7 @@ export const count = globals.counter;
             s => s.Should().Be("myModuleConst"));
     }
 
-    [Fact]
+    [Test]
     public void EngineEvaluatePassesSourceForModuleResolving()
     {
         var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
@@ -556,7 +556,7 @@ export const count = globals.counter;
             s => s.Should().Be("myModuleConst"));
     }
 
-    [Fact]
+    [Test]
     public void EngineEvaluateUsesScriptSourceForSource()
     {
         var moduleLoader = new EnforceRelativeModuleLoader(new Dictionary<string, string>()
@@ -641,7 +641,7 @@ export const count = globals.counter;
         return Path.Combine(current.FullName, "Runtime", "Scripts");
     }
 
-    [Fact]
+    [Test]
     public void ModuleBuilderWithCustomModuleLoaderLoadsModulesProperly()
     {
         var engine = new Engine(o => o.UseModules(new LocationResolveOnlyModuleLoader((_, moduleRequest) =>
@@ -668,7 +668,7 @@ export const count = globals.counter;
             s => s.Should().Be("entry_point_module"));
     }
 
-    [Fact]
+    [Test]
     public void ModuleBuilderPassesReferencingModuleLocationToModuleLoader()
     {
         var engine = new Engine(o => o.UseModules(new LocationResolveOnlyModuleLoader((referencingModuleLocation, moduleRequest) =>
@@ -726,7 +726,7 @@ export const count = globals.counter;
             => throw new InvalidOperationException();
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldTransmitSourceModuleForModuleLoader()
     {
         var engine = new Engine(o => o.UseModules(new ModuleLoaderForEngineShouldTransmitSourceModuleForModuleLoaderTest()));
@@ -773,9 +773,8 @@ export const count = globals.counter;
         }
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void CanStaticallyImportJsonModule(bool importViaLoader)
     {
         const string JsonModuleSpecifier = "./test.json";
@@ -809,9 +808,8 @@ export const count = globals.counter;
         mainModule.Get("msg").AsString().Should().Be("hello");
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task CanDynamicallyImportJsonModule(bool importViaLoader)
     {
         const string JsonModuleSpecifier = "./test.json";
@@ -848,9 +846,8 @@ export const count = globals.counter;
         (await completionTcs.Task).AsString().Should().Be("hello");
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public void CanStaticallyImportTextModule(bool importViaLoader)
     {
         const string TextModuleSpecifier = "./hello.txt";
@@ -881,9 +878,8 @@ export const count = globals.counter;
         mainModule.Get("msg").AsString().Should().Be(TextModuleContent);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task CanDynamicallyImportTextModule(bool importViaLoader)
     {
         const string TextModuleSpecifier = "./hello.txt";
@@ -942,7 +938,7 @@ export const count = globals.counter;
         }
     }
 
-    [Fact]
+    [Test]
     public void ModuleLoadingErrorsShouldBeReportedBeforeLinkingErrors()
     {
         // Module that imports a valid module (which has a linking error) and an unresolvable module.
@@ -961,7 +957,7 @@ export const count = globals.counter;
         ex.Message.Should().NotContain("Ambiguous");
     }
 
-    [Fact]
+    [Test]
     public void ModuleNamespaceToStringShouldNotTriggerSideEffects()
     {
         // Accessing ToString() on a module namespace in C# error messages should not
@@ -982,7 +978,7 @@ export const count = globals.counter;
         callsAfter.Should().Be(initialCalls);
     }
 
-    [Fact]
+    [Test]
     public void ImportDeferShouldNotEvaluateModuleUntilPropertyAccessed()
     {
         _engine.Modules.Add("setup", "globalThis.log = [];");
@@ -1004,7 +1000,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.log[0]").AsString().Should().Be("dep");
     }
 
-    [Fact]
+    [Test]
     public void ImportDeferNamespaceHasDeferredModuleToStringTag()
     {
         _engine.Modules.Add("dep", "export const x = 1;");
@@ -1018,7 +1014,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.tag").AsString().Should().Be("Deferred Module");
     }
 
-    [Fact]
+    [Test]
     public void ImportDeferNamespaceThenAccessDoesNotTriggerEvaluation()
     {
         // Per spec, "then" on a deferred namespace is treated as a symbol-like key
@@ -1040,7 +1036,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.afterThenAccess").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ImportDeferReExportedNamespaceKeepsDeferredIdentity()
     {
         // A deferred namespace re-exported via `export { ns }` should keep its deferred-ness,
@@ -1069,7 +1065,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.afterAccess").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ImportSourceDynamicShouldRejectPromise()
     {
         _engine.Modules.Add("dep", "export const x = 1;");
@@ -1091,7 +1087,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.errorName").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void ImportSourceStaticShouldCauseLinkingError()
     {
         _engine.Modules.Add("dep", "export const x = 1;");
@@ -1104,7 +1100,7 @@ export const count = globals.counter;
         ex.Error.Get("name").AsString().Should().Be("SyntaxError");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRethrowWhenImportingAModuleThatAlreadyFailed()
     {
         // https://tc39.es/ecma262/#sec-moduleevaluation - a module whose evaluation threw stays
@@ -1120,7 +1116,7 @@ export const count = globals.counter;
             .Which.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRethrowWhenAnotherEntryPointImportsAModuleThatAlreadyThrew()
     {
         // https://tc39.es/ecma262/#sec-innermoduleevaluation step 13.a is `Perform ?
@@ -1139,7 +1135,7 @@ export const count = globals.counter;
             .Which.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReplayTheEvaluationErrorWhenReevaluatingAModuleWithoutACycleRoot()
     {
         // https://tc39.es/ecma262/#sec-moduleevaluation step 3: the redirect to [[CycleRoot]] is
@@ -1158,7 +1154,7 @@ export const count = globals.counter;
         _engine.Evaluate("globalThis.outcome").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ShouldRecordTheEvaluationErrorOnEveryMemberOfAFailedCycle()
     {
         // https://tc39.es/ecma262/#sec-innermoduleevaluation ends with "Return index"; Jint used to
@@ -1180,7 +1176,7 @@ export const count = globals.counter;
             .Which.Message.Should().Be("root-boom");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotExecuteAnAsyncParentThatAlreadyFailed()
     {
         // https://tc39.es/ecma262/#sec-async-module-execution-fulfilled step 12.a: a module of
@@ -1201,7 +1197,7 @@ export const count = globals.counter;
         log.Should().Equal("mid");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotBindALexicalDeclarationFromANestedBlockAtModuleLevel()
     {
         // A block's `let` is not a module item, so binding it at module level would leave the `var` of the same name uninitialized.
@@ -1214,7 +1210,7 @@ export const count = globals.counter;
         ns.Get("value").AsInteger().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldGiveANestedBlockItsOwnBindingAtModuleLevel()
     {
         // The sibling test above pins that a module-level `var` is not left in the temporal dead zone, but neither of
@@ -1228,7 +1224,7 @@ export const count = globals.counter;
         ns.Get("value").AsInteger().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotBindAForHeadDeclarationAtModuleLevel()
     {
         // The `let` of a for head is scoped to the loop, so nothing it binds reaches module scope, and a module-level
@@ -1243,7 +1239,7 @@ export const count = globals.counter;
         _engine.Modules.Import("for-of").Get("value").AsInteger().Should().Be(6);
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotBindAClassDeclaredInABlockAtModuleLevel()
     {
         // A class declaration is a separate branch of the walk from a variable declaration, so it needs both facts: the
@@ -1255,7 +1251,7 @@ export const count = globals.counter;
         _engine.Modules.Import("clobbered").Get("value").AsInteger().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ShouldBindExportedLexicalDeclarationsAtModuleLevel()
     {
         // The counterpart: an exported declaration sits inside the export declaration and is a module item.
@@ -1268,7 +1264,7 @@ export const count = globals.counter;
         ns.Get("default").IsCallable().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBindADefaultExportedClassAtModuleLevel()
     {
         // `export default class D {}` binds `D` at module level like any other module item, so `D` is in scope - and in
@@ -1280,7 +1276,7 @@ export const count = globals.counter;
             .Which.Message.Should().Be("Cannot access 'D' before initialization");
     }
 
-    [Fact]
+    [Test]
     public void ShouldStillApplyTheTemporalDeadZoneToModuleLevelDeclarations()
     {
         // A module-level `const` is bound uninitialized until its declaration runs, so reading it early throws even through typeof.
@@ -1295,7 +1291,7 @@ export const count = globals.counter;
     /// (https://tc39.es/ecma262/#prod-ModuleExportName), so "*" is an ordinary export name and must
     /// not be confused with the namespace-object marker of `import * as ns`.
     /// </summary>
-    [Fact]
+    [Test]
     public void ShouldImportAndExportArbitraryStringNames()
     {
         _engine.Modules.Add("provider", """
@@ -1313,7 +1309,7 @@ export const count = globals.counter;
         ns.Get("result").AsString().Should().Be("ok|dashed");
     }
 
-    [Fact]
+    [Test]
     public void ShouldExposeAStringExportNameOnTheNamespaceObject()
     {
         _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
@@ -1323,7 +1319,7 @@ export const count = globals.counter;
         ns.Get("*").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReExportAStringNamedBindingByName()
     {
         _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
@@ -1335,7 +1331,7 @@ export const count = globals.counter;
         ns.Get("result").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void ShouldReExportAnImportedStringNamedBinding()
     {
         _engine.Modules.Add("provider", "const x = 'ok'; export { x as \"*\" };");
@@ -1347,7 +1343,7 @@ export const count = globals.counter;
         ns.Get("result").AsString().Should().Be("ok");
     }
 
-    [Fact]
+    [Test]
     public void ShouldStillTreatStarSyntaxAsTheNamespaceObject()
     {
         // The negative control for the three above: the marker cases must keep resolving to a namespace.

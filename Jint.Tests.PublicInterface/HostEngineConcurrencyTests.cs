@@ -7,7 +7,6 @@ using Jint.Native.Json;
 using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using Jint.Runtime.Modules;
-using Xunit.Sdk;
 
 
 namespace Jint.Tests.PublicInterface;
@@ -58,17 +57,17 @@ public class HostEngineConcurrencyTests
             {
                 // Rethrows the owning thread's own exception, with its stack, when it had one.
                 await running;
-                throw new XunitException("the owning call returned without ever entering block()");
+                throw new AssertionException("the owning call returned without ever entering block()");
             }
 
             if (elapsed.Elapsed > HandoffCeiling)
             {
-                throw new XunitException($"the owning thread did not enter block() within {HandoffCeiling}");
+                throw new AssertionException($"the owning thread did not enter block() within {HandoffCeiling}");
             }
         }
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentExecuteIsRejectedAndTheEngineRecovers()
     {
         using var entered = new ManualResetEventSlim();
@@ -93,7 +92,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentEvaluateIsRejected()
     {
         using var entered = new ManualResetEventSlim();
@@ -116,7 +115,7 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentInvokeIsRejected()
     {
         using var entered = new ManualResetEventSlim();
@@ -145,7 +144,7 @@ public class HostEngineConcurrencyTests
     /// the engine for all of it — the load, and the continuations it drains afterwards. It used to claim it for
     /// neither, so a second thread was served in the middle of a load. sebastienros/jint#3324.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ConcurrentShadowRealmImportValueIsRejected()
     {
         using var entered = new ManualResetEventSlim();
@@ -170,7 +169,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("40 + 2").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentMutationIsRejectedBeforeItChangesState()
     {
         using var entered = new ManualResetEventSlim();
@@ -197,7 +196,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("typeof leaked").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentAsyncEntryIsRejectedWithoutInterruptingTheOwner()
     {
         using var entered = new ManualResetEventSlim();
@@ -222,7 +221,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("finished").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SameThreadHostCallbackCanReenterAndMutateTheEngine()
     {
         var engine = new Engine();
@@ -235,7 +234,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("reenter()").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void HostCanSynchronouslyDispatchAJsCallbackToAnotherThread()
     {
         var engine = new Engine();
@@ -268,7 +267,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ReflectedHostMethodCanDispatchAJsCallbackToAnotherThread()
     {
         var engine = new Engine();
@@ -278,7 +277,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ReflectedHostMethodCanDispatchAJsCallbackFromAParamsArray()
     {
         var engine = new Engine();
@@ -288,7 +287,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void HostReceivingAJsCallbackCanReenterOnTheSameThread()
     {
         var engine = new Engine();
@@ -298,7 +297,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("reenter(() => 1)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AsyncEntryFromAHostCallbackFailsBeforeStartingWork()
     {
         var engine = new Engine();
@@ -315,7 +314,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("completed").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public async Task OutstandingEvaluateAsyncOwnsTheEngineUntilItsTaskCompletes()
     {
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -337,7 +336,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("6 * 7").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task AsyncHostMethodCanInvokeItsJsCallbackFromAnotherThread()
     {
         var callbackReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -361,7 +360,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public async Task ImmediateCrossThreadCallbacksDoNotLeakAsyncOwnership()
     {
         var engine = new Engine();
@@ -400,7 +399,7 @@ public class HostEngineConcurrencyTests
     /// owner thread is inside <c>UnwrapIfPromise</c>'s drain, running a continuation. The callback has to be
     /// served after the owner's turn, not destroyed. sebastienros/jint#3206.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAsyncHostMethodsCallbackIsServedWhileTheOwnerRunsTheDrain()
     {
         Func<int>? captured = null;
@@ -442,7 +441,7 @@ public class HostEngineConcurrencyTests
     /// while the engine thread is still running script for the very evaluation that handed it out, so there
     /// is no drain to be admitted into - the reservation the host call took has to outlive that call.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAsyncHostMethodsCallbackIsServedWhileTheOwnerFinishesTheEvaluation()
     {
         Func<int>? captured = null;
@@ -480,7 +479,7 @@ public class HostEngineConcurrencyTests
     /// before the callback is invoked, which is the shipped shape of
     /// <see cref="DelayedCrossThreadCallbackReleasesBlockingPromiseOwnership"/> with the timing pinned.
     /// </summary>
-    [Fact]
+    [Test]
     public void ACallbackStoredByAHostMethodIsServedWhileTheOwnerRunsTheDrain()
     {
         Action? captured = null;
@@ -517,7 +516,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void DelayedCrossThreadCallbackReleasesBlockingPromiseOwnership()
     {
         var engine = new Engine();
@@ -536,7 +535,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public async Task AsyncRejectionReleasesOwnership()
     {
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -550,7 +549,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task AsyncCancellationReleasesOwnership()
     {
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -565,7 +564,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task BackgroundModuleCompletionCanFinishTheOwningImport()
     {
         var loader = new DeferredModuleLoader();
@@ -590,7 +589,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("1").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public async Task ExecuteAsyncReportsInitialFailureThroughItsTask()
     {
         Task<Engine>? task = null;
@@ -602,7 +601,7 @@ public class HostEngineConcurrencyTests
         await Awaiting(() => task!).Should().ThrowAsync<Exception>();
     }
 
-    [Fact]
+    [Test]
     public async Task ImportAsyncReportsInitialFailureThroughItsTask()
     {
         var engine = new Engine(options => options.UseModules(new RejectingModuleLoader()));
@@ -616,7 +615,7 @@ public class HostEngineConcurrencyTests
         engine.Evaluate("20 + 22").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public async Task CanonicalJsCallDelegateCannotBypassOwnership()
     {
         Func<JsValue, JsValue[], JsValue>? callback = null;
@@ -642,7 +641,7 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public async Task SharedPreparedCallbackBinderUsesTheTargetFunctionsEngine()
     {
         var prepared = Engine.PrepareScript("capture(() => 42)");
@@ -674,7 +673,7 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public async Task DebuggerEvaluationCannotBypassOwnership()
     {
         using var entered = new ManualResetEventSlim();
@@ -702,7 +701,7 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public async Task BreakpointsCanBeAdministeredWhileTheEngineIsRunning()
     {
         using var entered = new ManualResetEventSlim();
@@ -729,7 +728,7 @@ public class HostEngineConcurrencyTests
         await running;
     }
 
-    [Fact]
+    [Test]
     public async Task DisposeFailsFastWhileAnAsyncOperationOwnsTheEngine()
     {
         var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -746,7 +745,7 @@ public class HostEngineConcurrencyTests
         engine.Dispose();
     }
 
-    [Fact]
+    [Test]
     public async Task ModuleImportPollingCannotRaceAnEngineTurn()
     {
         using var entered = new ManualResetEventSlim();
@@ -849,7 +848,7 @@ public class HostEngineConcurrencyTests
     /// guess that one of the pair fails fast and the other builds concurrently into a busy engine. That
     /// asymmetry is what the next test pins from the other side.
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task ConcurrentJsonParseIsRejectedAndTheEngineRecovers()
     {
         using var entered = new ManualResetEventSlim();
@@ -878,7 +877,7 @@ public class HostEngineConcurrencyTests
     /// one guard covers all three — which is worth pinning, because a host reaching for the allocation-free
     /// overload is exactly the host most likely to be doing so from a network or storage callback.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ConcurrentJsonParseIsRejectedForTheSpanOverloadsToo()
     {
         using var entered = new ManualResetEventSlim();
@@ -908,7 +907,7 @@ public class HostEngineConcurrencyTests
     /// <summary>
     /// The other half of the pair, so the two are pinned together and cannot drift apart again.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ConcurrentJsonSerializeIsRejected()
     {
         using var entered = new ManualResetEventSlim();

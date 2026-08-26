@@ -15,7 +15,7 @@ namespace Jint.Tests.PublicInterface;
 /// </remarks>
 public class WebApiFilesTests
 {
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoFileGlobals()
     {
         var engine = new Engine();
@@ -34,7 +34,7 @@ public class WebApiFilesTests
             .Evaluate("typeof Blob").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheFilesFlagInstallsAllThreeInterfaces()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Files));
@@ -47,7 +47,7 @@ public class WebApiFilesTests
         engine.Evaluate("typeof DOMException").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void TheDefaultSetIncludesFiles()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -56,7 +56,7 @@ public class WebApiFilesTests
         WebApiFeatures.Default.Should().HaveFlag(WebApiFeatures.Files);
     }
 
-    [Fact]
+    [Test]
     public void TheGlobalsCarryTheAttributesWebIdlAsksFor()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Files));
@@ -73,7 +73,7 @@ public class WebApiFilesTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalWins()
     {
         var marker = new JsString("host's own Blob");
@@ -89,7 +89,7 @@ public class WebApiFilesTests
         engine.Evaluate("typeof FormData").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmDoesNotGetThem()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Files));
@@ -101,7 +101,7 @@ public class WebApiFilesTests
         engine.Evaluate("typeof Blob").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Files));
@@ -114,7 +114,7 @@ public class WebApiFilesTests
         engine.Evaluate("new Blob(['abc']).size").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void TheWholeRoundTripWorksFromAHostsPointOfView()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Files));
@@ -138,7 +138,7 @@ public class WebApiFilesTests
         engine.Evaluate("fd.get('who')").AsString().Should().Be("world");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesIndependently()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Files);

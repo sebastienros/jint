@@ -4,14 +4,14 @@ namespace Jint.Tests.Runtime;
 
 public class SetTests
 {
-    [Fact]
+    [Test]
     public void ShouldThrowWhenCalledWithoutNew()
     {
         var e = Invoking(() => new Engine().Execute("const m = new Set(); Set.call(m,[]);")).Should().ThrowExactly<JavaScriptException>().Which;
         e.Message.Should().Be("Constructor Set requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void NegativeZeroKeyConvertsToPositiveZero()
     {
         const string Script = @"
@@ -26,7 +26,7 @@ public class SetTests
         new Engine().Evaluate(Script).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasProperIteratorPrototypeChain()
     {
         const string Script = @"
@@ -52,7 +52,7 @@ public class SetTests
     /// a receiver grown from one to two elements is a superset of a two-element set-like, and reading
     /// its size first answered false.
     /// </summary>
-    [Fact]
+    [Test]
     public void IsSupersetOfReadsTheReceiverSizeAfterBuildingTheSetRecord()
     {
         const string Script = @"
@@ -69,7 +69,7 @@ public class SetTests
     }
 
     /// <summary>The sibling case, where the receiver really is too small, must still be false.</summary>
-    [Fact]
+    [Test]
     public void IsSupersetOfIsFalseWhenTheReceiverStaysSmaller()
     {
         const string Script = @"

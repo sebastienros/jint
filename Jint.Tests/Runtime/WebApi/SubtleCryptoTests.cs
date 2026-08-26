@@ -48,39 +48,36 @@ public class SubtleCryptoTests
     /// <summary>Settles the expression's promise and answers whatever it resolved or rejected to.</summary>
     private static JsValue Settle(Engine engine, string source) => engine.Evaluate(source).UnwrapIfPromise();
 
-    [Theory]
     // https://www.rfc-editor.org/rfc/rfc3174 and https://csrc.nist.gov/projects/cryptographic-algorithm-validation-program
-    [InlineData("SHA-1", "", "da39a3ee5e6b4b0d3255bfef95601890afd80709")]
-    [InlineData("SHA-256", "", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
-    [InlineData("SHA-384", "", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")]
-    [InlineData("SHA-512", "", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e")]
-    [InlineData("SHA-1", "abc", "a9993e364706816aba3e25717850c26c9cd0d89d")]
-    [InlineData("SHA-256", "abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")]
-    [InlineData("SHA-384", "abc", "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7")]
-    [InlineData("SHA-512", "abc", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f")]
+    [TestCase("SHA-1", "", "da39a3ee5e6b4b0d3255bfef95601890afd80709")]
+    [TestCase("SHA-256", "", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
+    [TestCase("SHA-384", "", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")]
+    [TestCase("SHA-512", "", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e")]
+    [TestCase("SHA-1", "abc", "a9993e364706816aba3e25717850c26c9cd0d89d")]
+    [TestCase("SHA-256", "abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")]
+    [TestCase("SHA-384", "abc", "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7")]
+    [TestCase("SHA-512", "abc", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f")]
     public void ProducesThePublishedVectorsForTheEmptyAndOneBlockMessages(string algorithm, string message, string expected)
     {
         DigestHex($"'{algorithm}'", message).Should().Be(expected);
     }
 
-    [Theory]
     // The message each algorithm's own published two-block example uses: 56 bytes for the 64-byte-block
     // algorithms, 112 for the 128-byte-block ones. Both spill past one block once the padding is added, which
     // is what makes them worth hashing here at all — a one-block-only implementation passes everything above.
-    [InlineData("SHA-1", false, "84983e441c3bd26ebaae4aa1f95129e5e54670f1")]
-    [InlineData("SHA-256", false, "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1")]
-    [InlineData("SHA-384", true, "09330c33f71147e83d192fc782cd1b4753111b173b3b05d22fa08086e3b0f712fcc7c71a557e2db966c3e9fa91746039")]
-    [InlineData("SHA-512", true, "8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb6889018501d289e4900f7e4331b99dec4b5433ac7d329eeb6dd26545e96e55b874be909")]
+    [TestCase("SHA-1", false, "84983e441c3bd26ebaae4aa1f95129e5e54670f1")]
+    [TestCase("SHA-256", false, "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1")]
+    [TestCase("SHA-384", true, "09330c33f71147e83d192fc782cd1b4753111b173b3b05d22fa08086e3b0f712fcc7c71a557e2db966c3e9fa91746039")]
+    [TestCase("SHA-512", true, "8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa17299aeadb6889018501d289e4900f7e4331b99dec4b5433ac7d329eeb6dd26545e96e55b874be909")]
     public void ProducesThePublishedVectorsForAMultiBlockMessage(string algorithm, bool longMessage, string expected)
     {
         DigestHex($"'{algorithm}'", longMessage ? TwoBlockLongMessage : TwoBlockShortMessage).Should().Be(expected);
     }
 
-    [Theory]
-    [InlineData("'SHA-256'")]
-    [InlineData("{ name: 'SHA-256' }")]
-    [InlineData("{ get name() { return 'SHA-256'; } }")]
-    [InlineData("{ name: 'SHA-256', extraneous: 'ignored' }")]
+    [TestCase("'SHA-256'")]
+    [TestCase("{ name: 'SHA-256' }")]
+    [TestCase("{ get name() { return 'SHA-256'; } }")]
+    [TestCase("{ name: 'SHA-256', extraneous: 'ignored' }")]
     public void AcceptsBothShapesOfAlgorithmIdentifier(string algorithmExpression)
     {
         // `typedef (object or DOMString) AlgorithmIdentifier` — a string is normalized into an Algorithm
@@ -89,11 +86,10 @@ public class SubtleCryptoTests
             .Should().Be("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
-    [Theory]
-    [InlineData("sha-256")]
-    [InlineData("SHA-256")]
-    [InlineData("Sha-256")]
-    [InlineData("sHa-256")]
+    [TestCase("sha-256")]
+    [TestCase("SHA-256")]
+    [TestCase("Sha-256")]
+    [TestCase("sHa-256")]
     public void MatchesTheRegisteredNameCaseInsensitively(string spelling)
     {
         // "If registeredAlgorithms contains a key that is a case-insensitive string match for algName" —
@@ -103,7 +99,7 @@ public class SubtleCryptoTests
             .Should().Be("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
-    [Fact]
+    [Test]
     public void CaseInsensitivityIsAsciiOnly()
     {
         var engine = WebEngine();
@@ -118,18 +114,17 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Theory]
-    [InlineData("'MD5'")]
-    [InlineData("'SHA-224'")]
-    [InlineData("'SHA3-256'")]
-    [InlineData("''")]
-    [InlineData("'SHA-256 '")]
-    [InlineData("' SHA-256'")]
-    [InlineData("'SHA256'")]
-    [InlineData("undefined")]
-    [InlineData("null")]
-    [InlineData("42")]
-    [InlineData("{ name: 'MD5' }")]
+    [TestCase("'MD5'")]
+    [TestCase("'SHA-224'")]
+    [TestCase("'SHA3-256'")]
+    [TestCase("''")]
+    [TestCase("'SHA-256 '")]
+    [TestCase("' SHA-256'")]
+    [TestCase("'SHA256'")]
+    [TestCase("undefined")]
+    [TestCase("null")]
+    [TestCase("42")]
+    [TestCase("{ name: 'MD5' }")]
     public void RejectsAnUnregisteredAlgorithmWithANotSupportedError(string algorithmExpression)
     {
         var engine = WebEngine();
@@ -143,7 +138,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("true|NotSupportedError|9");
     }
 
-    [Fact]
+    [Test]
     public void ANotSupportedErrorIsCatchableInScript()
     {
         var engine = WebEngine();
@@ -162,14 +157,13 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("NotSupportedError: true");
     }
 
-    [Theory]
-    [InlineData("'abc'")]
-    [InlineData("[1, 2, 3]")]
-    [InlineData("{}")]
-    [InlineData("42")]
-    [InlineData("null")]
-    [InlineData("undefined")]
-    [InlineData("new Uint8Array(4).buffer.constructor")]
+    [TestCase("'abc'")]
+    [TestCase("[1, 2, 3]")]
+    [TestCase("{}")]
+    [TestCase("42")]
+    [TestCase("null")]
+    [TestCase("undefined")]
+    [TestCase("new Uint8Array(4).buffer.constructor")]
     public void RejectsSomethingThatIsNotABufferSourceWithATypeError(string dataExpression)
     {
         var engine = WebEngine();
@@ -183,7 +177,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheDataArgumentIsConvertedBeforeTheAlgorithmIsNormalized()
     {
         var engine = WebEngine();
@@ -201,7 +195,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("NotSupportedError");
     }
 
-    [Fact]
+    [Test]
     public void RejectsAnAlgorithmObjectWithNoNameWithATypeError()
     {
         var engine = WebEngine();
@@ -218,7 +212,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RejectsASymbolWhereAStringIsExpectedWithATypeError()
     {
         var engine = WebEngine();
@@ -237,7 +231,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorFromTheNameGetterBecomesTheRejection()
     {
         var engine = WebEngine();
@@ -250,7 +244,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("RangeError: from the getter");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheNameMemberExactlyOnce()
     {
         var engine = WebEngine();
@@ -267,7 +261,7 @@ public class SubtleCryptoTests
             """).AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void NeverThrowsSynchronously()
     {
         var engine = WebEngine();
@@ -287,7 +281,7 @@ public class SubtleCryptoTests
             """).AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void BrandChecksItsReceiverAsARejection()
     {
         var engine = WebEngine();
@@ -309,7 +303,7 @@ public class SubtleCryptoTests
             """).AsNumber().Should().Be(32);
     }
 
-    [Fact]
+    [Test]
     public void TheSubtleGetterBrandChecksItsReceiverAsAThrow()
     {
         var engine = WebEngine();
@@ -324,7 +318,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ADetachedBufferHashesAsTheEmptyMessage()
     {
         var engine = WebEngine();
@@ -342,7 +336,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 
-    [Fact]
+    [Test]
     public void AnOutOfBoundsLengthTrackingViewHashesAsTheEmptyMessage()
     {
         var engine = WebEngine();
@@ -359,7 +353,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("32:0");
     }
 
-    [Fact]
+    [Test]
     public void HashesOnlyTheBytesTheViewSpans()
     {
         var engine = WebEngine();
@@ -375,12 +369,11 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
-    [Theory]
-    [InlineData("new Uint8Array([0x61, 0x62, 0x63])")]
-    [InlineData("new Uint8Array([0x61, 0x62, 0x63]).buffer")]
-    [InlineData("new DataView(new Uint8Array([0x61, 0x62, 0x63]).buffer)")]
-    [InlineData("new Int8Array([0x61, 0x62, 0x63])")]
-    [InlineData("new Uint16Array([0x6261, 0x0063])")]
+    [TestCase("new Uint8Array([0x61, 0x62, 0x63])")]
+    [TestCase("new Uint8Array([0x61, 0x62, 0x63]).buffer")]
+    [TestCase("new DataView(new Uint8Array([0x61, 0x62, 0x63]).buffer)")]
+    [TestCase("new Int8Array([0x61, 0x62, 0x63])")]
+    [TestCase("new Uint16Array([0x6261, 0x0063])")]
     public void AcceptsEveryShapeOfBufferSource(string dataExpression)
     {
         var engine = WebEngine();
@@ -398,7 +391,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void RejectsABufferSourceBackedByASharedArrayBufferWithATypeError()
     {
         var engine = WebEngine();
@@ -413,7 +406,7 @@ public class SubtleCryptoTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnswersARealPromiseThatSettlesOnAMicrotaskTurn()
     {
         var engine = WebEngine();
@@ -430,7 +423,7 @@ public class SubtleCryptoTests
             """).UnwrapIfPromise().AsString().Should().Be("sync,digest");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesWithAnArrayBufferOfTheRealmsOwnIntrinsic()
     {
         var engine = WebEngine();
@@ -441,7 +434,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("true|true|48");
     }
 
-    [Fact]
+    [Test]
     public void EachCallResolvesWithAFreshBufferTheScriptMayWriteTo()
     {
         var engine = WebEngine();
@@ -457,7 +450,7 @@ public class SubtleCryptoTests
             """).AsString().Should().Be("true|227");
     }
 
-    [Fact]
+    [Test]
     public void IsOneStableObjectWithTheInterfacesToStringTag()
     {
         var engine = WebEngine();
@@ -468,7 +461,7 @@ public class SubtleCryptoTests
         engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void IsAReadOnlyEnumerableAttributeOnTheCryptoPrototype()
     {
         var engine = WebEngine();
@@ -490,7 +483,7 @@ public class SubtleCryptoTests
         engine.Evaluate("Object.keys(Crypto.prototype).includes('subtle')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExposesAllTwelveOperations()
     {
         var engine = WebEngine();
@@ -522,7 +515,7 @@ public class SubtleCryptoTests
         descriptor.Get("enumerable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasTheIdlArity()
     {
         var engine = WebEngine();
@@ -532,7 +525,7 @@ public class SubtleCryptoTests
         engine.Evaluate("crypto.subtle.digest.name").AsString().Should().Be("digest");
     }
 
-    [Fact]
+    [Test]
     public void IsNotInstalledWithoutTheCryptoFlag()
     {
         // subtle has no flag of its own: it is part of the Crypto interface, so it rides the crypto flag.
@@ -543,7 +536,7 @@ public class SubtleCryptoTests
         WebEngine().Evaluate("new ShadowRealm().evaluate('typeof crypto')").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TwoEnginesShareNoState()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Crypto);

@@ -38,7 +38,7 @@ public class TextDecoderStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ExposesTheMixinsAndTheDecoderAttributes()
     {
         var engine = StreamEngine();
@@ -56,7 +56,7 @@ public class TextDecoderStreamTests
         engine.Evaluate("new TextDecoderStream(undefined, { fatal: true }).fatal").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TakesTheSameConstructorArgumentsAsTextDecoder()
     {
         var engine = StreamEngine();
@@ -64,9 +64,9 @@ public class TextDecoderStreamTests
         // windows-1252 became a supported single-byte encoding when the legacy tables landed, so the
         // still-refused boundary is a legacy multi-byte label — RangeError, exactly as TextDecoder reports it.
         engine.Evaluate("new TextDecoderStream('windows-1252').encoding").AsString().Should().Be("windows-1252");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('big5')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('big5')"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('utf-8', 42)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoderStream('utf-8', 42)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // The options are read before the label is validated, which is what the WebIDL conversion order
@@ -76,7 +76,7 @@ public class TextDecoderStreamTests
         engine.Evaluate("read.join(',')").AsString().Should().Be("fatal");
     }
 
-    [Fact]
+    [Test]
     public void DecodesEachChunk()
     {
         var engine = StreamEngine();
@@ -92,7 +92,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:hi,out:€,out:done");
     }
 
-    [Fact]
+    [Test]
     public void JoinsASequenceSplitAcrossChunks()
     {
         var engine = StreamEngine();
@@ -110,7 +110,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:€,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ASequenceLeftIncompleteAtTheEndBecomesTheReplacementCharacter()
     {
         var engine = StreamEngine();
@@ -126,7 +126,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:a,out:�,out:done");
     }
 
-    [Fact]
+    [Test]
     public void AFatalDecoderErrorsBothSides()
     {
         var engine = StreamEngine();
@@ -143,7 +143,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:error:TypeError,write:TypeError,writable:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AFatalDecoderAlsoRefusesAnIncompleteSequenceAtTheEnd()
     {
         var engine = StreamEngine();
@@ -158,7 +158,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:error:TypeError,close:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void DropsALeadingByteOrderMarkUnlessAskedNotTo()
     {
         var engine = StreamEngine();
@@ -187,7 +187,7 @@ public class TextDecoderStreamTests
             """).UnwrapIfPromise().AsString().Should().Be("65279,104,105");
     }
 
-    [Fact]
+    [Test]
     public void DropsAByteOrderMarkSplitAcrossChunks()
     {
         var engine = StreamEngine();
@@ -206,7 +206,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:hi,out:done");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAChunkThatIsNotABufferSource()
     {
         var engine = StreamEngine();
@@ -220,7 +220,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:error:TypeError,write:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsEveryBufferSourceShape()
     {
         var engine = StreamEngine();
@@ -237,7 +237,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:hi,out:!,out:done");
     }
 
-    [Fact]
+    [Test]
     public void DecodesUtf16LikeTextDecoderDoes()
     {
         var engine = StreamEngine();
@@ -254,7 +254,7 @@ public class TextDecoderStreamTests
         Log(engine).Should().Be("out:h,out:i,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ComposesWithPipeThrough()
     {
         var engine = StreamEngine();
@@ -276,23 +276,23 @@ public class TextDecoderStreamTests
         result.AsString().Should().Be("😀!");
     }
 
-    [Fact]
+    [Test]
     public void TheAttributesBrandCheckTheirReceiver()
     {
         var engine = StreamEngine();
 
         foreach (var attribute in new[] { "encoding", "fatal", "ignoreBOM", "readable", "writable" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"TextDecoderStream.prototype.{attribute}"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"TextDecoderStream.prototype.{attribute}"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", attribute);
         }
 
         // A TextDecoder includes the same TextDecoderCommon mixin but is a different interface.
         Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-                "Object.getOwnPropertyDescriptor(TextDecoderStream.prototype, 'encoding').get.call(new TextDecoder())"))
+                "Object.getOwnPropertyDescriptor(TextDecoderStream.prototype, 'encoding').get.call(new TextDecoder())"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("TextDecoderStream()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("TextDecoderStream()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 }

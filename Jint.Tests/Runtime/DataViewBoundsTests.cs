@@ -45,7 +45,7 @@ public class DataViewBoundsTests
         "9007199254740991",
     ];
 
-    public static TheoryData<string> Getters =>
+    public static TestCases<string> Getters =>
     [
         "getInt8", "getUint8",
         "getInt16", "getUint16", "getFloat16",
@@ -58,7 +58,7 @@ public class DataViewBoundsTests
     /// Each setter with a value it accepts. The BigInt views coerce the value with <c>ToBigInt</c> before the
     /// range check runs, so those rows have to hand over a BigInt or they would report that TypeError first.
     /// </summary>
-    public static TheoryData<string, string> Setters => new()
+    public static TestCases<string, string> Setters => new()
     {
         { "setInt8", "1" },
         { "setUint8", "1" },
@@ -73,8 +73,7 @@ public class DataViewBoundsTests
         { "setBigUint64", "1n" },
     };
 
-    [Theory]
-    [MemberData(nameof(Getters))]
+    [TestCaseSource(nameof(Getters))]
     public void AReadFarPastTheEndIsARangeError(string getter)
     {
         foreach (var index in OutOfRangeIndexes)
@@ -84,8 +83,7 @@ public class DataViewBoundsTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(Setters))]
+    [TestCaseSource(nameof(Setters))]
     public void AWriteFarPastTheEndIsARangeError(string setter, string value)
     {
         foreach (var index in OutOfRangeIndexes)
@@ -95,7 +93,7 @@ public class DataViewBoundsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ANonZeroViewOffsetDoesNotBringAFarIndexBackIntoRange()
     {
         // bufferIndex is getIndex + viewOffset, so a view starting partway into its buffer is where a wrapped
@@ -107,7 +105,7 @@ public class DataViewBoundsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ASharedBufferAnswersTheSameWay()
     {
         foreach (var index in OutOfRangeIndexes)
@@ -117,7 +115,7 @@ public class DataViewBoundsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ALengthTrackingViewOnAResizableBufferAnswersTheSameWay()
     {
         _engine.Evaluate("""
@@ -144,7 +142,7 @@ public class DataViewBoundsTests
     /// </summary>
     private static readonly bool SupportsHalf = Type.GetType("System.Half") is not null;
 
-    [Fact]
+    [Test]
     public void TheLastInRangeIndexOfEachWidthStillReads()
     {
         // The boundary the fix must not move: viewSize - elementSize is the last accepted index, and one past
@@ -171,7 +169,7 @@ public class DataViewBoundsTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryReadAndWriteRoundTrip()
     {
         _engine.Evaluate("""
@@ -189,7 +187,7 @@ public class DataViewBoundsTests
         _engine.Evaluate("new DataView(view.buffer).getInt32(0)").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AShrunkBufferPutsAFixedLengthViewOutOfBounds()
     {
         // Out of bounds is a TypeError, and it is decided before the index is looked at, so it wins over the
@@ -208,7 +206,7 @@ public class DataViewBoundsTests
         ThrownErrorName("view.setInt8(2147483648, 1)").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ADetachedBufferIsATypeError()
     {
         _engine.Evaluate("""
@@ -224,7 +222,7 @@ public class DataViewBoundsTests
         ThrownErrorName("view.getInt8(2147483648)").Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ToIndexStillRejectsWhatItAlwaysRejected()
     {
         _engine.Evaluate("var view = new DataView(new ArrayBuffer(16));");
@@ -239,7 +237,7 @@ public class DataViewBoundsTests
         _engine.Evaluate("view.getInt8(undefined)").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TheValueIsStillCoercedBeforeTheRangeCheck()
     {
         // SetViewValue coerces the value between ToIndex and the bounds test, so a bad value on an

@@ -64,7 +64,7 @@ public class MultipartTests
         return $"new Response('{escaped}', {{ headers: {{ 'content-type': 'multipart/form-data; boundary=b' }} }}).formData()";
     }
 
-    [Fact]
+    [Test]
     public void SerializesEveryEntryShapeExactly()
     {
         var engine = WebEngine();
@@ -99,7 +99,7 @@ public class MultipartTests
             + $"--{boundary}--\r\n"));
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyFormDataIsJustTheCloseDelimiter()
     {
         var engine = WebEngine();
@@ -112,7 +112,7 @@ public class MultipartTests
         engine.Evaluate("again.formData().then(fd => [...fd].length)").UnwrapIfPromise().AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void NeutralizesCarriageReturnsQuotesAndLineFeedsInNames()
     {
         // The security pin: a name and a filename are the only script-controlled text that reaches a header
@@ -150,7 +150,7 @@ public class MultipartTests
             .AsString().Should().Be("a\"b\r\nX-Injected: 1|f");
     }
 
-    [Fact]
+    [Test]
     public void NormalizesLoneNewlinesInNamesAndValuesButNotInFilenames()
     {
         // "Replace every occurrence of CR not followed by LF, and every occurrence of LF not preceded by CR,
@@ -178,7 +178,7 @@ public class MultipartTests
             + $"--{boundary}--\r\n"));
     }
 
-    [Fact]
+    [Test]
     public void EncodesNamesAndValuesAsUtf8()
     {
         var engine = WebEngine();
@@ -207,7 +207,7 @@ public class MultipartTests
         engine.Evaluate("again.formData().then(fd => fd.get('ключ'))").UnwrapIfPromise().AsString().Should().Be("значение");
     }
 
-    [Fact]
+    [Test]
     public void GeneratesAFreshWellFormedBoundaryEveryTime()
     {
         var engine = WebEngine();
@@ -232,7 +232,7 @@ public class MultipartTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ReadsBackWhatItWrote()
     {
         var engine = WebEngine();
@@ -256,7 +256,7 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd instanceof FormData)").UnwrapIfPromise().AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ARequestReadsItsOwnBodyBack()
     {
         var engine = WebEngine();
@@ -273,7 +273,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheFilenameParameterAloneDecidesFileOrString()
     {
         // "Each part whose Content-Disposition header does not contain a filename parameter must be parsed
@@ -300,7 +300,7 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd.get('untyped').text())").UnwrapIfPromise().AsString().Should().Be("raw");
     }
 
-    [Fact]
+    [Test]
     public void ParsesAPartNamedCharsetLikeAnyOther()
     {
         // "A part whose Content-Disposition header contains a name parameter whose value is `_charset_` is
@@ -321,7 +321,7 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd.get('v'))").UnwrapIfPromise().AsString().Should().Be("é");
     }
 
-    [Fact]
+    [Test]
     public void ToleratesTransportPaddingAndAMissingTrailingNewline()
     {
         // RFC 2046's transport-padding — "receivers MUST be able to handle padding added by message
@@ -338,7 +338,7 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd.get('a'))").UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void IgnoresHeadersThatAreNeitherDispositionNorType()
     {
         // RFC 7578 section 4.8: header fields other than these "MUST be ignored".
@@ -355,7 +355,7 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd.get('a'))").UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void KeepsAPartWhoseBodyContainsTheBoundaryText()
     {
         // The draft parser scans for the boundary alone and then assumes the four bytes before it were CRLF
@@ -372,23 +372,22 @@ public class MultipartTests
         engine.Evaluate("parsed.then(fd => fd.get('a'))").UnwrapIfPromise().AsString().Should().Be("text --b more");
     }
 
-    [Theory]
     // A preamble before the first delimiter.
-    [InlineData("ignore me\r\n--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--b--\r\n")]
+    [TestCase("ignore me\r\n--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--b--\r\n")]
     // No close delimiter at all: the last part never ends.
-    [InlineData("--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n")]
+    [TestCase("--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n")]
     // A part with no Content-Disposition names no field.
-    [InlineData("--b\r\nContent-Type: text/plain\r\n\r\n1\r\n--b--\r\n")]
+    [TestCase("--b\r\nContent-Type: text/plain\r\n\r\n1\r\n--b--\r\n")]
     // A Content-Disposition that is not the form-data shape.
-    [InlineData("--b\r\nContent-Disposition: attachment; name=\"a\"\r\n\r\n1\r\n--b--\r\n")]
+    [TestCase("--b\r\nContent-Disposition: attachment; name=\"a\"\r\n\r\n1\r\n--b--\r\n")]
     // An unterminated quoted name.
-    [InlineData("--b\r\nContent-Disposition: form-data; name=\"a\r\n\r\n1\r\n--b--\r\n")]
+    [TestCase("--b\r\nContent-Disposition: form-data; name=\"a\r\n\r\n1\r\n--b--\r\n")]
     // A header line with no colon.
-    [InlineData("--b\r\nContent-Disposition\r\n\r\n1\r\n--b--\r\n")]
+    [TestCase("--b\r\nContent-Disposition\r\n\r\n1\r\n--b--\r\n")]
     // Bare LFs where the framing needs CRLFs.
-    [InlineData("--b\nContent-Disposition: form-data; name=\"a\"\n\n1\n--b--\n")]
+    [TestCase("--b\nContent-Disposition: form-data; name=\"a\"\n\n1\n--b--\n")]
     // An empty body, which has no delimiter in it at all.
-    [InlineData("")]
+    [TestCase("")]
     public void RejectsAMalformedBodyWithATypeError(string body)
     {
         var engine = WebEngine();
@@ -396,13 +395,12 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError: Failed to parse body as multipart/form-data");
     }
 
-    [Theory]
     // An asterisk is an HTTP token character, so it survives the MIME parse and has to be refused here.
-    [InlineData("b*")]
+    [TestCase("b*")]
     // 70 characters is RFC 2046's limit, so 71 is one too many.
-    [InlineData("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")]
+    [TestCase("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")]
     // "NOT ending with white space", which is why bcharsnospace exists as its own production.
-    [InlineData("b ")]
+    [TestCase("b ")]
     public void RejectsABoundaryThatIsNotOne(string boundary)
     {
         // A boundary outside RFC 2046's own production is refused rather than searched for: it is the one
@@ -422,7 +420,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError: Failed to parse body as multipart/form-data");
     }
 
-    [Fact]
+    [Test]
     public void RejectsAMultipartBodyWithNoBoundaryParameter()
     {
         var engine = WebEngine();
@@ -431,7 +429,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AcceptsALegallySpelledBoundaryOfTheSameShape()
     {
         // The control for the theory above: change nothing but the boundary's spelling and it parses.
@@ -442,7 +440,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheBoundaryOutOfAQuotedParameter()
     {
         // RFC 7578 section 4.1: "it is often necessary to enclose the boundary parameter values in quotes".
@@ -453,7 +451,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("1");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAContentTypeItCannotParseAsFormData()
     {
         var engine = WebEngine();
@@ -467,7 +465,7 @@ public class MultipartTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void DeclaresFormDataOnBothBodyMixins()
     {
         var engine = WebEngine();

@@ -78,7 +78,7 @@ public class OwnPropertyProbeTests
         GlobalSymbolRegistry.ToStringTag,
     ];
 
-    [Fact]
+    [Test]
     public void StringInstanceProbeAgreesWithDescriptor()
     {
         var engine = new Engine();
@@ -87,7 +87,7 @@ public class OwnPropertyProbeTests
         AssertProbesAgreeWithDescriptors(target, IndexLikeKeys());
     }
 
-    [Fact]
+    [Test]
     public void StringInstanceProbeAgreesForEmptyAndRedefinedShapes()
     {
         var engine = new Engine();
@@ -106,7 +106,7 @@ public class OwnPropertyProbeTests
             [.. IndexLikeKeys(), JsString.Create("charAt"), JsString.Create("constructor")]);
     }
 
-    [Fact]
+    [Test]
     public void StringInstanceEnumerationIsUnchanged()
     {
         var engine = new Engine();
@@ -123,12 +123,11 @@ public class OwnPropertyProbeTests
         engine.Evaluate("'Infinity' in new String('abc')").AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("new Uint8Array([1,2,3])")]
-    [InlineData("new Float64Array([1.5,2.5])")]
-    [InlineData("new BigInt64Array(2)")]
-    [InlineData("new Uint8Array(0)")]
-    [InlineData("new Uint8Array(new ArrayBuffer(8, { maxByteLength: 16 }))")]
+    [TestCase("new Uint8Array([1,2,3])")]
+    [TestCase("new Float64Array([1.5,2.5])")]
+    [TestCase("new BigInt64Array(2)")]
+    [TestCase("new Uint8Array(0)")]
+    [TestCase("new Uint8Array(new ArrayBuffer(8, { maxByteLength: 16 }))")]
     public void TypedArrayProbeAgreesWithDescriptor(string source)
     {
         var engine = new Engine();
@@ -137,7 +136,7 @@ public class OwnPropertyProbeTests
         AssertProbesAgreeWithDescriptors(target, IndexLikeKeys());
     }
 
-    [Fact]
+    [Test]
     public void DetachedTypedArrayProbeReportsEveryIndexMissing()
     {
         var engine = new Engine();
@@ -151,7 +150,7 @@ public class OwnPropertyProbeTests
         engine.Evaluate("Object.keys(ta).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void TypedArrayEnumerationIsUnchanged()
     {
         var engine = new Engine();
@@ -166,19 +165,18 @@ public class OwnPropertyProbeTests
         engine.Evaluate("'-0' in new Uint8Array([1,2])").AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
     // mapped (sloppy, simple parameter list), unmapped (strict), rest/pattern parameter lists,
     // and both the still-virtual and the already-materialized states
-    [InlineData("(function (a, b) { return arguments; })(1, 2)")]
-    [InlineData("(function (a, b) { 'use strict'; return arguments; })(1, 2)")]
-    [InlineData("(function (...r) { return arguments; })(1, 2)")]
-    [InlineData("(function ([a], b) { return arguments; })([1], 2)")]
-    [InlineData("(function (a, a) { return arguments; })(1, 2)")]
-    [InlineData("(function (a) { return arguments; })()")]
-    [InlineData("(function (a, b) { var x = Object.keys(arguments); return arguments; })(1, 2)")]
-    [InlineData("(function (a, b) { delete arguments[0]; return arguments; })(1, 2)")]
-    [InlineData("(function (a, b) { Object.defineProperty(arguments, '0', { enumerable: false }); return arguments; })(1, 2)")]
-    [InlineData("(function (a, b) { arguments[5] = 9; return arguments; })(1, 2)")]
+    [TestCase("(function (a, b) { return arguments; })(1, 2)")]
+    [TestCase("(function (a, b) { 'use strict'; return arguments; })(1, 2)")]
+    [TestCase("(function (...r) { return arguments; })(1, 2)")]
+    [TestCase("(function ([a], b) { return arguments; })([1], 2)")]
+    [TestCase("(function (a, a) { return arguments; })(1, 2)")]
+    [TestCase("(function (a) { return arguments; })()")]
+    [TestCase("(function (a, b) { var x = Object.keys(arguments); return arguments; })(1, 2)")]
+    [TestCase("(function (a, b) { delete arguments[0]; return arguments; })(1, 2)")]
+    [TestCase("(function (a, b) { Object.defineProperty(arguments, '0', { enumerable: false }); return arguments; })(1, 2)")]
+    [TestCase("(function (a, b) { arguments[5] = 9; return arguments; })(1, 2)")]
     public void ArgumentsProbeAgreesWithDescriptor(string source)
     {
         var engine = new Engine();
@@ -187,7 +185,7 @@ public class OwnPropertyProbeTests
         AssertProbesAgreeWithDescriptors(target, [.. IndexLikeKeys(), JsString.Create("callee")]);
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsProbeDoesNotMaterialize()
     {
         var engine = new Engine();
@@ -207,7 +205,7 @@ public class OwnPropertyProbeTests
         AssertProbesAgreeWithDescriptors(target, [.. IndexLikeKeys(), JsString.Create("callee")]);
     }
 
-    [Fact]
+    [Test]
     public void ArgumentsEnumerationIsUnchanged()
     {
         var engine = new Engine();
@@ -235,7 +233,7 @@ public class OwnPropertyProbeTests
     /// a whole nested wrapper along), a key that shadows a CLR member, and names the dictionary does not
     /// carry — one that resolves as a CLR member anyway and one that resolves as nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void WrappedDictionaryProbeAgreesWithDescriptor()
     {
         var engine = new Engine();
@@ -264,7 +262,7 @@ public class OwnPropertyProbeTests
     /// store first — a defined non-enumerable descriptor must not be reported as the enumerable key the
     /// dictionary still carries underneath it.
     /// </summary>
-    [Fact]
+    [Test]
     public void WrappedDictionaryProbeAgreesWhenAScriptHasRedefinedAKey()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -277,7 +275,7 @@ public class OwnPropertyProbeTests
         target.ProbeOwnProperty(JsString.Create("a")).Should().Be(OwnPropertyProbe.NonEnumerable);
     }
 
-    [Fact]
+    [Test]
     public void ModuleNamespaceProbeAgreesWithDescriptor()
     {
         var engine = new Engine();
@@ -298,7 +296,7 @@ public class OwnPropertyProbeTests
             ]);
     }
 
-    [Fact]
+    [Test]
     public void ModuleNamespaceProbeStillThrowsForAnUninitializedBinding()
     {
         // https://tc39.es/ecma262/#sec-module-namespace-exotic-objects-getownproperty-p step 4 performs

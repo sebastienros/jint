@@ -26,7 +26,7 @@ public class QuotaExceededErrorTests
 
     // ---------------------------------------------------------------- the interface object
 
-    [Fact]
+    [Test]
     public void HasTheIdlArity()
     {
         var engine = WebEngine();
@@ -37,16 +37,16 @@ public class QuotaExceededErrorTests
         engine.Evaluate("QuotaExceededError.name").AsString().Should().Be("QuotaExceededError");
     }
 
-    [Fact]
+    [Test]
     public void RequiresNew()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("QuotaExceededError('x')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("QuotaExceededError('x')"))!
             .Message.Should().Contain("requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void InheritsTheDomExceptionInterfaceObjectAndItsPrototype()
     {
         var engine = WebEngine();
@@ -65,7 +65,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("new DOMException('x', 'QuotaExceededError') instanceof QuotaExceededError").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReachesTheInterfaceObjectHoweverTheTwoWereFirstTouched()
     {
         // Reaching QuotaExceededError builds DOMException, since it is its [[Prototype]] — so the identity
@@ -77,7 +77,7 @@ public class QuotaExceededErrorTests
         other.Evaluate("Object.getPrototypeOf(QuotaExceededError) === DOMException").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeclaresNoConstantsOfItsOwnButInheritsAllTwentyFive()
     {
         var engine = WebEngine();
@@ -94,7 +94,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("new QuotaExceededError().DATA_CLONE_ERR").AsNumber().Should().Be(25);
     }
 
-    [Fact]
+    [Test]
     public void IsAWebIdlInterfaceObjectOnTheGlobal()
     {
         var engine = WebEngine();
@@ -110,7 +110,7 @@ public class QuotaExceededErrorTests
         descriptor.Configurable.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExistsWhereverAnyWebApiDoes()
     {
         // No flag of its own: DOMException and this are how the rest report a failure.
@@ -121,7 +121,7 @@ public class QuotaExceededErrorTests
         new Engine().Evaluate("typeof QuotaExceededError").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = WebEngine();
@@ -130,7 +130,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("typeof QuotaExceededError").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotClobberAGlobalTheHostAlreadyOwns()
     {
         var marker = new Jint.Native.JsString("host's own QuotaExceededError");
@@ -148,7 +148,7 @@ public class QuotaExceededErrorTests
 
     // ---------------------------------------------------------------- name, message and code
 
-    [Fact]
+    [Test]
     public void CarriesTheInterfaceIdentifierAsItsName()
     {
         var engine = WebEngine();
@@ -164,7 +164,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("new QuotaExceededError(42).message").AsString().Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void ReportsTheLegacyCodeTwentyTwo()
     {
         var engine = WebEngine();
@@ -177,7 +177,7 @@ public class QuotaExceededErrorTests
             .AsNumber().Should().Be(22);
     }
 
-    [Fact]
+    [Test]
     public void InheritsErrorPrototypeToStringAndTheErrorDataSlot()
     {
         var engine = WebEngine();
@@ -189,7 +189,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("Error.isError(QuotaExceededError.prototype)").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TagsItselfForObjectPrototypeToString()
     {
         var engine = WebEngine();
@@ -199,7 +199,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("QuotaExceededError.prototype[Symbol.toStringTag]").AsString().Should().Be("QuotaExceededError");
     }
 
-    [Fact]
+    [Test]
     public void CarriesAStackAndOwnsNothingElse()
     {
         var engine = WebEngine();
@@ -214,7 +214,7 @@ public class QuotaExceededErrorTests
 
     // ---------------------------------------------------------------- quota and requested
 
-    [Fact]
+    [Test]
     public void HasBothMembersNullUntilSomethingSuppliesThem()
     {
         var engine = WebEngine();
@@ -230,7 +230,7 @@ public class QuotaExceededErrorTests
             .IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsBackWhatTheOptionsDictionaryGaveIt()
     {
         var engine = WebEngine();
@@ -255,7 +255,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("Object.is(new QuotaExceededError('x', { quota: -0 }).quota, -0)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ExposesTheTwoMembersAsPrototypeAccessors()
     {
         var engine = WebEngine();
@@ -273,7 +273,7 @@ public class QuotaExceededErrorTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DeclaresItsOwnMembersInIdlOrderAndInheritsTheRest()
     {
         var engine = WebEngine();
@@ -284,17 +284,16 @@ public class QuotaExceededErrorTests
             .Should().Be("constructor,quota,requested");
     }
 
-    [Theory]
-    [InlineData("QuotaExceededError.prototype")]
-    [InlineData("new DOMException('x', 'QuotaExceededError')")]
-    [InlineData("Object.create(QuotaExceededError.prototype)")]
-    [InlineData("{}")]
+    [TestCase("QuotaExceededError.prototype")]
+    [TestCase("new DOMException('x', 'QuotaExceededError')")]
+    [TestCase("Object.create(QuotaExceededError.prototype)")]
+    [TestCase("{}")]
     public void RefusesAnAccessorReceiverThatIsNotOne(string receiver)
     {
         var engine = WebEngine();
 
         Assert.Throws<JavaScriptException>(
-                () => engine.Evaluate($"Object.getOwnPropertyDescriptor(QuotaExceededError.prototype, 'quota').get.call({receiver})"))
+                () => engine.Evaluate($"Object.getOwnPropertyDescriptor(QuotaExceededError.prototype, 'quota').get.call({receiver})"))!
             .Message.Should().Contain("QuotaExceededError");
 
         Assert.Throws<JavaScriptException>(
@@ -303,38 +302,36 @@ public class QuotaExceededErrorTests
 
     // ---------------------------------------------------------------- constructor validation
 
-    [Theory]
     // Steps 3.1 and 4.1: a negative amount is not a quantity either member can describe.
-    [InlineData("new QuotaExceededError('x', { quota: -1 })")]
-    [InlineData("new QuotaExceededError('x', { requested: -1 })")]
-    [InlineData("new QuotaExceededError('x', { quota: -1, requested: 5 })")]
+    [TestCase("new QuotaExceededError('x', { quota: -1 })")]
+    [TestCase("new QuotaExceededError('x', { requested: -1 })")]
+    [TestCase("new QuotaExceededError('x', { quota: -1, requested: 5 })")]
     // Step 5: a request smaller than the quota it exceeded cannot be what happened.
-    [InlineData("new QuotaExceededError('x', { quota: 9, requested: 8 })")]
-    [InlineData("new QuotaExceededError('x', { quota: 1, requested: 0 })")]
+    [TestCase("new QuotaExceededError('x', { quota: 9, requested: 8 })")]
+    [TestCase("new QuotaExceededError('x', { quota: 1, requested: 0 })")]
     public void RefusesAnIllFormedPairWithARangeError(string expression)
     {
         Err(WebEngine(), expression).Should().Be("RangeError");
     }
 
-    [Theory]
     // https://webidl.spec.whatwg.org/#js-double — a `double` member refuses NaN and the infinities, which is
     // a TypeError from the conversion rather than a RangeError from a numbered step.
-    [InlineData("new QuotaExceededError('x', { quota: NaN })")]
-    [InlineData("new QuotaExceededError('x', { requested: Infinity })")]
-    [InlineData("new QuotaExceededError('x', { quota: -Infinity })")]
-    [InlineData("new QuotaExceededError('x', { quota: 'nonsense' })")]
+    [TestCase("new QuotaExceededError('x', { quota: NaN })")]
+    [TestCase("new QuotaExceededError('x', { requested: Infinity })")]
+    [TestCase("new QuotaExceededError('x', { quota: -Infinity })")]
+    [TestCase("new QuotaExceededError('x', { quota: 'nonsense' })")]
     // A dictionary argument that is neither an object nor undefined nor null is refused outright, step 1.
-    [InlineData("new QuotaExceededError('x', 5)")]
-    [InlineData("new QuotaExceededError('x', 'quota')")]
-    [InlineData("new QuotaExceededError('x', true)")]
+    [TestCase("new QuotaExceededError('x', 5)")]
+    [TestCase("new QuotaExceededError('x', 'quota')")]
+    [TestCase("new QuotaExceededError('x', true)")]
     // ToNumber on a symbol is a TypeError of ECMAScript's own.
-    [InlineData("new QuotaExceededError('x', { quota: Symbol() })")]
+    [TestCase("new QuotaExceededError('x', { quota: Symbol() })")]
     public void RefusesAValueTheConversionCannotTakeWithATypeError(string expression)
     {
         Err(WebEngine(), expression).Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TakesUndefinedAndNullAsTheEmptyDictionary()
     {
         var engine = WebEngine();
@@ -346,7 +343,7 @@ public class QuotaExceededErrorTests
         engine.Evaluate("new QuotaExceededError('x', function () {}).quota").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ConvertsTheWholeDictionaryBeforeAnyNumberedStepRuns()
     {
         var engine = WebEngine();
@@ -381,7 +378,7 @@ public class QuotaExceededErrorTests
             """).AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheMembersThroughThePrototypeChainLikeAnyDictionary()
     {
         var engine = WebEngine();
@@ -391,7 +388,7 @@ public class QuotaExceededErrorTests
             .AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void SubclassesThroughNewTarget()
     {
         var engine = WebEngine();
@@ -406,7 +403,7 @@ public class QuotaExceededErrorTests
 
     // ---------------------------------------------------------------- structured clone
 
-    [Fact]
+    [Test]
     public void IsSerializableAndKeepsBothMembers()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
@@ -433,7 +430,7 @@ public class QuotaExceededErrorTests
             """).AsString().Should().Be("true|true");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotFlattenIntoADomExceptionAndIsNotConfusedWithOne()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));
@@ -452,7 +449,7 @@ public class QuotaExceededErrorTests
             """).AsString().Should().Be("false|true|QuotaExceededError|22|false");
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheStackOfTheExceptionItCloned()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.StructuredClone));

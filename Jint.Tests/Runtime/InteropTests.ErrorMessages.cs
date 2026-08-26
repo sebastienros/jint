@@ -11,7 +11,7 @@ public partial class InteropTests
     private static Engine DetailedErrorsEngine() =>
         new Engine(options => options.Interop.ExposeDetailedResolutionErrors = true);
 
-    [Fact]
+    [Test]
     public void FailedMethodResolutionReportsTargetTypeArgumentsAndCandidates()
     {
         var engine = DetailedErrorsEngine();
@@ -22,7 +22,7 @@ public partial class InteropTests
         ex.Message.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)");
     }
 
-    [Fact]
+    [Test]
     public void FailedMethodResolutionDoesNotDuplicateImplicitlyImplementedInterfaceMethods()
     {
         var engine = DetailedErrorsEngine();
@@ -34,7 +34,7 @@ public partial class InteropTests
         ex.Message.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Greeter.Greet; provided arguments: (); candidate signatures: Greet(String name)");
     }
 
-    [Fact]
+    [Test]
     public void FailedMethodResolutionDescribesArgumentKinds()
     {
         var engine = DetailedErrorsEngine();
@@ -47,7 +47,7 @@ public partial class InteropTests
         ex.Message.Should().Contain("(null, undefined, Array, function, object, Date, Speaker)");
     }
 
-    [Fact]
+    [Test]
     public void FailedMethodResolutionCapsReportedCandidates()
     {
         var engine = DetailedErrorsEngine();
@@ -60,7 +60,7 @@ public partial class InteropTests
         ex.Message.Should().Contain(" and 2 more");
     }
 
-    [Fact]
+    [Test]
     public void FailedExtensionMethodResolutionReportsDeclaringTypeAndReceiver()
     {
         var options = new Options();
@@ -76,7 +76,7 @@ public partial class InteropTests
         ex.Message.Should().Contain("PersonExtensions.MultiplyAge(this Person person, Int32 factor)");
     }
 
-    [Fact]
+    [Test]
     public void FailedConstructorResolutionReportsArgumentsAndCandidates()
     {
         var engine = DetailedErrorsEngine();
@@ -89,7 +89,7 @@ public partial class InteropTests
         ex.Message.Should().Contain("candidate signatures: CtorFails(String name)");
     }
 
-    [Fact]
+    [Test]
     public void DefaultMethodResolutionErrorIsTerseAndHidesClrDetail()
     {
         var engine = new Engine();
@@ -101,7 +101,7 @@ public partial class InteropTests
         ex.Message.Should().Be("No public methods with the specified arguments were found.");
     }
 
-    [Fact]
+    [Test]
     public void DefaultConstructorResolutionErrorIsTerse()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public partial class InteropTests
         ex.Message.Should().NotContain("candidate signatures");
     }
 
-    [Fact]
+    [Test]
     public void ClrTypeIsAvailableHostSideUnderSafeDefault()
     {
         // no options set: detailed messages are off, but the host can still recover the CLR type
@@ -131,7 +131,7 @@ public partial class InteropTests
         member.Should().Be("Say");
     }
 
-    [Fact]
+    [Test]
     public void ClrTypeIsAvailableForConstructorFailures()
     {
         var engine = new Engine();
@@ -146,7 +146,7 @@ public partial class InteropTests
         JintException.TryGetClrMemberName(ex, out _).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorCanRewriteScriptVisibleMessage()
     {
         var engine = new Engine(options =>
@@ -166,7 +166,7 @@ public partial class InteropTests
         ex.Message.Should().Be("Speaker.Say: no matching overload");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorCanAddErrorCodeProperty()
     {
         var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = static (_, error, _) => error.Set("errorCode", "USR-001"));
@@ -182,7 +182,7 @@ public partial class InteropTests
         missing.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorReceivesStructuredInfoForMethods()
     {
         // detailed messages stay off: the decorator still receives the full structured information
@@ -207,7 +207,7 @@ public partial class InteropTests
         capturedInfo.DetailedMessage.Should().Be("No public methods with the specified arguments were found. Target: Jint.Tests.Runtime.Speaker.Say; provided arguments: (string, string); candidate signatures: Say(String message)");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorReceivesStructuredInfoForConstructors()
     {
         ClrResolutionErrorInfo capturedInfo = null;
@@ -226,7 +226,7 @@ public partial class InteropTests
         capturedInfo.CandidateSignatures.Should().ContainSingle().Which.Should().Be("CtorFails(String name)");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorIsNotCalledOnSuccessfulResolution()
     {
         var called = false;
@@ -239,7 +239,7 @@ public partial class InteropTests
         called.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorPreservesHostSideClrInfo()
     {
         var engine = new Engine(options => options.Interop.ClrResolutionErrorDecorator = static (_, error, _) => error.Set("message", "rewritten"));
@@ -254,7 +254,7 @@ public partial class InteropTests
         member.Should().Be("Say");
     }
 
-    [Fact]
+    [Test]
     public void ResolutionErrorDecoratorArgumentsSurviveBeyondCallback()
     {
         ClrResolutionErrorInfo capturedInfo = null;
@@ -276,9 +276,8 @@ public partial class InteropTests
     /// constructs the error it annotates, so the test drives them directly: this is the regression net for
     /// folding the facts behind one record, whose replace-wholesale shape made them mutually exclusive.
     /// </summary>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void ClrResolutionInfoAndClrExceptionCoexistOnOneError(bool resolutionInfoFirst)
     {
         var engine = new Engine();

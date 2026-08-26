@@ -40,18 +40,17 @@ public class TypedArrayConstructorBoundsTests
     /// not multiples of the element size — they are here so the alignment check cannot start standing in for
     /// the range check.
     /// </summary>
-    [Theory]
-    [InlineData("2147483644")]
-    [InlineData("2147483647")]
-    [InlineData("2147483648")]
-    [InlineData("2147483649")]
-    [InlineData("2147483652")]
-    [InlineData("4294967292")]
-    [InlineData("4294967295")]
-    [InlineData("4294967296")]
-    [InlineData("4294967297")]
-    [InlineData("4294967300")]
-    [InlineData("9007199254740991")]
+    [TestCase("2147483644")]
+    [TestCase("2147483647")]
+    [TestCase("2147483648")]
+    [TestCase("2147483649")]
+    [TestCase("2147483652")]
+    [TestCase("4294967292")]
+    [TestCase("4294967295")]
+    [TestCase("4294967296")]
+    [TestCase("4294967297")]
+    [TestCase("4294967300")]
+    [TestCase("9007199254740991")]
     public void ByteOffsetPastTheBufferIsARangeError(string byteOffset)
     {
         ThrownErrorName($"new Int32Array(new ArrayBuffer(0), {byteOffset})").Should().Be("RangeError");
@@ -60,14 +59,13 @@ public class TypedArrayConstructorBoundsTests
     /// <summary>
     /// The same for the length argument, whose product with the element size is what used to overflow.
     /// </summary>
-    [Theory]
-    [InlineData("2147483647")]
-    [InlineData("2147483648")]
-    [InlineData("2147483649")]
-    [InlineData("4294967295")]
-    [InlineData("4294967296")]
-    [InlineData("4294967297")]
-    [InlineData("9007199254740991")]
+    [TestCase("2147483647")]
+    [TestCase("2147483648")]
+    [TestCase("2147483649")]
+    [TestCase("4294967295")]
+    [TestCase("4294967296")]
+    [TestCase("4294967297")]
+    [TestCase("9007199254740991")]
     public void LengthPastTheBufferIsARangeError(string length)
     {
         ThrownErrorName($"new Int32Array(new ArrayBuffer(0), 0, {length})").Should().Be("RangeError");
@@ -76,7 +74,7 @@ public class TypedArrayConstructorBoundsTests
     /// <summary>
     /// The control: offsets and lengths the buffer really can hold still build the array they always did.
     /// </summary>
-    [Fact]
+    [Test]
     public void OffsetsAndLengthsWithinTheBufferStillWork()
     {
         _engine.Evaluate("new Int32Array(new ArrayBuffer(16), 4).length").AsNumber().Should().Be(3);
@@ -89,7 +87,7 @@ public class TypedArrayConstructorBoundsTests
     /// Step 3 precedes step 5: the misaligned offset is reported, not whatever evaluating the length would
     /// have raised.
     /// </summary>
-    [Fact]
+    [Test]
     public void MisalignedByteOffsetIsReportedBeforeTheLengthIsCoerced()
     {
         const string Script = """
@@ -108,7 +106,7 @@ public class TypedArrayConstructorBoundsTests
     /// And step 2 precedes step 3: an offset that throws while being coerced does so before anything can
     /// decide it is misaligned.
     /// </summary>
-    [Fact]
+    [Test]
     public void ByteOffsetIsCoercedBeforeItIsCheckedForAlignment()
     {
         const string Script = """
@@ -124,7 +122,7 @@ public class TypedArrayConstructorBoundsTests
     /// Step 6 (the detached-buffer <c>TypeError</c>) comes after both coercions, so a buffer detached from
     /// inside the length's <c>valueOf</c> is still seen.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADetachedBufferIsNoticedAfterBothArgumentsAreCoerced()
     {
         const string Script = """

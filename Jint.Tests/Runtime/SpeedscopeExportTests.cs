@@ -64,7 +64,7 @@ public class SpeedscopeExportTests
         root();
         """;
 
-    [Fact]
+    [Test]
     public void EmitsTheRequiredTopLevelMembers()
     {
         var document = ParseBack(ToJson(Profile(SampleScript)));
@@ -77,7 +77,7 @@ public class SpeedscopeExportTests
         document.Get("profiles").IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EmitsExactlyOneEventedProfileInNanoseconds()
     {
         var profile = Profile(SampleScript);
@@ -95,7 +95,7 @@ public class SpeedscopeExportTests
         evented.Get("events").IsArray().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void SharedFramesMirrorTheProfileFrames()
     {
         var profile = Profile(SampleScript);
@@ -126,7 +126,7 @@ public class SpeedscopeExportTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EventsAreBalancedAndNonDecreasing()
     {
         var profile = Profile(SampleScript);
@@ -167,7 +167,7 @@ public class SpeedscopeExportTests
         previous.Should().BeLessThanOrEqualTo(At(document.Get("profiles"), 0).Get("endValue").AsNumber());
     }
 
-    [Fact]
+    [Test]
     public void AnEmptyProfileIsStillAValidDocument()
     {
         var engine = new Engine(options => options.Profiling.Enabled = true);
@@ -186,7 +186,7 @@ public class SpeedscopeExportTests
     /// unpaired surrogate, which has no UTF-8 encoding at all and would otherwise make the exported bytes
     /// undecodable.
     /// </summary>
-    [Fact]
+    [Test]
     public void HostileFunctionNamesSurviveTheRoundTrip()
     {
         const string Hostile = "a\"b\\c\nde\ud800f";
@@ -207,7 +207,7 @@ public class SpeedscopeExportTests
         At(frames, index).Get("name").AsString().Should().Be(Hostile);
     }
 
-    [Fact]
+    [Test]
     public void APairedSurrogateIsEmittedAsIs()
     {
         // U+1F600, a legitimate astral character, must not be mangled by the unpaired-surrogate handling.
@@ -241,7 +241,7 @@ public class SpeedscopeExportTests
         return -1;
     }
 
-    [Fact]
+    [Test]
     public void TheStreamOverloadWritesUtf8WithoutABomAndLeavesTheStreamOpen()
     {
         var profile = Profile(SampleScript);
@@ -258,7 +258,7 @@ public class SpeedscopeExportTests
         new UTF8Encoding(false).GetString(bytes).Should().Be(ToJson(profile));
     }
 
-    [Fact]
+    [Test]
     public void NullArgumentsAreRejected()
     {
         var profile = Profile(SampleScript);
@@ -267,7 +267,7 @@ public class SpeedscopeExportTests
         Assert.Throws<ArgumentNullException>(() => profile.WriteSpeedscopeJson((Stream) null!));
     }
 
-    [Fact]
+    [Test]
     public void ATruncatedProfileStillExportsABalancedDocument()
     {
         var engine = new Engine(options =>

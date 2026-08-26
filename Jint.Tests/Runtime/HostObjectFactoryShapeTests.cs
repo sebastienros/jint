@@ -22,7 +22,7 @@ public class HostObjectFactoryShapeTests
         Layout,
         [JsNumber.Create(id), JsString.Create("n" + id), JsBoolean.True]);
 
-    [Fact]
+    [Test]
     public void CreatedObjectIsInShapeMode()
     {
         var engine = new Engine();
@@ -32,7 +32,7 @@ public class HostObjectFactoryShapeTests
         obj.ShapeOf.SlotCount.Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void EveryObjectBuiltFromOneLayoutSharesOneShape()
     {
         var engine = new Engine();
@@ -49,7 +49,7 @@ public class HostObjectFactoryShapeTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LayoutShapeIsTheSameShapeAnEquivalentObjectLiteralBuilds()
     {
         var engine = new Engine();
@@ -73,7 +73,7 @@ public class HostObjectFactoryShapeTests
         spread.ShapeOf.Should().BeSameAs(created.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void RepeatedEntryKeySequencesShareOneShape()
     {
         var engine = new Engine();
@@ -104,7 +104,7 @@ public class HostObjectFactoryShapeTests
         other.ShapeOf.Should().NotBeSameAs(first.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void TheSameLayoutResolvesToADifferentShapePerEngine()
     {
         var first = new Engine();
@@ -124,7 +124,7 @@ public class HostObjectFactoryShapeTests
         Sample(second, 2).ShapeOf.Should().BeSameAs(b.ShapeOf);
     }
 
-    [Fact]
+    [Test]
     public void DifferentLayoutInstancesWithTheSameNamesShareOneShape()
     {
         var engine = new Engine();
@@ -138,13 +138,12 @@ public class HostObjectFactoryShapeTests
         b.ShapeOf.Should().BeSameAs(a.ShapeOf);
     }
 
-    [Theory]
-    [InlineData("o.extra = 1;")]
-    [InlineData("delete o.name;")]
-    [InlineData("Object.freeze(o);")]
-    [InlineData("Object.seal(o);")]
-    [InlineData("Object.defineProperty(o, 'g', { get: function () { return 1; } });")]
-    [InlineData("Object.defineProperty(o, 'name', { value: 2, writable: false });")]
+    [TestCase("o.extra = 1;")]
+    [TestCase("delete o.name;")]
+    [TestCase("Object.freeze(o);")]
+    [TestCase("Object.seal(o);")]
+    [TestCase("Object.defineProperty(o, 'g', { get: function () { return 1; } });")]
+    [TestCase("Object.defineProperty(o, 'name', { value: 2, writable: false });")]
     public void DeoptTriggersLeaveAnOrdinaryDictionaryObject(string script)
     {
         var engine = new Engine();
@@ -159,7 +158,7 @@ public class HostObjectFactoryShapeTests
         engine.Evaluate("o.id").Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SettingThePrototypeKeepsTheLayoutValid()
     {
         // Unlike the other mutations, a prototype change does NOT deopt: a Shape maps names to slots and
@@ -176,7 +175,7 @@ public class HostObjectFactoryShapeTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("id,name,active");
     }
 
-    [Fact]
+    [Test]
     public void IntegerLikeEntryKeyDropsTheObjectToDictionaryMode()
     {
         var engine = new Engine();
@@ -191,7 +190,7 @@ public class HostObjectFactoryShapeTests
         engine.Evaluate("Object.keys(o).join()").Should().Be("0,a");
     }
 
-    [Fact]
+    [Test]
     public void WildlyVaryingEntryKeySetsStopInterningAndFallBackToDictionaries()
     {
         // The fan-out guard bounds how many distinct continuations one shape may sprout: once the empty
@@ -222,7 +221,7 @@ public class HostObjectFactoryShapeTests
         shapedCount.Should().Be(64);
     }
 
-    [Fact]
+    [Test]
     public void ExhaustingTheHostTransitionBudgetFallsBackToDictionaryObjects()
     {
         var engine = new Engine();

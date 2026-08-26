@@ -34,14 +34,14 @@ public class HostObjectAsPrototypeTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void InheritedPropertyResolvesThroughThePrototypeChain()
     {
         var engine = CreateEngine();
         engine.Evaluate("var obj = {}; Object.setPrototypeOf(obj, host); obj.Greeting").AsString().Should().Be("hello");
     }
 
-    [Fact]
+    [Test]
     public void InheritedMethodInvokesOnTheOwningInstance()
     {
         var engine = CreateEngine();
@@ -52,21 +52,21 @@ public class HostObjectAsPrototypeTests
         engine.Evaluate("var sum = 0; for (var i = 0; i < 100; i++) { sum += obj.Compute(i, 1); } sum").AsNumber().Should().Be(5050);
     }
 
-    [Fact]
+    [Test]
     public void InheritedMethodWorksThroughDunderProto()
     {
         var engine = CreateEngine();
         engine.Evaluate("var obj = {}; obj.__proto__ = host; obj.Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void InheritedMethodWorksThroughObjectCreate()
     {
         var engine = CreateEngine();
         engine.Evaluate("Object.create(host).Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void InheritedMethodWorksWhenPrototypeIsSetFromTheHostSide()
     {
         var engine = new Engine();
@@ -79,7 +79,7 @@ public class HostObjectAsPrototypeTests
         engine.Evaluate("obj.Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ExtractedMethodRetargetedOntoAPlainJsReceiverUsesTheOwningInstance()
     {
         var engine = CreateEngine();
@@ -91,7 +91,7 @@ public class HostObjectAsPrototypeTests
         engine.Evaluate("var g = host.Compute; g(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ForeignClrReceiverSurfacesACatchableTypeError()
     {
         var engine = CreateEngine();
@@ -102,7 +102,7 @@ public class HostObjectAsPrototypeTests
         ex.Message.Should().Be("Method 'Compute' called on incompatible receiver");
     }
 
-    [Fact]
+    [Test]
     public void StaticMethodIgnoresTheReceiverEntirely()
     {
         var engine = CreateEngine();
@@ -110,7 +110,7 @@ public class HostObjectAsPrototypeTests
         engine.Evaluate("var obj = Object.create(host); obj.StaticCompute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void ProxyReceiverUnwrapsToTheProxiedInstance()
     {
         var engine = CreateEngine();
@@ -118,7 +118,7 @@ public class HostObjectAsPrototypeTests
         engine.Evaluate("var f = host.Compute; f.call(new Proxy(host, {}), 40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void RevokedProxyReceiverSurfacesACatchableTypeError()
     {
         var engine = CreateEngine();

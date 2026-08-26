@@ -70,7 +70,7 @@ public class FetchEventTests
 
     // The surface
 
-    [Fact]
+    [Test]
     public void TheFeatureInstallsTheEventAndTheObjectModelButNeverFetch()
     {
         var engine = Worker("");
@@ -90,7 +90,7 @@ public class FetchEventTests
         engine.WebApi.Features.Should().NotHaveFlag(WebApiFeatures.Fetch);
     }
 
-    [Fact]
+    [Test]
     public void TheFeatureIsNotInDefaultAndFetchDoesNotBringIt()
     {
         WebApiFeatures.Default.Should().NotHaveFlag(WebApiFeatures.FetchEvents);
@@ -104,7 +104,7 @@ public class FetchEventTests
         fetching.Evaluate("typeof FetchEvent").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void TheInterfaceObjectHasTheWebIdlShape()
     {
         var engine = Worker("");
@@ -132,14 +132,14 @@ public class FetchEventTests
         engine.Evaluate("FetchEvent.prototype[Symbol.toStringTag]").AsString().Should().Be("FetchEvent");
     }
 
-    [Fact]
+    [Test]
     public void TheMembersBrandCheckTheirReceiver()
     {
         var engine = Worker("");
 
         foreach (var member in new[] { "FetchEvent.prototype.respondWith.call({})", "FetchEvent.prototype.waitUntil.call({})", "Object.getOwnPropertyDescriptor(FetchEvent.prototype, 'request').get.call({})" })
         {
-            var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate(member));
+            var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate(member))!;
             failure.Error.Get("name").AsString().Should().Be("TypeError");
             failure.Message.Should().Contain("not a FetchEvent");
         }
@@ -147,32 +147,32 @@ public class FetchEventTests
 
     // The constructor
 
-    [Fact]
+    [Test]
     public void TheConstructorRequiresATypeAndARequestOfTheRightType()
     {
         var engine = Worker("var request = new Request('https://example.org/');");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent()"))!
             .Message.Should().Contain("1 argument required");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch')"))!
             .Message.Should().Contain("2 arguments required");
 
         // undefined and null both convert to a dictionary with no members, which is missing a required one.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', undefined)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', undefined)"))!
             .Message.Should().Contain("required member request is undefined");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', {})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', {})"))!
             .Message.Should().Contain("required member request is undefined");
 
         // An interface type coerces nothing: https://webidl.spec.whatwg.org/#es-interface.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', { request: 'https://example.org/' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new FetchEvent('fetch', { request: 'https://example.org/' })"))!
             .Message.Should().Contain("not of type 'Request'");
 
         engine.Evaluate("new FetchEvent('fetch', { request }).request === request").AsBoolean().Should().BeTrue();
         engine.Evaluate("new FetchEvent('fetch', { request }) instanceof Event").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheInheritedEventInitMembersAreConvertedBeforeTheDictionarysOwn()
     {
         var engine = Worker("""
@@ -192,7 +192,7 @@ public class FetchEventTests
         engine.Evaluate("event.bubbles && event.cancelable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AScriptConstructedEventIsUntrustedAndCanNeitherRespondNorBeExtended()
     {
         var engine = Worker("""
@@ -216,7 +216,7 @@ public class FetchEventTests
 
     // The trusted event, through the hosting path
 
-    [Fact]
+    [Test]
     public void TheDispatchedEventIsATrustedCancelableFetchEventCarryingTheRequest()
     {
         var engine = Worker("""
@@ -254,7 +254,7 @@ public class FetchEventTests
         json.Should().Contain("\"sameObject\":true");
     }
 
-    [Fact]
+    [Test]
     public void TheListenerSeesARealRequestWithTheWholeBodyMixin()
     {
         var engine = Worker("""
@@ -271,7 +271,7 @@ public class FetchEventTests
         Answer(engine, message).Should().Be("n=7");
     }
 
-    [Fact]
+    [Test]
     public void RespondWithAcceptsAPlainResponseThroughThePromiseConversion()
     {
         // `Promise<Response> r` converts anything, so a Response goes in directly — which is what every
@@ -280,7 +280,7 @@ public class FetchEventTests
         Answer(engine).Should().Be("plain");
     }
 
-    [Fact]
+    [Test]
     public void RespondWithWithNoArgumentIsTheWebIdlArityError()
     {
         var engine = Worker("""
@@ -299,7 +299,7 @@ public class FetchEventTests
 
     // respondWith's state machine
 
-    [Fact]
+    [Test]
     public void ASecondRespondWithIsAnInvalidStateError()
     {
         var engine = Worker("""
@@ -314,7 +314,7 @@ public class FetchEventTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("InvalidStateError");
     }
 
-    [Fact]
+    [Test]
     public void RespondWithAfterTheDispatchIsAnInvalidStateError()
     {
         var engine = Worker("""
@@ -328,12 +328,12 @@ public class FetchEventTests
         Answer(engine).Should().Be("answered");
 
         // The dispatch flag is unset, so step 2 refuses — before the entered flag is even looked at.
-        var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate("captured.respondWith(new Response('late'))"));
+        var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate("captured.respondWith(new Response('late'))"))!;
         failure.Error.Get("name").AsString().Should().Be("InvalidStateError");
         failure.Message.Should().Contain("not being dispatched");
     }
 
-    [Fact]
+    [Test]
     public void RespondWithEndsTheDispatchForEveryLaterListener()
     {
         var engine = Worker("""
@@ -350,7 +350,7 @@ public class FetchEventTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("capturing,first");
     }
 
-    [Fact]
+    [Test]
     public void RespondWithDoesNotCancelTheEvent()
     {
         var engine = Worker("""
@@ -371,7 +371,7 @@ public class FetchEventTests
 
     // waitUntil and the lifetime
 
-    [Fact]
+    [Test]
     public void WaitUntilIsAllowedWhileTheEventIsStillActiveAndRefusedAfterwards()
     {
         var engine = Worker("""
@@ -404,12 +404,12 @@ public class FetchEventTests
 
         // Both lifetime promises have settled and the dispatch is long over, so the event is no longer active
         // — which is the specification's own note about calling waitUntil() from a later task.
-        var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate("captured.waitUntil(Promise.resolve())"));
+        var failure = Assert.Throws<JavaScriptException>(() => engine.Evaluate("captured.waitUntil(Promise.resolve())"))!;
         failure.Error.Get("name").AsString().Should().Be("InvalidStateError");
         failure.Message.Should().Contain("no longer active");
     }
 
-    [Fact]
+    [Test]
     public void WaitUntilWorkIsJustJobsTheHostPumps()
     {
         var engine = Worker("""
@@ -427,7 +427,7 @@ public class FetchEventTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("background");
     }
 
-    [Fact]
+    [Test]
     public void ARejectedWaitUntilPromiseIsReportedOnceRatherThanLost()
     {
         var sink = new RecordingSink();
@@ -453,7 +453,7 @@ public class FetchEventTests
         reports[0].Value.AsObject().Get("message").AsString().Should().Be("background failed");
     }
 
-    [Fact]
+    [Test]
     public void AnAlreadyRejectedWaitUntilPromiseIsNotAnnouncedASecondTime()
     {
         var sink = new RecordingSink();
@@ -477,7 +477,7 @@ public class FetchEventTests
             .Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ARejectedResponsePromiseIsNotAlsoReportedAsAnUnhandledRejection()
     {
         var sink = new RecordingSink();
@@ -498,14 +498,14 @@ public class FetchEventTests
         // The host already learns about it, as the operation's failure — reporting it a second time as a lost
         // background rejection would be noise about something nobody lost.
         operation.IsFaulted.Should().BeTrue();
-        Assert.IsType<PromiseRejectedException>(operation.Error)
+        operation.Error.Should().BeOfType<PromiseRejectedException>().Which
             .RejectedValue.AsObject().Get("message").AsString().Should().Be("handler failed");
 
         engine.Evaluate("log.join(',')").AsString().Should().BeEmpty();
         sink.Reports.Should().NotContain(report => report.Kind == DiagnosticEventKind.UnhandledPromiseRejection);
     }
 
-    [Fact]
+    [Test]
     public void TheListenerFormAlwaysNeedsAtLeastOneTurn()
     {
         var engine = Worker("addEventListener('fetch', e => e.respondWith(new Response('sync')));");
@@ -520,7 +520,7 @@ public class FetchEventTests
         operation.IsCompleted.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ARestoreDropsTheListenersWithTheRestOfTheCycle()
     {
         var engine = Worker("addEventListener('fetch', e => e.respondWith(new Response('before')));");
@@ -533,7 +533,7 @@ public class FetchEventTests
         // gives.
         engine.Advanced.RestoreGlobalSnapshot(snapshot);
 
-        Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()))
+        Assert.Throws<InvalidOperationException>(() => engine.WebApi.InvokeFetchHandler(Get()))!
             .Message.Should().Contain("addEventListener('fetch'");
     }
 }

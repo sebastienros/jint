@@ -38,7 +38,7 @@ public class MemoryReportTimerTests
         return (engine, clock);
     }
 
-    [Fact]
+    [Test]
     public void PendingTimersAreCountedUntilTheyFire()
     {
         var (engine, clock) = TimerEngine();
@@ -57,7 +57,7 @@ public class MemoryReportTimerTests
         engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AClearedTimerStopsBeingCounted()
     {
         var (engine, _) = TimerEngine();
@@ -69,7 +69,7 @@ public class MemoryReportTimerTests
         engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnIntervalStaysOneTimerHoweverOftenItHasFired()
     {
         var (engine, clock) = TimerEngine();
@@ -89,7 +89,7 @@ public class MemoryReportTimerTests
         engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void RestoringAGlobalSnapshotDropsTheTimersTheCycleScheduled()
     {
         var (engine, _) = TimerEngine();
@@ -105,7 +105,7 @@ public class MemoryReportTimerTests
         engine.Diagnostics.GetMemoryReport().PendingTimerCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void AnEngineWithoutTheTimerFeatureReportsNone()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));

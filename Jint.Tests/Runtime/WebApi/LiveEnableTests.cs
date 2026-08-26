@@ -21,7 +21,7 @@ namespace Jint.Tests.Runtime.WebApi;
 /// </remarks>
 public class LiveEnableTests
 {
-    [Fact]
+    [Test]
     public void InstallsUnmaterializedLazyDescriptors()
     {
         var engine = new Engine();
@@ -43,7 +43,7 @@ public class LiveEnableTests
     /// bump would still be correct; on a live engine a warmed identifier site holds the previous descriptor by
     /// reference and revalidates it against <c>_propertiesVersion</c> alone.
     /// </summary>
-    [Fact]
+    [Test]
     public void InstallingBumpsTheOwnPropertyVersion()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class LiveEnableTests
     /// environment, so the two counters that describe those must NOT move — bumping either would be
     /// invalidating caches for a change that did not happen.
     /// </summary>
-    [Fact]
+    [Test]
     public void InstallingDoesNotDisturbTheLexicalCounters()
     {
         var engine = new Engine();
@@ -84,7 +84,7 @@ public class LiveEnableTests
         engine._envBindingInjectionEpoch.Should().Be(injectionEpoch);
     }
 
-    [Fact]
+    [Test]
     public void TheEngineRecordsTheExpandedClosure()
     {
         var engine = new Engine();
@@ -106,7 +106,7 @@ public class LiveEnableTests
     /// state, because replacing it would move the time origin and lose everything the engine had already put
     /// in it.
     /// </summary>
-    [Fact]
+    [Test]
     public void ExtendingAnExistingStateAttachesTheQueuesWithoutReplacingIt()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Performance));
@@ -140,7 +140,7 @@ public class LiveEnableTests
     /// once it has been built from them — and it is deliberately the strongest form of the question: even the
     /// sanctioned post-construction door cannot move a clock an engine is already running on.
     /// </remarks>
-    [Fact]
+    [Test]
     public void ExtendingAnExistingStateDoesNotAdoptALaterClock()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Performance);
@@ -159,7 +159,7 @@ public class LiveEnableTests
     /// An engine with no state at all is the other branch: it gets one built exactly as construction would
     /// have built it, reading the options group at the moment of the call.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineWithNoStateGetsOneBuiltFromTheOptionsAtEnableTime()
     {
         var clock = new FakeTimeProvider();
@@ -182,7 +182,7 @@ public class LiveEnableTests
     /// The storage providers are resolved lazily on first use, so enabling storage live has to fill the slots
     /// that are still empty and may never overwrite one an engine has already been reading and writing.
     /// </summary>
-    [Fact]
+    [Test]
     public void EnablingStorageLiveDoesNotDisplaceAProviderAlreadyInUse()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Storage));

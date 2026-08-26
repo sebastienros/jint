@@ -72,9 +72,8 @@ public class ReferenceResolverAssignmentTests
         }
     });
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void SimpleAssignmentWritesAndOverwritesOwnProperties(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -91,9 +90,8 @@ public class ReferenceResolverAssignmentTests
         result.AsString().Should().Be("9,3");
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void CompoundAssignmentReadsAndWritesOnce(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -111,9 +109,8 @@ public class ReferenceResolverAssignmentTests
         result.AsString().Should().Be("3,ab");
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void AssignmentThroughPrototypeSetterInvokesTheSetter(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -135,9 +132,8 @@ public class ReferenceResolverAssignmentTests
         result.AsString().Should().Be("5|6,g,0");
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void StrictModeAssignmentToReadOnlyPropertyThrows(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -156,9 +152,8 @@ public class ReferenceResolverAssignmentTests
         engine.Evaluate("o.r").AsNumber().Should().Be(1);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void AssignmentOnNullishBaseThrows(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -174,9 +169,8 @@ public class ReferenceResolverAssignmentTests
             .WithMessage("Cannot convert undefined or null to object");
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
+    [TestCase(true)]
+    [TestCase(false)]
     public void AssignmentToHostObjectMemberGoesThroughTheClrSetter(bool withResolver)
     {
         var engine = CreateEngine(withResolver);
@@ -198,7 +192,7 @@ public class ReferenceResolverAssignmentTests
         holder.ReadOnly.Should().Be(7);
     }
 
-    [Fact]
+    [Test]
     public void RegisteringAResolverResetsTheInterestsNarrowedForThePreviousOne()
     {
         // Interests describe one particular resolver, so registering another one must not leave the newcomer
@@ -224,7 +218,7 @@ public class ReferenceResolverAssignmentTests
         target.Get("assigned").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void NarrowedInterestsAreRegisteredWithTheResolverTheyDescribe()
     {
         // One call, so the pair cannot be written in the order that used to silently discard the narrowing.
@@ -234,7 +228,7 @@ public class ReferenceResolverAssignmentTests
         options.ReferenceResolverInterests.Should().Be(ReferenceResolverInterests.NullishPropertyBase);
     }
 
-    [Fact]
+    [Test]
     public void BaseOfAnAssignmentIsStillResolvedThroughTheResolver()
     {
         // The write itself never consults the resolver, but the base is read through the normal read

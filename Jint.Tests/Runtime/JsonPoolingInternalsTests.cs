@@ -11,7 +11,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class JsonPoolingInternalsTests
 {
-    [Fact]
+    [Test]
     public void AThrowingReviverGivesTheRentedArgumentArrayBack()
     {
         var engine = new Engine();

@@ -28,7 +28,7 @@ public class FixedSlotLexicalBindingTests
         return function._functionDefinition!.Initialize();
     }
 
-    [Fact]
+    [Test]
     public void ALexicalDeclarationDoesNotDisqualifyTheFixedSlotFastPath()
     {
         var engine = new Engine();
@@ -57,7 +57,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("withLet(41)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AFunctionWithoutLexicalDeclarationsGetsAnAllUndefinedTemplate()
     {
         var engine = new Engine();
@@ -83,7 +83,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("onlyVars(41)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AParameterOnlyFunctionGetsAnEmptyTemplate()
     {
         var engine = new Engine();
@@ -101,7 +101,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("add(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AnInnerFunctionDeclarationStillFallsBackToTheGeneralArm()
     {
         var engine = new Engine();
@@ -114,7 +114,7 @@ public class FixedSlotLexicalBindingTests
         state.CanUseFastFDI.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReadingALetBindingBeforeItsDeclarationThrowsReferenceError()
     {
         var engine = new Engine();
@@ -126,7 +126,7 @@ public class FixedSlotLexicalBindingTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadingAConstBindingBeforeItsDeclarationThrowsReferenceError()
     {
         var engine = new Engine();
@@ -136,7 +136,7 @@ public class FixedSlotLexicalBindingTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TypeofOnALetBindingBeforeItsDeclarationThrowsUnlikeAnUndeclaredName()
     {
         var engine = new Engine();
@@ -148,7 +148,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("typeof neverDeclaredAnywhere").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ALetBindingWithNoInitializerIsUndefinedOnlyAfterItsDeclaration()
     {
         var engine = new Engine();
@@ -160,7 +160,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("after(1)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AssigningToAConstSlotThrowsTypeErrorInBothModes()
     {
         var engine = new Engine();
@@ -174,7 +174,7 @@ public class FixedSlotLexicalBindingTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheTemporalDeadZoneIsReEstablishedOnEveryCall()
     {
         // The environment and its Binding[] are pooled and handed to the next call, so a slot that
@@ -196,7 +196,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("results(5)").AsString().Should().Be("ReferenceError,ReferenceError,ReferenceError,ReferenceError,ReferenceError");
     }
 
-    [Fact]
+    [Test]
     public void ConstnessSurvivesSlotReuseAcrossCalls()
     {
         var engine = new Engine();
@@ -215,7 +215,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("results(4)").AsString().Should().Be("TypeError,TypeError,TypeError,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void TheTemporalDeadZoneHoldsThroughTheRegisterArgumentLane()
     {
         // The register lane only arms on the second-and-later evaluation of a call site with 1-4
@@ -241,7 +241,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("results(3)").AsString().Should().Be("ReferenceError:1|ReferenceError:2|ReferenceError:3");
     }
 
-    [Fact]
+    [Test]
     public void AClosureCapturingALetSlotSeesTheInitializedValue()
     {
         var engine = new Engine();
@@ -252,7 +252,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("var f1 = make(1), f2 = make(2); f1() + ',' + f2()").AsString().Should().Be("v2,v4");
     }
 
-    [Fact]
+    [Test]
     public void AClosureCapturingALetSlotCannotObserveItInTheDeadZone()
     {
         var engine = new Engine();
@@ -268,7 +268,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("make(7)").AsString().Should().Be("ReferenceError:7");
     }
 
-    [Fact]
+    [Test]
     public void ParametersVarsAndLexicalBindingsLandInTheirOwnSlots()
     {
         var engine = new Engine();
@@ -289,7 +289,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("mix(1, 2)").AsString().Should().Be("1,2,6,2,3");
     }
 
-    [Fact]
+    [Test]
     public void RecursiveFramesEachGetTheirOwnDeadZone()
     {
         // Direct recursion pools environments through RecursiveEnvPool, so several frames are live
@@ -306,7 +306,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("fib(15)").AsNumber().Should().Be(610);
     }
 
-    [Fact]
+    [Test]
     public void GeneratorsAndAsyncFunctionsKeepTheirDeadZone()
     {
         var engine = new Engine();
@@ -331,7 +331,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("r").AsString().Should().Be("ReferenceError:9");
     }
 
-    [Fact]
+    [Test]
     public void ResumingAfterAnAwaitDoesNotPutInitializedSlotsBackIntoTheDeadZone()
     {
         // Instantiation must happen once per call, not once per resumption: re-running it would
@@ -351,7 +351,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("result").AsNumber().Should().Be(17);
     }
 
-    [Fact]
+    [Test]
     public void TheDeadZoneIsObservableAcrossAnAwaitBoundary()
     {
         var engine = new Engine();
@@ -369,7 +369,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("result").AsString().Should().Be("ReferenceError:3");
     }
 
-    [Fact]
+    [Test]
     public void ResumingAGeneratorKeepsItsInitializedLexicalSlots()
     {
         var engine = new Engine();
@@ -378,7 +378,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("var it = g(1); it.next().value + ',' + it.next().value").AsString().Should().Be("2,12");
     }
 
-    [Fact]
+    [Test]
     public void ATopLevelUsingDeclarationStillRegistersItsDisposal()
     {
         // `using` is lexically scoped like let, so it takes a slot too; the disposal is registered
@@ -396,7 +396,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("disposed").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ADestructuringLexicalDeclarationKeepsItsDeadZone()
     {
         // Destructuring targets are excluded from JintVariableDeclaration's slot lane, so they
@@ -413,7 +413,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("f({ p: 1, q: 2 })").AsString().Should().Be("ReferenceError:1:2");
     }
 
-    [Fact]
+    [Test]
     public void ALetSlotShadowsAnOuterBindingWhileStillInTheDeadZone()
     {
         // The shadowed outer name must NOT be readable from inside the function before the inner
@@ -431,7 +431,7 @@ public class FixedSlotLexicalBindingTests
         engine.Evaluate("f('inner')").AsString().Should().Be("ReferenceError:inner");
     }
 
-    [Fact]
+    [Test]
     public void AThrowBeforeTheDeclarationLeavesNoInitializedValueForTheNextCall()
     {
         var engine = new Engine();

@@ -55,7 +55,7 @@ public class HostAccessorCacheInvalidationTests
     /// resolutions it already paid for. Deterministic — the registration happens between the two engines on
     /// this thread — where the failure it stands for was an interleaving.
     /// </summary>
-    [Fact]
+    [Test]
     public void RegisteringOneTypeKeepsWhatEveryOtherTypeResolved()
     {
         var calls = 0;
@@ -78,7 +78,7 @@ public class HostAccessorCacheInvalidationTests
     /// members were already resolved still takes effect, or a late <c>RegisterAll()</c> would be silently
     /// ineffective rather than merely late (#3333).
     /// </summary>
-    [Fact]
+    [Test]
     public void RegisteringATypeStillDropsWhatWasResolvedForIt()
     {
         var calls = 0;

@@ -49,7 +49,7 @@ public class HostPumpWaitTests
     /// settle interval below therefore decides only <em>which</em> mechanism the run measures (the pre-check or
     /// the wake), and never whether it passes.
     /// </remarks>
-    [Fact]
+    [Test]
     public async Task WaitForScheduledWorkWakesOnACrossThreadPost()
     {
         using var engine = new Engine();
@@ -100,7 +100,7 @@ public class HostPumpWaitTests
     /// or a host's very next call would be refused as concurrent use. What it wakes on is the same set as the
     /// synchronous form's, exercised by <c>Jint.Tests</c>'s <c>WakesOnACrossThreadEnqueueAsync</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task WaitForScheduledWorkAsyncIsReachable()
     {
         using var engine = new Engine();

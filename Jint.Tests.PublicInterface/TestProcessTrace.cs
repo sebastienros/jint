@@ -2,8 +2,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
-using Xunit.v3;
+using NUnit.Framework.Interfaces;
 
 [assembly: Jint.Tests.PublicInterface.TestProcessTrace]
 
@@ -15,25 +14,24 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Off unless <c>JINT_TEST_TRACE</c> is set, and it is not a substitute for a test result: xUnit already
-/// reports every outcome it observes. What it covers is the one failure xUnit structurally cannot report —
-/// the test host dying mid-run. When that happens the VSTest adapter waits sixty seconds for a
-/// <c>TestAssemblyFinished</c> that will never arrive and then synthesises a bare
-/// <c>Xunit.Sdk.TestPipelineException</c> naming no test, while the console logger prints <c>Passed!</c>
-/// for the subset that did report (sebastienros/jint#3308). Standard error is chosen because it is the one
-/// stream nothing in that pipeline redirects, and it is unbuffered, so the last line written survives a
-/// process that never gets to flush anything.
+/// Off unless <c>JINT_TEST_TRACE</c> is set, and it is not a substitute for a test result: the runner already
+/// reports every outcome it observes. What it covers is the one failure a runner structurally cannot report —
+/// the test host dying mid-run. When that happens the VSTest adapter is left waiting for an end-of-run
+/// message that will never arrive, and the console logger can still print <c>Passed!</c> for the subset that
+/// did report (sebastienros/jint#3308). Standard error is chosen because it is the one stream nothing in that
+/// pipeline redirects, and it is unbuffered, so the last line written survives a process that never gets to
+/// flush anything.
 /// </para>
 /// <para>
 /// Attach it to the assembly rather than to any class: the point is to cover tests nobody suspected yet.
 /// The counter is what makes the trace comparable with the run summary — "482 passed" and "the 486th start"
 /// identify the same moment from the two ends — and it is the count to trust: a log that merged standard
-/// output into standard error can glue a trace line onto the tail of an xUnit line that did not end in a
+/// output into standard error can glue a trace line onto the tail of a runner line that did not end in a
 /// newline, so counting lines undercounts and the ordinal does not.
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Assembly)]
-internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
+internal sealed class TestProcessTraceAttribute : NUnitAttribute, ITestAction
 {
     private static readonly bool Enabled =
         !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("JINT_TEST_TRACE"));
@@ -43,7 +41,10 @@ internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
     private static int _started;
     private static int _finished;
 
-    public override void Before(MethodInfo methodUnderTest, IXunitTest test)
+    /// <summary>One line per test case rather than per fixture, which is what "what was in flight" means.</summary>
+    public ActionTargets Targets => ActionTargets.Test;
+
+    public void BeforeTest(ITest test)
     {
         if (Enabled)
         {
@@ -51,7 +52,7 @@ internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
         }
     }
 
-    public override void After(MethodInfo methodUnderTest, IXunitTest test)
+    public void AfterTest(ITest test)
     {
         if (Enabled)
         {
@@ -59,7 +60,7 @@ internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
         }
     }
 
-    private static void Write(string marker, int ordinal, IXunitTest test)
+    private static void Write(string marker, int ordinal, ITest test)
     {
         // " :: " separates the fixed-width preamble from the display name, so that a log reader can pair
         // starts with finishes on an exact field rather than on a column count.
@@ -70,6 +71,6 @@ internal sealed class TestProcessTraceAttribute : BeforeAfterTestAttribute
             ordinal,
             Clock.Elapsed.TotalSeconds,
             Environment.CurrentManagedThreadId,
-            test.TestDisplayName));
+            test.FullName));
     }
 }

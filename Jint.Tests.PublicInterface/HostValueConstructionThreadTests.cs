@@ -70,10 +70,9 @@ public class HostValueConstructionThreadTests
         _ => throw new ArgumentOutOfRangeException(nameof(api), api, "unknown construction API"),
     };
 
-    [Theory]
-    [InlineData("JsArray")]
-    [InlineData("JsObject.Create")]
-    [InlineData("JsObject.CreateFromEntries")]
+    [TestCase("JsArray")]
+    [TestCase("JsObject.Create")]
+    [TestCase("JsObject.CreateFromEntries")]
     public void ConstructionIsOutsideTheConcurrencyGuardAndVerificationIsWhatCatchesIt(string api)
     {
         var outcome = OutcomeOnASecondThread(Builder(api));
@@ -92,11 +91,10 @@ public class HostValueConstructionThreadTests
         }
     }
 
-    [Theory]
-    [InlineData("Engine.Evaluate")]
-    [InlineData("JsValue.FromObject")]
-    [InlineData("JsonSerializer.Serialize")]
-    [InlineData("JsonParser.Parse")]
+    [TestCase("Engine.Evaluate")]
+    [TestCase("JsValue.FromObject")]
+    [TestCase("JsonSerializer.Serialize")]
+    [TestCase("JsonParser.Parse")]
     public void TheseEntriesRefuseASecondThreadWhicheverWayVerificationIsSet(string api)
     {
         Action<Engine> enter = api switch
@@ -111,10 +109,13 @@ public class HostValueConstructionThreadTests
         OutcomeOnASecondThread(enter).Should().Be("InvalidOperationException");
     }
 
-    [Fact]
+    [Test]
     public void TheVerifierNamesTheTypeThatWasBuilt()
     {
-        Assert.SkipUnless(HostContractVerificationSwitch.Enabled, "host-contract verification is off");
+        if (!HostContractVerificationSwitch.Enabled)
+        {
+            Assert.Ignore("host-contract verification is off");
+        }
 
         var engine = new Engine();
         Exception? captured = null;
@@ -131,7 +132,7 @@ public class HostValueConstructionThreadTests
         var second = new Thread(() =>
         {
             insideTheHostCall.Wait(TestBudgets.WedgeCeiling);
-            captured = Record.Exception(() => new JsArray(engine, 4));
+            captured = Caught.Exception(() => new JsArray(engine, 4));
             secondThreadAnswered.Set();
         })
         {
@@ -146,14 +147,14 @@ public class HostValueConstructionThreadTests
         captured!.Message.Should().Contain("JsArray").And.Contain("was using that engine");
     }
 
-    [Fact]
+    [Test]
     public void AnIdleEngineAcceptsAValueBuiltOnAnyThread()
     {
         var engine = new Engine();
         JsValue? built = null;
         Exception? captured = null;
 
-        var other = new Thread(() => captured = Record.Exception(
+        var other = new Thread(() => captured = Caught.Exception(
             () => built = JsObject.CreateFromEntries(engine, new[] { new KeyValuePair<string, JsValue>("a", 1) })))
         {
             IsBackground = true,
@@ -167,13 +168,13 @@ public class HostValueConstructionThreadTests
         engine.Evaluate("row.a").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheOwningThreadMayBuildValuesFromInsideAHostCallback()
     {
         var engine = new Engine();
         Exception? captured = null;
 
-        engine.SetValue("build", new Action(() => captured = Record.Exception(() =>
+        engine.SetValue("build", new Action(() => captured = Caught.Exception(() =>
         {
             _ = new JsArray(engine, 4);
             _ = JsObject.Create(engine, Layout, new JsValue?[] { 1, "a" });

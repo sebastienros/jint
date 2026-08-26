@@ -4,11 +4,10 @@ namespace Jint.Tests.Runtime.Modules;
 
 public class DefaultModuleLoaderTests
 {
-    [Theory]
-    [InlineData("./other.js", "file:///project/folder/other.js")]
-    [InlineData("../model/other.js", "file:///project/model/other.js")]
-    [InlineData("/project/model/other.js", "file:///project/model/other.js")]
-    [InlineData("file:///project/model/other.js", "file:///project/model/other.js")]
+    [TestCase("./other.js", "file:///project/folder/other.js")]
+    [TestCase("../model/other.js", "file:///project/model/other.js")]
+    [TestCase("/project/model/other.js", "file:///project/model/other.js")]
+    [TestCase("file:///project/model/other.js", "file:///project/model/other.js")]
     public void ShouldResolveRelativePaths(string specifier, string expectedUri)
     {
         var resolver = new DefaultModuleLoader("file:///project");
@@ -21,11 +20,10 @@ public class DefaultModuleLoaderTests
         resolved.Type.Should().Be(SpecifierType.RelativeOrAbsolute);
     }
 
-    [Theory]
-    [InlineData("./../../other.js")]
-    [InlineData("../../model/other.js")]
-    [InlineData("/model/other.js")]
-    [InlineData("file:///etc/secret.js")]
+    [TestCase("./../../other.js")]
+    [TestCase("../../model/other.js")]
+    [TestCase("/model/other.js")]
+    [TestCase("file:///etc/secret.js")]
     public void ShouldRejectPathsOutsideOfBasePath(string specifier)
     {
         var resolver = new DefaultModuleLoader("file:///project");
@@ -35,7 +33,7 @@ public class DefaultModuleLoaderTests
         specifier.Should().StartWith(exc.Specifier);
     }
 
-    [Fact]
+    [Test]
     public void ShouldResolveBareSpecifiers()
     {
         var resolver = new DefaultModuleLoader("/");

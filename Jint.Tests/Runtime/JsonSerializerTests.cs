@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime;
 
 public class JsonSerializerTests
 {
-    [Fact]
+    [Test]
     public void ResultLimitsAreInclusiveAndDefaultsRemainCompatible()
     {
         using var engine = new Engine();
@@ -24,7 +24,7 @@ public class JsonSerializerTests
                 maxOutputCharacters: expected.Length)).AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ReentrantUseOfTheSameInstanceCannotReplaceOuterLimits()
     {
         var engine = new Engine();
@@ -51,7 +51,7 @@ public class JsonSerializerTests
         serializer.Serialize(new JsString("ok")).AsString().Should().Be("\"ok\"");
     }
 
-    [Fact]
+    [Test]
     public void JsonLimitsDepthPropertiesStringsAndCharacters()
     {
         using var engine = new Engine();
@@ -71,7 +71,7 @@ public class JsonSerializerTests
             ResultLimit.OutputCharacters);
     }
 
-    [Fact]
+    [Test]
     public void EscapingIsCountedBeforeTheQuotedStringIsAppended()
     {
         using var engine = new Engine();
@@ -84,7 +84,7 @@ public class JsonSerializerTests
             ResultLimit.OutputCharacters);
     }
 
-    [Fact]
+    [Test]
     public void StringLengthIsCheckedBeforeAConcatenatedStringIsFlattened()
     {
         using var engine = new Engine();
@@ -104,7 +104,7 @@ public class JsonSerializerTests
         value._value.Should().Be("ab");
     }
 
-    [Fact]
+    [Test]
     public void BoxedStringsUseObservableStringCoercion()
     {
         using var engine = new Engine();
@@ -122,7 +122,7 @@ public class JsonSerializerTests
             """).AsString().Should().Be("{\"selected\":2}");
     }
 
-    [Fact]
+    [Test]
     public void PropertyLimitFiresBeforeJsonGetter()
     {
         using var engine = new Engine();
@@ -137,7 +137,7 @@ public class JsonSerializerTests
         engine.GetValue("reads").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void Utf8LimitIsExactAndWriterIsUntouchedOnFailure()
     {
         using var engine = new Engine();
@@ -155,7 +155,7 @@ public class JsonSerializerTests
         writer.WrittenCount.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ConfiguredLimitsAlsoBoundScriptStringify()
     {
         using var engine = new Engine(options =>
@@ -165,7 +165,7 @@ public class JsonSerializerTests
             .Should().ThrowExactly<ResultLimitExceededException>();
     }
 
-    [Fact]
+    [Test]
     public void ToJsonExecutionUsesEngineConstraints()
     {
         using var engine = new Engine(options => options.LimitStatements(100));
@@ -181,7 +181,7 @@ public class JsonSerializerTests
             .Which.Limit.Should().Be(limit);
     }
 
-    [Fact]
+    [Test]
     public void CanStringifyBasicTypes()
     {
         using var engine = new Engine();
@@ -200,7 +200,7 @@ public class JsonSerializerTests
         serializer.Serialize(JsValue.Undefined).Should().BeSameAs(JsValue.Undefined);
     }
 
-    [Fact]
+    [Test]
     public void EmptyObjectHasNoLineBreakWithSpaceDefined()
     {
         using var engine = new Engine();
@@ -208,7 +208,7 @@ public class JsonSerializerTests
         serializer.Serialize(new JsObject(engine), JsValue.Undefined, new JsString("  ")).ToString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void EmptyArrayHasNoLineBreakWithSpaceDefined()
     {
         using var engine = new Engine();
@@ -216,7 +216,7 @@ public class JsonSerializerTests
         serializer.Serialize(new JsArray(engine), JsValue.Undefined, new JsString("  ")).ToString().Should().Be("[]");
     }
 
-    [Fact]
+    [Test]
     public void StringCharactersGetEscaped()
     {
         using var engine = new Engine();
@@ -226,7 +226,7 @@ public class JsonSerializerTests
         actual.Should().Be("\"\\\"\\\\\\t\\r\\n\\f\\r\\b\\ud834\"");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringOutputIsIndentedWhenSpacerDefined()
     {
         using var engine = new Engine();
@@ -242,7 +242,7 @@ public class JsonSerializerTests
         actual.Should().Be("{\n  \"a\": \"b\",\n  \"b\": 2,\n  \"c\": [\n    4,\n    5,\n    6\n  ],\n  \"d\": true\n}");
     }
 
-    [Fact]
+    [Test]
     public void JsonStringOutputIsCompactWithoutSpacer()
     {
         using var engine = new Engine();
@@ -258,7 +258,7 @@ public class JsonSerializerTests
         actual.Should().Be("{\"a\":\"b\",\"b\":2,\"c\":[4,5,6],\"d\":true}");
     }
 
-    [Fact]
+    [Test]
     public void ArrayWithUndefinedWillBeNull()
     {
         using var engine = new Engine();
@@ -269,7 +269,7 @@ public class JsonSerializerTests
         actual.Should().Be("[null,42]");
     }
 
-    [Fact]
+    [Test]
     public void ObjectPropertyWithUndefinedWillBeSkipped()
     {
         using var engine = new Engine();
@@ -282,7 +282,7 @@ public class JsonSerializerTests
         actual.Should().Be("{\"b\":42}");
     }
 
-    [Fact]
+    [Test]
     public void NonStringObjectKeyWillSerializedAsString()
     {
         using var engine = new Engine();
@@ -296,7 +296,7 @@ public class JsonSerializerTests
         actual.Should().Be("{\"10\":42,\"undefined\":10,\"null\":21}");
     }
 
-    [Fact]
+    [Test]
     public void InfinityAndNaNGetsSerializedAsNull()
     {
         using var engine = new Engine();
@@ -306,7 +306,7 @@ public class JsonSerializerTests
         actual.Should().Be("[null,null,null]");
     }
 
-    [Fact]
+    [Test]
     public void ArrayAsReplacedDictatesPropertiesToSerializer()
     {
         using var engine = new Engine();
@@ -320,13 +320,12 @@ public class JsonSerializerTests
         actual.Should().Be("{\"b\":42}");
     }
 
-    [Theory]
-    [InlineData("test123\n456", "\"test123\\n456\"")]
-    [InlineData("test123456\n", "\"test123456\\n\"")]
-    [InlineData("\u0002test\u0002", "\"\\u0002test\\u0002\"")]
-    [InlineData("\u0002tes\tt\u0002", "\"\\u0002tes\\tt\\u0002\"")]
-    [InlineData("t\u0002est\u0002", "\"t\\u0002est\\u0002\"")]
-    [InlineData("test😀123456\n", "\"test😀123456\\n\"")]
+    [TestCase("test123\n456", "\"test123\\n456\"")]
+    [TestCase("test123456\n", "\"test123456\\n\"")]
+    [TestCase("\u0002test\u0002", "\"\\u0002test\\u0002\"")]
+    [TestCase("\u0002tes\tt\u0002", "\"\\u0002tes\\tt\\u0002\"")]
+    [TestCase("t\u0002est\u0002", "\"t\\u0002est\\u0002\"")]
+    [TestCase("test😀123456\n", "\"test😀123456\\n\"")]
     public void JsonStringEncodingFormatsContentCorrectly(string inputString, string expectedOutput)
     {
         using var engine = new Engine();
@@ -336,7 +335,7 @@ public class JsonSerializerTests
         actual.Should().Be(expectedOutput);
     }
 
-    [Fact]
+    [Test]
     public void ReplacerArrayOverParsedShapedRecordsUsesPropertyListOrder()
     {
         // A replacer array installs a PropertyList that dictates both the key set and their order,
@@ -350,7 +349,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ToJsonOnShapedObjectIsInvoked()
     {
         using var engine = new Engine();
@@ -363,7 +362,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ToJsonMutatingShapedHolderMidSerializationFallsBackSafely()
     {
         // A member value's toJSON deopts the holder mid-serialization (delete converts it to
@@ -379,7 +378,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShapedAndDictionaryObjectsSerializeIdentically()
     {
         using var engine = new Engine();
@@ -396,7 +395,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void UnserializableShapedMembersAreSkipped()
     {
         using var engine = new Engine();
@@ -410,7 +409,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShapedObjectWithDigitLeadingKeyFallsBackToSpecOrder()
     {
         // A digit-leading key added post-parse lives in the shape, but own-key order places integer
@@ -425,7 +424,7 @@ public class JsonSerializerTests
         ok.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AReusedSerializerDoesNotCarryReplacerOrSpaceIntoTheNextCall()
     {
         // JSON.stringify allocates a serializer per call, but the type is public and a host may hold one.
@@ -445,7 +444,7 @@ public class JsonSerializerTests
         serializer.Serialize(instance).ToString().Should().Be("{\"a\":21,\"b\":42}");
     }
 
-    [Fact]
+    [Test]
     public void ReplacerFunctionAppliesToShapedObjects()
     {
         using var engine = new Engine();

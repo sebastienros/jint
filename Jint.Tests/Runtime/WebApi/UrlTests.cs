@@ -18,7 +18,7 @@ public class UrlTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Url));
 
-    [Fact]
+    [Test]
     public void ParsesAnAbsoluteUrlIntoItsComponents()
     {
         var engine = WebEngine();
@@ -37,7 +37,7 @@ public class UrlTests
         engine.Evaluate("url.origin").AsString().Should().Be("https://example.com:8080");
     }
 
-    [Fact]
+    [Test]
     public void ResolvesAgainstABase()
     {
         var engine = WebEngine();
@@ -50,12 +50,12 @@ public class UrlTests
         engine.Evaluate("new URL('f', new URL('https://example.com/a/b')).href").AsString().Should().Be("https://example.com/a/f");
     }
 
-    [Fact]
+    [Test]
     public void ThrowsATypeErrorForAUrlThatDoesNotParse()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new URL('not a url')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new URL('not a url')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // A relative input with no base, and a base that does not itself parse.
@@ -63,7 +63,7 @@ public class UrlTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new URL('/x', 'not a url')"));
     }
 
-    [Fact]
+    [Test]
     public void ParseAnswersNullWhereTheConstructorThrows()
     {
         var engine = WebEngine();
@@ -79,7 +79,7 @@ public class UrlTests
         engine.Evaluate("URL.parse('https://example.com/') instanceof URL").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TreatsAnUndefinedArgumentOfTheStaticsAsTheStringUndefined()
     {
         var engine = WebEngine();
@@ -98,7 +98,7 @@ public class UrlTests
         engine.Evaluate("URL.parse(undefined, 'aaa:/b').href").AsString().Should().Be("aaa:/undefined");
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassing()
     {
         var engine = WebEngine();
@@ -118,7 +118,7 @@ public class UrlTests
         engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(sub)) === URL.prototype").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EachSetterReRunsTheParserInItsOwnState()
     {
         var engine = WebEngine();
@@ -145,7 +145,7 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("http://other.example:8080/b/c?y=2#g");
     }
 
-    [Fact]
+    [Test]
     public void DropsTheQueryOrFragmentWhenTheSetterIsGivenTheEmptyString()
     {
         var engine = WebEngine();
@@ -158,7 +158,7 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("https://example.com/");
     }
 
-    [Fact]
+    [Test]
     public void AnOpaquePathIgnoresTheSettersThatCannotApply()
     {
         var engine = WebEngine();
@@ -176,7 +176,7 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("data:text/plain,hello");
     }
 
-    [Fact]
+    [Test]
     public void ThePortSetterOverflowStillCommitsTheHost()
     {
         var engine = WebEngine();
@@ -189,7 +189,7 @@ public class UrlTests
         engine.Evaluate("url.port").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void TheHrefSetterReplacesEverything()
     {
         var engine = WebEngine();
@@ -199,11 +199,11 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("http://other.example/b");
         engine.Evaluate("url.search").AsString().Should().Be("");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("url.href = 'not a url'"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("url.href = 'not a url'"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void SearchParamsIsTheSameObjectEveryTime()
     {
         var engine = WebEngine();
@@ -214,7 +214,7 @@ public class UrlTests
         engine.Evaluate("url.searchParams.size").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void SearchParamsMutationsRewriteTheUrl()
     {
         var engine = WebEngine();
@@ -235,7 +235,7 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("https://example.com/");
     }
 
-    [Fact]
+    [Test]
     public void UrlMutationsRewriteSearchParams()
     {
         var engine = WebEngine();
@@ -255,7 +255,7 @@ public class UrlTests
         engine.Evaluate("params.size").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void SearchParamsEncodesAsFormUrlEncodedWhereTheQueryDoesNot()
     {
         var engine = WebEngine();
@@ -268,7 +268,7 @@ public class UrlTests
         engine.Evaluate("url.href").AsString().Should().Be("https://example.com/?a=b+%7E");
     }
 
-    [Fact]
+    [Test]
     public void ProvidesTheStringifierAndToJson()
     {
         var engine = WebEngine();
@@ -281,7 +281,7 @@ public class UrlTests
         engine.Evaluate("Object.prototype.toString.call(url)").AsString().Should().Be("[object URL]");
     }
 
-    [Fact]
+    [Test]
     public void EveryMemberBrandChecksItsReceiver()
     {
         var engine = WebEngine();
@@ -293,7 +293,7 @@ public class UrlTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("Object.getOwnPropertyDescriptor(URL.prototype, 'search').set.call({}, 'x')"));
     }
 
-    [Fact]
+    [Test]
     public void ExposesItsAttributesAsWebIdlAccessorsOnThePrototype()
     {
         var engine = WebEngine();
@@ -316,7 +316,7 @@ public class UrlTests
         engine.Evaluate("s.set").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasNoBlobUrlStore()
     {
         var engine = WebEngine();
@@ -326,7 +326,7 @@ public class UrlTests
         engine.Evaluate("typeof URL.revokeObjectURL").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void HandlesComponentsLongerThanTheParsersInitialBuffer()
     {
         var engine = WebEngine();
@@ -350,7 +350,7 @@ public class UrlTests
         engine.Evaluate("opaque.hash").AsString().Should().Be("#" + segment);
     }
 
-    [Fact]
+    [Test]
     public void LowercasesAnAsciiDomainWithoutConsultingIdna()
     {
         var engine = WebEngine();
@@ -364,7 +364,7 @@ public class UrlTests
         engine.Evaluate("new URL('https://EXAMPLE.COM/').hostname").AsString().Should().Be("example.com");
     }
 
-    [Fact]
+    [Test]
     public void ReportsAnOpaqueOriginAsTheStringNull()
     {
         var engine = WebEngine();
@@ -378,7 +378,7 @@ public class UrlTests
         engine.Evaluate("new URL('blob:nonsense').origin").AsString().Should().Be("null");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheInterfaceObjectShapeWebIdlAsksFor()
     {
         var engine = WebEngine();
@@ -389,7 +389,7 @@ public class UrlTests
         engine.Evaluate("Object.getPrototypeOf(URL) === Function.prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate("URL.prototype[Symbol.toStringTag]").AsString().Should().Be("URL");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("URL('https://example.com/')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("URL('https://example.com/')"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 }

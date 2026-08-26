@@ -57,7 +57,7 @@ public class ExoticGlobalPrototypeTests
         Object.setPrototypeOf(globalThis, proxy);
         """;
 
-    [Fact]
+    [Test]
     public void AProxyPrototypeSeesItsGetTrapForABareIdentifier()
     {
         var engine = new Engine();
@@ -68,7 +68,7 @@ public class ExoticGlobalPrototypeTests
         engine.Evaluate("receiver === globalThis").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AProxyPrototypeAnswersTypeofTheReadAndTheMemberReadAlike()
     {
         var engine = new Engine();
@@ -80,7 +80,7 @@ public class ExoticGlobalPrototypeTests
         engine.Evaluate("virt").AsString().Should().Be("VIRTUAL");
     }
 
-    [Fact]
+    [Test]
     public void AProxyPrototypeSeesItsSetTrapForABareAssignment()
     {
         var engine = new Engine();
@@ -99,7 +99,7 @@ public class ExoticGlobalPrototypeTests
     /// staging/sm/Proxy/global-receiver.js from test262, which the generated suite does not cover because
     /// the harness only generates annexB, built-ins, intl402 and language.
     /// </summary>
-    [Fact]
+    [Test]
     public void Test262StagingGlobalReceiver()
     {
         var engine = new Engine();
@@ -125,7 +125,7 @@ public class ExoticGlobalPrototypeTests
         engine.Evaluate("global.bareword").AsNumber().Should().Be(12);
     }
 
-    [Fact]
+    [Test]
     public void AHostPrototypeThatOverridesGetIsAskedThroughGet()
     {
         var engine = new Engine();
@@ -141,7 +141,7 @@ public class ExoticGlobalPrototypeTests
         ReferenceEquals(host.LastReceiver, engine.Global).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AProxyBelowTheDirectPrototypeStillResolves()
     {
         var engine = new Engine();
@@ -152,7 +152,7 @@ public class ExoticGlobalPrototypeTests
         engine.Evaluate("typeof virt").AsString().Should().Be("string");
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryPrototypeIsUnaffected()
     {
         var engine = new Engine();
@@ -173,7 +173,7 @@ public class ExoticGlobalPrototypeTests
         Invoking(() => engine.Evaluate("missing")).Should().Throw<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void AnOrdinaryPrototypeTwoLevelsDeepIsUnaffected()
     {
         var engine = new Engine();
@@ -202,7 +202,7 @@ public class HostGlobalPrototypeTests
         public int Compute(int a, int b) => a + b;
     }
 
-    [Fact]
+    [Test]
     public void MembersInheritedFromAHostGlobalPrototypeResolveAsBareIdentifiers()
     {
         var engine = new Engine();
@@ -216,7 +216,7 @@ public class HostGlobalPrototypeTests
         engine.Evaluate("globalThis.Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void HostSidePrototypeAssignmentBehavesTheSame()
     {
         var engine = new Engine();
@@ -227,7 +227,7 @@ public class HostGlobalPrototypeTests
         engine.Evaluate("Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void HostMembersResolveFromDeeperInThePrototypeChain()
     {
         var engine = new Engine();
@@ -240,7 +240,7 @@ public class HostGlobalPrototypeTests
         engine.Evaluate("Compute(40, 2)").AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void OwnGlobalsAndDeclarationsStillShadowInheritedHostMembers()
     {
         var engine = new Engine();

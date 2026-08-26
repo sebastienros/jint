@@ -55,7 +55,7 @@ public class HostReflectingMethodTests
     /// </summary>
     private sealed class CustomTypeConverter(Engine engine) : DefaultTypeConverter(engine);
 
-    [Fact]
+    [Test]
     public void AHostMethodsOwnTargetExceptionIsNotMistakenForAReceiverMismatch()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -68,7 +68,7 @@ public class HostReflectingMethodTests
         clrException.Should().BeAssignableTo<TargetException>();
     }
 
-    [Fact]
+    [Test]
     public void TheSameHoldsWhenACustomTypeConverterDeclinesTheCompiledInvokerLane()
     {
         var engine = new Engine(options =>
@@ -85,7 +85,7 @@ public class HostReflectingMethodTests
         clrException.Should().BeAssignableTo<TargetException>();
     }
 
-    [Fact]
+    [Test]
     public void TheHostExceptionAlsoReachesAScriptCatchUnchanged()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -95,7 +95,7 @@ public class HostReflectingMethodTests
             .AsBoolean().Should().BeFalse("the host's own failure is not a receiver mismatch");
     }
 
-    [Fact]
+    [Test]
     public void AForeignReceiverStillSurfacesACatchableTypeErrorOnTheReflectionLane()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -110,7 +110,7 @@ public class HostReflectingMethodTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AForeignReceiverIsATypeErrorForASingleCandidateMethodToo()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -147,7 +147,7 @@ public class HostClrExceptionTests
         return engine;
     }
 
-    [Fact]
+    [Test]
     public void UncaughtHostExceptionReachesTheHostThroughTheJavaScriptError()
     {
         var engine = CreateEngine();
@@ -161,7 +161,7 @@ public class HostClrExceptionTests
         failure.StackTrace.Should().NotBeNull("the CLR stack trace is the reason for keeping the exception");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesNestedScriptFrames()
     {
         var engine = CreateEngine();
@@ -176,7 +176,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAScriptCatchingAndRethrowingTheSameValue()
     {
         var engine = CreateEngine();
@@ -188,7 +188,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void SurvivesModuleEvaluation()
     {
         var engine = new Engine(options => options.CatchClrExceptions());
@@ -201,7 +201,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void IsReachableThroughARejectedPromise()
     {
         var engine = CreateEngine();
@@ -213,7 +213,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void FollowsAnErrorCauseChain()
     {
         var engine = CreateEngine();
@@ -227,7 +227,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void ACauseCycleTerminates()
     {
         var engine = CreateEngine();
@@ -243,7 +243,7 @@ public class HostClrExceptionTests
         clrException.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void AnAccessorValuedCauseIsNeverInvoked()
     {
         var engine = CreateEngine();
@@ -259,7 +259,7 @@ public class HostClrExceptionTests
         engine.Evaluate("globalThis.getterRan").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AScriptThatDiscardsTheErrorKeepsNothing()
     {
         var engine = CreateEngine();
@@ -270,7 +270,7 @@ public class HostClrExceptionTests
         JintException.TryGetClrException(exception, out _).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void IsInvisibleToTheRunningScript()
     {
         var engine = CreateEngine();
@@ -289,7 +289,7 @@ public class HostClrExceptionTests
         engine.Evaluate("JSON.stringify(caught)").AsString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void ADecoratorSeesTheExceptionAlreadyAttached()
     {
         Exception? seenByDecorator = null;
@@ -312,7 +312,7 @@ public class HostClrExceptionTests
         clrException.Should().BeSameAs(seenByDecorator);
     }
 
-    [Fact]
+    [Test]
     public void HostCodeCanThrowAnErrorCarryingItsOwnException()
     {
         var engine = new Engine();
@@ -330,7 +330,7 @@ public class HostClrExceptionTests
         clrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void HostThrownErrorTakesTheExceptionMessageWhenNoneIsGiven()
     {
         var engine = new Engine();
@@ -347,7 +347,7 @@ public class HostClrExceptionTests
         clrException.Should().BeSameAs(original);
     }
 
-    [Fact]
+    [Test]
     public void AnErrorWithNoClrOriginReportsNothing()
     {
         var engine = new Engine();
@@ -358,14 +358,14 @@ public class HostClrExceptionTests
         clrException.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void NullAndUnrelatedExceptionsAreAccepted()
     {
         JintException.TryGetClrException(null, out _).Should().BeFalse();
         JintException.TryGetClrException(new InvalidOperationException(), out _).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ChainingIsOffByDefault()
     {
         var engine = CreateEngine();
@@ -379,7 +379,7 @@ public class HostClrExceptionTests
         exception.ToString().Should().NotContain("--- End of inner exception stack trace ---\r\n   --- End of");
     }
 
-    [Fact]
+    [Test]
     public void ChainingSurfacesTheExceptionToInnerExceptionWalkers()
     {
         var engine = new Engine(options =>
@@ -401,7 +401,7 @@ public class HostClrExceptionTests
         rendered.Should().Contain("root cause");
     }
 
-    [Fact]
+    [Test]
     public void ChainingKeepsTheClrStackOutOfTheJavaScriptErrorString()
     {
         var engine = new Engine(options =>
@@ -430,7 +430,7 @@ public class HostClrExceptionTests
         clrException.Should().BeOfType<HostFailure>();
     }
 
-    [Fact]
+    [Test]
     public void TheJavaScriptErrorStringIsTheSameWhetherChainingIsOnOrOff()
     {
         static string Render(bool chain)
@@ -449,7 +449,7 @@ public class HostClrExceptionTests
         Render(chain: true).Should().Be(Render(chain: false));
     }
 
-    [Fact]
+    [Test]
     public void ChainingLeavesGetBaseExceptionAlone()
     {
         var engine = new Engine(options =>
@@ -464,7 +464,7 @@ public class HostClrExceptionTests
         exception.GetBaseException().Should().BeSameAs(exception);
     }
 
-    [Fact]
+    [Test]
     public void ChainingDoesNotChangeWhatTheScriptSees()
     {
         var engine = new Engine(options =>
@@ -481,7 +481,7 @@ public class HostClrExceptionTests
         engine.Evaluate("JSON.stringify(caught)").AsString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void AThrownNonErrorValueReportsNothing()
     {
         var engine = new Engine();

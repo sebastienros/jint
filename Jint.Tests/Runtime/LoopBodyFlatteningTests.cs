@@ -7,7 +7,7 @@
 /// </summary>
 public class LoopBodyFlatteningTests
 {
-    [Fact]
+    [Test]
     public void StopwatchModernShapeComputesCorrectly()
     {
         var engine = new Engine();
@@ -29,7 +29,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be(124);
     }
 
-    [Fact]
+    [Test]
     public void ConstIsFreshPerIterationAndTdzReestablished()
     {
         var engine = new Engine();
@@ -48,7 +48,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("tdz0,0,tdz1,10,tdz2,20");
     }
 
-    [Fact]
+    [Test]
     public void ContinueReestablishesTdzForSkippedDeclarations()
     {
         var engine = new Engine();
@@ -71,7 +71,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("tdz,v1,1,tdz,v3,3");
     }
 
-    [Fact]
+    [Test]
     public void ShadowingHeaderNameKeepsBlockScoping()
     {
         var engine = new Engine();
@@ -99,7 +99,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,inner,1,inner,2,inner|10,11");
     }
 
-    [Fact]
+    [Test]
     public void CapturingBodyKeepsPerIterationSemantics()
     {
         var engine = new Engine();
@@ -119,7 +119,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,2,4");
     }
 
-    [Fact]
+    [Test]
     public void ThrowMidBodyLeavesConsistentState()
     {
         var engine = new Engine();
@@ -142,7 +142,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("8:1"); // 0+1+3+4, one catch
     }
 
-    [Fact]
+    [Test]
     public void HeaderInitReferencingOuterNameShadowedByBodyReadsOuter()
     {
         var engine = new Engine();
@@ -164,7 +164,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("50,60,70");
     }
 
-    [Fact]
+    [Test]
     public void HeaderTestReferencingOuterNameShadowedByBodyReadsOuter()
     {
         var engine = new Engine();
@@ -183,7 +183,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,10,20");
     }
 
-    [Fact]
+    [Test]
     public void HeaderUpdateReferencingOuterNameShadowedByBodyReadsOuter()
     {
         var engine = new Engine();
@@ -202,7 +202,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,20,40");
     }
 
-    [Fact]
+    [Test]
     public void TurbopackChunkShapeResolvesModuleFactory()
     {
         var engine = new Engine();
@@ -225,7 +225,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("ok:true");
     }
 
-    [Fact]
+    [Test]
     public void UsingDeclarationsKeepBlockDisposeSemantics()
     {
         var engine = new Engine();
@@ -244,7 +244,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("b0,d0,b1,d1");
     }
 
-    [Fact]
+    [Test]
     public void ClosureInDestructuringDefaultDeclinesEnvironmentReuse()
     {
         var engine = new Engine();
@@ -262,7 +262,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,0");
     }
 
-    [Fact]
+    [Test]
     public void ClosureInArrayPatternDefaultDeclinesEnvironmentReuse()
     {
         var engine = new Engine();
@@ -277,7 +277,7 @@ public class LoopBodyFlatteningTests
         result.Should().Be("0,0");
     }
 
-    [Fact]
+    [Test]
     public void ReenteringLoopWithEscapedPatternClosureKeepsBindingAlive()
     {
         var engine = new Engine();

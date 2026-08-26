@@ -31,11 +31,11 @@ public class HostPropertyFlagCombinationTests
         new(PropertyFlag.AllForbidden, Writable: false, Enumerable: false, Configurable: false),
     ];
 
-    public static TheoryData<PropertyFlag, bool, bool, bool> Lattice
+    public static TestCases<PropertyFlag, bool, bool, bool> Lattice
     {
         get
         {
-            var data = new TheoryData<PropertyFlag, bool, bool, bool>();
+            var data = new TestCases<PropertyFlag, bool, bool, bool>();
             foreach (var c in AllCombinations)
             {
                 data.Add(c.Flags, c.Writable, c.Enumerable, c.Configurable);
@@ -45,8 +45,7 @@ public class HostPropertyFlagCombinationTests
         }
     }
 
-    [Theory]
-    [MemberData(nameof(Lattice))]
+    [TestCaseSource(nameof(Lattice))]
     public void ANamedCombinationRoundTripsToTheAttributeTripleItNames(
         PropertyFlag flags,
         bool writable,
@@ -66,7 +65,7 @@ public class HostPropertyFlagCombinationTests
         engine.Evaluate("target.p").Should().Be("v");
     }
 
-    [Fact]
+    [Test]
     public void TheNamedCombinationsCoverTheEightFullCombinationsExactlyOnceEach()
     {
         // What makes the two additions worth having rather than merely available: with them the named set is
@@ -83,7 +82,7 @@ public class HostPropertyFlagCombinationTests
         AllCombinations.Select(c => c.Flags).Distinct().Should().HaveCount(8);
     }
 
-    [Fact]
+    [Test]
     public void EveryNamedCombinationDecidesAllThreeAttributes()
     {
         // The property that separates these names from a partial spelling like `Configurable | Writable`: each
@@ -107,7 +106,7 @@ public class HostPropertyFlagCombinationTests
         partial.EnumerableSet.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheTwoNewNamesEqualTheHandSpelledCompositesTheyReplace()
     {
         // The names replace spellings that already existed in the repository; equality here is what makes that
@@ -120,7 +119,7 @@ public class HostPropertyFlagCombinationTests
 
     // ---- the two new names, behaviourally ----
 
-    [Fact]
+    [Test]
     public void NonWritableIsReadOnlyDataThatStillEnumeratesAndCanBeRedefined()
     {
         var engine = new Engine();
@@ -145,7 +144,7 @@ public class HostPropertyFlagCombinationTests
         engine.Evaluate("'p' in target").Should().Be(false);
     }
 
-    [Fact]
+    [Test]
     public void OnlyConfigurableIsInvisibleToEnumerationAndNeverAssignable()
     {
         var engine = new Engine();

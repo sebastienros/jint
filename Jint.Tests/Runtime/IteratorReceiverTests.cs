@@ -9,7 +9,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class IteratorReceiverTests
 {
-    [Fact]
+    [Test]
     public void EveryConsumerCallsAPrimitivesIteratorMethodWithThePrimitive()
     {
         var engine = new Engine();
@@ -33,7 +33,7 @@ public class IteratorReceiverTests
         result.Should().Be("""["number:1","number:2","number:3","number:4","number:5","number:6"]""");
     }
 
-    [Fact]
+    [Test]
     public void ASloppyIteratorMethodStillSeesTheBoxedReceiver()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class IteratorReceiverTests
         result.Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void AnIteratorAccessorAlsoReceivesThePrimitive()
     {
         var engine = new Engine();
@@ -67,7 +67,7 @@ public class IteratorReceiverTests
         result.Should().Be("boolean:true");
     }
 
-    [Fact]
+    [Test]
     public void AStringReachesAReplacedIteratorMethodAsAPrimitive()
     {
         var engine = new Engine();

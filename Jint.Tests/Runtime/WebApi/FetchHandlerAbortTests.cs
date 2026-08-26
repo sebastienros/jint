@@ -58,7 +58,7 @@ public class FetchHandlerAbortTests
     /// handler's own <c>request.signal</c> aborts with the standard's default reason — an <c>AbortError</c>
     /// <c>DOMException</c>, exactly what a script-side <c>controller.abort()</c> produces.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheHostTokenAbortsTheRequestSignalOnTheNextPump()
     {
         var engine = Handler("""
@@ -109,7 +109,7 @@ public class FetchHandlerAbortTests
     /// is aborted from its very first statement — https://dom.spec.whatwg.org/#abortsignal-aborted is a flag
     /// a signal may be created with, and it is what lets a handler refuse without doing any work.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAlreadyCancelledTokenIsSeenBeforeTheHandlerRunsAStatement()
     {
         var engine = Handler("""
@@ -140,7 +140,7 @@ public class FetchHandlerAbortTests
     /// The <c>FetchEvent</c> route carries the same signal, so a Workers-shaped script reading
     /// <c>event.request.signal</c> is told the same truth the handler route is told.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheFetchEventRouteCarriesTheSameSignal()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.FetchEvents));
@@ -174,7 +174,7 @@ public class FetchHandlerAbortTests
     /// token — an application lifetime's, or a token source the host reuses — must accumulate no registrations
     /// and be retained by none of them, so every invocation gives its registration back the moment it ends.
     /// </summary>
-    [Fact]
+    [Test]
     public void ALiveHostTokenAccumulatesNoRegistrationsAcrossInvocations()
     {
         var engine = Handler("globalThis.handler = () => new Response('ok');");
@@ -198,7 +198,7 @@ public class FetchHandlerAbortTests
     /// The same, for an invocation that fails rather than answering: the registration is about the invocation
     /// being over, not about it having succeeded.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFailingInvocationGivesItsRegistrationBackToo()
     {
         var engine = Handler("globalThis.handler = () => { throw new Error('nope'); };");
@@ -215,7 +215,7 @@ public class FetchHandlerAbortTests
     /// The awaitable shape owns no operation to hang the release off, so it releases in its own
     /// <c>finally</c> — and must, for exactly the reason the polled shape must.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TheAwaitableShapeGivesItsRegistrationBackToo()
     {
         var engine = Handler("globalThis.handler = () => new Response('ok');");
@@ -232,7 +232,7 @@ public class FetchHandlerAbortTests
 
         // The same when the invocation fails rather than answering.
         engine.WebApi.SetFetchHandler(engine.Evaluate("() => { throw new Error('nope'); }"));
-        await Assert.ThrowsAsync<JavaScriptException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
+        Assert.ThrowsAsync<JavaScriptException>(() => engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token));
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
     }
 
@@ -243,7 +243,7 @@ public class FetchHandlerAbortTests
     /// deterministic, and that the release deliberately does not undo: an abort already on the event loop
     /// still lands on the next pump, which is what cancels the outbound work the abandoned handler started.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task AnAbortAlreadyEnqueuedStillLandsAfterTheAwaitGaveUp()
     {
         var engine = Handler("""
@@ -257,7 +257,7 @@ public class FetchHandlerAbortTests
         var pending = engine.WebApi.InvokeFetchHandlerAsync(Get(), cts.Token);
 
         cts.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.CatchAsync<OperationCanceledException>(() => pending);
 
         // The registration went back when the call returned, however it returned.
         engine._webApi!.HostAbortBridgeCount.Should().Be(0);
@@ -272,7 +272,7 @@ public class FetchHandlerAbortTests
     /// While an invocation is genuinely in flight the registration is held — which is what makes the counts
     /// above mean something rather than being satisfied by never registering at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARegistrationIsHeldWhileTheInvocationIsInFlight()
     {
         var engine = Handler("globalThis.handler = () => new Promise(() => {});");
@@ -288,7 +288,7 @@ public class FetchHandlerAbortTests
     /// A restore ends the evaluation cycle the invocation belonged to, and an abort enqueued before it is
     /// discarded at dequeue by the generation fence rather than aborting a signal whose cycle is over.
     /// </summary>
-    [Fact]
+    [Test]
     public void ARestoreFencesOffAnAbortThatWasAlreadyEnqueued()
     {
         var engine = Handler("""
@@ -318,7 +318,7 @@ public class FetchHandlerAbortTests
     /// The single-argument overload is unchanged: it registers nothing, and its request's signal is the one
     /// that can never fire.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheOverloadWithoutATokenRegistersNothing()
     {
         var engine = Handler("""
@@ -339,7 +339,7 @@ public class FetchHandlerAbortTests
     /// Two invocations get two signals: the signal is per invocation, not per engine, so one request's abort
     /// cannot reach another request's handler on a pooled engine.
     /// </summary>
-    [Fact]
+    [Test]
     public void EachInvocationGetsItsOwnSignal()
     {
         var engine = Handler("""

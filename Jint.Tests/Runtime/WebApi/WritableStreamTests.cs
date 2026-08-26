@@ -20,7 +20,7 @@ public class WritableStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ConstructsWithNoArgumentsAtAll()
     {
         var engine = StreamEngine();
@@ -28,33 +28,33 @@ public class WritableStreamTests
         engine.Evaluate("new WritableStream().locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void RefusesANonObjectSinkAndAnySinkType()
     {
         var engine = StreamEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream(null)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream(null)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // The `type` member is reserved for a future byte-oriented writable stream; any value is a RangeError.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ type: 'bytes' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ type: 'bytes' })"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ type: 'anything' })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ type: 'anything' })"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
-    [Fact]
+    [Test]
     public void CallsStartSynchronouslyAndRethrowsItsException()
     {
         var engine = StreamEngine();
         engine.Execute("new WritableStream({ start(c) { log.push('start:' + (typeof c.error)); } }); log.push('after');");
         Log(engine).Should().Be("start:function,after");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ start() { throw new Error('boom'); } })"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new WritableStream({ start() { throw new Error('boom'); } })"))!
             .Error.Get("message").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void WritesReachTheSinkInOrderOneAtATime()
     {
         var engine = StreamEngine();
@@ -84,7 +84,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("queued,write:a,done:a,write:b,a-settled,done:b,b-settled");
     }
 
-    [Fact]
+    [Test]
     public void CloseWaitsForTheQueuedWritesAndThenCallsTheSink()
     {
         var engine = StreamEngine();
@@ -103,7 +103,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:a,write:b,close,closed,writer-closed");
     }
 
-    [Fact]
+    [Test]
     public void WritingAfterCloseHasBeenRequestedFails()
     {
         var engine = StreamEngine();
@@ -117,7 +117,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:TypeError,close:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AFailingWriteErrorsTheStream()
     {
         var engine = StreamEngine();
@@ -134,7 +134,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:write failed,ready:write failed,closed:write failed");
     }
 
-    [Fact]
+    [Test]
     public void ControllerErrorMakesEveryLaterWriteFail()
     {
         var engine = StreamEngine();
@@ -150,7 +150,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:stopped,closed:stopped");
     }
 
-    [Fact]
+    [Test]
     public void ControllerErrorIsANoOpOnceTheStreamHasStoppedBeingWritable()
     {
         var engine = StreamEngine();
@@ -165,7 +165,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("first");
     }
 
-    [Fact]
+    [Test]
     public void ReadyTracksBackpressure()
     {
         var engine = StreamEngine();
@@ -191,7 +191,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("desired:1,desired:0,ready-1,ready-2");
     }
 
-    [Fact]
+    [Test]
     public void AWriterAcquiredUnderBackpressureStartsNotReady()
     {
         var engine = StreamEngine();
@@ -206,7 +206,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("desired:0");
     }
 
-    [Fact]
+    [Test]
     public void DesiredSizeCountsTheQueueAgainstTheHighWaterMark()
     {
         var engine = StreamEngine();
@@ -223,7 +223,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("2,1");
     }
 
-    [Fact]
+    [Test]
     public void DesiredSizeIsZeroWhenClosedAndNullWhenErrored()
     {
         var engine = StreamEngine();
@@ -239,7 +239,7 @@ public class WritableStreamTests
         engine.Evaluate("b.desiredSize").IsNull().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DesiredSizeThrowsForAReleasedWriter()
     {
         // The attribute is an `unrestricted double?`, not a promise type, so this one throws where the rest
@@ -247,11 +247,11 @@ public class WritableStreamTests
         var engine = StreamEngine();
         engine.Execute("var writer = new WritableStream().getWriter(); writer.releaseLock();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("writer.desiredSize"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("writer.desiredSize"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void CallsTheStrategySizeOncePerChunk()
     {
         var engine = StreamEngine();
@@ -268,7 +268,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("size:a,size:bbb,desired:6");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingStrategySizeErrorsTheStream()
     {
         var engine = StreamEngine();
@@ -282,7 +282,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:size failed,closed:size failed");
     }
 
-    [Fact]
+    [Test]
     public void AbortErrorsTheStreamAndTellsTheSink()
     {
         var engine = StreamEngine();
@@ -297,7 +297,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("abort:stop,write:stop,aborted,closed:stop");
     }
 
-    [Fact]
+    [Test]
     public void AbortReportsAFailingSink()
     {
         var engine = StreamEngine();
@@ -309,7 +309,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("abort:abort failed");
     }
 
-    [Fact]
+    [Test]
     public void AbortIsANoOpOnAClosedStream()
     {
         var engine = StreamEngine();
@@ -325,7 +325,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("close,abort-resolved");
     }
 
-    [Fact]
+    [Test]
     public void AbortingWhileAWriteIsInFlightWaitsForIt()
     {
         // "erroring" is the state between noticing the failure and the in-flight sink operation finishing:
@@ -355,7 +355,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write,requested,abort:stop,write-settled,aborted");
     }
 
-    [Fact]
+    [Test]
     public void TheControllerSignalIsAbortedBeforeTheSinkIsAsked()
     {
         // The controller's AbortSignal exists so a sink can abandon a long write immediately, without
@@ -375,7 +375,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("aborted:false,signal:stop,abort:stop,done");
     }
 
-    [Fact]
+    [Test]
     public void TheControllerSignalDefaultsToAnAbortErrorWhenNoReasonIsGiven()
     {
         var engine = StreamEngine();
@@ -389,14 +389,14 @@ public class WritableStreamTests
         Log(engine).Should().Be("AbortError:true");
     }
 
-    [Fact]
+    [Test]
     public void LocksTheStreamForOneWriterAtATime()
     {
         var engine = StreamEngine();
         engine.Execute("var stream = new WritableStream(); var writer = stream.getWriter();");
 
         engine.Evaluate("stream.locked").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getWriter()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getWriter()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         engine.Execute("writer.releaseLock();");
@@ -404,7 +404,7 @@ public class WritableStreamTests
         engine.Evaluate("stream.getWriter() !== writer").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ALockedStreamRefusesAbortAndClose()
     {
         var engine = StreamEngine();
@@ -418,7 +418,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("abort:TypeError,close:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void AReleasedWriterRefusesEveryOperation()
     {
         var engine = StreamEngine();
@@ -435,7 +435,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("write:TypeError,close:TypeError,abort:TypeError,ready:TypeError,closed:TypeError");
     }
 
-    [Fact]
+    [Test]
     public void ReleasingTheLockLeavesOutstandingWritesAlone()
     {
         // "the lock can still be released even if some ongoing writes have not yet finished … the lock
@@ -457,7 +457,7 @@ public class WritableStreamTests
         Log(engine).Should().Be("released:false,write-settled");
     }
 
-    [Fact]
+    [Test]
     public void MembersCarryTheWebIdlShape()
     {
         var engine = StreamEngine();
@@ -475,7 +475,7 @@ public class WritableStreamTests
         engine.Evaluate("Object.getPrototypeOf(writer).constructor.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void TheWriterInterfaceObjectIsConstructibleWithAStream()
     {
         var engine = StreamEngine();
@@ -485,14 +485,14 @@ public class WritableStreamTests
             var fresh = new WritableStream();
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor(stream)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor(stream)"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
         engine.Evaluate("new Ctor(fresh) && fresh.locked").AsBoolean().Should().BeTrue();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Ctor({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void EveryMemberBrandChecksItsReceiver()
     {
         var engine = StreamEngine();
@@ -507,7 +507,7 @@ public class WritableStreamTests
 
         Log(engine).Should().Be("abort:TypeError,close:TypeError,write:TypeError,ready:TypeError");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("WritableStream.prototype.getWriter.call({})"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("WritableStream.prototype.getWriter.call({})"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 }

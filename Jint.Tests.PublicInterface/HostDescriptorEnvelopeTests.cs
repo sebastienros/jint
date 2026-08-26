@@ -39,7 +39,7 @@ public class HostDescriptorEnvelopeTests
 {
     private const int Events = 4;
 
-    [Fact]
+    [Test]
     public void AReusedDescriptorIsReallyTheSameInstanceOnEveryProbe()
     {
         // The premise of everything below. If the host handed out a fresh descriptor per probe the tests
@@ -53,7 +53,7 @@ public class HostDescriptorEnvelopeTests
         host.DistinctDescriptorsHandedOut.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AWarmMemberReadObservesEveryRefill()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class HostDescriptorEnvelopeTests
         host.DistinctDescriptorsHandedOut.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void EveryReadShapeObservesTheRefill()
     {
         var engine = new Engine();
@@ -105,7 +105,7 @@ public class HostDescriptorEnvelopeTests
         host.DistinctDescriptorsHandedOut.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void AReusedDescriptorSurvivesTheSameSiteSeeingOtherReceivers()
     {
         // A member-read site that alternates between two envelopes must not serve either one's value for the
@@ -131,7 +131,7 @@ public class HostDescriptorEnvelopeTests
         seen.Should().Be("first-0,second-0,first-0,second-0,first-0,second-0");
     }
 
-    [Fact]
+    [Test]
     public void ARefilledEnvelopeIsObservedThroughAPrototypeToo()
     {
         // The envelope living on a prototype rather than on the receiver, which is the lane that really does
@@ -155,7 +155,7 @@ public class HostDescriptorEnvelopeTests
         envelope.DistinctDescriptorsHandedOut.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ACustomValueDescriptorIsConsultedOnEveryRead()
     {
         // The documented lazy-value hook: one descriptor instance whose value is produced on demand from
@@ -182,7 +182,7 @@ public class HostDescriptorEnvelopeTests
         host.CustomValueReads.Should().BeGreaterThanOrEqualTo(Events);
     }
 
-    [Fact]
+    [Test]
     public void ACustomValueDescriptorStaysLazyOnTheOtherReadShapes()
     {
         var engine = new Engine();
@@ -200,7 +200,7 @@ public class HostDescriptorEnvelopeTests
         engine.Evaluate("JSON.stringify(host)").Should().Be("""{"body":"second"}""");
     }
 
-    [Fact]
+    [Test]
     public void APlainObjectCarryingAHostOwnedDescriptorObservesEveryRefill()
     {
         // The same pattern without a subclass at all: a plain object with a host-owned descriptor installed

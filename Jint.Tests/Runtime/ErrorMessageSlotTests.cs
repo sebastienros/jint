@@ -9,7 +9,7 @@ public class ErrorMessageSlotTests
 {
     private static Engine E() => new Engine();
 
-    [Fact]
+    [Test]
     public void MessageIsWritableNonEnumerableConfigurableDataProperty()
     {
         var engine = E();
@@ -22,7 +22,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("d.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void HasOwnAndInReflectMessagePresence()
     {
         var engine = E();
@@ -32,7 +32,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("new Error('x').hasOwnProperty('stack')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void NoArgumentErrorInheritsEmptyMessage()
     {
         var engine = E();
@@ -40,7 +40,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("new Error().hasOwnProperty('message')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void WritingMessageKeepsItAWritableDataProperty()
     {
         var engine = E();
@@ -49,7 +49,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("d.writable && !d.enumerable && d.configurable").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DeletingMessageMakesItInheritEmptyString()
     {
         var engine = E();
@@ -58,7 +58,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("e.hasOwnProperty('message')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void OwnPropertyNamesKeepMessageFirstThenAddedKeys()
     {
         var engine = E();
@@ -66,7 +66,7 @@ public class ErrorMessageSlotTests
         names.Should().Be("message,foo,bar");
     }
 
-    [Fact]
+    [Test]
     public void NonEnumerableMessageIsSkippedByKeysAndJsonStringify()
     {
         var engine = E();
@@ -74,7 +74,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("JSON.stringify(new Error('secret'))").AsString().Should().Be("{}");
     }
 
-    [Fact]
+    [Test]
     public void RedefiningMessageDeoptsToDefinedDescriptor()
     {
         var engine = E();
@@ -84,7 +84,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("Object.keys(e).join(',')").AsString().Should().Be("message");
     }
 
-    [Fact]
+    [Test]
     public void CauseOptionMaterializesMessageThenCause()
     {
         var engine = E();
@@ -94,7 +94,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("Object.getOwnPropertyNames(e).join(',')").AsString().Should().Be("message,cause");
     }
 
-    [Fact]
+    [Test]
     public void FrozenErrorHasNonWritableNonConfigurableMessage()
     {
         var engine = E();
@@ -106,7 +106,7 @@ public class ErrorMessageSlotTests
         engine.Evaluate("e.message = 'nope'; e.message").AsString().Should().Be("frozen");
     }
 
-    [Fact]
+    [Test]
     public void PreventExtensionsKeepsMessageReadableAndEnumerated()
     {
         var engine = E();
@@ -116,14 +116,13 @@ public class ErrorMessageSlotTests
         engine.Evaluate("Object.isFrozen(e)").AsBoolean().Should().BeFalse();
     }
 
-    [Theory]
-    [InlineData("Error")]
-    [InlineData("TypeError")]
-    [InlineData("RangeError")]
-    [InlineData("EvalError")]
-    [InlineData("ReferenceError")]
-    [InlineData("SyntaxError")]
-    [InlineData("URIError")]
+    [TestCase("Error")]
+    [TestCase("TypeError")]
+    [TestCase("RangeError")]
+    [TestCase("EvalError")]
+    [TestCase("ReferenceError")]
+    [TestCase("SyntaxError")]
+    [TestCase("URIError")]
     public void SubtypesShareTheVirtualMessageSlot(string type)
     {
         var engine = E();
@@ -132,14 +131,14 @@ public class ErrorMessageSlotTests
         engine.Evaluate($"new {type}('boom').hasOwnProperty('message')").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MessageArgumentIsCoercedToString()
     {
         var engine = E();
         engine.Evaluate("new Error(42).message").AsString().Should().Be("42");
     }
 
-    [Fact]
+    [Test]
     public void GeneratedRuntimeErrorHasReadableMessageAndOwnMessageKey()
     {
         var engine = E();
@@ -151,7 +150,7 @@ catch (e) { e.message + '|' + e.hasOwnProperty('message') + '|' + Object.getOwnP
         result.Should().EndWith("|true|0");
     }
 
-    [Fact]
+    [Test]
     public void AssignAndSpreadSkipNonEnumerableMessage()
     {
         var engine = E();
@@ -159,7 +158,7 @@ catch (e) { e.message + '|' + e.hasOwnProperty('message') + '|' + Object.getOwnP
         engine.Evaluate("({ ...new Error('m') }).message === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void JavaScriptExceptionMessageReflectsVirtualMessage()
     {
         var engine = E();

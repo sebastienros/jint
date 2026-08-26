@@ -16,7 +16,7 @@ public class EngineLimitTests
     const int FunctionNestingCount = 465;
 #endif
 
-    [Fact]
+    [Test]
     public void ShouldAllowReasonableCallStackDepth()
     {
         // A default engine guards the native stack while MaxExecutionStackCount remains disabled. The
@@ -38,7 +38,7 @@ public class EngineLimitTests
         });
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotStackoverflowWhenStackGuardEnable()
     {
         // Can be more than actual dotnet stacktrace count, It does not hit stackoverflow anymore.
@@ -52,7 +52,7 @@ public class EngineLimitTests
         engine.Evaluate("x").AsNumber().Should().Be(functionNestingCount);
     }
 
-    [Fact]
+    [Test]
     public void ShouldThrowJavascriptExceptionWhenStackGuardExceed()
     {
         // Can be more than actual dotnet stacktrace count, It does not hit stackoverflow anymore.

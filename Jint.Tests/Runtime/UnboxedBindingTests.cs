@@ -12,14 +12,14 @@ public class UnboxedBindingTests
 {
     private readonly Engine _engine = new();
 
-    [Fact]
+    [Test]
     public void DoubleAccumulatorProducesExactResult()
     {
         _engine.Evaluate("function f() { var s = 0.5; s += 0.25; s += 0.25; return s; } f()").AsNumber().Should().Be(1.0);
         _engine.Evaluate("function f() { var s = 0; for (var i = 0; i < 10000; i++) { s += 0.25; } return s; } f()").AsNumber().Should().Be(2500d);
     }
 
-    [Fact]
+    [Test]
     public void AllCompoundOperatorsWork()
     {
         _engine.Evaluate("function f() { var x = 10; x -= 3; return x; } f()").AsNumber().Should().Be(7d);
@@ -35,7 +35,7 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var x = 2; x **= 3; return x; } f()").AsNumber().Should().Be(8d);
     }
 
-    [Fact]
+    [Test]
     public void UpdateExpressionsWork()
     {
         _engine.Evaluate("function f() { var i = 0; i++; i++; ++i; return i; } f()").AsNumber().Should().Be(3d);
@@ -43,7 +43,7 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var i = -0.5; i++; return i; } f()").AsNumber().Should().Be(0.5);
     }
 
-    [Fact]
+    [Test]
     public void Int32BoundaryWidensCorrectly()
     {
         _engine.Evaluate("function f() { var i = 2147483647; i++; return i; } f()").AsNumber().Should().Be(2147483648d);
@@ -51,7 +51,7 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var i = (1<<31)|0; i /= -1; return i; } f()").AsNumber().Should().Be(2147483648d);
     }
 
-    [Fact]
+    [Test]
     public void SpecialValuesSurviveMaterialization()
     {
         _engine.Evaluate("function f() { var z = 0; z *= -1; return Object.is(z, -0); } f()").AsBoolean().Should().BeTrue();
@@ -61,7 +61,7 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var x = -6; x %= 3; return Object.is(x, -0); } f()").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadAfterUnboxedWriteReturnsCorrectValue()
     {
         // materializing consumers (call arguments, comparisons, returns) after unboxed writes
@@ -70,14 +70,14 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var s = 0.5; s += 0.25; return '' + s; } f()").AsString().Should().Be("0.75");
     }
 
-    [Fact]
+    [Test]
     public void RepeatedReadsReturnSameInstance()
     {
         // write-back memoization: two reads of the same unboxed binding observe one value
         _engine.Evaluate("function f() { var s = 0.5; s += 0.25; var a = s; var b = s; return a === b; } f()").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void NonNumberRightHandSideCompletesCorrectly()
     {
         _engine.Evaluate("function f() { var s = 0.5; s += 'x'; return s; } f()").AsString().Should().Be("0.5x");
@@ -86,20 +86,20 @@ public class UnboxedBindingTests
         Invoking(() => _engine.Evaluate("function f() { var s = 1; s &= 1n; return s; } f()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ExponentiationKeepsSpecSemantics()
     {
         _engine.Evaluate("function f() { var x = 1; x **= Infinity; return Number.isNaN(x); } f()").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RightHandSideRunsExactlyOnce()
     {
         _engine.Evaluate("function f() { var calls = 0; function g() { calls++; return 2; } var s = 1; s += g(); return calls; } f()").AsNumber().Should().Be(1d);
         _engine.Evaluate("function f() { var calls = 0; function g() { calls++; return 'x'; } var s = 1; s += g(); return s + '|' + calls; } f()").AsString().Should().Be("1x|1");
     }
 
-    [Fact]
+    [Test]
     public void ConstAndTdzKeepProperErrors()
     {
         Invoking(() => _engine.Evaluate("function f() { 'use strict'; const c = 1.5; c += 1; } f()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
@@ -110,7 +110,7 @@ public class UnboxedBindingTests
         Invoking(() => _engine.Evaluate("function f() { const c = 2.5; c += 1; return c; } f()")).Should().ThrowExactly<Jint.Runtime.JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ObservableContextsKeepMaterializedResults()
     {
         // value-producing positions never take the discard path
@@ -119,20 +119,20 @@ public class UnboxedBindingTests
         _engine.Evaluate("function f() { var i = 1; var y = i++; return y; } f()").AsNumber().Should().Be(1d);
     }
 
-    [Fact]
+    [Test]
     public void GeneratorsAndAsyncKeepFullSemantics()
     {
         _engine.Evaluate("function* g() { var s = 1; s += 0.5; yield s; } g().next().value").AsNumber().Should().Be(1.5);
         _engine.Evaluate("async function a() { var s = 2; s += 0.5; return s; } a()").UnwrapIfPromise().AsNumber().Should().Be(2.5);
     }
 
-    [Fact]
+    [Test]
     public void ClosureObservesUnboxedWrites()
     {
         _engine.Evaluate("function f() { var s = 0.5; var get = function() { return s; }; s += 0.25; return get(); } f()").AsNumber().Should().Be(0.75);
     }
 
-    [Fact]
+    [Test]
     public void WithStatementDynamicShadowingResolvesPerExecution()
     {
         // write paths: the slot-location cache must not skip a with-object that gains
@@ -152,7 +152,7 @@ public class UnboxedBindingTests
             "function w() { var s = 1; var o = { s: 100 }; with (o) { s += 5; } return s + '|' + o.s; } w();").AsString().Should().Be("1|105");
     }
 
-    [Fact]
+    [Test]
     public void SequenceExpressionUpdatesInForLoop()
     {
         _engine.Evaluate(
@@ -161,7 +161,7 @@ public class UnboxedBindingTests
             "function f() { var a = 0, b = 0; for (var k = 0; k < 5; k++, a += 0.25, b += 0.25) { } return a + b; } f();").AsNumber().Should().Be(2.5);
     }
 
-    [Fact]
+    [Test]
     public void SwitchBodiesInsideFunctionsStayCorrect()
     {
         _engine.Evaluate(
@@ -170,7 +170,7 @@ public class UnboxedBindingTests
             "function f() { var acc = 0; for (var i = 0; i < 100; i++) { switch (i % 2) { case 0: acc += 1; break; default: acc -= 0; break; } } return acc; } f();").AsNumber().Should().Be(50d);
     }
 
-    [Fact]
+    [Test]
     public void ForLoopCountersStayCorrect()
     {
         _engine.Evaluate("function f() { var i; for (i = 0; i < 100000; i++) { } return i; } f()").AsNumber().Should().Be(100000d);

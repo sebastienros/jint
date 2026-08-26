@@ -48,7 +48,7 @@ public class StepModeTests
         return steps;
     }
 
-    [Fact]
+    [Test]
     public void StepsIntoRegularFunctionCall()
     {
         var script = @"
@@ -62,7 +62,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOverRegularFunctionCall()
     {
         var script = @"
@@ -77,7 +77,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOutOfRegularFunctionCall()
     {
         var script = @"
@@ -93,7 +93,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StepsIntoMemberFunctionCall()
     {
         var script = @"
@@ -109,7 +109,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOverMemberFunctionCall()
     {
         var script = @"
@@ -126,7 +126,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOutOfMemberFunctionCall()
     {
         var script = @"
@@ -143,7 +143,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StepsIntoCallExpression()
     {
         var script = @"
@@ -158,7 +158,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOverCallExpression()
     {
         var script = @"
@@ -174,7 +174,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOutOfCallExpression()
     {
         var script = @"
@@ -190,7 +190,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StepsIntoGetAccessor()
     {
         var script = @"
@@ -207,7 +207,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOverGetAccessor()
     {
         var script = @"
@@ -224,7 +224,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOutOfGetAccessor()
     {
         var script = @"
@@ -242,7 +242,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void StepsIntoSetAccessor()
     {
         var script = @"
@@ -259,7 +259,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Into).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOverSetAccessor()
     {
         var script = @"
@@ -276,7 +276,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void StepsOutOfSetAccessor()
     {
         var script = @"
@@ -294,7 +294,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Out).Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ReturnPointIsAStep()
     {
         var script = @"
@@ -307,7 +307,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ReturnStatementIsAStep()
     {
         var script = @"
@@ -321,7 +321,7 @@ public class StepModeTests
         StepsFromSourceToTarget(script, StepMode.Over).Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void StepOutOnlyStepsOutOneStackLevel()
     {
         var script = @"
@@ -365,7 +365,7 @@ public class StepModeTests
         engine.Execute(script);
     }
 
-    [Fact]
+    [Test]
     public void StepOverDoesSinglestepAfterBreakpoint()
     {
         string script = @"
@@ -399,7 +399,7 @@ public class StepModeTests
         engine.Execute(script);
     }
 
-    [Fact]
+    [Test]
     public void StepNotTriggeredWhenRunning()
     {
         string script = @"
@@ -426,7 +426,7 @@ public class StepModeTests
         stepCount.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void SkipIsTriggeredWhenRunning()
     {
         string script = @"

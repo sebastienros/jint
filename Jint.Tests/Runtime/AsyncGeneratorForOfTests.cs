@@ -40,7 +40,7 @@ public class AsyncGeneratorForOfTests
             """);
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldPreservesIteratorPositionAcrossSuspension()
     {
         // The core defect: for...of over an array, yielding each element.
@@ -48,7 +48,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void IndexBasedForWithYieldStaysCorrect()
     {
         // Control: index-based iteration never depended on iterator suspend state.
@@ -56,7 +56,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithoutYieldInBodyStaysCorrect()
     {
         // Control: no suspension inside the loop; yields happen after it completes.
@@ -68,7 +68,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithAwaitInBodyPreservesIteratorPosition()
     {
         // Await (not just yield) suspends the async generator inside the loop body too.
@@ -76,7 +76,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverMapPreservesIteratorPosition()
     {
         var result = EvaluateWithGuard("""
@@ -95,7 +95,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a=1,b=2,c=3");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverSetPreservesIteratorPosition()
     {
         var result = EvaluateWithGuard("""
@@ -114,7 +114,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverStringPreservesIteratorPosition()
     {
         var result = EvaluateWithGuard("""
@@ -132,7 +132,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverSyncGeneratorIterablePreservesIteratorPosition()
     {
         // A one-shot iterator makes any hidden head re-evaluation fatal rather than silent:
@@ -153,7 +153,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldSupportsBreakAcrossSuspension()
     {
         var result = DrainAsyncGenerator("""
@@ -166,7 +166,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,end");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldSupportsContinueAcrossSuspension()
     {
         var result = DrainAsyncGenerator("""
@@ -178,7 +178,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldSupportsEarlyReturnAcrossSuspension()
     {
         var result = DrainAsyncGenerator("""
@@ -191,7 +191,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b");
     }
 
-    [Fact]
+    [Test]
     public void NestedForOfWithYieldPreservesBothIteratorPositions()
     {
         var result = EvaluateWithGuard("""
@@ -215,7 +215,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a1,a2,b1,b2");
     }
 
-    [Fact]
+    [Test]
     public void SequentialForOfLoopsWithYieldEachPreserveTheirIterator()
     {
         var result = DrainAsyncGenerator("""
@@ -225,7 +225,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("1a,1b,2a,2b");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverEmptyIterableCompletesImmediately()
     {
         var result = DrainAsyncGenerator("""
@@ -235,7 +235,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("end");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldOverSingleElementIterableYieldsOnce()
     {
         var result = DrainAsyncGenerator("""
@@ -245,7 +245,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,end");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithMultipleYieldsPerIterationPreservesIteratorPosition()
     {
         var result = DrainAsyncGenerator("""
@@ -257,7 +257,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a1,a2,b1,b2");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithYieldOverAsyncIterablePreservesIteratorPosition()
     {
         // for-await-of over an async iterable takes the ForAwaitSuspendData path;
@@ -278,7 +278,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithAwaitInBodyInAsyncGeneratorReEntersCurrentIteration()
     {
         // A plain await inside the for-await-of body suspends mid-iteration; the resume
@@ -306,7 +306,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithAwaitInBodyInAsyncFunctionReEntersCurrentIteration()
     {
         // The same in-body-await drop in a plain async function (no generator involved).
@@ -326,7 +326,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithMultipleAwaitsPerIterationReEntersCurrentIteration()
     {
         var result = EvaluateWithGuard("""
@@ -351,7 +351,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a12,b12");
     }
 
-    [Fact]
+    [Test]
     public void ForAwaitOfWithAwaitInBodyAccumulatesAcrossIterations()
     {
         // Values computed before the await must survive the mid-iteration suspension,
@@ -375,7 +375,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("1,2,3|12");
     }
 
-    [Fact]
+    [Test]
     public void SyncGeneratorForOfWithYieldStaysCorrect()
     {
         // The sync-generator route (ExecutionContext.Generator) already saved suspend
@@ -395,7 +395,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void AsyncFunctionForOfWithAwaitStaysCorrect()
     {
         // The async-function route (ExecutionContext.AsyncFunction) already saved suspend
@@ -415,7 +415,7 @@ public class AsyncGeneratorForOfTests
         result.Should().Be("a,b,c,d");
     }
 
-    [Fact]
+    [Test]
     public void ForOfWithYieldAccumulatesBodyCompletionValue()
     {
         // The generator's overall completion value flows through the loop's accumulated

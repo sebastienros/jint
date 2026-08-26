@@ -81,7 +81,7 @@ public class HostJsonParseConstraintTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AHostParseArmsThisRunsConstraintsAndRewindsThemAfterwards()
     {
         var ledger = new Ledger();
@@ -98,7 +98,7 @@ public class HostJsonParseConstraintTests
             "a host-issued parse is a run of its own, so the budget it checks is the one it armed");
     }
 
-    [Fact]
+    [Test]
     public void AParseReachedFromScriptSpendsTheSurroundingRunsBudget()
     {
         var ledger = new Ledger();
@@ -116,10 +116,9 @@ public class HostJsonParseConstraintTests
         checks.Should().BePositive("the parse still consults the surrounding run's budget");
     }
 
-    [Theory]
-    [InlineData("string")]
-    [InlineData("chars")]
-    [InlineData("utf8")]
+    [TestCase("string")]
+    [TestCase("chars")]
+    [TestCase("utf8")]
     public void EveryOverloadIsTheSameRun(string overload)
     {
         var ledger = new Ledger();
@@ -145,7 +144,7 @@ public class HostJsonParseConstraintTests
             "the span overloads are the ones a network or storage caller reaches for");
     }
 
-    [Fact]
+    [Test]
     public void AHostParseIsBoundedByTheMemoryLimit()
     {
         var document = "[" + string.Join(",", Enumerable.Repeat("{\"a\":1,\"b\":2,\"c\":3}", 50_000)) + "]";
@@ -165,7 +164,7 @@ public class HostJsonParseConstraintTests
     /// The reported case, made exact with a host clock: the same document, the same engine, the same limit —
     /// and the only difference is that the engine has been used for something else first, and then left idle.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostParseIsNotBudgetedAgainstADeadlineArmedByAnEarlierRun()
     {
         var clock = new FakeTimeProvider();
@@ -189,7 +188,7 @@ public class HostJsonParseConstraintTests
     /// The other half, and the one a fix could easily break: giving the parse a run of its own must not give
     /// a script a way to refresh the budget it has already spent by calling <c>JSON.parse</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void AParseInsideAScriptCannotRefreshThatScriptsSpentBudget()
     {
         var clock = new FakeTimeProvider();
@@ -210,7 +209,7 @@ public class HostJsonParseConstraintTests
     /// <summary>
     /// A host-issued parse is still interruptible: the budget it arms is a real one, not a formality.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostParseThatOutlivesItsOwnBudgetStillFails()
     {
         var clock = new FakeTimeProvider();

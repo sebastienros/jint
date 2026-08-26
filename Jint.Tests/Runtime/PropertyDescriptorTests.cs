@@ -51,7 +51,7 @@ public class PropertyDescriptorTests
         ;
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorReadOnly()
     {
         var pd = _engine.Evaluate("""
@@ -67,7 +67,7 @@ public class PropertyDescriptorTests
         pd.Set.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorReadWrite()
     {
         var pd = _engine.Evaluate("""
@@ -83,7 +83,7 @@ public class PropertyDescriptorTests
         pd.Set.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void UndefinedPropertyDescriptor()
     {
         var pd = PropertyDescriptor.Undefined;
@@ -93,7 +93,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void AllForbiddenDescriptor()
     {
         var pd = _engine.Evaluate("Object.getPrototypeOf('s')").AsObject().GetOwnProperty("length");
@@ -102,7 +102,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FastSetPropertyIsVisibleOnBuiltinShapedHost()
     {
         // Math uses builtin-shape storage; a raw property store of a non-shape name joins the
@@ -117,7 +117,7 @@ public class PropertyDescriptorTests
         _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void FastSetPropertyBeforeLazyInitializationSurvivesOnDictionaryHost()
     {
         // a raw store before the host's first property access used to land in _properties and get
@@ -129,7 +129,7 @@ public class PropertyDescriptorTests
         _engine.Evaluate("typeof RegExp.escape === 'function'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void FastSetPropertyBeforeLazyInitializationSurvivesOnBuiltinShapedHost()
     {
         // the builtin-shape sibling of the dictionary-host case above
@@ -141,7 +141,7 @@ public class PropertyDescriptorTests
         _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4);
     }
 
-    [Fact]
+    [Test]
     public void SymbolSetPropertyBeforeLazyInitializationSurvives()
     {
         // symbol stores have the same pre-initialization hazard: Initialize() replaces _symbols
@@ -152,7 +152,7 @@ public class PropertyDescriptorTests
         _engine.Evaluate("Math[Symbol.toStringTag]").AsString().Should().Be("Math");
     }
 
-    [Fact]
+    [Test]
     public void LazyPropertyDescriptor()
     {
         // the shaped global materializes a targeted slot on demand (other slots stay untouched)
@@ -184,7 +184,7 @@ public class PropertyDescriptorTests
         _engine.Evaluate("encodeURI('test')").AsString().Should().Be("test");
     }
 
-    [Fact]
+    [Test]
     public void ThrowerPropertyDescriptor()
     {
         var pd = _engine.Evaluate("Object.getPrototypeOf(function() {})").AsObject().GetOwnProperty("arguments");
@@ -193,7 +193,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void GetSetPropertyDescriptorGetOnly()
     {
         var pd = _engine.Evaluate("""
@@ -208,7 +208,7 @@ public class PropertyDescriptorTests
         pd.Set.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void GetSetPropertyDescriptorSetOnly()
     {
         var pd = _engine.Evaluate("""
@@ -223,7 +223,7 @@ public class PropertyDescriptorTests
         pd.Set.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void GetSetPropertyDescriptorGetSet()
     {
         var pd = _engine.Evaluate("""
@@ -239,7 +239,7 @@ public class PropertyDescriptorTests
         pd.Set.Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ClrAccessDescriptor()
     {
         JsValue ExtractClrAccessDescriptor(JsValue jsArugments)
@@ -259,7 +259,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorMethod()
     {
         var pdMethod = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'Method')");
@@ -272,7 +272,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void PropertyDescriptorNestedType()
     {
         var pdMethod = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'NestedType')");
@@ -285,7 +285,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorFieldReadOnly()
     {
         var pdField = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'fieldReadOnly')");
@@ -297,7 +297,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorField()
     {
         var pdField = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'field')");
@@ -309,7 +309,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorPropertyReadOnly()
     {
         var pdPropertyReadOnly = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'PropertyReadOnly')");
@@ -321,7 +321,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorPropertyWriteOnly()
     {
         var pdPropertyWriteOnly = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'PropertyWriteOnly')");
@@ -333,7 +333,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorPropertyReadWrite()
     {
         var pdPropertyReadWrite = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass, 'PropertyReadWrite')");
@@ -345,7 +345,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorIndexerReadOnly()
     {
         var pdIndexerReadOnly = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass.IndexerReadOnly, '1')");
@@ -358,7 +358,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorIndexerWriteOnly()
     {
         var pdIndexerWriteOnly = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass.IndexerWriteOnly, '1')");
@@ -370,7 +370,7 @@ public class PropertyDescriptorTests
         pd.IsDataDescriptor().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ReflectionDescriptorIndexerReadWrite()
     {
         var pdIndexerReadWrite = _engine.Evaluate("Object.getOwnPropertyDescriptor(testClass.IndexerReadWrite, 1)");
@@ -410,7 +410,7 @@ public class PropertyDescriptorTests
         (!pd["set"].IsUndefined()).Should().Be(hasSet);
     }
 
-    [Fact]
+    [Test]
     public void DefinePropertyFromAccesorToData()
     {
         var pd = _engine.Evaluate("""

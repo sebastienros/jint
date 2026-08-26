@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class InteropStaticMemberCacheTests
 {
-    [Fact]
+    [Test]
     public void NestedTypeIsResolvedPerEngine()
     {
         var first = new Engine();
@@ -31,7 +31,7 @@ public class InteropStaticMemberCacheTests
         secondInner.ReferenceType.Should().Be<CrossEngineHolder.Inner>();
     }
 
-    [Fact]
+    [Test]
     public void OrdinaryStaticMemberResolutionIsStillCached()
     {
         var firstLookups = 0;
@@ -61,7 +61,7 @@ public class InteropStaticMemberCacheTests
         }
     }
 
-    [Fact]
+    [Test]
     public void StaticAllowGetTypePolicyPartitionsTheCache()
     {
         var resolver = new TypeResolver();
@@ -79,7 +79,7 @@ public class InteropStaticMemberCacheTests
         restricted.Evaluate("typeof Holder.GetType").Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void ConstructorCacheBelongsToTheResolver()
     {
         var denied = new TypeResolver { MemberFilter = static _ => false };

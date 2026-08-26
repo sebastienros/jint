@@ -23,7 +23,7 @@ public class HostScheduledWorkTests
     /// An engine with nothing scheduled answers <see langword="null"/> — not zero, which would send a host loop
     /// into a hot spin, and not some arbitrary poll interval, which would be a number the engine invented.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnEngineWithNothingScheduledReportsNoWork()
     {
         using var engine = new Engine();
@@ -44,7 +44,7 @@ public class HostScheduledWorkTests
     /// <c>Atomics.notify</c>, which both proves the deadline stops being reported once the wait has settled and
     /// stops the background delay outliving the test.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AnAsynchronousAtomicsWaitReportsItsTimeoutDeadline()
     {
         using var engine = new Engine();
@@ -74,7 +74,7 @@ public class HostScheduledWorkTests
     /// can end it, and that arrives as an enqueue, which needs no clock. Reporting a time for it would be
     /// inventing one.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnInfiniteAtomicsWaitReportsNoDeadline()
     {
         using var engine = new Engine();

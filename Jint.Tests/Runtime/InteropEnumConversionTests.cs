@@ -85,7 +85,7 @@ public class InteropEnumConversionTests
         public UIntEnum? ReturnsNullableUInt() => UIntEnum.Max;
     }
 
-    public static TheoryData<object, double> EnumValues() => new()
+    public static TestCases<object, double> EnumValues() => new()
     {
         { PlainEnum.Zero, 0 },
         { PlainEnum.One, 1 },
@@ -107,8 +107,7 @@ public class InteropEnumConversionTests
         { ULongEnum.Max, ulong.MaxValue },
     };
 
-    [Theory]
-    [MemberData(nameof(EnumValues))]
+    [TestCaseSource(nameof(EnumValues))]
     public void FromObjectConvertsEnumToNumber(object enumValue, double expected)
     {
         var engine = new Engine();
@@ -119,8 +118,7 @@ public class InteropEnumConversionTests
         converted.AsNumber().Should().Be(expected);
     }
 
-    [Theory]
-    [MemberData(nameof(EnumValues))]
+    [TestCaseSource(nameof(EnumValues))]
     public void NullableEnumConvertsLikeItsUnderlyingValue(object enumValue, double expected)
     {
         var engine = new Engine();
@@ -134,7 +132,7 @@ public class InteropEnumConversionTests
         converted.AsNumber().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void NullNullableEnumConvertsToNull()
     {
         var engine = new Engine();
@@ -143,7 +141,7 @@ public class InteropEnumConversionTests
         JsValue.FromObject(engine, value).Should().Be(JsValue.Null);
     }
 
-    [Fact]
+    [Test]
     public void EnumMembersAndReturnValuesConvertToNumbers()
     {
         var engine = new Engine();
@@ -158,7 +156,7 @@ public class InteropEnumConversionTests
         engine.Evaluate("host.ReturnsNullableUInt()").AsNumber().Should().Be(uint.MaxValue);
     }
 
-    [Fact]
+    [Test]
     public void EnumInsideCollectionsConvertsToNumbers()
     {
         var engine = new Engine();
@@ -169,7 +167,7 @@ public class InteropEnumConversionTests
         engine.Evaluate("values[2]").AsNumber().Should().Be(ulong.MaxValue);
     }
 
-    [Fact]
+    [Test]
     public void EnumExposedAsObjectTypeStillConvertsToNumber()
     {
         var engine = new Engine();

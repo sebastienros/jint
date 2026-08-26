@@ -27,7 +27,7 @@ public class WebApiSubtleCryptoTests
             """).UnwrapIfPromise().AsString();
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoSubtleCrypto()
     {
         var engine = new Engine();
@@ -36,7 +36,7 @@ public class WebApiSubtleCryptoTests
         engine.Evaluate("'crypto' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void TheCryptoFlagIsWhatInstallsIt()
     {
         // There is no flag of its own: `subtle` is a readonly attribute of the Crypto interface, so asking
@@ -49,7 +49,7 @@ public class WebApiSubtleCryptoTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Crypto);
     }
 
-    [Fact]
+    [Test]
     public void HashesTheWayAHostCanCheckAgainstItsOwnCode()
     {
         var engine = WebEngine();
@@ -62,7 +62,7 @@ public class WebApiSubtleCryptoTests
         DigestHex(engine, "SHA-512", "abc").Should().Be("ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f");
     }
 
-    [Fact]
+    [Test]
     public void AnsweredPromiseUnwrapsForAHostThatBlocks()
     {
         var engine = WebEngine();
@@ -77,7 +77,7 @@ public class WebApiSubtleCryptoTests
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReportsItsFailuresAsRejectionsAScriptCanCatch()
     {
         var engine = WebEngine();
@@ -94,7 +94,7 @@ public class WebApiSubtleCryptoTests
             """).UnwrapIfPromise().AsString().Should().Be("NotSupportedError,TypeError");
     }
 
-    [Fact]
+    [Test]
     public void NeverThrowsIntoTheHost()
     {
         var engine = WebEngine();
@@ -109,7 +109,7 @@ public class WebApiSubtleCryptoTests
             .UnwrapIfPromise().AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void IsOneObjectPerEngineAndNeverShared()
     {
         var options = new Options().UseWebApis(WebApiFeatures.Crypto);
@@ -125,7 +125,7 @@ public class WebApiSubtleCryptoTests
         DigestHex(first, "SHA-256", "abc").Should().Be(DigestHex(second, "SHA-256", "abc"));
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredCryptoGlobalWinsAndBringsNoSubtle()
     {
         var marker = new JsString("the host's own crypto");
@@ -140,7 +140,7 @@ public class WebApiSubtleCryptoTests
         engine.Evaluate("typeof crypto.subtle").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void IsAReadOnlyEnumerableAttribute()
     {
         var engine = WebEngine();
@@ -167,7 +167,7 @@ public class WebApiSubtleCryptoTests
         engine.Evaluate("Object.prototype.toString.call(crypto.subtle)").AsString().Should().Be("[object SubtleCrypto]");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = new Engine(options => options.UseWebApis());

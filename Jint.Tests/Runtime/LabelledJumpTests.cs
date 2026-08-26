@@ -19,7 +19,7 @@ public class LabelledJumpTests
 
     private string Run(string source) => _engine.Evaluate(source).AsString();
 
-    [Fact]
+    [Test]
     public void LabelledBreakSurvivesANonEmptyFinally()
     {
         Run("""
@@ -34,7 +34,7 @@ public class LabelledJumpTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledContinueSurvivesANonEmptyFinally()
     {
         Run("""
@@ -49,7 +49,7 @@ public class LabelledJumpTests
             """).Should().Be("f,f");
     }
 
-    [Fact]
+    [Test]
     public void BreakOutOfALabelledBlockSurvivesANonEmptyFinally()
     {
         Run("""
@@ -64,7 +64,7 @@ public class LabelledJumpTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakSurvivesAFinallyThatCallsAFunction()
     {
         Run("""
@@ -80,7 +80,7 @@ public class LabelledJumpTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakSurvivesAnIteratorReturnThatRunsStatements()
     {
         Run("""
@@ -101,7 +101,7 @@ public class LabelledJumpTests
             """).Should().Be("r");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakSurvivesAGeneratorCloseOnTheWayOut()
     {
         Run("""
@@ -116,7 +116,7 @@ public class LabelledJumpTests
             """).Should().Be("c");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakSurvivesADisposeBody()
     {
         Run("""
@@ -134,7 +134,7 @@ public class LabelledJumpTests
             """).Should().Be("d");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakOutOfASwitchInsideALabelledLoop()
     {
         Run("""
@@ -150,7 +150,7 @@ public class LabelledJumpTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void UnlabelledBreakInsideASwitchStillBreaksTheSwitchOnly()
     {
         Run("""
@@ -166,7 +166,7 @@ public class LabelledJumpTests
             """).Should().Be("f,after-switch,after-switch");
     }
 
-    [Fact]
+    [Test]
     public void LabelledBreakAcrossThreeLevels()
     {
         Run("""
@@ -184,7 +184,7 @@ public class LabelledJumpTests
             """).Should().Be("f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledContinueTargetingAnOuterLoopFromAWhile()
     {
         Run("""
@@ -201,7 +201,7 @@ public class LabelledJumpTests
             """).Should().Be("f,f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledContinueTargetingAnOuterLoopFromADoWhile()
     {
         Run("""
@@ -218,7 +218,7 @@ public class LabelledJumpTests
             """).Should().Be("f,f");
     }
 
-    [Fact]
+    [Test]
     public void LabelledJumpsInsideAGeneratorBody()
     {
         Run("""
@@ -241,7 +241,7 @@ public class LabelledJumpTests
     // Controls: an empty finalizer never reproduced the bug, and neither did the plain shapes.
     // They pin that the fix did not change the cases that already worked.
 
-    [Fact]
+    [Test]
     public void LabelledBreakThroughAnEmptyFinally()
     {
         Run("""
@@ -256,7 +256,7 @@ public class LabelledJumpTests
             """).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void PlainLabelledBreakAndContinueAreUnchanged()
     {
         Run("""
@@ -278,7 +278,7 @@ public class LabelledJumpTests
             """).Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void UnlabelledBreakStillBreaksTheInnermostLoop()
     {
         Run("""
@@ -293,7 +293,7 @@ public class LabelledJumpTests
             """).Should().Be("f,after-inner,f,after-inner");
     }
 
-    [Fact]
+    [Test]
     public void UnlabelledContinueStillContinuesTheInnermostLoop()
     {
         Run("""
@@ -308,7 +308,7 @@ public class LabelledJumpTests
             """).Should().Be("f,f,after-inner,f,f,after-inner");
     }
 
-    [Fact]
+    [Test]
     public void ABreakTargetingAnInnerLabelIsNotConsumedByAnOuterLoop()
     {
         Run("""

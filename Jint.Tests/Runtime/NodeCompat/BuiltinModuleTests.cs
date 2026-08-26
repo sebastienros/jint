@@ -23,19 +23,19 @@ public class BuiltinModuleTests
     /// The default engine is the engine it always was: a <c>node:</c> specifier is refused exactly as it was
     /// before these modules existed.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADefaultEngineCannotImportABuiltin()
     {
         var engine = new Engine();
 
-        Assert.ThrowsAny<Exception>(() => engine.Modules.Import("node:path"));
+        Assert.Catch<Exception>(() => engine.Modules.Import("node:path"));
     }
 
     /// <summary>
     /// And so is one with a real loader that never asked for the builtins - <see cref="NodeStyleModuleLoader"/>
     /// keeps refusing a <c>node:</c> scheme with its own message.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANodeStyleLoaderThatDidNotOptInStillRefusesTheNodeScheme()
     {
         using var tree = new PackageTree();
@@ -43,7 +43,7 @@ public class BuiltinModuleTests
 
         var engine = new Engine(options => options.UseModules(new NodeStyleModuleLoader(tree.Root)));
 
-        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import("node:path"));
+        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import("node:path"))!;
 
         exception.ResolverAlgorithmError.Should().StartWith("Unsupported Module Scheme");
     }
@@ -52,27 +52,26 @@ public class BuiltinModuleTests
     /// The builtins need no file-based loader at all: an engine that enabled nothing else still gets them, and
     /// everything else keeps failing the way it did.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheBuiltinsWorkWithoutAModuleLoader()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules(o => o.Platform = "linux"));
 
         engine.Modules.Import("node:path").Get("sep").AsString().Should().Be("/");
 
-        Assert.ThrowsAny<Exception>(() => engine.Modules.Import("./main.js"));
+        Assert.Catch<Exception>(() => engine.Modules.Import("./main.js"));
     }
 
     /// <summary>
     /// Every builtin the running build provides is importable, and each carries a default export beside its
     /// named ones.
     /// </summary>
-    [Theory]
-    [InlineData("node:path")]
-    [InlineData("node:path/posix")]
-    [InlineData("node:path/win32")]
+    [TestCase("node:path")]
+    [TestCase("node:path/posix")]
+    [TestCase("node:path/win32")]
 #if NET8_0_OR_GREATER
-    [InlineData("node:querystring")]
-    [InlineData("node:url")]
+    [TestCase("node:querystring")]
+    [TestCase("node:url")]
 #endif
     public void EveryProvidedBuiltinIsImportable(string specifier)
     {
@@ -84,7 +83,7 @@ public class BuiltinModuleTests
     /// <summary>
     /// A dynamic <c>import()</c> reaches them too, which is the shape a lazily loaded package uses.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADynamicImportReachesABuiltin()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules(o => o.Platform = "linux"));
@@ -103,16 +102,15 @@ public class BuiltinModuleTests
     /// An unknown <c>node:</c> specifier fails with a message that names what <em>is</em> available, and says
     /// that the modules needing platform resources are absent on purpose.
     /// </summary>
-    [Theory]
-    [InlineData("node:fs")]
-    [InlineData("node:buffer")]
-    [InlineData("node:crypto")]
-    [InlineData("node:os")]
+    [TestCase("node:fs")]
+    [TestCase("node:buffer")]
+    [TestCase("node:crypto")]
+    [TestCase("node:os")]
     public void AnUnknownBuiltinNamesWhatIsAvailable(string specifier)
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
 
-        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import(specifier));
+        var exception = Assert.Throws<ModuleResolutionException>(() => engine.Modules.Import(specifier))!;
 
         exception.ResolverAlgorithmError.Should().StartWith("Unknown Node Builtin Module");
         exception.ResolverAlgorithmError.Should().Contain("node:path");
@@ -129,7 +127,7 @@ public class BuiltinModuleTests
     /// The un-prefixed spelling of an absent module is <em>not</em> claimed: <c>import 'fs'</c> is an ordinary
     /// bare specifier that a package in <c>node_modules</c> - or a host registration - may answer.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnprefixedNameThatIsNotABuiltinIsLeftToTheLoader()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
@@ -146,7 +144,7 @@ public class BuiltinModuleTests
     /// PACKAGE_RESOLVE step 3 of ESM_RESOLVE: "if specifier is a Node.js builtin module name, return the
     /// string 'node:' concatenated with specifier". So both spellings work, and both name one module record.
     /// </summary>
-    [Fact]
+    [Test]
     public void BothSpellingsNameOneModule()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules(o => o.Platform = "linux"));
@@ -157,13 +155,12 @@ public class BuiltinModuleTests
         engine.Evaluate("prefixed === bare").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("path")]
-    [InlineData("path/posix")]
-    [InlineData("path/win32")]
+    [TestCase("path")]
+    [TestCase("path/posix")]
+    [TestCase("path/win32")]
 #if NET8_0_OR_GREATER
-    [InlineData("querystring")]
-    [InlineData("url")]
+    [TestCase("querystring")]
+    [TestCase("url")]
 #endif
     public void TheUnprefixedSpellingsResolveToTheBuiltins(string specifier)
     {
@@ -176,7 +173,7 @@ public class BuiltinModuleTests
     /// Turning the alias off leaves the un-prefixed names to the loader, which is what a tree that really does
     /// depend on an npm package called <c>path</c> needs.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheUnprefixedSpellingCanBeTurnedOff()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules(o => o.AllowUnprefixedSpecifiers = false));
@@ -195,7 +192,7 @@ public class BuiltinModuleTests
     /// <c>process</c> shim and the web APIs take, arrived at here by leaving the precedence the module system
     /// already has alone.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostRegistrationUnderThePrefixedNameWins()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
@@ -208,7 +205,7 @@ public class BuiltinModuleTests
     /// And a registration under the un-prefixed name claims both spellings, because both resolve to the one
     /// <c>node:</c> key.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostRegistrationUnderTheUnprefixedNameClaimsBothSpellings()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
@@ -221,7 +218,7 @@ public class BuiltinModuleTests
     /// <summary>
     /// The same door is how a host supplies one of the modules Jint deliberately does not provide.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostCanSupplyAModuleJintDoesNotProvide()
     {
         var engine = new Engine(options => options.UseNodeBuiltinModules());
@@ -241,7 +238,7 @@ public class BuiltinModuleTests
     /// <c>options.Modules.ModuleLoader</c> back keeps giving the host what it set: the decorator is applied
     /// when the engine is built, not to the options object.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheConfiguredLoaderIsUnchangedAndStillAnswersEverythingElse()
     {
         using var tree = new PackageTree();
@@ -262,7 +259,7 @@ public class BuiltinModuleTests
     /// And the order of the two calls does not matter, which is the whole reason the wrap happens at engine
     /// build rather than inside <c>UseNodeBuiltinModules</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheOrderOfUseModulesAndUseNodeBuiltinModulesDoesNotMatter()
     {
         using var tree = new PackageTree();
@@ -283,7 +280,7 @@ public class BuiltinModuleTests
     /// <c>node:path</c> across two files of its own - the shape a real published package has, and the thing
     /// the whole slice exists to make work.
     /// </summary>
-    [Fact]
+    [Test]
     public void APackageInNodeModulesCanImportTheBuiltins()
     {
         using var tree = new PackageTree();
@@ -330,7 +327,7 @@ public class BuiltinModuleTests
     /// gets the builtin rather than whatever <c>node_modules</c> happens to hold under that name, exactly as
     /// Node resolves it.
     /// </summary>
-    [Fact]
+    [Test]
     public void ABuiltinOutranksAPackageOfTheSameName()
     {
         using var tree = new PackageTree();
@@ -358,7 +355,7 @@ public class BuiltinModuleTests
     /// on that interface - and a builtin settles on the stack it was asked on, so importing one costs the
     /// event loop nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task ComposesWithAnAsynchronousLoader()
     {
         var loader = new RecordingAsyncLoader();
@@ -388,7 +385,7 @@ public class BuiltinModuleTests
     /// A loader that only loads synchronously must not be turned into an asynchronous one, because that would
     /// change which failures become promise rejections rather than exceptions on the caller's thread.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASynchronousLoaderStaysSynchronous()
     {
         using var tree = new PackageTree();

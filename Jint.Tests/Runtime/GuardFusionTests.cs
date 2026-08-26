@@ -7,7 +7,7 @@
 /// </summary>
 public class GuardFusionTests
 {
-    [Fact]
+    [Test]
     public void UndefinedAndNullGuardsMatchGenericSemantics()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class GuardFusionTests
         result.Should().Be("true,true,false,true,true,false,false,false,false,false,false");
     }
 
-    [Fact]
+    [Test]
     public void TypeofGuardsCoverEveryTypeofResult()
     {
         var engine = new Engine();
@@ -47,7 +47,7 @@ public class GuardFusionTests
         result.Should().Be("true,true,true,true,true,true,true,true,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void TypeofUndeclaredIdentifierDoesNotThrow()
     {
         var engine = new Engine();
@@ -55,7 +55,7 @@ public class GuardFusionTests
         engine.Evaluate("typeof notDeclaredAnywhere !== 'undefined'").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ImpossibleTypeofLiteralStillEvaluatesOperandOnce()
     {
         var engine = new Engine();
@@ -69,7 +69,7 @@ public class GuardFusionTests
         result.Should().Be("false,1");
     }
 
-    [Fact]
+    [Test]
     public void TypeofClrFunctionIsFunction()
     {
         var engine = new Engine();
@@ -78,7 +78,7 @@ public class GuardFusionTests
         engine.Evaluate("typeof clrCallback === 'object'").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void FusedGuardsWorkAcrossAwaitSuspension()
     {
         var engine = new Engine();
@@ -95,7 +95,7 @@ public class GuardFusionTests
         result.Should().Be("true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void GuardsDriveIfStatementBooleanFastPath()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class GuardFusionTests
         result.Should().Be("unso");
     }
 
-    [Fact]
+    [Test]
     public void LooseNullAndUndefinedGuardsMatchGenericSemantics()
     {
         var engine = new Engine();
@@ -146,7 +146,7 @@ public class GuardFusionTests
             "false,false,false");
     }
 
-    [Fact]
+    [Test]
     public void LooseGuardParityWithGenericPathAcrossOperandTypes()
     {
         // Cross-checks the fused `x == null`/`x == undefined` against a runtime-computed generic
@@ -170,7 +170,7 @@ public class GuardFusionTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LooseGuardEvaluatesOnlyInterestingOperandOnce()
     {
         var engine = new Engine();
@@ -186,7 +186,7 @@ public class GuardFusionTests
         result.Should().Be("true,true,false,3");
     }
 
-    [Fact]
+    [Test]
     public void FusedLooseGuardsWorkAcrossAwaitSuspension()
     {
         var engine = new Engine();
@@ -203,7 +203,7 @@ public class GuardFusionTests
         result.Should().Be("true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void LooseGuardsDriveIfStatementBooleanFastPath()
     {
         var engine = new Engine();
@@ -222,7 +222,7 @@ public class GuardFusionTests
         result.Should().Be("nnsoo");
     }
 
-    [Fact]
+    [Test]
     public void LooseNullEqualityHonorsHtmlDdaAnnexB()
     {
         var engine = new Engine();

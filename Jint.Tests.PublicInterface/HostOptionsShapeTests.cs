@@ -12,7 +12,7 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class HostOptionsShapeTests
 {
-    [Fact]
+    [Test]
     public void AGroupIsTheSameInstanceEveryTimeItIsRead()
     {
         var options = new Options();
@@ -24,7 +24,7 @@ public class HostOptionsShapeTests
         ReferenceEquals(options.Modules, options.Modules).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public async Task ConcurrentReadersOfAGroupAllSeeOneInstance()
     {
         // Options is documented as safe to share between engines being constructed concurrently, and every
@@ -54,7 +54,7 @@ public class HostOptionsShapeTests
         }
     }
 
-    [Fact]
+    [Test]
     public void TheJsonGroupIsConfiguredThroughItsMembers()
     {
         // In 4.16.x Json was the only group with a public setter, which is why the untrusted-code profile's
@@ -69,7 +69,7 @@ public class HostOptionsShapeTests
             .Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void ASaturatedRegexTimeoutMeansUntimedRatherThanUnconstructible()
     {
         // "A limit that cannot be reached is not a limit". Regex accepts a match timeout up to int.MaxValue
@@ -82,7 +82,7 @@ public class HostOptionsShapeTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AConfiguredRegexTimeoutStillReadsBackAsItWasAssigned()
     {
         // The normalization happens where the timeout is used, so a security report describes what the host

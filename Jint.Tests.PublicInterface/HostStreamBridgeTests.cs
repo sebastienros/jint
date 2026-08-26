@@ -240,7 +240,7 @@ public class HostStreamBridgeTests
         operation.IsCompleted.Should().BeTrue("the copy should have finished within 10000 engine turns");
     }
 
-    [Fact]
+    [Test]
     public void ReadsAHostStreamAsAReadableStreamOfUint8Arrays()
     {
         var engine = StreamEngine();
@@ -262,7 +262,7 @@ public class HostStreamBridgeTests
         text.AsString().Should().Be("hello world");
     }
 
-    [Fact]
+    [Test]
     public void ChunksAreBoundedByTheChunkSize()
     {
         var engine = StreamEngine();
@@ -285,7 +285,7 @@ public class HostStreamBridgeTests
         sizes.AsString().Should().Be("4,4,2");
     }
 
-    [Fact]
+    [Test]
     public void TheChunkIsAUint8ArrayAndAFreshOneEveryTime()
     {
         var engine = StreamEngine();
@@ -308,7 +308,7 @@ public class HostStreamBridgeTests
         outcome.AsString().Should().Be("true:false:99");
     }
 
-    [Fact]
+    [Test]
     public void NothingIsReadUntilTheHighWaterMarkAsksForIt()
     {
         // The whole of backpressure, asserted structurally: with a high water mark of zero the queue never
@@ -335,7 +335,7 @@ public class HostStreamBridgeTests
         eager.Reads.Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void ReadingToTheEndReleasesTheHostStream()
     {
         var engine = StreamEngine();
@@ -347,7 +347,7 @@ public class HostStreamBridgeTests
         source.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void LeaveOpenKeepsTheHostStreamForTheHost()
     {
         var engine = StreamEngine();
@@ -360,7 +360,7 @@ public class HostStreamBridgeTests
         source.CanRead.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CancellingTheStreamReleasesTheHostStream()
     {
         var engine = StreamEngine();
@@ -372,7 +372,7 @@ public class HostStreamBridgeTests
         source.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AFailedReadErrorsTheStreamAndCarriesTheClrExceptionForTheHostAlone()
     {
         var engine = StreamEngine();
@@ -396,7 +396,7 @@ public class HostStreamBridgeTests
         source.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ReadsAStreamWhoseReadsCompleteOnAnotherThread()
     {
         // The cross-thread half: every chunk arrives as a generation-stamped event-loop job rather than
@@ -418,7 +418,7 @@ public class HostStreamBridgeTests
         text.AsString().Should().Be("streamed off-thread");
     }
 
-    [Fact]
+    [Test]
     public void RestoringTheGlobalsReleasesEveryOpenBridge()
     {
         // The restore fence. The generation stamp already stops a chunk reaching the restored engine; what
@@ -440,7 +440,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void WritesAWritableStreamToAHostStream()
     {
         var engine = StreamEngine();
@@ -463,7 +463,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AChunkThatIsNotAByteSequenceIsRefusedRatherThanStringified()
     {
         var engine = StreamEngine();
@@ -485,7 +485,7 @@ public class HostStreamBridgeTests
         destination.ToArray().Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void TheWriterIsBackpressuredByTheHighWaterMark()
     {
         // desiredSize is the standard's own arithmetic — highWaterMark minus the queue — so this is an exact
@@ -506,7 +506,7 @@ public class HostStreamBridgeTests
         sizes.AsString().Should().Be("1,-1");
     }
 
-    [Fact]
+    [Test]
     public void AbortingTheWritableStreamReleasesTheHostStreamWithoutFlushing()
     {
         var engine = StreamEngine();
@@ -519,7 +519,7 @@ public class HostStreamBridgeTests
         destination.Flushes.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void CopiesAScriptStreamThroughATransformIntoAHostStream()
     {
         // The recipe: a host stream in, a script TransformStream in the middle, a host stream out, and the
@@ -547,7 +547,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void CopiesABlobsStreamIntoAHostStream()
     {
         // `Blob.stream()` is a ReadableStream the engine built itself, not one a script constructed, so this
@@ -564,7 +564,7 @@ public class HostStreamBridgeTests
         Encoding.UTF8.GetString(destination.ToArray()).Should().Be("part one, part two");
     }
 
-    [Fact]
+    [Test]
     public void PipesAHostStreamThroughADecompressionStreamIntoAHostStream()
     {
         // Both halves of the bridge with an engine-supplied transform between them: a compressed host stream
@@ -590,7 +590,7 @@ public class HostStreamBridgeTests
         Encoding.UTF8.GetString(destination.ToArray()).Should().Be("the bytes that made the round trip");
     }
 
-    [Fact]
+    [Test]
     public async Task CopyReadableStreamAsyncDrivesTheEngineWhileItWaits()
     {
         var engine = StreamEngine();
@@ -603,7 +603,7 @@ public class HostStreamBridgeTests
         Encoding.UTF8.GetString(destination.ToArray()).Should().Be("abc");
     }
 
-    [Fact]
+    [Test]
     public async Task CopiesToADestinationWhoseWritesCompleteOnAnotherThread()
     {
         // The copy's own cross-thread half: each write settles on a thread-pool thread and comes back as a
@@ -624,7 +624,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ACopyOfALockedStreamFailsTheOperationRatherThanTheStartCall()
     {
         var engine = StreamEngine();
@@ -640,7 +640,7 @@ public class HostStreamBridgeTests
         Assert.Throws<PromiseRejectedException>(() => copy.GetResult());
     }
 
-    [Fact]
+    [Test]
     public void ACopyOfSomethingThatIsNotAReadableStreamIsAnArgumentException()
     {
         var engine = StreamEngine();
@@ -650,7 +650,7 @@ public class HostStreamBridgeTests
         Assert.Throws<ArgumentNullException>(() => engine.WebApi.StartReadableStreamCopy(engine.Evaluate("new ReadableStream()"), null!));
     }
 
-    [Fact]
+    [Test]
     public void ACopyThatFailsCancelsTheSourceUnlessToldNotTo()
     {
         var engine = StreamEngine();
@@ -673,7 +673,7 @@ public class HostStreamBridgeTests
         engine.Evaluate("cancelled.join(',')").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ACopyOfAnErroredStreamFailsWithTheScriptsOwnError()
     {
         var engine = StreamEngine();
@@ -687,7 +687,7 @@ public class HostStreamBridgeTests
         copy.Error!.Get("message").AsString().Should().Be("nope");
     }
 
-    [Fact]
+    [Test]
     public void ACancelledCopyEndsWithAnAbortErrorAndReleasesTheDestination()
     {
         var engine = StreamEngine();
@@ -708,7 +708,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ACopyCancelledBeforeItStartsNeverLocksTheSource()
     {
         var engine = StreamEngine();
@@ -728,7 +728,7 @@ public class HostStreamBridgeTests
         engine.Evaluate("source.locked").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ACopyAbandonedByARestoreReportsItselfCompletedRatherThanPollingForever()
     {
         var engine = StreamEngine();
@@ -747,7 +747,7 @@ public class HostStreamBridgeTests
         destination.Disposed.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheOptionsRefuseValuesThatWouldMeanNothing()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new HostReadableStreamOptions { ChunkSize = 0 });
@@ -755,7 +755,7 @@ public class HostStreamBridgeTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new HostWritableStreamOptions { HighWaterMark = double.NaN });
     }
 
-    [Fact]
+    [Test]
     public void ANonReadableOrNonWritableStreamIsRefusedAtTheBoundary()
     {
         var engine = StreamEngine();
@@ -767,7 +767,7 @@ public class HostStreamBridgeTests
         Assert.Throws<ArgumentException>(() => engine.WebApi.CreateWritableStream(readOnly));
     }
 
-    [Fact]
+    [Test]
     public void AStreamCreatedWithoutTheFeatureFlagStillWorksButIsNotInstanceOfAnything()
     {
         // The bridge installs no global and needs none: what the Streams flag buys a script is the

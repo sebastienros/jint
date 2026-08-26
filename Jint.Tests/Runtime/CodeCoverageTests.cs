@@ -37,7 +37,7 @@ public class CodeCoverageTests
 
     // ---- what a hit count means ----
 
-    [Fact]
+    [Test]
     public void EveryExecutedStatementIsCountedOnce()
     {
         const string Code = "var a = 1; var b = 2; a + b;";
@@ -51,7 +51,7 @@ public class CodeCoverageTests
             ("a + b;", CoverageEntryKind.Statement, 1L));
     }
 
-    [Fact]
+    [Test]
     public void ALoopBodyCountsOncePerIteration()
     {
         const string Code = "var total = 0; for (var i = 0; i < 3; i++) { total += i; }";
@@ -71,11 +71,10 @@ public class CodeCoverageTests
     /// structurally-simple body with the per-statement ceremony skipped entirely — including the counting.
     /// Enabling coverage has to disarm all three, so all three are pinned.
     /// </summary>
-    [Theory]
-    [InlineData("for (var i = 0; i < 3; i++) { total += 1; }")]
-    [InlineData("for (var i = 0; i < 3; i++) total += 1;")]
-    [InlineData("var i = 0; while (i++ < 3) { total += 1; }")]
-    [InlineData("var i = 0; do { total += 1; } while (++i < 3);")]
+    [TestCase("for (var i = 0; i < 3; i++) { total += 1; }")]
+    [TestCase("for (var i = 0; i < 3; i++) total += 1;")]
+    [TestCase("var i = 0; while (i++ < 3) { total += 1; }")]
+    [TestCase("var i = 0; do { total += 1; } while (++i < 3);")]
     public void EveryLoopShapeCountsItsBodyPerIteration(string loop)
     {
         // inside a function body, so completion values are unobservable and the tight lane is otherwise
@@ -89,7 +88,7 @@ public class CodeCoverageTests
         Rows(code, engine.Diagnostics.GetCoverage()).Should().Contain(("total += 1;", CoverageEntryKind.Statement, 3L));
     }
 
-    [Fact]
+    [Test]
     public void OnlyTheBranchThatRanIsReported()
     {
         const string Code = "var x = 1; if (x) { x = 2; } else { x = 3; }";
@@ -103,7 +102,7 @@ public class CodeCoverageTests
         rows.Select(r => r.Text).Should().NotContain("x = 3;");
     }
 
-    [Fact]
+    [Test]
     public void AFunctionBodyCountsOncePerCall()
     {
         const string Code = "function f(n) { return n + 1; } f(1); f(2);";
@@ -123,7 +122,7 @@ public class CodeCoverageTests
     /// so the debugger could step onto it; coverage needs the same, or a body of nothing but a literal return
     /// would report its function as called and its only statement as never run.
     /// </summary>
-    [Fact]
+    [Test]
     public void APreResolvedLiteralReturnIsStillCounted()
     {
         const string Code = "function f() { return 42; } f(); f();";
@@ -134,7 +133,7 @@ public class CodeCoverageTests
         Rows(Code, engine.Diagnostics.GetCoverage()).Should().Contain(("return 42;", CoverageEntryKind.Statement, 2L));
     }
 
-    [Fact]
+    [Test]
     public void AConciseArrowBodyIsReportedAsAFunctionEntry()
     {
         const string Code = "var double = x => x * 2; double(1); double(2); double(3);";
@@ -149,7 +148,7 @@ public class CodeCoverageTests
     /// A generator body is genuinely re-entered by every resumption, and the counter says so. Pinned because it
     /// is the one place a hit count is not "how many times was this called".
     /// </summary>
-    [Fact]
+    [Test]
     public void AGeneratorBodyCountsOncePerResumption()
     {
         const string Code = "function* g() { yield 1; yield 2; } var it = g(); it.next(); it.next(); it.next();";
@@ -167,7 +166,7 @@ public class CodeCoverageTests
     /// An async body is re-entered on every resumption after an await, so its Function entry counts them; the
     /// statements themselves are not re-counted, because execution picks up where it suspended.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnAsyncBodyCountsItsResumptions()
     {
         const string Code = "async function f() { var a = 1; await 0; var b = 2; } f();";
@@ -183,7 +182,7 @@ public class CodeCoverageTests
         rows.Should().Contain(("var b = 2;", CoverageEntryKind.Statement, 1L));
     }
 
-    [Fact]
+    [Test]
     public void EvaluatedCodeIsCountedUnderItsOwnSourceName()
     {
         var engine = CreateEngine();
@@ -196,7 +195,7 @@ public class CodeCoverageTests
         report.Sources.SelectMany(s => s.Entries).Should().AllSatisfy(e => e.HitCount.Should().Be(1));
     }
 
-    [Fact]
+    [Test]
     public void ModuleStatementsAreCountedUnderTheModuleLocation()
     {
         var engine = CreateEngine();
@@ -214,7 +213,7 @@ public class CodeCoverageTests
 
     // ---- what is not reported ----
 
-    [Fact]
+    [Test]
     public void BlockStatementsAreNotReported()
     {
         const string Code = "var a = 0; { a = 1; a = 2; }";
@@ -234,7 +233,7 @@ public class CodeCoverageTests
     /// is never entered), which is exactly why blocks are excluded from the report: the statements inside are
     /// reported identically either way.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASingleStatementBlockReportsItsContentsLikeAnyOther()
     {
         const string Code = "var a = 0; if (true) { a = 1; }";
@@ -250,7 +249,7 @@ public class CodeCoverageTests
 
     // ---- granularity ----
 
-    [Fact]
+    [Test]
     public void FunctionGranularityReportsFunctionBodiesAndNothingElse()
     {
         const string Code = "function f() { var x = 1; return x; } f(); f();";
@@ -262,7 +261,7 @@ public class CodeCoverageTests
             ("{ var x = 1; return x; }", CoverageEntryKind.Function, 2L));
     }
 
-    [Fact]
+    [Test]
     public void StatementGranularityIsTheDefault()
     {
         var options = new Options();
@@ -272,7 +271,7 @@ public class CodeCoverageTests
 
     // ---- reset and readout ----
 
-    [Fact]
+    [Test]
     public void ResetCoverageDropsEveryCount()
     {
         const string Code = "var a = 1;";
@@ -294,7 +293,7 @@ public class CodeCoverageTests
     /// not cache a <c>Prepared&lt;Script&gt;</c> would read "ran once" ten times over instead of "ran ten
     /// times".
     /// </summary>
-    [Fact]
+    [Test]
     public void ReParsingTheSameSourceAddsToTheSameEntry()
     {
         const string Code = "function f() { return 1; } f(); f();";
@@ -310,7 +309,7 @@ public class CodeCoverageTests
         rows.Should().Contain(("{ return 1; }", CoverageEntryKind.Function, 4L));
     }
 
-    [Fact]
+    [Test]
     public void SourcesAreKeyedByTheNameTheCodeWasParsedUnder()
     {
         var engine = CreateEngine();
@@ -322,7 +321,7 @@ public class CodeCoverageTests
         report.Sources.Select(s => s.Name).Should().Equal("a.js", "b.js");
     }
 
-    [Fact]
+    [Test]
     public void EntriesAreOrderedBySourcePosition()
     {
         const string Code = "var a = 1;\nvar b = 2;\nvar c = 3;";
@@ -339,7 +338,7 @@ public class CodeCoverageTests
 
     // ---- the off switch ----
 
-    [Fact]
+    [Test]
     public void ReadingCoverageFromAnEngineThatDoesNotCollectItThrows()
     {
         var engine = new Engine();
@@ -356,7 +355,7 @@ public class CodeCoverageTests
     /// coverage has to arm that lane — and an engine that did not enable it must be left exactly as it was,
     /// because that lane not being armed is what makes the off path free rather than merely cheap.
     /// </summary>
-    [Fact]
+    [Test]
     public void CoverageArmsThePerStatementLaneAndNothingElseDoes()
     {
         new EvaluationContext(new Engine()).ShouldRunPerStatementChecks.Should().BeFalse();
@@ -376,7 +375,7 @@ public class CodeCoverageTests
     /// inline instead, which is what lets the tight-loop lanes stay armed under a statement budget. Coverage
     /// has to take that shortcut away, or an engine configured with both would silently collect nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void CoverageIsStillCollectedUnderALoneStatementLimit()
     {
         const string Code = "var a = 1; var b = 2;";
@@ -398,7 +397,7 @@ public class CodeCoverageTests
     /// lane into the exact-constraint walk, and both routes must charge exactly the same statements — or
     /// turning coverage on would move where the limit fires.
     /// </summary>
-    [Fact]
+    [Test]
     public void AStatementLimitFiresAtTheSameStatementWithCoverageOnAndOff()
     {
         const string Code = "var n = 0; for (var i = 0; i < 1000; i++) { n += i; }";
@@ -429,7 +428,7 @@ public class CodeCoverageTests
     /// handler for <c>return &lt;literal&gt;;</c> — is stored on AST <c>UserData</c> and is therefore ONE
     /// instance shared by every engine running the script.
     /// </summary>
-    [Fact]
+    [Test]
     public void TwoEnginesSharingOnePreparedScriptCountIndependently()
     {
         const string Code = "function f() { return 7; } f();";
@@ -463,7 +462,7 @@ public class CodeCoverageTests
     /// therefore be per-engine for most nodes and shared for these — the worst of both — which is why the
     /// counters are keyed engine-side on node identity instead.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheHandlerForAPreResolvedReturnIsParkedOnTheSharedAst()
     {
         var prepared = Engine.PrepareScript("function f() { return 7; }", Source);
@@ -491,7 +490,7 @@ public class CodeCoverageTests
     /// through the shared AST, so a second engine's report is a function of its own executions alone even when
     /// the first engine ran the script a different number of times.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASharedPreparedScriptIsUnchangedByHavingBeenCovered()
     {
         const string Code = "var a = 0; while (a < 3) { a++; }";

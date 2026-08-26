@@ -60,7 +60,7 @@ public class TimerTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void AMicrotaskRunsBeforeATimerThatIsAlreadyDue()
     {
         var (engine, _) = TimerEngine();
@@ -75,7 +75,7 @@ public class TimerTests
         Log(engine).Should().Be("script,microtask,timeout");
     }
 
-    [Fact]
+    [Test]
     public void EachTimerGetsItsOwnMicrotaskCheckpoint()
     {
         var (engine, _) = TimerEngine();
@@ -89,7 +89,7 @@ public class TimerTests
         Log(engine).Should().Be("t1,p1,t2,p2");
     }
 
-    [Fact]
+    [Test]
     public void TimersDueAtTheSameInstantFireInRegistrationOrder()
     {
         var (engine, clock) = TimerEngine();
@@ -108,7 +108,7 @@ public class TimerTests
         Log(engine).Should().Be("a,b,c");
     }
 
-    [Fact]
+    [Test]
     public void AShorterDelayFiresFirstHoweverItWasRegistered()
     {
         var (engine, clock) = TimerEngine();
@@ -125,7 +125,7 @@ public class TimerTests
         Log(engine).Should().Be("early,middle,late");
     }
 
-    [Fact]
+    [Test]
     public void TheExtraArgumentsAreForwardedToTheCallback()
     {
         var (engine, clock) = TimerEngine();
@@ -148,7 +148,7 @@ public class TimerTests
         Log(engine).Should().Be("x:7:undefined,none:0,i42,i42");
     }
 
-    [Fact]
+    [Test]
     public void ADelayThatIsNaNOrNegativeOrMissingIsZero()
     {
         var (engine, _) = TimerEngine();
@@ -163,7 +163,7 @@ public class TimerTests
         Log(engine).Should().Be("nan,negative,missing,string");
     }
 
-    [Fact]
+    [Test]
     public void TheDelayIsCoercedAsAWebIdlLong()
     {
         var (engine, _) = TimerEngine();
@@ -175,7 +175,7 @@ public class TimerTests
         Log(engine).Should().Be("wrapped");
     }
 
-    [Fact]
+    [Test]
     public void IdsAreMonotonicAndSharedBetweenTimeoutsAndIntervals()
     {
         var (engine, _) = TimerEngine();
@@ -185,7 +185,7 @@ public class TimerTests
         engine.Evaluate("setTimeout(function () {}, 1000)").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void ClearTimeoutAndClearIntervalAreInterchangeable()
     {
         var (engine, clock) = TimerEngine();
@@ -203,7 +203,7 @@ public class TimerTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ClearingAnUnknownIdIsSilentlyIgnored()
     {
         var (engine, _) = TimerEngine();
@@ -224,7 +224,7 @@ public class TimerTests
         Log(engine).Should().Be("survived");
     }
 
-    [Fact]
+    [Test]
     public void ATimerCanClearItselfFromInsideItsOwnCallback()
     {
         var (engine, clock) = TimerEngine();
@@ -244,7 +244,7 @@ public class TimerTests
         Log(engine).Should().Be("tick,once");
     }
 
-    [Fact]
+    [Test]
     public void AnIntervalRepeatsUntilItIsCleared()
     {
         var (engine, clock) = TimerEngine();
@@ -266,7 +266,7 @@ public class TimerTests
         Log(engine).Should().Be("tick,tick,tick");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingCallbackDoesNotStopTheInterval()
     {
         var (engine, clock) = TimerEngine();
@@ -279,7 +279,7 @@ public class TimerTests
 
             // The interval is re-armed before the callback runs, which is the whole reason a throw cannot
             // silently stop it.
-            var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks());
+            var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!;
             thrown.Message.Should().Contain("boom");
         }
 
@@ -288,7 +288,7 @@ public class TimerTests
         engine.Execute("clearInterval(id);");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingCallbackEruptsFromThePumpAndTheRestOfTheQueueSurvives()
     {
         // No DiagnosticsSink here, which is what makes the throw erupt rather than be reported — the
@@ -302,7 +302,7 @@ public class TimerTests
 
         clock.Advance(5);
 
-        var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks());
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!;
         thrown.Message.Should().Contain("boom");
         Log(engine).Should().BeEmpty();
 
@@ -311,19 +311,19 @@ public class TimerTests
         Log(engine).Should().Be("after");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingCallbackEruptsFromExecute()
     {
         var (engine, _) = TimerEngine();
 
         // Execute drains the event loop once the script has finished, so the throw comes out of Execute.
         var thrown = Assert.Throws<JavaScriptException>(
-            () => engine.Execute("setTimeout(() => { throw new Error('boom'); }, 0);"));
+            () => engine.Execute("setTimeout(() => { throw new Error('boom'); }, 0);"))!;
 
         thrown.Message.Should().Contain("boom");
     }
 
-    [Fact]
+    [Test]
     public void ANestedChainIsClampedToFourMillisecondsBeyondTheFifthLevel()
     {
         var (engine, clock) = TimerEngine();
@@ -357,7 +357,7 @@ public class TimerTests
         engine.Evaluate("levels").AsNumber().Should().Be(8);
     }
 
-    [Fact]
+    [Test]
     public void AZeroDelayIntervalIsClampedOnceItHasRepeatedEnoughTimes()
     {
         var (engine, clock) = TimerEngine();
@@ -378,23 +378,23 @@ public class TimerTests
         engine.Execute("clearInterval(id);");
     }
 
-    [Fact]
+    [Test]
     public void ANonCallableHandlerIsATypeError()
     {
         var (engine, _) = TimerEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Execute("setTimeout(undefined, 0)"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("setTimeout(undefined, 0)"))!
             .Message.Should().Contain("setTimeout");
         Assert.Throws<JavaScriptException>(() => engine.Execute("setTimeout(42, 0)"));
         Assert.Throws<JavaScriptException>(() => engine.Execute("setTimeout({}, 0)"));
-        Assert.Throws<JavaScriptException>(() => engine.Execute("setInterval(undefined, 0)"))
+        Assert.Throws<JavaScriptException>(() => engine.Execute("setInterval(undefined, 0)"))!
             .Message.Should().Contain("setInterval");
 
         engine.Evaluate("(() => { try { setTimeout(null, 0); } catch (e) { return e instanceof TypeError; } })()")
             .AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AStringHandlerIsATypeErrorRatherThanCompiledCode()
     {
         var (engine, clock) = TimerEngine();
@@ -413,7 +413,7 @@ public class TimerTests
         Log(engine).Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void ExceedingMaxActiveTimersThrowsAQuotaExceededError()
     {
         var (engine, clock) = TimerEngine(maxActiveTimers: 2);
@@ -444,7 +444,7 @@ public class TimerTests
         Log(engine).Should().Be("one,two,three");
     }
 
-    [Fact]
+    [Test]
     public void AClearedTimerFreesItsSlot()
     {
         var (engine, _) = TimerEngine(maxActiveTimers: 1);
@@ -455,7 +455,7 @@ public class TimerTests
         engine.Evaluate("second").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void QueueMicrotaskRunsAfterTheCurrentScriptAndBeforeAnyTimer()
     {
         var (engine, _) = TimerEngine();
@@ -471,7 +471,7 @@ public class TimerTests
         Log(engine).Should().Be("script,micro1,promise,micro2,timeout");
     }
 
-    [Fact]
+    [Test]
     public void QueueMicrotaskCallsTheCallbackWithNoArgumentsAndUndefinedThis()
     {
         var (engine, _) = TimerEngine();
@@ -482,7 +482,7 @@ public class TimerTests
         Log(engine).Should().Be("0:true");
     }
 
-    [Fact]
+    [Test]
     public void QueueMicrotaskRejectsANonCallableCallback()
     {
         var (engine, _) = TimerEngine();
@@ -498,7 +498,7 @@ public class TimerTests
         Assert.Throws<JavaScriptException>(() => engine.Execute("queueMicrotask(undefined)"));
     }
 
-    [Fact]
+    [Test]
     public void ATimerNeverFiresWithoutAPump()
     {
         var (engine, clock) = TimerEngine();
@@ -513,7 +513,7 @@ public class TimerTests
         Log(engine).Should().Be("fired");
     }
 
-    [Fact]
+    [Test]
     public void ARestoredEngineForgetsTheTimersOfTheCycleThatEnded()
     {
         var (engine, clock) = TimerEngine();
@@ -532,7 +532,7 @@ public class TimerTests
         engine._webApi!.Timers!.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ABlockingUnwrapWaitsOutARealTimer()
     {
         // The real clock here: the point is that the blocking drain ends by itself when the timer comes due.
@@ -547,7 +547,7 @@ public class TimerTests
         stopwatch.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(80));
     }
 
-    [Fact]
+    [Test]
     public async Task AnAsynchronousUnwrapWaitsOutARealTimer()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -557,7 +557,7 @@ public class TimerTests
         result.AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AHostPollingLoopIsEnoughToRunTimers()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -580,7 +580,7 @@ public class TimerTests
         done.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ATimerLongerThanTheUnwrapTimeoutTimesOutByDesign()
     {
         // The timer rides a clock this test never advances, so it can never come due — a wall-clock margin
@@ -595,7 +595,7 @@ public class TimerTests
         Assert.Throws<PromiseRejectedException>(() => pending.UnwrapIfPromise(TimeSpan.FromMilliseconds(200)));
     }
 
-    [Fact]
+    [Test]
     public void TheTimerGlobalsAreOrdinaryConfigurableWritableProperties()
     {
         var (engine, _) = TimerEngine();
@@ -612,7 +612,7 @@ public class TimerTests
             .AsString().Should().Be("setTimeout,1,0,1");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmHasNoTimers()
     {
         var (engine, _) = TimerEngine();

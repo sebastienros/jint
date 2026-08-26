@@ -6,7 +6,7 @@ namespace Jint.Tests.Runtime;
 
 public class RegExpTests
 {
-    [Fact]
+    [Test]
     public void MatchGlobalUnicodeNoMatchesReturnsNull()
     {
         var engine = new Engine();
@@ -15,7 +15,7 @@ public class RegExpTests
         result.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void MatchGlobalUnicodeCollectsAllMatches()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class RegExpTests
         result.Should().Be("[\"1\",\"22\",\"333\"]");
     }
 
-    [Fact]
+    [Test]
     public void MatchGlobalUnicodeEmptyMatchesAdvanceByCodePoint()
     {
         var engine = new Engine();
@@ -34,23 +34,22 @@ public class RegExpTests
         result.Should().Be(3);
     }
 
-    [Theory]
     // A capturing group nested inside a quantified non-capturing group routes the pattern to
     // the custom (QuickJS-port) regex engine. Its greedy Char+/Range+ bulk-advance optimization
     // must not fire when the loop body has more than the single leading char/range atom,
     // otherwise trailing iterations get dropped (e.g. "abcabc" matched as "abca").
-    [InlineData("(?:a(b)c)+", "abcabc", "[\"abcabc\",\"b\"]")]
-    [InlineData("(?:a(b)c)+", "abc", "[\"abc\",\"b\"]")]
-    [InlineData("(?:x(y)z)+", "xyzxyzxyz", "[\"xyzxyzxyz\",\"y\"]")]
-    [InlineData("(?:a(b)c)+", "zzabcabc", "[\"abcabc\",\"b\"]")]
-    [InlineData("(a(b)c)+", "abcabc", "[\"abcabc\",\"abc\",\"b\"]")]
-    [InlineData("(?:(a)(b))+", "abab", "[\"abab\",\"a\",\"b\"]")]
-    [InlineData("(?:([ab])(x))+", "axbx", "[\"axbx\",\"b\",\"x\"]")]
+    [TestCase("(?:a(b)c)+", "abcabc", "[\"abcabc\",\"b\"]")]
+    [TestCase("(?:a(b)c)+", "abc", "[\"abc\",\"b\"]")]
+    [TestCase("(?:x(y)z)+", "xyzxyzxyz", "[\"xyzxyzxyz\",\"y\"]")]
+    [TestCase("(?:a(b)c)+", "zzabcabc", "[\"abcabc\",\"b\"]")]
+    [TestCase("(a(b)c)+", "abcabc", "[\"abcabc\",\"abc\",\"b\"]")]
+    [TestCase("(?:(a)(b))+", "abab", "[\"abab\",\"a\",\"b\"]")]
+    [TestCase("(?:([ab])(x))+", "axbx", "[\"axbx\",\"b\",\"x\"]")]
     // Range as the leading atom of a multi-atom body exercises the Range+ bulk-advance guard.
-    [InlineData("(?:[a-c](x))+", "axbx", "[\"axbx\",\"x\"]")]
+    [TestCase("(?:[a-c](x))+", "axbx", "[\"axbx\",\"x\"]")]
     // Single char/range body: the bulk-advance optimization SHOULD still apply and stay correct.
-    [InlineData("(a)+", "aaa", "[\"aaa\",\"a\"]")]
-    [InlineData("([a-z])+", "abc", "[\"abc\",\"c\"]")]
+    [TestCase("(a)+", "aaa", "[\"aaa\",\"a\"]")]
+    [TestCase("([a-z])+", "abc", "[\"abc\",\"c\"]")]
     public void MatchesNestedCaptureInsideQuantifiedGroup(string pattern, string input, string expected)
     {
         var engine = new Engine();
@@ -61,9 +60,8 @@ public class RegExpTests
 
     private static string JsonString(string s) => System.Text.Json.JsonSerializer.Serialize(s);
 
-    [Theory]
-    [InlineData("gy")]
-    [InlineData("guy")]
+    [TestCase("gy")]
+    [TestCase("guy")]
     public void MatchStickyGlobalCollectsAllAdjacentMatches(string flags)
     {
         // without 'u' exercises the .NET sticky fast path, with 'u' the generic exec loop
@@ -73,9 +71,8 @@ public class RegExpTests
         result.Should().Be("[[\"a\",\"a\",\"a\"],[\"ab\",\"ab\",\"ab\"]]");
     }
 
-    [Theory]
-    [InlineData("gy")]
-    [InlineData("guy")]
+    [TestCase("gy")]
+    [TestCase("guy")]
     public void MatchStickyGlobalStopsAtFirstGap(string flags)
     {
         // matches after the gap exist but are not adjacent, so sticky matching must not include them
@@ -85,9 +82,8 @@ public class RegExpTests
         result.Should().Be("[[\"a\",\"a\"],null]");
     }
 
-    [Theory]
-    [InlineData("gy")]
-    [InlineData("guy")]
+    [TestCase("gy")]
+    [TestCase("guy")]
     public void MatchStickyGlobalAdvancesOverEmptyMatches(string flags)
     {
         var engine = new Engine();
@@ -96,7 +92,7 @@ public class RegExpTests
         result.Should().Be("[\"aa\",\"\",\"\"]");
     }
 
-    [Fact]
+    [Test]
     public void MatchStickyGlobalResetsLastIndex()
     {
         var engine = new Engine();
@@ -105,9 +101,8 @@ public class RegExpTests
         result.Should().Be("[[\"a\",\"a\",\"a\"],0]");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("u")]
+    [TestCase("")]
+    [TestCase("u")]
     public void SplitCollectsSegmentsCapturesAndTail(string flags)
     {
         // without flags exercises the .NET fast path, with 'u' the generic exec loop
@@ -117,9 +112,8 @@ public class RegExpTests
         result.Should().Be("[\"a\",\"1\",\"b\",\"22\",\"c\"]");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("u")]
+    [TestCase("")]
+    [TestCase("u")]
     public void SplitHonorsLimit(string flags)
     {
         var engine = new Engine();
@@ -128,9 +122,8 @@ public class RegExpTests
         result.Should().Be("[[\"a\",\"b\"],[\"a\",\"1\"]]");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("u")]
+    [TestCase("")]
+    [TestCase("u")]
     public void SplitKeepsEmptyLeadingAndTrailingSegments(string flags)
     {
         var engine = new Engine();
@@ -142,7 +135,7 @@ public class RegExpTests
     private const string TestRegex = "^(https?:\\/\\/)?([\\da-z\\.-]+)\\.([a-z\\.]{2,6})([\\/\\w\\.-]*)*\\/?$";
     private const string TestedValue = "https://archiverbx.blob.core.windows.net/static/C:/Users/USR/Documents/Projects/PROJ/static/images/full/1234567890.jpg";
 
-    [Fact]
+    [Test]
     public void CanNotBreakEngineWithLongRunningMatch()
     {
         var engine = new Engine(e => e.Constraints.RegexTimeout = TimeSpan.FromSeconds(1));
@@ -153,7 +146,7 @@ public class RegExpTests
         }).Should().ThrowExactly<RegexMatchTimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void CanNotBreakEngineWithLongRunningRegExp()
     {
         var engine = new Engine(e => e.Constraints.RegexTimeout = TimeSpan.FromSeconds(1));
@@ -164,7 +157,7 @@ public class RegExpTests
         }).Should().ThrowExactly<RegexMatchTimeoutException>();
     }
 
-    [Fact]
+    [Test]
     public void PreventsInfiniteLoop()
     {
         var engine = new Engine();
@@ -174,7 +167,7 @@ public class RegExpTests
         result[1].Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void ToStringWithNonRegExpInstanceAndMissingProperties()
     {
         var engine = new Engine();
@@ -183,7 +176,7 @@ public class RegExpTests
         result.Should().Be("/undefined/undefined");
     }
 
-    [Fact]
+    [Test]
     public void ToStringWithNonRegExpInstanceAndValidProperties()
     {
         var engine = new Engine();
@@ -192,7 +185,7 @@ public class RegExpTests
         result.Should().Be("/a/b");
     }
 
-    [Fact]
+    [Test]
     public void MatchAllIteratorReturnsCorrectNumberOfElements()
     {
         var engine = new Engine();
@@ -201,7 +194,7 @@ public class RegExpTests
         result.Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void ToStringWithRealRegExpInstance()
     {
         var engine = new Engine();
@@ -210,7 +203,7 @@ public class RegExpTests
         result.Should().Be("/test/g");
     }
 
-    [Fact]
+    [Test]
     public void ToStringPreserversOriginalPatternOfLiteral()
     {
         var engine = new Engine();
@@ -221,7 +214,7 @@ public class RegExpTests
         jsRegExp.ToString().Should().Be("/^x\\/\\\\r\\n\\u2028\\u2029\\0\0|[x/\\\\r\\n\\u2028\\u2029\\0\0]$/");
     }
 
-    [Fact]
+    [Test]
     public void ToStringCorrectlyEscapesProblematicCharacters()
     {
         var engine = new Engine();
@@ -232,7 +225,7 @@ public class RegExpTests
         jsRegExp.ToString().Should().Be("/^x\\/\\r\\n\\u2028\\u2029\\0\0|[x/\\r\\n\\u2028\\u2029\\0\0]$/");
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotThrowErrorOnIncompatibleRegex()
     {
         var engine = new Engine();
@@ -244,14 +237,14 @@ public class RegExpTests
         engine.Evaluate("new RegExp('[]')").Should().NotBeNull();
     }
 
-    [Fact]
+    [Test]
     public void ShouldNotThrowErrorOnRegExNumericNegation()
     {
         var engine = new Engine();
         ReferenceEquals(JsNumber.DoubleNaN, engine.Evaluate("-/[]/")).Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldProduceCorrectSourceForSlashEscapes()
     {
         var engine = new Engine();
@@ -259,10 +252,9 @@ public class RegExpTests
         source.Should().Be("\\/\\/");
     }
 
-    [Theory]
-    [InlineData("", "/()/ug", new[] { "" }, new[] { 0 })]
-    [InlineData("💩", "/()/ug", new[] { "", "" }, new[] { 0, 2 })]
-    [InlineData("ᴜⁿᵢ𝒸ₒᵈₑ is a 💩", "/i?/ug",
+    [TestCase("", "/()/ug", new[] { "" }, new[] { 0 })]
+    [TestCase("💩", "/()/ug", new[] { "", "" }, new[] { 0, 2 })]
+    [TestCase("ᴜⁿᵢ𝒸ₒᵈₑ is a 💩", "/i?/ug",
         new[] { "", "", "", "", "", "", "", "", "i", "", "", "", "", "", "" },
         new[] { 0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16 })]
     public void ShouldNotMatchEmptyStringsWithinSurrogatePairsInUnicodeMode(string input, string pattern, string[] expectedCaptures, int[] expectedIndices)
@@ -274,7 +266,7 @@ public class RegExpTests
         matches.Select(m => m.Get("index").AsInteger()).Should().Equal(expectedIndices);
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowProblematicGroupNames()
     {
         var engine = new Engine();
@@ -288,7 +280,7 @@ public class RegExpTests
         result.Should().Be("a-b-c");
     }
 
-    [Fact]
+    [Test]
     public void ShouldSupportRegExpModifiersInLiteralsAndConstructor()
     {
         var engine = new Engine();
@@ -305,7 +297,7 @@ public class RegExpTests
             """).AsString().Should().Be("false,true");
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowClassSetSyntaxCharacterOutsideClassSetForFlagV()
     {
         var engine = new Engine();
@@ -313,7 +305,7 @@ public class RegExpTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowClassSetReservedDoublePunctuatorCharactersOutsideClassSetForFlagV()
     {
         var engine = new Engine();
@@ -321,7 +313,7 @@ public class RegExpTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldAllowEscapedClassSetReservedPunctuatorsForFlagV()
     {
         var engine = new Engine();
@@ -329,7 +321,7 @@ public class RegExpTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void Issue506()
     {
         var engine = new Engine();
@@ -351,19 +343,18 @@ public class RegExpTests
     // greedy-nullable alternative, would in fact agree with .NET
     // (https://tc39.es/ecma262/#sec-runtime-semantics-repeatmatcher-abstract-operation).
 
-    [Theory]
     // string-tagcloud.js parseJSON patterns (hot in benchmarks)
-    [InlineData(@"""[^""\\\n\r]*""|true|false|null|-?\d+(?:\.\d*)?(:?[eE][+\-]?\d+)?", "g")]
-    [InlineData(@"(?:^|:|,)(?:\s*\[)+", "g")]
+    [TestCase(@"""[^""\\\n\r]*""|true|false|null|-?\d+(?:\.\d*)?(:?[eE][+\-]?\d+)?", "g")]
+    [TestCase(@"(?:^|:|,)(?:\s*\[)+", "g")]
     // string-unpack-code.js pattern
-    [InlineData(@"\b\w+\b", "g")]
+    [TestCase(@"\b\w+\b", "g")]
     // quantified non-capturing groups without captures/lookarounds whose body cannot match
     // the empty string are .NET-safe
-    [InlineData(@"(?:ab)+", "")]
+    [TestCase(@"(?:ab)+", "")]
     // quantified capturing groups whose body cannot match the empty string are .NET-safe
-    [InlineData(@"(a+)+", "")]
-    [InlineData(@"((?:a|b)c)*", "")]
-    [InlineData(@"(:?[eE][+\-]?\d+)?", "")]
+    [TestCase(@"(a+)+", "")]
+    [TestCase(@"((?:a|b)c)*", "")]
+    [TestCase(@"(:?[eE][+\-]?\d+)?", "")]
     public void UsesDotNetRegexWhenPatternIsTranslatable(string pattern, string flags)
     {
         var engine = new Engine();
@@ -372,36 +363,35 @@ public class RegExpTests
         regExp.UsesDotNetEngine.Should().BeTrue();
     }
 
-    [Theory]
     // capturing group inside a quantified group: .NET retains captures across iterations
-    [InlineData(@"((a)|b)+", "")]
-    [InlineData(@"(?:(a)|b)+", "")]
+    [TestCase(@"((a)|b)+", "")]
+    [TestCase(@"(?:(a)|b)+", "")]
     // quantified capturing group whose body can match the empty string: .NET records empty captures
-    [InlineData(@"(a*)*", "")]
-    [InlineData(@"(a|)*", "")]
-    [InlineData(@"(\b)*", "")]
-    [InlineData(@"(a{0,2})+", "")]
-    [InlineData(@"((?:a*))*", "")]
+    [TestCase(@"(a*)*", "")]
+    [TestCase(@"(a|)*", "")]
+    [TestCase(@"(\b)*", "")]
+    [TestCase(@"(a{0,2})+", "")]
+    [TestCase(@"((?:a*))*", "")]
     // quantified non-capturing group whose body can match the empty string: .NET's empty-loop
     // protection stops at the first empty/zero-width alternative, ECMAScript backtracks into a
     // later consuming alternative (the match itself diverges)
-    [InlineData(@"(?:|a)*", "")]
-    [InlineData(@"(?:a*|b)*", "")]
-    [InlineData(@"(?:a||b)*", "")]
-    [InlineData(@"(?:^|a)+", "")]
-    [InlineData(@"(?:a??)*", "")]
+    [TestCase(@"(?:|a)*", "")]
+    [TestCase(@"(?:a*|b)*", "")]
+    [TestCase(@"(?:a||b)*", "")]
+    [TestCase(@"(?:^|a)+", "")]
+    [TestCase(@"(?:a??)*", "")]
     // conservatively routed to custom as well (nullable non-capturing body, though .NET agrees here)
-    [InlineData(@"(?:a*)+", "")]
-    [InlineData(@"(?:a|)+b", "")]
+    [TestCase(@"(?:a*)+", "")]
+    [TestCase(@"(?:a|)+b", "")]
     // quantified lookaround assertions
-    [InlineData(@"(?=(a))+", "")]
-    [InlineData(@"(?:(?=a).)+", "")]
+    [TestCase(@"(?=(a))+", "")]
+    [TestCase(@"(?:(?=a).)+", "")]
     // forward backreference
-    [InlineData(@"\1(a)", "")]
+    [TestCase(@"\1(a)", "")]
     // unicode modes and case-insensitive matching of non-ASCII content
-    [InlineData("a", "u")]
-    [InlineData("a", "v")]
-    [InlineData("ä", "i")]
+    [TestCase("a", "u")]
+    [TestCase("a", "v")]
+    [TestCase("ä", "i")]
     public void UsesCustomEngineWhenDotNetSemanticsDiverge(string pattern, string flags)
     {
         var engine = new Engine();
@@ -410,7 +400,7 @@ public class RegExpTests
         regExp.UsesDotNetEngine.Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void QuantifiedGroupCapturesAreClearedOnEachIteration()
     {
         var engine = new Engine();
@@ -420,7 +410,7 @@ public class RegExpTests
         engine.Evaluate("JSON.stringify(/(?:(a)|b)+/.exec('ab'))").AsString().Should().Be("[\"ab\",null]");
     }
 
-    [Fact]
+    [Test]
     public void QuantifiedCapturingGroupRejectsEmptyIterations()
     {
         var engine = new Engine();
@@ -433,7 +423,7 @@ public class RegExpTests
         engine.Evaluate("JSON.stringify(/(\\b)*/.exec('a'))").AsString().Should().Be("[\"\",null]");
     }
 
-    [Fact]
+    [Test]
     public void QuantifiedNonCapturingGroupWithNullableBodyMatchesPerSpec()
     {
         // Regression: a non-capturing quantified group whose body can reach the empty string
@@ -451,10 +441,9 @@ public class RegExpTests
         engine.Evaluate("'aaa'.replace(/(?:|a)*/g, 'X')").AsString().Should().Be("XX");
     }
 
-    [Theory]
     // without 'u' these route to .NET Regex, with 'u' to the custom engine; results must agree
-    [InlineData("")]
-    [InlineData("u")]
+    [TestCase("")]
+    [TestCase("u")]
     public void QuantifiedNonCapturingGroupBehavesTheSameOnBothEngines(string flags)
     {
         var engine = new Engine();
@@ -464,7 +453,7 @@ public class RegExpTests
         engine.Evaluate($"JSON.stringify('aabxa'.match(/(?:a|)+/g{flags}).filter(function (s) {{ return s !== ''; }}))").AsString().Should().Be("[\"aa\",\"a\"]");
     }
 
-    [Fact]
+    [Test]
     public void TagCloudJsonValidationPipelineWorks()
     {
         // the json2.js-style parseJSON validation from the string-tagcloud benchmark;
@@ -487,24 +476,23 @@ public class RegExpTests
     // (unlike .NET Regex which embeds MatchTimeout), so each prototype method must
     // honor the prepare-time RegexTimeout when calling the custom engine.
 
-    [Theory]
     // RegExp.prototype[@@match] without /g → slow path (RegExpExec → CustomEngineBuiltinExec).
-    [InlineData("'{0}'.match(/{1}/)")]
+    [TestCase("'{0}'.match(/{1}/)")]
     // RegExp.prototype[@@match] with /g → custom-engine fast loop in Match().
-    [InlineData("'{0}'.match(/{1}/g)")]
+    [TestCase("'{0}'.match(/{1}/g)")]
     // RegExp.prototype[@@replace] with /g → custom-engine fast loop in Replace().
-    [InlineData("'{0}'.replace(/{1}/g, 'X')")]
+    [TestCase("'{0}'.replace(/{1}/g, 'X')")]
     // RegExp.prototype.test() → custom-engine IsMatch fast path.
-    [InlineData("/{1}/.test('{0}')")]
+    [TestCase("/{1}/.test('{0}')")]
     // RegExp.prototype[@@search] → custom-engine Execute fast path.
-    [InlineData("'{0}'.search(/{1}/)")]
+    [TestCase("'{0}'.search(/{1}/)")]
     public void PreparedScriptHonorsRegexTimeoutForCustomEngine(string scriptTemplate)
     {
         var script = scriptTemplate.Replace("{0}", TestedValue).Replace("{1}", TestRegex);
         AssertPrepareTimeRegexTimeoutFires(script);
     }
 
-    [Fact]
+    [Test]
     public void PreparedModuleHonorsRegexTimeoutForCustomEngine()
     {
         var preparationOptions = ModulePreparationOptions.Default with
@@ -602,7 +590,7 @@ public class RegExpTests
 
     // ---- host-supplied .NET Regex (RegExpConstructor.Construct(Regex, ...)) ----
 
-    [Fact]
+    [Test]
     public void HostSuppliedRegexSupportsPrototypeMethods()
     {
         // A Regex handed over by the host carries no Acornima parse result, so every lane keyed on it
@@ -622,7 +610,7 @@ public class RegExpTests
         Invoking(() => engine.Evaluate("'1a2b3'.split(re)")).Should().Throw<JavaScriptException>();
     }
 
-    [Fact]
+    [Test]
     public void HostSuppliedRegexReportsCaptureGroups()
     {
         var engine = new Engine();
@@ -636,10 +624,9 @@ public class RegExpTests
 
     // ---- RegExp.prototype.test lastIndex handling (https://tc39.es/ecma262/#sec-regexpbuiltinexec) ----
 
-    [Theory]
-    [InlineData("g")]
-    [InlineData("y")]
-    [InlineData("gu")]
+    [TestCase("g")]
+    [TestCase("y")]
+    [TestCase("gu")]
     public void TestOnEmptySubjectWithLastIndexPastTheEnd(string flags)
     {
         // Step 15.a: lastIndex > length returns null after resetting lastIndex; the empty subject is
@@ -650,9 +637,8 @@ public class RegExpTests
         result.AsString().Should().Be("[false,0]");
     }
 
-    [Theory]
-    [InlineData("g")]
-    [InlineData("y")]
+    [TestCase("g")]
+    [TestCase("y")]
     public void TestMatchesZeroLengthAtEndOfSubject(string flags)
     {
         // lastIndex == length is a legal start position: only lastIndex > length fails outright.
@@ -662,9 +648,8 @@ public class RegExpTests
         result.AsString().Should().Be("[true,3]");
     }
 
-    [Theory]
-    [InlineData("g")]
-    [InlineData("y")]
+    [TestCase("g")]
+    [TestCase("y")]
     public void TestResetsLastIndexWhenItIsPastTheEnd(string flags)
     {
         // Step 15.a.i: a global/sticky regexp resets lastIndex before returning null, so the next
@@ -675,10 +660,9 @@ public class RegExpTests
         result.AsString().Should().Be("[false,0,true,1]");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("i")]
-    [InlineData("u")]
+    [TestCase("")]
+    [TestCase("i")]
+    [TestCase("u")]
     public void TestLeavesLastIndexAloneOnNonGlobalNonStickyRegExp(string flags)
     {
         // Step 10 sets the *local* lastIndex to 0 for a non-global, non-sticky regexp; the property
@@ -695,11 +679,10 @@ public class RegExpTests
     // ---- RegExp.prototype[Symbol.replace] lastIndex handling
     // (https://tc39.es/ecma262/#sec-regexp.prototype-@@replace) ----
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("i")]
-    [InlineData("u")]
-    [InlineData("iu")]
+    [TestCase("")]
+    [TestCase("i")]
+    [TestCase("u")]
+    [TestCase("iu")]
     public void ReplaceLeavesLastIndexAloneOnNonGlobalRegExp(string flags)
     {
         // Only step 9 writes lastIndex, and only when the regexp is global. A non-global one is left
@@ -718,7 +701,7 @@ public class RegExpTests
         result.AsString().Should().Be("[true,7]");
     }
 
-    [Fact]
+    [Test]
     public void ReplaceLeavesLastIndexWhereAReplacerFunctionPutIt()
     {
         // The exec loop of steps 11-12 runs to exhaustion before the first replacer call, so by then
@@ -735,11 +718,10 @@ public class RegExpTests
         result.AsString().Should().Be("[[0,1,2,3],4]");
     }
 
-    [Theory]
-    [InlineData("", true)]
-    [InlineData("y", true)]
-    [InlineData("g", false)]
-    [InlineData("gy", false)]
+    [TestCase("", true)]
+    [TestCase("y", true)]
+    [TestCase("g", false)]
+    [TestCase("gy", false)]
     public void ReplaceCoercesLastIndexOnNonGlobalRegExp(string flags, bool expectedCoercion)
     {
         // RegExpBuiltinExec step 2 coerces lastIndex whatever the flags say, and only a global regexp
@@ -756,7 +738,7 @@ public class RegExpTests
         result.AsBoolean().Should().Be(expectedCoercion);
     }
 
-    [Fact]
+    [Test]
     public void ReplaceHonoursARecompileFromTheLastIndexCoercion()
     {
         // Step 2 runs before step 3 reads the flags and step 8 reads the matcher, so a compile() from
@@ -781,7 +763,7 @@ public class RegExpTests
         result.AsString().Should().Be("""["pass",1,9000]""");
     }
 
-    [Fact]
+    [Test]
     public void ReplaceStartsAStickyRegExpAtItsLastIndex()
     {
         // A sticky match is anchored at lastIndex and writes the end position back. The non-ASCII
@@ -799,7 +781,7 @@ public class RegExpTests
 
     // ---- RegExp.prototype.exec replaced by an accessor (https://tc39.es/ecma262/#sec-regexpexec) ----
 
-    [Fact]
+    [Test]
     public void ReplacingExecWithAnAccessorDoesNotInvokeItOnThePrototype()
     {
         // Deciding whether exec is still the built-in must not perform an ordinary [[Get]]: that calls
@@ -827,25 +809,24 @@ public class RegExpTests
     // ---- Case-insensitive matching across the ASCII/non-ASCII boundary
     // (https://tc39.es/ecma262/#sec-runtime-semantics-canonicalize-ch) ----
 
-    [Theory]
     // Canonicalize is toUpperCase in non-Unicode mode, so U+00B5 MICRO SIGN and U+039C GREEK CAPITAL
     // MU share a canonical value and match either way round.
-    [InlineData(@"/\xB5/i", 0x039C, true)]
-    [InlineData(@"/Μ/i", 0x00B5, true)]
+    [TestCase(@"/\xB5/i", 0x039C, true)]
+    [TestCase(@"/Μ/i", 0x00B5, true)]
     // The Latin-1 pair whose uppercase stays non-ASCII matches too.
-    [InlineData(@"/\xFF/i", 0x0178, true)]
+    [TestCase(@"/\xFF/i", 0x0178, true)]
     // ... but step 9 keeps a character at or above U+0080 whose uppercase is ASCII to itself, so these
     // pairs stay distinct however alike .NET's IgnoreCase considers them.
-    [InlineData(@"/\x6B/i", 0x212A, false)]
-    [InlineData("/k/i", 0x212A, false)]
-    [InlineData("/K/i", 0x212A, false)]
-    [InlineData("/[a-z]/i", 0x212A, false)]
-    [InlineData("/[j-l]/i", 0x212A, false)]
+    [TestCase(@"/\x6B/i", 0x212A, false)]
+    [TestCase("/k/i", 0x212A, false)]
+    [TestCase("/K/i", 0x212A, false)]
+    [TestCase("/[a-z]/i", 0x212A, false)]
+    [TestCase("/[j-l]/i", 0x212A, false)]
     // ... and the word-character set contains them, so it carries the same hazard.
-    [InlineData(@"/\w/i", 0x212A, false)]
-    [InlineData(@"/\x73/i", 0x017F, false)]
-    [InlineData(@"/\xDF/i", 0x1E9E, false)]
-    [InlineData(@"/\xE5/i", 0x212B, false)]
+    [TestCase(@"/\w/i", 0x212A, false)]
+    [TestCase(@"/\x73/i", 0x017F, false)]
+    [TestCase(@"/\xDF/i", 0x1E9E, false)]
+    [TestCase(@"/\xE5/i", 0x212B, false)]
     public void CaseInsensitiveMatchingUsesCanonicalizeNotDotNetCaseFolding(string pattern, int subject, bool expected)
     {
         var engine = new Engine();
@@ -854,14 +835,13 @@ public class RegExpTests
         result.AsBoolean().Should().Be(expected);
     }
 
-    [Theory]
     // In Unicode mode Canonicalize is Simple Case Folding, and the two non-ASCII characters that fold
     // into ASCII must be found even though the first-character scan searches for ASCII code units.
-    [InlineData("/s/iu", 0x017F, 1)]
-    [InlineData("/S/iu", 0x017F, 1)]
-    [InlineData("/k/iu", 0x212A, 1)]
-    [InlineData("/K/iu", 0x212A, 1)]
-    [InlineData("/s+/iu", 0x017F, 2)]
+    [TestCase("/s/iu", 0x017F, 1)]
+    [TestCase("/S/iu", 0x017F, 1)]
+    [TestCase("/k/iu", 0x212A, 1)]
+    [TestCase("/K/iu", 0x212A, 1)]
+    [TestCase("/s+/iu", 0x017F, 2)]
     public void UnicodeCaseFoldingFindsTheNonAsciiFoldingPartners(string pattern, int subject, int repeat)
     {
         var engine = new Engine();
@@ -871,7 +851,7 @@ public class RegExpTests
         result.AsNumber().Should().Be(repeat);
     }
 
-    [Fact]
+    [Test]
     public void UnicodeCaseFoldingFindsAFoldingPartnerInsideALiteralPrefix()
     {
         // The multi-code-unit scan path searches for the whole literal with OrdinalIgnoreCase, which
@@ -883,14 +863,13 @@ public class RegExpTests
 
         result.AsString().Should().Be("[\"aſ\",\"ſa\"]");
     }
-    [Theory]
     // The word-boundary assertions classify their neighbours with .NET's own word-character set,
     // which under IgnoreCase takes in U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE. The spec's
     // WordCharacters gains nothing in non-Unicode mode, so U+0130 is a boundary on both sides.
-    [InlineData(@"/a\b/i", "aİ", true)]
-    [InlineData(@"/a\B/i", "aİ", false)]
-    [InlineData(@"/\bk/i", "İk", true)]
-    [InlineData(@"/\Bk/i", "İk", false)]
+    [TestCase(@"/a\b/i", "aİ", true)]
+    [TestCase(@"/a\B/i", "aİ", false)]
+    [TestCase(@"/\bk/i", "İk", true)]
+    [TestCase(@"/\Bk/i", "İk", false)]
     public void WordBoundariesTreatTheDottedCapitalIAsANonWordCharacter(string pattern, string subject, bool expected)
     {
         var engine = new Engine();
@@ -899,17 +878,16 @@ public class RegExpTests
         result.AsBoolean().Should().Be(expected);
     }
 
-    [Theory]
     // \W is the one construct the .NET adaptation expands into a positive class spanning the whole
     // BMP while excluding the ASCII word characters. Closing that class under IgnoreCase pulls the
     // partners of its non-ASCII members back in, so /\W/i matched 'k' on .NET 7+ and 'I' on .NET
     // Framework - a divergence a pure-ASCII subject already shows.
-    [InlineData(@"/\W/i", "k", false)]
-    [InlineData(@"/\W/i", "K", false)]
-    [InlineData(@"/\W/i", "i", false)]
-    [InlineData(@"/\W/i", "I", false)]
-    [InlineData(@"/[\W]/i", "k", false)]
-    [InlineData(@"/\W/i", "-", true)]
+    [TestCase(@"/\W/i", "k", false)]
+    [TestCase(@"/\W/i", "K", false)]
+    [TestCase(@"/\W/i", "i", false)]
+    [TestCase(@"/\W/i", "I", false)]
+    [TestCase(@"/[\W]/i", "k", false)]
+    [TestCase(@"/\W/i", "-", true)]
     public void NegatedWordClassDoesNotTakeInItsMembersCasePartners(string pattern, string subject, bool expected)
     {
         var engine = new Engine();
@@ -918,7 +896,7 @@ public class RegExpTests
         result.AsBoolean().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void OneRegExpAlternatesBetweenEnginesAcrossSubjects()
     {
         // The engine is chosen per subject, so the same instance has to answer correctly whichever
@@ -936,7 +914,7 @@ public class RegExpTests
         result.AsString().Should().Be("[true,false,true,false,false,false,true,false]");
     }
 
-    [Fact]
+    [Test]
     public void GlobalMatchOverASubjectCarryingATriggerStaysCorrectForEveryMatch()
     {
         // The per-subject probe is memoized by string instance so a match loop scans the subject once;
@@ -955,22 +933,21 @@ public class RegExpTests
         result.AsString().Should().Be("""[["ab","cd"],["abcd"],["ab","cd"]]""");
     }
 
-    [Theory]
     // Routing pin. A case-insensitive pattern that merely mentions 'k', covers it with a range, or
     // uses \w keeps the .NET engine and is diverted per subject; only the verdict that holds for
     // every subject takes a pattern away from it. Losing this would put the most common
     // case-insensitive patterns in real scripts on the bytecode interpreter for every match.
-    [InlineData("[a-z0-9]+", "i", false)]
-    [InlineData(@"\w+", "i", false)]
-    [InlineData("k", "i", false)]
-    [InlineData("check", "i", false)]
-    [InlineData(@"\bfoo\b", "i", false)]
-    [InlineData(@"\x6B", "i", false)]
+    [TestCase("[a-z0-9]+", "i", false)]
+    [TestCase(@"\w+", "i", false)]
+    [TestCase("k", "i", false)]
+    [TestCase("check", "i", false)]
+    [TestCase(@"\bfoo\b", "i", false)]
+    [TestCase(@"\x6B", "i", false)]
     // ... while non-ASCII pattern content and \W do, on every subject.
-    [InlineData(@"\xB5", "i", true)]
-    [InlineData(@"Μ", "i", true)]
-    [InlineData(@"\W", "i", true)]
-    [InlineData("[a-z]", "u", true)]
+    [TestCase(@"\xB5", "i", true)]
+    [TestCase(@"Μ", "i", true)]
+    [TestCase(@"\W", "i", true)]
+    [TestCase("[a-z]", "u", true)]
     public void CaseInsensitivePatternsKeepTheDotNetEngineUnlessTheyDivergeOnEverySubject(
         string pattern, string flags, bool needsCustomEngine)
     {

@@ -5,7 +5,7 @@ namespace Jint.Tests.Runtime;
 
 public class WeakSetMapTests
 {
-    [Fact]
+    [Test]
     public void WeakMapShouldThrowWhenCalledWithoutNew()
     {
         var engine = new Engine();
@@ -13,7 +13,7 @@ public class WeakSetMapTests
         e.Message.Should().Be("Constructor WeakMap requires 'new'");
     }
 
-    [Fact]
+    [Test]
     public void WeakSetShouldThrowWhenCalledWithoutNew()
     {
         var engine = new Engine();
@@ -21,7 +21,7 @@ public class WeakSetMapTests
         e.Message.Should().Be("Constructor WeakSet requires 'new'");
     }
 
-    public static TheoryData<JsValue> PrimitiveKeys = new()
+    public static TestCases<JsValue> PrimitiveKeys = new()
     {
         JsValue.Null,
         JsValue.Undefined,
@@ -32,8 +32,7 @@ public class WeakSetMapTests
         true
     };
 
-    [Theory]
-    [MemberData(nameof(PrimitiveKeys))]
+    [TestCaseSource(nameof(PrimitiveKeys))]
     public void WeakSetAddShouldThrowForPrimitiveKey(JsValue key)
     {
         var engine = new Engine();
@@ -45,8 +44,7 @@ public class WeakSetMapTests
         weakSet.WeakSetHas(key).Should().BeFalse();
     }
 
-    [Theory]
-    [MemberData(nameof(PrimitiveKeys))]
+    [TestCaseSource(nameof(PrimitiveKeys))]
     public void WeakMapSetShouldThrowForPrimitiveKey(JsValue key)
     {
         var engine = new Engine();
@@ -58,7 +56,7 @@ public class WeakSetMapTests
         weakMap.WeakMapHas(key).Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void WeakSetWithInteropObject()
     {
         var engine = new Engine(options => options.Interop.TrackObjectWrapperIdentity = true);
@@ -79,7 +77,7 @@ public class WeakSetMapTests
     	").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RecentObjectWrapperCacheMaintainsIdentityForRepeatedWraps()
     {
         var engine = new Engine(options => options.Interop.CacheRecentObjectWrappers = true);
@@ -95,7 +93,7 @@ public class WeakSetMapTests
 	    ").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void RecentObjectWrapperCacheIsBounded()
     {
         var engine = new Engine(options => options.Interop.CacheRecentObjectWrappers = true);
@@ -119,7 +117,7 @@ public class WeakSetMapTests
 	    ").Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void StringifyWithoutCircularReferences()
     {
         var parent = new Parent { Value = "Parent" };

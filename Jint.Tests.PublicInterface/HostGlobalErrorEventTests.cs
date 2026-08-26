@@ -44,7 +44,7 @@ public class HostGlobalErrorEventTests
     /// non-network, non-persistent API and the standing exceptions to <c>Default</c> are exactly the two that
     /// are not.
     /// </summary>
-    [Fact]
+    [Test]
     public void UseWebApisEnablesTheFeature()
     {
         WebApiFeatures.Default.HasFlag(WebApiFeatures.GlobalEvents).Should().BeTrue();
@@ -61,7 +61,7 @@ public class HostGlobalErrorEventTests
     /// Naming the flag on its own is enough: it brings <see cref="WebApiFeatures.Events"/> with it, because
     /// what its operations register on is an <c>EventTarget</c> and what they dispatch is an <c>Event</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void NamingTheFlagAloneBringsTheEventMachinery()
     {
         using var engine = new Engine(options => options.UseWebApis(WebApiFeatures.GlobalEvents));
@@ -81,7 +81,7 @@ public class HostGlobalErrorEventTests
     /// <c>EventTarget</c>: the listener list lives beside the engine's timers, not on the object a host has
     /// been handed through <c>engine.Realm.GlobalObject</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void SelfIsGlobalThisAndTheGlobalIsNotAnEventTarget()
     {
         using var engine = new Engine(options => options.UseWebApis());
@@ -103,7 +103,7 @@ public class HostGlobalErrorEventTests
     /// <c>preventDefault()</c> suppress the console report; a host's diagnostics channel is not something the
     /// script it is running may switch off, so the report happens anyway.
     /// </summary>
-    [Fact]
+    [Test]
     public void AListenerCannotSilenceTheSink()
     {
         var sink = new RecordingSink();
@@ -140,7 +140,7 @@ public class HostGlobalErrorEventTests
     /// the failures that exist to bound execution. Only a <see cref="JavaScriptException"/> is ever dispatched
     /// or reported.
     /// </summary>
-    [Fact]
+    [Test]
     public void AListenerNeverSeesAnExecutionConstraintFailure()
     {
         var sink = new RecordingSink();
@@ -175,7 +175,7 @@ public class HostGlobalErrorEventTests
     /// failure is not <i>reported</i> at all, it erupts — and since firing the <c>error</c> event is a step of
     /// reporting, a listener sees nothing either. A host that wants script to observe these installs a sink.
     /// </summary>
-    [Fact]
+    [Test]
     public void WithoutASinkAnUncaughtCallbackErrorStillErupts()
     {
         var clock = new ManualClock();
@@ -188,7 +188,7 @@ public class HostGlobalErrorEventTests
             """);
 
         clock.Advance(5);
-        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks()).Message.Should().Be("boom");
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!.Message.Should().Be("boom");
 
         engine.Evaluate("seen").AsNumber().Should().Be(0);
 
@@ -200,7 +200,7 @@ public class HostGlobalErrorEventTests
     /// <summary>
     /// An engine that named no web API is byte-for-byte the engine it was before this feature existed.
     /// </summary>
-    [Fact]
+    [Test]
     public void ADefaultEngineIsUnchanged()
     {
         using var engine = new Engine();

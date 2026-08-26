@@ -15,7 +15,7 @@ public class EncodingTests
 
     #region TextEncoder
 
-    [Fact]
+    [Test]
     public void TextEncoderIsUtf8AndNothingElse()
     {
         var engine = WebEngine();
@@ -26,7 +26,7 @@ public class EncodingTests
         engine.Evaluate("TextEncoder.name").AsString().Should().Be("TextEncoder");
     }
 
-    [Fact]
+    [Test]
     public void EncodeDefaultsToTheEmptyString()
     {
         var engine = WebEngine();
@@ -36,11 +36,10 @@ public class EncodingTests
         engine.Evaluate("new TextEncoder().encode('') instanceof Uint8Array").AsBoolean().Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("hi", "104,105")]
-    [InlineData("é", "195,169")]
-    [InlineData("€", "226,130,172")]
-    [InlineData("😀", "240,159,152,128")]
+    [TestCase("hi", "104,105")]
+    [TestCase("é", "195,169")]
+    [TestCase("€", "226,130,172")]
+    [TestCase("😀", "240,159,152,128")]
     public void EncodeProducesUtf8(string input, string expected)
     {
         var engine = WebEngine();
@@ -49,7 +48,7 @@ public class EncodingTests
         engine.Evaluate("new TextEncoder().encode(input).join(',')").AsString().Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void EncodeReplacesAnUnpairedSurrogate()
     {
         var engine = WebEngine();
@@ -60,7 +59,7 @@ public class EncodingTests
         engine.Evaluate("new TextEncoder().encode('a\\uD800b').join(',')").AsString().Should().Be("97,239,191,189,98");
     }
 
-    [Fact]
+    [Test]
     public void EncodeIntoReportsCodeUnitsReadAndBytesWritten()
     {
         var engine = WebEngine();
@@ -74,7 +73,7 @@ public class EncodingTests
         result.AsString().Should().Be("3,5");
     }
 
-    [Fact]
+    [Test]
     public void EncodeIntoCountsASurrogatePairAsTwoCodeUnits()
     {
         var engine = WebEngine();
@@ -91,7 +90,7 @@ public class EncodingTests
             """).AsString().Should().Be("1,3");
     }
 
-    [Fact]
+    [Test]
     public void EncodeIntoNeverSplitsACodePoint()
     {
         var engine = WebEngine();
@@ -111,7 +110,7 @@ public class EncodingTests
             """).AsString().Should().Be("2|4|97,226,130,172");
     }
 
-    [Fact]
+    [Test]
     public void EncodeIntoWritesThroughAViewsOwnWindow()
     {
         var engine = WebEngine();
@@ -124,19 +123,19 @@ public class EncodingTests
             """).AsString().Should().Be("3|3|0,0,97,98,99,0");
     }
 
-    [Fact]
+    [Test]
     public void EncodeIntoRefusesADestinationThatIsNotAUint8Array()
     {
         var engine = WebEngine();
 
         foreach (var destination in new[] { "new Uint16Array(8)", "new Uint8ClampedArray(8)", "new ArrayBuffer(8)", "[]", "undefined" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new TextEncoder().encodeInto('a', {destination})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new TextEncoder().encodeInto('a', {destination})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError");
         }
     }
 
-    [Fact]
+    [Test]
     public void TextEncoderRequiresNewAndBrandChecksItsReceiver()
     {
         var engine = WebEngine();
@@ -153,7 +152,7 @@ public class EncodingTests
 
     #region TextDecoder labels
 
-    [Fact]
+    [Test]
     public void TextDecoderDefaultsToUtf8()
     {
         var engine = WebEngine();
@@ -164,30 +163,29 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder(undefined, undefined).encoding").AsString().Should().Be("utf-8");
     }
 
-    [Theory]
     // https://encoding.spec.whatwg.org/#names-and-labels, the UTF-8 row.
-    [InlineData("utf-8", "utf-8")]
-    [InlineData("utf8", "utf-8")]
-    [InlineData("UTF-8", "utf-8")]
-    [InlineData("unicode-1-1-utf-8", "utf-8")]
-    [InlineData("unicode11utf8", "utf-8")]
-    [InlineData("unicode20utf8", "utf-8")]
-    [InlineData("x-unicode20utf8", "utf-8")]
+    [TestCase("utf-8", "utf-8")]
+    [TestCase("utf8", "utf-8")]
+    [TestCase("UTF-8", "utf-8")]
+    [TestCase("unicode-1-1-utf-8", "utf-8")]
+    [TestCase("unicode11utf8", "utf-8")]
+    [TestCase("unicode20utf8", "utf-8")]
+    [TestCase("x-unicode20utf8", "utf-8")]
     // The UTF-16LE row — note that a bare "utf-16" is little-endian.
-    [InlineData("utf-16", "utf-16le")]
-    [InlineData("utf-16le", "utf-16le")]
-    [InlineData("UTF-16LE", "utf-16le")]
-    [InlineData("unicode", "utf-16le")]
-    [InlineData("unicodefeff", "utf-16le")]
-    [InlineData("csunicode", "utf-16le")]
-    [InlineData("iso-10646-ucs-2", "utf-16le")]
-    [InlineData("ucs-2", "utf-16le")]
+    [TestCase("utf-16", "utf-16le")]
+    [TestCase("utf-16le", "utf-16le")]
+    [TestCase("UTF-16LE", "utf-16le")]
+    [TestCase("unicode", "utf-16le")]
+    [TestCase("unicodefeff", "utf-16le")]
+    [TestCase("csunicode", "utf-16le")]
+    [TestCase("iso-10646-ucs-2", "utf-16le")]
+    [TestCase("ucs-2", "utf-16le")]
     // The UTF-16BE row.
-    [InlineData("utf-16be", "utf-16be")]
-    [InlineData("unicodefffe", "utf-16be")]
+    [TestCase("utf-16be", "utf-16be")]
+    [TestCase("unicodefffe", "utf-16be")]
     // "Get an encoding" strips leading and trailing ASCII whitespace first.
-    [InlineData("  utf-8\t\n", "utf-8")]
-    [InlineData("\r\futf8 ", "utf-8")]
+    [TestCase("  utf-8\t\n", "utf-8")]
+    [TestCase("\r\futf8 ", "utf-8")]
     public void ResolvesALabelToItsEncodingName(string label, string expected)
     {
         var engine = WebEngine();
@@ -196,30 +194,29 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder(label).encoding").AsString().Should().Be(expected);
     }
 
-    [Theory]
     // The legacy encodings have a file of their own, LegacyEncodingTests. What is left here is the labels
     // that name nothing at all, plus the two kinds the constructor refuses even though the label is a label:
     // the replacement encoding, which the specification refuses, and the multi-byte encodings, which Jint
     // does not implement.
-    [InlineData("")]
-    [InlineData("utf-9")]
-    [InlineData("utf-32")]
-    [InlineData("shift_jis")]
-    [InlineData("replacement")]
+    [TestCase("")]
+    [TestCase("utf-9")]
+    [TestCase("utf-32")]
+    [TestCase("shift_jis")]
+    [TestCase("replacement")]
     // ASCII case-insensitive matching and nothing more: U+017F must not fold onto 's'.
-    [InlineData("c\u017Funicode")]
+    [TestCase("c\u017Funicode")]
     // U+000B VT is not ASCII whitespace, so it is not stripped.
-    [InlineData("\u000Butf-8")]
+    [TestCase("\u000Butf-8")]
     public void RefusesALabelItCannotDecode(string label)
     {
         var engine = WebEngine();
 
         engine.SetValue("label", label);
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder(label)"))!
             .Error.Get("name").AsString().Should().Be("RangeError");
     }
 
-    [Fact]
+    [Test]
     public void ReadsTheOptionsDictionary()
     {
         var engine = WebEngine();
@@ -233,7 +230,7 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder('utf-8', null).fatal").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ConvertsBothArgumentsBeforeTheLabelIsLookedUp()
     {
         var engine = WebEngine();
@@ -256,7 +253,7 @@ public class EncodingTests
 
     #region TextDecoder decoding
 
-    [Fact]
+    [Test]
     public void DecodesEveryBufferSourceShape()
     {
         var engine = WebEngine();
@@ -270,7 +267,7 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder().decode(new DataView(new Uint8Array([104, 105, 106, 107]).buffer, 2))").AsString().Should().Be("jk");
     }
 
-    [Fact]
+    [Test]
     public void DecodesNothingWhenGivenNothing()
     {
         var engine = WebEngine();
@@ -280,7 +277,7 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder().decode(new Uint8Array(0))").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void CopiesTheInputOnlyOnceTheOptionsDictionaryHasBeenConverted()
     {
         var engine = WebEngine();
@@ -311,7 +308,7 @@ public class EncodingTests
         engine.Evaluate("flushed").AsString().Should().Be("");
     }
 
-    [Fact]
+    [Test]
     public void RefusesAnInputThatIsNotABufferSource()
     {
         var engine = WebEngine();
@@ -319,12 +316,12 @@ public class EncodingTests
         // The IDL type is not nullable, so null is not the same as omitting the argument.
         foreach (var input in new[] { "null", "'abc'", "42", "[]", "{}" })
         {
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new TextDecoder().decode({input})"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"new TextDecoder().decode({input})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError");
         }
     }
 
-    [Fact]
+    [Test]
     public void ReplacesInvalidUtf8WithU00FFFD()
     {
         var engine = WebEngine();
@@ -333,17 +330,17 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder().decode(new Uint8Array([0x61, 0xC0, 0x62]))").AsString().Should().Be("a\uFFFDb");
     }
 
-    [Fact]
+    [Test]
     public void FatalTurnsInvalidInputIntoATypeError()
     {
         var engine = WebEngine();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array([0xFF]))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array([0xFF]))"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // An incomplete sequence at the end of a non-streaming decode is invalid too, because the decode
         // flushes.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array([0xE2, 0x82]))"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array([0xE2, 0x82]))"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // ... and a decoder that threw is usable again.
@@ -354,7 +351,7 @@ public class EncodingTests
             """).AsString().Should().Be("hi");
     }
 
-    [Fact]
+    [Test]
     public void DecodesUtf16InBothEndiannesses()
     {
         var engine = WebEngine();
@@ -367,7 +364,7 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder('utf-16be').decode(new Uint8Array([0xD8, 0x3D, 0xDE, 0x00]))").AsString().Should().Be("😀");
     }
 
-    [Fact]
+    [Test]
     public void ReplacesAnUnpairedUtf16Surrogate()
     {
         var engine = WebEngine();
@@ -376,7 +373,7 @@ public class EncodingTests
             .AsNumber().Should().Be(0xFFFD);
     }
 
-    [Fact]
+    [Test]
     public void EndsAUtf16QueueWithOneReplacementHoweverMuchIsPending()
     {
         var engine = WebEngine();
@@ -401,7 +398,7 @@ public class EncodingTests
 
     #region Streaming
 
-    [Fact]
+    [Test]
     public void StreamsACodePointSplitAcrossTwoChunks()
     {
         var engine = WebEngine();
@@ -415,7 +412,7 @@ public class EncodingTests
             """).AsString().Should().Be("a|€b");
     }
 
-    [Fact]
+    [Test]
     public void ANonStreamingDecodeEndsTheStream()
     {
         var engine = WebEngine();
@@ -431,7 +428,7 @@ public class EncodingTests
             """).AsString().Should().Be("65533,65533");
     }
 
-    [Fact]
+    [Test]
     public void StreamsAUtf16CodeUnitSplitAcrossTwoChunks()
     {
         var engine = WebEngine();
@@ -444,7 +441,7 @@ public class EncodingTests
             """).AsString().Should().Be("|hi");
     }
 
-    [Fact]
+    [Test]
     public void FatalDoesNotFireOnAnIncompleteSequenceMidStream()
     {
         var engine = WebEngine();
@@ -460,7 +457,7 @@ public class EncodingTests
 
     #region Byte order mark
 
-    [Fact]
+    [Test]
     public void StripsOneLeadingBomPerStream()
     {
         var engine = WebEngine();
@@ -475,7 +472,7 @@ public class EncodingTests
         engine.Evaluate("new TextDecoder().decode(new Uint8Array([0x61, 0xEF, 0xBB, 0xBF])).length").AsNumber().Should().Be(2);
     }
 
-    [Fact]
+    [Test]
     public void KeepsTheBomWhenIgnoreBomIsSet()
     {
         var engine = WebEngine();
@@ -486,7 +483,7 @@ public class EncodingTests
             .AsNumber().Should().Be(0xFEFF);
     }
 
-    [Fact]
+    [Test]
     public void StripsABomSplitAcrossChunks()
     {
         var engine = WebEngine();
@@ -501,7 +498,7 @@ public class EncodingTests
             """).AsString().Should().Be("|a");
     }
 
-    [Fact]
+    [Test]
     public void StripsTheBomOnlyOnceAcrossAWholeStream()
     {
         var engine = WebEngine();
@@ -514,7 +511,7 @@ public class EncodingTests
             """).AsString().Should().Be("a|65279|2");
     }
 
-    [Fact]
+    [Test]
     public void StripsTheUtf16Bom()
     {
         var engine = WebEngine();
@@ -527,7 +524,7 @@ public class EncodingTests
 
     #region Shape
 
-    [Fact]
+    [Test]
     public void TextDecoderBrandChecksItsReceiver()
     {
         var engine = WebEngine();
@@ -539,7 +536,7 @@ public class EncodingTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("TextDecoder.prototype.ignoreBOM"));
     }
 
-    [Fact]
+    [Test]
     public void HasTheWebIdlShape()
     {
         var engine = WebEngine();
@@ -557,7 +554,7 @@ public class EncodingTests
         engine.Evaluate("Object.getOwnPropertyNames(new TextDecoder()).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void HasTheArityTheIdlDeclares()
     {
         var engine = WebEngine();
@@ -569,7 +566,7 @@ public class EncodingTests
         engine.Evaluate("TextDecoder.length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ExposesAttributesAndOperationsWithTheirWebIdlPropertyAttributes()
     {
         var engine = WebEngine();
@@ -594,7 +591,7 @@ public class EncodingTests
             """).AsString().Should().Be("TextEncoder|false|false|true");
     }
 
-    [Fact]
+    [Test]
     public void SubclassingKeepsThePrototypeTheSubclassAsksFor()
     {
         var engine = WebEngine();
@@ -606,7 +603,7 @@ public class EncodingTests
             """).AsString().Should().Be("true|true|utf-8");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsThroughEncodeAndDecode()
     {
         var engine = WebEngine();

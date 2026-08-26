@@ -34,7 +34,7 @@ public class WebApiTimerTests
         internal void Advance(int milliseconds) => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoTimers()
     {
         var engine = new Engine();
@@ -46,7 +46,7 @@ public class WebApiTimerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsTheTimers()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -60,7 +60,7 @@ public class WebApiTimerTests
         new Options().UseWebApis().WebApi.Features.Should().HaveFlag(WebApiFeatures.Timers);
     }
 
-    [Fact]
+    [Test]
     public void AskingForConsoleAloneDoesNotBringTimers()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console));
@@ -69,7 +69,7 @@ public class WebApiTimerTests
         engine.Evaluate("typeof setTimeout").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredTimerGlobalWins()
     {
         var marker = new JsString("the host's own setTimeout");
@@ -85,7 +85,7 @@ public class WebApiTimerTests
         engine.Evaluate("typeof setInterval").AsString().Should().Be("function");
     }
 
-    [Fact]
+    [Test]
     public void AHostSuppliedClockDrivesTheTimers()
     {
         var clock = new ManualClock();
@@ -103,7 +103,7 @@ public class WebApiTimerTests
         engine.Evaluate("log.join(',')").AsString().Should().Be("fired");
     }
 
-    [Fact]
+    [Test]
     public void MaxActiveTimersIsEnforcedAsAQuotaExceededError()
     {
         var engine = new Engine(options => options.UseWebApis(webApi => webApi.Timers.MaxActiveTimers = 1));
@@ -121,9 +121,8 @@ public class WebApiTimerTests
             """).AsString().Should().Be("QuotaExceededError|true|1|2");
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-5)]
+    [TestCase(0)]
+    [TestCase(-5)]
     public void ACapOfZeroOrLessReportsAQuotaOfZeroRatherThanANegativeOne(int maxActiveTimers)
     {
         var engine = new Engine(options => options.UseWebApis(webApi => webApi.Timers.MaxActiveTimers = maxActiveTimers));
@@ -140,7 +139,7 @@ public class WebApiTimerTests
             """).AsString().Should().Be("QuotaExceededError|0|1");
     }
 
-    [Fact]
+    [Test]
     public void OneOptionsInstanceServesSeveralEnginesWithIndependentTimerQueues()
     {
         var options = new Options().UseWebApis(webApi => webApi.Timers.MaxActiveTimers = 1);
@@ -158,7 +157,7 @@ public class WebApiTimerTests
             """).AsString().Should().Be("QuotaExceededError");
     }
 
-    [Fact]
+    [Test]
     public void ABlockingUnwrapRunsTheTimersItIsWaitingFor()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -172,7 +171,7 @@ public class WebApiTimerTests
         stopwatch.Elapsed.Should().BeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(80));
     }
 
-    [Fact]
+    [Test]
     public async Task AnAwaitedEvaluationRunsTheTimersItIsWaitingFor()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -182,7 +181,7 @@ public class WebApiTimerTests
         result.AsNumber().Should().Be(42);
     }
 
-    [Fact]
+    [Test]
     public void AHostPumpIsEnoughToRunTimers()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -201,7 +200,7 @@ public class WebApiTimerTests
         done.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ATimerOutlivingTheUnwrapTimeoutTimesOutByDesign()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -211,7 +210,7 @@ public class WebApiTimerTests
         Assert.Throws<PromiseRejectedException>(() => pending.UnwrapIfPromise(TimeSpan.FromMilliseconds(200)));
     }
 
-    [Fact]
+    [Test]
     public void ARestoredEngineNeverRunsTheTimersOfTheCycleThatEnded()
     {
         var clock = new ManualClock();

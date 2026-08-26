@@ -23,7 +23,7 @@ public class ObjectRepresentationTests
         Layout,
         [JsNumber.Create(1), JsString.Create("sample"), JsBoolean.True]);
 
-    [Fact]
+    [Test]
     public void ShapedAndDeoptedObjectsAgreeWithTheShapeFlag()
     {
         var engine = new Engine();
@@ -40,7 +40,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(obj).Should().Be(ObjectRepresentation.Dictionary);
     }
 
-    [Fact]
+    [Test]
     public void BuiltinsAgreeWithTheBuiltinShapeFlag()
     {
         var engine = new Engine();
@@ -51,7 +51,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(math).Should().Be(ObjectRepresentation.SharedBuiltinLayout);
     }
 
-    [Fact]
+    [Test]
     public void EachFallbackTriggerAgreesWithTheShapeFlag()
     {
         var engine = new Engine();
@@ -77,7 +77,7 @@ public class ObjectRepresentationTests
         engine.Diagnostics.GetObjectRepresentation(tooWide).Should().Be(ObjectRepresentation.Dictionary);
     }
 
-    [Fact]
+    [Test]
     public void TheFanoutGuardIsReportedExactlyWhereItTrips()
     {
         // Only the first MaxFanout distinct first-keys can branch off the empty root shape; the very next
@@ -108,7 +108,7 @@ public class ObjectRepresentationTests
         shaped.Should().Be(Shape.MaxFanout);
     }
 
-    [Fact]
+    [Test]
     public void TheHostLayoutBudgetIsReportedExactlyWhereItRunsOut()
     {
         var engine = new Engine();

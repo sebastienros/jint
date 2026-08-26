@@ -19,7 +19,7 @@ public class WebApiRegistrationTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis());
 
-    [Fact]
+    [Test]
     public void InstallsUnmaterializedLazyDescriptors()
     {
         var engine = WebEngine();
@@ -36,7 +36,7 @@ public class WebApiRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void GivesEachGlobalTheAttributesWebIdlAsksFor()
     {
         var engine = WebEngine();
@@ -55,7 +55,7 @@ public class WebApiRegistrationTests
         console.Enumerable.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void InstallsDomExceptionForAnyFeatureButNotForNone()
     {
         // DOMException has no flag of its own: it exists whenever any web API does. Neither has the one
@@ -70,7 +70,7 @@ public class WebApiRegistrationTests
         none.Evaluate("typeof QuotaExceededError").AsString().Should().Be("undefined");
     }
 
-    [Fact]
+    [Test]
     public void DoesNotReachIntoAShadowRealm()
     {
         var engine = WebEngine();
@@ -85,7 +85,7 @@ public class WebApiRegistrationTests
         engine.Evaluate("typeof console").AsString().Should().Be("object");
     }
 
-    [Fact]
+    [Test]
     public void SurvivesAGlobalSnapshotRestore()
     {
         var engine = WebEngine();
@@ -120,7 +120,7 @@ public class WebApiRegistrationTests
     /// The pin is deliberately two-sided: object identity AND the surviving mutation. Asserting only that
     /// <c>typeof console === "object"</c> after a restore is what let the claim drift in the first place.
     /// </remarks>
-    [Fact]
+    [Test]
     public void AWebApiSingletonIsTheSameObjectAfterARestoreAndKeepsWhatTheScriptDidToIt()
     {
         var engine = WebEngine();
@@ -142,7 +142,7 @@ public class WebApiRegistrationTests
     /// the patch is on <c>Crypto.prototype</c>, a separately memoized intrinsic, so a freshly built
     /// <c>crypto</c> would inherit it anyway.
     /// </summary>
-    [Fact]
+    [Test]
     public void APatchOnAnInterfacePrototypeSurvivesARestoreToo()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Crypto));
@@ -176,7 +176,7 @@ public class WebApiRegistrationTests
     /// reverts a cache and nothing else.
     /// </para>
     /// </remarks>
-    [Fact]
+    [Test]
     public void OnlyTheGlobalObjectsOwnFunctionSlotsAreRebuiltByARestore()
     {
         var probe = FullyFeaturedEngine();
@@ -245,7 +245,7 @@ public class WebApiRegistrationTests
         .UseStorage()
         .UseCacheApi());
 
-    [Fact]
+    [Test]
     public void InstallsTheEventAndAbortInterfaceObjectsBehindTheEventsFlag()
     {
         var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
@@ -270,7 +270,7 @@ public class WebApiRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void InstallsTheFetchInterfaceObjectsBehindTheFetchFlag()
     {
         var engine = new Engine(options => options.UseFetch());
@@ -294,7 +294,7 @@ public class WebApiRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void FetchBringsTheFeaturesItsSurfaceIsBuiltFrom()
     {
         // The closure is computed at install, so it catches a host that assigned Features directly rather
@@ -319,7 +319,7 @@ public class WebApiRegistrationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LeavesAGlobalTheHostAlreadyOwns()
     {
         var marker = new JsString("host's own");
@@ -337,7 +337,7 @@ public class WebApiRegistrationTests
     /// process-wide instead, which measured at 2,208 bytes off the construction allocation of a
     /// <see cref="WebApiFeatures.Default"/> engine.
     /// </summary>
-    [Fact]
+    [Test]
     public void InternsTheGlobalNamesItProbesWith()
     {
         WebApiRegistration.NameOf("console").Should().BeSameAs(WebApiRegistration.NameOf("console"));
@@ -349,7 +349,7 @@ public class WebApiRegistrationTests
         first.Evaluate("console").Should().NotBeSameAs(second.Evaluate("console"));
     }
 
-    [Fact]
+    [Test]
     public void LeavesAHostLazyGlobalUnmaterialized()
     {
         var built = 0;

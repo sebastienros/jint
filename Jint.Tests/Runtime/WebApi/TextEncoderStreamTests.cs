@@ -40,7 +40,7 @@ public class TextEncoderStreamTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ExposesTheGenericTransformStreamMixin()
     {
         var engine = StreamEngine();
@@ -59,7 +59,7 @@ public class TextEncoderStreamTests
         engine.Evaluate("Object.getOwnPropertyNames(s).length").AsNumber().Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void EncodesEachChunkAsUtf8()
     {
         var engine = StreamEngine();
@@ -75,7 +75,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:104 105,out:226 130 172,out:done");
     }
 
-    [Fact]
+    [Test]
     public void EnqueuesNothingForAChunkThatProducesNoBytes()
     {
         var engine = StreamEngine();
@@ -92,7 +92,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:120,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ReassemblesASurrogatePairSplitAcrossTwoChunks()
     {
         var engine = StreamEngine();
@@ -111,7 +111,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:97,out:240 159 152 128 98,out:done");
     }
 
-    [Fact]
+    [Test]
     public void AHeldSurrogateThatIsNeverCompletedBecomesTheReplacementCharacter()
     {
         var engine = StreamEngine();
@@ -129,7 +129,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:239 191 189 120,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ASurrogateLeftPendingAtTheEndIsFlushedAsTheReplacementCharacter()
     {
         var engine = StreamEngine();
@@ -145,7 +145,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:97,out:239 191 189,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ALoneTrailingSurrogateIsTheReplacementCharacter()
     {
         var engine = StreamEngine();
@@ -160,7 +160,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:239 191 189 97,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ChunksAreConvertedToStringsRatherThanRefused()
     {
         var engine = StreamEngine();
@@ -177,7 +177,7 @@ public class TextEncoderStreamTests
         Log(engine).Should().Be("out:52 50,out:111 98 106,out:done");
     }
 
-    [Fact]
+    [Test]
     public void ProducesUint8ArraysInTheEnginesOwnRealm()
     {
         var engine = StreamEngine();
@@ -195,7 +195,7 @@ public class TextEncoderStreamTests
         result.AsString().Should().Be("true:Uint8Array:2");
     }
 
-    [Fact]
+    [Test]
     public void ComposesWithPipeThrough()
     {
         var engine = StreamEngine();
@@ -216,7 +216,7 @@ public class TextEncoderStreamTests
         result.AsString().Should().Be("104,195,169,108,108,111,32,119,195,182,114,108,100");
     }
 
-    [Fact]
+    [Test]
     public void RoundTripsThroughTextDecoderStream()
     {
         var engine = StreamEngine();
@@ -236,7 +236,7 @@ public class TextEncoderStreamTests
         result.AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void TheAttributesBrandCheckTheirReceiver()
     {
         var engine = StreamEngine();
@@ -244,24 +244,24 @@ public class TextEncoderStreamTests
         foreach (var attribute in new[] { "encoding", "readable", "writable" })
         {
             Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-                    $"Object.getOwnPropertyDescriptor(TextEncoderStream.prototype, '{attribute}').get.call({{}})"))
+                    $"Object.getOwnPropertyDescriptor(TextEncoderStream.prototype, '{attribute}').get.call({{}})"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", attribute);
 
             // The prototype itself is not an instance either, and neither is the other transform stream.
-            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"TextEncoderStream.prototype.{attribute}"))
+            Assert.Throws<JavaScriptException>(() => engine.Evaluate($"TextEncoderStream.prototype.{attribute}"))!
                 .Error.Get("name").AsString().Should().Be("TypeError", attribute);
         }
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate(
-                "Object.getOwnPropertyDescriptor(TextEncoderStream.prototype, 'readable').get.call(new TextDecoderStream())"))
+                "Object.getOwnPropertyDescriptor(TextEncoderStream.prototype, 'readable').get.call(new TextDecoderStream())"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RequiresNewAndBothFeatureFlags()
     {
         var engine = StreamEngine();
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("TextEncoderStream()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("TextEncoderStream()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
 
         // Either flag on its own installs neither of the two streams: they are useless without the other

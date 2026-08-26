@@ -31,7 +31,7 @@ public class HostManualPromiseSettlementTests
     /// ownership is the invariant, not any particular thread identity, so an idle engine cannot tell the two
     /// implementations apart and is not what this pins.
     /// </remarks>
-    [Fact]
+    [Test]
     public void TheConversionWaitsForTheEngineWhenTheSettlingThreadCannotClaimIt()
     {
         var converter = new ThreadRecordingConverter();
@@ -72,7 +72,7 @@ public class HostManualPromiseSettlementTests
     /// completion settles. Converting on the settling thread here is what a guarded conversion refuses and an
     /// unguarded one corrupts; handing the raw CLR value over cannot do either.
     /// </summary>
-    [Fact]
+    [Test]
     public void AHostMaySettleWhileTheEngineThreadIsInsideAHostCall()
     {
         using var engine = new Engine();
@@ -119,7 +119,7 @@ public class HostManualPromiseSettlementTests
     /// A host that already holds a <see cref="JsValue"/> — built on the engine's thread, as it should be —
     /// loses nothing: the conversion returns it unchanged, so identity survives.
     /// </summary>
-    [Fact]
+    [Test]
     public void AJsValueSettlesAsItselfWithIdentityIntact()
     {
         using var engine = new Engine();
@@ -142,7 +142,7 @@ public class HostManualPromiseSettlementTests
     /// JavaScript spelling. Under the old signature it was a null reference in a <see cref="JsValue"/>
     /// parameter, which had no defined meaning at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void SettlingWithNullFulfilsWithJavaScriptNull()
     {
         using var engine = new Engine();
@@ -161,7 +161,7 @@ public class HostManualPromiseSettlementTests
     /// Reject converts by the same rule as resolve — they are one implementation, and a rejection reason is
     /// as likely to start life as a CLR object as a fulfilment value is.
     /// </summary>
-    [Fact]
+    [Test]
     public void RejectConvertsItsReasonTheSameWay()
     {
         using var engine = new Engine();
@@ -184,7 +184,7 @@ public class HostManualPromiseSettlementTests
     /// task settles it with a CLR value, and <c>EvaluateAsync</c> awaits the result. Pinned because a broken
     /// example in the README is worse than none.
     /// </summary>
-    [Fact]
+    [Test]
     public async Task TheDocumentedHostPromiseRecipeWorksEndToEnd()
     {
         using var engine = new Engine();

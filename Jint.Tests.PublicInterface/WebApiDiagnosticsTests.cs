@@ -41,7 +41,7 @@ public class WebApiDiagnosticsTests
         internal void Advance(int milliseconds) => _timestamp += milliseconds * TimeSpan.TicksPerMillisecond;
     }
 
-    [Fact]
+    [Test]
     public void ADefaultEngineHasNoDiagnosticsChannel()
     {
         var engine = new Engine();
@@ -50,7 +50,7 @@ public class WebApiDiagnosticsTests
         engine.Evaluate("'reportError' in globalThis").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void UseWebApisInstallsReportError()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -65,7 +65,7 @@ public class WebApiDiagnosticsTests
         engine.Evaluate("reportError.length").AsNumber().Should().Be(1);
     }
 
-    [Fact]
+    [Test]
     public void UseDiagnosticsWiresTheSinkAndTheFunctionTogether()
     {
         var sink = new RecordingSink();
@@ -73,12 +73,12 @@ public class WebApiDiagnosticsTests
 
         engine.Execute("reportError(new Error('boom'));");
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.ReportedError);
         report.Value.AsObject().Get("message").AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void ReportErrorWithoutASinkNeverThrows()
     {
         // Documented as a no-op rather than an error, so a script written for a browser needs no guard.
@@ -87,7 +87,7 @@ public class WebApiDiagnosticsTests
         engine.Evaluate("reportError(new Error('boom'))").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AHostRegisteredGlobalStillWins()
     {
         // The install is non-clobbering, which for this name matters twice over: a host that already exposes
@@ -104,7 +104,7 @@ public class WebApiDiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AThrowingTimerCallbackIsReportedWhenASinkIsSet()
     {
         var sink = new RecordingSink();
@@ -124,13 +124,13 @@ public class WebApiDiagnosticsTests
 
         engine.Evaluate("ran").AsBoolean().Should().BeTrue();
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.Timer);
         report.Exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingTimerCallbackStillEruptsWithoutASink()
     {
         var clock = new ManualClock();
@@ -139,11 +139,11 @@ public class WebApiDiagnosticsTests
         engine.Execute("setTimeout(() => { throw new Error('boom'); }, 5);");
         clock.Advance(5);
 
-        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())
+        Assert.Throws<JavaScriptException>(() => engine.Tasks.ProcessTasks())!
             .Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingMicrotaskCallbackIsReportedWhenASinkIsSet()
     {
         // queueMicrotask is invoked with the same WebIDL "report" exception behavior a timer handler is —
@@ -161,23 +161,23 @@ public class WebApiDiagnosticsTests
         // failed one still ran.
         engine.Evaluate("second").AsBoolean().Should().BeTrue();
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.Microtask);
         report.Exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingMicrotaskCallbackStillEruptsWithoutASink()
     {
         var engine = new Engine(options => options.UseWebApis());
 
         Assert.Throws<JavaScriptException>(
-                () => engine.Execute("queueMicrotask(() => { throw new Error('boom'); });"))
+                () => engine.Execute("queueMicrotask(() => { throw new Error('boom'); });"))!
             .Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingListenerIsReportedWhenASinkIsSet()
     {
         var sink = new RecordingSink();
@@ -194,10 +194,10 @@ public class WebApiDiagnosticsTests
         engine.Evaluate("second").AsBoolean().Should().BeTrue();
         engine.Evaluate("result").AsBoolean().Should().BeTrue();
 
-        Assert.Single(sink.Reports).CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
+        sink.Reports.Should().ContainSingle().Which.CallbackSource.Should().Be(DiagnosticCallbackSource.EventListener);
     }
 
-    [Fact]
+    [Test]
     public void AThrowingListenerStillEruptsWithoutASink()
     {
         var engine = new Engine(options => options.UseWebApis());
@@ -208,11 +208,11 @@ public class WebApiDiagnosticsTests
             var e = new Event('ping');
             """);
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))!
             .Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingIdleCallbackIsReportedWhenASinkIsSet()
     {
         // requestIdleCallback invokes its callback with the same WebIDL "report" exception behavior a timer
@@ -231,23 +231,23 @@ public class WebApiDiagnosticsTests
         // still ran in the same idle period.
         engine.Evaluate("second").AsBoolean().Should().BeTrue();
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UncaughtCallbackError);
         report.CallbackSource.Should().Be(DiagnosticCallbackSource.IdleCallback);
         report.Exception!.Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingIdleCallbackStillEruptsWithoutASink()
     {
         var engine = new Engine(options => options.UseWebApis());
 
         Assert.Throws<JavaScriptException>(
-                () => engine.Execute("requestIdleCallback(() => { throw new Error('boom'); });"))
+                () => engine.Execute("requestIdleCallback(() => { throw new Error('boom'); });"))!
             .Message.Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void AThrowingSchedulerTaskIsNotReportedAsACallbackError()
     {
         // scheduler.postTask is governed by https://wicg.github.io/scheduling-apis/, not by a WHATWG living
@@ -266,7 +266,7 @@ public class WebApiDiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AConstraintFailureIsNeverReportedAndAlwaysErupts()
     {
         // A budget that turned into a diagnostic would no longer bound anything, so only the class of failure
@@ -290,7 +290,7 @@ public class WebApiDiagnosticsTests
         sink.Reports.Should().BeEmpty();
     }
 
-    [Fact]
+    [Test]
     public void AnUnhandledRejectionReachesBothChannels()
     {
         var sink = new RecordingSink();
@@ -302,9 +302,9 @@ public class WebApiDiagnosticsTests
         engine.Execute("var p = Promise.reject(new Error('boom'));");
 
         // The pre-existing event is untouched — adding the sink adds a channel, it does not move one.
-        Assert.Single(tracked).Promise.Should().BeSameAs(engine.Evaluate("p"));
+        tracked.Should().ContainSingle().Which.Promise.Should().BeSameAs(engine.Evaluate("p"));
 
-        var report = Assert.Single(sink.Reports);
+        var report = sink.Reports.Should().ContainSingle().Which;
         report.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
         report.RejectionHandled.Should().BeFalse();
         report.Promise.Should().BeSameAs(engine.Evaluate("p"));
@@ -316,7 +316,7 @@ public class WebApiDiagnosticsTests
         sink.Reports[1].RejectionHandled.Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ASinkAloneArmsTheChannelWithoutInstallingAnyGlobal()
     {
         // A host that wants to hear about unhandled rejections and nothing else does not have to take on any
@@ -330,10 +330,10 @@ public class WebApiDiagnosticsTests
 
         engine.Execute("Promise.reject('boom');");
 
-        Assert.Single(sink.Reports).Value.AsString().Should().Be("boom");
+        sink.Reports.Should().ContainSingle().Which.Value.AsString().Should().Be("boom");
     }
 
-    [Fact]
+    [Test]
     public void OneSinkServesEveryEngineBuiltFromSharedOptions()
     {
         // Options are meant to be shared; nothing about the sink is engine-affine, which is why the
@@ -349,7 +349,7 @@ public class WebApiDiagnosticsTests
         sink.Reports[1].Value.AsString().Should().Be("second");
     }
 
-    [Fact]
+    [Test]
     public void AShadowRealmGetsNoReportError()
     {
         var engine = new Engine(options => options.UseWebApis());

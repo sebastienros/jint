@@ -88,7 +88,7 @@ public class HeadersGuardTests
         }
         """;
 
-    [Fact]
+    [Test]
     public void ABareHeadersObjectIsMutable()
     {
         // "The new Headers(init) constructor steps are: Set this's guard to 'none'."
@@ -102,7 +102,7 @@ public class HeadersGuardTests
         engine.Evaluate("h.has('x-existing')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void ARequestsHeadersAreMutable()
     {
         // "Set this's headers to a new Headers object … whose … guard is 'request'."
@@ -123,7 +123,7 @@ public class HeadersGuardTests
         engine.Evaluate("tryMutate(r.clone().headers)").AsString().Should().Be("ok,ok,ok");
     }
 
-    [Fact]
+    [Test]
     public void AResponsesHeadersAreMutable()
     {
         // "Set this's headers to a new Headers object … whose … guard is 'response'."
@@ -143,7 +143,7 @@ public class HeadersGuardTests
         engine.Evaluate("tryMutate(new Response('body').clone().headers)").AsString().Should().Be("ok,ok,ok");
     }
 
-    [Fact]
+    [Test]
     public void TheTwoImmutableStaticsRefuseEveryMutation()
     {
         // https://fetch.spec.whatwg.org/#dom-response-error and
@@ -163,7 +163,7 @@ public class HeadersGuardTests
             .Should().Be("TypeError/true,TypeError/true,TypeError/true");
     }
 
-    [Fact]
+    [Test]
     public void AFetchedResponsesHeadersAreImmutable()
     {
         // "Set responseObject to the result of creating a Response object, given response, 'immutable', and
@@ -193,7 +193,7 @@ public class HeadersGuardTests
             """).Should().Be("null|1");
     }
 
-    [Fact]
+    [Test]
     public void AFetchedResponsesCloneIsImmutableToo()
     {
         // https://fetch.spec.whatwg.org/#dom-response-clone hands the clone "this's headers's guard", so the
@@ -205,7 +205,7 @@ public class HeadersGuardTests
             """).Should().Be("TypeError/true,TypeError/true,TypeError/true");
     }
 
-    [Fact]
+    [Test]
     public void AFetchedResponsesHeadersCanStillBeReadEveryWay()
     {
         // Nothing about reading is guarded: get, has, getSetCookie, iteration and forEach are all unaffected
@@ -239,7 +239,7 @@ public class HeadersGuardTests
             """).Should().Be("one, two;true;a=1|b=2;content-length|content-type|set-cookie|set-cookie|x-multi;true");
     }
 
-    [Fact]
+    [Test]
     public void AFetchedResponsesHeadersCanBeCopiedIntoAMutableOne()
     {
         // The escape hatch, and the one an embedder rewrites to: a guard belongs to the Headers *object*, so
@@ -274,7 +274,7 @@ public class HeadersGuardTests
             """).Should().Be("1|2|3|true");
     }
 
-    [Fact]
+    [Test]
     public void TheGuardIsCheckedAfterTheNameAndValueAre()
     {
         // "To validate a header (name, value) for a Headers object headers: 1. If name is not a header name
@@ -285,25 +285,25 @@ public class HeadersGuardTests
         var engine = WebEngine();
         engine.Execute("var h = Response.error().headers;");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('bad name', 'v')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('bad name', 'v')"))!
             .Message.Should().Contain("Invalid name");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.set('bad name', 'v')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.set('bad name', 'v')"))!
             .Message.Should().Contain("Invalid name");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.delete('bad name')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.delete('bad name')"))!
             .Message.Should().Contain("Invalid name");
 
         // A valid name reaches the guard check instead.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('good-name', 'v')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('good-name', 'v')"))!
             .Message.Should().Contain("immutable");
 
         // And an invalid *value* is refused before the guard too — the same step 1.
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('good-name', 'a\\nb')"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("h.append('good-name', 'a\\nb')"))!
             .Message.Should().Contain("Invalid value");
     }
 
-    [Fact]
+    [Test]
     public void ACachedRequestAndResponseAreBothImmutable()
     {
         // "Add a new Response object associated with response and a new Headers object whose guard is
@@ -328,7 +328,7 @@ public class HeadersGuardTests
             .Should().Be("TypeError/true,TypeError/true,TypeError/true;TypeError/true,TypeError/true,TypeError/true");
     }
 
-    [Fact]
+    [Test]
     public void AFetchHandlersRequestStaysMutable()
     {
         // A deliberate divergence, recorded rather than silent. The Service Worker Standard's Handle Fetch

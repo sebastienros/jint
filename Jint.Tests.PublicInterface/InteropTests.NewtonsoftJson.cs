@@ -6,7 +6,7 @@ namespace Jint.Tests.PublicInterface;
 
 public partial class InteropTests
 {
-    [Fact]
+    [Test]
     public void AccessingJObjectShouldWork()
     {
         var o = new JObject
@@ -17,7 +17,7 @@ public partial class InteropTests
         _engine.Evaluate("return o.name == 'test-name'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void AccessingJArrayViaIntegerIndexShouldWork()
     {
         var o = new JArray("item1", "item2");
@@ -26,7 +26,7 @@ public partial class InteropTests
         _engine.Evaluate("return o[1] == 'item2'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void DictionaryLikeShouldCheckIndexerAndFallBackToProperty()
     {
         const string json = @"{ ""Type"": ""Cat"" }";
@@ -43,7 +43,7 @@ public partial class InteropTests
         _engine.Evaluate("o.Type == 'Cat'").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToIndexJObjectWithStrings()
     {
         var engine = new Engine();
@@ -65,7 +65,7 @@ public partial class InteropTests
     }
 
     // https://github.com/OrchardCMS/OrchardCore/issues/10648
-    [Fact]
+    [Test]
     public void EngineShouldStringifyAnJObjectListWithValuesCorrectly()
     {
         var engine = new Engine();
@@ -85,7 +85,7 @@ public partial class InteropTests
         result.Should().Be("{\"Current\":null}");
     }
 
-    [Fact]
+    [Test]
     public void EngineShouldStringifyJObjectFromObjectListWithValuesCorrectly()
     {
         var engine = new Engine();
@@ -103,7 +103,7 @@ public partial class InteropTests
         result.Should().Be("[{\"Text\":\"Text1\",\"Value\":1},{\"Text\":\"Text2\",\"Value\":2,\"Null\":null,\"Date\":\"2015-06-25T00:00:00.000Z\"}]");
     }
 
-    [Fact]
+    [Test]
     public void DecimalsShouldBeHandledFromJObjects()
     {
         var test = JObject.FromObject(new
@@ -116,7 +116,7 @@ public partial class InteropTests
         number.AsNumber().Should().Be(123.456d);
     }
 
-    [Fact]
+    [Test]
     public void ShouldBeAbleToChangePropertyWithNameValue()
     {
         var engine = new Engine(options => options.Interop.AllowWrite = true);
@@ -130,7 +130,7 @@ public partial class InteropTests
         result.Should().Be("CHANGED");
     }
 
-    [Fact]
+    [Test]
     public void ArraysShouldPassThroughCorrectly()
     {
         var engine = new Engine();

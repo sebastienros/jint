@@ -9,17 +9,16 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class TemporalNowTests
 {
-    [Fact]
+    [Test]
     public void ExposesExactlyTheMembersTheProposalDefines()
     {
         new Engine().Evaluate("Object.getOwnPropertyNames(Temporal.Now).sort().join()")
             .AsString().Should().Be("instant,plainDateISO,plainDateTimeISO,plainTimeISO,timeZoneId,zonedDateTimeISO");
     }
 
-    [Theory]
-    [InlineData("plainDate")]
-    [InlineData("plainDateTime")]
-    [InlineData("zonedDateTime")]
+    [TestCase("plainDate")]
+    [TestCase("plainDateTime")]
+    [TestCase("zonedDateTime")]
     public void DoesNotExposeTheRemovedCalendarTakingForms(string removed)
     {
         var engine = new Engine();
@@ -28,7 +27,7 @@ public class TemporalNowTests
         engine.Evaluate($"Temporal.Now.{removed} === undefined").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void StillAnswersThroughTheIsoForms()
     {
         new Engine().Evaluate("""
@@ -44,7 +43,7 @@ public class TemporalNowTests
             """).AsString().Should().Be("true,true,true,true,true,true,true");
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheNamespaceToStringTag()
     {
         new Engine().Evaluate("Temporal.Now[Symbol.toStringTag] + '/' + Object.prototype.toString.call(Temporal.Now)")

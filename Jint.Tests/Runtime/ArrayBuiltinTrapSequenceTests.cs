@@ -13,7 +13,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// https://tc39.es/ecma262/#sec-array.prototype.concat step 6 is <c>Set(A, "length", n, true)</c>.
     /// Defining it instead bypasses the species result's own <c>[[Set]]</c>.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatSetsTheResultLengthRatherThanDefiningIt()
     {
         var engine = new Engine();
@@ -37,7 +37,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// https://tc39.es/ecma262/#sec-array.prototype.slice step 12 is the same <c>Set</c>, and Jint
     /// performed no length write at all on the generic path.
     /// </summary>
-    [Fact]
+    [Test]
     public void SliceSetsTheResultLength()
     {
         var engine = new Engine();
@@ -62,7 +62,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// <c>length</c> with the array attributes (writable, non-configurable) on a Proxy over it violates the
     /// <c>[[DefineOwnProperty]]</c> invariant, so the previous code turned a legal concat into a TypeError.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatIntoAProxyWithAConfigurableLengthDoesNotThrow()
     {
         var engine = new Engine();
@@ -89,7 +89,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// for a hole. The question has to be asked afresh each time: the trap that defines element 0 here deletes
     /// element 1 of the source.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatRechecksHasPropertyAfterAnEarlierElementIsDeleted()
     {
         var engine = new Engine();
@@ -115,7 +115,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// <summary>
     /// A hole in the source is a hole in the result, and it still advances the result index.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatPreservesHolesOnTheGenericPath()
     {
         var engine = new Engine();
@@ -133,7 +133,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// https://tc39.es/ecma262/#sec-createarrayiterator steps 10.d.v-vi: a value step is a bare
     /// <c>Get</c>, and a key step reads no element at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArrayIteratorPerformsOneGetPerElementAndNoHasProperty()
     {
         var engine = new Engine();
@@ -151,7 +151,7 @@ public class ArrayBuiltinTrapSequenceTests
             "get:Symbol(Symbol.iterator),get:length,get:0,get:length,get:1,get:length,get:2,get:length");
     }
 
-    [Fact]
+    [Test]
     public void ArrayIteratorKeyKindReadsNoElement()
     {
         var engine = new Engine();
@@ -171,7 +171,7 @@ public class ArrayBuiltinTrapSequenceTests
     /// A hole in an array-like resolves through the prototype chain, because the step is <c>Get</c> and not
     /// an own-property read.
     /// </summary>
-    [Fact]
+    [Test]
     public void ArrayLikeIteratorResolvesAHoleThroughThePrototypeChain()
     {
         var engine = new Engine();

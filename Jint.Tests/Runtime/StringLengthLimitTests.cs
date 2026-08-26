@@ -50,21 +50,21 @@ public class StringLengthLimitTests
         .Evaluate($"(function () {{ try {{ {source}; return 'did not throw'; }} catch (e) {{ return (e instanceof RangeError ? 'RangeError' : e.constructor.name) + ': ' + e.message; }} }})()")
         .AsString();
 
-    [Fact]
+    [Test]
     public void TheLimitIsTheOneV8Uses()
     {
         JsString.MaxLength.Should().Be(536_870_888);
         JsString.MaxLength.Should().Be((1 << 29) - 24);
     }
 
-    [Fact]
+    [Test]
     public void RepeatPastTheLimitIsACatchableRangeError()
     {
         Caught($"'xx'.repeat({JsString.MaxLength / 2 + 1})").Should().Be(InvalidStringLength);
         _engine.Evaluate("'xx'.repeat(3)").AsString().Should().Be("xxxxxx");
     }
 
-    [Fact]
+    [Test]
     public void PadStartPastTheLimitIsACatchableRangeError()
     {
         Caught($"'x'.padStart({JsString.MaxLength + 1L})").Should().Be(InvalidStringLength);
@@ -72,7 +72,7 @@ public class StringLengthLimitTests
         _engine.Evaluate("'x'.padStart(3, 'ab')").AsString().Should().Be("abx");
     }
 
-    [Fact]
+    [Test]
     public void PadEndPastTheLimitIsACatchableRangeError()
     {
         Caught($"'x'.padEnd({JsString.MaxLength + 1L}, 'ab')").Should().Be(InvalidStringLength);
@@ -85,7 +85,7 @@ public class StringLengthLimitTests
     /// of that size allocated, which is exactly where the guard has to fire — on the summed lengths,
     /// before the result is built.
     /// </summary>
-    [Fact]
+    [Test]
     public void ConcatenationPastTheLimitIsACatchableRangeError()
     {
         _engine.Execute("var s = 'x'; for (var i = 0; i < 28; i++) { s = s + s; }");
@@ -107,7 +107,7 @@ public class StringLengthLimitTests
     /// <c>String.prototype.replace</c> with a string search value: the expansion is decided by how many
     /// <c>$&amp;</c> tokens the replacement holds, so a 2 KB pattern against a 2 MB subject is enough.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceWhoseSubstitutionPastTheLimitIsACatchableRangeError()
     {
         _engine.Execute("var subject = 'x'.repeat(1 << 20); var pattern = '$&'.repeat(1024);");
@@ -115,7 +115,7 @@ public class StringLengthLimitTests
         Caught("subject.replace(subject, pattern)").Should().Be(InvalidStringLength);
     }
 
-    [Fact]
+    [Test]
     public void ReplaceAllWhoseSubstitutionPastTheLimitIsACatchableRangeError()
     {
         _engine.Execute("var subject = 'x'.repeat(1 << 20); var pattern = '$&'.repeat(1024);");
@@ -123,7 +123,7 @@ public class StringLengthLimitTests
         Caught("subject.replaceAll(subject, pattern)").Should().Be(InvalidStringLength);
     }
 
-    [Fact]
+    [Test]
     public void RegExpReplaceWhoseSubstitutionPastTheLimitIsACatchableRangeError()
     {
         _engine.Execute("var subject = 'x'.repeat(1 << 20); var pattern = '$&'.repeat(1024);");
@@ -136,7 +136,7 @@ public class StringLengthLimitTests
     /// as well as a success, because the point there was the arithmetic; here the point is that whatever
     /// happens is something the script can catch.
     /// </summary>
-    [Fact]
+    [Test]
     public void ReplaceMathTargetsMoreCharactersThanAStringCanHold()
     {
         _engine.Execute("""
@@ -161,7 +161,7 @@ public class StringLengthLimitTests
     /// array whose <c>length</c> alone puts the document past the limit is refused before the first
     /// element is written, which is what makes this row cost nothing: the array itself is empty.
     /// </summary>
-    [Fact]
+    [Test]
     public void JsonStringifyOfAnArrayTooLongToSerializeIsACatchableRangeError()
     {
         Caught("JSON.stringify(Object.assign([], { length: 4294967295 }))").Should().Be(InvalidStringLength);
@@ -174,12 +174,11 @@ public class StringLengthLimitTests
     /// written as <c>null</c> however it came to have no representation, and indentation only ever
     /// adds to the count.
     /// </summary>
-    [Theory]
-    [InlineData("JSON.stringify(new Array(3))", "[null,null,null]")]
-    [InlineData("JSON.stringify([1, undefined, function () {}, Symbol()])", "[1,null,null,null]")]
-    [InlineData("JSON.stringify([1, 2], null, 4).replace(/\\n/g, '|')", "[|    1,|    2|]")]
-    [InlineData("JSON.stringify({ a: undefined, b: 1 })", "{\"b\":1}")]
-    [InlineData("JSON.stringify(['x'.repeat(1 << 20)]).length", "1048580")]
+    [TestCase("JSON.stringify(new Array(3))", "[null,null,null]")]
+    [TestCase("JSON.stringify([1, undefined, function () {}, Symbol()])", "[1,null,null,null]")]
+    [TestCase("JSON.stringify([1, 2], null, 4).replace(/\\n/g, '|')", "[|    1,|    2|]")]
+    [TestCase("JSON.stringify({ a: undefined, b: 1 })", "{\"b\":1}")]
+    [TestCase("JSON.stringify(['x'.repeat(1 << 20)]).length", "1048580")]
     public void JsonDocumentsThatFitAreUnaffected(string source, string expected)
     {
         _engine.Evaluate(source).ToString().Should().Be(expected);
@@ -192,7 +191,7 @@ public class StringLengthLimitTests
     /// way out. Verified with <c>+</c> as well as <c>repeat</c>, in a run that could afford the half
     /// gigabyte the concatenating shape costs.
     /// </summary>
-    [Fact]
+    [Test]
     public void JsonParseReviverThatBuildsTooLongAStringIsACatchableRangeError()
     {
         Caught($"JSON.parse('{{\"a\":1}}', function (k, v) {{ return typeof v === 'number' ? 'x'.repeat({JsString.MaxLength + 1L}) : v; }})")
@@ -207,17 +206,16 @@ public class StringLengthLimitTests
     /// contribution is knowable without running user code, so it can never over-count and can never
     /// refuse a substitution that fits. These are the shapes where over-counting would show up first.
     /// </summary>
-    [Theory]
-    [InlineData(@"'abcabc'.replace(/b/g, ""[$`|$&|$']"")", "a[a|b|cabc]ca[abca|b|c]c")]
-    [InlineData(@"'abc'.replace(/(a)(b)(c)/, '$3$2$1$12$0$')", "cbaa2$0$")]
-    [InlineData(@"'John Smith'.replace(/(?<first>\w+) (?<last>\w+)/, '$<last>, $<first>')", "Smith, John")]
-    [InlineData(@"'abc'.replace(/b/, '$<x>')", "a$<x>c")]
-    [InlineData(@"'abc'.replace('b', '$<x>')", "a$<x>c")]
-    [InlineData(@"'abc'.replace(/(b)/, '$<a$&b>')", "a$<abb>c")]
-    [InlineData(@"'John'.replace(/(?<n>\w+)/, '$<a$&b>')", "")]
-    [InlineData(@"'aaa'.replaceAll('a', '$&$&')", "aaaaaa")]
-    [InlineData(@"'abc'.replace('b', '$$')", "a$c")]
-    [InlineData(@"'xyz'.replace('y', ""$`-$'-$&"")", "xx-z-yz")]
+    [TestCase(@"'abcabc'.replace(/b/g, ""[$`|$&|$']"")", "a[a|b|cabc]ca[abca|b|c]c")]
+    [TestCase(@"'abc'.replace(/(a)(b)(c)/, '$3$2$1$12$0$')", "cbaa2$0$")]
+    [TestCase(@"'John Smith'.replace(/(?<first>\w+) (?<last>\w+)/, '$<last>, $<first>')", "Smith, John")]
+    [TestCase(@"'abc'.replace(/b/, '$<x>')", "a$<x>c")]
+    [TestCase(@"'abc'.replace('b', '$<x>')", "a$<x>c")]
+    [TestCase(@"'abc'.replace(/(b)/, '$<a$&b>')", "a$<abb>c")]
+    [TestCase(@"'John'.replace(/(?<n>\w+)/, '$<a$&b>')", "")]
+    [TestCase(@"'aaa'.replaceAll('a', '$&$&')", "aaaaaa")]
+    [TestCase(@"'abc'.replace('b', '$$')", "a$c")]
+    [TestCase(@"'xyz'.replace('y', ""$`-$'-$&"")", "xx-z-yz")]
     public void SubstitutionPatternsThatFitAreUnaffected(string source, string expected)
     {
         _engine.Evaluate(source).AsString().Should().Be(expected);

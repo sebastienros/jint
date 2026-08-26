@@ -8,14 +8,13 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class StringObjectIndexKeyTests
 {
-    [Theory]
-    [InlineData("-0")]
-    [InlineData("01")]
-    [InlineData("+1")]
-    [InlineData("1.0")]
-    [InlineData(" 1")]
-    [InlineData("1e0")]
-    [InlineData("0x1")]
+    [TestCase("-0")]
+    [TestCase("01")]
+    [TestCase("+1")]
+    [TestCase("1.0")]
+    [TestCase(" 1")]
+    [TestCase("1e0")]
+    [TestCase("0x1")]
     public void ANonCanonicalNumericKeyIsNotAnOwnIndex(string key)
     {
         var engine = new Engine();
@@ -30,7 +29,7 @@ public class StringObjectIndexKeyTests
         engine.Evaluate("Object.getOwnPropertyDescriptor(s, key)").IsUndefined().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void ACanonicalNumericKeyStillResolves()
     {
         var engine = new Engine();
@@ -46,7 +45,7 @@ public class StringObjectIndexKeyTests
     /// A numeric key is turned into a property key by ToPropertyKey before any internal method sees it, and
     /// <c>ToString(-0)</c> is <c>"0"</c> — so <c>str[-0]</c> is index 0 even though <c>str["-0"]</c> is nothing.
     /// </summary>
-    [Fact]
+    [Test]
     public void NegativeZeroAsANumberIsIndexZero()
     {
         var engine = new Engine();
@@ -61,7 +60,7 @@ public class StringObjectIndexKeyTests
     /// <summary>
     /// A non-canonical key is an ordinary property name, so it can be defined and read back like any other.
     /// </summary>
-    [Fact]
+    [Test]
     public void ANonCanonicalNumericKeyCanBeAnOrdinaryOwnProperty()
     {
         var engine = new Engine();

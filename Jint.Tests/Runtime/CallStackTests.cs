@@ -2,7 +2,7 @@
 
 public class CallStackTests
 {
-    [Fact]
+    [Test]
     public void ShouldUnwindAfterCaughtException()
     {
         var engine = new Engine();
@@ -24,7 +24,7 @@ public class CallStackTests
         engine.CallStack.Count.Should().Be(0);
     }
 
-    [Fact]
+    [Test]
     public void ShouldUnwindAfterCaughtExceptionNested()
     {
         var engine = new Engine();

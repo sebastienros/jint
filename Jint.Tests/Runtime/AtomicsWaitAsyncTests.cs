@@ -17,12 +17,12 @@ namespace Jint.Tests.Runtime;
 /// entirely inside the graph the host has dropped — collectable, where a live pool task was not.
 /// </para>
 /// </summary>
-// Shares the garbage-collection collection: the retention test below reads GC state, which cannot be
-// isolated from tests running in parallel with it.
-[Collection(nameof(GarbageCollectionTests))]
+// Non-parallel for the reason <see cref="GarbageCollectionTests"/> is: the retention test below reads GC
+// state, which cannot be isolated from tests running in parallel with it.
+[NonParallelizable]
 public class AtomicsWaitAsyncTests
 {
-    [Fact]
+    [Test]
     public void AWaitWokenByNotifyDoesNotLeaveItsTimeoutTimerHoldingTheEngine()
     {
         // The wait below asks for three minutes and is woken within microseconds. Anything still holding
@@ -51,7 +51,7 @@ public class AtomicsWaitAsyncTests
         }
     }
 
-    [Fact]
+    [Test]
     public void AWaitNobodyWakesStillTimesOut()
     {
         // The control for the test above: cancelling the timer on a wake must not stop it firing when
@@ -68,7 +68,7 @@ public class AtomicsWaitAsyncTests
         engine.Evaluate("outcome").AsString().Should().Be("timed-out");
     }
 
-    [Fact]
+    [Test]
     public void AWaitWokenByNotifyResolvesWithOk()
     {
         // The other control: a wake still wins the race against a timeout that has not elapsed.

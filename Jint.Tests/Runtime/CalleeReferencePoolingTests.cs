@@ -19,7 +19,7 @@ public class CalleeReferencePoolingTests
     /// </summary>
     private const int MaxCreations = 32;
 
-    [Fact]
+    [Test]
     public void RepeatedHostDelegateCallsReuseTheCalleeReference()
     {
         // Host delegates are the callees the fast-call lane serves, and calling one through a global
@@ -34,7 +34,7 @@ public class CalleeReferencePoolingTests
         engine._referencePool.CreatedCount.Should().BeLessThanOrEqualTo(MaxCreations);
     }
 
-    [Fact]
+    [Test]
     public void RepeatedShortCircuitedOptionalCallsReuseTheCalleeReference()
     {
         // `missing?.()` resolves the callee to undefined and short-circuits, which is another exit that

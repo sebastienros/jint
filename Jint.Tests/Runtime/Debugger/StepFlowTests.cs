@@ -20,7 +20,7 @@ public class StepFlowTests
         return nodes;
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughWhileLoop()
     {
         var script = @"
@@ -44,7 +44,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughDoWhileLoop()
     {
         var script = @"
@@ -68,7 +68,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughForLoop()
     {
         var script = @"
@@ -93,7 +93,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughForOfLoop()
     {
         var script = @"
@@ -116,7 +116,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughForInLoop()
     {
         var script = @"
@@ -139,7 +139,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepsThroughConstructor()
     {
         var script = @"
@@ -165,7 +165,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void SkipsFunctionBody()
     {
         var script = @"
@@ -186,7 +186,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void SkipsReturnPointOfImplicitConstructor()
     {
         var script = @"
@@ -205,7 +205,7 @@ public class StepFlowTests
         );
     }
 
-    [Fact]
+    [Test]
     public void StepIntoNamedFunctionCalls()
     {
         var script = @"
@@ -227,7 +227,7 @@ let res = c();
             step => step.Should().Be("function c( ) { return b(3) + a(); }»"));
     }
 
-    [Fact]
+    [Test]
     public void StepIntoArrowFunctionCalls()
     {
         var script = @"

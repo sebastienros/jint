@@ -1,12 +1,11 @@
 #nullable enable
 
 using System.Runtime.ExceptionServices;
-using Xunit.Sdk;
 
 namespace Jint.Tests;
 
 /// <summary>
-/// Runs a test body on a dedicated thread, rather than on the xUnit worker thread.
+/// Runs a test body on a dedicated thread, rather than on the runner's worker thread.
 /// <para>
 /// Three unrelated reasons to want one, all served here so there is a single implementation. Deep
 /// recursion needs a larger stack than the default thread provides
@@ -14,8 +13,8 @@ namespace Jint.Tests;
 /// engine — an uninterruptible walk over a corrupt lexical environment chain, say — needs
 /// <paramref name="joinTimeout"/>: an execution constraint cannot stop one of those, because Jint
 /// does not evaluate constraints for event-loop jobs and so cannot interrupt a continuation.
-/// Without a timeout a single regression wedges the whole class (xUnit runs a class's tests
-/// sequentially) and CI hangs instead of reporting. And a body that <em>blocks</em> on wall-clock
+/// Without a timeout a single regression wedges the whole class (the runner runs a fixture's
+/// tests sequentially) and CI hangs instead of reporting. And a body that <em>blocks</em> on wall-clock
 /// asynchronous work must not do so on a thread-pool thread — that is <see cref="RunAsync"/>, whose
 /// doc explains why it is the asynchronous one that solves it.
 /// </para>
@@ -44,14 +43,14 @@ internal static class DedicatedThread
     /// so a <c>Task</c>-returning test releases its thread-pool worker for the whole time the body blocks.
     /// <para>
     /// That release is the entire point, and it is why the synchronous <see cref="Run"/> cannot be used
-    /// for this: xUnit runs test bodies on <c>.NET TP Worker</c> threads, so a <see cref="Thread.Join()"/>
-    /// keeps the pool exactly one worker short — the same shortage the body was moved off the pool to
-    /// avoid. A test that blocks on wall-clock asynchronous work is waiting on a continuation that itself
-    /// needs a pool worker (a <see cref="Task.Delay(int)"/> resumption, a <c>CancelAfter</c> callback, an
-    /// asynchronous module load settling), so blocking a worker to wait for one is a resource inversion:
-    /// under enough parallelism the pool's injection rate — order one thread per 500 ms once saturated —
-    /// decides whether the test's promise budget is met, and on a small CI runner it is not. Returning the
-    /// task instead costs the pool nothing while the body waits.
+    /// for this. A test that blocks on wall-clock asynchronous work is waiting on a continuation that
+    /// itself needs a thread-pool worker (a <see cref="Task.Delay(int)"/> resumption, a
+    /// <c>CancelAfter</c> callback, an asynchronous module load settling), so blocking a worker to wait
+    /// for one is a resource inversion: under enough parallelism the pool's injection rate — order one
+    /// thread per 500 ms once saturated — decides whether the test's promise budget is met, and on a small
+    /// CI runner it is not. Returning the task instead costs the pool nothing while the body waits. NUnit
+    /// runs test bodies on its own worker threads rather than on pool workers, which narrows the exposure
+    /// but does not close it: everything the body itself schedules is still pool work.
     /// </para>
     /// </summary>
     public static Task RunAsync(Action action, int maxStackSize = DefaultStackSize)
@@ -114,7 +113,7 @@ internal static class DedicatedThread
         {
             if (!thread.Join(timeout))
             {
-                throw new XunitException(timeoutMessage ?? $"the test body did not complete within {timeout}");
+                throw new AssertionException(timeoutMessage ?? $"the test body did not complete within {timeout}");
             }
         }
         else

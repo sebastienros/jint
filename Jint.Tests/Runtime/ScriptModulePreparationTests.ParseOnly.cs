@@ -15,29 +15,28 @@ public partial class ScriptModulePreparationTests
     private static readonly ScriptPreparationOptions ParseOnlyScript = new() { StaticAnalysis = false };
     private static readonly ModulePreparationOptions ParseOnlyModule = new() { StaticAnalysis = false };
 
-    [Theory]
     // one row per node type the analyzer has a case for, plus the syntax that reaches them indirectly
-    [InlineData("1 + 2", "3")]                                                                      // folded binary
-    [InlineData("-1", "-1")]                                                                        // folded unary
-    [InlineData("'a' + 'b'", "ab")]                                                                 // folded string binary
-    [InlineData("var o = { a: { b: 7 } }; o.a.b", "7")]                                             // member chain
-    [InlineData("var o = {}; o['k'] = 1; o.k + o['k']", "2")]                                       // computed member write/read
-    [InlineData("function f(x) { var y = x * 2; return y; } f(21)", "42")]                          // function state, var scope
-    [InlineData("function f() { return 5; } f()", "5")]                                             // constant return
-    [InlineData("(function f(n) { return n < 2 ? n : f(n - 1) + f(n - 2); })(10)", "55")]           // recursion
-    [InlineData("var s = 0; for (let i = 0; i < 4; i++) { s += i; } s", "6")]                        // for-let loop env
-    [InlineData("(function () { let t = 0; for (const v of [1, 2, 3]) { t += v; } return t; })()", "6")] // for-of
-    [InlineData("var s = ''; for (var k in { a: 1, b: 2 }) { s += k; } s", "ab")]                    // for-in
-    [InlineData("{ let a = 1; var s = a; } s", "1")]                                                // nested block state
-    [InlineData("class C { constructor() { this.v = 3; } get double() { return this.v * 2; } } new C().double", "6")]
-    [InlineData("function* g() { yield 1; yield 2; } [...g()].join('-')", "1-2")]
-    [InlineData("var { p, q = 5 } = { p: 1 }; p + q", "6")]
-    [InlineData("[1, 2, 3].map(x => x * x).join(',')", "1,4,9")]
-    [InlineData("var n = 2; `x${n + 1}y`", "x3y")]
-    [InlineData("/(\\d+)-(\\d+)/.exec('12-34')[2]", "34")]
-    [InlineData("typeof undeclaredThing", "undefined")]
-    [InlineData("try { null.x; 'no' } catch (e) { e.constructor.name }", "TypeError")]
-    [InlineData("var a = 0; switch (2) { case 1: a = 10; break; case 2: a = 20; break; } a", "20")]
+    [TestCase("1 + 2", "3")]                                                                      // folded binary
+    [TestCase("-1", "-1")]                                                                        // folded unary
+    [TestCase("'a' + 'b'", "ab")]                                                                 // folded string binary
+    [TestCase("var o = { a: { b: 7 } }; o.a.b", "7")]                                             // member chain
+    [TestCase("var o = {}; o['k'] = 1; o.k + o['k']", "2")]                                       // computed member write/read
+    [TestCase("function f(x) { var y = x * 2; return y; } f(21)", "42")]                          // function state, var scope
+    [TestCase("function f() { return 5; } f()", "5")]                                             // constant return
+    [TestCase("(function f(n) { return n < 2 ? n : f(n - 1) + f(n - 2); })(10)", "55")]           // recursion
+    [TestCase("var s = 0; for (let i = 0; i < 4; i++) { s += i; } s", "6")]                        // for-let loop env
+    [TestCase("(function () { let t = 0; for (const v of [1, 2, 3]) { t += v; } return t; })()", "6")] // for-of
+    [TestCase("var s = ''; for (var k in { a: 1, b: 2 }) { s += k; } s", "ab")]                    // for-in
+    [TestCase("{ let a = 1; var s = a; } s", "1")]                                                // nested block state
+    [TestCase("class C { constructor() { this.v = 3; } get double() { return this.v * 2; } } new C().double", "6")]
+    [TestCase("function* g() { yield 1; yield 2; } [...g()].join('-')", "1-2")]
+    [TestCase("var { p, q = 5 } = { p: 1 }; p + q", "6")]
+    [TestCase("[1, 2, 3].map(x => x * x).join(',')", "1,4,9")]
+    [TestCase("var n = 2; `x${n + 1}y`", "x3y")]
+    [TestCase("/(\\d+)-(\\d+)/.exec('12-34')[2]", "34")]
+    [TestCase("typeof undeclaredThing", "undefined")]
+    [TestCase("try { null.x; 'no' } catch (e) { e.constructor.name }", "TypeError")]
+    [TestCase("var a = 0; switch (2) { case 1: a = 10; break; case 2: a = 20; break; } a", "20")]
     public void ParseOnlyPreparedScriptsEvaluateAsAnalyzedOnesDo(string code, string expected)
     {
         var analyzed = new Engine().Evaluate(Engine.PrepareScript(code)).ToString();
@@ -47,7 +46,7 @@ public partial class ScriptModulePreparationTests
         parseOnly.Should().Be(expected);
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparedModulesEvaluateAsAnalyzedOnesDo()
     {
         const string Code = """
@@ -80,7 +79,7 @@ public partial class ScriptModulePreparationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationPublishesNothingOntoAScriptAst()
     {
         const string Code = "function f(x) { { let y = x + 1; return y; } } f(1);";
@@ -115,7 +114,7 @@ public partial class ScriptModulePreparationTests
         identifier.UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationPublishesNothingOntoAModuleAst()
     {
         const string Code = "export function f(x) { { let y = x + 1; return y; } } export const answer = f(1);";
@@ -143,7 +142,7 @@ public partial class ScriptModulePreparationTests
         identifier.UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationStillCollectsReferencedGlobalsForAScript()
     {
         // The collector is a visitor of its own rather than a flag inside the analyzer's, so skipping the
@@ -157,7 +156,7 @@ public partial class ScriptModulePreparationTests
         prepared.Program.Body[0].UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationStillCollectsReferencedGlobalsForAModule()
     {
         var prepared = Engine.PrepareModule(
@@ -168,7 +167,7 @@ public partial class ScriptModulePreparationTests
         prepared.Program.Body[0].UserData.Should().BeNull();
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationRetainsFunctionSourceTextWhenAsked()
     {
         // Retained source text is recorded by the parser's own node handler, which the analyzer used to displace
@@ -193,7 +192,7 @@ public partial class ScriptModulePreparationTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ParseOnlyPreparationRetainsFunctionSourceTextForAModuleWhenAsked()
     {
         var options = new ModulePreparationOptions
@@ -209,7 +208,7 @@ public partial class ScriptModulePreparationTests
         engine.Modules.Import("main").Get("source").AsString().Should().Be("function f(x) { return x + 1; }");
     }
 
-    [Fact]
+    [Test]
     public void PreparationOptionsStayValueTypedAndWithSafeAcrossParserOptionDerivation()
     {
         // The derived ParserOptions is memoized per parsing-options instance, deliberately outside the record:

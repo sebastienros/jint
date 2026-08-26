@@ -5,12 +5,13 @@ using Jint.Runtime.Interop;
 namespace Jint.Tests.Runtime;
 
 // This needs to run without any parallelization because it uses
-// garbage collector metrics which cannot be isolated.
-[CollectionDefinition(nameof(GarbageCollectionTests), DisableParallelization = true)]
-[Collection(nameof(GarbageCollectionTests))]
+// garbage collector metrics which cannot be isolated. NUnit runs the non-parallel fixtures in a shift of
+// their own, on one worker, so this runs with nothing else in flight — including the three other fixtures
+// below that measure the same thing.
+[NonParallelizable]
 public class GarbageCollectionTests
 {
-    [Fact]
+    [Test]
     public void InternalCachingDoesNotPreventGarbageCollection()
     {
         // This test ensures that memory allocated within functions
@@ -53,7 +54,7 @@ public class GarbageCollectionTests
                           """);
     }
 
-    [Fact]
+    [Test]
     public void PreparedScriptsDoNotRetainSourceTextByDefault()
     {
         // Regression test for #2560: by default a prepared script must not keep the full source text alive
@@ -131,7 +132,7 @@ public class GarbageCollectionTests
         dyn(1); dyn(2);
         """;
 
-    [Fact]
+    [Test]
     public void SharedPreparedScriptDoesNotRetainEngines()
     {
         // Regression test for #2560 (secondary cause, #2413): a prepared script shared across many engines
@@ -146,7 +147,7 @@ public class GarbageCollectionTests
         AssertNoEngineRetained(prepared);
     }
 
-    [Fact]
+    [Test]
     public void SharedParseOnlyPreparedScriptDoesNotRetainEngines()
     {
         // Same claim, made where it is harder to keep: with StaticAnalysis off nothing is on the AST when the
@@ -162,7 +163,7 @@ public class GarbageCollectionTests
         AssertNoEngineRetained(prepared);
     }
 
-    [Fact]
+    [Test]
     public void SharedParseOnlyPreparedModuleDoesNotRetainEngines()
     {
         // The module half of the same claim: a module's bindings live in a module environment rather than the
@@ -234,7 +235,7 @@ public class GarbageCollectionTests
         }
     }
 
-    [Fact]
+    [Test]
     public void NestedTypeAccessDoesNotRetainEngines()
     {
         // Regression test: the accessors backing static member access on a type reference live in a cache
@@ -263,7 +264,7 @@ public class GarbageCollectionTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ALayoutWithLazySlotsDoesNotRetainEnginesOrPerObjectState()
     {
         // A JsObjectLayout is meant to live in a static readonly field for the whole process, and one with
@@ -318,7 +319,7 @@ public class GarbageCollectionTests
     /// can ever arm here, and remembering the callee would buy a pooled engine nothing but one retained
     /// closure graph per such site, for its whole life.
     /// </summary>
-    [Fact]
+    [Test]
     public void AFiveArgumentCallSiteRetainsNoCallee()
     {
         AssertCalleeRetention("f(1, 2, 3, 4, 5);", expectRetained: false);
@@ -328,7 +329,7 @@ public class GarbageCollectionTests
     /// The same for a spread, which makes the argument count a runtime quantity neither lane can express,
     /// regardless of how few arguments the spread happens to produce.
     /// </summary>
-    [Fact]
+    [Test]
     public void ASpreadCallSiteRetainsNoCallee()
     {
         AssertCalleeRetention("f(...[1, 2]);", expectRetained: false);
@@ -341,7 +342,7 @@ public class GarbageCollectionTests
     /// against <c>Execute(string)</c> does, since a re-parsed script gets a fresh handler tree every time
     /// and so never reaches the caches at all.
     /// </summary>
-    [Fact]
+    [Test]
     public void ATwoArgumentCallSiteStillRetainsItsCallee()
     {
         AssertCalleeRetention("f(1, 2);", expectRetained: true);

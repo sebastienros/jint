@@ -8,7 +8,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class PolyfillTests
 {
-    [Fact]
+    [Test]
     public void MathClampRejectsInvertedBounds()
     {
         // Math.Clamp validates its bounds -- "'1' cannot be greater than 0." -- rather than quietly
@@ -18,11 +18,10 @@ public class PolyfillTests
         Invoking(() => System.Math.Clamp(5, 1, 0)).Should().Throw<ArgumentException>();
     }
 
-    [Theory]
-    [InlineData(5, 1, 10, 5)]
-    [InlineData(-5, 1, 10, 1)]
-    [InlineData(50, 1, 10, 10)]
-    [InlineData(7, 7, 7, 7)]
+    [TestCase(5, 1, 10, 5)]
+    [TestCase(-5, 1, 10, 1)]
+    [TestCase(50, 1, 10, 10)]
+    [TestCase(7, 7, 7, 7)]
     public void MathClampAgreesOnValidBounds(int value, int min, int max, int expected)
     {
         System.Math.Clamp(value, min, max).Should().Be(expected);

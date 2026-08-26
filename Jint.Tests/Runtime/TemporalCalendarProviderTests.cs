@@ -23,7 +23,7 @@ public class TemporalCalendarProviderTests
     /// is the whole reason the replacement is invisible, so the two are compared entry by entry rather than
     /// spot-checked.
     /// </summary>
-    [Fact]
+    [Test]
     public void TheDefaultProviderClaimsExactlyTheElevenCalendarsTheEngineImplements()
     {
         var provider = DefaultCalendarProvider.Instance;
@@ -49,7 +49,7 @@ public class TemporalCalendarProviderTests
     /// The provider is consulted for an identifier only when the host installed one of its own; an engine
     /// that configures nothing keeps the fixed table, so a calendar nobody implements is still a RangeError.
     /// </summary>
-    [Fact]
+    [Test]
     public void AnUnconfiguredEngineStillRefusesACalendarNobodyImplements()
     {
         var engine = new Engine();

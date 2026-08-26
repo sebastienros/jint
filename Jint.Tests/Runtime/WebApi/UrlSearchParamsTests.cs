@@ -13,7 +13,7 @@ public class UrlSearchParamsTests
 {
     private static Engine WebEngine() => new(options => options.UseWebApis(WebApiFeatures.Url));
 
-    [Fact]
+    [Test]
     public void ConstructsFromAString()
     {
         var engine = WebEngine();
@@ -30,7 +30,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("new URLSearchParams(null).toString()").AsString().Should().Be("null=");
     }
 
-    [Fact]
+    [Test]
     public void AppliesFormUrlEncodedParsingRules()
     {
         var engine = WebEngine();
@@ -52,7 +52,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("new URLSearchParams('a=%2B').get('a')").AsString().Should().Be("+");
     }
 
-    [Fact]
+    [Test]
     public void ConstructsFromASequenceOfPairs()
     {
         var engine = WebEngine();
@@ -75,7 +75,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("new URLSearchParams(custom).get('a')").AsString().Should().Be("b");
     }
 
-    [Fact]
+    [Test]
     public void ConstructsFromARecord()
     {
         var engine = WebEngine();
@@ -99,7 +99,7 @@ public class UrlSearchParamsTests
             .AsString().Should().Be("%EF%BF%BDx=3&xx=2");
     }
 
-    [Fact]
+    [Test]
     public void AppendsAndReadsBack()
     {
         var engine = WebEngine();
@@ -113,7 +113,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("p.size").AsNumber().Should().Be(3);
     }
 
-    [Fact]
+    [Test]
     public void SetReplacesTheFirstMatchAndRemovesTheRest()
     {
         var engine = WebEngine();
@@ -126,7 +126,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("p.toString()").AsString().Should().Be("a=x&b=2&c=4&d=y");
     }
 
-    [Fact]
+    [Test]
     public void DeleteAndHasTakeAnOptionalValue()
     {
         var engine = WebEngine();
@@ -148,7 +148,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("p.has('a')").AsBoolean().Should().BeFalse();
     }
 
-    [Fact]
+    [Test]
     public void SortsByNameStablyInCodeUnitOrder()
     {
         var engine = WebEngine();
@@ -163,7 +163,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("[...q.keys()].join(',')").AsString().Should().Be("B,a,Ｚ");
     }
 
-    [Fact]
+    [Test]
     public void IteratesInListOrder()
     {
         var engine = WebEngine();
@@ -183,7 +183,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("Object.prototype.toString.call(p.keys())").AsString().Should().Be("[object URLSearchParams Iterator]");
     }
 
-    [Fact]
+    [Test]
     public void IteratesTheLiveList()
     {
         var engine = WebEngine();
@@ -201,7 +201,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("seen.join(',')").AsString().Should().Be("a,c");
     }
 
-    [Fact]
+    [Test]
     public void ForEachTakesTheValueBeforeTheName()
     {
         var engine = WebEngine();
@@ -221,7 +221,7 @@ public class UrlSearchParamsTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("new URLSearchParams().forEach(42)"));
     }
 
-    [Fact]
+    [Test]
     public void SerializesAsFormUrlEncoded()
     {
         var engine = WebEngine();
@@ -235,7 +235,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("new URLSearchParams([['a', '\\uD83D']]).toString()").AsString().Should().Be("a=%EF%BF%BD");
     }
 
-    [Fact]
+    [Test]
     public void CoercesEveryArgumentToAString()
     {
         var engine = WebEngine();
@@ -245,7 +245,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("p.has(1)").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void EveryMemberBrandChecksItsReceiver()
     {
         var engine = WebEngine();
@@ -256,7 +256,7 @@ public class UrlSearchParamsTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("URLSearchParams.prototype.entries.call({})"));
     }
 
-    [Fact]
+    [Test]
     public void CarriesTheInterfaceObjectShapeWebIdlAsksFor()
     {
         var engine = WebEngine();
@@ -276,7 +276,7 @@ public class UrlSearchParamsTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("URLSearchParams('a=b')"));
     }
 
-    [Fact]
+    [Test]
     public void SupportsSubclassing()
     {
         var engine = WebEngine();
@@ -292,7 +292,7 @@ public class UrlSearchParamsTests
         engine.Evaluate("sub.toString()").AsString().Should().Be("a=1");
     }
 
-    [Fact]
+    [Test]
     public void TheIteratorPrototypesNextCarriesWebIdlsAttributes()
     {
         // "An iterator prototype object must have a next data property with attributes

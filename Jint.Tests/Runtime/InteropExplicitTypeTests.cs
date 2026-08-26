@@ -101,41 +101,41 @@ public class InteropExplicitTypeTests
                 .SetValue("holder", holder)
         ;
     }
-    [Fact]
+    [Test]
     public void EqualTest()
     {
         _engine.Evaluate("holder.i1").Should().Be(_engine.Evaluate("holder.I1"));
         _engine.Evaluate("holder.super").Should().Be(_engine.Evaluate("holder.Super"));
     }
 
-    [Fact]
+    [Test]
     public void ExplicitInterfaceFromField()
     {
         _engine.Evaluate("holder.i1.Name").Should().Be(holder.i1.Name);
         _engine.Evaluate("holder.ci1.Name").Should().NotBe(holder.i1.Name);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitInterfaceFromProperty()
     {
         _engine.Evaluate("holder.I1.Name").Should().Be(holder.I1.Name);
         _engine.Evaluate("holder.CI1.Name").Should().NotBe(holder.I1.Name);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitInterfaceFromMethod()
     {
         _engine.Evaluate("holder.GetI1().Name").Should().Be(holder.GetI1().Name);
         _engine.Evaluate("holder.GetCI1().Name").Should().NotBe(holder.GetI1().Name);
     }
 
-    [Fact]
+    [Test]
     public void ExplicitInterfaceFromIndexer()
     {
         _engine.Evaluate("holder.IndexerI1[0].Name").Should().Be(holder.IndexerI1[0].Name);
     }
 
-    [Fact]
+    [Test]
     public void RecentWrapperCacheKeepsExposedTypeViewsSeparate()
     {
         // the default recent-wrapper cache (see #2729) reuses wrappers by object identity; the same
@@ -151,34 +151,34 @@ public class InteropExplicitTypeTests
     }
 
 
-    [Fact]
+    [Test]
     public void SuperClassFromField()
     {
         _engine.Evaluate("holder.super.Name").Should().Be(holder.super.Name);
         _engine.Evaluate("holder.ci1.Name").Should().NotBe(holder.super.Name);
     }
 
-    [Fact]
+    [Test]
     public void SuperClassFromProperty()
     {
         _engine.Evaluate("holder.Super.Name").Should().Be(holder.Super.Name);
         _engine.Evaluate("holder.CI1.Name").Should().NotBe(holder.Super.Name);
     }
 
-    [Fact]
+    [Test]
     public void SuperClassFromMethod()
     {
         _engine.Evaluate("holder.GetSuper().Name").Should().Be(holder.GetSuper().Name);
         _engine.Evaluate("holder.GetCI1().Name").Should().NotBe(holder.GetSuper().Name);
     }
 
-    [Fact]
+    [Test]
     public void SuperClassFromIndexer()
     {
         _engine.Evaluate("holder.IndexerSuper[0].Name").Should().Be(holder.IndexerSuper[0].Name);
     }
 
-    [Fact]
+    [Test]
     public void DerivedRuntimePropertyFromBaseDeclaredProperty()
     {
         var engine = new Engine(options =>
@@ -212,7 +212,7 @@ public class InteropExplicitTypeTests
         public NullabeStruct? NullabeStruct { get; set; }
     }
 
-    [Fact]
+    [Test]
     public void TypedObjectWrapperForNullableType()
     {
         var nullableHolder = new NullableHolder();
@@ -224,7 +224,7 @@ public class InteropExplicitTypeTests
         _engine.Evaluate("nullableHolder.NullabeStruct.Name").Should().Be(nullableHolder.NullabeStruct?.Name);
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperUnwrap()
     {
         var engine = new Engine(options =>
@@ -237,7 +237,7 @@ public class InteropExplicitTypeTests
         engine.Evaluate("clrHelper.unwrap(holder.I1).Name").Should().Be(holder.CI1.Name);
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperUnwrapRequiresAllowGetType()
     {
         var engine = new Engine(options => options.AllowClr(typeof(CI1).Assembly))
@@ -250,7 +250,7 @@ public class InteropExplicitTypeTests
         ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperWrap()
     {
         _engine.Execute("Jint = importNamespace('Jint');");
@@ -258,7 +258,7 @@ public class InteropExplicitTypeTests
         _engine.Evaluate("clrHelper.wrap(holder.CI1, Jint.Tests.Runtime.InteropExplicitTypeTests.I1).Name").Should().Be(holder.I1.Name);
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperTypeOf()
     {
         Action<Engine> runner = engine =>
@@ -283,7 +283,7 @@ public class InteropExplicitTypeTests
         ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperTypeOfForNestedType()
     {
         var engine = new Engine(cfg =>
@@ -303,7 +303,7 @@ public class InteropExplicitTypeTests
         public static Type Type => typeof(TypeHolder);
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperTypeToObject()
     {
         Action<Engine> runner = engine =>
@@ -329,7 +329,7 @@ public class InteropExplicitTypeTests
         ex.Message.Should().Be("Invalid when Engine.Options.Interop.AllowGetType == false");
     }
 
-    [Fact]
+    [Test]
     public void ClrHelperObjectToType()
     {
         Action<Engine> runner = engine =>
@@ -372,7 +372,7 @@ public class InteropExplicitTypeTests
     }
 
     // issue#1626 ToString method is now unavailable in some CLR Interop scenarios
-    [Fact]
+    [Test]
     public void CallObjectMethodFromInterfaceWrapper()
     {
         var inst = new CallObjectMethodFromInterface();
@@ -380,7 +380,7 @@ public class InteropExplicitTypeTests
         _engine.Evaluate("inst.Instance.ToString()").Should().Be(inst.Instance.ToString());
     }
 
-    [Fact]
+    [Test]
     public void CallInterfaceMethodWhichHideObjectMethod()
     {
         var inst = new CallObjectMethodFromInterface();
@@ -388,7 +388,7 @@ public class InteropExplicitTypeTests
         _engine.Evaluate("inst.Instance.GetHashCode()").Should().Be(inst.Instance.GetHashCode());
     }
 
-    [Fact(Skip = "TODO, no solution now.")]
+    [Test, Ignore("TODO, no solution now.")]
     public void CallObjectMethodHiddenByInterface()
     {
         var inst = new CallObjectMethodFromInterface();
@@ -396,7 +396,7 @@ public class InteropExplicitTypeTests
         _engine.Evaluate("clrHelper.unwrap(inst.Instance).GetHashCode()").Should().Be((inst.Instance as object).GetHashCode());
     }
 
-    [Fact]
+    [Test]
     public void CallInterfaceMethodWhichOverloadObjectMethod()
     {
         var inst = new CallObjectMethodFromInterface();

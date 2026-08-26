@@ -31,7 +31,7 @@ public class ReadableStreamTeeTests
 
     private static string Log(Engine engine) => engine.Evaluate("log.join(',')").AsString();
 
-    [Fact]
+    [Test]
     public void ReturnsTwoBranchesAndLocksTheOriginal()
     {
         var engine = StreamEngine();
@@ -46,21 +46,21 @@ public class ReadableStreamTeeTests
         engine.Evaluate("branches[0] !== branches[1]").AsBoolean().Should().BeTrue();
         engine.Evaluate("stream.locked").AsBoolean().Should().BeTrue();
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.getReader()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void RefusesToTeeALockedStream()
     {
         var engine = StreamEngine();
         engine.Execute("var stream = new ReadableStream(); stream.getReader();");
 
-        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.tee()"))
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("stream.tee()"))!
             .Error.Get("name").AsString().Should().Be("TypeError");
     }
 
-    [Fact]
+    [Test]
     public void BothBranchesSeeEveryChunkAndTheClose()
     {
         var engine = StreamEngine();
@@ -73,7 +73,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:a,one:b,one:done,two:a,two:b,two:done");
     }
 
-    [Fact]
+    [Test]
     public void HandsBothBranchesTheVerySameChunkObject()
     {
         // The non-byte tee never clones: "the chunks seen in each branch will be the same object."
@@ -89,7 +89,7 @@ public class ReadableStreamTeeTests
         engine.Evaluate("a === chunk && b === chunk").AsBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public void OneBranchMayRunFarAheadOfTheOther()
     {
         // Each branch has its own queue, so a consumer that never reads does not stall the other.
@@ -107,7 +107,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:a,one:b,one:done,two:a,two:b,two:done");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorInTheOriginalErrorsBothBranchesImmediately()
     {
         var engine = StreamEngine();
@@ -123,7 +123,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:error:bad,two:error:bad");
     }
 
-    [Fact]
+    [Test]
     public void AnErrorDoesNotOvertakeASynchronouslyAvailableChunk()
     {
         // The tee's chunk steps are deliberately delayed by a microtask, because an error only reaches the
@@ -141,7 +141,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:error:bad");
     }
 
-    [Fact]
+    [Test]
     public void CancellingOneBranchDoesNotCancelTheOriginal()
     {
         var engine = StreamEngine();
@@ -163,7 +163,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("two:a");
     }
 
-    [Fact]
+    [Test]
     public void ALoneBranchCancelSettlesOnceTheOtherBranchReachesTheEnd()
     {
         var engine = StreamEngine();
@@ -180,7 +180,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("mid,two:done,one:cancelled");
     }
 
-    [Fact]
+    [Test]
     public void ALoneBranchCancelSettlesOnceTheOriginalErrors()
     {
         var engine = StreamEngine();
@@ -196,7 +196,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("two:error:bad,one:cancelled");
     }
 
-    [Fact]
+    [Test]
     public void CancellingBothBranchesCancelsTheOriginalWithACompositeReason()
     {
         var engine = StreamEngine();
@@ -210,7 +210,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("""source:["first","second"],one:cancelled,two:cancelled""");
     }
 
-    [Fact]
+    [Test]
     public void ACompositeCancelReportsTheUnderlyingSourceFailureToBothBranches()
     {
         var engine = StreamEngine();
@@ -224,7 +224,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:no,two:no");
     }
 
-    [Fact]
+    [Test]
     public void ClosingTheOriginalClosesEveryBranchThatIsStillInterested()
     {
         var engine = StreamEngine();
@@ -240,7 +240,7 @@ public class ReadableStreamTeeTests
         Log(engine).Should().Be("one:done,two:done");
     }
 
-    [Fact]
+    [Test]
     public void PullsFromTheOriginalOnlyWhenABranchWantsMore()
     {
         var engine = StreamEngine();
