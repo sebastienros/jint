@@ -359,13 +359,18 @@ public class OperatorOverloadingTests
     }
 
     /// <remarks>
-    /// Ignored rather than adapted, and the assertions below are untouched: what they assert is what an
-    /// embedder expects, and they pass again the day sebastienros/jint#3407 is fixed. This is not a
-    /// regression of the move to NUnit. On unmodified main the same expression throws in a plain console
-    /// program, in a minimal test project, and in a freshly written class inside this very assembly; it
-    /// concatenates only here, in the process state the previous runner happened to leave behind. The test
-    /// was therefore never pinning the behaviour - it was observing a process in which the behaviour held -
-    /// and changing runner made the underlying defect deterministic instead of latent.
+    /// Ignored rather than adapted, and the assertion below is untouched: what it asserts is what an embedder
+    /// expects, and un-ignoring it is the acceptance criterion for sebastienros/jint#3407.
+    /// <para>
+    /// This is not a regression of the move to NUnit, and it is not flaky. The engine has always thrown here:
+    /// <c>'text' + v</c> resolves to <c>op_Addition(Vector2D, Vector2D)</c>, whose first parameter cannot take
+    /// a string, and converting the argument throws. What changed is only who reports it. The exception
+    /// leaves the engine as a <see cref="System.Reflection.TargetInvocationException"/> whose
+    /// <c>InnerException</c> is <see langword="null" /> (sebastienros/jint#3408), and xUnit unwraps such an
+    /// exception to its inner - that is, to <see langword="null" /> - and records no failure at all. So this
+    /// assertion has never once been evaluated since the test was added in #1011 in 2021. NUnit does not
+    /// unwrap, so it reports what was always happening.
+    /// </para>
     /// </remarks>
     [Test, Ignore("sebastienros/jint#3407: 'text' + an operator-overloaded CLR value throws instead of concatenating")]
     public void ShouldAllowStringConcatenateForOverloaded()
