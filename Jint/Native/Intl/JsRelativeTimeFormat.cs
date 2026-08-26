@@ -13,7 +13,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         Engine engine,
         ObjectInstance prototype,
         string locale,
-        string numberingSystem,
+        in Data.ResolvedNumberingSystem numberingSystem,
         string style,
         string numeric,
         CultureInfo cultureInfo,
@@ -21,7 +21,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     {
         _prototype = prototype;
         Locale = locale;
-        NumberingSystem = numberingSystem;
+        _numberingSystem = numberingSystem;
         Style = style;
         Numeric = numeric;
         CultureInfo = cultureInfo;
@@ -33,10 +33,12 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     /// </summary>
     internal string Locale { get; }
 
+    private readonly Data.ResolvedNumberingSystem _numberingSystem;
+
     /// <summary>
     /// The numbering system used for formatting digits.
     /// </summary>
-    internal string NumberingSystem { get; }
+    internal string NumberingSystem => _numberingSystem.Name;
 
     /// <summary>
     /// The style: "long", "short", or "narrow".
@@ -123,7 +125,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
             }
 
             var result = pattern.Replace("{0}", formattedNumber);
-            return Data.NumberingSystemData.TransliterateDigits(result, NumberingSystem);
+            return _numberingSystem.Transliterate(result);
         }
 
         // Fallback to hardcoded patterns
@@ -134,17 +136,17 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         {
             if (isPast)
             {
-                return Data.NumberingSystemData.TransliterateDigits($"{formattedNumber} {unitName} ago", NumberingSystem);
+                return _numberingSystem.Transliterate($"{formattedNumber} {unitName} ago");
             }
-            return Data.NumberingSystemData.TransliterateDigits($"in {formattedNumber} {unitName}", NumberingSystem);
+            return _numberingSystem.Transliterate($"in {formattedNumber} {unitName}");
         }
 
         // For non-English, use a simple format
         if (isPast)
         {
-            return Data.NumberingSystemData.TransliterateDigits($"-{formattedNumber} {unitName}", NumberingSystem);
+            return _numberingSystem.Transliterate($"-{formattedNumber} {unitName}");
         }
-        return Data.NumberingSystemData.TransliterateDigits($"+{formattedNumber} {unitName}", NumberingSystem);
+        return _numberingSystem.Transliterate($"+{formattedNumber} {unitName}");
     }
 
     /// <summary>

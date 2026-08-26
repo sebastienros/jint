@@ -1,4 +1,6 @@
-﻿using Jint.Runtime;
+﻿using System.Globalization;
+using Jint.Native.Intl;
+using Jint.Runtime;
 
 namespace Jint.Tests.Runtime;
 
@@ -1365,5 +1367,79 @@ public class IntlTests
             """;
 
         _engine.Evaluate(script).AsNumber().Should().Be(1);
+    }
+
+    /// <summary>
+    /// <c>Intl.DateTimeFormat</c> seeds each formatter's <c>DateTimeFormatInfo</c> from
+    /// <c>Options.Intl.CldrProvider</c>, and skips the shared <c>DefaultCldrProvider.Instance</c> by identity
+    /// rather than asking it and comparing — because it reads those names out of the very same
+    /// <c>CultureInfo</c> the formatter would otherwise have used, so it can only answer with what is
+    /// already there.
+    /// </summary>
+    /// <remarks>
+    /// This is what makes that shortcut sound, so it is the guard on it: it walks every culture the machine
+    /// has and compares all five arrays the seeding reads, entry by entry, against the
+    /// <c>DateTimeFormatInfo</c> behind them. Should the default provider ever start answering with names of
+    /// its own, this fails, and the identity check in <c>DateTimeFormatConstructor</c> is then wrong.
+    /// </remarks>
+    [Fact]
+    public void TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames()
+    {
+        var provider = DefaultCldrProvider.Instance;
+        var compared = 0;
+
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            var name = culture.Name;
+            if (name.Length == 0)
+            {
+                continue;
+            }
+
+            DateTimeFormatInfo dtfi;
+            try
+            {
+                dtfi = new CultureInfo(name, false).DateTimeFormat;
+            }
+            catch (CultureNotFoundException)
+            {
+                continue;
+            }
+
+            provider.GetMonthNames(name, "long", null).Should().Equal(dtfi.MonthNames.Take(12));
+            provider.GetMonthNames(name, "short", null).Should().Equal(dtfi.AbbreviatedMonthNames.Take(12));
+            provider.GetWeekdayNames(name, "long").Should().Equal(dtfi.DayNames);
+            provider.GetWeekdayNames(name, "short").Should().Equal(dtfi.AbbreviatedDayNames);
+            provider.GetDayPeriods(name, "short", null).Should().Equal(new[] { dtfi.AMDesignator, dtfi.PMDesignator });
+            compared++;
+        }
+
+        compared.Should().BeGreaterThan(100);
+    }
+
+    /// <summary>
+    /// The digits <c>Intl</c> transliterates with are the ones <c>ICldrProvider.GetNumberingSystemDigits</c>
+    /// answers with, and the set a formatter accepts is exactly the set that member answers for. On an
+    /// unconfigured engine that has to be the same set <c>Intl.supportedValuesOf('numberingSystem')</c>
+    /// reports, or a host can be told about a system no constructor will take.
+    /// </summary>
+    [Fact]
+    public void EveryAdvertisedNumberingSystemHasDigitsAndIsAccepted()
+    {
+        var provider = DefaultCldrProvider.Instance;
+        var advertised = provider.GetSupportedNumberingSystems();
+
+        advertised.Should().NotBeEmpty();
+
+        foreach (var system in advertised)
+        {
+            provider.GetNumberingSystemDigits(system).Should().NotBeNull($"'{system}' is advertised");
+
+            foreach (var constructor in new[] { "NumberFormat", "DateTimeFormat", "RelativeTimeFormat", "DurationFormat" })
+            {
+                _engine.Evaluate($"new Intl.{constructor}('en', {{ numberingSystem: '{system}' }}).resolvedOptions().numberingSystem")
+                    .AsString().Should().Be(system, $"Intl.{constructor} should accept '{system}'");
+            }
+        }
     }
 }

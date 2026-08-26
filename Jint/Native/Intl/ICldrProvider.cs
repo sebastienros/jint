@@ -57,14 +57,6 @@ public interface ICldrProvider
     string? GetDefaultNumberingSystem(string locale);
 
     /// <summary>
-    /// Gets compact number patterns for a locale.
-    /// </summary>
-    /// <param name="locale">The locale identifier.</param>
-    /// <param name="style">Compact display style: "short" or "long".</param>
-    /// <returns>Compact patterns or null if not available.</returns>
-    CompactPatterns? GetCompactPatterns(string locale, string style);
-
-    /// <summary>
     /// Gets the symbols and name <c>Intl.NumberFormat</c> writes beside an amount in this currency.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>
@@ -87,15 +79,6 @@ public interface ICldrProvider
     UnitPatterns? GetUnitPatterns(string locale, string unit, string style);
 
     // === Date/Time Formatting (DateTimeFormat) ===
-
-    /// <summary>
-    /// Gets date/time formatting patterns for a locale.
-    /// </summary>
-    /// <param name="locale">The locale identifier.</param>
-    /// <param name="dateStyle">Date style: "full", "long", "medium", "short", or null.</param>
-    /// <param name="timeStyle">Time style: "full", "long", "medium", "short", or null.</param>
-    /// <returns>DateTime patterns or null if not available.</returns>
-    DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle);
 
     /// <summary>
     /// Gets month names for a locale.

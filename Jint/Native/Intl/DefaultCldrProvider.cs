@@ -11,16 +11,19 @@ namespace Jint.Native.Intl;
 /// <remarks>
 /// <para>
 /// Every member is <c>virtual</c>, so changing one datum means deriving from this class and overriding
-/// that one member. The other twenty are inherited, and nothing has to be delegated by hand.
+/// that one member. The other eighteen are inherited, and nothing has to be delegated by hand.
 /// </para>
 /// <para>
 /// Install the derived instance on <see cref="Options.IntlOptions.CldrProvider"/>; leaving that property
 /// alone keeps <see cref="Instance"/>, the shared singleton every unconfigured engine reads.
 /// </para>
 /// <para>
-/// Overriding a member is not the same as adding data the engine never asks for: six still have no caller
-/// inside Jint — the four that answer for <c>Intl.DateTimeFormat</c>, plus <see cref="GetCompactPatterns"/>
-/// and <see cref="GetNumberingSystemDigits"/> — so overriding one of those changes nothing script can see.
+/// Every member has a caller: whatever this class answers is what <c>Intl</c> shows, and whatever a derived
+/// class answers displaces it. Two narrow gaps are worth knowing about, both of them the engine's rather
+/// than the interface's: <see cref="GetMonthNames"/> and <see cref="GetWeekdayNames"/> are not asked for
+/// <c>"narrow"</c>, because <c>Intl.DateTimeFormat</c> writes the abbreviated name for a narrow style; and
+/// <see cref="GetDayPeriods"/> reaches the component lane (<c>hour</c> with <c>hour12</c>) but not
+/// <c>timeStyle</c>, which writes English AM/PM regardless of any locale data, .NET's included.
 /// </para>
 /// </remarks>
 /// <example>
@@ -218,47 +221,6 @@ public class DefaultCldrProvider : ICldrProvider
     }
 
     /// <inheritdoc />
-    public virtual CompactPatterns? GetCompactPatterns(string locale, string style)
-    {
-        // Use existing CompactPatterns data
-        // The default provider returns English patterns only
-        if (!IsEnglish(locale))
-        {
-            return null;
-        }
-
-        if (string.Equals(style, "short", StringComparison.Ordinal))
-        {
-            return new CompactPatterns
-            {
-                Patterns = new Dictionary<int, string>
-                {
-                    [3] = "{0}K",
-                    [6] = "{0}M",
-                    [9] = "{0}B",
-                    [12] = "{0}T"
-                }
-            };
-        }
-
-        if (string.Equals(style, "long", StringComparison.Ordinal))
-        {
-            return new CompactPatterns
-            {
-                Patterns = new Dictionary<int, string>
-                {
-                    [3] = "{0} thousand",
-                    [6] = "{0} million",
-                    [9] = "{0} billion",
-                    [12] = "{0} trillion"
-                }
-            };
-        }
-
-        return null;
-    }
-
-    /// <inheritdoc />
     public virtual CurrencyData? GetCurrencyData(string locale, string currencyCode)
     {
         return new CurrencyData
@@ -432,13 +394,6 @@ public class DefaultCldrProvider : ICldrProvider
     }
 
     // === Date/Time Formatting ===
-
-    /// <inheritdoc />
-    public virtual DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
-    {
-        // Default provider delegates to .NET's DateTimeFormatInfo
-        return null;
-    }
 
     /// <inheritdoc />
     public virtual string[]? GetMonthNames(string locale, string style, string? calendar)

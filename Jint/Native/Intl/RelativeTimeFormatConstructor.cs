@@ -71,8 +71,8 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
                 Throw.RangeError(_realm, $"Invalid numberingSystem: {numberingSystem}");
             }
 
-            // 9.2.7 step 10. IsSupportedNumberingSystem below is an OrdinalIgnoreCase dictionary probe,
-            // so 'LATN' was accepted and then reported verbatim from resolvedOptions().
+            // 9.2.7 step 10. IsSupportedNumberingSystem below asks the provider, whose default answers
+            // OrdinalIgnoreCase, so 'LATN' was accepted and then reported verbatim from resolvedOptions().
             numberingSystem = IntlUtilities.CanonicalizeUValue("nu", numberingSystem);
         }
 
@@ -163,7 +163,7 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
             _engine,
             proto,
             finalResolvedLocale,
-            resolvedNumberingSystem,
+            Data.ResolvedNumberingSystem.Resolve(_engine, resolvedNumberingSystem),
             style,
             numeric,
             culture,
@@ -198,10 +198,11 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         return null;
     }
 
-    private static bool IsSupportedNumberingSystem(string numberingSystem)
+    private bool IsSupportedNumberingSystem(string numberingSystem)
     {
-        // Check if the numbering system is actually supported (has digit mappings)
-        return Data.NumberingSystemData.Digits.ContainsKey(numberingSystem);
+        // A system is supported when the provider can supply its digits — the embedded table is the
+        // default provider's answer, not the engine's own, so a host that adds a system is honoured here.
+        return IntlUtilities.IsSupportedNumberingSystem(_engine, numberingSystem);
     }
 
     private static string RemoveNumberingSystemFromLocale(string locale)

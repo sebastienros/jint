@@ -173,9 +173,6 @@ public sealed class IcuCldrProvider : ICldrProvider
         }
     }
 
-    public CompactPatterns? GetCompactPatterns(string locale, string style)
-        => _fallback.GetCompactPatterns(locale, style);
-
     public Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode)
         => _fallback.GetCurrencyData(locale, currencyCode);
 
@@ -281,9 +278,6 @@ public sealed class IcuCldrProvider : ICldrProvider
     // === Date/Time Formatting ===
     // Note: ICU4N doesn't have DateFormatSymbols ported yet, so we use the fallback provider
     // which uses .NET's CultureInfo for basic date/time data.
-
-    public DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle)
-        => _fallback.GetDateTimePatterns(locale, dateStyle, timeStyle);
 
     public string[]? GetMonthNames(string locale, string style, string? calendar)
         => _fallback.GetMonthNames(locale, style, calendar);

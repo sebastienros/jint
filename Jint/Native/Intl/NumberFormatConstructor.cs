@@ -351,7 +351,7 @@ internal sealed partial class NumberFormatConstructor : Constructor
             _engine,
             proto,
             finalResolvedLocale,
-            resolvedNumberingSystem,
+            Data.ResolvedNumberingSystem.Resolve(_engine, resolvedNumberingSystem),
             style,
             currency,
             currencyDisplay,
@@ -452,10 +452,11 @@ internal sealed partial class NumberFormatConstructor : Constructor
         return null;
     }
 
-    private static bool IsSupportedNumberingSystem(string numberingSystem)
+    private bool IsSupportedNumberingSystem(string numberingSystem)
     {
-        // Check if the numbering system is actually supported (has digit mappings)
-        return Data.NumberingSystemData.Digits.ContainsKey(numberingSystem);
+        // A system is supported when the provider can supply its digits — the embedded table is the
+        // default provider's answer, not the engine's own, so a host that adds a system is honoured here.
+        return IntlUtilities.IsSupportedNumberingSystem(_engine, numberingSystem);
     }
 
     private static string RemoveNumberingSystemFromLocale(string locale)

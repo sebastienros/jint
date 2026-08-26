@@ -67,6 +67,8 @@ This table is filled by the pull request that removes the member. A member that 
 | `ICldrProvider.SelectPluralCategory` (and `DefaultCldrProvider`'s override) | nothing. It took a `double`, which cannot carry the CLDR plural operands — `1` and `1.00` are different categories in most languages and the same `double` — so it could not implement plural selection correctly even if the engine had asked. `Intl.PluralRules`, `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.DurationFormat` all use the engine's own operand-aware rules | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `ICldrProvider.GetLikelySubtags` (and `DefaultCldrProvider`'s override) | nothing. It expressed only the *maximize* half of the Unicode Add/Remove Likely Subtags algorithm, and `Intl.Locale.prototype.minimize` needs both halves plus subtag-level lookups the signature has no room for. The table is a Unicode constant, not a locale opinion | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
+| `ICldrProvider.GetCompactPatterns` and the `CompactPatterns` type (with `DefaultCldrProvider`'s override) | nothing. `CompactPatterns` is a magnitude-to-pattern map with no plural dimension and no digit count, so it cannot express what compact notation actually needs: CLDR keys these patterns by plural category as well as by power of ten (`ru` long is `0 тысяча` / `0 тысячи` / `0 тысяч`), and the zero count in a CLDR pattern (`00 Tsd.`) is the rounding. Compact suffixes come from the engine's embedded table | [#3354](https://github.com/sebastienros/jint/issues/3354) |
+| `ICldrProvider.GetDateTimePatterns` and the `DateTimePatterns` type (with `DefaultCldrProvider`'s override) | nothing. It never had an implementation — the only one in the tree returned `null` unconditionally — so the syntax of its three pattern strings was never fixed, and .NET custom format strings and LDML skeletons disagree on the letters that matter (`yyyy` vs `y`, `tt` vs `a`, `ddd` vs `E`). Wiring it would have meant inventing that contract, and for the `dateStyle`/`timeStyle` pair alone: ECMA-402 resolves both out of the same `availableFormats` skeleton data the component options use, which three strings cannot carry | [#3354](https://github.com/sebastienros/jint/issues/3354) |
 
 ### 2.1 Sealed types
 
@@ -1603,6 +1605,46 @@ fires. Script that relied on a length change silently succeeding never existed �
 for a growable collection, for `Options.Interop.AllowWrite = false` (which refused these writes already), or
 for a `T[]` exposed under `ArrayConversionMode.LiveView`.
 
+### 4.28 `Intl` reads the CLDR provider for date names and numbering-system digits ([#3354](https://github.com/sebastienros/jint/issues/3354))
+
+`Intl.DateTimeFormat` took its month, weekday and day-period names straight from .NET's `CultureInfo`, and
+every formatter transliterated digits by looking the numbering system up in an embedded table. Both now go
+through `Options.Intl.CldrProvider` — `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods` and
+`GetNumberingSystemDigits` — so overriding any of them reaches script:
+
+```c#
+// 5.x — one override, and Intl.DateTimeFormat().format() shows it
+sealed class MyMonths : DefaultCldrProvider
+{
+    public override string[]? GetMonthNames(string locale, string style, string? calendar)
+        => style == "long" && locale.StartsWith("fr")
+            ? ["Nivose", "Pluviose", "Ventose", "Germinal", "Floreal", "Prairial",
+               "Messidor", "Thermidor", "Fructidor", "Vendemiaire", "Brumaire", "Frimaire"]
+            : base.GetMonthNames(locale, style, calendar);
+}
+```
+
+`GetNumberingSystemDigits` is now also what makes a numbering system *usable*: `Intl.NumberFormat`,
+`Intl.RelativeTimeFormat` and `Intl.DurationFormat` accept exactly the systems it answers for, and
+`Intl.DateTimeFormat` accepts those plus whatever `GetSupportedNumberingSystems` advertises. Before this,
+a host could advertise a system through `Intl.supportedValuesOf('numberingSystem')` that every constructor
+then rejected, with nothing able to transliterate it. The provider is asked once, while the formatter is
+being constructed; `format()` reads the resolved digits and never calls the provider.
+
+An engine that configures no provider — or one whose provider derives from `DefaultCldrProvider` — formats
+exactly as it did before. The names `DefaultCldrProvider` answers with are read out of the same
+`CultureInfo` the formatter would otherwise have used, and a provider whose names match .NET's writes
+nothing at all.
+
+**What could break:** a host implementing `ICldrProvider` from scratch rather than deriving from
+`DefaultCldrProvider`. Its `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods` and
+`GetNumberingSystemDigits` were dead code and are now read. The fallback is per member and per style:
+`null`, or an array of the wrong length, keeps .NET's data, so a provider that answers only for `"long"`
+months keeps .NET's abbreviated ones. Two lanes stay out of reach and are the engine's own gaps rather than
+the interface's — `month: "narrow"` and `weekday: "narrow"`, which the formatter renders with the
+abbreviated pattern letter, and `timeStyle`, which writes English `AM`/`PM` regardless of any locale data,
+.NET's included.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -1727,7 +1769,7 @@ which is at least a failure you can see. It does nothing to a project that annot
 
 `DefaultCldrProvider`, `DefaultTimeZoneProvider` and `DefaultCalendarProvider` were `sealed`, so a host that
 disagreed with one currency name, one time zone alias or one calendar had to implement the whole interface —
-21, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
+19, 9 and 4 members — and hand-delegate every member it did not care about to the singleton. Miss one and the
 engine silently loses a datum it used to have.
 
 All three are now unsealed with `virtual` members, matching `DefaultTimeSystem`, which has always had that
@@ -1736,7 +1778,7 @@ shape. Nothing about an unconfigured engine changed: the `Options` properties st
 and answers inline rather than going through the interface.
 
 ```c#
-// 5.x — the other twenty members are inherited
+// 5.x — the other eighteen members are inherited
 sealed class MyCldr : DefaultCldrProvider
 {
     public override string? GetCurrencyDisplayName(string locale, string code)
@@ -1746,14 +1788,13 @@ sealed class MyCldr : DefaultCldrProvider
 var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
-Two limits are worth knowing before reaching for this. Six of `ICldrProvider`'s twenty-one members have no
-caller inside Jint today — `GetMonthNames`, `GetWeekdayNames`, `GetDayPeriods`, `GetDateTimePatterns`,
-`GetCompactPatterns` and `GetNumberingSystemDigits` — so overriding one of those changes nothing script can
-observe until the engine starts consulting it; [#3336](https://github.com/sebastienros/jint/issues/3336)
-tracks the remaining six, and wired `GetCurrencyData` and `GetWeekInfo` on the way, per
-[4.21](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info). And on the calendar side, *correcting* a calendar Jint already
-knows is one override, while *adding* one it does not know is four: `IsSupported`, `GetSupportedCalendars` and
-both conversions all have to answer for the new identifier.
+`ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
+answers is what `Intl` shows — see [4.22](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info)
+and [4.28](#428-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits) for the two changes
+that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.
+On the calendar side, *correcting* a calendar Jint already knows is one override, while *adding* one it does
+not know is four: `IsSupported`, `GetSupportedCalendars` and both conversions all have to answer for the new
+identifier.
 
 ### 5.3 Host objects: one hook set for named properties ([#3338](https://github.com/sebastienros/jint/pull/3338))
 

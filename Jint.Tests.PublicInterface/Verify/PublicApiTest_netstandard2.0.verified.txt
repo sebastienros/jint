@@ -1186,11 +1186,6 @@ namespace Jint.Native.Global
 }
 namespace Jint.Native.Intl
 {
-    public sealed class CompactPatterns
-    {
-        public CompactPatterns() { }
-        public required System.Collections.Generic.Dictionary<int, string> Patterns { get; init; }
-    }
     public sealed class CurrencyData
     {
         public CurrencyData() { }
@@ -1198,21 +1193,12 @@ namespace Jint.Native.Intl
         public string? NarrowSymbol { get; init; }
         public required string Symbol { get; init; }
     }
-    public sealed class DateTimePatterns
-    {
-        public DateTimePatterns() { }
-        public string? DatePattern { get; init; }
-        public string? DateTimePattern { get; init; }
-        public string? TimePattern { get; init; }
-    }
     public class DefaultCldrProvider : Jint.Native.Intl.ICldrProvider
     {
         public static readonly Jint.Native.Intl.DefaultCldrProvider Instance;
         protected DefaultCldrProvider() { }
-        public virtual Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style) { }
         public virtual Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode) { }
         public virtual string? GetCurrencyDisplayName(string locale, string code) { }
-        public virtual Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle) { }
         public virtual string[]? GetDayPeriods(string locale, string style, string? calendar) { }
         public virtual string? GetDefaultNumberingSystem(string locale) { }
         public virtual string[]? GetEraNames(string locale, string style, string? calendar) { }
@@ -1233,10 +1219,8 @@ namespace Jint.Native.Intl
     }
     public interface ICldrProvider
     {
-        Jint.Native.Intl.CompactPatterns? GetCompactPatterns(string locale, string style);
         Jint.Native.Intl.CurrencyData? GetCurrencyData(string locale, string currencyCode);
         string? GetCurrencyDisplayName(string locale, string code);
-        Jint.Native.Intl.DateTimePatterns? GetDateTimePatterns(string locale, string? dateStyle, string? timeStyle);
         string[]? GetDayPeriods(string locale, string style, string? calendar);
         string? GetDefaultNumberingSystem(string locale);
         string[]? GetEraNames(string locale, string style, string? calendar);

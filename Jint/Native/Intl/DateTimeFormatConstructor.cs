@@ -186,15 +186,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
                 Throw.RangeError(_realm, $"Invalid value '{nsOptionStr}' for option 'numberingSystem'");
             }
             // Validate against supported numbering systems
-            string? validatedOption = null;
-            foreach (var ns in supported)
-            {
-                if (string.Equals(ns, nsOptionStr, StringComparison.OrdinalIgnoreCase))
-                {
-                    validatedOption = ns;
-                    break;
-                }
-            }
+            var validatedOption = ResolveSupportedNumberingSystem(supported, nsOptionStr);
 
             if (validatedOption != null)
             {
@@ -207,15 +199,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             else if (extNumberingSystem != null)
             {
                 // Invalid option, check if extension is valid
-                string? validatedExt = null;
-                foreach (var ns in supported)
-                {
-                    if (string.Equals(ns, extNumberingSystem, StringComparison.OrdinalIgnoreCase))
-                    {
-                        validatedExt = ns;
-                        break;
-                    }
-                }
+                var validatedExt = ResolveSupportedNumberingSystem(supported, extNumberingSystem);
                 if (validatedExt != null)
                 {
                     numberingSystem = validatedExt;
@@ -236,16 +220,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         else if (extNumberingSystem != null)
         {
             // No option, use extension value if supported
-            numberingSystem = null;
-            foreach (var ns in supported)
-            {
-                if (string.Equals(ns, extNumberingSystem, StringComparison.OrdinalIgnoreCase))
-                {
-                    numberingSystem = ns;
-                    preserveNumberingSystemExt = true;
-                    break;
-                }
-            }
+            numberingSystem = ResolveSupportedNumberingSystem(supported, extNumberingSystem);
+            preserveNumberingSystemExt = numberingSystem != null;
         }
         else
         {
@@ -260,14 +236,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             var localeDefault = _engine.Options.Intl.CldrProvider.GetDefaultNumberingSystem(resolvedLocale);
             if (localeDefault is not null && !string.Equals(localeDefault, "latn", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var ns in supported)
-                {
-                    if (string.Equals(ns, localeDefault, StringComparison.OrdinalIgnoreCase))
-                    {
-                        numberingSystem = ns;
-                        break;
-                    }
-                }
+                numberingSystem = ResolveSupportedNumberingSystem(supported, localeDefault);
             }
         }
 
@@ -498,12 +467,32 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // Per ECMA-402, the calendar is always resolved - defaults to "gregory" for most locales
         calendar ??= GetDefaultCalendarForLocale(culture);
 
+        // https://tc39.es/ecma402/#sec-formatdatetimepattern — the month, weekday and day-period names a
+        // pattern writes are locale data. Every one of them is produced by handing a .NET pattern to
+        // this culture, so seeding the culture's own tables is the one place a host's names reach all of
+        // format(), formatToParts() and formatRange() at once, and it happens here, once per formatter,
+        // rather than on the per-format() path.
+        //
+        // The shared singleton is recognized by identity and skipped, the way the engine already treats
+        // DefaultCalendarProvider.Instance: it reads these very names out of this very culture, so it can
+        // only ever answer with what is already there, and asking it would cost five provider calls, five
+        // cache-key allocations and four cloned DateTimeFormatInfo arrays to learn nothing. That the two
+        // agree is not assumed — IntlTests.TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames walks every
+        // culture on the machine and compares all five arrays entry by entry.
+        var cldrProvider = _engine.Options.Intl.CldrProvider;
+        if (!ReferenceEquals(cldrProvider, DefaultCldrProvider.Instance)
+            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar))
+        {
+            culture = (CultureInfo) culture.Clone();
+            culture.DateTimeFormat = dateTimeFormatInfo;
+        }
+
         return new JsDateTimeFormat(
             _engine,
             proto,
             resolvedLocale,
             calendar,
-            numberingSystem,
+            Data.ResolvedNumberingSystem.Resolve(_engine, numberingSystem),
             timeZone,
             hourCycle,
             dateStyle,
@@ -522,6 +511,123 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             hasExplicitFormatComponents,
             dateTimeFormatInfo,
             culture);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#table-numbering-system-digits
+    /// Resolves one candidate numbering system to the spelling <c>resolvedOptions()</c> reports, or null
+    /// when nothing can format in it. The advertised list is scanned first because it carries the
+    /// canonical spelling; a system the provider has digits for but does not advertise is still accepted,
+    /// because digits are what formatting actually needs.
+    /// </summary>
+    private string? ResolveSupportedNumberingSystem(IReadOnlyCollection<string> supported, string candidate)
+    {
+        foreach (var ns in supported)
+        {
+            if (string.Equals(ns, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return ns;
+            }
+        }
+
+        return IntlUtilities.IsSupportedNumberingSystem(_engine, candidate) ? candidate.ToLowerInvariant() : null;
+    }
+
+    /// <summary>
+    /// Seeds one formatter's <see cref="DateTimeFormatInfo"/> with the month, weekday and day-period names
+    /// a host <see cref="ICldrProvider"/> answers with, and reports whether any of them differed from what
+    /// .NET already held. Reached only for a provider the host installed: <see cref="DefaultCldrProvider"/>'s
+    /// shared singleton reads these names out of this same culture, so the caller skips it by identity.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fallback is per group and per style: a host overriding only <see cref="ICldrProvider.GetMonthNames"/>,
+    /// or answering only for <c>"long"</c>, keeps .NET's data for everything else, and so does an answer of the
+    /// wrong length.
+    /// </para>
+    /// <para>
+    /// The narrow styles are deliberately not read. The formatter emits the abbreviated pattern letter
+    /// (<c>MMM</c>, <c>ddd</c>) for <c>narrow</c>, so it has no narrow lane for a provider to feed.
+    /// </para>
+    /// </remarks>
+    private static bool ApplyProviderNames(
+        ICldrProvider provider,
+        DateTimeFormatInfo target,
+        DateTimeFormatInfo original,
+        string locale,
+        string? calendar)
+    {
+        var changed = false;
+
+        var longMonths = provider.GetMonthNames(locale, "long", calendar);
+        if (DiffersFrom(longMonths, original.MonthNames, 12))
+        {
+            target.MonthNames = WithTrailingEmpty(longMonths!);
+            target.MonthGenitiveNames = WithTrailingEmpty(longMonths!);
+            changed = true;
+        }
+
+        var shortMonths = provider.GetMonthNames(locale, "short", calendar);
+        if (DiffersFrom(shortMonths, original.AbbreviatedMonthNames, 12))
+        {
+            target.AbbreviatedMonthNames = WithTrailingEmpty(shortMonths!);
+            target.AbbreviatedMonthGenitiveNames = WithTrailingEmpty(shortMonths!);
+            changed = true;
+        }
+
+        var longWeekdays = provider.GetWeekdayNames(locale, "long");
+        if (DiffersFrom(longWeekdays, original.DayNames, 7))
+        {
+            target.DayNames = (string[]) longWeekdays!.Clone();
+            changed = true;
+        }
+
+        var shortWeekdays = provider.GetWeekdayNames(locale, "short");
+        if (DiffersFrom(shortWeekdays, original.AbbreviatedDayNames, 7))
+        {
+            target.AbbreviatedDayNames = (string[]) shortWeekdays!.Clone();
+            changed = true;
+        }
+
+        // The pattern letter is "tt", whose CLDR counterpart is the abbreviated day period.
+        var dayPeriods = provider.GetDayPeriods(locale, "short", calendar);
+        if (dayPeriods is { Length: 2 }
+            && (!string.Equals(dayPeriods[0], original.AMDesignator, StringComparison.Ordinal)
+                || !string.Equals(dayPeriods[1], original.PMDesignator, StringComparison.Ordinal)))
+        {
+            target.AMDesignator = dayPeriods[0];
+            target.PMDesignator = dayPeriods[1];
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static bool DiffersFrom(string[]? provided, string[] current, int length)
+    {
+        if (provided is null || provided.Length != length || current.Length < length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < length; i++)
+        {
+            if (!string.Equals(provided[i], current[i], StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary><see cref="DateTimeFormatInfo"/> month arrays carry thirteen entries, the last one empty.</summary>
+    private static string[] WithTrailingEmpty(string[] months)
+    {
+        var result = new string[13];
+        System.Array.Copy(months, result, 12);
+        result[12] = "";
+        return result;
     }
 
     private string? GetStringOption(ObjectInstance options, string property, in StringSearchValues values, string? fallback)
