@@ -643,11 +643,12 @@ public sealed class HostModuleGraphSecurityTests
     /// </summary>
     /// <remarks>
     /// The load phase, and only the load phase: <c>LoadRequestedModules</c> is what this drives, rather than
-    /// a whole <c>Import</c>. Linking and evaluation still recurse once per module, so an import of this
-    /// same graph is bounded by the stack — that is
-    /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see>, where a thousand nested
-    /// <c>InnerModuleLinking</c> frames overflowed the stack and ended the test process on macOS under
-    /// <c>net8.0</c> while passing everywhere else. Asserting the import here asserted that gap did not
+    /// a whole <c>Import</c>. Linking and evaluation still recurse once per module
+    /// (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>), so an import of this same
+    /// graph is bounded by the stack. That is what
+    /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> turned out to be: a thousand
+    /// nested <c>InnerModuleLinking</c> frames overflowed the stack and ended the test process on macOS under
+    /// <c>net8.0</c>, while passing everywhere else. Asserting the import here asserted that gap did not
     /// exist on whichever runtime and operating system ran the suite, which is not a property of Jint.
     /// <see cref="GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases"/> keeps the
     /// import covered, on a stack chosen for it.
@@ -668,8 +669,8 @@ public sealed class HostModuleGraphSecurityTests
 
     /// <summary>
     /// The same graph, imported end to end. On a stack sized for it, because linking and evaluation each
-    /// recurse once per module — see the remarks on
-    /// <see cref="GraphDepth_LongSynchronousChainLoadsIteratively"/>.
+    /// recurse once per module (<see href="https://github.com/sebastienros/jint/issues/3401">#3401</see>) —
+    /// see the remarks on <see cref="GraphDepth_LongSynchronousChainLoadsIteratively"/>.
     /// </summary>
     [Fact]
     public void GraphDepth_LongSynchronousChainImportsOnAStackSizedForTheRecursivePhases()
