@@ -268,8 +268,28 @@ internal sealed class InteropHelper
             return 10;
         }
 
-        // will rarely succeed
-        return 100;
+        // Nothing above recognizes the pair, and that is not the same as the conversion being impossible.
+        // The installed converter still reaches a JS function -> delegate, a JS object -> POCO or target
+        // dictionary, a string -> enum, a JS array -> T[]/List<T>, and a cast operator declared on the
+        // *target* type - none of which any rule above can see, which is what "rarely succeeds" was for.
+        // Only the converter can tell the two apart, and it has to, because FindBestMatch discards a
+        // negative score and accepts every other: a hopeless candidate scored 100 is the best match
+        // whenever it is the only one. Ask the very converter MethodDescriptor.Call would use, so the
+        // score cannot claim a conversion the call then fails to perform.
+        //
+        // A parameter type still carrying open type parameters (T, Func<T, bool>) is the one case that
+        // cannot be asked: the type the argument will actually be converted to does not exist yet -
+        // MethodInfoFunction.ResolveMethod closes the method first - and handing an open type to the
+        // converter is an ArgumentException, not an answer. Those keep the undecided score.
+        if (paramType.ContainsGenericParameters
+            || engine._typeConverter.TryConvert(objectValue, paramType, CultureInfo.InvariantCulture, out _))
+        {
+            // will rarely succeed
+            return 100;
+        }
+
+        // this is bad
+        return -1;
     }
 
     /// <summary>
