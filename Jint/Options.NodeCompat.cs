@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using Jint.NodeCompat;
+using Jint.Runtime;
 
 namespace Jint;
 
@@ -18,4 +20,23 @@ public sealed partial class Options
     /// <c>UseModules</c> stops mattering.
     /// </remarks>
     internal NodeBuiltinModuleConfiguration? _nodeBuiltinModules;
+
+    /// <summary>
+    /// The one door onto <see cref="_nodeBuiltinModules"/>, so that <c>UseNodeBuiltinModules</c> refuses after
+    /// the freeze exactly as an assignment does.
+    /// </summary>
+    /// <param name="configuration">The snapshot of what the host configured.</param>
+    /// <param name="verb">
+    /// Filled in by the compiler with the extension method the host actually called, so that the refusal names
+    /// that rather than this private door.
+    /// </param>
+    internal void SetNodeBuiltinModules(NodeBuiltinModuleConfiguration configuration, [CallerMemberName] string? verb = null)
+    {
+        if (_readOnly)
+        {
+            Throw.OptionsReadOnlyCall("Options." + verb);
+        }
+
+        _nodeBuiltinModules = configuration;
+    }
 }

@@ -1821,7 +1821,29 @@ public sealed partial class Engine : IDisposable
 
     internal long CurrentMemoryUsage { get; private set; }
 
-    internal Options Options
+    /// <summary>
+    /// Gets the configuration this engine was built from, frozen: every setter on it throws.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the instance the host handed to <see cref="Engine(Options)"/>, so engines built from one
+    /// <see cref="Options"/> read back one object, and <c>new Engine()</c> reads back a process-wide default.
+    /// </para>
+    /// <para>
+    /// An engine built through <see cref="OptionsExtensions.ForUntrustedCode"/> keeps a private hardened
+    /// copy, so this answers what the engine actually runs under rather than what the host declared.
+    /// </para>
+    /// <para>
+    /// <c>Engine.WebApi.Enable</c> replaces it with a copy owning its own web-API subtree, so read it again
+    /// after that call rather than caching the reference across one.
+    /// </para>
+    /// <para>
+    /// The freeze covers the settings, not the objects they name: a
+    /// <see cref="Jint.Runtime.Interop.TypeResolver"/>, a module loader or an <c>HttpClient</c> read back
+    /// here is still the host's own mutable object.
+    /// </para>
+    /// </remarks>
+    public Options Options
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get;

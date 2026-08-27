@@ -54,6 +54,40 @@ public class HostOptionsShapeTests
         }
     }
 
+    /// <summary>
+    /// The clock is the one member on <see cref="Options"/> that memoizes into a backing field on read, so
+    /// the freeze resolves it: otherwise reading a frozen configuration would write to it, and threads
+    /// reading it would race for which clock the engines built from it get.
+    /// </summary>
+    [Test]
+    public async Task AFrozenConfigurationHasOneClockHoweverManyThreadsReadIt()
+    {
+        for (var attempt = 0; attempt < 300; attempt++)
+        {
+            var options = new Options();
+            options.MakeReadOnly();
+
+            using var start = new ManualResetEventSlim(false);
+            var seen = new ITimeSystem[8];
+
+            var readers = new Task[seen.Length];
+            for (var i = 0; i < readers.Length; i++)
+            {
+                var slot = i;
+                readers[slot] = Task.Run(() =>
+                {
+                    start.Wait();
+                    seen[slot] = options.TimeSystem;
+                });
+            }
+
+            start.Set();
+            await Task.WhenAll(readers);
+
+            seen.Should().OnlyContain(x => ReferenceEquals(x, options.TimeSystem));
+        }
+    }
+
     [Test]
     public void TheJsonGroupIsConfiguredThroughItsMembers()
     {
