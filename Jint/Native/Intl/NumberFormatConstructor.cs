@@ -100,17 +100,6 @@ internal sealed partial class NumberFormatConstructor : Constructor
         var availableLocales = IntlUtilities.GetAvailableLocales();
         var resolvedLocale = ResolveNumberFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
-        // If no user-supplied numberingSystem, fall back to the locale's CLDR default
-        // (e.g. ar-EG → arab). Provider returning null means "no opinion" → use Latin.
-        if (numberingSystem is null)
-        {
-            var localeDefault = _engine.Options.Intl.CldrProvider.GetDefaultNumberingSystem(resolvedLocale);
-            if (localeDefault is not null && !string.Equals(localeDefault, "latn", StringComparison.OrdinalIgnoreCase))
-            {
-                numberingSystem = localeDefault;
-            }
-        }
-
         // SetNumberFormatUnitOptions - read style, currency, currencyDisplay, currencySign, unit, unitDisplay
         var style = GetStringOption(optionsObj, "style", StyleValues, "decimal");
 
@@ -289,10 +278,11 @@ internal sealed partial class NumberFormatConstructor : Constructor
             };
         }
 
-        // Resolve numbering system with proper fallback logic
+        // Resolve numbering system per https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 13 for the
+        // relevant extension key "nu":
         // 1. If options.numberingSystem is a supported system, use it
         // 2. Otherwise, fall back to locale extension if supported
-        // 3. Otherwise, use default "latn"
+        // 3. Otherwise, use the locale's own default, and Latin only when that has no opinion either
         string? localeNumberingSystem = null;
         foreach (var loc in requestedLocales)
         {
@@ -319,8 +309,8 @@ internal sealed partial class NumberFormatConstructor : Constructor
         }
         else
         {
-            // Default to "latn"
-            resolvedNumberingSystem = "latn";
+            // keyLocaleData[0] — the locale's own default, which is Latin only when the provider says so
+            resolvedNumberingSystem = IntlUtilities.GetLocaleDefaultNumberingSystem(_engine, resolvedLocale) ?? "latn";
         }
 
         // Adjust the resolved locale based on numbering system source
