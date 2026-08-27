@@ -2488,6 +2488,39 @@ consequences, none of which changes a signature:
   `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
   the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
 
+### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
+
+`round` read the calendar off a `PlainDate` `relativeTo` and then wrote `"iso8601"` into both calendar
+operations it performs, so every rounding with a non-ISO `relativeTo` counted ISO years and ISO months under
+that calendar's name. It now passes `relativeTo.[[Calendar]]`, which is what
+[step 443](https://tc39.es/proposal-temporal/#sec-temporal.duration.prototype.round) says and what the
+`ZonedDateTime` arm of the same method always did.
+
+```js
+const chinese = Temporal.PlainDate.from('1990-01-01').withCalendar('chinese');
+
+new Temporal.Duration(0, 0, 0, 10000).round({ largestUnit: 'year', relativeTo: chinese }).toString();
+// 5.0: "P27Y4M18D" — the ISO answer, which is also what round said for every other calendar
+// 5.x: "P27Y4M19D" — what chinese.until(chinese.add({ days: 10000 }), { largestUnit: 'year' }) says
+
+// thirteen months is a whole year in a lunisolar leap year, and the Chinese year 2023 is one
+const leapYear = Temporal.PlainDate.from('2023-01-22').withCalendar('chinese'); // monthsInYear === 13
+new Temporal.Duration(0, 13).round({ largestUnit: 'year', relativeTo: leapYear }).toString();
+// 5.0: "P1Y1M"   5.x: "P1Y"
+```
+
+Past the end of a calendar's range it also stopped answering where its neighbours refuse:
+`new Temporal.Duration(0, 0, 0, 200000).round({ largestUnit: 'year', relativeTo: chinese })` was `P547Y7M`
+while `total` and `chinese.add({ years: 547 })` both raised
+`RangeError: Date is outside the range supported by the 'chinese' calendar`. All three now say the same
+thing, because all three now ask the same calendar.
+
+**What could break:** any rounding of a duration against a non-ISO `relativeTo`. `round` was the only member
+of `Temporal` still reckoning in ISO with another calendar's name attached — `until`, `since`, `add`,
+`subtract` and `total` all already reckoned in the calendar — so a value that changes here was disagreeing
+with all of them. An ISO `relativeTo` is unaffected, and so is a duration rounded without one: nothing
+outside the calendar path moves.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
