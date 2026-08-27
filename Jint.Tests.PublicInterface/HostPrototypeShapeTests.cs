@@ -290,8 +290,8 @@ public class HostPrototypeShapeTests
         engineA.Evaluate("proto.constructor").Should().Be(JsValue.Undefined);
 
         // The setup-time fill: a raw descriptor store into a declared slot, which replaces it in place.
-        protoA.FastSetProperty("constructor", new PropertyDescriptor(new JsString("ctor-A"), PropertyFlag.NonEnumerable));
-        protoB.FastSetProperty("constructor", new PropertyDescriptor(new JsString("ctor-B"), PropertyFlag.NonEnumerable));
+        protoA.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(new JsString("ctor-A"), PropertyFlag.NonEnumerable));
+        protoB.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(new JsString("ctor-B"), PropertyFlag.NonEnumerable));
 
         engineA.Evaluate("proto.constructor").Should().Be("ctor-A");
         engineB.Evaluate("proto.constructor").Should().Be("ctor-B");

@@ -66,7 +66,7 @@ public class RavenApiUsageTests
     {
         var engine = new Engine();
         var obj = new JsObject(engine);
-        obj.FastSetDataProperty("name", "test");
+        obj.DefineOwnDataPropertyUnchecked("name", "test");
 
         var array1 = new JsArray(engine, [
             JsNumber.Create(1),

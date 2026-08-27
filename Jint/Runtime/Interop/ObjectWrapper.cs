@@ -779,14 +779,6 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         return [.. EnumerateOwnPropertyKeys(types)];
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        foreach (var key in EnumerateOwnPropertyKeys(Types.String | Types.Symbol))
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, GetOwnProperty(key));
-        }
-    }
-
     private IEnumerable<JsValue> EnumerateOwnPropertyKeys(Types types)
     {
         // prefer object order, add possible other properties after

@@ -185,25 +185,5 @@ internal sealed class IteratorResult : ObjectInstance
         return keys;
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        if (_value is not null || _valueDesc is not null)
-        {
-            _valueDesc ??= new PropertyDescriptor(_value!, PropertyFlag.ConfigurableEnumerableWritable);
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Value, _valueDesc);
-        }
-
-        if (_done is not null || _doneDesc is not null)
-        {
-            _doneDesc ??= new PropertyDescriptor(_done!, PropertyFlag.ConfigurableEnumerableWritable);
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Done, _doneDesc);
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
     public override object ToObject() => this;
 }

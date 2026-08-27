@@ -967,10 +967,10 @@ internal sealed class ClassDefinition
         List<ICallable> extraInitializers)
     {
         var context = new JsObject(engine);
-        context.FastSetDataProperty("kind", new JsString(kind));
-        context.FastSetDataProperty("name", isPrivate && name is PrivateName pn ? (JsValue) new JsString(pn.Description) : name);
-        context.FastSetDataProperty("static", isStatic ? JsBoolean.True : JsBoolean.False);
-        context.FastSetDataProperty("private", isPrivate ? JsBoolean.True : JsBoolean.False);
+        context.DefineOwnDataPropertyUnchecked("kind", new JsString(kind));
+        context.DefineOwnDataPropertyUnchecked("name", isPrivate && name is PrivateName pn ? (JsValue) new JsString(pn.Description) : name);
+        context.DefineOwnDataPropertyUnchecked("static", isStatic ? JsBoolean.True : JsBoolean.False);
+        context.DefineOwnDataPropertyUnchecked("private", isPrivate ? JsBoolean.True : JsBoolean.False);
 
         var addInitializer = new ClrFunction(engine, "addInitializer", (_, args) =>
         {
@@ -984,7 +984,7 @@ internal sealed class ClassDefinition
             return JsValue.Undefined;
         }, 1, PropertyFlag.Configurable);
 
-        context.FastSetDataProperty("addInitializer", addInitializer);
+        context.DefineOwnDataPropertyUnchecked("addInitializer", addInitializer);
 
         return context;
     }
@@ -1130,8 +1130,8 @@ internal sealed class ClassDefinition
 
             var context = CreateDecoratorContext(engine, "accessor", name, isStatic, isPrivate, extraInitializers);
             var valueObj = ObjectInstance.OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
-            valueObj.FastSetDataProperty("get", currentGetter);
-            valueObj.FastSetDataProperty("set", currentSetter);
+            valueObj.DefineOwnDataPropertyUnchecked("get", currentGetter);
+            valueObj.DefineOwnDataPropertyUnchecked("set", currentSetter);
 
             var result = engine.Call((JsValue) callable, JsValue.Undefined, new JsValue[] { valueObj, context });
 

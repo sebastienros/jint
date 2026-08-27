@@ -163,16 +163,25 @@ internal sealed class ObjectEnvironment : Environment
 
     internal override JsValue WithBaseObject() => _withEnvironment ? _bindingObject : Undefined;
 
-    internal override bool HasBindings() => _bindingObject._properties?.Count > 0 || (_bindingObject._type & (InternalTypes.ShapeMode | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty;
+    /// <summary>
+    /// Whether the debugger should show this scope at all. The two storage tests answer every in-box object
+    /// without asking it anything; a host object keeping its own-property set outside those tables answers
+    /// neither, and would otherwise be reported as an empty <c>with</c> scope, so the last clause asks it the
+    /// same question <see cref="GetAllBindingNames"/> would.
+    /// </summary>
+    internal override bool HasBindings()
+        => _bindingObject._properties?.Count > 0
+           || (_bindingObject._type & (InternalTypes.ShapeMode | InternalTypes.BuiltinShapeMode)) != InternalTypes.Empty
+           || _bindingObject.GetOwnPropertyKeys(Types.String).Count > 0;
 
     internal override string[] GetAllBindingNames()
     {
         if (_bindingObject is not null)
         {
             var names = new List<string>(_bindingObject._properties?.Count ?? 0);
-            foreach (var name in _bindingObject.GetOwnProperties())
+            foreach (var name in _bindingObject.GetOwnPropertyKeys(Types.String))
             {
-                names.Add(name.Key.ToString());
+                names.Add(name.ToString());
             }
             return names.ToArray();
         }

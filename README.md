@@ -2140,10 +2140,8 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   have names rather than indices — derive from `NamedPropertyObject`, the string-keyed sibling of
   `ArrayLikeObject`. You implement three members, `int NameCount`, `string NameAt(int index)` and
   `bool TryGetNamedValue(string name, out JsValue value)`; the base class derives and seals everything else,
-  so the five hooks this shape used to need kept mutually consistent cannot disagree — including
-  `GetOwnProperties`, which nothing script-visible enumerates through and which is the one embedders reach for
-  by mistake, shipping an object invisible to `Object.keys`, `for..in`, spread, `Object.assign` and
-  `JSON.stringify`. Because the base overrides `TryGetOwnPropertyValue` for you, reads cost **no descriptor
+  so the five hooks this shape used to need kept mutually consistent cannot disagree. Because the base
+  overrides `TryGetOwnPropertyValue` for you, reads cost **no descriptor
   and no probe** without your having to know that lane exists. Five optional hooks refine it, each defaulting
   to what a projection with no native support for that question answers, so adding one is pure opt-in and
   adding none leaves a read-only record:
@@ -2176,7 +2174,13 @@ receiver gets no own-property inline caching — every own read reaches your `Ge
   `ClrFunction` — which stays the right choice when the body really is a lambda. A host function is not a
   constructor: `new` raises a `TypeError`, and a callable that wants `new` derives from `Constructor` and
   implements `Construct` instead.
-- If you must subclass, override `TryGetOwnPropertyValue` so an own read hands the value over with no
+- If you must subclass, declare your keys with `GetOwnPropertyKeys`. It is the *only* enumeration hook:
+  `Object.keys` / `values` / `entries`, `for..in`, spread and rest, `Object.assign`, `JSON.stringify`, the CLR
+  conversion behind `ToObject()`, the debugger and `GetOwnProperties` all list keys through it.
+  (`GetOwnProperties` used to be a second `virtual` whose name read like the hook and which none of those
+  script-visible paths called; it is derived from `GetOwnPropertyKeys` and `GetOwnProperty` now, and is no
+  longer overridable, so there is nothing left to keep in step by hand.)
+- Then override `TryGetOwnPropertyValue` so an own read hands the value over with no
   descriptor at all, and `ProbeOwnProperty` so existence and enumerability questions (`in`, `Object.keys`,
   spread, `JSON.stringify`) are answered without materializing one either. Both carry an obligation to agree
   with `GetOwnProperty`, and neither is re-verified on the hot path — a `ProbeOwnProperty` that wrongly reports
@@ -2208,7 +2212,7 @@ than a value snapshot. When the value is lazy only *once*, use `PropertyDescript
 instead — it memoizes the produced value and then stops being custom-valued, which readmits the property to the
 member-write fast path and the global-identifier cache that a permanently custom-valued descriptor is declined
 by; store it wherever you store descriptors (`SetOwnProperty` or `GetOwnProperty` on a host subclass,
-`FastSetProperty`, a hand-rolled global). It is the descriptor-shaped member of the same family as
+`DefineOwnPropertyUnchecked`, a hand-rolled global). It is the descriptor-shaped member of the same family as
 `JsObjectLayout.AddLazy` (records) and `JsObjectShape` (prototypes), and it does not exempt you from the rule
 above them: storing any raw descriptor under a string key still moves a shape-mode object to the dictionary
 representation. For a whole global that may never be touched, `Options.AddLazyGlobal` defers building

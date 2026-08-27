@@ -878,7 +878,6 @@ namespace Jint.Native.Array
         public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
         public System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, Jint.Native.JsValue>> GetEntries(bool includeLength = false) { }
         public System.Collections.Generic.IEnumerator<Jint.Native.JsValue> GetEnumerator() { }
-        public override sealed System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override sealed Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override sealed System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         public override sealed bool HasProperty(Jint.Native.JsValue property) { }
@@ -936,7 +935,6 @@ namespace Jint.Native
         public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override bool Delete(Jint.Native.JsValue property) { }
         public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
-        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected override void Initialize() { }
@@ -992,7 +990,6 @@ namespace Jint.Native
         public override bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override bool Delete(Jint.Native.JsValue property) { }
         public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
-        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         public override bool Set(Jint.Native.JsValue property, Jint.Native.JsValue value, Jint.Native.JsValue receiver) { }
@@ -1096,7 +1093,6 @@ namespace Jint.Native
         public bool Unicode { get; }
         public bool UnicodeSets { get; }
         public System.Text.RegularExpressions.Regex Value { get; set; }
-        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
@@ -1314,7 +1310,6 @@ namespace Jint.Native.Function
         public Acornima.Ast.IFunction? FunctionDeclaration { get; }
         public bool Strict { get; }
         protected abstract Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments);
-        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override void RemoveOwnProperty(Jint.Native.JsValue property) { }
         protected override void SetOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
@@ -1468,7 +1463,6 @@ namespace Jint.Native.Object
         public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override sealed bool Delete(Jint.Native.JsValue property) { }
         public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
-        public override sealed System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override sealed Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override sealed System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected virtual bool HasIndex(uint index) { }
@@ -1491,7 +1485,6 @@ namespace Jint.Native.Object
         public override sealed bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
         public override sealed bool Delete(Jint.Native.JsValue property) { }
         public override sealed Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
-        public override sealed System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override sealed Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override sealed System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected virtual bool HasName(string name) { }
@@ -1525,18 +1518,18 @@ namespace Jint.Native.Object
         public Jint.Native.JsValue this[Jint.Native.JsValue property] { get; set; }
         public Jint.Native.Object.ObjectInstance? Prototype { get; set; }
         public bool CreateDataProperty(Jint.Native.JsValue p, Jint.Native.JsValue v) { }
+        public void DefineOwnDataPropertyUnchecked(string name, Jint.Native.JsValue value) { }
         public virtual bool DefineOwnProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor desc) { }
+        public void DefineOwnPropertyUnchecked(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
+        public void DefineOwnPropertyUnchecked(string name, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
         public virtual bool Delete(Jint.Native.JsValue property) { }
         protected void EnsureInitialized() { }
         public override bool Equals(Jint.Native.JsValue? other) { }
         public bool Equals(Jint.Native.Object.ObjectInstance? other) { }
         public override bool Equals(object? obj) { }
-        public void FastSetDataProperty(string name, Jint.Native.JsValue value) { }
-        public void FastSetProperty(Jint.Native.JsValue property, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
-        public void FastSetProperty(string name, Jint.Runtime.Descriptors.PropertyDescriptor value) { }
         public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
         public override int GetHashCode() { }
-        public virtual System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
+        public System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public virtual Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public virtual System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         protected virtual Jint.Native.Object.ObjectInstance? GetPrototypeOf() { }
@@ -2329,7 +2322,6 @@ namespace Jint.Runtime.Interop
         public override bool Equals(object? obj) { }
         public override Jint.Native.JsValue Get(Jint.Native.JsValue property, Jint.Native.JsValue receiver) { }
         public override int GetHashCode() { }
-        public override System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Jint.Native.JsValue, Jint.Runtime.Descriptors.PropertyDescriptor>> GetOwnProperties() { }
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }
         public override System.Collections.Generic.List<Jint.Native.JsValue> GetOwnPropertyKeys(Jint.Runtime.Types types = 72) { }
         public override bool HasProperty(Jint.Native.JsValue property) { }

@@ -206,51 +206,6 @@ public abstract partial class Function : ObjectInstance, ICallable
     internal virtual JsValue CallFastVariadic(JsValue thisObject, ReadOnlySpan<JsValue> arguments)
         => throw new InvalidOperationException($"{GetType()} does not implement CallFastVariadic; GetFastCallShape must not report Variadic.");
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        var prototypeDescriptor = ReferenceEquals(_prototypeDescriptor, _pendingDescriptor)
-            ? MaterializePrototypeDescriptor()
-            : _prototypeDescriptor;
-        if (prototypeDescriptor != null)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Prototype, prototypeDescriptor);
-        }
-
-        var length = ReferenceEquals(_length, _pendingDescriptor) ? MaterializeLengthDescriptor() : _length;
-        if (length != null)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, length);
-        }
-        if (_nameDescriptor != null)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Name, GetOwnProperty(CommonProperties.Name));
-        }
-
-        if (this is ScriptFunction scriptFunction)
-        {
-            var argumentsDescriptor = ReferenceEquals(scriptFunction._argumentsDescriptor, _pendingDescriptor)
-                ? scriptFunction.MaterializeArgumentsDescriptor()
-                : scriptFunction._argumentsDescriptor;
-            if (argumentsDescriptor is not null)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Arguments, argumentsDescriptor);
-            }
-
-            var callerDescriptor = ReferenceEquals(scriptFunction._callerDescriptor, _pendingDescriptor)
-                ? scriptFunction.MaterializeCallerDescriptor()
-                : scriptFunction._callerDescriptor;
-            if (callerDescriptor is not null)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Caller, callerDescriptor);
-            }
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
     internal sealed override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
     {
         if (_length != null)
@@ -761,19 +716,6 @@ public abstract partial class Function : ObjectInstance, ICallable
             _constructor = new PropertyDescriptor(thisObj, PropertyFlag.NonEnumerable);
         }
 
-        public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-        {
-            if (_constructor != null)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Constructor, _constructor);
-            }
-
-            foreach (var entry in base.GetOwnProperties())
-            {
-                yield return entry;
-            }
-        }
-
         public override PropertyDescriptor GetOwnProperty(JsValue property)
         {
             if (CommonProperties.Constructor.Equals(property))
@@ -782,6 +724,21 @@ public abstract partial class Function : ObjectInstance, ICallable
             }
 
             return base.GetOwnProperty(property);
+        }
+
+        /// <summary>
+        /// <c>constructor</c> lives in a field rather than the property bag, so the key enumerations have to
+        /// be told about it the way <see cref="Function"/> tells them about <c>length</c>/<c>name</c>: without
+        /// this, <c>Object.getOwnPropertyNames(f.prototype)</c> and <c>Reflect.ownKeys(f.prototype)</c>
+        /// answered an empty list for a property <c>hasOwnProperty</c> and
+        /// <c>Object.getOwnPropertyDescriptor</c> both reported.
+        /// </summary>
+        internal override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
+        {
+            if (_constructor != null)
+            {
+                yield return CommonProperties.Constructor;
+            }
         }
 
         protected internal override void SetOwnProperty(JsValue property, PropertyDescriptor desc)

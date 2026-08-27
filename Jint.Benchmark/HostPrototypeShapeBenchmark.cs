@@ -33,7 +33,7 @@ namespace Jint.Benchmark;
 /// <item><description>
 /// <see cref="BuildPrototypes"/> — per-engine setup, the headline. <see cref="HostPrototypeKind.Dictionary"/>
 /// is today's pattern: a plain <see cref="ObjectInstance"/> populated through
-/// <see cref="ObjectInstance.FastSetProperty(string, PropertyDescriptor)"/> with one eagerly-created
+/// <see cref="ObjectInstance.DefineOwnPropertyUnchecked(string, PropertyDescriptor)"/> with one eagerly-created
 /// <see cref="ClrFunction"/> per operation and a getter/setter pair per attribute.
 /// <see cref="HostPrototypeKind.Shape"/> is the same members declared once per process as a
 /// <see cref="JsObjectShape"/> and instantiated per engine. The <c>Allocated</c> column is the point: the
@@ -353,7 +353,7 @@ public class HostPrototypeShapeBenchmark
             switch (member.Kind)
             {
                 case MemberKind.Operation:
-                    prototype.FastSetProperty(
+                    prototype.DefineOwnPropertyUnchecked(
                         member.Name,
                         new PropertyDescriptor(
                             new ClrFunction(engine, member.Name, member.Implementation!, 0),
@@ -361,7 +361,7 @@ public class HostPrototypeShapeBenchmark
                     break;
 
                 case MemberKind.Attribute:
-                    prototype.FastSetProperty(
+                    prototype.DefineOwnPropertyUnchecked(
                         member.Name,
                         new GetSetPropertyDescriptor(
                             new ClrFunction(engine, "get " + member.Name, member.Implementation!, 0),
@@ -371,15 +371,15 @@ public class HostPrototypeShapeBenchmark
                     break;
 
                 default:
-                    prototype.FastSetProperty(
+                    prototype.DefineOwnPropertyUnchecked(
                         member.Name,
                         new PropertyDescriptor(member.Constant!, PropertyFlag.OnlyEnumerable));
                     break;
             }
         }
 
-        prototype.FastSetProperty("constructor", new PropertyDescriptor(JsValue.Undefined, PropertyFlag.NonEnumerable));
-        prototype.FastSetProperty(
+        prototype.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(JsValue.Undefined, PropertyFlag.NonEnumerable));
+        prototype.DefineOwnPropertyUnchecked(
             ToStringTagKey,
             new PropertyDescriptor(new JsString(table.Name), PropertyFlag.Configurable));
 

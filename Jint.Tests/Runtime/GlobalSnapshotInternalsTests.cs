@@ -269,7 +269,7 @@ public class GlobalSnapshotInternalsTests
     {
         var engine = new Engine();
         var descriptor = new HostStateDescriptor(JsNumber.Create(1));
-        engine.Realm.GlobalObject.FastSetProperty("cfg", descriptor);
+        engine.Realm.GlobalObject.DefineOwnPropertyUnchecked("cfg", descriptor);
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
         engine.Evaluate("cfg = 5;");

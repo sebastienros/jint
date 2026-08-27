@@ -128,19 +128,6 @@ internal class StringInstance : ObjectInstance, IJsPrimitive
         return OwnPropertyProbe.Enumerable;
     }
 
-    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-
-        if (_length != null)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, _length);
-        }
-    }
-
     internal sealed override IEnumerable<JsValue> GetInitialOwnStringPropertyKeys()
     {
         yield return JsString.LengthString;

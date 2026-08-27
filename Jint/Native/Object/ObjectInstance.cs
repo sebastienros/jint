@@ -379,83 +379,40 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
     }
 
     /// <summary>
-    /// Enumerates this object's own properties as key/descriptor pairs. The base implementation yields the
-    /// stored string keys first, then the symbols; the string keys come out in storage order (slot order
-    /// when shaped, insertion order otherwise), which is not the specification's own-key order —
-    /// integer-like keys are not hoisted and sorted the way <see cref="GetOwnPropertyKeys"/> does it.
+    /// Enumerates this object's own properties as key/descriptor pairs, in <see cref="GetOwnPropertyKeys"/>
+    /// order, each descriptor read through <see cref="GetOwnProperty"/>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Script-visible enumeration does not go through this method.</b> <c>Object.keys</c> /
-    /// <c>values</c> / <c>entries</c>, <c>for..in</c>, object spread and rest, <c>Object.assign</c>,
-    /// <c>JSON.stringify</c> and <see cref="Native.Json.JsonSerializer"/> all list keys with
-    /// <see cref="GetOwnPropertyKeys"/> and then filter them with
-    /// <see cref="ProbeOwnProperty"/> — neither of which consults <c>GetOwnProperties</c>. Overriding only
-    /// this method therefore leaves every one of those seeing whatever the base
-    /// <see cref="GetOwnPropertyKeys"/> reports, which for a host object projecting its properties from
-    /// native state is the engine's own (usually empty) property tables. A host that wants its properties
-    /// enumerable to script must override <see cref="GetOwnPropertyKeys"/>, and should override
-    /// <see cref="ProbeOwnProperty"/> alongside it so existence and enumerability are answered without
-    /// materializing a descriptor per key.
+    /// It is derived from those two and is not itself an extension point: a host that overrides
+    /// <see cref="GetOwnPropertyKeys"/> — and <see cref="ProbeOwnProperty"/> alongside it, so existence and
+    /// enumerability are answered without materializing a descriptor per key — is enumerated correctly here
+    /// with nothing further to write, and is enumerated correctly by script at the same time.
     /// </para>
     /// <para>
-    /// What does route through it: converting this object to a CLR value
-    /// (<see cref="JsValue.ToObject()"/> when <c>Options.Interop.CreateClrObject</c> is configured),
-    /// <c>GetSmallestIndex</c> on the array-like operation path, the debugger's binding-name enumeration
-    /// (<c>GlobalEnvironment</c> / <c>ObjectEnvironment</c>), and the debug view. Overrides in the box chain
-    /// to <c>base.GetOwnProperties()</c> to combine their exotic own properties with the stored ones.
+    /// Script-visible enumeration does not come through here at all. <c>Object.keys</c> / <c>values</c> /
+    /// <c>entries</c>, <c>for..in</c>, object spread and rest, <c>Object.assign</c>, <c>JSON.stringify</c>
+    /// and <see cref="Native.Json.JsonSerializer"/> list keys with <see cref="GetOwnPropertyKeys"/> and
+    /// filter them with <see cref="ProbeOwnProperty"/>. What does come through here is converting this
+    /// object to a CLR value (<see cref="JsValue.ToObject()"/> when <c>Options.Interop.CreateClrObject</c>
+    /// is configured) and the debug view.
+    /// </para>
+    /// <para>
+    /// It materializes one descriptor per key, so prefer <see cref="GetOwnPropertyKeys"/> when only the keys
+    /// are wanted and <see cref="ProbeOwnProperty"/> when only existence or enumerability is. The key list
+    /// is taken before the first descriptor, so a caller may store back into the object while enumerating.
     /// </para>
     /// </remarks>
-    public virtual IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+    public IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
     {
-        EnsureInitialized();
-
-        if ((_type & InternalTypes.ShapeMode) != InternalTypes.Empty)
+        var keys = GetOwnPropertyKeys();
+        for (var i = 0; i < keys.Count; i++)
         {
-            var jo = Unsafe.As<JsObject>(this);
-            var shape = jo.ShapeOf;
-            var slotCount = shape.SlotCount;
-            if (slotCount > 0)
+            var key = keys[i];
+            var descriptor = GetOwnProperty(key);
+            if (!ReferenceEquals(descriptor, PropertyDescriptor.Undefined))
             {
-                var keys = new Key[slotCount];
-                shape.CollectKeys(keys);
-                for (var i = 0; i < slotCount; i++)
-                {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(keys[i].Name), new SlotPropertyDescriptor(jo, i));
-                }
-            }
-        }
-        else if ((_type & InternalTypes.BuiltinShapeMode) != InternalTypes.Empty)
-        {
-            var shaped = Unsafe.As<IBuiltinShaped>(this);
-            var names = shaped.BuiltinShape.Names;
-            for (var i = 0; i < names.Length; i++)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(JsString.Create(names[i].Name), MaterializeBuiltinSlot(shaped, i));
-            }
-
-            // hybrid additions (added after every shape name, preserving insertion order)
-            if (_properties != null)
-            {
-                foreach (var pair in _properties)
-                {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(pair.Key), pair.Value);
-                }
-            }
-        }
-        else if (_properties != null)
-        {
-            foreach (var pair in _properties)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(pair.Key), pair.Value);
-            }
-        }
-
-        if (_symbols != null)
-        {
-            foreach (var pair in _symbols)
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(pair.Key, pair.Value);
+                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, descriptor);
             }
         }
     }
@@ -3078,10 +3035,11 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
             return 0;
         }
 
+        // Keys only: the descriptors GetOwnProperties would materialize are all discarded here.
         var min = length;
-        foreach (var entry in GetOwnProperties())
+        foreach (var key in GetOwnPropertyKeys(Types.String))
         {
-            if (ulong.TryParse(entry.Key.ToString(), out var index))
+            if (ulong.TryParse(key.ToString(), out var index))
             {
                 min = System.Math.Min(index, min);
             }
@@ -3089,9 +3047,9 @@ public partial class ObjectInstance : JsValue, IEquatable<ObjectInstance>
 
         if (Prototype?.Properties != null)
         {
-            foreach (var entry in Prototype.GetOwnProperties())
+            foreach (var key in Prototype.GetOwnPropertyKeys(Types.String))
             {
-                if (ulong.TryParse(entry.Key.ToString(), out var index))
+                if (ulong.TryParse(key.ToString(), out var index))
                 {
                     min = System.Math.Min(index, min);
                 }

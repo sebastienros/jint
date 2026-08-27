@@ -414,7 +414,7 @@ public class SharedObjectShapeTests
         {
             var engine = new Engine();
             var proto = shape.Instantiate(engine);
-            proto.FastSetProperty("constructor", new Jint.Runtime.Descriptors.PropertyDescriptor(new JsString("ctor"), Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
+            proto.DefineOwnPropertyUnchecked("constructor", new Jint.Runtime.Descriptors.PropertyDescriptor(new JsString("ctor"), Jint.Runtime.Descriptors.PropertyFlag.NonEnumerable));
             engine.SetValue("proto", proto);
             // Materialize every kind of member, so anything a materialization could have parked on the shape
             // would be parked by the time the engine is dropped.

@@ -554,9 +554,9 @@ internal sealed class GlobalEnvironment : Environment
         // which - in spite of the very general name - is actually only used by the debugger
         // at this point.
         var names = new List<string>((_global._properties?.Count ?? 0) + (_declarativeRecord._dictionary?.Count ?? 0));
-        foreach (var name in _global.GetOwnProperties())
+        foreach (var name in _global.GetOwnPropertyKeys(Types.String))
         {
-            names.Add(name.Key.ToString());
+            names.Add(name.ToString());
         }
 
         foreach (var name in _declarativeRecord.GetAllBindingNames())

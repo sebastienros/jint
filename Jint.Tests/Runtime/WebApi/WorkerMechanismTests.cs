@@ -1146,7 +1146,7 @@ public class WorkerMechanismTests
             {
                 factoryCalls++;
                 var value = new JsObject(engine);
-                value.FastSetDataProperty("marker", new JsString("host"));
+                value.DefineOwnDataPropertyUnchecked("marker", new JsString("host"));
                 return value;
             }),
         };
@@ -1655,7 +1655,7 @@ public class WorkerMechanismTests
         {
             var global = base.CreateGlobalObject(realm);
             var marker = new JsObject(Engine);
-            marker.FastSetDataProperty("marker", new JsString("host"));
+            marker.DefineOwnDataPropertyUnchecked("marker", new JsString("host"));
             global.Prototype = marker;
             return global;
         }

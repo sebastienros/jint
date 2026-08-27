@@ -490,48 +490,6 @@ public abstract class ArrayLikeObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// The same order as <see cref="GetOwnPropertyKeys"/>, with the descriptors materialized.
-    /// </summary>
-    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        var length = CheckedLength();
-        for (uint i = 0; i < length; i++)
-        {
-            if (i > 0 && i % Engine.ConstraintCheckInterval == 0)
-            {
-                _engine.Constraints.Check();
-            }
-
-            if (ReadIndex(i, out var value))
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(JsString.Create(i), new PropertyDescriptor(value, IndexFlags));
-            }
-        }
-
-        yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, new PropertyDescriptor(JsNumber.Create(length), LengthFlags));
-
-        var names = CollectNames();
-        foreach (var key in names)
-        {
-            var name = key.ToString();
-            if (NamedProjection.Read(this, name, out var value))
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, NamedProjection.DescriptorFor(this, name, value));
-            }
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            if (NamedProjection.ShadowsBagKey(this, entry.Key, names.Count))
-            {
-                continue;
-            }
-
-            yield return entry;
-        }
-    }
-
-    /// <summary>
     /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to <see cref="TrySetNamedValue"/>.
     /// Indices and <c>length</c> never reach it — they are non-writable, so the ordinary path refuses them with
     /// the spec-shaped answer (sloppy mode: ignored; strict mode: <c>TypeError</c>).

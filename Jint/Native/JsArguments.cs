@@ -237,12 +237,6 @@ public sealed class JsArguments : ObjectInstance
         return base.GetOwnPropertyKeys(types);
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        EnsureInitialized();
-        return base.GetOwnProperties();
-    }
-
     public override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         EnsureInitialized();
@@ -284,8 +278,8 @@ public sealed class JsArguments : ObjectInstance
     /// pair, non-enumerable either way) and <c>@@iterator</c> (Writable | Configurable), and nothing else.
     /// The premise of "and nothing else" is checked rather than assumed: the property bag must still be
     /// empty, because every property-adding path routes through <c>EnsureInitialized</c> first but
-    /// <c>FastSetProperty</c> is public and does not, and this object is reachable from a host as a plain
-    /// <c>ObjectInstance</c>. A non-empty bag falls through to the materializing path, i.e. to the previous
+    /// <c>DefineOwnPropertyUnchecked</c> is public and does not, and this object is reachable from a host as a
+    /// plain <c>ObjectInstance</c>. A non-empty bag falls through to the materializing path, i.e. to the previous
     /// behaviour.
     /// </para>
     /// </remarks>

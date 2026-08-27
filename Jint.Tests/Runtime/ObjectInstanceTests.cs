@@ -64,8 +64,8 @@ public class ObjectInstanceTests
     {
         var engine = new Engine();
         var instance = new JsObject(engine);
-        instance.FastSetDataProperty("bare", JsValue.Null);
-        instance.FastSetDataProperty("scope", JsValue.Null);
+        instance.DefineOwnDataPropertyUnchecked("bare", JsValue.Null);
+        instance.DefineOwnDataPropertyUnchecked("scope", JsValue.Null);
         instance.RemoveOwnProperty("bare");
         var propertyNames = instance.GetOwnProperties().Select(x => x.Key).ToList();
         propertyNames.Should().Equal(new JsValue[] { "scope" });

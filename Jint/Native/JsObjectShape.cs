@@ -442,7 +442,7 @@ public sealed class JsObjectShape
         /// Declares a data property whose value differs per engine — the canonical case being
         /// <c>constructor</c>. The slot starts as <c>undefined</c> with the declared attributes on every
         /// instantiated object; the host fills it after creating the object, either with
-        /// <see cref="ObjectInstance.FastSetProperty(string, PropertyDescriptor)"/> (a setup-time in-place
+        /// <see cref="ObjectInstance.DefineOwnPropertyUnchecked(string, PropertyDescriptor)"/> (a setup-time in-place
         /// slot replacement — on a shaped object a declared name never falls back to a dictionary) or with
         /// <c>DefineOwnProperty</c> / <c>Set</c>, which are spec-validated and therefore need the declared
         /// attributes to permit the write. That is why the slot must be declared writable or configurable.

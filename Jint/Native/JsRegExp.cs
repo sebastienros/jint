@@ -209,19 +209,6 @@ public sealed class JsRegExp : ObjectInstance
         base.SetOwnProperty(property, desc);
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        if (_prototypeDescriptor != null)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(PropertyLastIndex, _prototypeDescriptor);
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
     public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
     {
         var keys = new List<JsValue>();

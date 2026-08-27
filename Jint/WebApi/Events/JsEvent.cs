@@ -227,19 +227,6 @@ internal class JsEvent : ObjectInstance
         }
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        if (!HasStoredIsTrusted)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(_isTrusted, IsTrustedDescriptor);
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
     private bool HasStoredIsTrusted => _properties?.ContainsKey(_isTrustedKey) == true;
 
     private PropertyDescriptor IsTrustedDescriptor => _engine.Realm.Intrinsics.Event.PrototypeObject.IsTrustedDescriptor;

@@ -549,15 +549,6 @@ internal class ProjectedHostObject : ObjectInstance
         return keys;
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        foreach (var field in _fields)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(
-                new JsString(field.Key),
-                new PropertyDescriptor(field.Value, writable: true, enumerable: true, configurable: true));
-        }
-    }
 }
 
 /// <summary>

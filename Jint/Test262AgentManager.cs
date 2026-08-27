@@ -35,7 +35,7 @@ internal sealed class Test262AgentManager : IDisposable
         var agent = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
         // start(scriptSource) - spawn a new agent running the given script
-        agent.FastSetProperty("start", new PropertyDescriptor(new ClrFunction(engine, "start",
+        agent.DefineOwnPropertyUnchecked("start", new PropertyDescriptor(new ClrFunction(engine, "start",
             (_, args) =>
             {
                 var scriptSource = args.At(0).AsString();
@@ -44,7 +44,7 @@ internal sealed class Test262AgentManager : IDisposable
             }), true, true, true));
 
         // broadcast(sab) - share SharedArrayBuffer with all agents
-        agent.FastSetProperty("broadcast", new PropertyDescriptor(new ClrFunction(engine, "broadcast",
+        agent.DefineOwnPropertyUnchecked("broadcast", new PropertyDescriptor(new ClrFunction(engine, "broadcast",
             (_, args) =>
             {
                 var buffer = args.At(0) switch
@@ -58,7 +58,7 @@ internal sealed class Test262AgentManager : IDisposable
             }), true, true, true));
 
         // getReport() - get a report from the queue (returns null if none)
-        agent.FastSetProperty("getReport", new PropertyDescriptor(new ClrFunction(engine, "getReport",
+        agent.DefineOwnPropertyUnchecked("getReport", new PropertyDescriptor(new ClrFunction(engine, "getReport",
             (_, _) =>
             {
                 var report = GetReport();
@@ -66,7 +66,7 @@ internal sealed class Test262AgentManager : IDisposable
             }), true, true, true));
 
         // sleep(ms) - sleep for ms milliseconds
-        agent.FastSetProperty("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
+        agent.DefineOwnPropertyUnchecked("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
             (_, args) =>
             {
                 var ms = (int) TypeConverter.ToNumber(args.At(0));
@@ -75,13 +75,13 @@ internal sealed class Test262AgentManager : IDisposable
             }), true, true, true));
 
         // monotonicNow() - high-resolution timestamp in milliseconds
-        agent.FastSetProperty("monotonicNow", new PropertyDescriptor(new ClrFunction(engine, "monotonicNow",
+        agent.DefineOwnPropertyUnchecked("monotonicNow", new PropertyDescriptor(new ClrFunction(engine, "monotonicNow",
             (_, _) =>
             {
                 return MonotonicNow();
             }), true, true, true));
 
-        container.FastSetProperty("agent", new PropertyDescriptor(agent, true, true, true));
+        container.DefineOwnPropertyUnchecked("agent", new PropertyDescriptor(agent, true, true, true));
     }
 
     private void StartAgent(string scriptSource)
@@ -204,7 +204,7 @@ internal sealed class Test262AgentManager : IDisposable
                 var agentObj = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
 
                 // receiveBroadcast(callback) - wait for broadcast and call callback with SAB
-                agentObj.FastSetProperty("receiveBroadcast", new PropertyDescriptor(new ClrFunction(engine, "receiveBroadcast",
+                agentObj.DefineOwnPropertyUnchecked("receiveBroadcast", new PropertyDescriptor(new ClrFunction(engine, "receiveBroadcast",
                     (thisValue, args) =>
                     {
                         var callback = args.At(0);
@@ -213,7 +213,7 @@ internal sealed class Test262AgentManager : IDisposable
                     }), true, true, true));
 
                 // report(value) - send a report back to main thread
-                agentObj.FastSetProperty("report", new PropertyDescriptor(new ClrFunction(engine, "report",
+                agentObj.DefineOwnPropertyUnchecked("report", new PropertyDescriptor(new ClrFunction(engine, "report",
                     (_, args) =>
                     {
                         var value = TypeConverter.ToString(args.At(0));
@@ -222,7 +222,7 @@ internal sealed class Test262AgentManager : IDisposable
                     }), true, true, true));
 
                 // sleep(ms) - sleep for ms milliseconds
-                agentObj.FastSetProperty("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
+                agentObj.DefineOwnPropertyUnchecked("sleep", new PropertyDescriptor(new ClrFunction(engine, "sleep",
                     (_, args) =>
                     {
                         var ms = (int) TypeConverter.ToNumber(args.At(0));
@@ -231,7 +231,7 @@ internal sealed class Test262AgentManager : IDisposable
                     }), true, true, true));
 
                 // leaving() - signal agent is done
-                agentObj.FastSetProperty("leaving", new PropertyDescriptor(new ClrFunction(engine, "leaving",
+                agentObj.DefineOwnPropertyUnchecked("leaving", new PropertyDescriptor(new ClrFunction(engine, "leaving",
                     (_, _) =>
                     {
                         _leaving = true;
@@ -239,14 +239,14 @@ internal sealed class Test262AgentManager : IDisposable
                     }), true, true, true));
 
                 // monotonicNow() - high-resolution timestamp in milliseconds
-                agentObj.FastSetProperty("monotonicNow", new PropertyDescriptor(new ClrFunction(engine, "monotonicNow",
+                agentObj.DefineOwnPropertyUnchecked("monotonicNow", new PropertyDescriptor(new ClrFunction(engine, "monotonicNow",
                     (_, _) =>
                     {
                         return _manager.MonotonicNow();
                     }), true, true, true));
 
                 var container = engine.Realm.Intrinsics.Object.Construct(Arguments.Empty);
-                container.FastSetProperty("agent", new PropertyDescriptor(agentObj, true, true, true));
+                container.DefineOwnPropertyUnchecked("agent", new PropertyDescriptor(agentObj, true, true, true));
                 engine.SetValue("$262", container);
 
                 // Execute the agent script

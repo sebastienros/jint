@@ -141,12 +141,12 @@ public class SharedShapeTests
     public void AShapedObjectDeoptedByARawDescriptorWriteNoLongerHasASharedShape()
     {
         // Storing a raw descriptor under a string key is a dictionary-mode operation, so it permanently
-        // deoptimizes a shape-mode receiver — the documented FastSetProperty caveat, witnessed.
+        // deoptimizes a shape-mode receiver — the documented DefineOwnPropertyUnchecked caveat, witnessed.
         var engine = new Engine();
         var obj = CreateSample(engine);
         engine.Advanced.HasSharedShape(obj).Should().BeTrue();
 
-        obj.FastSetProperty("extra", new PropertyDescriptor(JsNumber.Create(7), writable: true, enumerable: true, configurable: true));
+        obj.DefineOwnPropertyUnchecked("extra", new PropertyDescriptor(JsNumber.Create(7), writable: true, enumerable: true, configurable: true));
 
         engine.Advanced.HasSharedShape(obj).Should().BeFalse();
 

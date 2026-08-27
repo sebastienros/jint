@@ -281,10 +281,10 @@ public class PropertyDescriptor
     /// <para>
     /// <b>Where this belongs.</b> It describes one property, so it fits wherever a host stores or returns
     /// descriptors: <c>SetOwnProperty</c> and <c>GetOwnProperty</c> on an <see cref="ObjectInstance"/>
-    /// subclass, <see cref="ObjectInstance.FastSetProperty(string, PropertyDescriptor)"/> on a
+    /// subclass, <see cref="ObjectInstance.DefineOwnPropertyUnchecked(string, PropertyDescriptor)"/> on a
     /// dictionary-mode object, a hand-rolled global or prototype install. It is <em>not</em> the tool for the
     /// two shaped storage worlds, and storing one into them is a deoptimization rather than a lazy member:
-    /// a string-keyed <c>FastSetProperty</c> of any raw descriptor moves a shape-mode object to the
+    /// a string-keyed <c>DefineOwnPropertyUnchecked</c> of any raw descriptor moves a shape-mode object to the
     /// dictionary representation permanently. Use <c>JsObjectLayout.CreateBuilder().AddLazy</c> for a lazy
     /// member of a fixed-shape record and <c>JsObjectShape</c> for a lazily materialized member of a
     /// prototype; each of the three mechanisms owns one storage world.

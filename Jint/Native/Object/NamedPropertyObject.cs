@@ -328,33 +328,6 @@ public abstract class NamedPropertyObject : ObjectInstance, INamedProjection
     }
 
     /// <summary>
-    /// The same order as <see cref="GetOwnPropertyKeys"/>, with the descriptors materialized.
-    /// </summary>
-    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        var names = NamedProjection.CollectNames(this, _engine, NamedProjection.NameOrder.IndexNamesFirst);
-        foreach (var key in names)
-        {
-            var name = key.ToString();
-            if (NamedProjection.Read(this, name, out var value))
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, NamedProjection.DescriptorFor(this, name, value));
-            }
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            // Shadowed bag entries are skipped, exactly as in GetOwnPropertyKeys.
-            if (NamedProjection.ShadowsBagKey(this, entry.Key, names.Count))
-            {
-                continue;
-            }
-
-            yield return entry;
-        }
-    }
-
-    /// <summary>
     /// Routes an assignment to a name <see cref="IsNameWritable"/> claims to
     /// <see cref="TrySetNamedValue"/>, and leaves every other key entirely ordinary. A refused write raises a
     /// <c>TypeError</c> in strict mode and is a silent no-op in sloppy mode, which is also what a name the
