@@ -134,8 +134,8 @@ internal static class NonIsoCalendars
         {
             return calendar switch
             {
-                "chinese" => LunisolarToCalendarDate(ChineseCal, in isoDate),
-                "dangi" => LunisolarToCalendarDate(DangiCal, in isoDate),
+                "chinese" => LunisolarToCalendarDate(ChineseCal, LunisolarRegion.China, in isoDate),
+                "dangi" => LunisolarToCalendarDate(DangiCal, LunisolarRegion.Korea, in isoDate),
                 "hebrew" => HebrewToCalendarDate(in isoDate),
                 "persian" => PersianToCalendarDate(in isoDate),
                 "coptic" => FixedEpochToCalendarDate(CopticEpochDays, in isoDate),
@@ -150,7 +150,14 @@ internal static class NonIsoCalendars
         }
         catch (ArgumentOutOfRangeException)
         {
-            // Fall back to ISO-like fields when the ISO date is outside the .NET calendar's range
+            // Unreachable for the eleven calendars above, and it is the point of
+            // https://github.com/sebastienros/jint/issues/3451 that it is: answering with ISO fields under
+            // another calendar's name is indistinguishable downstream from answering correctly. Each of
+            // the eleven now has a reckoning of its own to fall back on past the end of whatever backs it
+            // -- the lunisolar pair since #3451, the others before it -- and each falls back to that where
+            // it applies rather than to this. What remains here is the last resort of a static analysis
+            // that cannot see that, and Jint.Tests/Runtime/NonIsoCalendarOutOfRangeFieldTests.cs is what
+            // says no calendar reaches it.
             var monthCode = $"M{isoDate.Month:D2}";
             var daysInMonth = IsoDate.IsoDateInMonth(isoDate.Year, isoDate.Month);
             var daysInYear = IsoDate.IsLeapYear(isoDate.Year) ? 366 : 365;
@@ -184,8 +191,8 @@ internal static class NonIsoCalendars
 
         var result = calendar switch
         {
-            "chinese" => LunisolarDateToIso(ChineseCal, year, monthCode, month, day, overflow),
-            "dangi" => LunisolarDateToIso(DangiCal, year, monthCode, month, day, overflow),
+            "chinese" => LunisolarDateToIso(ChineseCal, LunisolarRegion.China, year, monthCode, month, day, overflow),
+            "dangi" => LunisolarDateToIso(DangiCal, LunisolarRegion.Korea, year, monthCode, month, day, overflow),
             "hebrew" => HebrewDateToIso(year, monthCode, month, day, overflow),
             "persian" => PersianDateToIso(year, monthCode, month, day, overflow),
             "coptic" => FixedEpochDateToIso(CopticEpochDays, 13, year, monthCode, month, day, overflow),
@@ -1607,56 +1614,97 @@ internal static class NonIsoCalendars
 
     #region Lunisolar (Chinese/Dangi) Calendar
 
-    private static CalendarDate LunisolarToCalendarDate(EastAsianLunisolarCalendar cal, in IsoDate isoDate)
+    private static CalendarDate LunisolarToCalendarDate(EastAsianLunisolarCalendar cal, LunisolarRegion region, in IsoDate isoDate)
     {
-        var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
-
-        // If outside supported range, fall back to ISO-like fields
-        if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
+        // ChineseLunisolarCalendar is a table of ISO 1901-02-19 to 2101-01-28 and KoreanLunisolarCalendar
+        // one of 918-02-19 to 2051-02-10, while Temporal.PlainDate spans a quarter of a million years each
+        // way. Outside the table the same calendar is reckoned astronomically rather than answered with
+        // ISO fields under its name (https://github.com/sebastienros/jint/issues/3451). System.DateTime
+        // cannot even hold an ISO year outside 1-9999, so that is checked before one is constructed.
+        if (isoDate.Year < 1 || isoDate.Year > 9999)
         {
-            throw new ArgumentOutOfRangeException(nameof(isoDate));
+            return LunisolarAlgorithmicFromIso(region, in isoDate);
         }
 
-        var year = cal.GetYear(dt);
-        var ordinalMonth = cal.GetMonth(dt);
-        var day = cal.GetDayOfMonth(dt);
-        var leapMonth = cal.GetLeapMonth(year);
+        var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
 
-        bool isLeapMonth;
-        string monthCode;
-
-        if (leapMonth > 0 && ordinalMonth >= leapMonth)
+        if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
         {
-            if (ordinalMonth == leapMonth)
+            return LunisolarAlgorithmicFromIso(region, in isoDate);
+        }
+
+        try
+        {
+            var year = cal.GetYear(dt);
+            var ordinalMonth = cal.GetMonth(dt);
+            var day = cal.GetDayOfMonth(dt);
+            var leapMonth = cal.GetLeapMonth(year);
+
+            bool isLeapMonth;
+            string monthCode;
+
+            if (leapMonth > 0 && ordinalMonth >= leapMonth)
             {
-                var displayMonth = leapMonth - 1;
-                isLeapMonth = true;
-                monthCode = $"M{displayMonth:D2}L";
+                if (ordinalMonth == leapMonth)
+                {
+                    var displayMonth = leapMonth - 1;
+                    isLeapMonth = true;
+                    monthCode = $"M{displayMonth:D2}L";
+                }
+                else
+                {
+                    var displayMonth = ordinalMonth - 1;
+                    isLeapMonth = false;
+                    monthCode = $"M{displayMonth:D2}";
+                }
             }
             else
             {
-                var displayMonth = ordinalMonth - 1;
                 isLeapMonth = false;
-                monthCode = $"M{displayMonth:D2}";
+                monthCode = $"M{ordinalMonth:D2}";
             }
+
+            var monthsInYear = leapMonth > 0 ? 13 : 12;
+            var daysInMonth = cal.GetDaysInMonth(year, ordinalMonth);
+            var daysInYear = cal.GetDaysInYear(year);
+            var inLeapYear = leapMonth > 0;
+
+            return new CalendarDate(year, ordinalMonth, monthCode, day, isLeapMonth, monthsInYear, daysInMonth, daysInYear, inLeapYear);
         }
-        else
+        catch (ArgumentOutOfRangeException)
         {
-            isLeapMonth = false;
-            monthCode = $"M{ordinalMonth:D2}";
+            // The table advertises the date and then declines part of it. KoreanLunisolarCalendar reports
+            // month 13 for 1189-01-09 and no leap month for the year holding it, so GetDaysInMonth refuses
+            // the very month GetMonth just named -- and the date came back as ISO fields under the
+            // calendar's name, which is the defect this arm exists to stop.
+            return LunisolarAlgorithmicFromIso(region, in isoDate);
         }
-
-        var monthsInYear = leapMonth > 0 ? 13 : 12;
-        var daysInMonth = cal.GetDaysInMonth(year, ordinalMonth);
-        var daysInYear = cal.GetDaysInYear(year);
-        var inLeapYear = leapMonth > 0;
-
-        return new CalendarDate(year, ordinalMonth, monthCode, day, isLeapMonth, monthsInYear, daysInMonth, daysInYear, inLeapYear);
     }
 
-    private static IsoDate? LunisolarDateToIso(EastAsianLunisolarCalendar cal, int year, string? monthCode, int month, int day, string overflow)
+    private static IsoDate? LunisolarDateToIso(EastAsianLunisolarCalendar cal, LunisolarRegion region, int year, string? monthCode, int month, int day, string overflow)
     {
         int ordinalMonth;
+
+        // GetLeapMonth answers for exactly the years the BCL table covers and throws for the rest, so it
+        // is also the test for which reckoning a year belongs to. Outside the table the whole year --
+        // its month count, which month is the leap one, how long each is, and where day 1 falls -- comes
+        // from the astronomical reckoning instead, so that a date cannot be resolved half one way.
+        LunisolarYear? algorithmic = null;
+        var leapMonth = 0;
+        try
+        {
+            leapMonth = cal.GetLeapMonth(year);
+        }
+        catch
+        {
+            algorithmic = LunisolarAstronomy.ForYear(year, region);
+            if (algorithmic is null)
+            {
+                return null;
+            }
+
+            leapMonth = algorithmic.LeapIndex + 1;
+        }
 
         if (monthCode is not null)
         {
@@ -1667,16 +1715,6 @@ internal static class NonIsoCalendars
             if (displayMonth < 1 || displayMonth > 12)
             {
                 return null;
-            }
-
-            var leapMonth = 0;
-            try
-            {
-                leapMonth = cal.GetLeapMonth(year);
-            }
-            catch
-            {
-                // Year out of range
             }
 
             if (isLeap)
@@ -1725,15 +1763,7 @@ internal static class NonIsoCalendars
         }
 
         // Constrain ordinal month to valid range
-        var maxMonths = 12;
-        try
-        {
-            maxMonths = cal.GetLeapMonth(year) > 0 ? 13 : 12;
-        }
-        catch
-        {
-            // Year out of range
-        }
+        var maxMonths = algorithmic?.MonthCount ?? (leapMonth > 0 ? 13 : 12);
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
@@ -1746,13 +1776,20 @@ internal static class NonIsoCalendars
 
         // Constrain day
         int maxDay;
-        try
+        if (algorithmic is not null)
         {
-            maxDay = cal.GetDaysInMonth(year, ordinalMonth);
+            maxDay = algorithmic.DaysInMonth(ordinalMonth);
         }
-        catch
+        else
         {
-            maxDay = 30;
+            try
+            {
+                maxDay = cal.GetDaysInMonth(year, ordinalMonth);
+            }
+            catch
+            {
+                maxDay = 30;
+            }
         }
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
@@ -1764,6 +1801,11 @@ internal static class NonIsoCalendars
             return null;
         }
 
+        if (algorithmic is not null)
+        {
+            return IsoFromDays(algorithmic.MonthStarts[ordinalMonth - 1] + day - 1);
+        }
+
         try
         {
             var dt = cal.ToDateTime(year, ordinalMonth, day, 0, 0, 0, 0);
@@ -1771,8 +1813,65 @@ internal static class NonIsoCalendars
         }
         catch
         {
+            // The year is one the table covers, but this particular date is past the table's own first
+            // or last day -- the Chinese table begins at 1901-02-19 and ends at 2101-01-28, neither of
+            // which is a year boundary. Answer it in the reckoning the years on either side use rather
+            // than with nothing.
+            return LunisolarAlgorithmicToIso(region, year, ordinalMonth, day);
+        }
+    }
+
+    /// <summary>
+    /// Reads an ISO date as a lunisolar date without the BCL table, for the dates outside it.
+    /// </summary>
+    private static CalendarDate LunisolarAlgorithmicFromIso(LunisolarRegion region, in IsoDate isoDate)
+    {
+        var days = TemporalHelpers.IsoDateToDays(isoDate.Year, isoDate.Month, isoDate.Day);
+        var year = LunisolarAstronomy.ForFixed(days, region);
+
+        var ordinalMonth = 1;
+        while (ordinalMonth < year.MonthCount && year.MonthStarts[ordinalMonth] <= days)
+        {
+            ordinalMonth++;
+        }
+
+        var day = (int) (days - year.MonthStarts[ordinalMonth - 1]) + 1;
+        var isLeapMonth = ordinalMonth - 1 == year.LeapIndex;
+
+        // A leap month carries the display number of the month it follows, and every month after it in
+        // the year is displaced by one -- which is exactly how the BCL arm above reads GetLeapMonth.
+        var displayMonth = year.LeapIndex >= 0 && ordinalMonth - 1 >= year.LeapIndex ? ordinalMonth - 1 : ordinalMonth;
+        var monthCode = isLeapMonth ? $"M{displayMonth:D2}L" : $"M{displayMonth:D2}";
+
+        return new CalendarDate(
+            year.Year,
+            ordinalMonth,
+            monthCode,
+            day,
+            isLeapMonth,
+            year.MonthCount,
+            year.DaysInMonth(ordinalMonth),
+            year.DaysInYear,
+            year.MonthCount == 13);
+    }
+
+    /// <summary>
+    /// Places an already-resolved ordinal month and day in a lunisolar year the BCL table does not cover.
+    /// </summary>
+    private static IsoDate? LunisolarAlgorithmicToIso(LunisolarRegion region, int year, int ordinalMonth, int day)
+    {
+        var resolved = LunisolarAstronomy.ForYear(year, region);
+        if (resolved is null || ordinalMonth < 1 || ordinalMonth > resolved.MonthCount)
+        {
             return null;
         }
+
+        if (day < 1 || day > resolved.DaysInMonth(ordinalMonth))
+        {
+            return null;
+        }
+
+        return IsoFromDays(resolved.MonthStarts[ordinalMonth - 1] + day - 1);
     }
 
     #endregion
@@ -2974,6 +3073,13 @@ internal static class NonIsoCalendars
     {
         return TemporalHelpers.IsoDateToDays(year, month, day) + 2440588L;
     }
+
+    /// <summary>
+    /// The proleptic ISO date for a count of days since 1970-01-01, which is the scale
+    /// <see cref="LunisolarAstronomy"/> reckons in. <see cref="JdnToIso"/> answers for every Julian Day
+    /// Number, so the nullable it returns never is one here.
+    /// </summary>
+    internal static IsoDate IsoFromDays(long days) => JdnToIso(days + 2440588L)!.Value;
 
     /// <summary>
     /// Converts an Islamic Umm al-Qura calendar date to an ISO date.
