@@ -6,6 +6,7 @@ using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop;
 
@@ -210,6 +211,64 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsIntegerShapedStart(char c)
         => (uint) (c - '0') <= 9 || c == '-' || c == '+' || char.IsWhiteSpace(c);
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position this view does not have — index-shaped, and
+    /// either outside <c>[0, Length)</c> or never addressable at all (negative, non-canonical, past what the
+    /// target can hold).
+    /// </summary>
+    /// <remarks>
+    /// This is the single question every lane that answers <em>whether an index exists</em> has to answer the
+    /// same way. <see cref="Get"/>, <see cref="HasProperty"/> and <c>GetOwnPropertyKeys</c> already did;
+    /// <c>[[GetOwnProperty]]</c> did not, because it was left to <see cref="ObjectWrapper"/>, which resolves the
+    /// reflected indexer and reports a descriptor for <em>any</em> parseable index. So <c>3 in list</c> was
+    /// <see langword="false"/> while <c>list.hasOwnProperty(3)</c> was <see langword="true"/> on the same object,
+    /// which is not a divergence an implementation may choose:
+    /// <see href="https://tc39.es/ecma262/#sec-ordinaryhasproperty">OrdinaryHasProperty</see> is defined in terms
+    /// of <c>[[GetOwnProperty]]</c> (#3423).
+    /// <para>
+    /// A dictionary-shaped target (Newtonsoft's <c>JObject</c> is both <c>IDictionary&lt;string,_&gt;</c> and
+    /// <c>IList&lt;_&gt;</c>) answers a string key from its own keys, exactly as <see cref="HasProperty"/>
+    /// defers for it.
+    /// </para>
+    /// </remarks>
+    private bool NamesAbsentPosition(JsValue property)
+    {
+        if (_typeDescriptor.IsDictionary)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        return key == ElementKey.OutOfBand
+               || (key == ElementKey.Position && (uint) index >= (uint) Length);
+    }
+
+    /// <summary>
+    /// The descriptor lane, answered from the view's index range before the reflected indexer is consulted.
+    /// Reached by <c>Object.getOwnPropertyDescriptor</c>, <c>Reflect.getOwnPropertyDescriptor</c>,
+    /// <c>hasOwnProperty</c>, <c>propertyIsEnumerable</c> and — through the default
+    /// <see cref="ObjectInstance.ProbeOwnProperty"/> — everything that asks whether a key exists.
+    /// </summary>
+    public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
+        => NamesAbsentPosition(property) ? PropertyDescriptor.Undefined : base.GetOwnProperty(property);
+
+    /// <summary>
+    /// The existence probe, kept in step with <see cref="GetOwnProperty"/> by construction rather than by
+    /// deriving it: an absent position is answered without resolving an accessor or building a descriptor.
+    /// </summary>
+    protected internal sealed override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+        => NamesAbsentPosition(property) ? OwnPropertyProbe.Missing : base.ProbeOwnProperty(property);
+
+    /// <summary>
+    /// A position this view does not have cannot be defined into existence either. Without this,
+    /// <c>Object.defineProperty(view, 5, …)</c> would store a descriptor in the wrapper's own property bag for
+    /// a key <see cref="GetOwnProperty"/> then denies — a property that both exists and does not. The refusal
+    /// is what script already saw (the reflected indexer's descriptor is non-configurable, so the redefinition
+    /// was rejected); it is now a property of the view rather than an accident of reflection.
+    /// </summary>
+    public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        => !NamesAbsentPosition(property) && base.DefineOwnProperty(property, desc);
 
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
