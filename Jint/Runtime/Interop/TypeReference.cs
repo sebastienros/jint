@@ -34,6 +34,19 @@ public sealed class TypeReference : Constructor, IObjectWrapper
         PreventExtensions();
     }
 
+    /// <summary>
+    /// The CLR type this reference exposes.
+    /// </summary>
+    /// <remarks>
+    /// Annotated so that what arrives through <see cref="CreateTypeReference(Engine, Type)"/> is still
+    /// annotated when the four reflective lanes below read it back. Without it the promise the caller made
+    /// stopped at this property, and a trimmer preserved nothing for a type handed over as a
+    /// <see cref="TypeReference"/>. It satisfies construction — through <see cref="Activator"/> and through
+    /// the resolved constructor set — outright; the two static-member resolution lanes additionally read
+    /// nested types, which this deliberately does not promise, for the reason
+    /// <c>InteropHelper.DefaultDynamicallyAccessedMemberTypes</c> gives.
+    /// </remarks>
+    [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)]
     public Type ReferenceType { get; }
 
     public static TypeReference CreateTypeReference<
@@ -320,7 +333,7 @@ public sealed class TypeReference : Constructor, IObjectWrapper
 
     private static ReflectionAccessor ResolveMemberAccessor(
         Engine engine,
-        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)]
         Type type,
         string name)
     {

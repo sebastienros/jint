@@ -1,4 +1,4 @@
-# Migrating from Jint 4.16 to Jint 5
+﻿# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -2927,6 +2927,7 @@ Deliberately **not** annotated: `SetValue(string, Type)`, `SetValue<T>` — on `
 reflects over instead of merely warning about it - they are the AOT-friendly way to expose a type, which
 is exactly why the messages above point at them. Nothing carries `[RequiresDynamicCode]`, because §6.1 is what the measurement
 says, and warning an AOT host away from an API that works would be worse than not warning at all.
+[§6.6](#66-what-handing-jint-a-type-preserves-3396) says what that one shared annotation now covers.
 
 The attributes are on the `net8.0` and `net10.0` assets. The downlevel targets carry the same
 annotations as internal polyfills, so they are invisible to a consumer - which costs nothing, since
@@ -2967,7 +2968,7 @@ your code changes; the overload is picked automatically.
 **Expect some of Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's
 compilation and reaches nothing downstream - ILC re-derives every diagnostic over the closed program -
 so an AOT publish reports Jint's remaining trim-analysis warnings against Jint's files in *your* build.
-There are 76 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
+There are 73 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
 they now divide into two kinds:
 
 * **Nine are the gaps in [§6.2](#62-the-one-thing-that-does-not-a-generic-instantiation-over-a-value-type)**
@@ -2995,6 +2996,37 @@ var engine = new Engine(options => options.Interop.Enabled = false);
 
 That is the floor Jint is prepared to promise. Everything above it is a matter of rooting what you
 expose.
+
+### 6.6 What handing Jint a type preserves ([#3396](https://github.com/sebastienros/jint/issues/3396))
+
+The five members [§6.3](#63-apis-that-now-warn) calls the AOT-friendly way to expose a type —
+`Engine.SetValue(string, Type)`, `Engine.SetValue<T>`, the two `ShadowRealm` mirrors,
+`TypeReference.CreateTypeReference` and `ModuleBuilder.ExportType` — share one
+`[DynamicallyAccessedMembers]` set, because they are one promise. It has gained one entry, **the type's
+interfaces**, alongside its public constructors, properties, methods, fields and events.
+
+Jint walks `Type.GetInterfaces()` to find a member a class implements only through an interface, and to
+decide whether a target is array-like, dictionary-shaped or enumerable. A trimmer may remove an
+interface implementation nothing else uses, and Jint would then report a member that is there as
+`undefined` — the failure mode [§6.4](#64-what-you-owe-your-own-project) warns about, with no
+diagnostic anywhere. Nothing in your code changes; the annotation is what keeps the interface.
+
+`TypeReference.ReferenceType` carries the same set now, so a type handed to
+`CreateTypeReference` is still annotated when the reference constructs it — through `Activator` and
+through the resolved constructor set alike. It was a plain `Type` before, and the promise the caller
+made stopped there.
+
+**Public nested types are deliberately not in the set**, and the reason is worth knowing before you ask
+for them. `Env.SpecialFolder.MyDocuments` works: a nested type is a member a script can name, and the
+native run pins it. But adding `PublicNestedTypes` to the shared set marks every nested type with
+`All`, and every nested **enum** then raises an `IL3050` in **your** build through the inherited
+`[RequiresDynamicCode] Enum.GetValues(Type)` — two of them for a single
+`engine.SetValue("Env", typeof(Environment))`. In exchange it preserves nothing under Native AOT: ILC
+already keeps the nested types of a type whose metadata it emits, measured on the published binary for
+six candidates with the annotation present and absent. So the requirement is stated inside Jint where
+the lookup happens, and the two `IL2072` it raises against `TypeReference.cs` are two of the
+diagnostics §6.4 counts. This is the `Delegate` trap in §6.4 again, and the choice was not to add a
+second one.
 
 ## Keeping this document current
 
