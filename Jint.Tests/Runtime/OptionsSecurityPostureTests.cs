@@ -6,9 +6,9 @@ using System.Reflection;
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// The classification behind <c>Options.CopySecurityPosture</c>: every value-typed setting an engine's
-/// posture is made of is either inherited by a second engine built from the first, or explicitly named as
-/// something that stays behind.
+/// The classification behind <c>Options.CopySecurityPosture</c>: every setting an engine's posture is made
+/// of is either inherited by a second engine built from the first, or explicitly named as something that
+/// stays behind.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,11 +21,22 @@ namespace Jint.Tests.Runtime;
 /// <para>
 /// The scanned scope is deliberately narrow and stated in one place: <see cref="Options"/> itself plus the
 /// groups the copy reads — <c>Constraints</c>, <c>Host</c>, <c>Json</c>, <c>Parsing</c> and <c>Modules</c> —
-/// and within them the <b>value-typed</b> public settable properties, which is what "a setting" means here. Delegates, collections
-/// and anything reference-typed are host wiring rather than posture: a resolver, a loader, a converter or a
-/// provider is an object the host hands over deliberately, per engine. Every other option group is excluded
-/// wholesale, and <c>Options.SecurityPostureExcludedGroups</c> is where each exclusion is argued — a group
-/// added later has to be classified rather than quietly falling outside the rule.
+/// and within them <b>every</b> public settable property, which is what "a setting" means here. Every other
+/// option group is excluded wholesale, and <c>Options.SecurityPostureExcludedGroups</c> is where each
+/// exclusion is argued — a group added later has to be classified rather than quietly falling outside the
+/// rule.
+/// </para>
+/// <para>
+/// <b>Reference-typed settings are scanned too, and that is a correction.</b> The scan used to stop at
+/// value-typed properties on the reasoning that a resolver, a loader, a converter or a provider is host
+/// wiring the host hands over deliberately, per engine — which is true of almost all of them and is still
+/// the reason most of them are in <c>SecurityPostureNotInherited</c>. What it is not true of is
+/// <c>Constraints.TimeProvider</c>: a clock is the yardstick two <i>inherited</i> budgets are measured
+/// against, and it fell outside the rule entirely, so a worker ran its <c>PromiseTimeout</c> and its
+/// <c>LimitExecutionTime</c> against two different clocks and nothing here said a word
+/// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>). "Reference-typed, therefore
+/// not a setting" was a rule nobody could rely on; each one argues for itself now, which is also what
+/// retires the hand-written comment <c>ResultLimits</c> had to carry.
 /// </para>
 /// </remarks>
 public class OptionsSecurityPostureTests
@@ -44,7 +55,15 @@ public class OptionsSecurityPostureTests
         ("Modules.", typeof(Options.ModuleOptions)),
     ];
 
-    private static List<string> ValueSettings()
+    /// <summary>
+    /// Every public settable property on the scanned types, named the way the classification lists name it.
+    /// </summary>
+    /// <remarks>
+    /// A public setter is the whole definition of "a setting" here: it is what a host can change, and
+    /// therefore what a worker can differ from its creator on. Indexers are skipped because
+    /// <see cref="Options"/> has none and a keyed bag is not a setting.
+    /// </remarks>
+    private static List<string> Settings()
     {
         var names = new List<string>();
 
@@ -57,7 +76,7 @@ public class OptionsSecurityPostureTests
                     continue;
                 }
 
-                if (property.SetMethod is not { IsPublic: true } || !property.PropertyType.IsValueType)
+                if (property.SetMethod is not { IsPublic: true })
                 {
                     continue;
                 }
@@ -75,7 +94,7 @@ public class OptionsSecurityPostureTests
         var inherited = new HashSet<string>(Options.SecurityPostureInherited, StringComparer.Ordinal);
         var notInherited = new HashSet<string>(Options.SecurityPostureNotInherited, StringComparer.Ordinal);
 
-        foreach (var setting in ValueSettings())
+        foreach (var setting in Settings())
         {
             var classified = inherited.Contains(setting) || notInherited.Contains(setting);
 
@@ -105,7 +124,7 @@ public class OptionsSecurityPostureTests
     [Test]
     public void NeitherClassificationNamesASettingThatNoLongerExists()
     {
-        var settings = new HashSet<string>(ValueSettings(), StringComparer.Ordinal);
+        var settings = new HashSet<string>(Settings(), StringComparer.Ordinal);
 
         foreach (var setting in Options.SecurityPostureInherited)
         {

@@ -1630,6 +1630,14 @@ public sealed partial class Engine : IDisposable
 #endif
 
         _constraints = BuildConstraints(Options.Constraints);
+#if NET8_0_OR_GREATER
+        // The same resolved provider the blocking promise drain reads, handed to the execution timeout, so
+        // one engine cannot run its two time budgets against two clocks. It has to happen here rather than
+        // in the factory that built the constraint: a factory is replayed onto a worker's own Options
+        // (WorkerRequest.CreateDefaultOptions), and a closure over the configuring group then measured the
+        // worker's timeout on its PARENT's clock (sebastienros/jint#3481).
+        BindConstraintClocks(_constraints, _waitClock);
+#endif
         var partitionedConstraints = PartitionConstraints(_constraints);
         _exactConstraints = partitionedConstraints.Exact;
         _amortizedConstraints = partitionedConstraints.Amortized;

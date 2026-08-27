@@ -113,16 +113,14 @@ public static class ConstraintsOptionsExtensions
 
         if (timeoutInterval > TimeSpan.Zero && timeoutInterval < TimeSpan.MaxValue)
         {
-#if NET8_0_OR_GREATER
-            // The group rather than a captured clock: the factory runs while the engine is being
-            // constructed, so a TimeProvider assigned after this call still reaches the constraint and
-            // configuration order does not matter. TimeProvider is a .NET 8 type, so the downlevel
-            // targets register the constraint exactly as they always did.
-            var constraints = options.Constraints;
-            options.AddConstraint(() => new TimeConstraint(timeoutInterval, constraints.TimeProvider));
-#else
+            // The interval and nothing else. The clock is bound by the Engine constructor from the options
+            // that engine is actually built from, so configuration order still does not matter — a
+            // TimeProvider assigned after this call reaches the constraint exactly as it did when this
+            // closure captured the group. What changes is the case a capture answered wrongly: a factory
+            // replayed onto a DIFFERENT Options instance, which is what a worker is
+            // (sebastienros/jint#3481). Nothing here is conditionally compiled any more, because there is
+            // no longer a .NET 8 type in the expression.
             options.AddConstraint(() => new TimeConstraint(timeoutInterval));
-#endif
         }
         return options;
     }
