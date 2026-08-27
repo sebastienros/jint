@@ -7,10 +7,10 @@ namespace Jint.Tests.CommonScripts;
 public class SunSpiderTests
 {
     /// <summary>
-    /// What a single regular-expression match in these scripts is given.
+    /// What a single regular-expression match in this project's scripts is given, in either fixture.
     /// </summary>
     /// <remarks>
-    /// Nothing in this suite asserts anything about <c>Options.Constraints.RegexTimeout</c>; every test here
+    /// Nothing in this project asserts anything about <c>Options.Constraints.RegexTimeout</c>; every test here
     /// asserts that a real-world script produces the right answer. The engine's ten-second default is
     /// therefore a wedge ceiling, and it was one sized for a machine running a single script: this fixture is
     /// <c>[Parallelizable(ParallelScope.All)]</c>, so twenty-eight CPU-bound workloads share whatever cores
@@ -20,7 +20,7 @@ public class SunSpiderTests
     /// and a catastrophic one reported after a minute is still reported. It stays finite deliberately:
     /// <c>Regex.InfiniteMatchTimeout</c> would turn that failure into a hung run.
     /// </remarks>
-    private static readonly TimeSpan RegexWedgeCeiling = TimeSpan.FromMinutes(1);
+    internal static readonly TimeSpan RegexWedgeCeiling = TimeSpan.FromMinutes(1);
 
     private static void RunTest(string source)
     {
