@@ -183,7 +183,7 @@ public class WorkerTests
         options.Modules.MaxTotalModuleSourceBytes = 256_000;
         options.Modules.MaxModuleGraphDepth = 5;
         options.Modules.MaxModuleResolutionHops = 13;
-        options.ResultLimits = new ResultLimits(maxDepth: 6);
+        options.ResultLimits = new ResultLimits { MaxDepth = 6 };
         return options;
     }
 
@@ -223,17 +223,19 @@ public class WorkerTests
     [Test]
     public void AnUntrustedCodeProfileParentHardensItsWorkerWithoutTheMarker()
     {
-        var limits = new UntrustedCodeLimits(
-            timeoutInterval: TimeSpan.FromMilliseconds(750),
-            maxStatements: 12_345,
-            memoryLimit: 8_000_000,
-            maxRecursionDepth: 21,
-            maxArraySize: 2048,
-            regexTimeout: TimeSpan.FromMilliseconds(333),
-            promiseTimeout: TimeSpan.FromMilliseconds(444),
-            maxOperationDuration: TimeSpan.FromSeconds(5),
-            maxSourceLength: 55_555,
-            maxNodeCount: 4_321);
+        var limits = new UntrustedCodeLimits
+        {
+            TimeoutInterval = TimeSpan.FromMilliseconds(750),
+            MaxStatements = 12_345,
+            MemoryLimit = 8_000_000,
+            MaxRecursionDepth = 21,
+            MaxArraySize = 2048,
+            RegexTimeout = TimeSpan.FromMilliseconds(333),
+            PromiseTimeout = TimeSpan.FromMilliseconds(444),
+            MaxOperationDuration = TimeSpan.FromSeconds(5),
+            MaxSourceLength = 55_555,
+            MaxNodeCount = 4_321,
+        };
 
         var parent = new Engine(new Options().ForUntrustedCode(limits));
 

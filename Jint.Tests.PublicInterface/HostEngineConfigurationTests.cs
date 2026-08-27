@@ -32,7 +32,7 @@ public class HostEngineConfigurationTests
     public void AHostReadsBackWhatItConfigured()
     {
         var loader = new StubModuleLoader();
-        var limits = new ResultLimits(maxDepth: 7);
+        var limits = new ResultLimits { MaxDepth = 7 };
 
         var options = new Options();
         options.Strict = true;
@@ -150,15 +150,17 @@ public class HostEngineConfigurationTests
     {
         var options = new Options();
         options.Interop.Enabled = true;
-        options.ForUntrustedCode(new UntrustedCodeLimits(
-            timeoutInterval: TimeSpan.FromSeconds(5),
-            maxStatements: 500,
-            memoryLimit: 16_000_000,
-            maxRecursionDepth: 64,
-            maxArraySize: 10_000,
-            regexTimeout: TimeSpan.FromMilliseconds(100),
-            promiseTimeout: TimeSpan.FromMilliseconds(100),
-            maxOperationDuration: TimeSpan.FromSeconds(10)));
+        options.ForUntrustedCode(new UntrustedCodeLimits
+        {
+            TimeoutInterval = TimeSpan.FromSeconds(5),
+            MaxStatements = 500,
+            MemoryLimit = 16_000_000,
+            MaxRecursionDepth = 64,
+            MaxArraySize = 10_000,
+            RegexTimeout = TimeSpan.FromMilliseconds(100),
+            PromiseTimeout = TimeSpan.FromMilliseconds(100),
+            MaxOperationDuration = TimeSpan.FromSeconds(10),
+        });
 
         var engine = new Engine(options);
 

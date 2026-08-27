@@ -15,26 +15,23 @@ public class JsonSerializerTests
         var expected = "{\"a\":[1,2],\"b\":\"text\"}";
 
         new JsonSerializer(engine).Serialize(value).AsString().Should().Be(expected);
-        new JsonSerializer(engine).SerializeWithLimits(
-            value,
-            new ResultLimits(
-                maxDepth: 2,
-                maxPropertyCount: 4,
-                maxStringLength: 4,
-                maxOutputCharacters: expected.Length)).AsString().Should().Be(expected);
+        new JsonSerializer(
+            engine,
+            new ResultLimits { MaxDepth = 2, MaxPropertyCount = 4, MaxStringLength = 4, MaxOutputCharacters = expected.Length })
+            .Serialize(value).AsString().Should().Be(expected);
     }
 
     [Test]
-    public void ReentrantUseOfTheSameInstanceCannotReplaceOuterLimits()
+    public void ReentrantUseOfTheSameInstanceIsRejected()
     {
         var engine = new Engine();
-        var serializer = new JsonSerializer(engine);
+        var serializer = new JsonSerializer(engine, new ResultLimits { MaxStringLength = 3 });
         var nestedWasRejected = false;
         engine.SetValue("reenter", new Func<string>(() =>
         {
             try
             {
-                serializer.SerializeWithLimits(new JsString("unbounded"), ResultLimits.Unlimited);
+                serializer.Serialize(new JsString("unbounded"));
             }
             catch (InvalidOperationException)
             {
@@ -45,7 +42,7 @@ public class JsonSerializerTests
         }));
         var value = engine.Evaluate("({ toJSON() { return reenter(); } })");
 
-        Invoking(() => serializer.SerializeWithLimits(value, new ResultLimits(maxStringLength: 3)))
+        Invoking(() => serializer.Serialize(value))
             .Should().ThrowExactly<ResultLimitExceededException>();
         nestedWasRejected.Should().BeTrue();
         serializer.Serialize(new JsString("ok")).AsString().Should().Be("\"ok\"");
@@ -55,19 +52,18 @@ public class JsonSerializerTests
     public void JsonLimitsDepthPropertiesStringsAndCharacters()
     {
         using var engine = new Engine();
-        var serializer = new JsonSerializer(engine);
 
         AssertLimit(
-            () => serializer.SerializeWithLimits(engine.Evaluate("({ a: { b: 1 } })"), new ResultLimits(maxDepth: 1)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxDepth = 1 }).Serialize(engine.Evaluate("({ a: { b: 1 } })")),
             ResultLimit.Depth);
         AssertLimit(
-            () => serializer.SerializeWithLimits(engine.Evaluate("[1, 2, 3]"), new ResultLimits(maxPropertyCount: 2)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxPropertyCount = 2 }).Serialize(engine.Evaluate("[1, 2, 3]")),
             ResultLimit.PropertyCount);
         AssertLimit(
-            () => serializer.SerializeWithLimits(new JsString("1234"), new ResultLimits(maxStringLength: 3)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxStringLength = 3 }).Serialize(new JsString("1234")),
             ResultLimit.StringLength);
         AssertLimit(
-            () => serializer.SerializeWithLimits(new JsString("1234"), new ResultLimits(maxOutputCharacters: 5)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxOutputCharacters = 5 }).Serialize(new JsString("1234")),
             ResultLimit.OutputCharacters);
     }
 
@@ -78,9 +74,7 @@ public class JsonSerializerTests
         var value = new JsString(new string('\0', 20));
 
         AssertLimit(
-            () => new JsonSerializer(engine).SerializeWithLimits(
-                value,
-                new ResultLimits(maxOutputCharacters: 100)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxOutputCharacters = 100 }).Serialize(value),
             ResultLimit.OutputCharacters);
     }
 
@@ -97,9 +91,7 @@ public class JsonSerializerTests
         value._value.Should().Be("ab");
 
         AssertLimit(
-            () => new JsonSerializer(engine).SerializeWithLimits(
-                value,
-                new ResultLimits(maxStringLength: 2)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxStringLength = 2 }).Serialize(value),
             ResultLimit.StringLength);
         value._value.Should().Be("ab");
     }
@@ -132,7 +124,7 @@ public class JsonSerializerTests
             """);
 
         AssertLimit(
-            () => new JsonSerializer(engine).SerializeWithLimits(value, new ResultLimits(maxPropertyCount: 1)),
+            () => new JsonSerializer(engine, new ResultLimits { MaxPropertyCount = 1 }).Serialize(value),
             ResultLimit.PropertyCount);
         engine.GetValue("reads").AsNumber().Should().Be(0);
     }
@@ -141,16 +133,16 @@ public class JsonSerializerTests
     public void Utf8LimitIsExactAndWriterIsUntouchedOnFailure()
     {
         using var engine = new Engine();
-        var serializer = new JsonSerializer(engine);
         var value = new JsString("é");
         var writer = new CountingBufferWriter();
 
-        serializer.Serialize(value, writer, new ResultLimits(maxOutputBytes: 4)).Should().BeTrue();
+        new JsonSerializer(engine, new ResultLimits { MaxOutputBytes = 4 }).Serialize(value, writer).Should().BeTrue();
         writer.WrittenCount.Should().Be(4);
 
+        var tighter = new JsonSerializer(engine, new ResultLimits { MaxOutputBytes = 3 });
         writer = new CountingBufferWriter();
         AssertLimit(
-            () => serializer.Serialize(value, writer, new ResultLimits(maxOutputBytes: 3)),
+            () => tighter.Serialize(value, writer),
             ResultLimit.OutputBytes);
         writer.WrittenCount.Should().Be(0);
     }
@@ -159,7 +151,7 @@ public class JsonSerializerTests
     public void ConfiguredLimitsAlsoBoundScriptStringify()
     {
         using var engine = new Engine(options =>
-            options.ResultLimits = new ResultLimits(maxOutputCharacters: 5));
+            options.ResultLimits = new ResultLimits { MaxOutputCharacters = 5 });
 
         Invoking(() => engine.Evaluate("try { JSON.stringify([1, 2, 3]); } catch { 'caught'; }"))
             .Should().ThrowExactly<ResultLimitExceededException>();
@@ -171,7 +163,7 @@ public class JsonSerializerTests
         using var engine = new Engine(options => options.LimitStatements(100));
         var value = engine.Evaluate("({ toJSON() { while (true) {} } })");
 
-        Invoking(() => new JsonSerializer(engine).SerializeWithLimits(value, ResultLimits.Conservative))
+        Invoking(() => new JsonSerializer(engine, ResultLimits.Conservative).Serialize(value))
             .Should().ThrowExactly<StatementsCountOverflowException>();
     }
 

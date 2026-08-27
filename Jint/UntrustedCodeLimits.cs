@@ -10,9 +10,14 @@ namespace Jint;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This type deliberately has no defaults. Limits for untrusted code depend on the request and workload,
-/// so the host must choose every value. Values that the ordinary constraint helpers interpret as
-/// "unlimited" are rejected instead of silently disabling a protection.
+/// The eight budget dimensions are <c>required</c>: a useful budget depends on the request and the workload,
+/// so the host names every one of them, and values the ordinary constraint helpers read as "unlimited" are
+/// rejected rather than silently disabling a protection. Parser, module-graph and result limits carry
+/// conservative finite defaults that should still be tuned.
+/// </para>
+/// <para>
+/// <see cref="Default"/> is the one place Jint picks the eight itself. It is a preset to adjust —
+/// <c>UntrustedCodeLimits.Default with { MaxStatements = 5_000 }</c> — and not a value to accept unread.
 /// </para>
 /// <para>
 /// <see cref="TimeoutInterval"/>, <see cref="MaxStatements"/> and <see cref="MemoryLimit"/> apply to one
@@ -20,164 +25,255 @@ namespace Jint;
 /// entries, but only while the host brackets that operation with <see cref="BeginOperation"/>.
 /// </para>
 /// </remarks>
-public sealed class UntrustedCodeLimits
+public sealed record UntrustedCodeLimits
 {
     /// <summary>
-    /// Creates a complete set of finite limits for untrusted code.
+    /// A complete conservative profile: the stricter budget of the two deployment examples Jint documents.
     /// </summary>
-    /// <param name="timeoutInterval">Maximum wall-clock time for one engine entry.</param>
-    /// <param name="maxStatements">Maximum statements executed by one engine entry.</param>
-    /// <param name="memoryLimit">Maximum bytes allocated by one engine entry.</param>
-    /// <param name="maxRecursionDepth">
-    /// Maximum recursion depth. Zero forbids recursion; unlike
-    /// <see cref="Options.ConstraintOptions.MaxRecursionDepth"/>, negative and saturated values are rejected
-    /// rather than treated as unlimited.
-    /// </param>
-    /// <param name="maxArraySize">Maximum JavaScript array size.</param>
-    /// <param name="regexTimeout">
-    /// Maximum time one regular expression operation may run. A prepared script or module carries the timeout
-    /// from its own parsing options, so prepare untrusted code with the same value.
-    /// </param>
-    /// <param name="promiseTimeout">Maximum time the engine may wait for a promise to settle.</param>
-    /// <param name="maxOperationDuration">
-    /// Maximum wall-clock time for a host operation containing one or more engine entries. The host must
-    /// activate this limit with <see cref="BeginOperation"/> around each operation.
-    /// </param>
-    /// <param name="maxSourceLength">Maximum UTF-16 source length for every engine-owned parse.</param>
-    /// <param name="maxNodeCount">Maximum AST nodes for every engine-owned parse.</param>
-    /// <param name="maxModuleCount">Maximum distinct module records registered by one engine.</param>
-    /// <param name="maxTotalModuleSourceBytes">Maximum aggregate module source bytes registered by one engine.</param>
-    /// <param name="maxModuleGraphDepth">Maximum graph depth for one top-level module load.</param>
-    /// <param name="maxModuleResolutionHops">Maximum resolver calls for one top-level module load.</param>
-    /// <param name="resultLimits">Bounds conversion, JSON serialization, and error rendering.</param>
-    public UntrustedCodeLimits(
-        TimeSpan timeoutInterval,
-        int maxStatements,
-        long memoryLimit,
-        int maxRecursionDepth,
-        uint maxArraySize,
-        TimeSpan regexTimeout,
-        TimeSpan promiseTimeout,
-        TimeSpan maxOperationDuration,
-        int maxSourceLength = 1_000_000,
-        int maxNodeCount = 250_000,
-        int maxModuleCount = 100,
-        long maxTotalModuleSourceBytes = 10_000_000,
-        int maxModuleGraphDepth = 32,
-        int maxModuleResolutionHops = 1_000,
-        ResultLimits? resultLimits = null)
+    /// <remarks>
+    /// Every value here is Jint guessing on the host's behalf, which is what the <c>required</c> members
+    /// exist to prevent. Measure a normal workload and adjust with a <c>with</c> expression.
+    /// </remarks>
+    public static UntrustedCodeLimits Default { get; } = new()
     {
-        ValidateFiniteTimeout(timeoutInterval, nameof(timeoutInterval));
-        ValidateRange(maxStatements, nameof(maxStatements));
-        ValidateRange(memoryLimit, nameof(memoryLimit));
+        TimeoutInterval = TimeSpan.FromSeconds(1),
+        MaxStatements = 50_000,
+        MemoryLimit = 16_000_000,
+        MaxRecursionDepth = 64,
+        MaxArraySize = 10_000,
+        RegexTimeout = TimeSpan.FromMilliseconds(250),
+        PromiseTimeout = TimeSpan.FromMilliseconds(500),
+        MaxOperationDuration = TimeSpan.FromSeconds(2),
+    };
 
-        if (maxRecursionDepth < 0 || maxRecursionDepth == int.MaxValue)
-        {
-            Throw.ArgumentOutOfRangeException(
-                nameof(maxRecursionDepth),
-                "The recursion depth must be between zero and Int32.MaxValue - 1.");
-        }
-
-        if (maxArraySize == 0 || maxArraySize == uint.MaxValue)
-        {
-            Throw.ArgumentOutOfRangeException(
-                nameof(maxArraySize),
-                "The array size must be between one and UInt32.MaxValue - 1.");
-        }
-
-        ValidateFiniteTimeout(regexTimeout, nameof(regexTimeout));
-        ValidateFiniteTimeout(promiseTimeout, nameof(promiseTimeout));
-        ValidateFiniteTimeout(maxOperationDuration, nameof(maxOperationDuration));
-        ValidateRange(maxSourceLength, nameof(maxSourceLength));
-        ValidateRange(maxNodeCount, nameof(maxNodeCount));
-        ValidateRange(maxModuleCount, nameof(maxModuleCount));
-        ValidateRange(maxTotalModuleSourceBytes, nameof(maxTotalModuleSourceBytes));
-        ValidateRange(maxModuleGraphDepth, nameof(maxModuleGraphDepth));
-        ValidateRange(maxModuleResolutionHops, nameof(maxModuleResolutionHops));
-        resultLimits ??= ResultLimits.Conservative;
-        ValidateResultLimits(resultLimits, nameof(resultLimits));
-
-        TimeoutInterval = timeoutInterval;
-        MaxStatements = maxStatements;
-        MemoryLimit = memoryLimit;
-        MaxRecursionDepth = maxRecursionDepth;
-        MaxArraySize = maxArraySize;
-        RegexTimeout = regexTimeout;
-        PromiseTimeout = promiseTimeout;
-        MaxOperationDuration = maxOperationDuration;
-        MaxSourceLength = maxSourceLength;
-        MaxNodeCount = maxNodeCount;
-        MaxModuleCount = maxModuleCount;
-        MaxTotalModuleSourceBytes = maxTotalModuleSourceBytes;
-        MaxModuleGraphDepth = maxModuleGraphDepth;
-        MaxModuleResolutionHops = maxModuleResolutionHops;
-        ResultLimits = resultLimits;
+    /// <summary>
+    /// Creates a set of limits whose eight budget dimensions the object initializer must name.
+    /// </summary>
+    public UntrustedCodeLimits()
+    {
     }
 
     /// <summary>
-    /// Maximum wall-clock time for one engine entry.
+    /// Gets or sets the maximum wall-clock time for one engine entry.
     /// </summary>
-    public TimeSpan TimeoutInterval { get; }
+    public required TimeSpan TimeoutInterval
+    {
+        get;
+        init
+        {
+            ValidateFiniteTimeout(value, nameof(TimeoutInterval));
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum statements executed by one engine entry.
+    /// Gets or sets the maximum number of statements executed by one engine entry.
     /// </summary>
-    public int MaxStatements { get; }
+    public required int MaxStatements
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxStatements));
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum bytes allocated by one engine entry.
+    /// Gets or sets the maximum number of bytes allocated by one engine entry.
     /// </summary>
-    public long MemoryLimit { get; }
+    public required long MemoryLimit
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MemoryLimit));
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum recursion depth. Zero forbids recursion.
+    /// Gets or sets the maximum recursion depth. Zero forbids recursion.
     /// </summary>
-    public int MaxRecursionDepth { get; }
+    /// <remarks>
+    /// Unlike <see cref="Options.ConstraintOptions.MaxRecursionDepth"/>, negative and saturated values are
+    /// rejected rather than treated as unlimited.
+    /// </remarks>
+    public required int MaxRecursionDepth
+    {
+        get;
+        init
+        {
+            if (value < 0 || value == int.MaxValue)
+            {
+                Throw.ArgumentOutOfRangeException(
+                    nameof(MaxRecursionDepth),
+                    "The recursion depth must be between zero and Int32.MaxValue - 1.");
+            }
+
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum JavaScript array size.
+    /// Gets or sets the maximum JavaScript array size.
     /// </summary>
-    public uint MaxArraySize { get; }
+    public required uint MaxArraySize
+    {
+        get;
+        init
+        {
+            if (value == 0 || value == uint.MaxValue)
+            {
+                Throw.ArgumentOutOfRangeException(
+                    nameof(MaxArraySize),
+                    "The array size must be between one and UInt32.MaxValue - 1.");
+            }
+
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum time one regular expression operation may run.
+    /// Gets or sets the maximum time one regular expression operation may run.
     /// </summary>
     /// <remarks>
     /// A prepared script or module carries the timeout selected when it was prepared; set its parsing options
     /// to this value as well.
     /// </remarks>
-    public TimeSpan RegexTimeout { get; }
+    public required TimeSpan RegexTimeout
+    {
+        get;
+        init
+        {
+            ValidateFiniteTimeout(value, nameof(RegexTimeout));
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum time the engine may wait for a promise to settle.
+    /// Gets or sets the maximum time the engine may wait for a promise to settle.
     /// </summary>
-    public TimeSpan PromiseTimeout { get; }
+    public required TimeSpan PromiseTimeout
+    {
+        get;
+        init
+        {
+            ValidateFiniteTimeout(value, nameof(PromiseTimeout));
+            field = value;
+        }
+    }
 
     /// <summary>
-    /// Maximum wall-clock time for a host operation containing one or more engine entries.
+    /// Gets or sets the maximum wall-clock time for a host operation containing one or more engine entries.
     /// </summary>
-    public TimeSpan MaxOperationDuration { get; }
+    /// <remarks>
+    /// The host must activate this limit with <see cref="BeginOperation"/> around each operation.
+    /// </remarks>
+    public required TimeSpan MaxOperationDuration
+    {
+        get;
+        init
+        {
+            ValidateFiniteTimeout(value, nameof(MaxOperationDuration));
+            field = value;
+        }
+    }
 
-    /// <summary>Maximum UTF-16 source length for every engine-owned parse.</summary>
-    public int MaxSourceLength { get; }
+    /// <summary>
+    /// Gets or sets the maximum UTF-16 source length for every engine-owned parse. Defaults to one million.
+    /// </summary>
+    public int MaxSourceLength
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxSourceLength));
+            field = value;
+        }
+    } = 1_000_000;
 
-    /// <summary>Maximum AST nodes for every engine-owned parse.</summary>
-    public int MaxNodeCount { get; }
+    /// <summary>
+    /// Gets or sets the maximum number of AST nodes for every engine-owned parse. Defaults to 250,000.
+    /// </summary>
+    public int MaxNodeCount
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxNodeCount));
+            field = value;
+        }
+    } = 250_000;
 
-    /// <summary>Maximum distinct module records registered by one engine.</summary>
-    public int MaxModuleCount { get; }
+    /// <summary>
+    /// Gets or sets the maximum number of distinct module records registered by one engine. Defaults to 100.
+    /// </summary>
+    public int MaxModuleCount
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxModuleCount));
+            field = value;
+        }
+    } = 100;
 
-    /// <summary>Maximum aggregate module source bytes registered by one engine.</summary>
-    public long MaxTotalModuleSourceBytes { get; }
+    /// <summary>
+    /// Gets or sets the maximum aggregate module source bytes one engine may register. Defaults to ten million.
+    /// </summary>
+    public long MaxTotalModuleSourceBytes
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxTotalModuleSourceBytes));
+            field = value;
+        }
+    } = 10_000_000;
 
-    /// <summary>Maximum conservative graph depth for one top-level module load.</summary>
-    public int MaxModuleGraphDepth { get; }
+    /// <summary>
+    /// Gets or sets the maximum graph depth for one top-level module load. Defaults to 32.
+    /// </summary>
+    public int MaxModuleGraphDepth
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxModuleGraphDepth));
+            field = value;
+        }
+    } = 32;
 
-    /// <summary>Maximum resolver calls for one top-level module load.</summary>
-    public int MaxModuleResolutionHops { get; }
+    /// <summary>
+    /// Gets or sets the maximum number of resolver calls for one top-level module load. Defaults to 1,000.
+    /// </summary>
+    public int MaxModuleResolutionHops
+    {
+        get;
+        init
+        {
+            ValidateRange(value, nameof(MaxModuleResolutionHops));
+            field = value;
+        }
+    } = 1_000;
 
-    /// <summary>Bounds result conversion, JSON serialization, and error rendering.</summary>
-    public ResultLimits ResultLimits { get; }
+    /// <summary>
+    /// Gets or sets the bounds on result conversion, JSON serialization, and error rendering.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see cref="ResultLimits.Conservative"/>. Every dimension must be finite, so
+    /// <see cref="ResultLimits.Unlimited"/> is rejected.
+    /// </remarks>
+    public ResultLimits ResultLimits
+    {
+        get;
+        init
+        {
+            ValidateResultLimits(value, nameof(ResultLimits));
+            field = value;
+        }
+    } = ResultLimits.Conservative;
 
     /// <summary>
     /// Arms the multi-entry operation deadline installed by
@@ -195,6 +291,10 @@ public sealed class UntrustedCodeLimits
     /// the engine reaches another constraint checkpoint. Keep the outer worker/request deadline as the hard
     /// stop. Operation scopes cannot overlap on one engine; a nested or concurrent scope is rejected rather
     /// than allowed to disarm the still-active outer deadline.
+    /// <para>
+    /// The engine has to have been configured with <b>this instance</b>, not merely an equal one: a
+    /// <c>with</c> expression produces a different object, so hand the engine the one the scope uses.
+    /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// The engine was not configured with this limits instance through
@@ -281,7 +381,12 @@ public sealed class UntrustedCodeLimits
 
     private static void ValidateResultLimits(ResultLimits limits, string paramName)
     {
-        if (limits.MaxDepth == int.MaxValue
+        if (limits is null)
+        {
+            Throw.ArgumentNullException(paramName);
+        }
+
+        if (limits!.MaxDepth == int.MaxValue
             || limits.MaxPropertyCount == long.MaxValue
             || limits.MaxStringLength == int.MaxValue
             || limits.MaxOutputCharacters == long.MaxValue

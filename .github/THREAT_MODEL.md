@@ -1352,27 +1352,31 @@ examples only. Measure normal workloads and choose smaller limits that leave acc
 headroom.
 
 ```csharp
-var limits = new UntrustedCodeLimits(
-    timeoutInterval: TimeSpan.FromSeconds(2),
-    maxStatements: 50_000,
-    memoryLimit: 16_000_000,
-    maxRecursionDepth: 64,
-    maxArraySize: 100_000,
-    regexTimeout: TimeSpan.FromMilliseconds(250),
-    promiseTimeout: TimeSpan.FromMilliseconds(500),
-    maxOperationDuration: TimeSpan.FromSeconds(3),
-    maxSourceLength: 100_000,
-    maxNodeCount: 25_000,
-    maxModuleCount: 50,
-    maxTotalModuleSourceBytes: 1_000_000,
-    maxModuleGraphDepth: 10,
-    maxModuleResolutionHops: 200,
-    resultLimits: new ResultLimits(
-        maxDepth: 16,
-        maxPropertyCount: 10_000,
-        maxStringLength: 100_000,
-        maxOutputCharacters: 1_000_000,
-        maxOutputBytes: 2_000_000));
+var limits = new UntrustedCodeLimits
+{
+    TimeoutInterval = TimeSpan.FromSeconds(2),
+    MaxStatements = 50_000,
+    MemoryLimit = 16_000_000,
+    MaxRecursionDepth = 64,
+    MaxArraySize = 100_000,
+    RegexTimeout = TimeSpan.FromMilliseconds(250),
+    PromiseTimeout = TimeSpan.FromMilliseconds(500),
+    MaxOperationDuration = TimeSpan.FromSeconds(3),
+    MaxSourceLength = 100_000,
+    MaxNodeCount = 25_000,
+    MaxModuleCount = 50,
+    MaxTotalModuleSourceBytes = 1_000_000,
+    MaxModuleGraphDepth = 10,
+    MaxModuleResolutionHops = 200,
+    ResultLimits = new ResultLimits
+    {
+        MaxDepth = 16,
+        MaxPropertyCount = 10_000,
+        MaxStringLength = 100_000,
+        MaxOutputCharacters = 1_000_000,
+        MaxOutputBytes = 2_000_000,
+    },
+};
 
 // This declaration is safe to share across concurrent Engine construction.
 var sharedOptions = new Options().ForUntrustedCode(limits);

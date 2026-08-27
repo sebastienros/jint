@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Jint.Constraints;
 using Jint.Native;
@@ -78,9 +79,9 @@ public class HostResultLimitsTests
         using var engine = new Engine();
         var value = engine.Evaluate("({ child: { value: 1 } })");
 
-        engine.ConvertResult(value, Limits(maxDepth: 2)).Should().NotBeNull();
+        engine.ConvertResult(value, new ResultLimits { MaxDepth = 2 }).Should().NotBeNull();
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxDepth: 1)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxDepth = 1 }),
             ResultLimit.Depth,
             maximum: 1,
             observed: 2);
@@ -92,7 +93,7 @@ public class HostResultLimitsTests
         using var engine = new Engine();
         var value = engine.Evaluate("({ date: new Date(0), boxed: new Number(1), regexp: /x/ })");
 
-        engine.ConvertResult(value, Limits(maxDepth: 1)).Should().NotBeNull();
+        engine.ConvertResult(value, new ResultLimits { MaxDepth = 1 }).Should().NotBeNull();
     }
 
     [Test]
@@ -104,12 +105,12 @@ public class HostResultLimitsTests
             ({ get a() { reads++; return 1; }, get b() { reads++; return 2; }, get c() { reads++; return 3; } })
             """);
 
-        engine.ConvertResult(value, Limits(maxPropertyCount: 3)).Should().NotBeNull();
+        engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 3 }).Should().NotBeNull();
         engine.GetValue("reads").AsNumber().Should().Be(3);
 
         engine.SetValue("reads", 0);
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxPropertyCount: 2)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 2 }),
             ResultLimit.PropertyCount,
             maximum: 2,
             observed: 3);
@@ -123,12 +124,12 @@ public class HostResultLimitsTests
         var value = engine.Evaluate("({ a: '1234', b: '5678' })");
 
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxStringLength: 3)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxStringLength = 3 }),
             ResultLimit.StringLength,
             maximum: 3,
             observed: 4);
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxOutputCharacters: 9)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxOutputCharacters = 9 }),
             ResultLimit.OutputCharacters,
             maximum: 9,
             observed: 10);
@@ -142,7 +143,7 @@ public class HostResultLimitsTests
         AssertLimit(
             () => engine.ConvertResult(
                 engine.Evaluate("[1, 2, 3]"),
-                Limits(maxPropertyCount: 2)),
+                new ResultLimits { MaxPropertyCount = 2 }),
             ResultLimit.PropertyCount,
             maximum: 2,
             observed: 3);
@@ -150,7 +151,7 @@ public class HostResultLimitsTests
         AssertLimit(
             () => engine.ConvertResult(
                 engine.Evaluate("new Uint32Array(3)"),
-                Limits(maxOutputBytes: 11)),
+                new ResultLimits { MaxOutputBytes = 11 }),
             ResultLimit.OutputBytes,
             maximum: 11,
             observed: 12);
@@ -166,7 +167,7 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxOutputBytes: 5)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxOutputBytes = 5 }),
             ResultLimit.OutputBytes,
             maximum: 5,
             observed: 6);
@@ -198,7 +199,7 @@ public class HostResultLimitsTests
             })
             """);
 
-        var result = (Dictionary<string, object>) engine.ConvertResult(value, Limits(maxPropertyCount: 10));
+        var result = (Dictionary<string, object>) engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 10 });
         var map = result["map"].Should()
             .BeAssignableTo<List<KeyValuePair<object, object>>>().Which;
         var set = result["set"].Should().BeAssignableTo<object[]>().Which;
@@ -235,7 +236,7 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxPropertyCount: 2)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 2 }),
             ResultLimit.PropertyCount,
             maximum: 2,
             observed: 3);
@@ -256,7 +257,7 @@ public class HostResultLimitsTests
             })
             """);
 
-        engine.ConvertResult(value, Limits(maxDepth: 1, maxPropertyCount: 2))
+        engine.ConvertResult(value, new ResultLimits { MaxDepth = 1, MaxPropertyCount = 2 })
             .Should().BeEquivalentTo(new object[] { 1d, 2d });
         engine.GetValue("gets").AsNumber().Should().Be(3, "length and both elements are read through the proxy");
     }
@@ -287,7 +288,7 @@ public class HostResultLimitsTests
 
         Invoking(() => engine.ConvertResult(
                 value,
-                Limits(maxDepth: 20, maxPropertyCount: 100_000)))
+                new ResultLimits { MaxDepth = 20, MaxPropertyCount = 100_000 }))
             .Should().ThrowExactly<InvalidOperationException>()
             .WithMessage("conversion constraint checked");
     }
@@ -302,7 +303,7 @@ public class HostResultLimitsTests
             """);
 
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxPropertyCount: 3)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 3 }),
             ResultLimit.PropertyCount,
             maximum: 3,
             observed: 4);
@@ -315,7 +316,7 @@ public class HostResultLimitsTests
         var target = new HostPayload { Value = "unbounded host-owned value" };
         var wrapper = ObjectWrapper.Create(engine, target);
 
-        engine.ConvertResult(wrapper, new ResultLimits(maxDepth: 0, maxPropertyCount: 0))
+        engine.ConvertResult(wrapper, new ResultLimits { MaxDepth = 0, MaxPropertyCount = 0 })
             .Should().BeSameAs(target);
     }
 
@@ -327,7 +328,7 @@ public class HostResultLimitsTests
             .Should().ThrowExactly<JavaScriptException>().Which;
 
         AssertLimit(
-            () => exception.GetJavaScriptErrorString(Limits(maxStringLength: 3)),
+            () => exception.GetJavaScriptErrorString(new ResultLimits { MaxStringLength = 3 }),
             ResultLimit.StringLength,
             maximum: 3,
             observed: 4);
@@ -560,7 +561,7 @@ public class HostResultLimitsTests
         var module = engine.Modules.Import("result");
         var converted = (Dictionary<string, object>) engine.ConvertResult(
             module,
-            Limits(maxDepth: 2, maxPropertyCount: 4));
+            new ResultLimits { MaxDepth = 2, MaxPropertyCount = 4 });
 
         converted["answer"].Should().Be(42d);
         converted["nested"].Should().BeAssignableTo<IDictionary<string, object>>();
@@ -573,12 +574,12 @@ public class HostResultLimitsTests
         var value = engine.Evaluate("({ a: 1, b: 2 })");
 
         AssertLimit(
-            () => engine.ConvertResult(value, Limits(maxPropertyCount: 1)),
+            () => engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 1 }),
             ResultLimit.PropertyCount,
             maximum: 1,
             observed: 2);
 
-        engine.ConvertResult(value, Limits(maxPropertyCount: 2)).Should().NotBeNull();
+        engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 2 }).Should().NotBeNull();
         engine.Evaluate("1 + 1").AsNumber().Should().Be(2);
     }
 
@@ -588,7 +589,7 @@ public class HostResultLimitsTests
         using var engine = new Engine(options => options.CatchClrExceptions());
         var value = engine.Evaluate("[1, 2]");
         engine.SetValue("convert", new Action(() =>
-            engine.ConvertResult(value, Limits(maxPropertyCount: 1))));
+            engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 1 })));
 
         Invoking(() => engine.Evaluate("""
             try {
@@ -601,13 +602,114 @@ public class HostResultLimitsTests
         engine.GetValue("caught").Should().BeUndefined();
     }
 
-    private static ResultLimits Limits(
-        int maxDepth = int.MaxValue,
-        long maxPropertyCount = long.MaxValue,
-        int maxStringLength = int.MaxValue,
-        long maxOutputCharacters = long.MaxValue,
-        long maxOutputBytes = long.MaxValue)
-        => new(maxDepth, maxPropertyCount, maxStringLength, maxOutputCharacters, maxOutputBytes);
+    /// <summary>
+    /// The limits a serializer is constructed with bound every one of its four overloads, and they replace
+    /// the engine's own configured limits rather than being merged with them.
+    /// </summary>
+    [Test]
+    public void ASerializerConstructedWithLimitsAppliesThemToEveryOverload()
+    {
+        using var engine = new Engine();
+        var value = engine.Evaluate("({ a: { b: 'text' } })");
+        var bounded = new JsonSerializer(engine, new ResultLimits { MaxDepth = 1 });
+
+        AssertLimit(() => bounded.Serialize(value), ResultLimit.Depth, maximum: 1, observed: 2);
+        AssertLimit(
+            () => bounded.Serialize(value, JsValue.Undefined, JsValue.Undefined),
+            ResultLimit.Depth,
+            maximum: 1,
+            observed: 2);
+        AssertLimit(
+            () => bounded.Serialize(value, new CountingBufferWriter()),
+            ResultLimit.Depth,
+            maximum: 1,
+            observed: 2);
+        AssertLimit(
+            () => bounded.Serialize(value, JsValue.Undefined, JsValue.Undefined, new CountingBufferWriter()),
+            ResultLimit.Depth,
+            maximum: 1,
+            observed: 2);
+
+        // The engine itself is unlimited, and a serializer that was not given limits still reads it.
+        engine.Options.ResultLimits.Should().BeSameAs(ResultLimits.Unlimited);
+        new JsonSerializer(engine).Serialize(value).AsString().Should().Be("""{"a":{"b":"text"}}""");
+    }
+
+    /// <summary>
+    /// The engine's configured limits are what the one-argument constructor takes, and they keep applying
+    /// to an instance a host holds across calls.
+    /// </summary>
+    [Test]
+    public void ASerializerWithoutExplicitLimitsTakesTheEnginesOwn()
+    {
+        using var engine = new Engine(options => options.ResultLimits = new ResultLimits { MaxDepth = 1 });
+        var serializer = new JsonSerializer(engine);
+
+        serializer.Serialize(engine.Evaluate("({ a: 1 })")).AsString().Should().Be("""{"a":1}""");
+        AssertLimit(
+            () => serializer.Serialize(engine.Evaluate("({ a: { b: 1 } })")),
+            ResultLimit.Depth,
+            maximum: 1,
+            observed: 2);
+    }
+
+    /// <summary>
+    /// A preset is something to adjust: <c>with</c> keeps every dimension it does not name.
+    /// </summary>
+    [Test]
+    public void AResultLimitsPresetSurvivesBeingAdjusted()
+    {
+        var tightened = ResultLimits.Conservative with { MaxStringLength = 4 };
+
+        tightened.MaxStringLength.Should().Be(4);
+        tightened.MaxDepth.Should().Be(ResultLimits.Conservative.MaxDepth);
+        tightened.MaxPropertyCount.Should().Be(ResultLimits.Conservative.MaxPropertyCount);
+        tightened.MaxOutputCharacters.Should().Be(ResultLimits.Conservative.MaxOutputCharacters);
+        tightened.MaxOutputBytes.Should().Be(ResultLimits.Conservative.MaxOutputBytes);
+        ResultLimits.Conservative.MaxStringLength.Should().Be(1_000_000);
+
+        using var engine = new Engine();
+        AssertLimit(
+            () => new JsonSerializer(engine, tightened).Serialize(new JsString("12345")),
+            ResultLimit.StringLength,
+            maximum: 4,
+            observed: 5);
+    }
+
+    /// <summary>
+    /// Validation lives on the property, so it runs for a dimension a <c>with</c> expression changes.
+    /// </summary>
+    [Test]
+    public void AnAdjustedPresetIsStillValidated()
+    {
+        Invoking(() => ResultLimits.Conservative with { MaxDepth = -1 })
+            .Should().Throw<ArgumentOutOfRangeException>()
+            .WithParameterName(nameof(ResultLimits.MaxDepth));
+    }
+
+    private sealed class CountingBufferWriter : IBufferWriter<byte>
+    {
+        private byte[] _buffer = new byte[64];
+
+        public int WrittenCount { get; private set; }
+
+        public void Advance(int count) => WrittenCount += count;
+
+        public Memory<byte> GetMemory(int sizeHint = 0) => _buffer.AsMemory(Prepare(sizeHint));
+
+        public Span<byte> GetSpan(int sizeHint = 0) => _buffer.AsSpan(Prepare(sizeHint));
+
+        private int Prepare(int sizeHint)
+        {
+            var required = WrittenCount + System.Math.Max(sizeHint, 1);
+            if (required > _buffer.Length)
+            {
+                Array.Resize(ref _buffer, System.Math.Max(required, _buffer.Length * 2));
+            }
+
+            return WrittenCount;
+        }
+    }
 
     private static void AssertLimit(
         Action action,
