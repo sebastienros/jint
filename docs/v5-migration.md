@@ -69,10 +69,10 @@ This table is filled by the pull request that removes the member. A member that 
 | `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `ICldrProvider.GetCompactPatterns` and the `CompactPatterns` type (with `DefaultCldrProvider`'s override) | nothing. `CompactPatterns` is a magnitude-to-pattern map with no plural dimension and no digit count, so it cannot express what compact notation actually needs: CLDR keys these patterns by plural category as well as by power of ten (`ru` long is `0 тысяча` / `0 тысячи` / `0 тысяч`), and the zero count in a CLDR pattern (`00 Tsd.`) is the rounding. Compact suffixes come from the engine's embedded table | [#3354](https://github.com/sebastienros/jint/issues/3354) |
 | `ICldrProvider.GetDateTimePatterns` and the `DateTimePatterns` type (with `DefaultCldrProvider`'s override) | nothing. It never had an implementation — the only one in the tree returned `null` unconditionally — so the syntax of its three pattern strings was never fixed, and .NET custom format strings and LDML skeletons disagree on the letters that matter (`yyyy` vs `y`, `tt` vs `a`, `ddd` vs `E`). Wiring it would have meant inventing that contract, and for the `dateStyle`/`timeStyle` pair alone: ECMA-402 resolves both out of the same `availableFormats` skeleton data the component options use, which three strings cannot carry | [#3354](https://github.com/sebastienros/jint/issues/3354) |
-| `JsonSerializer.SerializeWithLimits(JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value)` — the limits are the serializer's, the way `JsonParser`'s depth already was. See [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
-| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
-| `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
-| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
+| `JsonSerializer.SerializeWithLimits(JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value)` — the limits are the serializer's, the way `JsonParser`'s depth already was. See [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
 
 ### 2.1 Sealed types
@@ -217,7 +217,7 @@ Where the result flows straight into something taking an `IEnumerable<JsValue>` 
 becomes lazy instead — so grep for `.Skip(` in code that also has `using Jint.Runtime;`. `Arguments.At`,
 the other extension on that class, is unaffected and stays: it has no LINQ counterpart to collide with.
 
-### 2.6 A JSON serializer's limits are its own, not an argument to every call ([#3431](https://github.com/sebastienros/jint/pull/3431))
+### 2.6 A JSON serializer's limits are its own, not an argument to every call ([#3459](https://github.com/sebastienros/jint/pull/3459))
 
 `JsonSerializer` had eight ways to serialize: four that used `Options.ResultLimits`, three that took a
 `ResultLimits` as a trailing argument, and `SerializeWithLimits`, which is the three-argument overload with
@@ -935,7 +935,7 @@ global using Module = Jint.Runtime.Modules.ModuleRecord;
 That is the shim, not the recommendation: a file that spells `Module` for the record cannot also spell
 `Module` for Acornima's AST node, which is the whole reason the type was renamed.
 
-### 3.16 `UntrustedCodeLimits` and `ResultLimits` are named properties, and a preset is something you adjust ([#3431](https://github.com/sebastienros/jint/pull/3431))
+### 3.16 `UntrustedCodeLimits` and `ResultLimits` are named properties, and a preset is something you adjust ([#3459](https://github.com/sebastienros/jint/pull/3459))
 
 This is [3.3](#33-options-is-configured-through-its-properties)'s rule — optional configuration is a
 property, never a positional argument — applied to the two limit bags that still ignored it.
