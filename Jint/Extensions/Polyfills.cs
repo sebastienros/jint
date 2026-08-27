@@ -521,3 +521,37 @@ internal static class CharUnicodeInfoPolyfills
 #endif
     }
 }
+
+internal static class TimeZoneInfoPolyfills
+{
+    extension(TimeZoneInfo)
+    {
+#if !NET8_0_OR_GREATER
+        // TimeZoneInfo.TryFindSystemTimeZoneById arrived in .NET 8, so net472, netstandard2.0 and
+        // netstandard2.1 all need it. Downlevel there is no way to ask without a throw, so this is the
+        // catch the call site would otherwise write -- what it buys is that the call site reads as the
+        // question it is on every target framework, and that net8 and net10, which have the real method,
+        // answer it without an exception at all. Both exceptions the real method reports as "no" are
+        // caught, so the polyfill answers what .NET 8 answers rather than what one call site happened to
+        // catch.
+        public static bool TryFindSystemTimeZoneById(string id, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TimeZoneInfo? timeZoneInfo)
+        {
+            try
+            {
+                timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById(id);
+                return true;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                timeZoneInfo = null;
+                return false;
+            }
+            catch (InvalidTimeZoneException)
+            {
+                timeZoneInfo = null;
+                return false;
+            }
+        }
+#endif
+    }
+}
