@@ -1884,7 +1884,7 @@ Both are `Set(O, k, v, true)` over a position the view cannot hold, so both are 
 longer fires. Nothing changes for a target exposed under its own type or under a type that implements
 `IList<T>` (both get a typed, growable wrapper), for reads, or for any generic that stays inside the
 collection's bounds.
-### 4.40 One list of calendars, and `ICalendarProvider` owns it ([#3404](https://github.com/sebastienros/jint/issues/3404))
+### 4.38 One list of calendars, and `ICalendarProvider` owns it ([#3404](https://github.com/sebastienros/jint/issues/3404))
 
 Jint held the calendar identifiers in three places — `TemporalHelpers.CanonicalizeCalendar`,
 `DateTimeFormatConstructor`'s own table and alias map, and `DefaultCldrProvider.GetSupportedCalendars` —
@@ -1917,7 +1917,7 @@ Nothing an unconfigured engine does changes: the sixteen, the two deprecated ide
 behave exactly as the four tables made them behave.
 
 **What could break:** a host overriding `ICldrProvider.GetSupportedCalendars`. See [2. Removed API](#2-removed-api).
-### 4.38 A host object's `Symbol.dispose`, `Symbol.asyncDispose` and `toJSON` belong to its own realm ([#3365](https://github.com/sebastienros/jint/issues/3365))
+### 4.39 A host object's `Symbol.dispose`, `Symbol.asyncDispose` and `toJSON` belong to its own realm ([#3365](https://github.com/sebastienros/jint/issues/3365))
 
 `ObjectWrapper` builds three members eagerly — `Symbol.dispose` for an `IDisposable` target,
 `Symbol.asyncDispose` for an `IAsyncDisposable` one, and `toJSON` for a type that has one — and built them
@@ -1939,7 +1939,7 @@ from, and the one `ShadowRealm.SetValue` enters deliberately ([§4.23](#423-a-va
 (`x instanceof Function`), a reach for `call`/`apply`/`bind`, or an `Object.getPrototypeOf` inside a shadow
 realm now gets the answer the realm's own intrinsics give. A host function the embedder builds itself
 through `new ClrFunction(engine, …)` is unaffected and still belongs to the principal realm.
-### 4.36 An index on a host collection is one property, however it is spelled ([#3384](https://github.com/sebastienros/jint/issues/3384))
+### 4.40 An index on a host collection is one property, however it is spelled ([#3384](https://github.com/sebastienros/jint/issues/3384))
 
 `x[3]` and `x["3"]` are one property key, and a wrapped CLR collection answered them from two different
 places: a number key went to the array-like view, a string key to the reflected indexer, which took whatever
