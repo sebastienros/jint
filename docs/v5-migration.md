@@ -1917,6 +1917,28 @@ Nothing an unconfigured engine does changes: the sixteen, the two deprecated ide
 behave exactly as the four tables made them behave.
 
 **What could break:** a host overriding `ICldrProvider.GetSupportedCalendars`. See [2. Removed API](#2-removed-api).
+### 4.38 A host object's `Symbol.dispose`, `Symbol.asyncDispose` and `toJSON` belong to its own realm ([#3365](https://github.com/sebastienros/jint/issues/3365))
+
+`ObjectWrapper` builds three members eagerly — `Symbol.dispose` for an `IDisposable` target,
+`Symbol.asyncDispose` for an `IAsyncDisposable` one, and `toJSON` for a type that has one — and built them
+as functions of the engine's **principal** realm. Every other member of the same object is resolved lazily
+and takes the realm that is running, so inside a `ShadowRealm` the two disagreed on the same object:
+
+```js
+// 4.16.x, for shadowRealm.SetValue("handle", new Handle())  — a sealed class : IDisposable
+handle.Dispose instanceof Function            // true
+typeof handle[Symbol.dispose]                 // "function"
+handle[Symbol.dispose] instanceof Function    // false
+```
+
+All three are now functions of the realm the wrapper is created in — the same realm its own prototype comes
+from, and the one `ShadowRealm.SetValue` enters deliberately ([§4.23](#423-a-value-registered-on-a-shadowrealm-belongs-to-that-realm-3325)).
+
+**What could break:** nothing that worked. Calling the member never consulted its prototype, so `using` and
+`JSON.stringify` behaved correctly throughout; what changes is that a feature detection
+(`x instanceof Function`), a reach for `call`/`apply`/`bind`, or an `Object.getPrototypeOf` inside a shadow
+realm now gets the answer the realm's own intrinsics give. A host function the embedder builds itself
+through `new ClrFunction(engine, …)` is unaffected and still belongs to the principal realm.
 
 ### 4.41 Two holes in the freeze, closed ([#3360](https://github.com/sebastienros/jint/issues/3360))
 
