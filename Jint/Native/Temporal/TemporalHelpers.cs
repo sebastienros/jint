@@ -2655,6 +2655,11 @@ internal static class TemporalHelpers
 
                 return result;
             }
+            catch (CalendarRangeException ex)
+            {
+                ThrowCalendarRange(realm, ex);
+                return default;
+            }
             catch (InvalidOperationException ex) when (string.Equals(ex.Message, "reject", StringComparison.Ordinal))
             {
                 if (realm != null)
@@ -2687,6 +2692,22 @@ internal static class TemporalHelpers
         }
 
         throw new NotSupportedException($"Calendar '{calendar}' not yet supported");
+    }
+
+    /// <summary>
+    /// Reports arithmetic that left the range a non-ISO calendar's implementation can represent as the
+    /// <c>RangeError</c> <see href="https://tc39.es/proposal-temporal/#sec-temporal-calendardateadd">CalendarDateAdd</see>
+    /// raises for a result it cannot produce.
+    /// </summary>
+    [DoesNotReturn]
+    private static void ThrowCalendarRange(Realm? realm, CalendarRangeException ex)
+    {
+        if (realm is not null)
+        {
+            Throw.RangeError(realm, ex.Message);
+        }
+
+        throw ex;
     }
 
     /// <summary>
@@ -5735,7 +5756,7 @@ internal static class TemporalHelpers
         var endDateTime = GetISODateTimeFor(timeZoneProvider, timeZone, ns2);
 
         // Step 4: Get initial difference - only use the date portion
-        var diff = DifferenceISODateTime(startDateTime, endDateTime, calendar, largestUnit);
+        var diff = DifferenceISODateTime(realm, startDateTime, endDateTime, calendar, largestUnit);
         var dateDifference = new DurationRecord(diff.Years, diff.Months, diff.Weeks, diff.Days, 0, 0, 0, 0, 0, 0);
 
         // Step 5: Create intermediate datetime by adding date portion to start
@@ -6015,7 +6036,7 @@ internal static class TemporalHelpers
         }
 
         // Step 3: DifferenceISODateTime to get the diff
-        var diff = DifferenceISODateTime(isoDateTime1, isoDateTime2, calendar, unit);
+        var diff = DifferenceISODateTime(realm, isoDateTime1, isoDateTime2, calendar, unit);
 
         // Step 4: If unit is nanosecond, return diff time duration directly
         if (string.Equals(unit, "nanosecond", StringComparison.Ordinal))
@@ -6604,6 +6625,7 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-differenceisodatetime
     /// </summary>
     private static DurationRecord DifferenceISODateTime(
+        Realm? realm,
         IsoDateTime isoDateTime1,
         IsoDateTime isoDateTime2,
         string calendar,
@@ -6633,7 +6655,7 @@ internal static class TemporalHelpers
         var dateLargestUnit = LargerOfTwoTemporalUnits("day", largestUnit);
 
         // Step 9: Compute date difference using calendar
-        var dateDifference = CalendarDateUntil(calendar, isoDateTime1.Date, adjustedDate, dateLargestUnit);
+        var dateDifference = CalendarDateUntil(calendar, isoDateTime1.Date, adjustedDate, dateLargestUnit, realm);
 
         // Step 10-11: If largestUnit is smaller than day, add days to time
         if (!string.Equals(dateLargestUnit, largestUnit, StringComparison.Ordinal))
@@ -6747,7 +6769,7 @@ internal static class TemporalHelpers
     /// ISODateSurpasses algorithm (calendar.html:632-661) but uses direct arithmetic
     /// for O(1) performance on years/days instead of O(n) iteration.
     /// </summary>
-    internal static DurationRecord CalendarDateUntil(string calendar, IsoDate one, IsoDate two, string largestUnit, Realm? realm = null)
+    internal static DurationRecord CalendarDateUntil(string calendar, IsoDate one, IsoDate two, string largestUnit, Realm? realm)
     {
         // Step 1: Get sign
         var sign = CompareIsoDates(one, two);
@@ -6763,7 +6785,18 @@ internal static class TemporalHelpers
         {
             if (NonIsoCalendars.IsNonIsoCalendar(calendar))
             {
-                return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit);
+                try
+                {
+                    return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit);
+                }
+                catch (CalendarRangeException ex)
+                {
+                    // The walk that measures the difference is a sequence of NonISODateAdd steps, so a
+                    // difference reaching past what the calendar can represent surfaces as the same
+                    // RangeError the addition itself raises -- rather than as the non-terminating walk
+                    // of issue #3428.
+                    ThrowCalendarRange(realm, ex);
+                }
             }
 
             ThrowCalendarArithmeticUnavailable(realm, calendar);
@@ -6904,7 +6937,7 @@ internal static class TemporalHelpers
         }
 
         // Step 3: Get unrounded difference
-        var diff = DifferenceISODateTime(isoDateTime1, isoDateTime2, calendar, largestUnit);
+        var diff = DifferenceISODateTime(realm, isoDateTime1, isoDateTime2, calendar, largestUnit);
 
         // Step 4: If no rounding needed, return
         if (string.Equals(smallestUnit, "nanosecond", StringComparison.Ordinal) && roundingIncrement == 1)
