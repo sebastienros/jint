@@ -299,8 +299,8 @@ Better still, do not write either: `NamedPropertyObject` (a named record) and `A
 indexed collection) derive the whole coherence matrix from two or three members and seal the rest.
 
 The in-box overrides are gone with it — `ArrayInstance`, `Function`, `JsRegExp`, `StringInstance`,
-`ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and five others each declared their keys twice, and
-now declare them once. Two of those pairs did not agree; see [4.44](#445-getownproperties-reports-what-the-key-enumerations-report).
+`ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and six others each declared their keys twice, and
+now declare them once. Two of those pairs did not agree; see [4.45](#445-getownproperties-reports-what-the-key-enumerations-report).
 
 ## 3. Renamed and reshaped API
 
