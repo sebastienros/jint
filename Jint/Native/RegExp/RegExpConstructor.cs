@@ -501,23 +501,30 @@ public sealed partial class RegExpConstructor : Constructor
 
         RegExpParseResult regExpParseResult = default;
 
-        var parserOptions = _engine.GetActiveParserOptions();
+        // Both halves of how this pattern gets adapted — how it is code-generated and how long a match of it
+        // may run — come off the one conversion-options instance Jint binds its OnRegExp handler to, which
+        // resolved an explicit ScriptParsingOptions/ModuleParsingOptions RegexTimeout against
+        // Options.Constraints.RegexTimeout when the active script or module was parsed. The timeout used to
+        // be read from Acornima's own ParserOptions.RegexTimeout beside it, which Jint never assigns: every
+        // regex built at run time got the parser package's process-wide default instead of the budget the
+        // host configured, in both directions (sebastienros/jint#3431). The fallback covers parser options
+        // that did not come from Jint's handler, and is the same expression
+        // RegExpPrototype.GetCustomEngineTimeout resolves at match time.
+        var conversionOptions = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
+        var regexTimeout = Options.ConstraintOptions.NormalizeRegexTimeout(
+            conversionOptions?.Timeout ?? _engine.Options.Constraints.RegexTimeout);
 
         if (!NeedCustomEngine(p, f))
         {
             // Dynamic patterns are data-driven and may never repeat, so they are never compiled eagerly:
             // Adaptive interprets a pattern on its first construction and upgrades to RegexOptions.Compiled
             // only once the process-wide cache proves reuse, which amortizes the one-time compilation cost.
-            // An explicit CompileRegex = false on the active parsing options (honored via the conversion
-            // options instance the OnRegExp handler is bound to) opts out entirely. The timeout source is
-            // intentionally left unchanged so MatchTimeout semantics stay exactly as before.
-            var compilation = (parserOptions.OnRegExp?.Target as Engine.RegexConversionOptions)?.Compilation == RegexCompilation.Interpreted
+            // An explicit CompileRegex = false on the active parsing options opts out entirely.
+            var compilation = conversionOptions?.Compilation == RegexCompilation.Interpreted
                 ? RegexCompilation.Interpreted
                 : RegexCompilation.Adaptive;
 
-#pragma warning disable CS0618 // ParserOptions.RegexTimeout is obsolete but is the supported timeout source.
-            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compilation, parserOptions.RegexTimeout);
-#pragma warning restore CS0618
+            regExpParseResult = RegExpParseCache.GetOrAdapt(p, f, compilation, regexTimeout);
 
             if (regExpParseResult.Success)
             {
@@ -528,11 +535,14 @@ public sealed partial class RegExpConstructor : Constructor
 
         if (!regExpParseResult.Success)
         {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var customEngine = TryCompileWithCustomEngine(_realm, p, f, parserOptions.RegexTimeout);
-#pragma warning restore CS0618 // Type or member is obsolete
+            var customEngine = TryCompileWithCustomEngine(_realm, p, f, regexTimeout);
 
-            regExpParseResult = RegExpParseResult.ForSuccess(customEngine);
+            // Carry the conversion options forward the way JintLiteralExpression does, so that the budget
+            // the pattern was compiled under is the one every later match of it runs under: the custom
+            // engine has no MatchTimeout of its own to embed the value in, so RegExpPrototype reads it back
+            // from here. A null instance leaves that read on its engine-constraint fallback, which is what
+            // this timeout was derived from anyway.
+            regExpParseResult = RegExpParseResult.ForSuccess(customEngine, additionalData: conversionOptions);
 
             // Set Value to a dummy regex to avoid null reference in code paths that read it
             // but won't actually use it (since UsesDotNetEngine will be false)

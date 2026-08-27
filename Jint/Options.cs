@@ -1290,6 +1290,10 @@ public sealed partial class Options
         /// Maximum time a Regex is allowed to run, defaults to 10 seconds.
         /// </summary>
         /// <remarks>
+        /// It bounds every regular expression the engine runs — one written as a literal and one the script
+        /// builds at run time alike — unless the parsing options for that source carry their own
+        /// <see cref="IParsingOptions.RegexTimeout"/>, which outranks it.
+        /// <para>
         /// A limit that cannot be reached is not a limit, and .NET's <see cref="System.Text.RegularExpressions.Regex"/>
         /// can only enforce a timeout between one tick and <see cref="int.MaxValue"/> milliseconds. Anything
         /// outside that — a non-positive interval, <see cref="TimeSpan.MaxValue"/>, anything above the
@@ -1299,6 +1303,7 @@ public sealed partial class Options
         /// on the .NET one. The value reads back as it was assigned, and
         /// <see cref="OptionsSecurityExtensions.ValidateSecurityConfiguration(Options, SecurityConfigurationPolicy)"/>
         /// reports an untimed engine as an error.
+        /// </para>
         /// </remarks>
         public TimeSpan RegexTimeout { get; set { ThrowIfReadOnly(); field = value; } } = TimeSpan.FromSeconds(10);
 
