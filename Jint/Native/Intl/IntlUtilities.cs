@@ -110,10 +110,15 @@ internal static class IntlUtilities
     // Accepts: language[-script][-region][-variant]*[-extension]*[-privateuse]
     // Extensions use single-character singletons like -u- for Unicode extensions
     // Full spec: https://www.rfc-editor.org/rfc/bcp/bcp47.txt
+    // No match timeout, for the reason spelled out over the Temporal ISO patterns in TemporalHelpers:
+    // Regex.MatchTimeout is a wall-clock deadline, so on a loaded machine it fails a valid input having
+    // burned no CPU, and RegexMatchTimeoutException escapes Engine.Evaluate as a CLR exception rather
+    // than a catchable JavaScript error. This pattern is fixed and internal, and every repetition in it
+    // is forced by a distinct leading '-', so it is linear in the length of the tag it is given.
     private static readonly Regex LanguageTagPattern = new(
         "^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        TimeSpan.FromMilliseconds(100));
+        Regex.InfiniteMatchTimeout);
 
     /// <summary>
     /// Grandfathered tags that map to canonical forms.

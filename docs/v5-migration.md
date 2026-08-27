@@ -2585,6 +2585,37 @@ Far past either table the series the reckoning is built on lose accuracy — bey
 month can come back at 28 or 31 days — which is what implementation-defined permits and what every engine
 computing these calendars does. Every search is bounded, so it degrades rather than failing to return.
 
+### 4.54 Parsing a `Temporal` or `Intl` string cannot fail because the machine was busy ([#3485](https://github.com/sebastienros/jint/issues/3485))
+
+The internal patterns that parse ISO 8601 strings for `Temporal` and validate BCP 47 tags for `Intl` each
+carried a 100 ms `Regex.MatchTimeout`. That is a **wall-clock** deadline sampled while matching, so it
+cannot tell a pattern that is backtracking apart from a thread that lost the CPU — and a descheduled
+thread trips it having burned almost no CPU at all. A single match of the valid, 8-character string
+`10:30:00` was measured taking 440 ms of wall clock on an ordinary loaded machine, 4.4x over that budget.
+
+The failure that produced was not a JavaScript error. `RegexMatchTimeoutException` is one of the
+exceptions Jint propagates to the host rather than converting, so it escaped `Engine.Evaluate` as a CLR
+exception, straight through the script's own `try`/`catch`:
+
+```csharp
+// 4.16.x, on a loaded machine: throws RegexMatchTimeoutException out of Evaluate, uncatchable by
+//                              the script, with a message blaming "very large inputs or excessive
+//                              backtracking" for a 19-character valid string
+// 5.x:     returns "2024-01-15"
+engine.Evaluate("try { Temporal.PlainDate.from('2024-01-15T10:30:00').toString() } catch (e) { 'caught' }");
+```
+
+The patterns are fixed and internal — only the input is script-supplied, never the pattern — and their
+cost is now bounded by construction instead: the fixed-width ones reject anything longer than the longest
+string they could match without matching at all, and the annotation list is walked rather than scanned
+with a pattern that was quadratic on input holding no `]`.
+
+**What could break:** nothing an embedder configured. `Options.Constraints.RegexTimeout` never reached
+these patterns and still does not — it bounds script-supplied regular expressions, which is unchanged
+(see [§4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout)). A host that
+caught `RegexMatchTimeoutException` around `Engine.Evaluate` to absorb this can drop that handler; a host
+that treated it as a signal the script was hostile was reading a scheduling artefact.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
