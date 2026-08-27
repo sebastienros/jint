@@ -163,9 +163,36 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// <summary>
     /// Formats a number according to the formatter's locale and options.
     /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma402/#sec-formatnumeric is the concatenation of exactly the parts
+    /// https://tc39.es/ecma402/#sec-formatnumerictoparts returns. A non-finite value reads its result from
+    /// that list rather than assembling a second one, which is what keeps the style's affixes — a currency
+    /// symbol, a unit, a percent sign — on both sides of the same walk.
+    /// </remarks>
     internal string Format(double value)
     {
+        if (!double.IsFinite(value))
+        {
+            return ConcatenateParts(FormatToParts(value));
+        }
+
         return Transliterate(FormatCore(value));
+    }
+
+    private static string ConcatenateParts(List<NumberFormatPart> parts)
+    {
+        if (parts.Count == 1)
+        {
+            return parts[0].Value;
+        }
+
+        var builder = new System.Text.StringBuilder();
+        foreach (var part in parts)
+        {
+            builder.Append(part.Value);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -250,16 +277,22 @@ internal sealed class JsNumberFormat : ObjectInstance
         return FormatDecimal(value);
     }
 
+    /// <summary>Distinguishes -0 from +0, which format differently but compare equal.</summary>
+    private static bool IsNegativeZero(double value) => value == 0 && double.IsNegativeInfinity(1 / value);
+
     private string FormatScientific(double value)
     {
-        if (!double.IsFinite(value) || value == 0)
+        if (!double.IsFinite(value))
         {
             return FormatDecimal(value);
         }
 
-        // Get the exponent
-        var exponent = (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
-        var mantissa = value / System.Math.Pow(10, exponent);
+        // Get the exponent. https://tc39.es/ecma402/#sec-partitionnotationsubpattern writes "0" for an
+        // exponent of zero rather than omitting the exponent, so exactly zero is "0E0". Zero's mantissa is
+        // taken as positive and signed below, because .NET Framework and .NET disagree on whether a custom
+        // format string writes negative zero's sign.
+        var exponent = value == 0 ? 0 : (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
+        var mantissa = value == 0 ? 0d : value / System.Math.Pow(10, exponent);
 
         // Round the mantissa
         mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
@@ -269,6 +302,10 @@ internal sealed class JsNumberFormat : ObjectInstance
             ? "0." + new string('0', MinimumFractionDigits) + new string('#', MaximumFractionDigits - MinimumFractionDigits)
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
+        if (IsNegativeZero(value))
+        {
+            mantissaStr = NumberFormatInfo.NegativeSign + mantissaStr;
+        }
 
         // Format exponent (no plus sign for positive exponents per spec). PartitionNotationSubPattern
         // takes the exponent's minus sign from the resolved locale's data, so it comes from this
@@ -279,15 +316,16 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string FormatEngineering(double value)
     {
-        if (!double.IsFinite(value) || value == 0)
+        if (!double.IsFinite(value))
         {
             return FormatDecimal(value);
         }
 
-        // Engineering notation uses exponents that are multiples of 3
-        var exponent = (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
+        // Engineering notation uses exponents that are multiples of 3. See FormatScientific for why zero
+        // still carries one, and why its mantissa is signed separately.
+        var exponent = value == 0 ? 0 : (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
         var engineeringExponent = (int) (System.Math.Floor(exponent / 3.0) * 3);
-        var mantissa = value / System.Math.Pow(10, engineeringExponent);
+        var mantissa = value == 0 ? 0d : value / System.Math.Pow(10, engineeringExponent);
 
         // Round the mantissa
         mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
@@ -297,6 +335,10 @@ internal sealed class JsNumberFormat : ObjectInstance
             ? "0." + new string('0', MinimumFractionDigits) + new string('#', MaximumFractionDigits - MinimumFractionDigits)
             : "0";
         var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
+        if (IsNegativeZero(value))
+        {
+            mantissaStr = NumberFormatInfo.NegativeSign + mantissaStr;
+        }
 
         // Format exponent (no plus sign for positive exponents per spec). See FormatScientific for why
         // the exponent's sign comes from this object's NumberFormatInfo rather than the ambient culture.
@@ -1823,13 +1865,15 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
             else
             {
-                // Standard format uses minus sign before everything
-                result = $"-{formattedCurrency}";
+                // Standard format uses minus sign before everything. ECMA-402 calls it "the ILND String
+                // representing the minus sign", so it is the locale's own datum and not a literal "-":
+                // ar writes U+061C ARABIC LETTER MARK ahead of it, which is what the parts lane reports.
+                result = NumberFormatInfo.NegativeSign + formattedCurrency;
             }
         }
         else if (showPositiveSign)
         {
-            result = $"+{formattedCurrency}";
+            result = NumberFormatInfo.PositiveSign + formattedCurrency;
         }
         else
         {
@@ -1907,26 +1951,27 @@ internal sealed class JsNumberFormat : ObjectInstance
         // 8: -n $, 9: -$ n, 10: n $-, 11: $ n-, 12: $ -n, 13: n- $, 14: ($ n), 15: (n $)
         var negPattern = NumberFormatInfo.CurrencyNegativePattern;
         const string Nbsp = " "; // Non-breaking space
+        var minus = NumberFormatInfo.NegativeSign;
 
         return negPattern switch
         {
             0 => $"({symbol}{numberPart})",
-            1 => $"-{symbol}{numberPart}",
-            2 => $"{symbol}-{numberPart}",
-            3 => $"{symbol}{numberPart}-",
+            1 => $"{minus}{symbol}{numberPart}",
+            2 => $"{symbol}{minus}{numberPart}",
+            3 => $"{symbol}{numberPart}{minus}",
             4 => $"({numberPart}{symbol})",
-            5 => $"-{numberPart}{symbol}",
-            6 => $"{numberPart}-{symbol}",
-            7 => $"{numberPart}{symbol}-",
-            8 => $"-{numberPart}{Nbsp}{symbol}",
-            9 => $"-{symbol}{Nbsp}{numberPart}",
-            10 => $"{numberPart}{Nbsp}{symbol}-",
-            11 => $"{symbol}{Nbsp}{numberPart}-",
-            12 => $"{symbol}{Nbsp}-{numberPart}",
-            13 => $"{numberPart}-{Nbsp}{symbol}",
+            5 => $"{minus}{numberPart}{symbol}",
+            6 => $"{numberPart}{minus}{symbol}",
+            7 => $"{numberPart}{symbol}{minus}",
+            8 => $"{minus}{numberPart}{Nbsp}{symbol}",
+            9 => $"{minus}{symbol}{Nbsp}{numberPart}",
+            10 => $"{numberPart}{Nbsp}{symbol}{minus}",
+            11 => $"{symbol}{Nbsp}{numberPart}{minus}",
+            12 => $"{symbol}{Nbsp}{minus}{numberPart}",
+            13 => $"{numberPart}{minus}{Nbsp}{symbol}",
             14 => $"({symbol}{Nbsp}{numberPart})",
             15 => $"({numberPart}{Nbsp}{symbol})",
-            _ => $"-{symbol}{numberPart}"
+            _ => $"{minus}{symbol}{numberPart}"
         };
     }
 
@@ -1988,12 +2033,12 @@ internal sealed class JsNumberFormat : ObjectInstance
             {
                 return FormatNegativeCurrency(formatted, symbol);
             }
-            return $"-{formattedCurrency}";
+            return NumberFormatInfo.NegativeSign + formattedCurrency;
         }
 
         if (showPositiveSign)
         {
-            return $"+{formattedCurrency}";
+            return NumberFormatInfo.PositiveSign + formattedCurrency;
         }
 
         return formattedCurrency;
@@ -2045,23 +2090,27 @@ internal sealed class JsNumberFormat : ObjectInstance
         else
         {
             pattern = NumberFormatInfo.PercentNegativePattern;
-            var absNumber = formattedNumber.Length > 0 && formattedNumber[0] == '-' ? formattedNumber.Substring(1) : formattedNumber;
+            // the sign is the locale's own, so it is also what has to be stripped back off
+            var minus = NumberFormatInfo.NegativeSign;
+            var absNumber = formattedNumber.StartsWith(minus, StringComparison.Ordinal)
+                ? formattedNumber.Substring(minus.Length)
+                : formattedNumber;
             // PercentNegativePattern values vary by locale
             return pattern switch
             {
-                0 => "-" + absNumber + Nbsp + symbol,
-                1 => "-" + absNumber + symbol,
-                2 => "-" + symbol + absNumber,
-                3 => symbol + "-" + absNumber,
-                4 => symbol + absNumber + "-",
-                5 => absNumber + "-" + symbol,
-                6 => absNumber + symbol + "-",
-                7 => "-" + symbol + Nbsp + absNumber,
-                8 => absNumber + Nbsp + symbol + "-",
-                9 => symbol + Nbsp + absNumber + "-",
-                10 => symbol + Nbsp + "-" + absNumber,
-                11 => absNumber + "-" + Nbsp + symbol,
-                _ => "-" + absNumber + symbol
+                0 => minus + absNumber + Nbsp + symbol,
+                1 => minus + absNumber + symbol,
+                2 => minus + symbol + absNumber,
+                3 => symbol + minus + absNumber,
+                4 => symbol + absNumber + minus,
+                5 => absNumber + minus + symbol,
+                6 => absNumber + symbol + minus,
+                7 => minus + symbol + Nbsp + absNumber,
+                8 => absNumber + Nbsp + symbol + minus,
+                9 => symbol + Nbsp + absNumber + minus,
+                10 => symbol + Nbsp + minus + absNumber,
+                11 => absNumber + minus + Nbsp + symbol,
+                _ => minus + absNumber + symbol
             };
         }
     }
@@ -2261,45 +2310,24 @@ internal sealed class JsNumberFormat : ObjectInstance
         };
     }
 
+    /// <summary>
+    /// What a pattern walk writes where https://tc39.es/ecma402/#sec-partitionnumberpattern puts its
+    /// <c>number</c> part: a finite value split into its integer and fraction, or the single part
+    /// https://tc39.es/ecma402/#sec-partitionnotationsubpattern makes of NaN and infinity.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct NumberBody(long IntegerPart, double FractionValue, NumberFormatPart? NonFinite)
+    {
+        internal static NumberBody Finite(long integerPart, double fractionValue) => new(integerPart, fractionValue, null);
+
+        internal static NumberBody Of(NumberFormatPart nonFinite) => new(0, 0, nonFinite);
+    }
+
     private List<NumberFormatPart> FormatToPartsCore(double value)
     {
-        var parts = new List<NumberFormatPart>();
-
-        // Handle special values
-        if (double.IsNaN(value))
+        if (!double.IsFinite(value))
         {
-            // For signDisplay "always", NaN gets a plus sign
-            if (string.Equals(SignDisplay, "always", StringComparison.Ordinal))
-            {
-                parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-            }
-            parts.Add(new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol));
-            return parts;
-        }
-
-        if (double.IsPositiveInfinity(value))
-        {
-            // For signDisplay "always" or "exceptZero", show plus sign (infinity is never zero)
-            if (string.Equals(SignDisplay, "always", StringComparison.Ordinal) ||
-                string.Equals(SignDisplay, "exceptZero", StringComparison.Ordinal))
-            {
-                parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-            }
-            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
-            return parts;
-        }
-
-        if (double.IsNegativeInfinity(value))
-        {
-            // For signDisplay "negative", always show the minus sign (infinity is never zero)
-            // For "never", don't show the sign
-            // For "auto" (default), show the minus sign
-            if (!string.Equals(SignDisplay, "never", StringComparison.Ordinal))
-            {
-                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-            }
-            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
-            return parts;
+            return FormatNonFiniteToParts(value);
         }
 
         // Handle notation first
@@ -2318,6 +2346,104 @@ internal sealed class JsNumberFormat : ObjectInstance
         };
     }
 
+    /// <summary>
+    /// Formats NaN or an infinity, which chooses only the number's own text.
+    /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern's non-finite branches set nothing but
+    /// <c>formattedString</c>: the pattern https://tc39.es/ecma402/#sec-getnumberformatpattern selects is
+    /// still selected and still walked, so the currency symbol, the unit and the percent sign are written
+    /// around it exactly as they are around a finite value. That algorithm reads NaN as
+    /// <c>positive-zero</c> and each infinity as the non-zero category of its own sign, which is what
+    /// decides the sign below. https://tc39.es/ecma402/#sec-partitionnotationsubpattern then makes the
+    /// number one part and never a notation sub-pattern, so no exponent is written for it either.
+    /// </remarks>
+    private List<NumberFormatPart> FormatNonFiniteToParts(double value)
+    {
+        var parts = new List<NumberFormatPart>();
+
+        var isNaN = double.IsNaN(value);
+        var body = NumberBody.Of(isNaN
+            ? new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol)
+            : new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
+
+        var isNegative = double.IsNegativeInfinity(value);
+        var showNegativeSign = isNegative && !string.Equals(SignDisplay, "never", StringComparison.Ordinal);
+        var showPositiveSign = !isNegative && SignDisplay switch
+        {
+            "always" => true,
+            // NaN is the zero category, so "exceptZero" leaves it unsigned while +∞ takes a plus
+            "exceptZero" => !isNaN,
+            _ => false
+        };
+
+        switch (Style)
+        {
+            case "currency":
+                AppendCurrencyParts(parts, in body, showNegativeSign, showPositiveSign);
+                break;
+            case "percent":
+                AppendPercentParts(parts, in body, showNegativeSign, showPositiveSign);
+                break;
+            case "unit":
+                AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, value);
+                break;
+            default:
+                AppendSignPart(parts, showNegativeSign, showPositiveSign);
+                AddNumberParts(parts, in body);
+                break;
+        }
+
+        return parts;
+    }
+
+    private void AppendSignPart(List<NumberFormatPart> parts, bool showNegativeSign, bool showPositiveSign)
+    {
+        if (showNegativeSign)
+        {
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+        }
+        else if (showPositiveSign)
+        {
+            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
+        }
+    }
+
+    /// <summary>
+    /// Writes the number a pattern wraps, using the locale's number decimal separator.
+    /// </summary>
+    private void AddNumberParts(List<NumberFormatPart> parts, in NumberBody body)
+    {
+        if (body.NonFinite is { } nonFinite)
+        {
+            parts.Add(nonFinite);
+            return;
+        }
+
+        FormatIntegerToParts(parts, body.IntegerPart);
+
+        if (MinimumFractionDigits > 0 || (body.FractionValue > 0 && MaximumFractionDigits > 0))
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            FormatFractionToParts(parts, body.FractionValue);
+        }
+    }
+
+    /// <summary>
+    /// Writes the number a currency pattern wraps, using the locale's currency decimal separator.
+    /// </summary>
+    private void AddCurrencyNumberParts(List<NumberFormatPart> parts, in NumberBody body)
+    {
+        if (body.NonFinite is { } nonFinite)
+        {
+            parts.Add(nonFinite);
+            return;
+        }
+
+        FormatIntegerToParts(parts, body.IntegerPart);
+        AddFractionPartsIfNeeded(parts, body.FractionValue);
+    }
+
     private List<NumberFormatPart> FormatNotationToParts(double value)
     {
         // Handle compact notation separately
@@ -2328,7 +2454,8 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         var parts = new List<NumberFormatPart>();
 
-        var isNegative = value < 0;
+        // negative zero takes the negative pattern too, per https://tc39.es/ecma402/#sec-getnumberformatpattern
+        var isNegative = value < 0 || IsNegativeZero(value);
         if (isNegative)
         {
             parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
@@ -2662,9 +2789,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
-        // Get currency symbol
-        var currencySymbol = NumberFormatInfo.CurrencySymbol;
-
         // Apply rounding first to determine if value displays as zero
         var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : 2;
         absValue = ApplyRounding(absValue, fractionDigits);
@@ -2673,7 +2797,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Determine if we should show a negative sign based on signDisplay
         var showNegativeSign = isNegative;
         var showPositiveSign = false;
-        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
 
         switch (SignDisplay)
         {
@@ -2699,41 +2822,35 @@ internal sealed class JsNumberFormat : ObjectInstance
         var integerPart = (long) System.Math.Truncate(absValue);
         var fractionValue = absValue - integerPart;
 
-        // Determine pattern based on locale (use positive pattern as base)
-        var pattern = NumberFormatInfo.CurrencyPositivePattern;
-
-        // Build parts based on sign display and format
-        if (showNegativeSign)
-        {
-            if (useAccountingFormat)
-            {
-                // Use CLDR-based accounting format (parentheses for most locales)
-                BuildAccountingCurrencyNegativeParts(parts, currencySymbol, integerPart, fractionValue);
-            }
-            else
-            {
-                // Standard format uses minus sign
-                parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
-            }
-        }
-        else if (showPositiveSign)
-        {
-            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-            BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
-        }
-        else
-        {
-            BuildCurrencyPositiveParts(parts, pattern, currencySymbol, integerPart, fractionValue);
-        }
+        AppendCurrencyParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign);
 
         return parts;
     }
 
     /// <summary>
+    /// Walks the currency pattern https://tc39.es/ecma402/#sec-getnumberformatpattern selects, around
+    /// whatever number stands in it.
+    /// </summary>
+    private void AppendCurrencyParts(List<NumberFormatPart> parts, in NumberBody body, bool showNegativeSign, bool showPositiveSign)
+    {
+        var currencySymbol = NumberFormatInfo.CurrencySymbol;
+        var pattern = NumberFormatInfo.CurrencyPositivePattern;
+
+        if (showNegativeSign && string.Equals(CurrencySign, "accounting", StringComparison.Ordinal))
+        {
+            // Use CLDR-based accounting format (parentheses for most locales)
+            BuildAccountingCurrencyNegativeParts(parts, currencySymbol, in body);
+            return;
+        }
+
+        AppendSignPart(parts, showNegativeSign, showPositiveSign);
+        BuildCurrencyPositiveParts(parts, pattern, currencySymbol, in body);
+    }
+
+    /// <summary>
     /// Builds currency parts for accounting format (negative values with parentheses).
     /// </summary>
-    private void BuildAccountingCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, long integerPart, double fractionValue)
+    private void BuildAccountingCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, in NumberBody body)
     {
         // Check if locale uses parentheses for accounting
         if (UsesParenthesesForAccounting())
@@ -2747,14 +2864,12 @@ internal sealed class JsNumberFormat : ObjectInstance
                 case 0: // $n → ($n)
                     parts.Add(new NumberFormatPart("literal", "("));
                     parts.Add(new NumberFormatPart("currency", symbol));
-                    FormatIntegerToParts(parts, integerPart);
-                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    AddCurrencyNumberParts(parts, in body);
                     parts.Add(new NumberFormatPart("literal", ")"));
                     break;
                 case 1: // n$ → (n$)
                     parts.Add(new NumberFormatPart("literal", "("));
-                    FormatIntegerToParts(parts, integerPart);
-                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    AddCurrencyNumberParts(parts, in body);
                     parts.Add(new NumberFormatPart("currency", symbol));
                     parts.Add(new NumberFormatPart("literal", ")"));
                     break;
@@ -2762,15 +2877,13 @@ internal sealed class JsNumberFormat : ObjectInstance
                     parts.Add(new NumberFormatPart("literal", "("));
                     parts.Add(new NumberFormatPart("currency", symbol));
                     parts.Add(new NumberFormatPart("literal", Nbsp));
-                    FormatIntegerToParts(parts, integerPart);
-                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    AddCurrencyNumberParts(parts, in body);
                     parts.Add(new NumberFormatPart("literal", ")"));
                     break;
                 case 3: // n $ → (n $)
                 default:
                     parts.Add(new NumberFormatPart("literal", "("));
-                    FormatIntegerToParts(parts, integerPart);
-                    AddFractionPartsIfNeeded(parts, fractionValue);
+                    AddCurrencyNumberParts(parts, in body);
                     parts.Add(new NumberFormatPart("literal", Nbsp));
                     parts.Add(new NumberFormatPart("currency", symbol));
                     parts.Add(new NumberFormatPart("literal", ")"));
@@ -2780,14 +2893,14 @@ internal sealed class JsNumberFormat : ObjectInstance
         else
         {
             // Fall back to standard negative currency pattern (minus sign)
-            BuildCurrencyNegativeParts(parts, symbol, integerPart, fractionValue);
+            BuildCurrencyNegativeParts(parts, symbol, in body);
         }
     }
 
     /// <summary>
     /// Builds currency parts for negative values using the locale's CurrencyNegativePattern.
     /// </summary>
-    private void BuildCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, long integerPart, double fractionValue)
+    private void BuildCurrencyNegativeParts(List<NumberFormatPart> parts, string symbol, in NumberBody body)
     {
         var negPattern = NumberFormatInfo.CurrencyNegativePattern;
         const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
@@ -2797,57 +2910,48 @@ internal sealed class JsNumberFormat : ObjectInstance
             case 0: // ($n)
                 parts.Add(new NumberFormatPart("literal", "("));
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", ")"));
                 break;
             case 1: // -$n
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 2: // $-n
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 3: // $n-
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 break;
             case 4: // (n$)
                 parts.Add(new NumberFormatPart("literal", "("));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", ")"));
                 break;
             case 5: // -n$
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
             case 6: // n-$
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
             case 7: // n$-
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 break;
             case 8: // -n $
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
@@ -2855,12 +2959,10 @@ internal sealed class JsNumberFormat : ObjectInstance
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 10: // n $-
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
@@ -2868,20 +2970,17 @@ internal sealed class JsNumberFormat : ObjectInstance
             case 11: // $ n-
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 break;
             case 12: // $ -n
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 13: // n- $
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
@@ -2890,14 +2989,12 @@ internal sealed class JsNumberFormat : ObjectInstance
                 parts.Add(new NumberFormatPart("literal", "("));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", ")"));
                 break;
             case 15: // (n $)
                 parts.Add(new NumberFormatPart("literal", "("));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", ")"));
@@ -2905,43 +3002,37 @@ internal sealed class JsNumberFormat : ObjectInstance
             default:
                 parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
         }
     }
 
-    private void BuildCurrencyPositiveParts(List<NumberFormatPart> parts, int pattern, string symbol, long integerPart, double fractionValue)
+    private void BuildCurrencyPositiveParts(List<NumberFormatPart> parts, int pattern, string symbol, in NumberBody body)
     {
         const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
         switch (pattern)
         {
             case 0: // $n
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 1: // n$
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
             case 2: // $ n
                 parts.Add(new NumberFormatPart("currency", symbol));
                 parts.Add(new NumberFormatPart("literal", Nbsp));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
             case 3: // n $
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 parts.Add(new NumberFormatPart("literal", Nbsp));
                 parts.Add(new NumberFormatPart("currency", symbol));
                 break;
             default:
                 parts.Add(new NumberFormatPart("currency", symbol));
-                FormatIntegerToParts(parts, integerPart);
-                AddFractionPartsIfNeeded(parts, fractionValue);
+                AddCurrencyNumberParts(parts, in body);
                 break;
         }
     }
@@ -2993,6 +3084,20 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
+        var integerPart = (long) System.Math.Truncate(percentValue);
+        var fractionValue = percentValue - integerPart;
+
+        AppendPercentParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign);
+
+        return parts;
+    }
+
+    /// <summary>
+    /// Walks the percent pattern around whatever number stands in it, so the percent sign is written for a
+    /// non-finite value as it is for a finite one.
+    /// </summary>
+    private void AppendPercentParts(List<NumberFormatPart> parts, in NumberBody body, bool showNegativeSign, bool showPositiveSign)
+    {
         // Get the percent pattern to determine symbol position and spacing
         var pattern = NumberFormatInfo.PercentPositivePattern;
 
@@ -3011,25 +3116,8 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
         }
 
-        if (showNegativeSign)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-        }
-        else if (showPositiveSign)
-        {
-            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-        }
-
-        var integerPart = (long) System.Math.Truncate(percentValue);
-        var fractionValue = percentValue - integerPart;
-
-        FormatIntegerToParts(parts, integerPart);
-
-        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            FormatFractionToParts(parts, fractionValue);
-        }
+        AppendSignPart(parts, showNegativeSign, showPositiveSign);
+        AddNumberParts(parts, in body);
 
         if (symbolAfter)
         {
@@ -3040,8 +3128,6 @@ internal sealed class JsNumberFormat : ObjectInstance
             }
             parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
         }
-
-        return parts;
     }
 
     private List<NumberFormatPart> FormatUnitToParts(double value)
@@ -3077,81 +3163,101 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        if (showNegativeSign)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-        }
-        else if (showPositiveSign)
-        {
-            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-        }
-
         var integerPart = (long) System.Math.Truncate(absValue);
         var fractionValue = absValue - integerPart;
 
-        FormatIntegerToParts(parts, integerPart);
+        AppendUnitParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign, value);
 
-        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            FormatFractionToParts(parts, fractionValue);
-        }
+        return parts;
+    }
 
-        // Add space and unit using CLDR pattern
+    /// <summary>
+    /// Walks the CLDR unit pattern around whatever number stands in it, both of its sides included.
+    /// </summary>
+    /// <remarks>
+    /// A pattern can put text on either side — <c>ja-JP</c>'s long kilometre-per-hour is
+    /// <c>"時速 {0} キロメートル"</c> — and https://tc39.es/ecma402/#sec-partitionnumberpattern appends a
+    /// <c>unit</c> part for each, the leading one before the sign. Reporting only the trailing side left
+    /// <c>formatToParts</c> describing a string <c>format</c> never wrote.
+    /// </remarks>
+    private void AppendUnitParts(
+        List<NumberFormatPart> parts,
+        in NumberBody body,
+        bool showNegativeSign,
+        bool showPositiveSign,
+        double value)
+    {
         var unitDisplay = UnitDisplay ?? "short";
         var unitStr = Unit ?? "";
+
+        string beforeNumber;
+        string afterNumber;
 
         // Try to get unit patterns from CLDR provider
         var unitPatterns = CldrProvider.GetUnitPatterns(Locale, unitStr, unitDisplay);
         if (unitPatterns != null)
         {
-            // Extract unit portion from pattern by removing {0} placeholder
+            // Extract the two sides of the pattern by removing the {0} placeholder
             // Select singular or plural pattern based on the absolute value
             var isSingular = System.Math.Abs(value) == 1;
             var pattern = isSingular ? (unitPatterns.One ?? unitPatterns.Other) : unitPatterns.Other;
             var placeholderIndex = pattern.IndexOf("{0}", StringComparison.Ordinal);
 
-            if (placeholderIndex >= 0)
-            {
-                // Pattern has format like "{0} km/h" or "時速 {0} キロメートル"
-                var beforeNumber = pattern.Substring(0, placeholderIndex);
-                var afterNumber = pattern.Substring(placeholderIndex + 3);
-
-                // The afterNumber part contains the unit (possibly with space)
-                if (!string.IsNullOrEmpty(afterNumber))
-                {
-                    // Check if it starts with a space
-                    if (afterNumber[0] == ' ')
-                    {
-                        parts.Add(new NumberFormatPart("literal", " "));
-                        parts.Add(new NumberFormatPart("unit", afterNumber.Substring(1)));
-                    }
-                    else
-                    {
-                        parts.Add(new NumberFormatPart("unit", afterNumber));
-                    }
-                }
-            }
+            beforeNumber = placeholderIndex >= 0 ? pattern.Substring(0, placeholderIndex) : "";
+            afterNumber = placeholderIndex >= 0 ? pattern.Substring(placeholderIndex + 3) : "";
         }
         else
         {
-            // Fallback to legacy behavior
-            var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, absValue);
+            // Fallback to legacy behavior, which only ever writes a suffix
+            beforeNumber = "";
 
-            // Determine if we need a space before the unit
+            // Narrow display never has space; percent/degree units don't have space
             var needsSpace = !string.Equals(unitDisplay, "narrow", StringComparison.Ordinal) &&
                             !string.Equals(unitStr, "percent", StringComparison.Ordinal) &&
                             !string.Equals(unitStr, "celsius", StringComparison.Ordinal) &&
                             !string.Equals(unitStr, "fahrenheit", StringComparison.Ordinal);
 
-            if (needsSpace)
-            {
-                parts.Add(new NumberFormatPart("literal", " "));
-            }
-            parts.Add(new NumberFormatPart("unit", unitSuffix));
+            afterNumber = (needsSpace ? " " : "") + GetUnitSuffix(unitStr, unitDisplay, value);
         }
 
-        return parts;
+        AddUnitAffixParts(parts, beforeNumber, leading: true);
+        AppendSignPart(parts, showNegativeSign, showPositiveSign);
+        AddNumberParts(parts, in body);
+        AddUnitAffixParts(parts, afterNumber, leading: false);
+    }
+
+    /// <summary>
+    /// Splits one side of a unit pattern into the parts it is made of: the unit name, and the literal
+    /// separating it from the number.
+    /// </summary>
+    private static void AddUnitAffixParts(List<NumberFormatPart> parts, string affix, bool leading)
+    {
+        if (affix.Length == 0)
+        {
+            return;
+        }
+
+        // the separator sits between the two, so it trails a prefix and leads a suffix
+        var separatorIndex = leading ? affix.Length - 1 : 0;
+        var hasSeparator = affix[separatorIndex] == ' ';
+        var unit = hasSeparator
+            ? (leading ? affix.Substring(0, separatorIndex) : affix.Substring(1))
+            : affix;
+
+        if (leading && unit.Length > 0)
+        {
+            parts.Add(new NumberFormatPart("unit", unit));
+        }
+
+        if (hasSeparator)
+        {
+            parts.Add(new NumberFormatPart("literal", " "));
+        }
+
+        if (!leading && unit.Length > 0)
+        {
+            parts.Add(new NumberFormatPart("unit", unit));
+        }
     }
 
     private bool ShouldShowPlusSign(double value)
