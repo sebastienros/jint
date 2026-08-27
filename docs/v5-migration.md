@@ -2465,6 +2465,28 @@ locale reports exactly what it reported before, `.NET`'s answer and CLDR's havin
 else. A host implementing `ICldrProvider` **from scratch** rather than deriving from `DefaultCldrProvider`
 has one more member to write; deriving costs nothing, and [5.2](#52-changing-one-locale-datum-is-one-override)
 is why that is the shape the interface is documented for.
+### 4.48 The blocking promise drain is bounded on the engine's clock, not on the wall clock ([#3406](https://github.com/sebastienros/jint/issues/3406))
+
+`Engine.DrainEventLoopUntil` — what `UnwrapIfPromise` blocks in, and what a synchronous `Modules.Import`
+waits in — used to arm its deadline from `DateTime.UtcNow`. It now arms it from a monotonic timestamp, read
+through `Options.Constraints.TimeProvider` on `net8.0` and later and from `Stopwatch` everywhere else. Three
+consequences, none of which changes a signature:
+
+- **A system-clock step no longer moves a promise budget.** An NTP correction forwards used to cut a
+  `PromiseTimeout` short and one backwards used to stretch it; neither does now. This is the rule the pump's
+  own ceiling has always followed (`Engine.Pump.ElapsedSince`), and the drain was the one wait that did not.
+- **`Options.Constraints.TimeProvider` now governs `Options.Constraints.PromiseTimeout` as well as
+  `LimitExecutionTime`.** A host that supplied a clock to make its execution-timeout tests exact will find
+  the promise budget measured against the same clock — so a *frozen* clock now keeps a blocking unwrap
+  pending until the host advances it, where before it timed out on real time. If that is not wanted, leave
+  `TimeProvider` at `TimeProvider.System` (the default) and register `OperationDeadlineConstraint` with its
+  own clock instead; it takes one through its own constructor. The web-API timers are unaffected — they keep
+  their own clock in `Options.WebApi.Timers.TimeProvider`, because they are a WHATWG feature rather than an
+  execution budget.
+- **A `TimeProvider` reporting a non-positive `TimestampFrequency` is rejected when the engine is built**,
+  rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
+  `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
+  the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
 
 ## 5. New in v5
 

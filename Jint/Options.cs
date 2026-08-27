@@ -1358,22 +1358,29 @@ public sealed partial class Options
 
 #if NET8_0_OR_GREATER
         /// <summary>
-        /// The clock <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>'s constraint measures against.
-        /// Defaults to <see cref="TimeProvider.System"/>; a fake one makes a timeout test exact instead of a
-        /// race against the machine it runs on.
+        /// The clock this engine's own time budgets measure against — <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>'s
+        /// constraint and <see cref="PromiseTimeout"/>. Defaults to <see cref="TimeProvider.System"/>; a fake
+        /// one makes a timeout test exact instead of a race against the machine it runs on.
         /// </summary>
         /// <remarks>
         /// <para>
         /// Only <see cref="TimeProvider.GetTimestamp"/> and <see cref="TimeProvider.TimestampFrequency"/> are
-        /// ever called. <see cref="TimeProvider.CreateTimer"/> deliberately is not: the constraint schedules
-        /// nothing, it compares an inline deadline on the thread already running the script, which is what
+        /// ever called. <see cref="TimeProvider.CreateTimer"/> deliberately is not: neither budget schedules
+        /// anything, each compares an inline deadline on the thread already doing the work, which is what
         /// bounds detection by the timeout rather than by the thread pool.
         /// </para>
         /// <para>
-        /// Read when the engine builds its constraints, so it may be set in any order relative to
-        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/>.
+        /// Read when the engine is built, so it may be set in any order relative to
+        /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> or <see cref="PromiseTimeout"/>.
         /// Leaving it at <see cref="TimeProvider.System"/> costs exactly what it cost
         /// before this property existed — see <c>ConstraintClock</c> for the fold that makes that true.
+        /// </para>
+        /// <para>
+        /// The blocking promise drain it governs is what <see cref="Native.JsValue.UnwrapIfPromise()"/>
+        /// and a synchronous module import wait in, so a frozen clock keeps such a wait pending until the
+        /// host moves it. What it does <em>not</em> govern is the web-API timers, which have a clock of their
+        /// own in <c>Options.WebApi.Timers.TimeProvider</c> because they are a WHATWG feature rather than an
+        /// execution budget.
         /// </para>
         /// <para>
         /// It governs the constraint the engine registers. <see cref="Constraints.OperationDeadlineConstraint"/>

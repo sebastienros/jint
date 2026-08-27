@@ -40,6 +40,23 @@ internal static class ConstraintClock
         return ticks >= long.MaxValue / 2.0 ? long.MaxValue / 2 : (long) ticks;
     }
 
+    /// <summary>
+    /// The inverse of <see cref="ToTimestampTicks"/>: how long <paramref name="timestampTicks"/> of a clock
+    /// running at <paramref name="frequency"/> is, saturating at <see cref="TimeSpan.MaxValue"/> rather than
+    /// overflowing.
+    /// </summary>
+    /// <remarks>
+    /// The saturation is reachable in one direction only and is harmless there: the callers use the answer
+    /// to shorten an idle wait, never to lengthen one, so a saturated value simply leaves the wait at
+    /// whatever bound it already had. Overflowing instead would produce a <em>negative</em> span and end a
+    /// wait that has barely started, which is the failure this exists to rule out.
+    /// </remarks>
+    internal static TimeSpan ToTimeSpan(long timestampTicks, long frequency)
+    {
+        var ticks = timestampTicks * ((double) TimeSpan.TicksPerSecond / frequency);
+        return ticks >= long.MaxValue ? TimeSpan.MaxValue : TimeSpan.FromTicks((long) ticks);
+    }
+
 #if NET8_0_OR_GREATER
     /// <summary>
     /// The provider a constraint should store, or <see langword="null"/> for "read

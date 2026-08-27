@@ -23,6 +23,7 @@ when it breaks nothing at compile time — and the engine-wide rows are in
 | `Constraint` + `IsAmortizable` | `Jint/Constraint.cs` |
 | `OperationDeadlineConstraint` — public sealed, host-armed `Begin`/`End` budget spanning a whole multi-entry host operation, which the per-entry constraint reset deliberately never rewinds | `Jint/Constraints/OperationDeadlineConstraint.cs` |
 | `MemoryLimitConstraint` + `MemoryLimitAccuracy` — per-operation managed-allocation accounting carried across async thread hops, with host-armed `Begin`/`End` for a multi-entry operation | `Jint/Constraints/MemoryLimitConstraint.cs` |
+| `Options.Constraints.TimeProvider` (`net8.0`+) — the clock **both** of the engine's own time budgets measure against: `LimitExecutionTime`'s constraint, and `PromiseTimeout`'s blocking drain since [#3406](https://github.com/sebastienros/jint/issues/3406). A frozen clock therefore keeps a blocking `UnwrapIfPromise` or synchronous `Modules.Import` pending until the host advances it, and any new engine-bounded wait takes its deadline from `Engine.GetWaitTimestamp` rather than from `DateTime.UtcNow`. The web-API timers are *not* on it — they have their own `Options.WebApi.Timers.TimeProvider`, being a WHATWG feature rather than a budget | `Jint/Options.cs`, `Jint/Constraints/ConstraintClock.cs`, `Jint/Engine.cs` |
 
 ### Bounding a host-driven sequence
 
