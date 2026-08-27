@@ -2691,6 +2691,53 @@ out-of-range index on such a target no longer fires — the read is `undefined` 
 reading `n in x` or `x.hasOwnProperty(n)` as "the indexer would accept `n`" gets `false` for out-of-range `n`
 instead of `true`.
 
+### 4.57 A collection exposed as `IList<T>` or `IReadOnlyList<T>` gets the wrapper that contract names ([#3421](https://github.com/sebastienros/jint/issues/3421))
+
+The type a host object is *exposed* under decides which wrapper the engine builds, and the wrapper decides
+what script may do with it — whether elements are writable, whether the collection can grow, and which lane
+`Array.prototype` takes. That exposure is public API (`ObjectWrapper.Create(engine, target, type)`), it is
+what a `WrapObjectDelegate` supplies, and it is what the member lane passes for a property whose **declared**
+type is a collection interface.
+
+The resolution scanned the exposed type's `GetInterfaces()` for `IList<>` and `IReadOnlyList<>` and nowhere
+else. An interface is not among its own — `typeof(IList<int>).GetInterfaces()` yields `ICollection<int>`,
+`IEnumerable<int>` and `IEnumerable` — so exposing a collection *as* one of the two contracts the code is
+written to recognize found nothing, and the engine fell back to a wrapper the exposure had not named:
+
+| exposure | 4.16.x | 5.x |
+| --- | --- | --- |
+| a host `IList<T>` (not a non-generic `IList`) as `IList<T>` | plain `ObjectWrapper` — no `Array.prototype`, member names for keys, a read-only `length` | the typed writable, growable view |
+| a `List<T>` as `IList<T>` | untyped `ListWrapper` (element type `object`) | the typed view, with `T`-typed element writes |
+| a `List<T>` or `T[]` as `IReadOnlyList<T>` | `ListWrapper`, taking its writability from the target | the typed read-only view |
+| a host `IReadOnlyList<T>` (not an `IList`) as `IReadOnlyList<T>` | plain `ObjectWrapper` | the typed read-only view |
+
+What that changes for the first row, which is the one an embedder is most likely to have:
+
+```js
+// engine.SetValue("host", ObjectWrapper.Create(engine, items, typeof(IList<int>)))
+Object.keys(host)                     // 4.16.x: ["IndexOf","Insert","RemoveAt"]   5.x: ["0","1","2"]
+host[3] = 9                           // 4.16.x: ArgumentOutOfRangeException        5.x: grows to 1,2,3,9
+Array.prototype.push.call(host, 4)    // 4.16.x: TypeError (§4.37)                  5.x: 4
+Array.prototype.pop.call(host)        // 4.16.x: TypeError                          5.x: removes the last element
+```
+
+Reads are unchanged in every row: `host.length`, `host[1]`, the `Array.prototype` generics, `Array.from`,
+spread and `JSON.stringify` all answered correctly before, through the plain wrapper's reflection lane.
+
+**What could break.** An exposure under `IList<T>` becomes writable and growable — the contract says so, but a
+host that was relying on the accidental refusal should expose the collection as `IReadOnlyList<T>` instead,
+which now produces a view that refuses every mutation as a catchable JavaScript error. An exposure under
+`IReadOnlyList<T>` gains `Array.prototype`, index-keyed enumeration and a `length` where the fallback wrapper
+had given it the target's members. A contract with no index in it — `ICollection<T>`, `IEnumerable<T>` — names
+no view and is unchanged. A type the target does **not** implement is not cast to: that exposure keeps the
+plain wrapper it has always had rather than raising `InvalidCastException`.
+
+[§4.37](#437-a-host-collection-exposed-as-ilistt-refuses-a-growing-generic-with-a-typeerror-3394) is narrowed
+by this: the `ArrayOperations.IndexWrappedOperations` lane it describes is no longer reachable under a JIT,
+because the exposure that reached it now gets a typed wrapper. The refusal it added is still what a runtime
+with no code for the typed factory's instantiation gives — Native AOT over a value-type element — and
+`Jint.AotExample` is what pins it there.
+
 `Engine.DrainEventLoopUntil` — what `UnwrapIfPromise` blocks in, and what a synchronous `Modules.Import`
 waits in — used to arm its deadline from `DateTime.UtcNow`. It now arms it from a monotonic timestamp, read
 through `Options.Constraints.TimeProvider` on `net8.0` and later and from `Stopwatch` everywhere else. Three
@@ -2711,7 +2758,6 @@ consequences, none of which changes a signature:
   rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
   `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
   the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
-
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
