@@ -141,11 +141,6 @@ public interface ICldrProvider
     // === Supported Values ===
 
     /// <summary>
-    /// Gets all supported calendar identifiers.
-    /// </summary>
-    IReadOnlyCollection<string> GetSupportedCalendars();
-
-    /// <summary>
     /// Gets all supported collation identifiers.
     /// </summary>
     IReadOnlyCollection<string> GetSupportedCollations();

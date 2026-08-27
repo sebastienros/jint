@@ -1575,60 +1575,14 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-canonicalizetemporalcalendaridentifier
     /// </summary>
     /// <remarks>
-    /// The switch below is Jint's own <c>AvailableCalendars</c>. An identifier it does not name is put to the
-    /// engine's <see cref="ICalendarProvider"/>, which is the only thing that could implement a calendar
-    /// Jint does not: without this, a host provider's <c>IsSupported</c> is never reached for a new
-    /// identifier, because every Temporal entry point canonicalizes before it consults a provider.
-    /// A host is answered only for a well-formed Unicode calendar type, so nothing it claims can produce an
-    /// identifier that would not round-trip through a <c>[u-ca=…]</c> annotation.
+    /// Step 1 of that operation is <c>AvailableCalendars()</c>, and
+    /// <see cref="Intl.AvailableCalendars"/> is it — the same list, the same alias table and the same
+    /// provider question that <c>Intl.supportedValuesOf('calendar')</c> and <c>Intl.DateTimeFormat</c>'s
+    /// <c>calendar</c> option read. This method used to carry its own copy of all three.
     /// </remarks>
     public static string? CanonicalizeCalendar(Engine? engine, string calendar)
     {
-        // Must use ASCII case-folding only (not Turkish İ)
-        // Check if it's a valid calendar ID and return canonical form
-        var lower = ToAsciiLowerCase(calendar);
-
-        // Map of known calendar identifiers to their canonical forms
-        // https://tc39.es/ecma402/#sec-availablecalendars
-        return lower switch
-        {
-            "iso8601" => "iso8601",
-            "gregory" or "gregorian" => "gregory",
-            "buddhist" => "buddhist",
-            "chinese" => "chinese",
-            "coptic" => "coptic",
-            "dangi" => "dangi",
-            "ethioaa" or "ethiopic-amete-alem" => "ethioaa",
-            "ethiopic" => "ethiopic",
-            "hebrew" => "hebrew",
-            "indian" => "indian",
-            "islamic" => "islamic",
-            "islamic-civil" => "islamic-civil",
-            "islamic-rgsa" => "islamic-rgsa",
-            "islamic-tbla" => "islamic-tbla",
-            "islamic-umalqura" => "islamic-umalqura",
-            "islamicc" => "islamic-civil",
-            "japanese" => "japanese",
-            "persian" => "persian",
-            "roc" => "roc",
-            _ => AskCalendarProvider(engine, lower)
-        };
-    }
-
-    /// <summary>
-    /// The last word on an identifier Jint's own table does not name: a host provider that claims it, or null.
-    /// </summary>
-    private static string? AskCalendarProvider(Engine? engine, string lowered)
-    {
-        var provider = engine?.Options.Temporal.CalendarProvider;
-        if (provider is null || ReferenceEquals(provider, DefaultCalendarProvider.Instance))
-        {
-            return null;
-        }
-
-        return Intl.IntlUtilities.IsValidUnicodeExtensionValue(lowered) && provider.IsSupported(lowered)
-            ? lowered
-            : null;
+        return Intl.AvailableCalendars.Canonicalize(engine, calendar);
     }
 
     /// <summary>

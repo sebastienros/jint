@@ -69,6 +69,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `ICldrProvider.GetCompactPatterns` and the `CompactPatterns` type (with `DefaultCldrProvider`'s override) | nothing. `CompactPatterns` is a magnitude-to-pattern map with no plural dimension and no digit count, so it cannot express what compact notation actually needs: CLDR keys these patterns by plural category as well as by power of ten (`ru` long is `0 тысяча` / `0 тысячи` / `0 тысяч`), and the zero count in a CLDR pattern (`00 Tsd.`) is the rounding. Compact suffixes come from the engine's embedded table | [#3354](https://github.com/sebastienros/jint/issues/3354) |
 | `ICldrProvider.GetDateTimePatterns` and the `DateTimePatterns` type (with `DefaultCldrProvider`'s override) | nothing. It never had an implementation — the only one in the tree returned `null` unconditionally — so the syntax of its three pattern strings was never fixed, and .NET custom format strings and LDML skeletons disagree on the letters that matter (`yyyy` vs `y`, `tt` vs `a`, `ddd` vs `E`). Wiring it would have meant inventing that contract, and for the `dateStyle`/`timeStyle` pair alone: ECMA-402 resolves both out of the same `availableFormats` skeleton data the component options use, which three strings cannot carry | [#3354](https://github.com/sebastienros/jint/issues/3354) |
+| `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
 
 ### 2.1 Sealed types
 
@@ -1681,8 +1682,8 @@ now the list's answer for anything deriving from `DefaultCalendarProvider` witho
 the question the engine asks — so a calendar in the list is now claimed, and one absent from it is not.
 A provider implementing `ICalendarProvider` from scratch is unaffected: both members are still its own.
 Second, a host calendar reaches construction, the field accessors, `with`, `toString` and the
-`PlainYearMonth`/`PlainMonthDay` conversions, but not arithmetic and not `Intl.DateTimeFormat`; both refuse
-it with a `RangeError`.
+`PlainYearMonth`/`PlainMonthDay` conversions, but not arithmetic and not `Intl.DateTimeFormat`; both refused
+it with a `RangeError` when this shipped. 4.35 gives it arithmetic and 4.36 gives it `Intl`.
 
 ### 4.31 A module graph too deep to link raises an error instead of ending the process ([#3401](https://github.com/sebastienros/jint/issues/3401))
 
@@ -1883,6 +1884,39 @@ Both are `Set(O, k, v, true)` over a position the view cannot hold, so both are 
 longer fires. Nothing changes for a target exposed under its own type or under a type that implements
 `IList<T>` (both get a typed, growable wrapper), for reads, or for any generic that stays inside the
 collection's bounds.
+### 4.40 One list of calendars, and `ICalendarProvider` owns it ([#3404](https://github.com/sebastienros/jint/issues/3404))
+
+Jint held the calendar identifiers in three places — `TemporalHelpers.CanonicalizeCalendar`,
+`DateTimeFormatConstructor`'s own table and alias map, and `DefaultCldrProvider.GetSupportedCalendars` —
+plus a fourth membership scan inside `Intl.DisplayNames`. They agreed on the sixteen for a default engine
+and on nothing else: two different alias tables, and only one of them could be extended, so a calendar a
+host added existed for `Temporal` and was invisible to `Intl`.
+
+[AvailableCalendars](https://tc39.es/ecma402/#sec-availablecalendars) is one list, defined as the calendars
+the implementation can format, and read by `Intl.supportedValuesOf('calendar')`, by `Intl.DateTimeFormat`'s
+`calendar` option and — as its literal first step — by
+[Temporal's `CanonicalizeCalendar`](https://tc39.es/proposal-temporal/#sec-temporal-canonicalizecalendar).
+All four sites now read one internal `AvailableCalendars`, whose alias handling is the engine's existing
+`CanonicalizeUValue("ca", …)` and whose extension point is `ICalendarProvider.GetSupportedCalendars`.
+
+```js
+// with a provider that adds "mayan" — 5.0 answered "gregory", false, and "gregory"
+new Intl.DateTimeFormat('en', { calendar: 'mayan' }).resolvedOptions().calendar; // "mayan"
+Intl.supportedValuesOf('calendar').includes('mayan');                            // true
+new Intl.DateTimeFormat('en', { calendar: 'mayan', year: 'numeric', timeZone: 'UTC' })
+    .format(Date.UTC(2024, 2, 5));                                               // "5138"
+```
+
+`islamic` and `islamic-rgsa` are the one place the two services still part, and they part because the two
+specifications ask for different things: [CreateDateTimeFormat](https://tc39.es/ecma402/#sec-createdatetimeformat)
+step 9 requires a formatter asking for one to resolve to another available calendar, and `Temporal` refuses
+them outright. That is now stated once, beside the list, instead of being an accident of two switches
+disagreeing.
+
+Nothing an unconfigured engine does changes: the sixteen, the two deprecated identifiers and the aliases all
+behave exactly as the four tables made them behave.
+
+**What could break:** a host overriding `ICldrProvider.GetSupportedCalendars`. See [2. Removed API](#2-removed-api).
 
 ### 4.41 Two holes in the freeze, closed ([#3360](https://github.com/sebastienros/jint/issues/3360))
 
@@ -2065,7 +2099,7 @@ sealed class MyCldr : DefaultCldrProvider
 var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
-`ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
+`ICldrProvider` is now eighteen members and every one of them has a caller, so whatever a derived class
 answers is what `Intl` shows — see [4.22](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info)
 and [4.29](#429-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits) for the two changes
 that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.

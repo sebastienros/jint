@@ -593,21 +593,6 @@ public class DefaultCldrProvider : ICldrProvider
     // === Supported Values ===
 
     /// <inheritdoc />
-    public virtual IReadOnlyCollection<string> GetSupportedCalendars()
-    {
-        // Only return calendars that are fully supported per ECMA-402 and Intl.Era-monthcode spec
-        // Note: "islamic" and "islamic-rgsa" are excluded because they require specific
-        // DateTimeFormat support that maps them back correctly (not aliased to islamic-civil)
-        return new[]
-        {
-            "buddhist", "chinese", "coptic", "dangi", "ethioaa", "ethiopic",
-            "gregory", "hebrew", "indian", "islamic-civil",
-            "islamic-tbla", "islamic-umalqura", "iso8601",
-            "japanese", "persian", "roc"
-        };
-    }
-
-    /// <inheritdoc />
     public virtual IReadOnlyCollection<string> GetSupportedCollations()
     {
         // https://tc39.es/ecma402/#sec-availablecanonicalcollations wants the collations the

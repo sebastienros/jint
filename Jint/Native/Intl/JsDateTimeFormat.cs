@@ -654,8 +654,10 @@ internal sealed class JsDateTimeFormat : ObjectInstance
         // Other non-ISO calendars go through the full IsoToCalendarDate machinery.
         try
         {
+            // With the engine, so a calendar a host ICalendarProvider added is converted by the provider that
+            // knows it rather than falling through to the catch below and printing the underlying ISO date.
             var isoDate = new IsoDate(originalYear ?? dateTime.Year, dateTime.Month, dateTime.Day);
-            var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, in isoDate);
+            var calDate = NonIsoCalendars.IsoToCalendarDate(Calendar, in isoDate, _engine);
             year = calDate.Year;
             month = calDate.Month;
             day = calDate.Day;
