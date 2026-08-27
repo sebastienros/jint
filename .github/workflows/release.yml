@@ -8,6 +8,13 @@ on:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  # vstest gives a testhost 90 seconds to connect back, and aborts the whole run when it does not.
+  # These jobs run four test assemblies at once on a four-core runner, and the net472 host is the one
+  # that loses that race: it has the slowest start and goes last. The abort reads as a red leg with no
+  # failing test in it -- every assembly reports "Passed!" and the step still exits 1 -- so it costs a
+  # diagnosis every time. Five minutes is startup contention rather than a hang; anything genuinely
+  # stuck is caught by the suite's own per-test budgets, not by this.
+  VSTEST_CONNECTION_TIMEOUT: 300
 
 permissions:
   contents: read
