@@ -50,9 +50,10 @@ public sealed partial class Options
     {
         var clone = (Options) MemberwiseClone();
 
-        // TimeSystem materializes inside its own getter, so a null field here would let the copy and the
-        // original each build one and hand two engines two different clocks. Reading it materializes the
-        // original's and MemberwiseClone has already shared whatever that produced.
+        // TimeSystem memoizes inside its own getter, so a null field here would let the copy and the
+        // original each build one and hand two engines two different clocks. Freezing resolves it and this
+        // only ever runs on an engine's own frozen options, so the read is a read; it stays because the
+        // invariant is the copy's, not the freeze's.
         clone._timeSystem = TimeSystem;
 
         var webApi = _webApi?.Clone();

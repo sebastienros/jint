@@ -23,9 +23,11 @@ namespace Jint.Tests.PublicInterface;
 /// both directions in time.
 /// </para>
 /// <para>
-/// This project has no <c>InternalsVisibleTo</c>, so every assertion here is one an embedder could write:
-/// the leak is observed through what a <i>second</i> engine's script does, not by reading the options back.
-/// Nothing opens a socket — each engine that fetches is given a handler that answers from memory.
+/// This project has no <c>InternalsVisibleTo</c>, so every assertion here is one an embedder could write.
+/// Each case observes the leak through what a <i>second</i> engine's script does, which is the assertion
+/// that still means something if the settings ever stop being read where they are read now; where reading
+/// the configuration back says more, <see cref="HostEngineConfigurationTests"/> says it. Nothing opens a
+/// socket — each engine that fetches is given a handler that answers from memory.
 /// </para>
 /// </remarks>
 public class HostWebApiOptionsIsolationTests
@@ -130,6 +132,12 @@ public class HostWebApiOptionsIsolationTests
             .UnwrapIfPromise().AsString().Should().Be("200");
 
         tenantHandler.Urls.Should().BeEmpty();
+
+        // The same statement about the configuration rather than about its effect: each engine took a copy of
+        // the subtree, and the instance the host still holds was written to by neither.
+        tenant.Options.Should().NotBeSameAs(other.Options);
+        tenant.Options.WebApi.Fetch.UrlFilter.Should().NotBeSameAs(other.Options.WebApi.Fetch.UrlFilter);
+        options.WebApi.Fetch.HttpClient.Should().BeNull();
     }
 
     /// <summary>

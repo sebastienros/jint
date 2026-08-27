@@ -50,8 +50,20 @@ public sealed partial class Options
     /// Cascades the read-only state to every materialized group. Thawing is used in exactly one place —
     /// <see cref="CreateEngineOptions"/>, whose private clone has to be hardened before the engine reads it.
     /// </summary>
+    /// <remarks>
+    /// Freezing resolves <see cref="TimeSystem"/> first. It is the one member that memoizes into a backing
+    /// field on read, so leaving it unresolved would make reading a frozen <see cref="Options"/> a write to
+    /// it — benign while the value is equal by construction, and not something a readable
+    /// <see cref="Engine.Options"/> should rest on. Every other lazy member is a group, and
+    /// <see cref="Materialize{T}"/> already publishes those with the owner's frozen state.
+    /// </remarks>
     internal void SetReadOnly(bool value)
     {
+        if (value)
+        {
+            _ = TimeSystem;
+        }
+
         _readOnly = value;
         SetReadOnly(_constraints, value);
         SetReadOnly(_parsing, value);

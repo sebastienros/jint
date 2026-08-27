@@ -1794,6 +1794,44 @@ longer fires — catch `JavaScriptException`, or stop writing the expression tha
 `'s' + v` throwing as a type check has to test explicitly instead. Nothing changes for
 `AllowOperatorOverloading = false`, which took the concatenating path already.
 
+### 4.41 Two holes in the freeze, closed ([#3360](https://github.com/sebastienros/jint/issues/3360))
+
+[§4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327) says an `Options`
+stops accepting changes once an engine has read it. Two things did not obey that, and both matter more now
+that [§5.7](#57-a-host-can-read-back-the-configuration-of-an-engine-it-was-handed-3360) hands the frozen
+instance to a host.
+
+**`UseNodeBuiltinModules` on a frozen `Options` used to succeed silently.** It was the only public
+configuration method that wrote a bare field rather than a guarded property, so it neither reached the engine
+that already existed nor said so — while still changing every engine built from that instance afterwards,
+including the process-wide instance behind `new Engine()`. It now throws
+`InvalidOperationException` reading `Options.UseNodeBuiltinModules cannot be called…`, exactly as
+`UseModules`, `AddLazyGlobal` and the rest already did.
+
+**`Options.TimeSystem` memoized after the freeze.** The default `ITimeSystem` — a `DefaultTimeSystem` over
+`Options.TimeZone` and `Options.Culture` — was built by the property's own getter and memoized into its
+backing field with a plain `??=`. The engine's first read of it comes from `DateConstructor`, which is built
+the first time a script touches `Date`, so the memoization landed *after* `MakeReadOnly`: reading a member of
+a frozen `Options` wrote to it, and threads racing that read could be handed a clock each.
+
+`MakeReadOnly()` now resolves it before it sets the flag, and the getter publishes with
+`Interlocked.CompareExchange` for the unfrozen case. A frozen `Options` therefore has exactly one clock, and
+reading it is a read — which is what makes §5.7 handing the instance back safe. Both instances were equal by
+construction, so what `Date`, `Temporal.Now` and `Intl.DateTimeFormat` answer is unchanged.
+
+**What could break:** code that called `UseNodeBuiltinModules` after building an engine now gets an exception
+where it used to get silence — move the call before the first `new Engine(options)`. And freezing an
+`Options`, which every engine build does, now allocates one `DefaultTimeSystem` even when nothing ever asks
+for the clock, once per instance rather than once per engine; the default is built from `TimeZone` and
+`Culture` as they stand at the freeze rather than at the first read, which on a frozen instance is the same
+pair. Assigning `TimeSystem = null` before the freeze still gets the default back on the next read, as before.
+
+**What is *not* closed, and is not a hole:** the freeze covers this object's settings, not the objects they
+name. A `TypeResolver` (whose `Default` is a process-wide singleton with unguarded `MemberFilter`), a
+`CultureInfo`, a module loader, an `HttpClient`, a storage or worker provider, and a `Constraint` instance the
+host registered are all still the host's own mutable objects, reachable exactly as they were before they were
+handed to Jint.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -2108,6 +2146,41 @@ process that never set the switch.
 This is worth turning on precisely because the failure it catches is not local. An object built for an engine
 another thread is using does not fail where it was built; it fails later, somewhere else, as a torn shape
 table or a lost property, and the host sees a nondeterministic script result.
+
+### 5.7 A host can read back the configuration of an engine it was handed ([#3360](https://github.com/sebastienros/jint/issues/3360))
+
+`Engine.Options` was internal, so a component handed nothing but an `Engine` had no supported way to answer
+"what is this engine allowed to do". It is now a public get-only property returning the frozen instance.
+
+```csharp
+static void Audit(Engine engine)
+{
+    if (engine.Options.Interop.Enabled && engine.Options.Interop.AllowWrite)
+    {
+        throw new InvalidOperationException("this engine may write to host objects");
+    }
+}
+```
+
+What it answers is what the engine actually runs under, which is not always what the host declared:
+
+| built by | what `engine.Options` is |
+| --- | --- |
+| `new Engine(options)` | that very instance — reference-equal to the object the host still holds |
+| `new Engine(options => …)` | a fresh instance per engine, carrying what the callback wrote |
+| `new Engine()` | one process-wide instance of the defaults, shared by every engine built that way |
+| `options.ForUntrustedCode(…)` | the engine's **private hardened copy**, so the grants the profile revoked read back revoked while the host's own object still reads back as the host wrote it |
+
+`Engine.WebApi.Enable` replaces the instance with a copy owning its own web-API subtree
+([§4.21](#421-webapienables-callback-configures-one-engine-not-every-engine-3359)), so read the property again
+after that call rather than caching the reference across one.
+
+**It is a read, not a second configuration channel.** The options are frozen once an engine has read them
+([§4.16](#416-options-is-configuration-until-an-engine-reads-it-and-frozen-afterwards-3327)), so every setter
+and every registry reached through this property throws — including the two that used not to
+([§4.41](#441-two-holes-in-the-freeze-closed-3360)). What the freeze covers is the settings, not the objects
+they name: a `TypeResolver`, a `CultureInfo`, a module loader, a provider or an `HttpClient` read back here is
+still the host's own mutable object, exactly as it was before it was handed to Jint.
 
 ## 6. AOT and trimming
 

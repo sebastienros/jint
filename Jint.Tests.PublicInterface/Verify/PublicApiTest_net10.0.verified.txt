@@ -35,6 +35,7 @@ namespace Jint
         public object? HostDefined { get; set; }
         public Jint.Runtime.Intrinsics Intrinsics { get; }
         public Jint.Engine.ModuleOperations Modules { get; }
+        public Jint.Options Options { get; }
         public Jint.Engine.TaskOperations Tasks { get; }
         public Jint.Runtime.Interop.ClrTypeConverter TypeConverter { get; }
         public Jint.Engine.WebApiOperations WebApi { get; }

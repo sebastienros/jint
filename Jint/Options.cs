@@ -199,11 +199,31 @@ public sealed partial class Options
     public CultureInfo Culture { get; set { ThrowIfReadOnly(); field = value; } } = _defaultCulture;
 
     /// <summary>
-    /// Configures a time system to use. Defaults to DefaultTimeSystem using local time.
+    /// Gets or sets the clock and date parser the engine runs on. Defaults to a
+    /// <see cref="DefaultTimeSystem"/> over <see cref="TimeZone"/> and <see cref="Culture"/>.
     /// </summary>
+    /// <remarks>
+    /// The default is built from <see cref="TimeZone"/> and <see cref="Culture"/> as they stand when it is
+    /// first read, or when <see cref="MakeReadOnly"/> freezes these options, whichever comes first. Setting
+    /// either afterwards does not rebuild it.
+    /// </remarks>
     public ITimeSystem TimeSystem
     {
-        get => _timeSystem ??= new DefaultTimeSystem(TimeZone, Culture);
+        get
+        {
+            var timeSystem = _timeSystem;
+            if (timeSystem is not null)
+            {
+                return timeSystem;
+            }
+
+            // Never reached on a frozen instance: MakeReadOnly resolves the field before it sets the flag, so
+            // that reading a member of a frozen Options is not a write to it. Interlocked for the same reason
+            // Materialize is - Options is documented as shareable between engines being constructed
+            // concurrently, and two racing builds must see one clock rather than one each.
+            var created = new DefaultTimeSystem(TimeZone, Culture);
+            return Interlocked.CompareExchange(ref _timeSystem, created, null) ?? created;
+        }
         set
         {
             ThrowIfReadOnly();

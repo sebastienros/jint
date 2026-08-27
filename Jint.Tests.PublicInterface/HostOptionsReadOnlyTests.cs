@@ -189,6 +189,8 @@ public class HostOptionsReadOnlyTests
             { "CatchClrExceptions", static o => o.CatchClrExceptions() },
             { "ExposeDetailedErrors", static o => o.ExposeDetailedErrors() },
             { "ForUntrustedCode", static o => o.ForUntrustedCode(CreateLimits()) },
+            { "UseNodeBuiltinModules", static o => o.UseNodeBuiltinModules() },
+            { "UseNodeProcess", static o => o.UseNodeProcess() },
         };
 
 #if NET8_0_OR_GREATER
@@ -257,6 +259,12 @@ public class HostOptionsReadOnlyTests
         // The profile revoked the CLR grant on the engine's own copy, and left the caller's reading alone.
         engine.Evaluate("typeof importNamespace").AsString().Should().Be("undefined");
         options.Interop.Enabled.Should().BeTrue();
+
+        // The same thing said of the configuration rather than of its effect, which is only sayable because
+        // the engine hands its own copy back.
+        engine.Options.Should().NotBeSameAs(options);
+        engine.Options.Interop.Enabled.Should().BeFalse();
+        engine.Options.IsReadOnly.Should().BeTrue();
 
         // ... and the budget it registered is the engine's, not a value nobody enforces.
         Invoking(() => engine.Execute("for (let i = 0; i < 1000000; i++) {}"))

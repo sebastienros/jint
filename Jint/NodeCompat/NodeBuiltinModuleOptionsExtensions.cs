@@ -76,8 +76,10 @@ public static class NodeBuiltinModuleOptionsExtensions
         configure?.Invoke(moduleOptions);
 
         // Snapshotted here rather than at engine build: the host owns what it configured and may go on
-        // changing it, and Options is meant to be shared by concurrently constructed engines.
-        options._nodeBuiltinModules = NodeBuiltinModuleConfiguration.Snapshot(moduleOptions);
+        // changing it, and Options is meant to be shared by concurrently constructed engines. Through the
+        // door on Options rather than the field, so that this refuses on a frozen instance the way every
+        // other registration does - a bare field assignment was the one public write that did not.
+        options.SetNodeBuiltinModules(NodeBuiltinModuleConfiguration.Snapshot(moduleOptions));
         return options;
     }
 }

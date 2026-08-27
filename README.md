@@ -3002,7 +3002,9 @@ need host-specific review (for example a custom module loader); they remain in t
 `EnsureSecurityConfiguration` throw. Treat a validated `Options` as immutable and pass it directly to
 `Engine(Options)`. Public engine-construction callbacks registered by `Configure`, `SetTypeConverter`, or
 `UseHostFactory` produce `JINTSEC031`; inspect `engine.Diagnostics.ValidateSecurityConfiguration()` after
-construction to validate their final effects without replaying them. Custom constraint factories remain
+construction to validate their final effects without replaying them. `engine.Options` reads the settings
+themselves back — for an engine built with `ForUntrustedCode` that is the engine's own hardened copy rather
+than the instance you handed in, and every setter on it throws. Custom constraint factories remain
 supported under their existing contract and are invoked only by engine construction, never by diagnostics.
 
 | Codes | Coverage |

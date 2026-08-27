@@ -75,9 +75,13 @@ untrusted-code profile's private snapshot from sharing state with the host's opt
 with `MakeReadOnly()`, which cascades to every group and registry; a group materialized later is born frozen,
 which is why `Materialize` takes the owner's state. So a new setting needs `ThrowIfReadOnly()` in its setter
 (`[CallerMemberName]` names it), a new registry is an `OptionsList<T>` rather than a `List<T>`, and a new
-group implements `IOptionsGroup` and joins the two cascades in `Options.ReadOnly.cs`. Nothing Jint writes to
-`Options` may happen after that line — the profile re-expansion and the host's `Configure` callbacks both run
-inside `Options.Apply`, well before it. The one sanctioned post-construction write is
+group implements `IOptionsGroup` and joins the two cascades in `Options.ReadOnly.cs`. A setting that
+*memoizes on read* resolves in `SetReadOnly` as well, ahead of the flag — `Engine.Options` hands the frozen
+instance to a host, so reading one of its members must never be a write to it (`Options.TimeSystem` was, and
+two threads reading it got a clock each); and a public method that writes a bare field rather than a guarded
+property refuses through a door of its own (`Options.SetNodeBuiltinModules`), or it is the one write nothing
+stops. Nothing Jint writes to `Options` may happen after that line — the profile re-expansion and the host's
+`Configure` callbacks both run inside `Options.Apply`, well before it. The one sanctioned post-construction write is
 `Engine.WebApi.Enable`'s callback, and it writes to a copy of the web-API subtree the engine takes for itself
 first (`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for `new Engine()` it is one Jint
 keeps process-wide, so a per-tenant client set there used to reach every default-built engine. The copy stays
@@ -112,6 +116,7 @@ being detailed. A compiler cannot find those, so the guide is the only place an 
 | `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` / `WithRestoredGlobals` | `Jint/Engine.GlobalSnapshot.cs` |
 | `ResultLimits` + `ResultLimit` + `ResultLimitExceededException` + `Engine.ConvertResult` + bounded `JsonSerializer` / `JavaScriptException.GetJavaScriptErrorString` overloads | `Jint/ResultLimits.cs`, `Jint/Runtime/ResultLimitExceededException.cs`, `Jint/Engine.cs`, `Jint/Native/Json/JsonSerializer.cs`, `Jint/Runtime/JavaScriptException.cs` |
 | The `*Async` failure channel — which of the two ways out of an `*Async` entry a given failure takes | `Jint/Engine.Async.cs`, `Jint/Engine.Modules.cs`, `Jint/Engine.Pump.cs` |
+| `Engine.Options` — the frozen configuration the engine actually runs under, which for a hardened profile is the engine's private clone rather than the instance the host handed in, and which `Engine.WebApi.Enable` replaces with a copy of its own | `Jint/Engine.cs`, `Jint.Tests.PublicInterface/HostEngineConfigurationTests.cs` |
 | A `string` reaching an invocation entry — `Engine.Invoke`/`InvokeAsync` name **one property of the global object**, by that literal name, and nothing on `Engine` parses a name as source. `Call(string)`/`Construct(string)` did, and were deleted for it (#3289) | `Jint/Engine.cs`, `Jint.Tests.PublicInterface/HostCallableResolutionTests.cs` |
 
 **Five areas keep their own rows beside the code they govern**, on exactly these terms — the same rule, the
