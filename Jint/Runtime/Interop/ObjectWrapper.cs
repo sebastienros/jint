@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
@@ -405,6 +406,196 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
 
+    /// <summary>
+    /// What a property key names on a wrapped indexed collection. Every element lane is keyed on the
+    /// <em>index</em> rather than on how script spelled it: <c>x[3]</c> and <c>x["3"]</c> are one property
+    /// key, because <see href="https://tc39.es/ecma262/#sec-topropertykey">ToPropertyKey</see> turns both
+    /// into the String <c>"3"</c>. Answering the two spellings from different lanes is answering one
+    /// question twice, and the lane that used to serve the string spelling was the reflected indexer, which
+    /// reaches the collection with whatever index it parses out of the key (#3384).
+    /// </summary>
+    /// <remarks>
+    /// It lives on the base class rather than on <see cref="ArrayLikeWrapper"/> because a plain wrapper over
+    /// a bounded collection asks the same question of the same keys — it simply has no array-like view to
+    /// answer it (#3422). A second definition of "index-shaped key" is the thing that would drift.
+    /// </remarks>
+    private protected enum ElementKey
+    {
+        /// <summary>Not a position: a member name, a symbol, a fractional number, or any string key of a dictionary-shaped target.</summary>
+        None,
+
+        /// <summary>A position the target could address. May be at or past the collection's current count.</summary>
+        Position,
+
+        /// <summary>Index-shaped but never a position: negative, non-canonical (<c>"08"</c>, <c>"+3"</c>), or past what the target can address.</summary>
+        OutOfBand,
+    }
+
+    /// <summary>
+    /// The highest position an element lane will address, one below <see cref="int.MaxValue"/> so that
+    /// growing to <c>index + 1</c> cannot overflow.
+    /// </summary>
+    private protected const int MaxPosition = int.MaxValue - 1;
+
+    private protected ElementKey ClassifyElementKey(JsValue property, out int index)
+    {
+        index = 0;
+
+        if (property is JsNumber number)
+        {
+            var value = number._value;
+            if (!TypeConverter.IsIntegralNumber(value))
+            {
+                return ElementKey.None;
+            }
+
+            if (value < 0 || value > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) value;
+            return ElementKey.Position;
+        }
+
+        // a symbol names no position, and a dictionary-shaped target (e.g. Newtonsoft's JObject: both
+        // IDictionary<string,_> and IList<_>) answers a string key from its own keys rather than by index
+        if (property is not JsString jsString || _typeDescriptor.IsDictionary)
+        {
+            return ElementKey.None;
+        }
+
+        var member = jsString.ToString();
+        var parsed = ArrayInstance.ParseArrayIndex(member);
+        if (parsed != uint.MaxValue)
+        {
+            if (parsed > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) parsed;
+            return ElementKey.Position;
+        }
+
+        // One character rules out every ordinary member name that reaches a wrapper — "length", "Count",
+        // "push" — which would otherwise pay a whole long.TryParse only to be rejected by it.
+        if (member.Length == 0 || !IsIntegerShapedStart(member[0]))
+        {
+            return ElementKey.None;
+        }
+
+        // an integer-shaped but non-canonical key ("-1", "08") is not a position either, and must not fall
+        // through to the reflected indexer, which parses one out of it and reaches the collection with an
+        // index the collection rejects
+        return long.TryParse(member, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+            ? ElementKey.OutOfBand
+            : ElementKey.None;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="c"/> can begin something <see cref="NumberStyles.Integer"/> parses: a digit,
+    /// a sign, or the leading white space it tolerates.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsIntegerShapedStart(char c)
+        => (uint) (c - '0') <= 9 || c == '-' || c == '+' || char.IsWhiteSpace(c);
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position <see cref="Target"/> cannot address, resolving
+    /// the member lane itself. For callers that have already resolved it, see the overload below.
+    /// </summary>
+    private bool IsUnaddressablePosition(JsValue property)
+    {
+        if (!_typeDescriptor.IsArrayLike)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        return key != ElementKey.None
+               && IsUnaddressablePosition(key, index, ResolveMemberAccessor(property.ToString(), MemberResolutionRequirement.None));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position <see cref="Target"/> cannot address, on a
+    /// wrapper whose element lane is <paramref name="accessor"/>.
+    /// </summary>
+    /// <remarks>
+    /// Two facts have to hold at once and neither is enough alone. The target must be <em>bounded</em>:
+    /// <see cref="TypeDescriptor.IsArrayLike"/> means it has a <c>Count</c> and is not a dictionary, and a
+    /// dictionary is exactly where a key outside what it holds is a legitimate add — <c>d[99] = "x"</c> on a
+    /// <c>Dictionary&lt;int, string&gt;</c> must keep working. And the member being resolved must be an
+    /// indexer keyed by an integer, so that a string-keyed indexer on an array-like target — a
+    /// <c>NameValueCollection</c> asked for <c>x["3"]</c> — goes on answering for its own key.
+    /// </remarks>
+    private bool IsUnaddressablePosition(JsValue property, ReflectionAccessor accessor)
+    {
+        if (!_typeDescriptor.IsArrayLike)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        return key != ElementKey.None && IsUnaddressablePosition(key, index, accessor);
+    }
+
+    private bool IsUnaddressablePosition(ElementKey key, int index, ReflectionAccessor accessor)
+    {
+        if (accessor is not IndexerAccessor indexer
+            || !IsIntegerIndexParameter(indexer.FirstIndexParameter.ParameterType))
+        {
+            return false;
+        }
+
+        // a negative, non-canonical or unaddressable index is a position no collection can hold, so it
+        // needs no count read to be refused
+        return key == ElementKey.OutOfBand
+               || (TryGetTargetCount(out var count) && (uint) index >= (uint) count);
+    }
+
+    /// <summary>
+    /// Whether an indexer parameter of this type addresses a position. Anything else — a
+    /// <see cref="string"/>, an enum, a host key type — names something that is not one, and is none of the
+    /// bound check's business.
+    /// </summary>
+    private static bool IsIntegerIndexParameter(Type parameterType)
+        => parameterType == typeof(int)
+           || parameterType == typeof(long)
+           || parameterType == typeof(short)
+           || parameterType == typeof(sbyte)
+           || parameterType == typeof(uint)
+           || parameterType == typeof(ulong)
+           || parameterType == typeof(ushort)
+           || parameterType == typeof(byte);
+
+    /// <summary>
+    /// The number of positions <see cref="Target"/> currently has. Only ever asked of an array-like target,
+    /// which is what says there is a count to read at all; <see langword="false"/> means it could not be
+    /// read, and the caller then refuses nothing.
+    /// </summary>
+    private bool TryGetTargetCount(out int count)
+    {
+        if (Target is ICollection collection)
+        {
+            count = collection.Count;
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return true;
+        }
+
+        // ICollection<T> and IReadOnlyCollection<T> carry a Count with no non-generic ICollection behind it.
+        // LengthProperty is the same member the wrapper's own "length" forwarder reads.
+        if (_typeDescriptor.LengthProperty?.GetValue(Target) is int length)
+        {
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            count = length;
+            return true;
+        }
+
+        count = 0;
+        return false;
+    }
+
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
         // check if we can take shortcuts for empty object, no need to generate properties
@@ -428,6 +619,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 // can try utilize fast path
                 var accessor = ResolveMemberAccessor(member, MemberResolutionRequirement.Writable);
+
+                if (IsUnaddressablePosition(property, accessor))
+                {
+                    // The indexer below takes the index straight to the collection, which is where the
+                    // CLR's own ArgumentOutOfRangeException came from - invisible to a script try/catch and
+                    // to a host catch (JavaScriptException) alike. There is no position to write to, so the
+                    // answer owed is the ordinary [[Set]] refusal: silent outside strict mode, a TypeError
+                    // inside it (#3422).
+                    return false;
+                }
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
@@ -503,6 +704,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var written = _typeDescriptor.TrySetDictionaryValue(Target, clrKey!, clrValue);
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return written;
+        }
+
+        // A number key and its string spelling are one property key, and the lane below resolves the same
+        // reflected indexer by member name - so the bound the string lane above just applied has to be
+        // applied here too, before SetSlow reaches it (#3422).
+        if (!property.IsSymbol() && IsUnaddressablePosition(property))
+        {
+            return false;
         }
 
         return SetSlow(property, value);
@@ -766,7 +975,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (protoResult.IsUndefined()
             && property is JsString
             && !_typeDescriptor.IsDictionary
-            && _engine.Options.Interop.ThrowOnUnresolvedMember)
+            && _engine.Options.Interop.ThrowOnUnresolvedMember
+            // an index outside a bounded collection is a hole, not a member the host forgot to declare:
+            // GetOwnProperty refused it rather than failing to resolve it (#3422)
+            && !IsUnaddressablePosition(property))
         {
             throw TypeResolver.CreateMissingMemberException(_engine, ClrType, property.ToString());
         }
@@ -1070,6 +1282,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     accessor = runtimeAccessor;
                 }
             }
+        }
+
+        if (IsUnaddressablePosition(property, accessor))
+        {
+            // Reading the indexer at this position is the collection's own ArgumentOutOfRangeException, and
+            // reporting a descriptor for it is what made `3 in x` and hasOwnProperty answer true for a
+            // position that cannot be read at all. There is no element here, so there is no property (#3422).
+            return PropertyDescriptor.Undefined;
         }
 
         // A member resolving purely to registered extension methods must not shadow a same-named
