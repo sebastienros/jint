@@ -6,7 +6,10 @@ namespace Jint.Tests;
 
 /// <summary>
 /// A <em>top-level</em> park on <see cref="Engine.TaskOperations.WaitForScheduledWork"/> run on a thread
-/// of its own, together with the only observation that can tell a test the park is in force.
+/// of its own, together with the only two observations that can tell a test what state the park is in:
+/// <see cref="WaitUntilOwningTheEngine"/> for "it holds the engine", and
+/// <see cref="WaitUntilAdmittingCallbacks"/> for the strictly later "and its callback-admission window is
+/// open", which is the one an admission test depends on.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,7 +25,10 @@ namespace Jint.Tests;
 /// engine it yields the thread for each idle wait and re-claims it afterwards by <em>waiting</em>, so a
 /// probe — or an admitted callback — that claims the engine there delays the park rather than failing it.
 /// The drain's window is not fragile at either end for the same reason, and its tests
-/// (<c>HostDrainAdmissionTests</c>) need none of this.
+/// (<c>HostDrainAdmissionTests</c>) need none of this. What <em>is</em> fragile at the same end, and is a
+/// separate matter from the entry, is the park's callback-admission window: it opens a statement after the
+/// entry succeeds, so a refused probe does not yet mean an authorized callback would be admitted. That is
+/// what <see cref="WaitUntilAdmittingCallbacks"/> exists to wait for, and its remarks carry the whole of it.
 /// </para>
 /// <para>
 /// The race is narrow and its dominant cause is systematic rather than random. Measured on an idle 32-core
@@ -54,6 +60,8 @@ internal sealed class TopLevelPark
     private long _probeState;
 
     private int _refusedStarts;
+
+    private int _refusedCanaries;
 
     /// <summary>
     /// The park this class runs itself.
@@ -123,6 +131,12 @@ internal sealed class TopLevelPark
     public int RefusedStarts => Volatile.Read(ref _refusedStarts);
 
     /// <summary>
+    /// How many canaries were refused before the admission window opened. Zero on a run whose park reached
+    /// its window before the first canary; reported in the failure messages, like <see cref="RefusedStarts"/>.
+    /// </summary>
+    public int RefusedCanaries => Volatile.Read(ref _refusedCanaries);
+
+    /// <summary>
     /// Blocks until the park provably owns the engine, which the engine proves by refusing an unrelated
     /// public entry from this thread. Ends on that refusal, on the park returning without ever having owned
     /// the engine — reporting what stopped it rather than hanging — or on <see cref="TestBudgets.WedgeCeiling"/>.
@@ -147,6 +161,103 @@ internal sealed class TopLevelPark
             }
 
             Thread.Sleep(ProbeInterval);
+        }
+    }
+
+    /// <summary>
+    /// Blocks until the park is provably <em>admitting</em> authorized callbacks, which is a strictly later
+    /// instant than <see cref="WaitUntilOwningTheEngine"/>'s and the one every admission test actually
+    /// depends on. Ends on <paramref name="canary"/> being admitted, on the park ending without ever having
+    /// admitted anything, or on <see cref="TestBudgets.WedgeCeiling"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Owning the engine and admitting callbacks are two states, and the park passes through the first on
+    /// its way to the second: <c>Engine.WaitForScheduledWork</c> claims the engine and <em>then</em> opens
+    /// its callback-admission window, so between those two statements the park refuses an authorized
+    /// callback exactly as an unrelated caller would — while already refusing the detection probe, which is
+    /// what made the earlier state look like the later one. That is what
+    /// <see href="https://github.com/sebastienros/jint/issues/3402">#3402</see> reported: a callback the
+    /// test had every right to expect admitted, refused because the park had not reached its window yet.
+    /// Reproduced deliberately by holding the park for half a second between those two statements, which
+    /// fails three tests in this suite with that issue's exact message; the same widening leaves them green
+    /// once they wait here instead.
+    /// </para>
+    /// <para>
+    /// The window is not observable any other way. It is engine state and this file compiles into the suite
+    /// <em>without</em> <c>InternalsVisibleTo</c>, and no public entry distinguishes the two states either —
+    /// <see cref="Engine.TaskOperations.ProcessTasks"/> is refused in both. An authorized callback is the
+    /// one thing whose answer differs, so the observation has to be made with the very capability the tests
+    /// are about: being admitted <em>is</em> the proof the window is open. Once open it stays open for the
+    /// whole park — a callback arriving while the park holds the thread between idle waits waits its turn
+    /// rather than being refused, measured by holding the engine for a second and a half with the window
+    /// open, which admits every one of them — so a single admitted canary settles it for the dispatch that
+    /// follows.
+    /// </para>
+    /// <para>
+    /// The park still running is sampled <em>before</em> each canary, the way <see cref="_probeState"/> is
+    /// sampled before an entry attempt and for the same reason: a canary admitted onto an engine the park
+    /// has already released observed nothing at all, and saying so beats reporting a window that was never
+    /// looked at.
+    /// </para>
+    /// </remarks>
+    /// <param name="canary">
+    /// An authorized callback of the caller's own — one this engine handed the host, so that it carries an
+    /// authorization to be matched against the window. It is invoked for its admission and nothing else, so
+    /// it must be cheap and must queue no work: work it queued would end the park it is inspecting.
+    /// </param>
+    public void WaitUntilAdmittingCallbacks(Action canary)
+    {
+        WaitUntilOwningTheEngine();
+
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            var parkWasRunning = !Completed.IsCompleted;
+            if (CanaryIsAdmitted(canary))
+            {
+                if (!parkWasRunning)
+                {
+                    throw new AssertionException(
+                        "the canary was admitted by an engine the park had already released, so nothing was "
+                        + "observed about the admission window: " + Describe(),
+                        Completed.Exception?.GetBaseException());
+                }
+
+                return;
+            }
+
+            Interlocked.Increment(ref _refusedCanaries);
+
+            if (Completed.IsCompleted)
+            {
+                // Deliberately not `await Completed`: see WaitUntilOwningTheEngine.
+                throw new AssertionException(
+                    "the park ended without ever admitting a callback: " + Describe(),
+                    Completed.Exception?.GetBaseException());
+            }
+
+            if (elapsed.Elapsed > TestBudgets.WedgeCeiling)
+            {
+                throw new AssertionException(
+                    $"the park did not open its callback-admission window within {TestBudgets.WedgeCeiling}: "
+                    + Describe());
+            }
+
+            Thread.Sleep(ProbeInterval);
+        }
+    }
+
+    private static bool CanaryIsAdmitted(Action canary)
+    {
+        try
+        {
+            canary();
+            return true;
+        }
+        catch (InvalidOperationException e) when (e.Message.Contains("already in use", StringComparison.Ordinal))
+        {
+            return false;
         }
     }
 
@@ -213,6 +324,9 @@ internal sealed class TopLevelPark
     {
         var refused = RefusedStarts;
         var retried = refused == 0 ? "" : $", having lost the start race {refused} time(s) first";
+
+        var canaries = RefusedCanaries;
+        retried += canaries == 0 ? "" : $", with {canaries} canary(s) refused before the window opened";
 
         return Completed.Exception?.GetBaseException() is { } failure
             ? $"it failed with {failure.GetType().Name}: {failure.Message}{retried}"

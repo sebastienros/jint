@@ -78,16 +78,29 @@ public class HostPumpAdmissionTests
         return callback!;
     }
 
+    /// <summary>
+    /// A second authorized callback, dispatched only for its <em>admission</em>: it is how a test waits for
+    /// the park's callback-admission window to be open rather than merely for the park to own the engine,
+    /// which are two states and not one (<see cref="TopLevelPark.WaitUntilAdmittingCallbacks"/> documents
+    /// the whole of it). It returns a constant and queues nothing, so being admitted is all it does.
+    /// </summary>
+    private static Action AuthorizeCanary(Engine engine)
+    {
+        var canary = AuthorizeStaleCallback(engine, "0");
+        return () => canary();
+    }
+
     [Test]
     public async Task AStaleAuthorizedCallbackIsAdmittedAtASynchronousPark()
     {
         using var engine = new Engine();
         var callback = AuthorizeStaleCallback(engine);
+        var canary = AuthorizeCanary(engine);
         using var dispatcher = new CallbackDispatcher(() => callback());
         using var releasePark = new CancellationTokenSource();
 
         var park = TopLevelPark.Start(engine, WedgeCeiling, releasePark.Token);
-        park.WaitUntilOwningTheEngine();
+        park.WaitUntilAdmittingCallbacks(canary);
 
         dispatcher.Release();
         await dispatcher.Attempted;
@@ -272,10 +285,11 @@ public class HostPumpAdmissionTests
         using var engine = new Engine();
         engine.Execute("globalThis.ran = false;");
         var callback = AuthorizeStaleCallback(engine, "(Promise.resolve().then(() => { globalThis.ran = true; }), 7)");
+        var canary = AuthorizeCanary(engine);
         using var dispatcher = new CallbackDispatcher(() => callback());
 
         var park = TopLevelPark.Start(engine, AdmissionCeiling);
-        park.WaitUntilOwningTheEngine();
+        park.WaitUntilAdmittingCallbacks(canary);
 
         dispatcher.Release();
         await dispatcher.Attempted;
@@ -308,10 +322,11 @@ public class HostPumpAdmissionTests
         }));
 
         var callback = AuthorizeStaleCallback(engine, "(hold(), 3)");
+        var canary = AuthorizeCanary(engine);
         using var dispatcher = new CallbackDispatcher(() => callback());
 
         var park = TopLevelPark.Start(engine, ShortParkCeiling);
-        park.WaitUntilOwningTheEngine();
+        park.WaitUntilAdmittingCallbacks(canary);
 
         dispatcher.Release();
         holding.Wait(AdmissionCeiling).Should().BeTrue("the callback has to be admitted for this to mean anything");
