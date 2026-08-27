@@ -459,6 +459,10 @@ internal sealed partial class DurationPrototype : Prototype
 
         var relativeDateStart = plainRelativeTo.IsoDate;
 
+        // Step 438: calendar = plainRelativeTo.[[Calendar]]. Every calendar operation below reckons in it;
+        // the ZonedDateTime arm does the same with zonedRelativeTo.[[Calendar]].
+        var calendar = plainRelativeTo.Calendar;
+
         // Step 439: Convert to internal duration with 24-hour days
         // ToInternalDurationRecordWith24HourDays moves duration.Days into the time nanoseconds
         var timeDuration = TemporalHelpers.TimeDurationFromComponents(duration);
@@ -491,7 +495,7 @@ internal sealed partial class DurationPrototype : Prototype
 
         // Step 443: targetDate = CalendarDateAdd(calendar, relativeTo, dateDuration)
         var adjustedDuration = new DurationRecord(duration.Years, duration.Months, duration.Weeks, adjustedDays, 0, 0, 0, 0, 0, 0);
-        var targetDate = TemporalHelpers.CalendarDateAdd(engine, realm, "iso8601", relativeDateStart, adjustedDuration, "constrain");
+        var targetDate = TemporalHelpers.CalendarDateAdd(engine, realm, calendar, relativeDateStart, adjustedDuration, "constrain");
 
         // Step 444-445: Combine isoDateTime and targetDateTime
         var isoDateTime = new IsoDateTime(relativeDateStart, IsoTime.Midnight);
@@ -509,7 +513,7 @@ internal sealed partial class DurationPrototype : Prototype
             realm,
             isoDateTime,
             targetDateTime,
-            "iso8601", // calendar
+            calendar,
             largestUnit,
             (int) roundingIncrement,
             smallestUnit,
