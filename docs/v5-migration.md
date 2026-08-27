@@ -2970,6 +2970,46 @@ Two consequences fall out of there being one pattern:
 pinning `formatToParts` output for a styled formatter. `timeStyle` is untouched, and a formatter built from
 component options (`year`/`month`/`day`/…) is untouched. There is no option that restores the old shape:
 the two lanes disagreeing was the defect.
+
+### 4.63 A collapsed number range is collapsed in both lanes ([#3466](https://github.com/sebastienros/jint/issues/3466))
+
+[FormatNumericRange](https://tc39.es/ecma402/#sec-formatnumericrange) is the concatenation of exactly the
+parts [FormatNumericRangeToParts](https://tc39.es/ecma402/#sec-formatnumericrangetoparts) returns — both of
+them [PartitionNumberRangePattern](https://tc39.es/ecma402/#sec-partitionnumberrangepattern), whose last step
+is [CollapseNumberRange](https://tc39.es/ecma402/#sec-collapsenumberrange). The collapse being
+implementation-defined does not let the two lanes disagree about it: it happens *inside* the partition both
+of them read.
+
+Jint implemented it outside, by rewriting `formatRange`'s two already-formatted endpoints. The parts lane had
+no way to say that an endpoint's own parts had been elided, so it wrote both ends in full:
+
+```js
+const nf = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+// 4.16.x / earlier 5.0
+nf.formatRange(-5, -1);                                      // "-$5.00–1.00"
+nf.formatRangeToParts(-5, -1).map(p => p.value).join('');    // "-$5.00 – -$1.00"
+
+const de = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'USD' });
+de.formatRange(1, 5);                                        // "1,00 – 5,00 $"
+de.formatRangeToParts(1, 5).map(p => p.value).join('');      // "1,00 $ – 5,00 $"
+
+// 5.x — one partition, read two ways
+nf.formatRangeToParts(-5, -1).map(p => p.value).join('');    // "-$5.00–1.00"
+de.formatRangeToParts(1, 5).map(p => p.value).join('');      // "1,00 – 5,00 $"
+```
+
+The collapse itself is unchanged, and so is every string `formatRange` returned: a prefix-currency locale
+whose two ends share a sign *and* a symbol writes them once at the front and tightens the separator, a
+suffix-currency locale whose two ends share a trailing symbol writes it once at the back, and a shared symbol
+with no shared sign is not collapsed at all. Those are the three shapes test262's `formatRange/en-US.js` and
+`formatRange/pt-PT.js` assert, and neither file asserts the parts — which is what let the two drift.
+
+**What could break:** a caller reading `formatRangeToParts` for a **currency** range whose two endpoints
+share affixes now gets the elided list rather than two full endpoints, and the shared `literal` separator is
+whichever one `formatRange` writes for that range rather than always the spaced form. Every non-currency
+range is unchanged, and so is every `formatRange` string. A part that survives still names its
+`source` — `"startRange"`, `"endRange"` or `"shared"` — so code that groups by `source` keeps working; code
+that assumed the end always repeats the start's currency does not.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

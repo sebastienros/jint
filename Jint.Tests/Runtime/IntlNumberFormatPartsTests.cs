@@ -10,12 +10,11 @@ namespace Jint.Tests.Runtime;
 /// are the same characters read two ways — including when <c>[[NumberingSystem]]</c> is not Latin.
 /// </summary>
 /// <remarks>
-/// <see cref="PartsConcatenateToFormat"/> asserts the join outright, in every numbering system and in
-/// <c>latn</c> alike. The other two grids compare each numbering system against <c>latn</c> instead, which
-/// pins the narrower claim that <b>asking for a numbering system introduces no disagreement</b> and skips a
-/// combination whose Latin lanes already differ rather than silently blessing it. One such combination
-/// exists today and it belongs to the range lane: <c>formatRange</c> of a currency writes the symbol once
-/// where its parts lane repeats it per endpoint.
+/// <see cref="PartsConcatenateToFormat"/> and <see cref="RangePartsConcatenateToFormatRange"/> assert the
+/// join outright, in every numbering system and in <c>latn</c> alike; the relative-time grid compares each
+/// numbering system against <c>latn</c> instead, which pins the narrower claim that <b>asking for a
+/// numbering system introduces no disagreement</b> and skips a combination whose Latin lanes already differ
+/// rather than silently blessing it.
 /// </remarks>
 public class IntlNumberFormatPartsTests
 {
@@ -98,11 +97,16 @@ public class IntlNumberFormatPartsTests
     }
 
     /// <summary>
-    /// The range lanes are the same operation twice, plus the literal between them.
-    /// https://tc39.es/ecma402/#sec-formatnumericrange is the concatenation of
-    /// https://tc39.es/ecma402/#sec-formatnumericrangetoparts, so a range that is not collapsed has to join
-    /// back to the string.
+    /// The range lanes are the same operation twice, plus the literal between them — collapsed or not.
     /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma402/#sec-formatnumericrange is the concatenation of
+    /// https://tc39.es/ecma402/#sec-formatnumericrangetoparts, both of them
+    /// https://tc39.es/ecma402/#sec-partitionnumberrangepattern, whose last step is
+    /// https://tc39.es/ecma402/#sec-collapsenumberrange. The collapse being implementation-defined does not
+    /// let the two lanes disagree about it, so the Latin lanes are asserted outright here rather than used
+    /// as a licence to skip a pair.
+    /// </remarks>
     [Test]
     public void RangePartsConcatenateToFormatRange()
     {
@@ -126,7 +130,9 @@ public class IntlNumberFormatPartsTests
                             for (var p = 0; p < pairs.length; p++) {
                                 var a = pairs[p][0], b = pairs[p][1];
                                 if (join(latin.formatRangeToParts(a, b)) !== latin.formatRange(a, b)) {
-                                    continue;
+                                    bad.push(locales[l] + '/latn/' + o + '/' + pairs[p]
+                                        + ': formatRange=' + latin.formatRange(a, b)
+                                        + ' parts=' + join(latin.formatRangeToParts(a, b)));
                                 }
                                 var joined = join(nf.formatRangeToParts(a, b));
                                 var formatted = nf.formatRange(a, b);
@@ -141,6 +147,61 @@ public class IntlNumberFormatPartsTests
                 return JSON.stringify(bad);
             })()
             """);
+    }
+
+    /// <summary>
+    /// The collapse belongs to the partition, so an endpoint whose sign or symbol was elided is elided in
+    /// the parts as well.
+    /// </summary>
+    /// <remarks>
+    /// The defect: <c>CollapseNumberRange</c> was implemented by rewriting <c>formatRange</c>'s two
+    /// already-formatted endpoints, and the parts lane — which had no way to say an endpoint's own parts
+    /// were dropped — wrote both ends in full. The four rows below are the shapes test262's
+    /// <c>formatRange/en-US.js</c> and <c>formatRange/pt-PT.js</c> assert for the string lane; neither file
+    /// asserts the parts, which is why they were free to disagree.
+    /// </remarks>
+    [Test]
+    public void BothRangeLanesReportTheSameCollapse()
+    {
+        // A prefix-currency locale sharing a sign and a symbol: written once at the front, tight separator.
+        ShouldCollapseAlike("en-US", "{ style: 'currency', currency: 'USD' }", "-5, -1", "-$5.00–1.00");
+        ShouldCollapseAlike("en-US", "{ style: 'currency', currency: 'USD', signDisplay: 'always' }", "2.9, 3.1", "+$2.90–3.10");
+
+        // A shared symbol with no shared sign is ambiguous collapsed, so it is not collapsed.
+        ShouldCollapseAlike("en-US", "{ style: 'currency', currency: 'USD', maximumFractionDigits: 0 }", "3, 5", "$3 – $5");
+
+        // A suffix-currency locale sharing the trailing symbol: written once at the back, loose separator.
+        ShouldCollapseAlike("pt-PT", "{ style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }", "3, 5", "3 - 5 €");
+        ShouldCollapseAlike("pt-PT", "{ style: 'currency', currency: 'EUR', signDisplay: 'always' }", "2.9, 3.1", "+2,90 - 3,10 €");
+        ShouldCollapseAlike("de-DE", "{ style: 'currency', currency: 'USD' }", "1, 5", "1,00 – 5,00 $");
+    }
+
+    /// <summary>
+    /// A collapsed range still reports which end every surviving part came from.
+    /// </summary>
+    [Test]
+    public void ACollapsedRangeStillNamesEachPartsSource()
+    {
+        var parts = _engine.Evaluate(
+            """
+            JSON.stringify(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', signDisplay: 'always' })
+                .formatRangeToParts(2.9, 3.1))
+            """).AsString();
+
+        parts.Should().Be(
+            """
+            [{"type":"plusSign","value":"+","source":"startRange"},{"type":"currency","value":"$","source":"startRange"},{"type":"integer","value":"2","source":"startRange"},{"type":"decimal","value":".","source":"startRange"},{"type":"fraction","value":"90","source":"startRange"},{"type":"literal","value":"–","source":"shared"},{"type":"integer","value":"3","source":"endRange"},{"type":"decimal","value":".","source":"endRange"},{"type":"fraction","value":"10","source":"endRange"}]
+            """);
+    }
+
+    private void ShouldCollapseAlike(string locale, string options, string operands, string expected)
+    {
+        var formatter = $"new Intl.NumberFormat('{locale}', {options})";
+
+        _engine.Evaluate($"{formatter}.formatRange({operands})")
+            .AsString().Should().Be(expected, "formatRange writes the collapsed range");
+        _engine.Evaluate($"{formatter}.formatRangeToParts({operands}).map(function (p) {{ return p.value; }}).join('')")
+            .AsString().Should().Be(expected, "formatRangeToParts carries the same collapse");
     }
 
     /// <summary>

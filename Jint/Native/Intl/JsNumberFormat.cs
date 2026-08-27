@@ -76,6 +76,10 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     internal string Locale { get; }
     internal string NumberingSystem => _numberingSystem.Name;
+
+    /// <summary>The resolved system itself, for a caller that has to read an already-formatted string back.</summary>
+    internal Data.ResolvedNumberingSystem ResolvedNumberingSystem => _numberingSystem;
+
     internal string Style { get; }
     internal string? Currency { get; }
     internal string? CurrencyDisplay { get; }
