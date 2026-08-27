@@ -16,7 +16,7 @@ namespace Jint.Tests.PublicInterface;
 public class HostLocaleProviderTests
 {
     [Test]
-    public void OverridingOneCldrDatumLeavesTheOtherSeventeenMembersInherited()
+    public void OverridingOneCldrDatumLeavesTheOtherEighteenMembersInherited()
     {
         var engine = new Engine(options => options.Intl.CldrProvider = new OneCurrencyName());
 
@@ -127,6 +127,32 @@ public class HostLocaleProviderTests
         engine.Evaluate("Temporal.PlainDate.from({ year: 1445, monthCode: 'M08', day: 25, calendar: 'islamic-civil' }).toString()")
             .AsString().Should().Be(
                 stock.Evaluate("Temporal.PlainDate.from({ year: 1445, monthCode: 'M08', day: 25, calendar: 'islamic-civil' }).toString()").AsString());
+    }
+
+    /// <summary>
+    /// <c>ca</c> is a relevant extension key, and its locale default is a datum like any other: it used to be
+    /// read off <c>CultureInfo.Calendar</c>, where a host had no way to reach it.
+    /// </summary>
+    [Test]
+    public void OverridingTheDefaultCalendarReachesDateTimeFormat()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new HebrewByDefault());
+
+        // the one overridden member
+        engine.Evaluate("new Intl.DateTimeFormat('en-US').resolvedOptions().calendar")
+            .AsString().Should().Be("hebrew");
+
+        // …and the two things ResolveLocale lets outrank it still do
+        engine.Evaluate("new Intl.DateTimeFormat('en-US', { calendar: 'gregory' }).resolvedOptions().calendar")
+            .AsString().Should().Be("gregory");
+        engine.Evaluate("new Intl.DateTimeFormat('en-US-u-ca-buddhist').resolvedOptions().calendar")
+            .AsString().Should().Be("buddhist");
+
+        // …and every other member is the inherited data, delegated by nobody
+        engine.Evaluate("new Intl.NumberFormat('en', { style: 'unit', unit: 'meter' }).format(5)")
+            .AsString().Should().Be("5 m");
+        engine.Evaluate("new Intl.DisplayNames('en', { type: 'currency' }).of('USD')")
+            .AsString().Should().Be("US Dollar");
     }
 
     [Test]
@@ -379,6 +405,12 @@ file sealed class SundayIsTheWeekend : DefaultCldrProvider
 }
 
 /// <summary>One numbering system the engine has never heard of; every other one is inherited.</summary>
+/// <summary>A host whose locales all keep the Hebrew calendar.</summary>
+file sealed class HebrewByDefault : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale) => "hebrew";
+}
+
 file sealed class AlphabetDigits : DefaultCldrProvider
 {
     public override string? GetNumberingSystemDigits(string numberingSystem)

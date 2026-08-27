@@ -81,6 +81,20 @@ public interface ICldrProvider
     // === Date/Time Formatting (DateTimeFormat) ===
 
     /// <summary>
+    /// Gets the calendar a locale itself uses (e.g. <c>"th-TH"</c> → <c>"buddhist"</c>), for a formatter
+    /// constructed without an explicit <c>calendar</c> option or Unicode extension.
+    /// </summary>
+    /// <param name="locale">The locale identifier.</param>
+    /// <returns>The calendar identifier, or null if the provider has no opinion (caller falls back to "gregory").</returns>
+    /// <remarks>
+    /// This is <c>keyLocaleData[0]</c> for <c>ca</c> — https://tc39.es/ecma402/#sec-resolvelocale step 13.c —
+    /// so it sits below the locale's <c>-u-ca-</c> extension and below the <c>calendar</c> option, both of
+    /// which the same step lets overwrite it. A calendar this engine does not answer for is not in
+    /// <c>keyLocaleData</c> at all, and is ignored rather than becoming a calendar nothing can format in.
+    /// </remarks>
+    string? GetDefaultCalendar(string locale);
+
+    /// <summary>
     /// Gets month names for a locale.
     /// </summary>
     /// <param name="locale">The locale identifier.</param>

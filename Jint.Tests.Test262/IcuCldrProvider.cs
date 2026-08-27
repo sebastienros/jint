@@ -279,6 +279,11 @@ public sealed class IcuCldrProvider : ICldrProvider
     // Note: ICU4N doesn't have DateFormatSymbols ported yet, so we use the fallback provider
     // which uses .NET's CultureInfo for basic date/time data.
 
+    // The default provider reads CLDR's own calendarPreferenceData, which is the table ICU would answer
+    // from, so there is nothing ICU4N could add here.
+    public string? GetDefaultCalendar(string locale)
+        => _fallback.GetDefaultCalendar(locale);
+
     public string[]? GetMonthNames(string locale, string style, string? calendar)
         => _fallback.GetMonthNames(locale, style, calendar);
 

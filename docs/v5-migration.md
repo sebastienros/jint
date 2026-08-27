@@ -2418,6 +2418,53 @@ it wrote before, and `latn` is what an unconfigured engine resolves for every lo
 formatter that asked for another numbering system, or for an embedder whose `ICldrProvider` gives a locale a
 non-Latin default: the parts lane gains that system's digits, a pattern's own punctuation stops acquiring
 them, and a locale whose decimal separator is a comma keeps its group separator as the full stop it is.
+### 4.47 `Intl.DateTimeFormat`'s calendar default comes from the CLDR provider ([#3457](https://github.com/sebastienros/jint/issues/3457))
+
+`ca` is a relevant extension key, and with no `calendar` option and no `-u-ca-` subtag its value is
+`keyLocaleData[0]` — [ResolveLocale](https://tc39.es/ecma402/#sec-resolvelocale) step 13.c, the locale's own
+calendar. That answer was read off `CultureInfo.Calendar` and mapped by .NET calendar *class*, which no host
+could reach and which is coarser than the data: `HijriCalendar` and `UmAlQuraCalendar` are one .NET type each
+and both answered `"islamic"`.
+
+`ICldrProvider` gains a nineteenth member, `GetDefaultCalendar(string locale)`, and `DefaultCldrProvider`
+answers it from CLDR's `calendarPreferenceData` — keyed by region, so a locale naming none is maximized
+first. Four regions prefer something other than `gregory`: `AF` and `IR` (`persian`), `SA`
+(`islamic-umalqura`) and `TH` (`buddhist`).
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic"
+new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/2026" - a Hijri day and month beside a Gregorian year
+
+// 5.x
+new Intl.DateTimeFormat('ar-SA').resolvedOptions().calendar;             // "islamic-umalqura"
+new Intl.DateTimeFormat('ar-SA').format(new Date(Date.UTC(2026, 7, 27))); // "14/3/1448"
+```
+
+`islamic-umalqura` was never out of reach — it is in the supported list and an explicit
+`{ calendar: 'islamic-umalqura' }` always resolved to it. It was only the *default* that could not name it,
+and `islamic` is an identifier
+[CreateDateTimeFormat](https://tc39.es/ecma402/#sec-createdatetimeformat) step 9 requires a formatter to
+resolve away from rather than to.
+
+Correcting the calendar a locale defaults to is now one override, the way correcting its numbering system is:
+
+```c#
+sealed class HebrewByDefault : DefaultCldrProvider
+{
+    public override string? GetDefaultCalendar(string locale) => "hebrew";
+}
+```
+
+An answer the engine has no calendar for is discarded rather than resolved to — `keyLocaleData` is built from
+the calendars the implementation supports — so a provider naming `"mayan"` gets `gregory`, as does one
+answering `null`.
+
+**What could break:** `ar-SA` and its region-mates now report and format in `islamic-umalqura`. Every other
+locale reports exactly what it reported before, `.NET`'s answer and CLDR's having already agreed everywhere
+else. A host implementing `ICldrProvider` **from scratch** rather than deriving from `DefaultCldrProvider`
+has one more member to write; deriving costs nothing, and [5.2](#52-changing-one-locale-datum-is-one-override)
+is why that is the shape the interface is documented for.
 
 ## 5. New in v5
 
@@ -2562,7 +2609,7 @@ sealed class MyCldr : DefaultCldrProvider
 var engine = new Engine(options => options.Intl.CldrProvider = new MyCldr());
 ```
 
-`ICldrProvider` is now eighteen members and every one of them has a caller, so whatever a derived class
+`ICldrProvider` is now nineteen members and every one of them has a caller, so whatever a derived class
 answers is what `Intl` shows — see [4.22](#422-intl-reads-the-cldr-provider-for-currency-symbols-and-week-info)
 and [4.29](#429-intl-reads-the-cldr-provider-for-date-names-and-numbering-system-digits) for the two changes
 that closed the gap, and section [2](#2-removed-api) for the two members that went instead of being wired.

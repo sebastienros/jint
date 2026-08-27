@@ -423,9 +423,11 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // Get prototype from newTarget (for cross-realm construction)
         var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.DateTimeFormat.PrototypeObject);
 
-        // Resolve default calendar from locale if not explicitly specified
-        // Per ECMA-402, the calendar is always resolved - defaults to "gregory" for most locales
-        calendar ??= GetDefaultCalendarForLocale(culture);
+        // https://tc39.es/ecma402/#sec-resolvelocale step 13.c: with no calendar option and no -u-ca-
+        // extension, the key starts at keyLocaleData[0] — the locale's own calendar, which the CLDR
+        // provider answers for. The calendar is always resolved, so an answer this engine cannot format
+        // in becomes "gregory" rather than a calendar nothing can write a date with.
+        calendar ??= GetDefaultCalendarForLocale(resolvedLocale);
 
         // https://tc39.es/ecma402/#sec-formatdatetimepattern — the month, weekday and day-period names a
         // pattern writes are locale data. Every one of them is produced by handing a .NET pattern to
@@ -850,23 +852,32 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// Gets the default calendar for a locale. Per ECMA-402, most locales use "gregory".
-    /// Japanese locale uses "japanese", Thai uses "buddhist", etc.
+    /// The calendar a locale itself uses, as <see cref="ICldrProvider.GetDefaultCalendar"/> answers it.
     /// </summary>
-    private static string GetDefaultCalendarForLocale(CultureInfo culture)
+    /// <remarks>
+    /// <para>
+    /// It used to be read off <c>CultureInfo.Calendar</c> and mapped by .NET calendar class, which no host
+    /// could correct and which is coarser than the data: <see cref="System.Globalization.HijriCalendar"/> and
+    /// <see cref="System.Globalization.UmAlQuraCalendar"/> are one .NET type each and were both answered
+    /// <c>"islamic"</c>, so <c>ar-SA</c> could not resolve to the <c>islamic-umalqura</c> that CLDR's
+    /// <c>calendarPreferenceData</c> — and ICU — put first for <c>SA</c>, even though Jint knows that
+    /// calendar and an explicit option resolves to it.
+    /// </para>
+    /// <para>
+    /// An answer the engine does not answer for is discarded rather than resolved to: the specification
+    /// builds <c>keyLocaleData</c> out of the calendars the implementation supports, so a provider naming one
+    /// outside that list has named something that is not in the list at all.
+    /// </para>
+    /// </remarks>
+    private string GetDefaultCalendarForLocale(string locale)
     {
-        var calendarName = culture.Calendar.GetType().Name;
-        return calendarName switch
+        var preferred = _engine.Options.Intl.CldrProvider.GetDefaultCalendar(locale);
+        if (preferred is null)
         {
-            "JapaneseCalendar" => "japanese",
-            "ThaiBuddhistCalendar" => "buddhist",
-            "KoreanCalendar" => "korean",
-            "TaiwanCalendar" => "roc",
-            "HijriCalendar" or "UmAlQuraCalendar" => "islamic",
-            "HebrewCalendar" => "hebrew",
-            "PersianCalendar" => "persian",
-            _ => "gregory"
-        };
+            return "gregory";
+        }
+
+        return AvailableCalendars.ResolveForDateTimeFormat(_engine, preferred) ?? "gregory";
     }
 
     /// <summary>

@@ -549,6 +549,19 @@ public class DefaultCldrProvider : ICldrProvider
         return _currencyDisplayNames.Value.TryGetValue(upperCode, out var name) ? name : null;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Read out of CLDR's <c>calendarPreferenceData</c>, which keys the answer by region, so a locale that
+    /// names none is maximized first — <c>"th"</c> is <c>"th-Thai-TH"</c> and therefore <c>"buddhist"</c>.
+    /// Four regions prefer something other than <c>"gregory"</c>: <c>AF</c> and <c>IR</c>, <c>SA</c>, and
+    /// <c>TH</c>.
+    /// </remarks>
+    public virtual string? GetDefaultCalendar(string locale)
+    {
+        var region = ExtractRegion(locale) ?? ExtractRegion(LikelySubtags.AddLikelySubtags(locale));
+        return CalendarPreferenceData.GetFirstPreference(region);
+    }
+
     // === Locale Data ===
 
     /// <inheritdoc />
