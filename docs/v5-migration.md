@@ -2990,7 +2990,7 @@ your code changes; the overload is picked automatically.
 **Expect some of Jint's own diagnostics in your build.** Jint's `NoWarn` is a property of Jint's
 compilation and reaches nothing downstream - ILC re-derives every diagnostic over the closed program -
 so an AOT publish reports Jint's remaining trim-analysis warnings against Jint's files in *your* build.
-There are 73 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
+There are 67 of them, down from 113 ([#3305](https://github.com/sebastienros/jint/issues/3305)), and
 they now divide into two kinds:
 
 * **Nine are the gaps in [§6.2](#62-the-one-thing-that-does-not-a-generic-instantiation-over-a-value-type)**

@@ -343,21 +343,34 @@ public class DefaultTypeConverter : ClrTypeConverter
             }
             else
             {
-                var members = type.GetMembers();
-                foreach (var member in members)
+                // The two lookups this loop actually wants, rather than GetMembers() filtered down to them.
+                // GetMembers() reports methods, constructors, events and nested types as well, so a trimmer
+                // read it as needing PublicNestedTypes of `type` - a requirement that propagated out to every
+                // annotated caller for members this loop skips - and every call materialized a MemberInfo for
+                // each of them only to discard it. Same public instance-and-static set.
+                foreach (var member in type.GetProperties())
                 {
-                    // only use fields and properties
-                    if (member.MemberType != MemberTypes.Property &&
-                        member.MemberType != MemberTypes.Field)
-                    {
-                        continue;
-                    }
+                    CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider);
+                }
 
+                foreach (var member in type.GetFields())
+                {
+                    CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider);
+                }
+
+                static void CopyDictionaryEntryToMember(
+                    DefaultTypeConverter converter,
+                    TypeDescriptor typeDescriptor,
+                    object value,
+                    object target,
+                    MemberInfo member,
+                    IFormatProvider formatProvider)
+                {
                     if (typeDescriptor.TryGetDictionaryValue(value, member.Name, out var val)
                         || typeDescriptor.TryGetDictionaryValue(value, member.Name.UpperToLowerCamelCase(), out val))
                     {
-                        var output = Convert(val, member.GetDefinedType(), formatProvider);
-                        member.SetValue(obj, output);
+                        var output = converter.Convert(val, member.GetDefinedType(), formatProvider);
+                        member.SetValue(target, output);
                     }
                 }
             }

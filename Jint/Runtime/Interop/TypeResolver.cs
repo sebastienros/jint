@@ -222,7 +222,7 @@ public sealed class TypeResolver
 
     internal ReflectionAccessor GetAccessor(
         Engine engine,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)] Type type,
         string member,
         MemberResolutionRequirement requirement,
         bool throwOnError = true,
@@ -495,7 +495,7 @@ public sealed class TypeResolver
 
     private ReflectionAccessor ResolvePropertyDescriptorFactory(
         Engine engine,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)] Type type,
         string memberName,
         MemberResolutionRequirement requirement,
         bool throwOnError)

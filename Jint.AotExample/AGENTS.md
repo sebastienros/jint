@@ -29,7 +29,7 @@ already states the requirement. **Do not write one whose justification is not li
 add a code back to `NoWarn` to quiet a new site.**
 
 [#3305](https://github.com/sebastienros/jint/issues/3305) took the published-and-run inventory from 113
-to 73 and carries what is left, grouped by what would close it. Five moves did most of it, and each is
+to 67 and carries what is left, grouped by what would close it. Five moves did most of it, and each is
 worth trying before a suppression is:
 
 * **Spell a constant type as `typeof(X)` at the reflection call.** That token is folded, so the lookup
@@ -71,6 +71,15 @@ the *embedder's own file* through the inherited `[RequiresDynamicCode] Enum.GetV
 `engine.SetValue("Env", typeof(Environment))` cost two. That is the `Delegate` trap of
 `docs/v5-migration.md` §6.4 a second time, and trading two diagnostics in Jint's files for an unbounded
 number in every host's was the wrong way round. **Do not close them by widening the constant.**
+
+**What is left is close to a floor, and the shape of it is one sentence:** 58 of the 67 are dataflow
+whose value is a `Type` produced at run time by something that cannot be annotated — `object.GetType()`
+(14, plus 8 more through `ObjectWrapper.ClrType` and `.Target`), an element of `Type.GetInterfaces()`
+(6, and `[DynamicallyAccessedMembers]` is not honoured on a `Type[]`), `ParameterInfo.ParameterType`
+(3, plus 3 through Jint's own `ParameterMetadata`), `Type.GetElementType()` (2). The remaining nine are
+the §6.2 gaps. **Annotating a Jint-owned property or field that merely carries one of those values is
+not a fix**: it collapses N reports into one and then has the analyzer *trust* a promise nothing keeps,
+downstream and silently. That is why `ObjectWrapper.ClrType` has no annotation and must not get one.
 
 #### What the leg proves
 
