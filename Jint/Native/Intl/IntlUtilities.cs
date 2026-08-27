@@ -83,8 +83,9 @@ internal static class IntlUtilities
 
         return thisObject;
     }
-    // Cache for CultureInfo instances to avoid repeated allocations.
-    // CultureInfo with useUserOverride:false is immutable, safe to cache and share.
+    // Cache for CultureInfo instances to avoid repeated allocations. The entries are shared by every engine
+    // in the process, so CreateCultureInfo hands them out read-only rather than trusting every call site not
+    // to write to one.
     private static readonly ConcurrentDictionary<string, CultureInfo?> _cultureCache = new(StringComparer.OrdinalIgnoreCase);
     // BCP 47 language tag pattern (permissive to accept Unicode extensions)
     // Accepts: language[-script][-region][-variant]*[-extension]*[-privateuse]
@@ -1807,7 +1808,15 @@ internal static class IntlUtilities
             // data. GetCultureInfo returns a cached read-only culture that may have different
             // NumberFormatInfo patterns (e.g., CurrencyNegativePattern).
             // useUserOverride: false ensures consistent behavior regardless of Windows regional settings.
-            return new CultureInfo(cultureTag, false);
+            //
+            // Read-only because the instance is cached process-wide and handed to every engine: a write to
+            // its DateTimeFormat or NumberFormat would be one engine's setting becoming another engine's
+            // formatting, with nothing to report it. useUserOverride:false does not make a CultureInfo
+            // read-only - only CultureInfo.ReadOnly does - and wrapping does not undo the line above,
+            // because it marks the instance it is given rather than re-resolving the culture. Both places
+            // that adjust a format (DateTimeFormatConstructor, NumberFormatConstructor) clone first, and a
+            // clone of a read-only culture or format is writable.
+            return CultureInfo.ReadOnly(new CultureInfo(cultureTag, false));
         }
         catch (CultureNotFoundException)
         {
