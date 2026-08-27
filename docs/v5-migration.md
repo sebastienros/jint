@@ -2930,6 +2930,46 @@ new Intl.DateTimeFormat('en-US', { numberingSystem: 'arab', minute: '2-digit', s
 it wrote before, and `latn` is what an unconfigured engine resolves for every locale. Output moves only for a
 formatter that asked for another numbering system, or for an embedder whose `ICldrProvider` gives a locale a
 non-Latin default — and it moves towards the locale's own punctuation.
+
+### 4.62 A `dateStyle` writes the locale's own date shape, and `formatToParts` splits that same pattern ([#3469](https://github.com/sebastienros/jint/issues/3469))
+
+[FormatDateTime](https://tc39.es/ecma402/#sec-formatdatetime) is the concatenation of the very list
+[FormatDateTimeToParts](https://tc39.es/ecma402/#sec-formatdatetimetoparts) walks, so `format` and
+`formatToParts` are two views of one partition. The styled lane had two: `format` rendered the pattern
+[DateTimeStyleFormat](https://tc39.es/ecma402/#sec-date-time-style-format) takes from the locale's own data,
+while `formatToParts` rebuilt the date from a hard-coded American field order with hard-coded literals. Both
+lanes now split the locale's pattern, and `format` is the concatenation of the parts.
+
+```js
+const d = new Date(Date.UTC(2026, 7, 27));
+const de = new Intl.DateTimeFormat('de-DE', { timeZone: 'UTC', dateStyle: 'short' });
+
+de.format(d);                                          // "27.08.2026" — unchanged
+de.formatToParts(d).map(p => p.value).join('');
+// 5.0: "8/27/26"    5.x: "27.08.2026"
+
+new Intl.DateTimeFormat('ja-JP', { timeZone: 'UTC', dateStyle: 'full' }).formatToParts(d)
+    .map(p => p.type + '=' + p.value);
+// 5.0: weekday=木曜日, literal=", ", month=8月, literal=" ", day=27, literal=", ", year=2026
+// 5.x: year=2026, literal=年, month=8, literal=月, day=27, literal=日, weekday=木曜日
+```
+
+Two consequences fall out of there being one pattern:
+
+- **`dateStyle: 'medium'` is the abbreviated form it always claimed to be.** `format` wrote the long month
+  name — `en-US` "August 27, 2026" — while `formatToParts` wrote the short one. Both now write CLDR's `MMM`:
+  `"Aug 27, 2026"`.
+- **A non-ISO calendar's styled output is the calendar's date.** `format` already delegated to the parts lane
+  for any calendar that is not `iso8601` or `gregory`, so it was inheriting that lane's blindness to the
+  calendar: `new Temporal.PlainDate(2024, 3, 26, 'islamic-tbla').toLocaleString('en-u-ca-islamic-tbla',
+  { dateStyle: 'long' })` was `"March 26, 2024"` and is now `"9 17, 1445"`. Month *names* for a calendar .NET
+  is not counting the date in still need an `Options.Intl.CldrProvider` that answers `GetMonthNames` for that
+  calendar; without one the month is written as a number.
+
+**What could break:** any test pinning the exact string a `dateStyle` produces outside `en-US`, and any test
+pinning `formatToParts` output for a styled formatter. `timeStyle` is untouched, and a formatter built from
+component options (`year`/`month`/`day`/…) is untouched. There is no option that restores the old shape:
+the two lanes disagreeing was the defect.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
