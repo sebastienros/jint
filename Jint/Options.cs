@@ -1187,7 +1187,14 @@ public sealed partial class Options
         /// exactly once while constructing, so the constraints — and the per-execution state they carry —
         /// belong to that engine alone.
         /// </summary>
-        internal OptionsList<Func<Constraint>> ConstraintFactories { get; private set; } = new("Options.Constraints.Constraints");
+        /// <remarks>
+        /// The registry is internal, so its name here is what a refusal shows a host that called
+        /// <see cref="OptionsExtensions.AddConstraint(Options, Func{Constraint})"/> or one of the
+        /// <c>Limit*</c> methods that route through it. It must not be
+        /// <c>Options.Constraints.Constraints</c>, which is the registry beside it that the host did
+        /// not touch.
+        /// </remarks>
+        internal OptionsList<Func<Constraint>> ConstraintFactories { get; private set; } = new("Options.Constraints constraint factories");
 
         internal int? RequestedMaxStatements { get; set { ThrowIfReadOnly(); field = value; } }
 
