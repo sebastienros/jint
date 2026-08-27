@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The unrooted half of Jint's Native AOT probe. Jint.AotExample references it and deliberately does NOT
+    list it in TrimmerRootAssembly, so the host types in here are preserved by nothing except the
+    [DynamicallyAccessedMembers] on the entry point each is registered through - which is what lets a probe
+    tell an annotation apart from a root. See Jint.AotExample/AGENTS.md.
+
+    It references nothing on purpose. A reference to Jint would give the trimmer a reason to keep members
+    these types are supposed to lose, and would let a future maintainer close the measurement by accident.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>UnrootedAotProbe</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Directory.Build.props adds these for every project in the repository because Jint parses with
+      Acornima. This one references no packages at all, by design, so the global usings would be the only
+      thing forcing a reference on it.
+    -->
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>
