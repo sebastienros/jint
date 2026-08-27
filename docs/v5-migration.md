@@ -1978,6 +1978,33 @@ name. A `TypeResolver` (whose `Default` is a process-wide singleton with unguard
 host registered are all still the host's own mutable objects, reachable exactly as they were before they were
 handed to Jint.
 
+### 4.42 A regex built at run time is bounded by the configured `RegexTimeout` ([#3431](https://github.com/sebastienros/jint/issues/3431))
+
+`Options.Constraints.RegexTimeout` reached only the regular expressions Jint's parser saw. A pattern built
+while the script was running — `new RegExp(...)`, `RegExp(...)`, `RegExp.prototype.compile`, the coercion
+behind `"x".match("...")`, and the sticky splitter `@@split` rebuilds even from a literal — was adapted
+outside the parser and picked up the parser package's own default (5 seconds) instead, the same value for
+every engine in the process.
+
+```csharp
+var engine = new Engine(options => options.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(50));
+
+// 4.16.x: RegexMatchTimeoutException after ~5 s, MatchTimeout == 00:00:05
+// 5.x:    RegexMatchTimeoutException after ~50 ms, MatchTimeout == 00:00:00.05
+engine.Evaluate("'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!'.match(new RegExp('^(a+)+$'))");
+```
+
+It moved in both directions: an engine that raised the timeout to 30 seconds was cut off at 5, and an
+engine that lowered it — the reason a host sets it at all — ran for 5 seconds. An engine that never set
+it was silently tightened from Jint's 10-second default to 5.
+
+**What could break:** a run-time-built pattern that used to complete inside 5 seconds now has whatever
+budget the engine was configured with, so an engine with a deliberately short `RegexTimeout` can raise
+`RegexMatchTimeoutException` where it did not before. That is the setting doing what it says; raise
+`Constraints.RegexTimeout`, or set `RegexTimeout` on the parsing options of the script in question, which
+still outranks the constraint. A prepared script keeps carrying its own prepare-time value and now applies
+it to the regexes it builds as well as the ones it declares.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

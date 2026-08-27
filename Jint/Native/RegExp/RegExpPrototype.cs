@@ -1506,11 +1506,6 @@ internal sealed partial class RegExpPrototype : Prototype
     }
 
     /// <summary>
-    /// Effective per-match timeout for a custom-engine regex. Prefers the prepare-time value
-    /// carried via <see cref="RegExpParseResult.AdditionalData"/>; falls back to the engine's
-    /// configured constraint for runtime-built regexes (where the same value was used at compile time).
-    /// </summary>
-    /// <summary>
     /// The custom-engine compilation that stands in for the .NET one on a subject carrying a
     /// <see cref="JsRegExp.CaseFoldingTriggers">fold trigger</see>. Compiled on first need, under the
     /// same timeout the pattern would have been compiled with in the first place.
@@ -1518,6 +1513,11 @@ internal sealed partial class RegExpPrototype : Prototype
     private static JintRegExpEngine GetCaseFoldingFallbackEngine(JsRegExp R)
         => R.GetCaseFoldingFallbackEngine(GetCustomEngineTimeout(R));
 
+    /// <summary>
+    /// Effective per-match timeout for a custom-engine regex: the value the pattern was compiled under,
+    /// carried via <see cref="RegExpParseResult.AdditionalData"/>, falling back to the engine's configured
+    /// constraint where no conversion options were in force.
+    /// </summary>
     private static TimeSpan GetCustomEngineTimeout(JsRegExp R) =>
         Options.ConstraintOptions.NormalizeRegexTimeout(
             (R.ParseResult.AdditionalData as Engine.RegexConversionOptions)?.Timeout

@@ -492,6 +492,24 @@ public class RegExpTests
         AssertPrepareTimeRegexTimeoutFires(script);
     }
 
+    /// <summary>
+    /// The dynamic sibling of <see cref="PreparedScriptHonorsRegexTimeoutForCustomEngine"/>: a pattern the
+    /// custom engine has to take over, built by the script rather than written as a literal, runs under the
+    /// same budget its literal form does. Before sebastienros/jint#3431 the two halves of one prepared
+    /// script disagreed — the literal ran under the prepared script's timeout while <c>new RegExp(...)</c>
+    /// was compiled under the parser package's default and matched under whatever the engine's constraint
+    /// happened to be.
+    /// </summary>
+    [Test]
+    public void PreparedScriptHonorsRegexTimeoutForRuntimeBuiltCustomEngineRegex()
+    {
+        // The pattern is spelled as a JavaScript string literal here rather than a regex literal, so its
+        // backslashes have to survive one more level of escaping.
+        var patternAsJsString = TestRegex.Replace("\\", "\\\\");
+
+        AssertPrepareTimeRegexTimeoutFires($"'{TestedValue}'.match(new RegExp('{patternAsJsString}'))");
+    }
+
     [Test]
     public void PreparedModuleHonorsRegexTimeoutForCustomEngine()
     {
