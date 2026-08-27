@@ -217,7 +217,7 @@ Where the result flows straight into something taking an `IEnumerable<JsValue>` 
 becomes lazy instead — so grep for `.Skip(` in code that also has `using Jint.Runtime;`. `Arguments.At`,
 the other extension on that class, is unaffected and stays: it has no LINQ counterpart to collide with.
 
-### 2.6 A JSON serializer's limits are its own, not an argument to every call ([#3459](https://github.com/sebastienros/jint/pull/3459))
+### 2.6 A JSON serializer's limits are its own, not an argument to every call
 
 `JsonSerializer` had eight ways to serialize: four that used `Options.ResultLimits`, three that took a
 `ResultLimits` as a trailing argument, and `SerializeWithLimits`, which is the three-argument overload with
