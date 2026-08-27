@@ -2593,7 +2593,6 @@ these patterns and still does not — it bounds script-supplied regular expressi
 (see [§4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout)). A host that
 caught `RegexMatchTimeoutException` around `Engine.Evaluate` to absorb this can drop that handler; a host
 that treated it as a signal the script was hostile was reading a scheduling artefact.
-
 ### 4.55 An index a wrapped collection does not have does not exist, in every lane ([#3423](https://github.com/sebastienros/jint/issues/3423))
 
 On every array-like CLR wrapper, `[[HasProperty]]` and `[[GetOwnProperty]]` gave different answers for an
@@ -2793,6 +2792,63 @@ var worker = new Engine(options);
 
 Before this change that half happened by accident for `LimitExecutionTime` and never for `PromiseTimeout`.
 If you do not supply a `TimeProvider` at all, nothing here is observable.
+### 4.59 `Intl.NumberFormat` walks one pattern for both lanes, non-finite values included ([#3465](https://github.com/sebastienros/jint/issues/3465))
+
+[PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern)'s NaN and infinity branches
+choose the number's own text and nothing else, so the pattern
+[GetNumberFormatPattern](https://tc39.es/ecma402/#sec-getnumberformatpattern) selects is still selected and
+still walked. Neither lane did that: the parts lane returned the number alone, and the string lane handed a
+non-finite value to .NET's saturating `double`-to-`long` conversion.
+
+```js
+const usd = new Intl.NumberFormat('en', { style: 'currency', currency: 'USD' });
+// 5.0
+usd.format(NaN);       // "$0.00"
+usd.format(Infinity);  // "$9,223,372,036,854,775,807.9223372036854775807"  (and a different number on net472)
+usd.formatToParts(NaN);                                            // [nan]
+new Intl.NumberFormat('en', { style: 'percent' }).format(NaN);     // "NaN"
+new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(NaN);  // "0,00 €"
+
+// 5.x
+usd.format(NaN);       // "$NaN"
+usd.format(Infinity);  // "$∞"
+usd.formatToParts(NaN);                                            // [currency "$"][nan "NaN"]
+new Intl.NumberFormat('en', { style: 'percent' }).format(NaN);     // "NaN%"
+new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(NaN);  // "NaN €"
+```
+
+Three narrower disagreements between the same two lanes go with it.
+
+A CLDR unit pattern can put text on both sides of the number, and the parts lane reported only the trailing
+side — so `formatToParts` described a string `format` never wrote. The leading side is a `unit` part of its
+own, and the sign stands after it:
+
+```js
+const nf = new Intl.NumberFormat('ja-JP', { style: 'unit', unit: 'kilometer-per-hour', unitDisplay: 'long' });
+nf.format(1);         // "時速 1 キロメートル", unchanged
+nf.formatToParts(1);
+// 5.0: [integer "1"][literal " "][unit "キロメートル"]
+// 5.x: [unit "時速"][literal " "][integer "1"][literal " "][unit "キロメートル"]
+```
+
+`notation: "scientific"` and `"engineering"` of exactly zero fell back to plain decimal formatting, where
+[PartitionNotationSubPattern](https://tc39.es/ecma402/#sec-partitionnotationsubpattern) writes `"0"` for an
+exponent of zero like any other: `new Intl.NumberFormat('en', { notation: 'scientific' }).format(0)` was
+`"0"` and is `"0E0"`, which is what its own parts lane already said. A non-finite value takes no notation
+sub-pattern at all, so `format(Infinity)` stays `"∞"` under either notation.
+
+And the currency string lane interpolated a literal `"-"` and `"+"` where the parts lane read
+`NumberFormatInfo.NegativeSign` / `PositiveSign`. ECMA-402 calls it "the ILND String representing the minus
+sign", so it is the locale's own datum:
+`new Intl.NumberFormat('ar-EG', { style: 'currency', currency: 'EGP' }).format(-5)` gains the U+061C ARABIC
+LETTER MARK its parts lane always reported. Negative zero under a notation gains its sign for the same
+reason — `format(-0)` is `"-0E0"`, not `"0E0"`.
+
+**What could break:** any output that read a non-finite value through a `style`, a `formatToParts` walk over
+a locale whose unit pattern has a prefix (`ja-JP`, `ko-KR`, `zh-TW` long units), scientific or engineering
+notation of zero, and a currency's sign in a locale whose sign is not ASCII. A string that was already the
+concatenation of its own parts does not move: this is the two lanes being brought onto one walk, and it is
+that walk that decides.
 
 ## 5. New in v5
 

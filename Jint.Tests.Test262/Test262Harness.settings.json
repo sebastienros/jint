@@ -226,20 +226,6 @@
     //"intl402/NumberFormat/prototype/formatRange/en-US.js",
     //"intl402/NumberFormat/prototype/formatRange/pt-PT.js",
     //"intl402/NumberFormat/prototype/formatRangeToParts/en-US.js",
-    // Unit formatting formatToParts - locale-specific unit patterns
-    "intl402/NumberFormat/prototype/formatToParts/unit-de-DE.js",
-    "intl402/NumberFormat/prototype/formatToParts/unit-ja-JP.js",
-    "intl402/NumberFormat/prototype/formatToParts/unit-ko-KR.js",
-    "intl402/NumberFormat/prototype/formatToParts/unit-zh-TW.js",
-    // Unit formatting format - as of test262 #5079 these derive the expected unit/number separator
-    // from the implementation's own formatToParts() output (via the getUnitSeparators helper) instead
-    // of hard-coding it. That transitively depends on the same CLDR unit-part data the formatToParts
-    // unit tests above are excluded for: ICU4N ships only core locale data, so Jint's formatToParts
-    // reports a different long-unit separator than its (correct) format() output, and the constructed
-    // expectation no longer matches. (e.g. format() yields "時速 -987 キロメートル" but the helper builds
-    // "時速-987 キロメートル".)
-    "intl402/NumberFormat/prototype/format/unit-ja-JP.js",
-    "intl402/NumberFormat/prototype/format/unit-zh-TW.js",
 
     // PluralRules - compact notation affects plural category
     //"intl402/PluralRules/prototype/select/notation.js",
