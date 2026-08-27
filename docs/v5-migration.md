@@ -2368,6 +2368,57 @@ Two smaller consequences of the same derivation, both debugger-only:
 - A `with` scope over a host object whose properties live outside the engine's tables is no longer reported as
   an empty scope and dropped from `DebugInformation.CurrentScopeChain`.
 
+### 4.46 `Intl` writes the numbering system's digits in the parts lane, and only in the number ([#3455](https://github.com/sebastienros/jint/issues/3455), [#3456](https://github.com/sebastienros/jint/issues/3456))
+
+[FormatNumeric](https://tc39.es/ecma402/#sec-formatnumeric) is defined as the concatenation of exactly the
+parts [FormatNumericToParts](https://tc39.es/ecma402/#sec-formatnumerictoparts) returns — both of them
+[PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern) — so the two lanes cannot
+legally disagree. `format` transliterated into `[[NumberingSystem]]` and `formatToParts` did not, and
+`Intl.RelativeTimeFormat.prototype.formatToParts` inherited the Latin digits by copying those parts:
+
+```js
+const nf = new Intl.NumberFormat('en', { numberingSystem: 'arab' });
+// 4.16.x / earlier 5.0
+nf.format(1234.5);                                       // "١,٢٣٤٫٥"
+nf.formatToParts(1234.5).map(p => p.value).join('');     // "1,234.5"
+nf.formatRangeToParts(1, 5).map(p => p.value).join('');  // "1 - 5", against formatRange's "١-٥"
+
+// 5.x — one number, one set of digits
+nf.formatToParts(1234.5).map(p => p.value).join('');     // "١,٢٣٤٫٥"
+nf.formatRangeToParts(1, 5).map(p => p.value).join('');  // "١-٥"
+```
+
+The same rewrite now applies to the number and not to the pattern it sits in.
+`Intl.RelativeTimeFormat.prototype.format` transliterated its assembled string, so a `style: "short"`
+abbreviation's full stop became the numbering system's decimal separator, and `Intl.NumberFormat.prototype.format`
+did the same to a compact suffix in any locale whose own separator is not a full stop:
+
+```js
+// 4.16.x / earlier 5.0
+new Intl.RelativeTimeFormat('en', { style: 'short', numberingSystem: 'arab' }).format(3, 'second');
+// "in ٣ sec٫"  - U+066B ARABIC DECIMAL SEPARATOR, where the abbreviation's full stop belongs
+new Intl.NumberFormat('de-DE', { numberingSystem: 'arab', notation: 'compact' }).format(1234567.891);
+// "١,٢ Mio٫"
+
+// 5.x
+new Intl.RelativeTimeFormat('en', { style: 'short', numberingSystem: 'arab' }).format(3, 'second');  // "in ٣ sec."
+new Intl.NumberFormat('de-DE', { numberingSystem: 'arab', notation: 'compact' }).format(1234567.891); // "١٫٢ Mio."
+```
+
+Two smaller things move with it. The `NumberFormat` an `Intl.RelativeTimeFormat` substitutes into its
+patterns is now constructed with `[[NumberingSystem]]` in its options, as
+[InitializeRelativeTimeFormat](https://tc39.es/ecma402/#sec-InitializeRelativeTimeFormat) requires — it had
+been left to re-derive the system from a resolved locale the `numberingSystem` option had just stripped the
+`-u-nu-` subtag from. And `formatRangeToParts` writes the separator `formatRange` writes rather than a fixed
+`" - "`: the locale's tight form for a plain number, its spaced form for a currency, which is what test262's
+`formatRange/en-US.js` and `formatRangeToParts/en-US.js` assert against each other.
+
+**What could break:** nothing on a default engine — every formatter that resolves `latn` writes exactly what
+it wrote before, and `latn` is what an unconfigured engine resolves for every locale. Output moves for a
+formatter that asked for another numbering system, or for an embedder whose `ICldrProvider` gives a locale a
+non-Latin default: the parts lane gains that system's digits, a pattern's own punctuation stops acquiring
+them, and a locale whose decimal separator is a comma keeps its group separator as the full stop it is.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -157,9 +157,15 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         // Get prototype from newTarget (for cross-realm construction)
         var proto = GetPrototypeFromConstructor(newTarget, static intrinsics => intrinsics.RelativeTimeFormat.PrototypeObject);
 
-        // Per ECMA-402 17.1.1 step 24: Create NumberFormat for number formatting
+        // https://tc39.es/ecma402/#sec-InitializeRelativeTimeFormat steps 25-27: the NumberFormat this
+        // formatter substitutes into its patterns is constructed with [[NumberingSystem]] written into its
+        // options, not left to re-derive it from the locale. It has to be told: the resolved locale drops the
+        // -u-nu- subtag whenever the numberingSystem option overrode one, so a NumberFormat built from the
+        // locale alone would write the locale's digits where this formatter reports another system's.
         var numberFormatConstructor = (NumberFormatConstructor) _realm.Intrinsics.NumberFormat;
-        var numberFormat = (JsNumberFormat) numberFormatConstructor.Construct([new JsString(finalResolvedLocale), Undefined], numberFormatConstructor);
+        var numberFormatOptions = OrdinaryObjectCreate(_engine, null);
+        numberFormatOptions.CreateDataPropertyOrThrow("numberingSystem", resolvedNumberingSystem);
+        var numberFormat = (JsNumberFormat) numberFormatConstructor.Construct([new JsString(finalResolvedLocale), numberFormatOptions], numberFormatConstructor);
 
         return new JsRelativeTimeFormat(
             _engine,
