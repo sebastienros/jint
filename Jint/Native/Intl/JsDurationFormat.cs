@@ -15,7 +15,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         ObjectInstance prototype,
         string locale,
         string style,
-        string numberingSystem,
+        in Data.ResolvedNumberingSystem numberingSystem,
         CultureInfo cultureInfo,
         string yearsStyle,
         string monthsStyle,
@@ -42,7 +42,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         _prototype = prototype;
         Locale = locale;
         Style = style;
-        NumberingSystem = numberingSystem;
+        _numberingSystem = numberingSystem;
         CultureInfo = cultureInfo;
 
         YearsStyle = yearsStyle;
@@ -85,10 +85,12 @@ internal sealed class JsDurationFormat : ObjectInstance
     /// </summary>
     internal string Style { get; }
 
+    private readonly Data.ResolvedNumberingSystem _numberingSystem;
+
     /// <summary>
-    /// The numbering system.
+    /// The numbering system, as <c>resolvedOptions()</c> reports it.
     /// </summary>
-    internal string NumberingSystem { get; }
+    internal string NumberingSystem => _numberingSystem.Name;
 
     /// <summary>
     /// The .NET CultureInfo for locale-specific formatting.
@@ -125,16 +127,32 @@ internal sealed class JsDurationFormat : ObjectInstance
     /// <summary>
     /// Formats a duration object.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#sec-partitiondurationformatpattern step 4.h.iii.1 writes
+    /// <c>[[NumberingSystem]]</c> into the options of the <c>NumberFormat</c> it then constructs for the
+    /// unit's value, and the three numeric-style operations it delegates to —
+    /// https://tc39.es/ecma402/#sec-formatnumerichours,
+    /// https://tc39.es/ecma402/#sec-formatnumericminutes and
+    /// https://tc39.es/ecma402/#sec-formatnumericseconds — each do the same for their own. All four sites
+    /// mean one thing: every digit a duration writes is that system's.
+    /// </para>
+    /// <para>
+    /// Jint assembles the string first and transliterates it once, which reaches all four: the CLDR unit
+    /// names for the ten duration units carry no ASCII digit in any locale, so there is nothing else in the
+    /// string for this to touch. That this agrees with the parts lane, which transliterates by part type, is
+    /// what https://tc39.es/ecma402/#sec-Intl.DurationFormat.prototype.format steps 4-7 require — format() is
+    /// the concatenation of the same partition formatToParts() returns — and it is pinned by
+    /// IntlTests.DurationFormatPartsConcatenateToFormat rather than assumed.
+    /// </para>
+    /// </remarks>
     internal string Format(DurationRecord duration)
     {
         var isDigital = string.Equals(Style, "digital", StringComparison.Ordinal);
 
-        if (isDigital)
-        {
-            return FormatDigital(duration);
-        }
+        var formatted = isDigital ? FormatDigital(duration) : FormatNonDigital(duration);
 
-        return FormatNonDigital(duration);
+        return _numberingSystem.RewritesDigits ? _numberingSystem.Transliterate(formatted) : formatted;
     }
 
     private string FormatDigital(DurationRecord duration)
@@ -773,6 +791,25 @@ internal sealed class JsDurationFormat : ObjectInstance
     }
 
     /// <summary>
+    /// Rewrites one part's value in this formatter's numbering system, for the part types a NumberFormat
+    /// would have produced under https://tc39.es/ecma402/#sec-partitiondurationformatpattern. A unit name and
+    /// a literal are not numbers and keep their own digits, whatever they turn out to be.
+    /// </summary>
+    private string TransliterateNumericPart(string type, string value)
+    {
+        if (!_numberingSystem.RewritesDigits)
+        {
+            return value;
+        }
+
+        return type switch
+        {
+            "integer" or "fraction" or "decimal" or "group" => _numberingSystem.Transliterate(value),
+            _ => value
+        };
+    }
+
+    /// <summary>
     /// Formats a duration object and returns parts.
     /// </summary>
     internal JsArray FormatToParts(Engine engine, DurationRecord duration)
@@ -821,7 +858,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         {
             var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
             part.Set("type", type);
-            part.Set("value", value);
+            part.Set("value", TransliterateNumericPart(type, value));
             if (unit != null)
             {
                 part.Set("unit", unit);
@@ -974,7 +1011,7 @@ internal sealed class JsDurationFormat : ObjectInstance
         {
             var part = OrdinaryObjectCreate(engine, engine.Realm.Intrinsics.Object.PrototypeObject);
             part.Set("type", type);
-            part.Set("value", value);
+            part.Set("value", TransliterateNumericPart(type, value));
             if (unit != null)
             {
                 part.Set("unit", unit);
