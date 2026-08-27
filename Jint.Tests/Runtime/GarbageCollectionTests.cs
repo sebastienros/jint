@@ -71,15 +71,32 @@ public class GarbageCollectionTests
         var retained = MeasurePreparedHeap(count, commentChars, retainSourceText: true);
         var notRetained = MeasurePreparedHeap(count, commentChars, retainSourceText: false);
 
-        // Theoretical savings ≈ count * commentChars * 2 (UTF-16). Assert at least half to absorb noise.
-        var minimumSavings = (long) count * commentChars; // bytes; conservative lower bound (< chars * 2)
+        // Each phase reports what its own prepared scripts hold, so the two are independent statements
+        // rather than a difference of two whole-process heap sizes — see MeasurePreparedHeap.
+        var sourceBytes = (long) count * commentChars * 2; // UTF-16
         var actualSavings = retained - notRetained;
-        actualSavings.Should().BeGreaterThan(minimumSavings, $"""
+
+        // The retaining variant keeps the source text: it must hold most of it.
+        retained.Should().BeGreaterThan(sourceBytes / 2, $"""
+                          RetainFunctionSourceText did not keep the source text alive, so this test is
+                          no longer measuring what it claims to measure.
+                          Retained  : {BytesToString(retained)}
+                          Source    : {BytesToString(sourceBytes)}
+                          """);
+
+        // The default must keep the ASTs and essentially nothing else.
+        notRetained.Should().BeLessThan(sourceBytes / 4, $"""
+                          The default retained a substantial share of the source text.
+                          Not retained : {BytesToString(notRetained)}
+                          Source       : {BytesToString(sourceBytes)}
+                          """);
+
+        actualSavings.Should().BeGreaterThan(sourceBytes / 2, $"""
                           Disabling RetainFunctionSourceText did not free the expected source text.
                           Retained     : {BytesToString(retained)}
                           Not retained : {BytesToString(notRetained)}
                           Savings      : {BytesToString(actualSavings)}
-                          Expected     : > {BytesToString(minimumSavings)}
+                          Expected     : > {BytesToString(sourceBytes / 2)}
                           """);
 
         static long MeasurePreparedHeap(int count, int commentChars, bool retainSourceText)
@@ -88,6 +105,15 @@ public class GarbageCollectionTests
             {
                 ParsingOptions = new ScriptParsingOptions { RetainFunctionSourceText = retainSourceText },
             };
+
+            // Measured against a baseline taken inside the phase rather than as an absolute heap size.
+            // The two phases run back to back in one process, so an absolute reading makes the second
+            // one carry whatever the first left behind and the difference under-reports the saving by
+            // exactly that much. That is how this failed on a macOS runner reporting 8.1 MB of a ~20 MB
+            // theoretical saving while Windows reported 19.2 MB on the same commit. A per-phase baseline
+            // cancels the residue instead of racing it, and makes each phase's number mean something on
+            // its own: ~20.0 MB held with retention on, ~0.8 MB with it off.
+            var baseline = CurrentlyUsedMemory();
 
             var prepared = new List<Prepared<Script>>(count);
             for (var i = 0; i < count; i++)
@@ -99,7 +125,7 @@ public class GarbageCollectionTests
 
             var used = CurrentlyUsedMemory();
             GC.KeepAlive(prepared);
-            return used;
+            return used - baseline;
         }
 
         static string BuildLargeScript(int seed, int commentChars)
