@@ -480,8 +480,24 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // agree is not assumed — IntlTests.TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames walks every
         // culture on the machine and compares all five arrays entry by entry.
         var cldrProvider = _engine.Options.Intl.CldrProvider;
-        if (!ReferenceEquals(cldrProvider, DefaultCldrProvider.Instance)
-            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar))
+        var namesChanged = !ReferenceEquals(cldrProvider, DefaultCldrProvider.Instance)
+            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar);
+
+        // https://tc39.es/ecma402/#table-datetimeformat-components — "narrow" is a value of weekday and of
+        // month in its own right, and there is no .NET pattern letter for it. The narrow name goes into the
+        // abbreviated slot of this formatter's own DateTimeFormatInfo, so MMM and ddd write it and all three
+        // of format(), formatToParts() and formatRange() agree without any of them learning a new lane.
+        // One formatter reads at most one of the two slots per name group, so nothing is overwritten that
+        // the same formatter still needs: month and weekday have separate arrays, and a formatter carrying
+        // dateStyle or timeStyle has neither option set.
+        //
+        // Unlike the block above this asks the shared singleton too, and the guard is the option rather than
+        // the provider's identity: it is asked only when a narrow style is actually requested, so a default
+        // construction is untouched, and asking it there teaches something — .NET's narrow weekday names live
+        // in a slot no pattern letter reaches, and it has no narrow month names at all.
+        namesChanged |= ApplyNarrowNames(cldrProvider, dateTimeFormatInfo, resolvedLocale, calendar, month, weekday);
+
+        if (namesChanged)
         {
             culture = (CultureInfo) culture.Clone();
             culture.DateTimeFormat = dateTimeFormatInfo;
@@ -546,8 +562,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// wrong length.
     /// </para>
     /// <para>
-    /// The narrow styles are deliberately not read. The formatter emits the abbreviated pattern letter
-    /// (<c>MMM</c>, <c>ddd</c>) for <c>narrow</c>, so it has no narrow lane for a provider to feed.
+    /// The narrow styles are not read here. <see cref="ApplyNarrowNames"/> reads them instead, from every
+    /// provider and only for the formatter that asked for one.
     /// </para>
     /// </remarks>
     private static bool ApplyProviderNames(
@@ -598,6 +614,49 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             target.AMDesignator = dayPeriods[0];
             target.PMDesignator = dayPeriods[1];
             changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Puts the narrow month or weekday names into the abbreviated slots of one formatter's
+    /// <see cref="DateTimeFormatInfo"/>, so that <c>MMM</c> and <c>ddd</c> write the narrow form. Called only
+    /// when <c>month</c> or <c>weekday</c> is <c>"narrow"</c>, and reports whether it wrote anything.
+    /// </summary>
+    /// <remarks>
+    /// An answer of the wrong length, or none at all, leaves the abbreviated names in place — which is the
+    /// behaviour every release before this one had for a narrow style.
+    /// </remarks>
+    private static bool ApplyNarrowNames(
+        ICldrProvider provider,
+        DateTimeFormatInfo target,
+        string locale,
+        string? calendar,
+        string? month,
+        string? weekday)
+    {
+        var changed = false;
+
+        if (string.Equals(month, "narrow", StringComparison.Ordinal))
+        {
+            var narrowMonths = provider.GetMonthNames(locale, "narrow", calendar);
+            if (narrowMonths is { Length: 12 })
+            {
+                target.AbbreviatedMonthNames = WithTrailingEmpty(narrowMonths);
+                target.AbbreviatedMonthGenitiveNames = WithTrailingEmpty(narrowMonths);
+                changed = true;
+            }
+        }
+
+        if (string.Equals(weekday, "narrow", StringComparison.Ordinal))
+        {
+            var narrowWeekdays = provider.GetWeekdayNames(locale, "narrow");
+            if (narrowWeekdays is { Length: 7 })
+            {
+                target.AbbreviatedDayNames = (string[]) narrowWeekdays.Clone();
+                changed = true;
+            }
         }
 
         return changed;

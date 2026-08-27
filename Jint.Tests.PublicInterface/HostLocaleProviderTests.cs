@@ -198,9 +198,44 @@ public class HostLocaleProviderTests
         engine.Evaluate("new Intl.DateTimeFormat('en', { hour: 'numeric', hour12: true, timeZone: 'UTC' }).formatToParts(Date.UTC(2024, 0, 15, 15, 30))[2].value")
             .AsString().Should().Be("EVE");
 
+        // …and the timeStyle lane, which wrote two English literals and reached no locale data at all
+        engine.Evaluate("new Intl.DateTimeFormat('en', { timeStyle: 'short', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15, 15, 30))")
+            .AsString().Should().Be("3:30 EVE");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { timeStyle: 'medium', timeZone: 'UTC' }).formatToParts(Date.UTC(2024, 0, 15, 9, 5, 7))[6].value")
+            .AsString().Should().Be("MORN");
+
         // the months and weekdays are still the inherited data
         engine.Evaluate("new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
             .AsString().Should().Be("January");
+    }
+
+    /// <summary>
+    /// The narrow styles are the two <see cref="ICldrProvider"/> members the engine never asked for, because
+    /// it wrote the abbreviated name for a narrow style and so had no narrow lane to feed.
+    /// </summary>
+    [Test]
+    public void OverridingTheNarrowNamesReachesDateTimeFormat()
+    {
+        var engine = new Engine(options => options.Intl.CldrProvider = new GreekInitials());
+
+        engine.Evaluate("new Intl.DateTimeFormat('en', { month: 'narrow', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("Ι");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { weekday: 'narrow', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("Δ");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { month: 'narrow', timeZone: 'UTC' }).formatToParts(Date.UTC(2024, 0, 15))[0].value")
+            .AsString().Should().Be("Ι");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { weekday: 'narrow', month: 'narrow', day: 'numeric', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().StartWith("Δ");
+
+        // the styles the subclass does not answer for are the inherited data
+        engine.Evaluate("new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("Jan");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("January");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { weekday: 'short', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("Mon");
+        engine.Evaluate("new Intl.DateTimeFormat('en', { weekday: 'long', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15))")
+            .AsString().Should().Be("Monday");
     }
 
     [Test]
@@ -323,6 +358,20 @@ file sealed class PlanetaryWeekdays : DefaultCldrProvider
     public override string[]? GetWeekdayNames(string locale, string style)
         => string.Equals(style, "long", StringComparison.Ordinal)
             ? ["Sunday", "Moonday", "Marsday", "Mercuryday", "Jupiterday", "Venusday", "Saturnday"]
+            : base.GetWeekdayNames(locale, style);
+}
+
+/// <summary>Only the narrow month and weekday names; the other styles are the inherited data.</summary>
+file sealed class GreekInitials : DefaultCldrProvider
+{
+    public override string[]? GetMonthNames(string locale, string style, string? calendar)
+        => string.Equals(style, "narrow", StringComparison.Ordinal)
+            ? ["Ι", "Φ", "Μ", "Α", "Μ", "Ι", "Ι", "Α", "Σ", "Ο", "Ν", "Δ"]
+            : base.GetMonthNames(locale, style, calendar);
+
+    public override string[]? GetWeekdayNames(string locale, string style)
+        => string.Equals(style, "narrow", StringComparison.Ordinal)
+            ? ["Κ", "Δ", "Τ", "Τ", "Π", "Π", "Σ"]
             : base.GetWeekdayNames(locale, style);
 }
 

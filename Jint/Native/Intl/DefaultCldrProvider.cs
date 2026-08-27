@@ -19,11 +19,14 @@ namespace Jint.Native.Intl;
 /// </para>
 /// <para>
 /// Every member has a caller: whatever this class answers is what <c>Intl</c> shows, and whatever a derived
-/// class answers displaces it. Two narrow gaps are worth knowing about, both of them the engine's rather
-/// than the interface's: <see cref="GetMonthNames"/> and <see cref="GetWeekdayNames"/> are not asked for
-/// <c>"narrow"</c>, because <c>Intl.DateTimeFormat</c> writes the abbreviated name for a narrow style; and
-/// <see cref="GetDayPeriods"/> reaches the component lane (<c>hour</c> with <c>hour12</c>) but not
-/// <c>timeStyle</c>, which writes English AM/PM regardless of any locale data, .NET's included.
+/// class answers displaces it. Two answers here are derived rather than read, because .NET has nowhere to
+/// read them from. <see cref="DateTimeFormatInfo"/> has no narrow month slot at all, so
+/// <see cref="GetMonthNames"/> answers <c>"narrow"</c> with the first text element of the abbreviated name,
+/// upper-cased; and its narrowest weekday slot, <c>ShortestDayNames</c>, holds CLDR's narrow names on Windows
+/// and its short ones on Linux, so <see cref="GetWeekdayNames"/> narrows that array the same way when the
+/// platform handed it the short one. Both reproduce CLDR for locales whose narrow form is an initial — Latin,
+/// Cyrillic and Greek — and neither does for the locales where it is not, such as the numeric narrow months of
+/// <c>ja</c>, <c>ko</c>, <c>cs</c> and <c>he</c>. A host that needs them exactly overrides the one member.
 /// </para>
 /// </remarks>
 /// <example>
@@ -411,11 +414,71 @@ public class DefaultCldrProvider : ICldrProvider
             {
                 "long" => culture.DateTimeFormat.MonthNames.Take(12).ToArray(),
                 "short" => culture.DateTimeFormat.AbbreviatedMonthNames.Take(12).ToArray(),
-                "narrow" => culture.DateTimeFormat.AbbreviatedMonthNames.Take(12).Select(m => m.Length > 0 ? m[0].ToString() : m).ToArray(),
+                "narrow" => NarrowMonths(culture),
                 _ => null
             };
         });
     }
+
+    /// <summary>
+    /// Derives narrow month names from the abbreviated ones, because <see cref="DateTimeFormatInfo"/> has no
+    /// narrow month slot to read at all.
+    /// </summary>
+    private static string[] NarrowMonths(CultureInfo culture)
+    {
+        var abbreviated = culture.DateTimeFormat.AbbreviatedMonthNames;
+        var result = new string[12];
+        for (var i = 0; i < 12; i++)
+        {
+            result[i] = Narrow(culture, abbreviated[i]);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// .NET's narrowest weekday names, narrowed further when the platform filled that slot with CLDR's
+    /// <em>short</em> names rather than its <em>narrow</em> ones.
+    /// </summary>
+    /// <remarks>
+    /// Which of the two <c>ShortestDayNames</c> holds is a platform difference rather than a locale one: for
+    /// <c>en</c> it is <c>S,M,T,W,T,F,S</c> on Windows and <c>Su,Mo,Tu,We,Th,Fr,Sa</c> on Linux. An array in
+    /// which no entry is a single text element is one of the latter, and narrowing each entry recovers the
+    /// CLDR narrow name for every locale whose narrow form is an initial. An array that already has a
+    /// single-element entry is left alone, so the locales whose narrow names are genuinely two characters
+    /// long — <c>th</c>'s <c>อา</c>, <c>hi</c>'s <c>सो</c> — keep them.
+    /// </remarks>
+    private static string[] NarrowWeekdays(CultureInfo culture)
+    {
+        var shortest = culture.DateTimeFormat.ShortestDayNames;
+
+        foreach (var name in shortest)
+        {
+            if (name.Length == 0 || StringInfo.GetNextTextElement(name, 0).Length == name.Length)
+            {
+                return shortest;
+            }
+        }
+
+        var result = new string[shortest.Length];
+        for (var i = 0; i < shortest.Length; i++)
+        {
+            result[i] = Narrow(culture, shortest[i]);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// One name reduced to its narrow form: the first text element, upper-cased in the locale's own casing
+    /// rules.
+    /// </summary>
+    /// <remarks>
+    /// A text element rather than a <c>char</c>, so a surrogate pair or a base letter carrying a combining
+    /// mark stays whole. The locale's own casing, so Turkish dotted and dotless I are not anglicised.
+    /// </remarks>
+    private static string Narrow(CultureInfo culture, string name)
+        => name.Length == 0 ? name : culture.TextInfo.ToUpper(StringInfo.GetNextTextElement(name, 0));
 
     /// <inheritdoc />
     public virtual string[]? GetWeekdayNames(string locale, string style)
@@ -433,7 +496,7 @@ public class DefaultCldrProvider : ICldrProvider
             {
                 "long" => culture.DateTimeFormat.DayNames,
                 "short" => culture.DateTimeFormat.AbbreviatedDayNames,
-                "narrow" => culture.DateTimeFormat.ShortestDayNames,
+                "narrow" => NarrowWeekdays(culture),
                 _ => null
             };
         });

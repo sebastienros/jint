@@ -1423,4 +1423,174 @@ public class IntlTests
             }
         }
     }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#table-datetimeformat-components lists <c>"narrow"</c> as a value of
+    /// <c>weekday</c> and of <c>month</c> in its own right, beside <c>"short"</c>. Both used to render the
+    /// abbreviated .NET pattern letter, so a narrow format was an abbreviated one.
+    /// </summary>
+    [Test]
+    public void NarrowMonthAndWeekdayAreNotTheAbbreviatedName()
+    {
+        // 2024-01-15 is a Monday
+        const string Date = "Date.UTC(2024, 0, 15)";
+
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ month: 'narrow', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("J");
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ weekday: 'narrow', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("M");
+
+        // the parts lane and the string lane are the same names
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ month: 'narrow', timeZone: 'UTC' }}).formatToParts({Date})[0].value")
+            .AsString().Should().Be("J");
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ weekday: 'narrow', timeZone: 'UTC' }}).formatToParts({Date})[0].value")
+            .AsString().Should().Be("M");
+
+        // …and the two styles beside it are untouched
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ month: 'short', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("Jan");
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ month: 'long', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("January");
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ weekday: 'short', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("Mon");
+        _engine.Evaluate($"new Intl.DateTimeFormat('en', {{ weekday: 'long', timeZone: 'UTC' }}).format({Date})")
+            .AsString().Should().Be("Monday");
+    }
+
+    /// <summary>
+    /// All seven narrow weekday names, against the values every browser writes, so that the seeding is
+    /// reading a whole array and not one entry of it by luck.
+    /// </summary>
+    /// <remarks>
+    /// Literal values rather than a comparison against <c>ShortestDayNames</c>, because that array is where
+    /// the two platforms disagree: it holds CLDR's narrow names on Windows and its short ones — <c>Su</c>,
+    /// <c>Mo</c> — on Linux, and what this asserts is that <c>Intl</c> writes the same seven either way.
+    /// </remarks>
+    [Test]
+    public void EveryNarrowWeekdayIsTheSameOnEveryPlatform()
+    {
+        string[] expected = ["S", "M", "T", "W", "T", "F", "S"];
+
+        // 2024-01-14 is a Sunday
+        for (var i = 0; i < 7; i++)
+        {
+            _engine.Evaluate($"new Intl.DateTimeFormat('en-US', {{ weekday: 'narrow', timeZone: 'UTC' }}).format(Date.UTC(2024, 0, {14 + i}))")
+                .AsString().Should().Be(expected[i]);
+        }
+    }
+
+    /// <summary>
+    /// .NET has narrow weekday names and no narrow month names, so <c>DefaultCldrProvider</c> reads the one
+    /// and derives the other. This is the guard on that derivation: it walks every culture the machine has and
+    /// compares entry by entry, so a change to either half fails here rather than in one spot-checked locale.
+    /// </summary>
+    [Test]
+    public void TheDefaultCldrProviderDerivesNarrowNamesFromDotNetsOwnData()
+    {
+        var provider = DefaultCldrProvider.Instance;
+        var compared = 0;
+
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            var name = culture.Name;
+            if (name.Length == 0)
+            {
+                continue;
+            }
+
+            CultureInfo resolved;
+            try
+            {
+                resolved = new CultureInfo(name, false);
+            }
+            catch (CultureNotFoundException)
+            {
+                continue;
+            }
+
+            var dtfi = resolved.DateTimeFormat;
+
+            var narrowMonths = provider.GetMonthNames(name, "narrow", null);
+            narrowMonths.Should().NotBeNull();
+            narrowMonths!.Should().HaveCount(12);
+            for (var i = 0; i < 12; i++)
+            {
+                narrowMonths[i].Should().Be(Narrow(resolved, dtfi.AbbreviatedMonthNames[i]), $"narrow month {i + 1} of '{name}'");
+            }
+
+            var narrowWeekdays = provider.GetWeekdayNames(name, "narrow");
+            narrowWeekdays.Should().NotBeNull();
+            narrowWeekdays!.Should().HaveCount(7);
+
+            // Already narrow when any entry is a single text element; narrowed entry by entry when none is.
+            var shortest = dtfi.ShortestDayNames;
+            var alreadyNarrow = shortest.Any(d => d.Length == 0 || StringInfo.GetNextTextElement(d, 0).Length == d.Length);
+            for (var i = 0; i < 7; i++)
+            {
+                var expected = alreadyNarrow ? shortest[i] : Narrow(resolved, shortest[i]);
+                narrowWeekdays[i].Should().Be(expected, $"narrow weekday {i} of '{name}'");
+            }
+
+            compared++;
+        }
+
+        compared.Should().BeGreaterThan(100);
+    }
+
+    /// <summary>The narrowing the provider applies, written once so the test states the rule rather than copying it.</summary>
+    private static string Narrow(CultureInfo culture, string name)
+        => name.Length == 0 ? name : culture.TextInfo.ToUpper(StringInfo.GetNextTextElement(name, 0));
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 15.g makes the <c>ampm</c> a pattern writes an
+    /// ILD String, so the two lanes that can write one — <c>timeStyle</c> and <c>hour</c> with
+    /// <c>hour12</c> — have to write the same locale's designators. The <c>timeStyle</c> lane used to write
+    /// two English literals.
+    /// </summary>
+    [TestCase("en")]
+    [TestCase("ar")]
+    [TestCase("zh")]
+    [TestCase("ja")]
+    [TestCase("ko")]
+    [TestCase("el")]
+    [TestCase("tr")]
+    [TestCase("he")]
+    [TestCase("th")]
+    public void TheTimeStyleLaneWritesTheSameDayPeriodAsTheComponentLane(string locale)
+    {
+        var expected = new CultureInfo(locale, false).DateTimeFormat.PMDesignator;
+
+        var script = $$"""
+            new Intl.DateTimeFormat('{{locale}}', { timeStyle: 'short', hour12: true, timeZone: 'UTC', numberingSystem: 'latn' })
+                .formatToParts(Date.UTC(2024, 0, 15, 15, 30))
+                .filter(function (p) { return p.type === 'dayPeriod'; })
+                .map(function (p) { return p.value; })
+                .join('');
+            """;
+
+        _engine.Evaluate(script).AsString().Should().Be(expected);
+
+        var componentScript = $$"""
+            new Intl.DateTimeFormat('{{locale}}', { hour: 'numeric', hour12: true, timeZone: 'UTC', numberingSystem: 'latn' })
+                .formatToParts(Date.UTC(2024, 0, 15, 15, 30))
+                .filter(function (p) { return p.type === 'dayPeriod'; })
+                .map(function (p) { return p.value; })
+                .join('');
+            """;
+
+        _engine.Evaluate(componentScript).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The English designators are still the English ones: the fix is where the two letters come from, not
+    /// what they are for a locale that spells them that way.
+    /// </summary>
+    [Test]
+    public void TheEnglishTimeStyleStillWritesAmAndPm()
+    {
+        _engine.Evaluate("new Intl.DateTimeFormat('en', { timeStyle: 'short', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15, 15, 30))")
+            .AsString().Should().Be("3:30 PM");
+        _engine.Evaluate("new Intl.DateTimeFormat('en', { timeStyle: 'medium', timeZone: 'UTC' }).format(Date.UTC(2024, 0, 15, 9, 5, 7))")
+            .AsString().Should().Be("9:05:07 AM");
+    }
 }
