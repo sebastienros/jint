@@ -84,6 +84,45 @@ public class HostOptionsReadOnlyTests
             .WithMessage($"{name} cannot be changed*");
     }
 
+    /// <summary>
+    /// Two registries sit side by side on <c>Options.Constraints</c>: the public <c>Constraints</c> list of
+    /// live instances, and the internal factory list that <c>AddConstraint(Func&lt;Constraint&gt;)</c> writes
+    /// to. They were constructed with the same name string, so a refused factory registration named the
+    /// registry the host had not touched.
+    /// </summary>
+    /// <remarks>
+    /// The <c>Limit*</c> methods do not reach this: each begins with <c>RemoveConstraints</c>, which is
+    /// refused first and names the live-instances list correctly. <c>AddConstraint</c> with a factory is
+    /// the only way to the second registry, and so the only way to observe the collision.
+    /// </remarks>
+    [Test]
+    public void ARefusedConstraintFactoryNamesItsOwnRegistry()
+    {
+        var options = new Options();
+        _ = new Engine(options);
+
+        Invoking(() => options.AddConstraint(static () => new InertConstraint()))
+            .Should().Throw<InvalidOperationException>("the options are frozen")
+            .WithMessage("*cannot be changed*")
+            .And.Message.Should().NotContain(
+                "Options.Constraints.Constraints",
+                "the factory registry is not the list of live instances, and naming that one sends the host to a line it never wrote");
+    }
+
+    /// <summary>
+    /// A constraint that bounds nothing: this fixture only cares which registry refuses the registration.
+    /// </summary>
+    private sealed class InertConstraint : Constraint
+    {
+        public override void Check()
+        {
+        }
+
+        public override void Reset()
+        {
+        }
+    }
+
     public static TestCases<string, Action<Options>> EveryGroup()
     {
         var data = new TestCases<string, Action<Options>>
