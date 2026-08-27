@@ -79,8 +79,8 @@ internal sealed partial class DurationFormatConstructor : Constructor
             extensionNu = ParseNumberingSystemExtension(requestedLocales[0]);
         }
 
-        // Resolve numbering system: option overrides extension; validate both
-        var numberingSystem = ResolveNumberingSystem(numberingSystemOption, extensionNu);
+        // Resolve numbering system: option overrides extension, and the locale's own default is below both
+        var numberingSystem = ResolveNumberingSystem(numberingSystemOption, extensionNu, resolved.Locale);
 
         // Build resolved locale: include -u-nu- extension when resolved value matches extension value
         var resolvedLocale = resolved.Locale;
@@ -312,7 +312,13 @@ internal sealed partial class DurationFormatConstructor : Constructor
         return null;
     }
 
-    private string ResolveNumberingSystem(string? optionValue, string? extensionValue)
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 13 for <c>nu</c>, which
+    /// https://tc39.es/proposal-intl-duration-format/#sec-Intl.DurationFormat-internal-slots lists as a
+    /// relevant extension key: the option wins, then the locale's <c>-u-nu-</c> extension, then the
+    /// locale's own default.
+    /// </summary>
+    private string ResolveNumberingSystem(string? optionValue, string? extensionValue, string locale)
     {
         // Options override extension. A system is supported when the provider can supply its digits —
         // the embedded table is the default provider's answer, not the engine's own.
@@ -327,8 +333,8 @@ internal sealed partial class DurationFormatConstructor : Constructor
             return extensionValue;
         }
 
-        // Default
-        return "latn";
+        // keyLocaleData[0] — the locale's own default, which is Latin only when the provider says so
+        return IntlUtilities.GetLocaleDefaultNumberingSystem(_engine, locale) ?? "latn";
     }
 
     /// <summary>

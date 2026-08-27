@@ -868,6 +868,35 @@ internal static class IntlUtilities
         => engine.Options.Intl.CldrProvider.GetNumberingSystemDigits(numberingSystem) is not null;
 
     /// <summary>
+    /// The numbering system a locale itself defaults to, or null when Latin digits are what it asks for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 13.c starts a relevant extension key at
+    /// <c>keyLocaleData[0]</c>, and https://tc39.es/ecma402/#sec-internal-slots (9.1) says that first
+    /// element "provid[es] the default value for that key in the locale". For <c>nu</c> that element is
+    /// what <see cref="ICldrProvider.GetDefaultNumberingSystem"/> answers, so this is the last rung of the
+    /// ladder in all four constructors that carry a <c>[[NumberingSystem]]</c> — below the locale's own
+    /// <c>-u-nu-</c> extension and below the <c>numberingSystem</c> option, both of which the same step
+    /// lets overwrite it.
+    /// </para>
+    /// <para>
+    /// A system the provider names but cannot supply digits for is not in <c>keyLocaleData</c> at all, and
+    /// is answered as null rather than becoming a system nothing could format in.
+    /// </para>
+    /// </remarks>
+    internal static string? GetLocaleDefaultNumberingSystem(Engine engine, string locale)
+    {
+        var localeDefault = engine.Options.Intl.CldrProvider.GetDefaultNumberingSystem(locale);
+        if (localeDefault is null || string.Equals(localeDefault, "latn", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return IsSupportedNumberingSystem(engine, localeDefault) ? CanonicalizeUValue("nu", localeDefault) : null;
+    }
+
+    /// <summary>
     /// Validates that a string matches the Unicode extension value pattern: (3*8alphanum) *("-" (3*8alphanum))
     /// Only ASCII alphanumeric characters are allowed.
     /// </summary>

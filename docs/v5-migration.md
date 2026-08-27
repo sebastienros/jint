@@ -2065,6 +2065,40 @@ budget the engine was configured with, so an engine with a deliberately short `R
 `Constraints.RegexTimeout`, or set `RegexTimeout` on the parsing options of the script in question, which
 still outranks the constraint. A prepared script keeps carrying its own prepare-time value and now applies
 it to the regexes it builds as well as the ones it declares.
+### 4.43 A locale's own numbering system is what every `Intl` formatter resolves to ([#3418](https://github.com/sebastienros/jint/issues/3418))
+
+Four formatters carry a `[[NumberingSystem]]`. Two of them asked `ICldrProvider.GetDefaultNumberingSystem`
+when the caller named no system, and two returned `"latn"` unconditionally — so one engine gave one locale
+two answers to the same question. All four now ask, through one helper, and the locale's default sits below
+the locale's `-u-nu-` extension and below the `numberingSystem` option, where
+[ResolveLocale](https://tc39.es/ecma402/#sec-resolvelocale) step 13 puts it.
+
+```js
+// 5.0 — with a CLDR-backed provider installed
+new Intl.NumberFormat('ar-EG').resolvedOptions().numberingSystem;       // "arab"
+new Intl.DurationFormat('ar-EG').resolvedOptions().numberingSystem;     // "latn"
+new Intl.DurationFormat('ar-EG').format({ hours: 12 });                 // "12 hr"
+new Intl.NumberFormat('ar-EG-u-nu-latn').resolvedOptions().numberingSystem;      // "arab"
+new Intl.NumberFormat('ar-EG', { numberingSystem: 'nope' }).resolvedOptions().numberingSystem; // "latn"
+
+// 5.x
+new Intl.DurationFormat('ar-EG').resolvedOptions().numberingSystem;     // "arab"
+new Intl.DurationFormat('ar-EG').format({ hours: 12 });                 // "١٢ hr"
+new Intl.NumberFormat('ar-EG-u-nu-latn').resolvedOptions().numberingSystem;      // "latn"
+new Intl.NumberFormat('ar-EG', { numberingSystem: 'nope' }).resolvedOptions().numberingSystem; // "arab"
+```
+
+The last two lines are `Intl.NumberFormat`'s half of the same defect: it read the locale's default into the
+slot the `numberingSystem` option had just been read into, so the default outranked the `-u-nu-` extension
+that must beat it, and a well-formed request for a system nothing can write dropped to Latin instead of
+leaving the locale's default in place.
+
+**What could break:** nothing on a default engine. The shipped `DefaultCldrProvider` has no per-locale
+numbering data and answers `null` for every locale, so every formatter still resolves to `latn` and writes
+exactly what it wrote before. It moves for an embedder who has installed a CLDR-backed
+`ICldrProvider` — `Intl.RelativeTimeFormat` and `Intl.DurationFormat` now write that provider's digits for a
+locale whose default is not Latin, the way `Intl.NumberFormat` and `Intl.DateTimeFormat` already did. To keep
+Latin digits for such a locale, ask for them: `{ numberingSystem: 'latn' }`, or a `-u-nu-latn` subtag.
 
 ## 5. New in v5
 

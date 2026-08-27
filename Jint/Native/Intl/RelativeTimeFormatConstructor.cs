@@ -87,7 +87,9 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         var availableLocales = IntlUtilities.GetAvailableLocales();
         var resolvedLocale = ResolveRelativeTimeFormatLocale(_engine, availableLocales, requestedLocales, localeMatcher);
 
-        // Resolve numbering system with proper fallback logic
+        // Resolve numbering system per https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 13 for the
+        // relevant extension key "nu": the option wins, then the locale's -u-nu- extension, then the
+        // locale's own default.
         string? localeNumberingSystem = null;
         foreach (var loc in requestedLocales)
         {
@@ -111,8 +113,8 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
         }
         else
         {
-            // Default to "latn"
-            resolvedNumberingSystem = "latn";
+            // keyLocaleData[0] — the locale's own default, which is Latin only when the provider says so
+            resolvedNumberingSystem = IntlUtilities.GetLocaleDefaultNumberingSystem(_engine, resolvedLocale) ?? "latn";
         }
 
         // Adjust the resolved locale based on numbering system source
