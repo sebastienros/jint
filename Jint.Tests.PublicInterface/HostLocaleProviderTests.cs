@@ -274,26 +274,40 @@ public class HostLocaleProviderTests
     }
 
     /// <summary>
-    /// Calendar arithmetic is implemented per calendar inside the engine and is not routed through
-    /// <see cref="ICalendarProvider"/>, so a calendar a host added has none. What this pins is that the
-    /// refusal is a <c>RangeError</c> a script can catch, rather than a <see cref="NotSupportedException"/>
-    /// escaping <c>Engine.Evaluate</c> as it did before.
+    /// The two conversions are the whole of what a host writes, and arithmetic is now walked in terms of
+    /// them — so a calendar the host added moves, and moves where its own conversions say. Adding a calendar
+    /// is still the three overrides <see cref="WithMayan"/> makes; none of them is an <c>add</c>.
     /// </summary>
     [Test]
-    public void AHostCalendarHasNoArithmeticAndSaysSoInJavaScript()
+    public void AHostCalendarGetsItsArithmeticFromItsOwnConversions()
     {
         var engine = new Engine(options => options.Temporal.CalendarProvider = new WithMayan());
 
-        foreach (var script in new[]
+        foreach (var (script, expected) in new[]
         {
-            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ days: 1 })",
-            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').subtract({ months: 1 })",
-            "Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').until(Temporal.PlainDate.from('2024-05-05').withCalendar('mayan'))",
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ days: 1 }).toString()", "2024-03-06[u-ca=mayan]"),
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ months: 1 }).toString()", "2024-04-05[u-ca=mayan]"),
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ years: 1, months: 2 }).toString()", "2025-05-05[u-ca=mayan]"),
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').subtract({ months: 1 }).toString()", "2024-02-05[u-ca=mayan]"),
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').until(Temporal.PlainDate.from('2024-05-05').withCalendar('mayan')).toString()", "P61D"),
+            ("Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').until(Temporal.PlainDate.from('2025-07-19').withCalendar('mayan'), { largestUnit: 'month' }).toString()", "P16M14D"),
         })
         {
-            engine.Evaluate($"(function () {{ try {{ {script}; return 'no error'; }} catch (e) {{ return e.constructor.name + ': ' + e.message; }} }})()")
-                .AsString().Should().Be("RangeError: Calendar arithmetic is not implemented for 'mayan'");
+            engine.Evaluate(script).AsString().Should().Be(expected, script);
         }
+
+        // the day is clamped against the month length the provider itself reported, and "reject" refuses
+        engine.Evaluate("Temporal.PlainDate.from('2024-01-31').withCalendar('mayan').add({ months: 1 }).toString()")
+            .AsString().Should().Be("2024-02-29[u-ca=mayan]");
+        engine.Evaluate(
+            """
+            (function () {
+                try {
+                    Temporal.PlainDate.from('2024-01-31').withCalendar('mayan').add({ months: 1 }, { overflow: 'reject' });
+                    return 'no error';
+                } catch (e) { return e.constructor.name; }
+            })()
+            """).AsString().Should().Be("RangeError");
 
         // the calendars the engine implements itself are unaffected
         engine.Evaluate("Temporal.PlainDate.from('2024-03-05').withCalendar('hebrew').add({ months: 1 }).toString()")

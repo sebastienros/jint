@@ -2562,7 +2562,12 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-calendardateadd
     /// Adds a duration to a date using calendar-specific reckoning.
     /// </summary>
-    public static IsoDate CalendarDateAdd(Realm? realm, string calendar, IsoDate isoDate, DurationRecord duration, string overflow)
+    /// <remarks>
+    /// <paramref name="engine"/> is what carries the host's <see cref="ICalendarProvider"/> down to the
+    /// arithmetic: without it a calendar only the provider knows is not even recognised as a calendar here,
+    /// and one the provider corrects is corrected in its field accessors and nowhere else.
+    /// </remarks>
+    public static IsoDate CalendarDateAdd(Engine? engine, Realm? realm, string calendar, IsoDate isoDate, DurationRecord duration, string overflow)
     {
         // For ISO calendar and Gregorian-based calendars (they share the same arithmetic)
         if (IsGregorianBasedCalendar(calendar))
@@ -2593,12 +2598,12 @@ internal static class TemporalHelpers
             // Range validation happens at the caller (e.g., CreateTemporalDate, GetEpochNanosecondsFor).
             return result;
         }
-        else if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+        else if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
         {
             try
             {
                 // Add years and months using calendar-specific reckoning
-                var result = NonIsoCalendars.CalendarDateAdd(calendar, in isoDate, (int) duration.Years, (int) duration.Months, overflow);
+                var result = NonIsoCalendars.CalendarDateAdd(calendar, in isoDate, (int) duration.Years, (int) duration.Months, overflow, engine);
 
                 // Add weeks and days using ISO arithmetic
                 var days = duration.Days + 7 * duration.Weeks;
@@ -2631,11 +2636,10 @@ internal static class TemporalHelpers
     }
 
     /// <summary>
-    /// Calendar arithmetic — <c>add</c>, <c>subtract</c>, <c>until</c>, <c>since</c> — is implemented per
-    /// calendar in <see cref="NonIsoCalendars"/> and is not routed through
-    /// <see cref="ICalendarProvider"/>, so a calendar a host provider added has no arithmetic. Reported as
-    /// a <c>RangeError</c> wherever a realm is at hand, rather than as a <see cref="NotSupportedException"/>
-    /// escaping <c>Engine.Evaluate</c>.
+    /// The calendar is neither Gregorian-based, nor one of the eleven <see cref="NonIsoCalendars"/>
+    /// implements, nor one the host's <see cref="ICalendarProvider"/> claims — so nothing on this engine
+    /// knows how to move a date in it. Reported as a <c>RangeError</c> wherever a realm is at hand, rather
+    /// than as a <see cref="NotSupportedException"/> escaping <c>Engine.Evaluate</c>.
     /// </summary>
     [DoesNotReturn]
     private static void ThrowCalendarArithmeticUnavailable(Realm? realm, string calendar)
@@ -5350,6 +5354,7 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-roundrelativeduration
     /// </summary>
     public static DurationRecord RoundRelativeDuration(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider? timeZoneProvider,
         DurationRecord duration,
@@ -5381,13 +5386,13 @@ internal static class TemporalHelpers
         if (irregularLengthUnit)
         {
             // Calendar units (year/month/week) or day with timezone - use NudgeToCalendarUnit
-            var result = NudgeToCalendarUnit(realm, sign, duration, originEpochNs, destEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, smallestUnit, roundingMode);
+            var result = NudgeToCalendarUnit(engine, realm, sign, duration, originEpochNs, destEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, smallestUnit, roundingMode);
             nudgeResult = result.NudgeResult;
         }
         else if (timeZone != null)
         {
             // Time units with timezone - use NudgeToZonedTime
-            nudgeResult = NudgeToZonedTime(realm, timeZoneProvider!, sign, duration, isoDateTime, timeZone, calendar, (long) increment, smallestUnit, roundingMode);
+            nudgeResult = NudgeToZonedTime(engine, realm, timeZoneProvider!, sign, duration, isoDateTime, timeZone, calendar, (long) increment, smallestUnit, roundingMode);
         }
         else
         {
@@ -5402,7 +5407,7 @@ internal static class TemporalHelpers
         if (nudgeResult.DidExpandCalendarUnit && !string.Equals(smallestUnit, "week", StringComparison.Ordinal))
         {
             var startUnit = LargerOfTwoTemporalUnits(smallestUnit, "day");
-            resultDuration = BubbleRelativeDuration(realm, sign, resultDuration, nudgeResult.NudgedEpochNs, isoDateTime, calendar, largestUnit, startUnit);
+            resultDuration = BubbleRelativeDuration(engine, realm, sign, resultDuration, nudgeResult.NudgedEpochNs, isoDateTime, calendar, largestUnit, startUnit);
         }
 
         return resultDuration;
@@ -5691,6 +5696,7 @@ internal static class TemporalHelpers
     /// Based on spec but simplified for initial implementation.
     /// </summary>
     private static DurationRecord DifferenceZonedDateTime(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider timeZoneProvider,
         BigInteger ns1,
@@ -5710,11 +5716,11 @@ internal static class TemporalHelpers
         var endDateTime = GetISODateTimeFor(timeZoneProvider, timeZone, ns2);
 
         // Step 4: Get initial difference - only use the date portion
-        var diff = DifferenceISODateTime(realm, startDateTime, endDateTime, calendar, largestUnit);
+        var diff = DifferenceISODateTime(engine, realm, startDateTime, endDateTime, calendar, largestUnit);
         var dateDifference = new DurationRecord(diff.Years, diff.Months, diff.Weeks, diff.Days, 0, 0, 0, 0, 0, 0);
 
         // Step 5: Create intermediate datetime by adding date portion to start
-        var intermediateDate = CalendarDateAdd(realm, calendar, startDateTime.Date, dateDifference, "constrain");
+        var intermediateDate = CalendarDateAdd(engine, realm, calendar, startDateTime.Date, dateDifference, "constrain");
         var intermediateDateTime = new IsoDateTime(intermediateDate, startDateTime.Time);
 
         // Step 6: Get epoch nanoseconds for intermediate
@@ -5740,7 +5746,7 @@ internal static class TemporalHelpers
             dateDifference = AdjustDateDurationRecord(dateDifference, timeSign);
 
             // Step 10b: Recompute intermediate
-            intermediateDate = CalendarDateAdd(realm, calendar, startDateTime.Date, dateDifference, "constrain");
+            intermediateDate = CalendarDateAdd(engine, realm, calendar, startDateTime.Date, dateDifference, "constrain");
             intermediateDateTime = new IsoDateTime(intermediateDate, startDateTime.Time);
 
             // Step 10c: Recompute intermediate epoch ns
@@ -5798,6 +5804,7 @@ internal static class TemporalHelpers
     /// Computes the rounded difference between two zoned datetimes.
     /// </summary>
     public static DurationRecord DifferenceZonedDateTimeWithRounding(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider timeZoneProvider,
         BigInteger ns1,
@@ -5817,7 +5824,7 @@ internal static class TemporalHelpers
         }
 
         // Step 2: Get unrounded difference (for calendar units: year/month/week/day)
-        var difference = DifferenceZonedDateTime(realm, timeZoneProvider, ns1, ns2, timeZone, calendar, largestUnit);
+        var difference = DifferenceZonedDateTime(engine, realm, timeZoneProvider, ns1, ns2, timeZone, calendar, largestUnit);
 
         // Step 3: If no rounding needed, return
         if (string.Equals(smallestUnit, "nanosecond", StringComparison.Ordinal) && roundingIncrement == 1)
@@ -5829,7 +5836,7 @@ internal static class TemporalHelpers
         var dateTime = GetISODateTimeFor(timeZoneProvider, timeZone, ns1);
 
         // Step 5: Round the difference
-        return RoundRelativeDuration(realm, timeZoneProvider, difference, ns1, ns2, dateTime, timeZone, calendar, largestUnit, roundingIncrement, smallestUnit, roundingMode);
+        return RoundRelativeDuration(engine, realm, timeZoneProvider, difference, ns1, ns2, dateTime, timeZone, calendar, largestUnit, roundingIncrement, smallestUnit, roundingMode);
     }
 
     /// <summary>
@@ -5838,6 +5845,7 @@ internal static class TemporalHelpers
     /// Returns the total number of units in duration, relative to isoDateTime.
     /// </summary>
     public static double TotalRelativeDuration(
+        Engine? engine,
         Realm realm,
         DurationRecord duration,
         BigInteger originEpochNs,
@@ -5855,7 +5863,7 @@ internal static class TemporalHelpers
             var sign = InternalDurationSign(duration) < 0 ? -1 : 1;
 
             // Step 1b: Call NudgeToCalendarUnit with increment=1 and roundingMode=trunc
-            var record = NudgeToCalendarUnit(realm, sign, duration, originEpochNs, destEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, 1, unit, "trunc");
+            var record = NudgeToCalendarUnit(engine, realm, sign, duration, originEpochNs, destEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, 1, unit, "trunc");
 
             // Step 1c: Return the total
             return record.Total;
@@ -5875,6 +5883,7 @@ internal static class TemporalHelpers
     /// Computes the total difference between two zoned datetimes in the given unit.
     /// </summary>
     public static double DifferenceZonedDateTimeWithTotal(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider timeZoneProvider,
         BigInteger ns1,
@@ -5895,13 +5904,13 @@ internal static class TemporalHelpers
         }
 
         // Step 2: Get unrounded difference
-        var difference = DifferenceZonedDateTime(realm, timeZoneProvider, ns1, ns2, timeZone, calendar, unit);
+        var difference = DifferenceZonedDateTime(engine, realm, timeZoneProvider, ns1, ns2, timeZone, calendar, unit);
 
         // Step 3: Get ISO datetime for ns1
         var dateTime = GetISODateTimeFor(timeZoneProvider, timeZone, ns1);
 
         // Step 4: Call TotalRelativeDuration
-        return TotalRelativeDuration(realm, difference, ns1, ns2, dateTime, timeZone, timeZoneProvider, calendar, unit);
+        return TotalRelativeDuration(engine, realm, difference, ns1, ns2, dateTime, timeZone, timeZoneProvider, calendar, unit);
     }
 
     /// <summary>
@@ -5930,6 +5939,7 @@ internal static class TemporalHelpers
     /// Adds a duration to zoned datetime epoch nanoseconds, accounting for timezone and calendar.
     /// </summary>
     public static BigInteger AddZonedDateTime(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider timeZoneProvider,
         BigInteger epochNanoseconds,
@@ -5953,7 +5963,7 @@ internal static class TemporalHelpers
 
         // Step 3: Add date portion only using CalendarDateAdd (time components are handled in step 7)
         var dateDuration = new DurationRecord(duration.Years, duration.Months, duration.Weeks, duration.Days, 0, 0, 0, 0, 0, 0);
-        var addedDate = CalendarDateAdd(realm, calendar, isoDateTime.Date, dateDuration, overflow);
+        var addedDate = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, dateDuration, overflow);
 
         // Step 4: Combine with original time
         var intermediateDateTime = new IsoDateTime(addedDate, isoDateTime.Time);
@@ -5971,6 +5981,7 @@ internal static class TemporalHelpers
     /// Computes the total difference between two plain datetimes in the given unit.
     /// </summary>
     public static double DifferencePlainDateTimeWithTotal(
+        Engine? engine,
         Realm realm,
         IsoDateTime isoDateTime1,
         IsoDateTime isoDateTime2,
@@ -5990,7 +6001,7 @@ internal static class TemporalHelpers
         }
 
         // Step 3: DifferenceISODateTime to get the diff
-        var diff = DifferenceISODateTime(realm, isoDateTime1, isoDateTime2, calendar, unit);
+        var diff = DifferenceISODateTime(engine, realm, isoDateTime1, isoDateTime2, calendar, unit);
 
         // Step 4: If unit is nanosecond, return diff time duration directly
         if (string.Equals(unit, "nanosecond", StringComparison.Ordinal))
@@ -6004,7 +6015,7 @@ internal static class TemporalHelpers
         var destEpochNs = GetUTCEpochNanoseconds(isoDateTime2);
 
         // Step 6: Call TotalRelativeDuration with timeZone=null (unset)
-        return TotalRelativeDuration(realm, diff, originEpochNs, destEpochNs, isoDateTime1, null, null, calendar, unit);
+        return TotalRelativeDuration(engine, realm, diff, originEpochNs, destEpochNs, isoDateTime1, null, null, calendar, unit);
     }
 
     /// <summary>
@@ -6111,6 +6122,7 @@ internal static class TemporalHelpers
     /// duration.html:1569-1641
     /// </summary>
     private static NudgeWindowResult ComputeNudgeWindow(
+        Engine? engine,
         Realm realm,
         int sign,
         DurationRecord duration,
@@ -6150,13 +6162,13 @@ internal static class TemporalHelpers
             var yearsMonths = new DurationRecord(duration.Years, duration.Months, 0, 0, 0, 0, 0, 0, 0, 0);
 
             // Step 2: Add yearsMonths to start date
-            var weeksStart = CalendarDateAdd(realm, calendar, isoDateTime.Date, yearsMonths, "constrain");
+            var weeksStart = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, yearsMonths, "constrain");
 
             // Step 3: Add days to get end of the period
             var weeksEnd = AddDaysToISODate(weeksStart, (int) duration.Days);
 
             // Step 4: Calculate weeks between weeksStart and weeksEnd
-            var untilResult = CalendarDateUntil(calendar, weeksStart, weeksEnd, "week", realm);
+            var untilResult = CalendarDateUntil(engine, realm, calendar, weeksStart, weeksEnd, "week");
 
             // Step 5: Round total weeks (original weeks + calculated weeks from days)
             var weeks = RoundNumberToIncrement(duration.Weeks + untilResult.Weeks, increment, "trunc");
@@ -6187,7 +6199,7 @@ internal static class TemporalHelpers
         }
         else
         {
-            var start = CalendarDateAdd(realm, calendar, isoDateTime.Date, startDuration, "constrain");
+            var start = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, startDuration, "constrain");
             var startDateTime = new IsoDateTime(start, isoDateTime.Time);
 
             if (timeZone != null)
@@ -6200,7 +6212,7 @@ internal static class TemporalHelpers
             }
         }
 
-        var end = CalendarDateAdd(realm, calendar, isoDateTime.Date, endDuration, "constrain");
+        var end = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, endDuration, "constrain");
         var endDateTime = new IsoDateTime(end, isoDateTime.Time);
 
         if (timeZone != null)
@@ -6229,6 +6241,7 @@ internal static class TemporalHelpers
     /// duration.html:1644-1717
     /// </summary>
     private static CalendarNudgeResult NudgeToCalendarUnit(
+        Engine? engine,
         Realm realm,
         int sign,
         DurationRecord duration,
@@ -6245,7 +6258,7 @@ internal static class TemporalHelpers
         bool didExpandCalendarUnit = false;
 
         // Step 2: Compute nudge window (without additional shift) - spec line 1667
-        var nudgeWindow = ComputeNudgeWindow(realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, false);
+        var nudgeWindow = ComputeNudgeWindow(engine, realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, false);
 
         var startEpochNs = nudgeWindow.StartEpochNs;
         var endEpochNs = nudgeWindow.EndEpochNs;
@@ -6256,7 +6269,7 @@ internal static class TemporalHelpers
             if (!(startEpochNs <= destEpochNs && destEpochNs <= endEpochNs))
             {
                 // Spec line 1672
-                nudgeWindow = ComputeNudgeWindow(realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, true);
+                nudgeWindow = ComputeNudgeWindow(engine, realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, true);
                 startEpochNs = nudgeWindow.StartEpochNs;
                 endEpochNs = nudgeWindow.EndEpochNs;
                 didExpandCalendarUnit = true;
@@ -6267,7 +6280,7 @@ internal static class TemporalHelpers
             if (!(endEpochNs <= destEpochNs && destEpochNs <= startEpochNs))
             {
                 // Spec line 1677
-                nudgeWindow = ComputeNudgeWindow(realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, true);
+                nudgeWindow = ComputeNudgeWindow(engine, realm, sign, duration, originEpochNs, isoDateTime, timeZone, timeZoneProvider, calendar, increment, unit, true);
                 startEpochNs = nudgeWindow.StartEpochNs;
                 endEpochNs = nudgeWindow.EndEpochNs;
                 didExpandCalendarUnit = true;
@@ -6334,6 +6347,7 @@ internal static class TemporalHelpers
     /// It implements rounding a duration to an increment of a time unit, relative to a ZonedDateTime starting point.
     /// </summary>
     private static DurationNudgeResult NudgeToZonedTime(
+        Engine? engine,
         Realm realm,
         ITimeZoneProvider timeZoneProvider,
         int sign,
@@ -6347,7 +6361,7 @@ internal static class TemporalHelpers
     {
         // Step 1: Let start be ? CalendarDateAdd(calendar, isoDateTime.[[ISODate]], duration.[[Date]], constrain)
         var datePart = new DurationRecord(duration.Years, duration.Months, duration.Weeks, duration.Days, 0, 0, 0, 0, 0, 0);
-        var start = CalendarDateAdd(realm, calendar, isoDateTime.Date, datePart, "constrain");
+        var start = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, datePart, "constrain");
 
         // Step 2: Let startDateTime be CombineISODateAndTimeRecord(start, isoDateTime.[[Time]])
         var startDateTime = new IsoDateTime(start, isoDateTime.Time);
@@ -6443,6 +6457,7 @@ internal static class TemporalHelpers
     /// Simplified version for PlainDate (no timezone).
     /// </summary>
     private static DurationRecord BubbleRelativeDuration(
+        Engine? engine,
         Realm realm,
         int sign,
         DurationRecord duration,
@@ -6492,7 +6507,7 @@ internal static class TemporalHelpers
                 }
 
                 // Step 5.1.4-7: Calculate epoch for this duration
-                var end = CalendarDateAdd(realm, calendar, isoDateTime.Date, endDuration, "constrain");
+                var end = CalendarDateAdd(engine, realm, calendar, isoDateTime.Date, endDuration, "constrain");
                 var endDateTime = new IsoDateTime(end, isoDateTime.Time);
                 var endEpochNs = GetUTCEpochNanoseconds(endDateTime);
 
@@ -6579,6 +6594,7 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-differenceisodatetime
     /// </summary>
     private static DurationRecord DifferenceISODateTime(
+        Engine? engine,
         Realm? realm,
         IsoDateTime isoDateTime1,
         IsoDateTime isoDateTime2,
@@ -6609,7 +6625,7 @@ internal static class TemporalHelpers
         var dateLargestUnit = LargerOfTwoTemporalUnits("day", largestUnit);
 
         // Step 9: Compute date difference using calendar
-        var dateDifference = CalendarDateUntil(calendar, isoDateTime1.Date, adjustedDate, dateLargestUnit, realm);
+        var dateDifference = CalendarDateUntil(engine, realm, calendar, isoDateTime1.Date, adjustedDate, dateLargestUnit);
 
         // Step 10-11: If largestUnit is smaller than day, add days to time
         if (!string.Equals(dateLargestUnit, largestUnit, StringComparison.Ordinal))
@@ -6723,7 +6739,13 @@ internal static class TemporalHelpers
     /// ISODateSurpasses algorithm (calendar.html:632-661) but uses direct arithmetic
     /// for O(1) performance on years/days instead of O(n) iteration.
     /// </summary>
-    internal static DurationRecord CalendarDateUntil(string calendar, IsoDate one, IsoDate two, string largestUnit, Realm? realm)
+    /// <remarks>
+    /// <paramref name="engine"/> carries the host's <see cref="ICalendarProvider"/> down the same way
+    /// <see cref="CalendarDateAdd(Engine?, Realm?, string, IsoDate, DurationRecord, string)"/> does; every
+    /// caller that has one owes it here, or the difference between two dates is measured in a reckoning the
+    /// host already replaced.
+    /// </remarks>
+    internal static DurationRecord CalendarDateUntil(Engine? engine, Realm? realm, string calendar, IsoDate one, IsoDate two, string largestUnit)
     {
         // Step 1: Get sign
         var sign = CompareIsoDates(one, two);
@@ -6737,11 +6759,11 @@ internal static class TemporalHelpers
         // Step 3: For ISO and Gregorian-based calendars (same arithmetic)
         if (!IsGregorianBasedCalendar(calendar))
         {
-            if (NonIsoCalendars.IsNonIsoCalendar(calendar))
+            if (NonIsoCalendars.IsNonIsoCalendar(calendar, engine))
             {
                 try
                 {
-                    return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit);
+                    return NonIsoCalendars.CalendarDateUntil(calendar, in one, in two, largestUnit, engine);
                 }
                 catch (CalendarRangeException ex)
                 {
@@ -6750,6 +6772,20 @@ internal static class TemporalHelpers
                     // RangeError the addition itself raises -- rather than as the non-terminating walk
                     // of issue #3428.
                     ThrowCalendarRange(realm, ex);
+                }
+                catch (InvalidOperationException ex) when (string.Equals(ex.Message, "reject", StringComparison.Ordinal))
+                {
+                    // The walk adds months to `one` to find the difference, and a conversion along the way
+                    // can decline to answer — a year past the end of a calendar's tables, or a provider that
+                    // will not place one. That is the same refusal an out-of-range `add` raises, and it
+                    // belongs in script as the same RangeError rather than as a CLR exception escaping
+                    // Engine.Evaluate.
+                    if (realm != null)
+                    {
+                        Throw.RangeError(realm, "Invalid date while computing calendar difference");
+                    }
+
+                    throw new ArgumentException("Invalid date while computing calendar difference", nameof(two), ex);
                 }
             }
 
@@ -6869,6 +6905,7 @@ internal static class TemporalHelpers
     /// https://tc39.es/proposal-temporal/#sec-temporal-differenceplaindatetimewithrounding
     /// </summary>
     public static DurationRecord DifferencePlainDateTimeWithRounding(
+        Engine? engine,
         Realm realm,
         IsoDateTime isoDateTime1,
         IsoDateTime isoDateTime2,
@@ -6891,7 +6928,7 @@ internal static class TemporalHelpers
         }
 
         // Step 3: Get unrounded difference
-        var diff = DifferenceISODateTime(realm, isoDateTime1, isoDateTime2, calendar, largestUnit);
+        var diff = DifferenceISODateTime(engine, realm, isoDateTime1, isoDateTime2, calendar, largestUnit);
 
         // Step 4: If no rounding needed, return
         if (string.Equals(smallestUnit, "nanosecond", StringComparison.Ordinal) && roundingIncrement == 1)
@@ -6904,7 +6941,7 @@ internal static class TemporalHelpers
         var destEpochNs = GetUTCEpochNanoseconds(isoDateTime2);
 
         // timeZone is ~unset~ for PlainDateTime
-        return RoundRelativeDuration(realm, null, diff, originEpochNs, destEpochNs, isoDateTime1, null, calendar, largestUnit, roundingIncrement, smallestUnit, roundingMode);
+        return RoundRelativeDuration(engine, realm, null, diff, originEpochNs, destEpochNs, isoDateTime1, null, calendar, largestUnit, roundingIncrement, smallestUnit, roundingMode);
     }
 
     /// <summary>

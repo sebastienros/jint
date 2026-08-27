@@ -373,7 +373,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
 
         // Use calendar-aware date addition
         var yearMonthDuration = new DurationRecord(duration.Years, duration.Months, 0, 0, 0, 0, 0, 0, 0, 0);
-        var resultDate = TemporalHelpers.CalendarDateAdd(_realm, ym.Calendar, intermediateDate, yearMonthDuration, overflow);
+        var resultDate = TemporalHelpers.CalendarDateAdd(_engine, _realm, ym.Calendar, intermediateDate, yearMonthDuration, overflow);
 
         // Validate the result is within Temporal's representable range
         if (!TemporalHelpers.ISOYearMonthWithinLimits(resultDate.Year, resultDate.Month))
@@ -489,7 +489,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
         TemporalHelpers.CheckISODaysRange(_realm, otherDate);
 
         // Step 11: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(ym1.Calendar, thisDate, otherDate, largestUnit, _realm);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(_engine, _realm, ym1.Calendar, thisDate, otherDate, largestUnit);
 
         // Step 12: AdjustDateDurationRecord - zero out weeks and days (PlainYearMonth only has years/months)
         var yearsMonthsDifference = new DurationRecord(
@@ -514,6 +514,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
 
             // Round the duration
             var roundedDuration = TemporalHelpers.RoundRelativeDuration(
+                _engine,
                 _realm,
                 null, // timeZoneProvider = null for PlainYearMonth
                 duration,

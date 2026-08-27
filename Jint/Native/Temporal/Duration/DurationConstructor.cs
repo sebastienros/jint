@@ -85,8 +85,8 @@ internal sealed partial class DurationConstructor : Constructor
             var timeZone = zonedRelativeTo.TimeZone;
             var calendar = zonedRelativeTo.Calendar;
             var provider = _engine.Options.Temporal.TimeZoneProvider;
-            var after1 = TemporalHelpers.AddZonedDateTime(_realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d1, "constrain");
-            var after2 = TemporalHelpers.AddZonedDateTime(_realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d2, "constrain");
+            var after1 = TemporalHelpers.AddZonedDateTime(_engine, _realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d1, "constrain");
+            var after2 = TemporalHelpers.AddZonedDateTime(_engine, _realm, provider, zonedRelativeTo.EpochNanoseconds, timeZone, calendar, d2, "constrain");
             return JsNumber.Create(after1.CompareTo(after2));
         }
 
@@ -142,7 +142,7 @@ internal sealed partial class DurationConstructor : Constructor
         }
 
         // Add years/months/weeks to get the later date
-        var later = TemporalHelpers.CalendarDateAdd(_realm, plainRelativeTo.Calendar, plainRelativeTo.IsoDate, yearsMonthsWeeksDuration, "constrain");
+        var later = TemporalHelpers.CalendarDateAdd(_engine, _realm, plainRelativeTo.Calendar, plainRelativeTo.IsoDate, yearsMonthsWeeksDuration, "constrain");
 
         // Compute epoch days difference
         var epochDays1 = TemporalHelpers.IsoDateToDays(plainRelativeTo.IsoDate.Year, plainRelativeTo.IsoDate.Month, plainRelativeTo.IsoDate.Day);

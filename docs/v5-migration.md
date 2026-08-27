@@ -1682,8 +1682,10 @@ now the list's answer for anything deriving from `DefaultCalendarProvider` witho
 the question the engine asks — so a calendar in the list is now claimed, and one absent from it is not.
 A provider implementing `ICalendarProvider` from scratch is unaffected: both members are still its own.
 Second, a host calendar reaches construction, the field accessors, `with`, `toString` and the
-`PlainYearMonth`/`PlainMonthDay` conversions, but not arithmetic and not `Intl.DateTimeFormat`; both refused
-it with a `RangeError` when this shipped. 4.35 gives it arithmetic and 4.36 gives it `Intl`.
+`PlainYearMonth`/`PlainMonthDay` conversions, but neither arithmetic nor `Intl.DateTimeFormat`; both refused
+it with a `RangeError` when this shipped.
+[§4.40](#440-one-list-of-calendars-and-icalendarprovider-owns-it-3404) gives it `Intl`, and
+[§4.44](#444-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) gives it arithmetic.
 
 ### 4.31 A module graph too deep to link raises an error instead of ending the process ([#3401](https://github.com/sebastienros/jint/issues/3401))
 
@@ -2099,6 +2101,57 @@ exactly what it wrote before. It moves for an embedder who has installed a CLDR-
 `ICldrProvider` — `Intl.RelativeTimeFormat` and `Intl.DurationFormat` now write that provider's digits for a
 locale whose default is not Latin, the way `Intl.NumberFormat` and `Intl.DateTimeFormat` already did. To keep
 Latin digits for such a locale, ask for them: `{ numberingSystem: 'latn' }`, or a `-u-nu-latn` subtag.
+
+### 4.44 Calendar arithmetic is answered by whoever answers for the calendar ([#3403](https://github.com/sebastienros/jint/issues/3403))
+
+`ICalendarProvider` supplies two conversions, ISO ↔ calendar fields, and the engine consulted them for the
+field accessors, `from`, `with`, `toString` and the `PlainYearMonth`/`PlainMonthDay` conversions — but not
+for `add`, `subtract`, `until` or `since`, which were written per calendar against the BCL. So a host that
+**corrected** a calendar corrected half of it, and the two halves disagreed about the same date; a host that
+**added** one got `RangeError: Calendar arithmetic is not implemented for 'mayan'`.
+
+For a calendar the configured provider answers for, the year-and-month walk is now expressed in the two
+conversions themselves: the same monthCode placed in the target year, ordinal months stepped across year
+boundaries by the month count the conversion reports, and the day clamped to the month length it reports.
+Weeks and days were always ISO days and still are.
+
+```js
+// with a provider that adds "mayan" — 5.0 raised RangeError for all of these
+Temporal.PlainDate.from('2024-03-05').withCalendar('mayan').add({ months: 1 }).toString(); // "2024-04-05[u-ca=mayan]"
+Temporal.PlainDate.from('2024-01-31').withCalendar('mayan').add({ months: 1 }).toString(); // "2024-02-29[u-ca=mayan]"
+Temporal.PlainDate.from('2024-03-05').withCalendar('mayan')
+    .until(Temporal.PlainDate.from('2025-07-19').withCalendar('mayan'), { largestUnit: 'month' }).toString(); // "P16M14D"
+```
+
+An engine that configures no provider reaches the per-calendar implementation it always did — proved, not
+asserted: 774,158 `CalendarDateAdd` results over the eleven built-in calendars are byte-identical before and
+after.
+
+**What could break:** an engine that installs a provider for one calendar and relies on the engine's own
+arithmetic for another. The provider is asked for every calendar it claims, and a derived
+`DefaultCalendarProvider` claims all eleven by inheritance — which is the point, since its inherited
+conversions are already what every field accessor reads. Over the same 774,158-case sweep the two paths
+agree on 100.000% of cases within the BCL calendars' ranges. The 1.7% that differ are all `chinese` and
+`dangi` dates whose arithmetic leaves `ChineseLunisolarCalendar`'s 1901–2101 or `KoreanLunisolarCalendar`'s
+2051 ceiling, and out there the two now part in kind rather than in detail:
+[#3452](https://github.com/sebastienros/jint/pull/3452) made the engine's own arithmetic **refuse** a result
+it cannot represent, while the provider path goes on answering — because `IsoToCalendarFields` and
+`CalendarFieldsToIso` fall back to ISO-like fields past the end of a BCL calendar, and always did, which is
+what every field accessor on such a date has always read. So
+`Temporal.PlainDate.from('1950-01-01').withCalendar('chinese').subtract({ years: 100 })` is a `RangeError`
+on a default engine and `1849-11-13` under any provider that claims `chinese`. Both terminate, and neither
+is the Chinese calendar. To keep a calendar on the engine's own arithmetic, do not claim it: override
+`IsSupported` to return `false` for it, or drop it from `GetSupportedCalendars`.
+
+A host provider is also free to clamp where the engine no longer does, and a conversion that answers with
+its own boundary date every time is what made the month walk stand still forever. The walk keeps a
+no-progress guard for that: a step that adds a month and does not move the date raises the same `RangeError`
+an out-of-range addition raises, so a difference measured in a calendar the host supplied cannot hang the
+engine either.
+
+Two refusals that used to escape as CLR exceptions are now `RangeError`s a script can catch:
+`DifferenceISODateTime` reached `CalendarDateUntil` with no realm to report against, and an out-of-range
+difference threw out of `Engine.Evaluate`.
 
 ## 5. New in v5
 

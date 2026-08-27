@@ -417,7 +417,7 @@ internal sealed partial class PlainDatePrototype : Prototype
             duration.Days + balancedDays, 0, 0, 0, 0, 0, 0);
 
         // Use calendar-aware date addition
-        var newDate = TemporalHelpers.CalendarDateAdd(_realm, plainDate.Calendar, plainDate.IsoDate, dateDuration, overflow);
+        var newDate = TemporalHelpers.CalendarDateAdd(_engine, _realm, plainDate.Calendar, plainDate.IsoDate, dateDuration, overflow);
 
         // Validate the result is within Temporal's representable range
         if (!TemporalHelpers.IsValidIsoDateTime(newDate.Year, newDate.Month, newDate.Day))
@@ -526,7 +526,7 @@ internal sealed partial class PlainDatePrototype : Prototype
         }
 
         // Step 6: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit, _realm);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(_engine, _realm, temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit);
 
         // Step 7-10: If rounding needed, use RoundRelativeDuration
         DurationRecord result;
@@ -545,6 +545,7 @@ internal sealed partial class PlainDatePrototype : Prototype
 
             // Round the duration
             var roundedDuration = TemporalHelpers.RoundRelativeDuration(
+                _engine,
                 _realm,
                 null, // timeZoneProvider = null for PlainDate
                 duration,
