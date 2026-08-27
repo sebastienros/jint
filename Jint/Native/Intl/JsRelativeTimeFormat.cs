@@ -68,6 +68,16 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     /// <summary>
     /// Formats a relative time value.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#sec-partitionrelativetimepattern substitutes one number — through
+    /// PartitionNumberPattern, which is where <c>[[NumberingSystem]]</c> is written — into a pattern whose
+    /// every other character is a literal. So the digits arrive already transliterated, in
+    /// <see cref="NumberFormat"/>'s output, and the pattern text around them is never a number: a
+    /// <c>style: "short"</c> abbreviation ending in a full stop keeps that full stop rather than acquiring
+    /// the numbering system's decimal separator.
+    /// </para>
+    /// </remarks>
     internal string Format(double value, string unit)
     {
         var absValue = System.Math.Abs(value);
@@ -124,8 +134,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
                     : (plural ? patterns.FuturePlural : patterns.Future);
             }
 
-            var result = pattern.Replace("{0}", formattedNumber);
-            return _numberingSystem.Transliterate(result);
+            return pattern.Replace("{0}", formattedNumber);
         }
 
         // Fallback to hardcoded patterns
@@ -136,17 +145,17 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
         {
             if (isPast)
             {
-                return _numberingSystem.Transliterate($"{formattedNumber} {unitName} ago");
+                return $"{formattedNumber} {unitName} ago";
             }
-            return _numberingSystem.Transliterate($"in {formattedNumber} {unitName}");
+            return $"in {formattedNumber} {unitName}";
         }
 
         // For non-English, use a simple format
         if (isPast)
         {
-            return _numberingSystem.Transliterate($"-{formattedNumber} {unitName}");
+            return $"-{formattedNumber} {unitName}";
         }
-        return _numberingSystem.Transliterate($"+{formattedNumber} {unitName}");
+        return $"+{formattedNumber} {unitName}";
     }
 
     /// <summary>

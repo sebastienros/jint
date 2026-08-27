@@ -32,13 +32,33 @@ internal readonly record struct ResolvedNumberingSystem(string Name, string? Dig
         return new ResolvedNumberingSystem(name, digits, NumberingSystemData.GetDecimalSeparator(name));
     }
 
-    /// <summary>True when <see cref="Transliterate"/> can change anything; false for Latin.</summary>
+    /// <summary>True when <see cref="Transliterate(string)"/> can change anything; false for Latin.</summary>
     public bool RewritesDigits => Digits is not null;
+
+    /// <summary>True when this system writes a decimal separator of its own, rather than a full stop.</summary>
+    public bool RewritesDecimalSeparator => DecimalSeparator != '.';
 
     /// <summary>
     /// Rewrites the ASCII digits and the decimal point of an already-formatted string in this system.
     /// </summary>
-    public string Transliterate(string input) => NumberingSystemData.TransliterateDigits(input, Digits, DecimalSeparator);
+    public string Transliterate(string input) => NumberingSystemData.TransliterateDigits(input, Digits, '.', DecimalSeparator);
+
+    /// <summary>
+    /// Rewrites the ASCII digits of an already-formatted string, and the one character its writer used as a
+    /// decimal separator — leaving every other separator and every character of pattern text alone.
+    /// </summary>
+    /// <remarks>
+    /// Assuming that character is a full stop is what turns the abbreviation of a locale whose separator is a
+    /// comma — German's <c>"1,2 Mio."</c> — into <c>"1,2 Mio٫"</c>.
+    /// </remarks>
+    public string Transliterate(string input, char sourceDecimalSeparator)
+        => NumberingSystemData.TransliterateDigits(input, Digits, sourceDecimalSeparator, DecimalSeparator);
+
+    /// <summary>
+    /// Rewrites the ASCII digits of an already-formatted string and nothing else, leaving every separator
+    /// and every character of pattern text as the pattern wrote it.
+    /// </summary>
+    public string TransliterateDigitsOnly(string input) => NumberingSystemData.TransliterateDigits(input, Digits, '.', '.');
 }
 
 /// <summary>
@@ -156,7 +176,15 @@ internal static class NumberingSystemData
     /// <see cref="ResolvedNumberingSystem"/> carries. Null digits — Latin, or a system the provider does not
     /// answer for — leave the string alone.
     /// </summary>
-    public static string TransliterateDigits(string input, string? targetDigits, char decimalSeparator)
+    /// <param name="input">The already-formatted string.</param>
+    /// <param name="targetDigits">The ten digits to write, or null to leave the string alone.</param>
+    /// <param name="sourceDecimalSeparator">The character the string's writer used as a decimal separator.</param>
+    /// <param name="targetDecimalSeparator">The character to write instead; equal to the source means leave it.</param>
+    public static string TransliterateDigits(
+        string input,
+        string? targetDigits,
+        char sourceDecimalSeparator,
+        char targetDecimalSeparator)
     {
         if (targetDigits is null)
         {
@@ -176,10 +204,10 @@ internal static class NumberingSystemData
                 var digitStr = GetDigitAtIndex(targetDigits, digitIndex);
                 sb.Append(digitStr);
             }
-            else if (c == '.' && decimalSeparator != '.')
+            else if (c == sourceDecimalSeparator && targetDecimalSeparator != sourceDecimalSeparator)
             {
-                // Replace Latin decimal separator with target numbering system's separator
-                sb.Append(decimalSeparator);
+                // Replace the writer's decimal separator with the target numbering system's
+                sb.Append(targetDecimalSeparator);
             }
             else
             {

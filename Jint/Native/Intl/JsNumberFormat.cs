@@ -165,10 +165,52 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     internal string Format(double value)
     {
-        var result = FormatCore(value);
+        return Transliterate(FormatCore(value));
+    }
 
-        // Apply numbering system digit transliteration
-        return _numberingSystem.Transliterate(result);
+    /// <summary>
+    /// Rewrites an assembled result in <c>[[NumberingSystem]]</c>: the digits wherever they stand, and the
+    /// one character this formatter writes as its decimal separator.
+    /// </summary>
+    /// <remarks>
+    /// Rewriting every full stop instead — which is what the shared
+    /// <see cref="Data.ResolvedNumberingSystem.Transliterate(string)"/> does — reaches the full stops a pattern owns
+    /// as well as the one the number owns, and a locale whose own separator is a comma has both:
+    /// <c>de-DE</c> compact writes <c>"1,2 Mio."</c>, where the comma is the number's and the full stop
+    /// belongs to the abbreviation. https://tc39.es/ecma402/#sec-partitionnumberpattern puts the two in
+    /// different parts — <c>decimal</c> and <c>compact</c> — and only the first is a number.
+    /// </remarks>
+    private string Transliterate(string result)
+    {
+        if (!_numberingSystem.RewritesDigits)
+        {
+            return result;
+        }
+
+        var separator = DecimalSeparator;
+        if (_numberingSystem.RewritesDecimalSeparator && separator.Length == 1)
+        {
+            return _numberingSystem.Transliterate(result, separator[0]);
+        }
+
+        return _numberingSystem.TransliterateDigitsOnly(result);
+    }
+
+    /// <summary>
+    /// The decimal separator this formatter's own lanes write, which is the currency one for a currency and
+    /// the number one for everything else.
+    /// </summary>
+    private string DecimalSeparator
+    {
+        get
+        {
+            if (string.Equals(Style, "currency", StringComparison.Ordinal))
+            {
+                return NumberFormatInfo.CurrencyDecimalSeparator;
+            }
+
+            return NumberFormatInfo.NumberDecimalSeparator;
+        }
     }
 
     private string FormatCore(double value)
@@ -902,7 +944,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             result = NumberFormatInfo.NegativeSign + result;
         }
 
-        return _numberingSystem.Transliterate(result);
+        return Transliterate(result);
     }
 
     /// <summary>
@@ -953,7 +995,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         };
 
         // Apply numbering system digit transliteration
-        return _numberingSystem.Transliterate(result);
+        return Transliterate(result);
     }
 
     /// <summary>
@@ -2163,7 +2205,63 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// Formats a number and returns an array of parts.
     /// https://tc39.es/ecma402/#sec-partitionnumberpattern
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#sec-formatnumeric is defined as the concatenation of exactly the parts
+    /// https://tc39.es/ecma402/#sec-formatnumerictoparts returns, so both lanes write
+    /// <c>[[NumberingSystem]]</c>'s digits or neither does. <see cref="Format(double)"/> transliterates the
+    /// assembled string; this lane transliterates the parts a number's digits went into, which is the same
+    /// rewrite applied one part at a time. <c>IntlNumberFormatPartsTests.PartsConcatenateToFormat</c> walks a grid
+    /// of locales, numbering systems and styles and asserts the two agree, rather than assuming it.
+    /// </para>
+    /// </remarks>
     internal List<NumberFormatPart> FormatToParts(double value)
+    {
+        var parts = FormatToPartsCore(value);
+
+        if (_numberingSystem.RewritesDigits)
+        {
+            for (var i = 0; i < parts.Count; i++)
+            {
+                var part = parts[i];
+                var transliterated = TransliterateNumericPart(part.Type, part.Value);
+                if (!ReferenceEquals(transliterated, part.Value))
+                {
+                    parts[i] = new NumberFormatPart(part.Type, transliterated);
+                }
+            }
+        }
+
+        return parts;
+    }
+
+    /// <summary>
+    /// Rewrites one part's value in this formatter's numbering system, for the part types
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern fills from the number's own digits. A currency
+    /// symbol, a unit name and a literal are pattern text, not a number, and keep the characters the pattern
+    /// gave them.
+    /// </summary>
+    /// <remarks>
+    /// <c>decimal</c> is a separator rather than a digit, and is here because a numbering system can carry
+    /// one of its own — <c>arab</c> writes U+066B — which is the same rewrite
+    /// <see cref="Transliterate(string)"/> applies to the assembled string. <c>group</c> is a separator the
+    /// system has no opinion about, and keeps the locale's.
+    /// </remarks>
+    private string TransliterateNumericPart(string type, string value)
+    {
+        if (string.Equals(type, "decimal", StringComparison.Ordinal))
+        {
+            return _numberingSystem.RewritesDecimalSeparator ? _numberingSystem.DecimalSeparator.ToString() : value;
+        }
+
+        return type switch
+        {
+            "integer" or "fraction" or "exponentInteger" => _numberingSystem.TransliterateDigitsOnly(value),
+            _ => value
+        };
+    }
+
+    private List<NumberFormatPart> FormatToPartsCore(double value)
     {
         var parts = new List<NumberFormatPart>();
 

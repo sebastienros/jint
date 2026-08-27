@@ -436,6 +436,22 @@ internal sealed partial class NumberFormatPrototype : Prototype
         return startFormatted + sepTight + endFormatted;
     }
 
+    /// <summary>
+    /// The literal <c>formatRange</c> puts between two endpoints it did not collapse, which is what
+    /// <c>formatRangeToParts</c> writes as its shared <c>literal</c> part.
+    /// </summary>
+    /// <remarks>
+    /// The one shape this does not reproduce is a currency range whose two ends share a sign and a symbol
+    /// (<c>signDisplay: "always"</c>): <see cref="CollapseFormattedRange"/> drops the duplicate from the end
+    /// and tightens the separator, and the parts lane has no way to say that an endpoint's own parts were
+    /// elided. test262 asserts the two shapes below and not that one.
+    /// </remarks>
+    private static string RangeSeparator(JsNumberFormat numberFormat)
+    {
+        GetRangeSeparators(numberFormat.Locale, out var tight, out var loose);
+        return string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal) ? loose : tight;
+    }
+
     // TODO: read range patterns from CLDR (e.g. via Options.Intl.CldrProvider) instead of
     // hard-coding language detection here. Other locales (fr, ja, …) have their own pattern
     // shapes and will silently fall through to the en-style default until that data path
@@ -539,10 +555,12 @@ internal sealed partial class NumberFormatPrototype : Prototype
                 result.SetIndexValue(index++, partObj, updateLength: true);
             }
 
-            // Add separator
+            // Add separator — the one CollapseFormattedRange would have written between the same two
+            // endpoints, so the parts join back to what formatRange() returns. A currency range keeps both
+            // ends in full and takes the spaced separator; every other style takes the locale's tight one.
             var separator = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
             separator.CreateDataPropertyOrThrow("type", "literal");
-            separator.CreateDataPropertyOrThrow("value", " – ");
+            separator.CreateDataPropertyOrThrow("value", RangeSeparator(numberFormat));
             separator.CreateDataPropertyOrThrow("source", "shared");
             result.SetIndexValue(index++, separator, updateLength: true);
 
