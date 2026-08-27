@@ -2492,7 +2492,6 @@ consequences, none of which changes a signature:
   rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
   `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
   the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
-
 ### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
 
 `round` read the calendar off a `PlainDate` `relativeTo` and then wrote `"iso8601"` into both calendar
@@ -2616,6 +2615,49 @@ these patterns and still does not — it bounds script-supplied regular expressi
 caught `RegexMatchTimeoutException` around `Engine.Evaluate` to absorb this can drop that handler; a host
 that treated it as a signal the script was hostile was reading a scheduling artefact.
 
+### 4.55 An index a wrapped collection does not have does not exist, in every lane ([#3423](https://github.com/sebastienros/jint/issues/3423))
+
+On every array-like CLR wrapper, `[[HasProperty]]` and `[[GetOwnProperty]]` gave different answers for an
+index outside the collection:
+
+```js
+// 4.16.x, for engine.SetValue("x", new List<int> { 1, 2, 3 })
+3 in x                          // false
+x[3]                            // undefined
+x.hasOwnProperty(3)             // true
+x.hasOwnProperty("3")           // true
+x.hasOwnProperty(-1)            // true
+x.propertyIsEnumerable("3")     // true
+Object.getOwnPropertyDescriptor(x, 3)   // a descriptor
+Object.getOwnPropertyNames(x)   // ["0","1","2"]
+```
+
+That is not a divergence between two lanes an implementation may choose.
+[OrdinaryHasProperty](https://tc39.es/ecma262/#sec-ordinaryhasproperty) is defined in terms of
+`[[GetOwnProperty]]`, so `3 in x` being `false` while `x.hasOwnProperty(3)` is `true` on the same object is a
+contradiction. The cause: the view owned `Get`, `Set`, `HasProperty`, `Delete` and both key enumerations, and
+left `[[GetOwnProperty]]` to `ObjectWrapper`, which resolves the reflected indexer and reports a descriptor
+for **any** parseable index — including a negative or non-canonical one.
+
+In 5.x the descriptor lane reads the same index range as the rest, so all four of `in`, `hasOwnProperty`, the
+indexed read and `Object.getOwnPropertyNames` agree, and `hasOwnProperty`, `propertyIsEnumerable` and
+`Object.getOwnPropertyDescriptor` answer `false`/`undefined` for `3`, `10`, `-1`, `"08"` and `"+3"` alike.
+Positions the view **does** have are unchanged, in both spellings.
+
+Two consequences worth naming:
+
+- **A cached descriptor is no longer the answer after the collection shrinks.** Asking about an index stored
+  the reflected indexer's descriptor on the wrapper, so `x.hasOwnProperty(2)` went on being `true` after
+  `x.length = 1`. The range is read first, so it cannot be.
+- **`Object.defineProperty(x, 5, …)` for a position the view does not have is refused** rather than storing a
+  descriptor the other lanes then deny. That is the answer script already got — the reflected indexer's
+  descriptor was non-configurable, so the redefinition was rejected — now given by the view itself.
+  `Reflect.defineProperty` returns `false`, `Object.defineProperty` raises a `TypeError`.
+
+**What could break:** a host or script relying on `hasOwnProperty` / `propertyIsEnumerable` /
+`Object.getOwnPropertyDescriptor` reporting an out-of-range index as present. Nothing changes for in-range
+indices, for named CLR members, or for a dictionary-shaped target such as Newtonsoft's `JObject`, whose
+index-shaped string keys are dictionary keys and still answer from its own key set.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
