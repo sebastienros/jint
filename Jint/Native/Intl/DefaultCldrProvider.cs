@@ -425,8 +425,15 @@ public class DefaultCldrProvider : ICldrProvider
     /// narrow month slot to read at all.
     /// </summary>
     private static string[] NarrowMonths(CultureInfo culture)
+        => NarrowMonthsOf(culture, culture.DateTimeFormat.AbbreviatedMonthNames);
+
+    /// <summary>
+    /// The same derivation over abbreviated names the caller already holds, so a formatter whose own
+    /// <see cref="DateTimeFormatInfo"/> carries a different calendar's names narrows those rather than the
+    /// ones the locale defaults to.
+    /// </summary>
+    internal static string[] NarrowMonthsOf(CultureInfo culture, string[] abbreviated)
     {
-        var abbreviated = culture.DateTimeFormat.AbbreviatedMonthNames;
         var result = new string[12];
         for (var i = 0; i < 12; i++)
         {

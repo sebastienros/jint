@@ -429,6 +429,14 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // in becomes "gregory" rather than a calendar nothing can write a date with.
         calendar ??= GetDefaultCalendarForLocale(resolvedLocale);
 
+        // https://tc39.es/ecma402/#sec-formatdatetimepattern step 13 takes the field values from
+        // dateTimeFormat.[[Calendar]] — the calendar resolvedOptions() reports — and JsDateTimeFormat is
+        // where that calendar is applied, by ResolveCalendarFieldsForFormatting, working from a proleptic
+        // Gregorian DateTime. A DateTimeFormatInfo whose own Calendar is not Gregorian would apply a second
+        // one underneath, so this formatter's copy is pinned to Gregorian first and the resolved calendar
+        // stays the only one anything converts to.
+        var calendarPinned = TryPinGregorianCalendar(dateTimeFormatInfo, culture);
+
         // https://tc39.es/ecma402/#sec-formatdatetimepattern — the month, weekday and day-period names a
         // pattern writes are locale data. Every one of them is produced by handing a .NET pattern to
         // this culture, so seeding the culture's own tables is the one place a host's names reach all of
@@ -443,7 +451,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // culture on the machine and compares all five arrays entry by entry.
         var cldrProvider = _engine.Options.Intl.CldrProvider;
         var namesChanged = !ReferenceEquals(cldrProvider, DefaultCldrProvider.Instance)
-            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, culture.DateTimeFormat, resolvedLocale, calendar);
+            && ApplyProviderNames(cldrProvider, dateTimeFormatInfo, resolvedLocale, calendar);
 
         // https://tc39.es/ecma402/#table-datetimeformat-components — "narrow" is a value of weekday and of
         // month in its own right, and there is no .NET pattern letter for it. The narrow name goes into the
@@ -453,13 +461,17 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // the same formatter still needs: month and weekday have separate arrays, and a formatter carrying
         // dateStyle or timeStyle has neither option set.
         //
-        // Unlike the block above this asks the shared singleton too, and the guard is the option rather than
-        // the provider's identity: it is asked only when a narrow style is actually requested, so a default
-        // construction is untouched, and asking it there teaches something — .NET's narrow weekday names live
-        // in a slot no pattern letter reaches, and it has no narrow month names at all.
-        namesChanged |= ApplyNarrowNames(cldrProvider, dateTimeFormatInfo, resolvedLocale, calendar, month, weekday);
+        // Unlike the block above this reaches the shared singleton's data too, and the guard is the option
+        // rather than the provider's identity: it is read only when a narrow style is actually requested, so a
+        // default construction is untouched, and reading it there teaches something — .NET's narrow weekday
+        // names live in a slot no pattern letter reaches, and it has no narrow month names at all.
+        namesChanged |= ApplyNarrowNames(cldrProvider, dateTimeFormatInfo, culture, resolvedLocale, calendar, month, weekday);
 
-        if (namesChanged)
+        // The culture IntlUtilities hands out is read-only and shared process-wide, so a formatter that
+        // adjusted anything formats through a clone carrying its own DateTimeFormatInfo instead. Both lanes
+        // read it: the string lane hands the CultureInfo to DateTime.ToString, the parts lane reads month
+        // and weekday names out of the same instance.
+        if (namesChanged || calendarPinned)
         {
             culture = (CultureInfo) culture.Clone();
             culture.DateTimeFormat = dateTimeFormatInfo;
@@ -512,6 +524,60 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     }
 
     /// <summary>
+    /// Points one formatter's <see cref="DateTimeFormatInfo"/> at the culture's Gregorian calendar, so that
+    /// .NET writes proleptic Gregorian fields and the resolved calendar is the only one applied.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern step 13 says the fields come from
+    /// <c>dateTimeFormat.[[Calendar]]</c>, which <c>JsDateTimeFormat.ResolveCalendarFieldsForFormatting</c>
+    /// applies to a proleptic Gregorian <see cref="DateTime"/>. Where a locale's own
+    /// <see cref="CultureInfo"/> carries a non-Gregorian <see cref="Calendar"/> — <c>ar-SA</c>,
+    /// <c>fa-IR</c>, <c>th-TH</c> and a dozen others — every <c>DateTime.ToString(pattern, culture)</c>
+    /// applied a second conversion underneath, so a formatter reporting <c>"gregory"</c> wrote a Hijri,
+    /// Persian or Buddhist date, and the parts lane, which reads <see cref="DateTime.Year"/> directly,
+    /// disagreed with it field by field.
+    /// </para>
+    /// <para>
+    /// <see cref="DateTimeFormatInfo.Calendar"/> accepts only a calendar the culture lists, and a culture
+    /// can offer more than one <see cref="GregorianCalendarTypes"/>, so the instance comes from
+    /// <see cref="CultureInfo.OptionalCalendars"/> rather than being constructed. A culture offering none is
+    /// left alone: the wrong date is better than no formatter at all.
+    /// </para>
+    /// <para>
+    /// The setter resets the patterns, month names and era names it owns to the new calendar's, which is why
+    /// this runs before <see cref="ApplyProviderNames"/> seeds a host's data over them.
+    /// </para>
+    /// </remarks>
+    private static bool TryPinGregorianCalendar(DateTimeFormatInfo target, CultureInfo culture)
+    {
+        if (target.Calendar is GregorianCalendar)
+        {
+            return false;
+        }
+
+        foreach (var candidate in culture.OptionalCalendars)
+        {
+            if (candidate is not GregorianCalendar)
+            {
+                continue;
+            }
+
+            try
+            {
+                target.Calendar = candidate;
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Seeds one formatter's <see cref="DateTimeFormatInfo"/> with the month, weekday and day-period names
     /// a host <see cref="ICldrProvider"/> answers with, and reports whether any of them differed from what
     /// .NET already held. Reached only for a provider the host installed: <see cref="DefaultCldrProvider"/>'s
@@ -527,18 +593,22 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// The narrow styles are not read here. <see cref="ApplyNarrowNames"/> reads them instead, from every
     /// provider and only for the formatter that asked for one.
     /// </para>
+    /// <para>
+    /// "What .NET already held" is read off <paramref name="target"/> rather than off the culture, because
+    /// <see cref="TryPinGregorianCalendar"/> may already have re-based it: the names a formatter starts from
+    /// are the ones its own calendar carries.
+    /// </para>
     /// </remarks>
     private static bool ApplyProviderNames(
         ICldrProvider provider,
         DateTimeFormatInfo target,
-        DateTimeFormatInfo original,
         string locale,
         string? calendar)
     {
         var changed = false;
 
         var longMonths = provider.GetMonthNames(locale, "long", calendar);
-        if (DiffersFrom(longMonths, original.MonthNames, 12))
+        if (DiffersFrom(longMonths, target.MonthNames, 12))
         {
             target.MonthNames = WithTrailingEmpty(longMonths!);
             target.MonthGenitiveNames = WithTrailingEmpty(longMonths!);
@@ -546,7 +616,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
 
         var shortMonths = provider.GetMonthNames(locale, "short", calendar);
-        if (DiffersFrom(shortMonths, original.AbbreviatedMonthNames, 12))
+        if (DiffersFrom(shortMonths, target.AbbreviatedMonthNames, 12))
         {
             target.AbbreviatedMonthNames = WithTrailingEmpty(shortMonths!);
             target.AbbreviatedMonthGenitiveNames = WithTrailingEmpty(shortMonths!);
@@ -554,14 +624,14 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
 
         var longWeekdays = provider.GetWeekdayNames(locale, "long");
-        if (DiffersFrom(longWeekdays, original.DayNames, 7))
+        if (DiffersFrom(longWeekdays, target.DayNames, 7))
         {
             target.DayNames = (string[]) longWeekdays!.Clone();
             changed = true;
         }
 
         var shortWeekdays = provider.GetWeekdayNames(locale, "short");
-        if (DiffersFrom(shortWeekdays, original.AbbreviatedDayNames, 7))
+        if (DiffersFrom(shortWeekdays, target.AbbreviatedDayNames, 7))
         {
             target.AbbreviatedDayNames = (string[]) shortWeekdays!.Clone();
             changed = true;
@@ -570,8 +640,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // The pattern letter is "tt", whose CLDR counterpart is the abbreviated day period.
         var dayPeriods = provider.GetDayPeriods(locale, "short", calendar);
         if (dayPeriods is { Length: 2 }
-            && (!string.Equals(dayPeriods[0], original.AMDesignator, StringComparison.Ordinal)
-                || !string.Equals(dayPeriods[1], original.PMDesignator, StringComparison.Ordinal)))
+            && (!string.Equals(dayPeriods[0], target.AMDesignator, StringComparison.Ordinal)
+                || !string.Equals(dayPeriods[1], target.PMDesignator, StringComparison.Ordinal)))
         {
             target.AMDesignator = dayPeriods[0];
             target.PMDesignator = dayPeriods[1];
@@ -587,12 +657,23 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// when <c>month</c> or <c>weekday</c> is <c>"narrow"</c>, and reports whether it wrote anything.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// An answer of the wrong length, or none at all, leaves the abbreviated names in place — which is the
     /// behaviour every release before this one had for a narrow style.
+    /// </para>
+    /// <para>
+    /// The shipped provider derives a narrow month from the abbreviated one and reads that out of the shared
+    /// culture, which carries the calendar the locale defaults to rather than the one this formatter
+    /// resolved. Narrowing <paramref name="target"/>'s own names instead is the same answer wherever the two
+    /// agree, and the resolved calendar's answer where <see cref="TryPinGregorianCalendar"/> has re-based
+    /// them. A host provider is asked either way, because it takes the calendar as an argument and can
+    /// answer for it, and weekday names are calendar-independent.
+    /// </para>
     /// </remarks>
     private static bool ApplyNarrowNames(
         ICldrProvider provider,
         DateTimeFormatInfo target,
+        CultureInfo culture,
         string locale,
         string? calendar,
         string? month,
@@ -602,7 +683,9 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
 
         if (string.Equals(month, "narrow", StringComparison.Ordinal))
         {
-            var narrowMonths = provider.GetMonthNames(locale, "narrow", calendar);
+            var narrowMonths = ReferenceEquals(provider, DefaultCldrProvider.Instance)
+                ? DefaultCldrProvider.NarrowMonthsOf(culture, target.AbbreviatedMonthNames)
+                : provider.GetMonthNames(locale, "narrow", calendar);
             if (narrowMonths is { Length: 12 })
             {
                 target.AbbreviatedMonthNames = WithTrailingEmpty(narrowMonths);
