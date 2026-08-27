@@ -2317,15 +2317,20 @@ arithmetic for another. The provider is asked for every calendar it claims, and 
 conversions are already what every field accessor reads. Over the same 774,158-case sweep the two paths
 agree on 100.000% of cases within the BCL calendars' ranges. The 1.7% that differ are all `chinese` and
 `dangi` dates whose arithmetic leaves `ChineseLunisolarCalendar`'s 1901–2101 or `KoreanLunisolarCalendar`'s
-2051 ceiling, and out there the two now part in kind rather than in detail:
+2051 ceiling, and out there the two part in kind rather than in detail:
 [#3452](https://github.com/sebastienros/jint/pull/3452) made the engine's own arithmetic **refuse** a result
-it cannot represent, while the provider path goes on answering — because `IsoToCalendarFields` and
-`CalendarFieldsToIso` fall back to ISO-like fields past the end of a BCL calendar, and always did, which is
-what every field accessor on such a date has always read. So
+it cannot represent, while the provider path — which is written in the two conversions, and those still
+answer — goes on answering. So
 `Temporal.PlainDate.from('1950-01-01').withCalendar('chinese').subtract({ years: 100 })` is a `RangeError`
-on a default engine and `1849-11-13` under any provider that claims `chinese`. Both terminate, and neither
-is the Chinese calendar. To keep a calendar on the engine's own arithmetic, do not claim it: override
-`IsSupported` to return `false` for it, or drop it from `GetSupportedCalendars`.
+on a default engine and a date under any provider that claims `chinese`. To keep a calendar on the engine's
+own arithmetic, do not claim it: override `IsSupported` to return `false` for it, or drop it from
+`GetSupportedCalendars`.
+
+What that answering path answers *with* changed after this section was written:
+[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451) gave `chinese`
+and `dangi` a real reckoning past the end of their tables, where the conversions used to fall back to
+ISO-like fields. The subtraction above was `1849-11-13` — the ninth month, day 29, from a date in the
+eleventh month, day 13 — and is now `1849-12-26`, which is the eleventh month, day 13.
 
 A host provider is also free to clamp where the engine no longer does, and a conversion that answers with
 its own boundary date every time is what made the month walk stand still forever. The walk keeps a
@@ -2520,6 +2525,65 @@ of `Temporal` still reckoning in ISO with another calendar's name attached — `
 `subtract` and `total` all already reckoned in the calendar — so a value that changes here was disagreeing
 with all of them. An ISO `relativeTo` is unaffected, and so is a duration rounded without one: nothing
 outside the calendar path moves.
+
+### 4.50 A date past a lunisolar calendar's table is still reckoned in that calendar ([#3451](https://github.com/sebastienros/jint/issues/3451))
+
+`ChineseLunisolarCalendar` spans ISO 1901-02-19 to 2101-01-28 and `KoreanLunisolarCalendar` 918-02-19 to
+2051-02-10, while `Temporal.PlainDate` spans a quarter of a million years each way. Outside those two
+tables the field accessors answered with the ISO year, `M{isoMonth}`, the ISO days-in-month and twelve
+months a year — Gregorian fields wearing a lunisolar label, and nothing downstream could tell them from
+real ones.
+
+```js
+const d = Temporal.PlainDate.from('1800-01-01').withCalendar('chinese');
+d.year;         // 5.0: 1800    5.x: 1799
+d.monthCode;    // 5.0: "M01"   5.x: "M12"
+d.day;          // 5.0: 1       5.x: 7
+d.daysInMonth;  // 5.0: 31      5.x: 30
+d.daysInYear;   // 5.0: 365     5.x: 354
+```
+
+Refusing instead was not open to the engine.
+[`NonISOCalendarISOToDate`](https://tc39.es/proposal-temporal/#sec-temporal-nonisocalendarisotodate) is
+declared as returning *a Calendar Date Record* — not "either a normal completion … or a throw completion",
+the phrasing its neighbour [`NonISODateAdd`](https://tc39.es/proposal-temporal/#sec-temporal-nonisodateadd)
+carries and which is what lets the *arithmetic* refuse — and `get PlainDate.prototype.monthCode` reads it
+without `?`. So the accessors have to answer, and `withCalendar` has no range to validate against either.
+
+What answers now is the reckoning both calendars are defined by: months begin on the day of an
+astronomical new moon in the calendar's own time zone, the eleventh month is the one containing the winter
+solstice, and a year needing a thirteenth month takes it at the first month of its *sui* carrying no major
+solar term. It is a fallback, not a replacement — inside a table that table still answers, byte for byte —
+and it reproduces both tables exactly across every year over which they tabulate this calendar rather than
+an older one: `chinese` from 1929, `dangi` from 1912, to the end of each.
+
+**What could break:** anything reading `year`, `month`, `monthCode`, `day`, `dayOfYear`, `daysInMonth`,
+`daysInYear`, `monthsInYear` or `inLeapYear` off a `chinese` or `dangi` date outside those tables, and
+`from`, `with`, `equals`, `toPlainYearMonth`, `toPlainMonthDay` and `Intl` formatting, which all read the
+same conversion. Every one of those values changes, because every one of them was the ISO value. Nine
+other non-ISO calendars are untouched: each already had a reckoning of its own to fall back on past the end
+of its BCL calendar, which is why only these two ever gave an ISO answer.
+
+Two consequences worth naming:
+
+- **A date the Korean table names but will not measure** is now reckoned too. `KoreanLunisolarCalendar`
+  reports month 13 for 1189-01-09 and reports the year holding it as having no leap month, so
+  `GetDaysInMonth` refuses the month `GetMonth` just named; the date used to come back as ISO fields for
+  that reason rather than for being out of range.
+- **Arithmetic past a table's end still refuses**, unchanged from
+  [4.44](#444-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) and
+  [#3452](https://github.com/sebastienros/jint/pull/3452): `add`, `subtract`, `until` and `since` are
+  written against the BCL calendar directly, and a result it cannot represent is still a `RangeError`.
+  That is the same split `hebrew` and `persian` have always had — fields reckoned, arithmetic refused.
+  What does change is the **provider** path: §4.44 said a provider claiming `chinese` walks the two
+  conversions and so answers `1849-11-13` where a default engine raises `RangeError`, because those
+  conversions fell back to ISO-like fields. They no longer do, so that walk is now the Chinese calendar
+  rather than an ISO one wearing its name; the two paths still part in kind, but the answering one is no
+  longer wrong.
+
+Far past either table the series the reckoning is built on lose accuracy — beyond roughly ±70,000 years a
+month can come back at 28 or 31 days — which is what implementation-defined permits and what every engine
+computing these calendars does. Every search is bounded, so it degrades rather than failing to return.
 
 ## 5. New in v5
 
