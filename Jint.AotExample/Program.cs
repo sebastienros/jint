@@ -395,6 +395,27 @@ Probe("TypeReference: constructing a CLR type from script", static () =>
     Expect("Jint", engine.Evaluate("new Company().name"));
 });
 
+// A nested type is a member a script can name through a TypeReference - the lane TypeResolver ends in
+// with Type.GetNestedType - and nothing pinned that it works natively. System.Environment rather than
+// one of this project's own types, because those are rooted wholesale by TrimmerRootAssembly.
+//
+// It passes with no [DynamicallyAccessedMembers(... PublicNestedTypes ...)] anywhere, and that is the
+// finding rather than an accident: measured here with the annotation added and removed, SpecialFolder,
+// SpecialFolderOption, TimeZoneInfo.TransitionTime/AdjustmentRule, List<int>.Enumerator and
+// Dictionary<,>.KeyCollection all resolve either way, so ILC keeps the nested types of a type whose
+// metadata it emits. Adding the annotation to SetValue(string, Type) is what a host would PAY for:
+// it marks each nested type All, and every nested enum then raises IL3050 in the host's own build
+// through the inherited [RequiresDynamicCode] Enum.GetValues(Type) - two of them for the one
+// registration below. So Jint states that requirement on TryFindMemberAccessor, where it is read, and
+// not at the boundary. Do not "fix" the two IL2072 on TypeReference.ReferenceType by moving it there.
+Probe("TypeReference: a nested type of an unrooted framework type", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("Env", typeof(Environment));
+    Expect(true, engine.Evaluate("Env.SpecialFolder !== undefined"));
+    Expect((int) Environment.SpecialFolder.MyDocuments, engine.Evaluate("Env.SpecialFolder.MyDocuments"));
+});
+
 // Only passes because the csproj roots this assembly as well as Jint. Without that, the extension
 // method's metadata is trimmed and `company.shout()` fails as "not a function" - a wrong answer
 // rather than an AOT diagnostic, which is why the probe is here.

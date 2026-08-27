@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 630
+undocumented: 629
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -481,7 +481,6 @@ P:Jint.Runtime.Host.Engine
 P:Jint.Runtime.Interop.IObjectWrapper.Target
 P:Jint.Runtime.Interop.ObjectWrapper.ClrType
 P:Jint.Runtime.Interop.ObjectWrapper.Target
-P:Jint.Runtime.Interop.TypeReference.ReferenceType
 P:Jint.Runtime.Interop.TypeReference.Target
 P:Jint.Runtime.Intrinsics.Array
 P:Jint.Runtime.Intrinsics.ArrayBuffer

@@ -1,4 +1,4 @@
-# Agent instructions: Native AOT and trimming
+﻿# Agent instructions: Native AOT and trimming
 
 > **Read this when:** You are adding a reflection lane anywhere under `Jint/`, writing or removing a
 > trimming or AOT annotation, changing `Jint.csproj`'s IL suppressions, or editing `Jint.AotExample` —
@@ -29,7 +29,7 @@ already states the requirement. **Do not write one whose justification is not li
 add a code back to `NoWarn` to quiet a new site.**
 
 [#3305](https://github.com/sebastienros/jint/issues/3305) took the published-and-run inventory from 113
-to 76 and carries what is left, grouped by what would close it. Four moves did most of it, and each is
+to 73 and carries what is left, grouped by what would close it. Five moves did most of it, and each is
 worth trying before a suppression is:
 
 * **Spell a constant type as `typeof(X)` at the reflection call.** That token is folded, so the lookup
@@ -49,6 +49,28 @@ worth trying before a suppression is:
   every public member of *both* parameters while reading the interfaces of one and merely comparing the
   other; no caller could satisfy the excess, so it propagated outwards as a diagnostic at every one of
   them.
+* **Spell a `BindingFlags` argument as a constant when only constants reach it.** A `Type.Get*` call
+  whose flags the analyzer cannot fold is assumed to ask for non-public members, so it demands
+  `NonPublic*` of every annotated caller — a requirement that then propagates to the public entry
+  points for a lookup nothing can reach. `TryFindMemberAccessor`'s nested-type lookup wrote
+  `bindingFlags ?? …` where the one caller that passes flags asks `GetNestedType` exactly what the
+  default asks. Its three siblings above it genuinely take host-configured flags
+  (`Options.Interop.ObjectWrapperReported*BindingFlags`), so they cannot be spelled this way and must
+  not be closed by widening the annotation instead: that would push every host type's *non-public*
+  members into what every AOT consumer preserves, for a lookup only a host that asked for
+  `BindingFlags.NonPublic` can reach.
+
+**One diagnostic group is deliberately left standing, and it is the one that looks most closable.** The
+two `IL2072` on `TypeReference.ReferenceType` ask for `PublicNestedTypes`, which
+`TypeResolver.TryFindMemberAccessor` genuinely reads and which
+`InteropHelper.DefaultDynamicallyAccessedMemberTypes` genuinely could carry. Measured, twice, on a
+published native binary: carrying it preserves **nothing** — ILC already keeps the nested types of a
+type whose metadata it emits, checked for six candidates with the annotation present and absent — while
+it marks each nested type `All`, so every nested **enum** of every exposed type raises an `IL3050` in
+the *embedder's own file* through the inherited `[RequiresDynamicCode] Enum.GetValues(Type)`. One
+`engine.SetValue("Env", typeof(Environment))` cost two. That is the `Delegate` trap of
+`docs/v5-migration.md` §6.4 a second time, and trading two diagnostics in Jint's files for an unbounded
+number in every host's was the wrong way round. **Do not close them by widening the constant.**
 
 #### What the leg proves
 

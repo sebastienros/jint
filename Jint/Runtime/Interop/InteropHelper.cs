@@ -8,11 +8,49 @@ namespace Jint.Runtime.Interop;
 
 internal sealed class InteropHelper
 {
+    /// <summary>
+    /// What every public entry point that hands a CLR type to the engine promises to preserve:
+    /// <see cref="Engine.SetValue{T}(string, T)"/> and <c>SetValue(string, Type)</c> on both
+    /// <see cref="Engine"/> and <c>ShadowRealm</c>, <see cref="TypeReference.CreateTypeReference(Engine, Type)"/>,
+    /// and <c>ModuleBuilder.ExportType</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is one constant because it is one promise, and it has to cover everything member resolution reads
+    /// off the exposed type rather than only the members a script names.
+    /// <see cref="DynamicallyAccessedMemberTypes.Interfaces"/> is the entry that is not about a named
+    /// member: <c>TypeResolver</c> walks <see cref="Type.GetInterfaces"/> for a property or method the class
+    /// implements only through an interface, and <c>TypeDescriptor</c> walks them to decide whether a target
+    /// is array-like, dictionary-shaped or enumerable. A trimmer may remove an interface implementation
+    /// nothing uses, and Jint would then answer <c>undefined</c> for a member that is there — the failure
+    /// mode with no diagnostic anywhere.
+    /// </para>
+    /// <para>
+    /// <see cref="DynamicallyAccessedMemberTypes.PublicNestedTypes"/> is deliberately <b>not</b> here, and
+    /// that is a measured decision rather than an oversight. Member resolution really does call
+    /// <see cref="Type.GetNestedType(string, System.Reflection.BindingFlags)"/> — a nested type is a member a
+    /// script can name — so the requirement is stated where it is read, on
+    /// <c>TypeResolver.TryFindMemberAccessor</c>, and the two diagnostics it raises on the way to
+    /// <see cref="TypeReference.ReferenceType"/> are left standing. Carrying it here instead costs the
+    /// embedder: the attribute marks each nested type with <c>All</c>, so every public nested <b>enum</b> of
+    /// every exposed type produces an <c>IL3050</c> in the host's own build through the inherited
+    /// <c>[RequiresDynamicCode]</c> <c>Enum.GetValues(Type)</c> — two of them for a single
+    /// <c>SetValue("Env", typeof(Environment))</c>, measured on a published native binary. It buys nothing
+    /// there in exchange: ILC keeps the nested types of a type whose metadata it emits either way, which the
+    /// same measurement confirmed for six candidates.
+    /// </para>
+    /// <para>
+    /// Widening this constant is a real cost to every AOT consumer, including the ones that never reach the
+    /// member, so add to it only for something resolution genuinely reads <em>and</em> a trimmer genuinely
+    /// removes.
+    /// </para>
+    /// </remarks>
     internal const DynamicallyAccessedMemberTypes DefaultDynamicallyAccessedMemberTypes = DynamicallyAccessedMemberTypes.PublicConstructors
                                                                                           | DynamicallyAccessedMemberTypes.PublicProperties
                                                                                           | DynamicallyAccessedMemberTypes.PublicMethods
                                                                                           | DynamicallyAccessedMemberTypes.PublicFields
-                                                                                          | DynamicallyAccessedMemberTypes.PublicEvents;
+                                                                                          | DynamicallyAccessedMemberTypes.PublicEvents
+                                                                                          | DynamicallyAccessedMemberTypes.Interfaces;
 
     internal readonly record struct AssignableResult(int Score, Type MatchingGivenType)
     {

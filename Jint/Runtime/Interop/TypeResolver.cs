@@ -290,7 +290,7 @@ public sealed class TypeResolver
 
     internal ReflectionAccessor GetStaticAccessor(
         Engine engine,
-        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)]
         Type type,
         string member)
     {
@@ -337,7 +337,7 @@ public sealed class TypeResolver
 
     private ReflectionAccessor ResolveStaticAccessor(
         Engine engine,
-        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes | DynamicallyAccessedMemberTypes.Interfaces)]
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)]
         Type type,
         string member)
     {
@@ -805,12 +805,21 @@ public sealed class TypeResolver
 
     internal bool TryFindMemberAccessor(
         Engine engine,
-        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes | DynamicallyAccessedMemberTypes.PublicNestedTypes)] Type type,
         string memberName,
         BindingFlags? bindingFlags,
         PropertyInfo? indexerToTry,
         [NotNullWhen(true)] out ReflectionAccessor? accessor)
     {
+        // The three lookups below reflect with binding flags the host chooses
+        // (Options.Interop.ObjectWrapperReported*BindingFlags), so a trimmer cannot fold them and assumes
+        // they ask for non-public members: one IL2070 each, and they are deliberately left standing.
+        // Closing them means declaring NonPublicProperties | NonPublicFields | NonPublicMethods on `type`,
+        // which propagates to every annotated public entry point and makes every AOT consumer preserve the
+        // non-public members of every type they expose - to serve a lookup only a host that put
+        // BindingFlags.NonPublic in those options can reach. The nested-type lookup at the end of this
+        // method is the one that could be spelled as a constant, and is.
+        //
         // look for a property, bit be wary of indexers, we don't want indexers which have name "Item" to take precedence
         PropertyInfo? property = null;
         var memberNameComparer = _memberNameComparer;
@@ -991,8 +1000,17 @@ public sealed class TypeResolver
             return true;
         }
 
-        // look for nested type
-        var nestedType = type.GetNestedType(memberName, bindingFlags ?? BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static);
+        // Look for a nested type. Spelled as a constant rather than as `bindingFlags ?? …`, and the two are
+        // the same lookup: Type.GetNestedType reads only the Public/NonPublic pair, so the one caller that
+        // passes flags (ResolveStaticAccessor, Public | Static | FlattenHierarchy) asks this exactly what the
+        // default asks, and neither ever carries NonPublic. Written dynamically it was a Type.Get* call whose
+        // flags a trimmer cannot fold, so it demanded NonPublicNestedTypes of every annotated caller — a
+        // requirement no lookup here can reach. As a constant it demands PublicNestedTypes, which is what
+        // this method's `type` parameter declares, so the requirement is stated exactly where it is read.
+        // It deliberately stops at TypeReference.ReferenceType rather than reaching the public entry points;
+        // InteropHelper.DefaultDynamicallyAccessedMemberTypes says what carrying it there would cost.
+        const BindingFlags NestedTypeBindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.Static;
+        var nestedType = type.GetNestedType(memberName, NestedTypeBindingFlags);
         if (nestedType != null && Filter(engine, type, nestedType))
         {
             var typeReference = TypeReference.CreateTypeReference(engine, nestedType);

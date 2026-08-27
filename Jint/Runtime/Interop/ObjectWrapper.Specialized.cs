@@ -86,7 +86,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     protected ArrayLikeWrapper(
         Engine engine,
         object obj,
-        Type itemType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)] Type itemType,
         Type? type,
         bool elementAccessMayRunHostCode) : base(engine, obj, type)
     {
@@ -98,6 +98,20 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
     }
 
+    /// <summary>
+    /// The element type a JS value is coerced to on an element write, which is what
+    /// <c>ClrTypeConverter.Convert</c> is handed and therefore what its annotation asks to be preserved:
+    /// the type's public constructors, and its public fields for the enum case.
+    /// </summary>
+    /// <remarks>
+    /// The constructor parameter that fills this carries the same annotation, which is what makes the
+    /// <c>[DynamicallyAccessedMembers]</c> on <see cref="ArrayWrapperFactory{T}"/>,
+    /// <see cref="GenericListWrapperFactory{T}"/>, <see cref="ReadOnlyListWrapperFactory{T}"/> and
+    /// <see cref="EnumerableSnapshotFactory{T}"/> — and on the wrappers they build — required by something
+    /// rather than decorative: each passes <c>typeof(T)</c> here. The one subclass that cannot satisfy it is
+    /// <c>ListWrapper</c>, whose element type is an array's at run time, and its diagnostic is the honest
+    /// statement that a trimmer cannot preserve what <see cref="Type.GetElementType"/> returns.
+    /// </remarks>
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields)]
     private Type ItemType { get; }
 
