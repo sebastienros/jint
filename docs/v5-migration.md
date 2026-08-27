@@ -2758,6 +2758,42 @@ consequences, none of which changes a signature:
   rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
   `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
   the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
+
+### 4.58 A worker's time budgets are measured on the worker's own clock ([#3481](https://github.com/sebastienros/jint/issues/3481))
+
+`Options.Constraints.TimeProvider` governs two budgets — `LimitExecutionTime`'s constraint and
+`PromiseTimeout`'s blocking drain ([§4.48](#448-the-blocking-promise-drain-is-bounded-on-the-engines-clock-not-on-the-wall-clock)).
+A worker inherited the second of those as a *value* and measured it on the system clock, while the first
+arrived as a replayed constraint factory that had closed over the **parent's** options and so read the
+parent's clock. One worker engine, two budgets, two clocks.
+
+Two changes, and they are one decision:
+
+* **A worker does not inherit the clock.** `Options.Constraints.TimeProvider` is now named in the
+  classification list `WorkerRequest.CreateDefaultOptions` is built on, as something that deliberately stays
+  behind. A worker starts on `TimeProvider.System` — which is what it already did — and that is now a
+  decision on the record rather than a gap. Nothing script-visible reads this clock (`Date`, `Temporal.Now`
+  and `Intl` read `Options.TimeSystem`; `performance.now()` and the web-API timers read
+  `Options.WebApi.Timers.TimeProvider`), so inheriting it would not have hidden or revealed anything from
+  script; what it would have decided is whether the budgets the worker *does* inherit can still fire, and a
+  clock a parent had stopped would have left them unable to.
+* **The execution timeout follows the engine, not the options it was configured on.** The constraint
+  `LimitExecutionTime` registers now takes its clock from the engine being built. For an engine a host
+  constructs directly this is the same object and nothing changes at all. It differs only where a constraint
+  factory is replayed onto another `Options` instance, which is exactly and only what a worker is.
+
+**What to do.** If you supply a `TimeProvider` and spawn workers, and you want the worker on your clock too,
+assign it in your `WorkerProvider` to the options the request hands you:
+
+```csharp
+var options = request.CreateDefaultOptions();
+options.Constraints.TimeProvider = myClock;   // opt in, per worker
+var worker = new Engine(options);
+```
+
+Before this change that half happened by accident for `LimitExecutionTime` and never for `PromiseTimeout`.
+If you do not supply a `TimeProvider` at all, nothing here is observable.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

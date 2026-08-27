@@ -218,6 +218,18 @@ public sealed class WorkerRequest
     /// registered above handles termination.
     /// </para>
     /// <para>
+    /// <b>The clock is not inherited, and that is a decision rather than an omission</b>
+    /// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>). A worker's
+    /// <c>Options.Constraints.TimeProvider</c> is <see cref="System.TimeProvider.System"/> however its parent's
+    /// was configured, and the constraint factories replayed above take the clock of the engine they are built
+    /// for, so a worker measures its inherited <c>PromiseTimeout</c> and its inherited <c>LimitExecutionTime</c>
+    /// against one clock — its own. Two reasons, and neither is that a clock is uninteresting. It grants
+    /// script nothing, because nothing script-visible reads it. And a fake clock exists to be stopped, so
+    /// inheriting one would hand a worker two budgets whose deadlines its own thread never reaches, which is
+    /// the number travelling without the bound. A provider that wants its worker on a controlled clock assigns
+    /// one to the options returned here, in the same breath as everything else it decides.
+    /// </para>
+    /// <para>
     /// It is a convenience, not a security boundary — see <see cref="WorkerProvider"/>.
     /// </para>
     /// </remarks>

@@ -24,15 +24,33 @@ namespace Jint.Constraints;
 /// <see langword="null"/> for a default engine — see <c>ConstraintClock.Resolve</c> for the fold and
 /// for why the branch it costs is the shape this seam had to take.
 /// </para>
+/// <para>
+/// <b>The clock arrives from the engine, not from the options the interval was configured on.</b>
+/// <c>LimitExecutionTime</c> registers a factory, and a factory can be replayed onto a <em>different</em>
+/// <see cref="Options"/> instance — <c>WorkerRequest.CreateDefaultOptions</c> is the one thing that does it,
+/// and it did so onto a worker that had a clock of its own. A closure over the configuring group therefore
+/// put one engine's two time budgets on two different clocks
+/// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>). <c>BindClock</c> is called by
+/// <c>Engine</c> with the very provider <c>Engine.GetWaitTimestamp</c> reads, so the execution timeout and
+/// the <c>PromiseTimeout</c> drain cannot disagree about what time it is.
+/// </para>
 /// </remarks>
 internal sealed class TimeConstraint : Constraint
 {
-    private readonly long _timeoutTicks;
-
+    // Options.LimitExecutionTime only constructs this for 0 < timeout < TimeSpan.MaxValue. The clamp inside
+    // ToTimestampTicks keeps `now + _timeoutTicks` from overflowing for very large intervals, which would
+    // otherwise wrap to a deadline already in the past.
 #if NET8_0_OR_GREATER
+    // Kept, and the ticks are mutable, because binding a clock re-expresses the interval on that clock's
+    // tick scale. On the targets with no TimeProvider there is one scale and both are fixed at construction.
+    private readonly TimeSpan _timeout;
+    private long _timeoutTicks;
+
     // Null in every engine that did not name a clock, which is what keeps Check() on the direct
     // Stopwatch read it has always used.
-    private readonly TimeProvider? _timeProvider;
+    private TimeProvider? _timeProvider;
+#else
+    private readonly long _timeoutTicks;
 #endif
 
     // Timestamp the current execution must not pass, on whichever clock this constraint reads; 0 means
@@ -40,23 +58,33 @@ internal sealed class TimeConstraint : Constraint
     // Check never failed.
     private long _deadline;
 
-#if NET8_0_OR_GREATER
-    internal TimeConstraint(TimeSpan timeout, TimeProvider? timeProvider)
-    {
-        _timeProvider = ConstraintClock.Resolve(timeProvider);
-
-        // Options.TimeoutInterval only constructs this for 0 < timeout < TimeSpan.MaxValue. The clamp
-        // inside keeps `now + _timeoutTicks` from overflowing for very large intervals, which would
-        // otherwise wrap to a deadline already in the past.
-        _timeoutTicks = ConstraintClock.ToTimestampTicks(timeout, ConstraintClock.FrequencyOf(_timeProvider));
-    }
-#else
     internal TimeConstraint(TimeSpan timeout)
     {
-        // Options.TimeoutInterval only constructs this for 0 < timeout < TimeSpan.MaxValue. The clamp
-        // inside keeps `now + _timeoutTicks` from overflowing for very large intervals, which would
-        // otherwise wrap to a deadline already in the past.
+#if NET8_0_OR_GREATER
+        _timeout = timeout;
+#endif
         _timeoutTicks = ConstraintClock.ToTimestampTicks(timeout, Stopwatch.Frequency);
+    }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Points this constraint at the clock of the engine it was built for, and re-expresses the interval on
+    /// that clock's tick scale.
+    /// </summary>
+    /// <param name="resolvedProvider">
+    /// A provider already put through <c>ConstraintClock.Resolve</c> — so <see langword="null"/> both for
+    /// "no clock named" and for <see cref="TimeProvider.System"/>, and validated for a usable frequency at
+    /// the point the host supplied it rather than here.
+    /// </param>
+    /// <remarks>
+    /// Called once, from the <see cref="Engine"/> constructor, before the constraint has seen an execution.
+    /// A constraint that is never bound keeps the <see cref="Stopwatch"/> scale its constructor computed,
+    /// which is the same answer binding <see langword="null"/> gives.
+    /// </remarks>
+    internal void BindClock(TimeProvider? resolvedProvider)
+    {
+        _timeProvider = resolvedProvider;
+        _timeoutTicks = ConstraintClock.ToTimestampTicks(_timeout, ConstraintClock.FrequencyOf(resolvedProvider));
     }
 #endif
 

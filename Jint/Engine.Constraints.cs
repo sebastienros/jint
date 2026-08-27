@@ -60,6 +60,37 @@ public partial class Engine
         return constraints;
     }
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// Points every <see cref="TimeConstraint"/> this engine built at the engine's own clock.
+    /// </summary>
+    /// <remarks>
+    /// The clock belongs to the engine, not to the <see cref="Options"/> instance
+    /// <see cref="ConstraintsOptionsExtensions.LimitExecutionTime"/> was called on, and the two are the same
+    /// object for every engine a host builds directly. They are <b>not</b> the same for a worker:
+    /// <c>WorkerRequest.CreateDefaultOptions</c> replays the parent's constraint factories onto a fresh
+    /// <see cref="Options"/>, so a factory that closed over the configuring group measured the worker's
+    /// execution timeout on the parent's clock while the worker's inherited <c>PromiseTimeout</c> ran on its
+    /// own — one engine, two budgets, two clocks
+    /// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>).
+    /// <para>
+    /// The provider passed here is already resolved, so a host that named no clock (or named
+    /// <see cref="TimeProvider.System"/>) binds <see langword="null"/> and the constraint keeps reading
+    /// <see cref="System.Diagnostics.Stopwatch"/> directly.
+    /// </para>
+    /// </remarks>
+    private static void BindConstraintClocks(Constraint[] constraints, TimeProvider? resolvedClock)
+    {
+        foreach (var constraint in constraints)
+        {
+            if (constraint is TimeConstraint timeConstraint)
+            {
+                timeConstraint.BindClock(resolvedClock);
+            }
+        }
+    }
+#endif
+
     /// <summary>
     /// Splits the registered constraints by required check frequency, which each constraint declares for
     /// itself through <see cref="Constraint.IsAmortizable"/>. An amortizable constraint only observes

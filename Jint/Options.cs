@@ -354,9 +354,12 @@ public sealed partial class Options
     /// and it lives here, beside the properties it names, rather than in the feature that consumes it — so that
     /// a settings PR adding a new restriction has the classification in front of it. Two lists state that
     /// classification explicitly: <see cref="SecurityPostureInherited"/>, which must name exactly what this
-    /// method copies, and <see cref="SecurityPostureNotInherited"/>, which names every other value-typed
+    /// method copies, and <see cref="SecurityPostureNotInherited"/>, which names every other public settable
     /// setting in scope together with the reason it stays behind. A reflective test fails when a new one
-    /// belongs to neither.
+    /// belongs to neither, and it covers <b>reference-typed</b> settings as well as value-typed ones — the
+    /// widening that <see href="https://github.com/sebastienros/jint/issues/3481">#3481</see> forced, because
+    /// <c>Constraints.TimeProvider</c> is a clock two of this method's own budgets are measured against and
+    /// it fell outside the rule entirely.
     /// </para>
     /// <para>
     /// <b>Withholding a grant and dropping a restriction are opposites.</b> A worker may be given less than its
@@ -408,9 +411,9 @@ public sealed partial class Options
         target.Modules.MaxModuleGraphDepth = source.Modules.MaxModuleGraphDepth;
         target.Modules.MaxModuleResolutionHops = source.Modules.MaxModuleResolutionHops;
 
-        // Class-typed, so outside the reflective pin's value-typed scan — classified here instead. The
-        // limits bundle is sealed and shared by reference, exactly as sharing one Options between engines
-        // already shares it; a bounded parent's conversions must not become unbounded in its worker.
+        // The one reference-typed setting that travels. The limits bundle is sealed and shared by reference,
+        // exactly as sharing one Options between engines already shares it; a bounded parent's conversions
+        // must not become unbounded in its worker.
         target.ResultLimits = source.ResultLimits;
     }
 
@@ -423,7 +426,8 @@ public sealed partial class Options
     [
         // Every value setting on ConstraintOptions. All seven bound something the script cannot see, and the
         // default of each is the permissive one, so a worker that did not inherit them would be a way around
-        // a parent that had set them.
+        // a parent that had set them. The group's one reference-typed setting, TimeProvider, is a clock
+        // rather than a bound and stays behind — see SecurityPostureNotInherited.
         "Constraints.MaxRecursionDepth",
         "Constraints.MaxExecutionStackCount",
         "Constraints.StackOverflowGuard",
@@ -454,13 +458,26 @@ public sealed partial class Options
         "Modules.MaxTotalModuleSourceBytes",
         "Modules.MaxModuleGraphDepth",
         "Modules.MaxModuleResolutionHops",
+
+        // Reference-typed, and the only one that travels. It bounds what a conversion out of the engine may
+        // produce, it is sealed and immutable, and sharing it by reference is exactly what sharing one
+        // Options between engines already does.
+        "ResultLimits",
     ];
 
     /// <summary>
-    /// Every other value-typed public setting on <see cref="Options"/> and on the groups
+    /// Every other public settable setting on <see cref="Options"/> and on the groups
     /// <see cref="CopySecurityPosture"/> reads, with the reason it is not inherited. An entry here is a
     /// decision, not an omission.
     /// </summary>
+    /// <remarks>
+    /// The second half of the list is the reference-typed settings, which used to fall outside the reflective
+    /// pin altogether on the reasoning that host wiring is not posture. Mostly it is not — but
+    /// <c>Constraints.TimeProvider</c> is the clock two <em>inherited</em> budgets are measured against, so
+    /// "reference-typed, therefore not a setting" stopped being a rule anybody could rely on
+    /// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>). They are all named now, and
+    /// each still has to argue for itself.
+    /// </remarks>
     internal static readonly string[] SecurityPostureNotInherited =
     [
         // Meaningless fresh: module code is strict by specification, and a worker runs a module. The parent's
@@ -483,6 +500,61 @@ public sealed partial class Options
         // Exposure, which is a grant: detailed load errors name paths and hosts a hardened parent may be
         // redacting. The restrictive default is false, and a worker starts there whatever the parent chose.
         "Modules.ExposeDetailedLoadErrors",
+
+        // --- reference-typed settings ---------------------------------------------------------------
+        // Host wiring rather than posture, but named rather than assumed: a clock on this list is what
+        // showed that "reference-typed" is not by itself an argument (#3481).
+
+        // The clock the engine's OWN budgets are measured against - LimitExecutionTime's constraint and the
+        // PromiseTimeout drain - and the one entry here that had to be argued rather than waved through.
+        //
+        // It grants script nothing, because script cannot see it: Date, Temporal.Now and Intl read
+        // Options.TimeSystem, performance.now() and the web-API timers read Options.WebApi.Timers.TimeProvider,
+        // and nothing anywhere exposes this one. So the question is not what a worker could observe but
+        // whether an inherited restriction stays a restriction, and only one answer can weaken it. A fake
+        // clock exists to be stopped - that is what a host supplies one for - so inheriting it would hand a
+        // worker a PromiseTimeout and a LimitExecutionTime whose deadlines sit on a clock the worker's own
+        // thread never advances: the number would travel and the bound would not, and a limit that cannot be
+        // reached is not a limit. Declining it errs the other way, which is the direction this method
+        // permits - a worker may be given less than its creator and never more.
+        //
+        // It is also the only thing a worker would have SHARED rather than re-instantiated. Constraint
+        // instances are refused here for exactly that reason, and a host's TimeProvider is usually a plain
+        // mutable field behind GetTimestamp(), handed to one engine on one thread; a worker runs on another.
+        // Finally, the clock script CAN see does not travel either (Options.TimeSystem, below), and it would
+        // be incoherent for the invisible one to be the exception.
+        //
+        // The other end of the same decision is in Engine: the TimeConstraint a replayed factory builds takes
+        // its clock from the engine being constructed, so a worker measures both budgets on its own clock
+        // rather than one on each.
+        //
+        // Conditional because the setting is: TimeProvider is a .NET 8 type, so the downlevel targets have
+        // no such property for this list to name.
+#if NET8_0_OR_GREATER
+        "Constraints.TimeProvider",
+#endif
+
+        // The clock and date parser Date, Temporal.Now and Intl read. Script-visible, unlike the constraint
+        // clock above, and for that reason even less inheritable: a worker is a separate agent and its notion
+        // of "now" is its host's to supply, not something a parent's simulation imposes on it.
+        "TimeSystem",
+
+        // Formatting and parsing data, not a bound. Which locale and zone a second engine formats in is the
+        // host's to hand over, and neither answer restricts what script may do.
+        "Culture",
+        "TimeZone",
+
+        // A hook deciding what Function.prototype.toString reports. Host wiring, and the restrictive answer
+        // is already the fresh default (RetainFunctionSourceText is off, so a fresh engine reports the
+        // native-code placeholder).
+        "Host.FunctionToStringHandler",
+
+        // Grant-shaped, and the pair travels or stays together. The loader is what a worker can import
+        // through at all - the provider's to give, which is why CreateDefaultOptions leaves it fresh - and a
+        // load policy is written against the ResolvedSpecifier shapes of the loader it accompanies, so
+        // carrying it onto a different loader would be a restriction in name only.
+        "Modules.ModuleLoader",
+        "Modules.LoadPolicy",
     ];
 
     /// <summary>
@@ -498,8 +570,10 @@ public sealed partial class Options
 
         // Modules is deliberately NOT here: it used to be excluded wholesale as grant-shaped, and stopped
         // being classifiable that way the day it gained value-typed graph limits beside its loader. The group
-        // is scanned now — the loader and load policy are reference-typed host objects the scan never sees
-        // (grants, per engine), the numeric limits travel, and the two boolean grants are named above.
+        // is scanned now — the numeric limits travel, and the two boolean grants plus the loader and its load
+        // policy are named above. (The loader and the policy were argued in this comment rather than listed
+        // until #3481 widened the scan to reference-typed settings; they are entries now, with the same
+        // reason.)
 
         // Grant-shaped at the top: the feature mask IS the grant, and it is computed explicitly rather than
         // copied (network, storage, routing and the worker capability itself are subtracted), while the rest
@@ -1386,9 +1460,19 @@ public sealed partial class Options
         /// execution budget.
         /// </para>
         /// <para>
-        /// It governs the constraint the engine registers. <see cref="Constraints.OperationDeadlineConstraint"/>
-        /// is created by the host rather than by the engine, so it takes its clock through its own
-        /// constructor instead.
+        /// It governs the constraint the engine registers, and it is <b>this</b> engine's clock rather than the
+        /// one the interval happened to be configured on: a constraint factory replayed onto another
+        /// <see cref="Options"/> instance takes the clock of the engine being built from it.
+        /// <see cref="Constraints.OperationDeadlineConstraint"/> is created by the host rather than by the
+        /// engine, so it takes its clock through its own constructor instead.
+        /// </para>
+        /// <para>
+        /// <b>A worker does not inherit it.</b> <c>WorkerRequest.CreateDefaultOptions</c> copies the parent's
+        /// restrictions, and a clock is the yardstick rather than a restriction — script cannot observe it,
+        /// and inheriting one a parent had stopped would leave the worker's inherited budgets unable to fire
+        /// at all. A worker therefore starts on <see cref="TimeProvider.System"/>, and a provider that wants
+        /// it on a controlled clock assigns one to the options it is handed
+        /// (<see href="https://github.com/sebastienros/jint/issues/3481">#3481</see>).
         /// </para>
         /// </remarks>
         public TimeProvider TimeProvider { get; set { ThrowIfReadOnly(); field = value; } } = TimeProvider.System;

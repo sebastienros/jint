@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi;
 
@@ -258,6 +259,150 @@ public class WorkerTests
 
         // And the marker stays behind, so the worker's own construction cannot re-expand over them.
         workerOptions.UntrustedCodeLimits.Should().BeNull();
+    }
+
+    // ---------------------------------------------------------------------------------------------------
+    // The clock: a budget travels, the yardstick does not
+    // ---------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A callee long enough to reach the interpreter's amortized constraint check (every 64 statements), so a
+    /// case that expects a timeout to be consulted is not merely hoping it was.
+    /// </summary>
+    private const string TimedWork = """
+        function work() {
+            var total = 0;
+            for (var i = 0; i < 200; i++) {
+                total += i;
+            }
+            return total;
+        }
+        """;
+
+    /// <summary>
+    /// The defect <see href="https://github.com/sebastienros/jint/issues/3481">#3481</see> is about, from the
+    /// side that shows it: a worker's replayed <c>LimitExecutionTime</c> used to read the clock of the
+    /// <see cref="Options"/> instance the parent configured it on, because the factory closed over that group.
+    /// The worker's own clock — the one its inherited <c>PromiseTimeout</c> is measured against — was ignored.
+    /// </summary>
+    /// <remarks>
+    /// Deterministic rather than a race: the parent's clock never moves, so before the fix nothing this test
+    /// does can make the worker time out, and the assertion below fails by not throwing.
+    /// </remarks>
+    [Test]
+    public void AWorkersExecutionTimeoutIsMeasuredAgainstTheWorkersOwnClock()
+    {
+        var parentClock = new ManualClock();
+        var parentOptions = new Options().LimitExecutionTime(TimeSpan.FromMilliseconds(50));
+        parentOptions.Constraints.TimeProvider = parentClock;
+        var parent = new Engine(parentOptions);
+
+        var workerOptions = Request(parent).CreateDefaultOptions();
+        workerOptions.Constraints.TimeProvider = new AdvancingClock(TimeSpan.FromMilliseconds(50));
+        var worker = new Engine(workerOptions);
+        worker.Execute(TimedWork);
+
+        Invoking(() => worker.GetValue("work").Call())
+            .Should().Throw<TimeoutException>(
+                "the worker's execution timeout runs on the worker's clock, not on the one its parent was configured with");
+    }
+
+    /// <summary>
+    /// The mirror, and the half that makes the first case a boundary rather than one lucky direction: the
+    /// parent's clock racing past the interval must not end anything on the worker.
+    /// </summary>
+    [Test]
+    public void AParentsClockDoesNotBoundItsWorker()
+    {
+        var parentOptions = new Options().LimitExecutionTime(TimeSpan.FromMilliseconds(50));
+        parentOptions.Constraints.TimeProvider = new AdvancingClock(TimeSpan.FromMilliseconds(50));
+        var parent = new Engine(parentOptions);
+
+        // The parent's own entries do time out; that is what its clock is for.
+        parent.Execute(TimedWork);
+        Invoking(() => parent.GetValue("work").Call()).Should().Throw<TimeoutException>();
+
+        var workerOptions = Request(parent).CreateDefaultOptions();
+        workerOptions.Constraints.TimeProvider = new ManualClock();
+        var worker = new Engine(workerOptions);
+        worker.Execute(TimedWork);
+
+        Invoking(() => worker.GetValue("work").Call())
+            .Should().NotThrow("nothing the parent's clock does may end a worker's execution");
+    }
+
+    /// <summary>
+    /// The other budget on the same clock. <c>PromiseTimeout</c> travels as a value and its drain has always
+    /// read the worker's own <c>Options.Constraints.TimeProvider</c>; what changed is that the execution
+    /// timeout beside it now reads the same one, so a host steering a worker's clock steers both.
+    /// </summary>
+    [Test]
+    public void AWorkersInheritedPromiseTimeoutIsMeasuredAgainstTheSameClock()
+    {
+        var timeout = TimeSpan.FromMilliseconds(200);
+        var parentOptions = new Options();
+        parentOptions.Constraints.PromiseTimeout = timeout;
+        parentOptions.Constraints.TimeProvider = new ManualClock();
+        var parent = new Engine(parentOptions);
+
+        var workerOptions = Request(parent).CreateDefaultOptions();
+        workerOptions.Constraints.PromiseTimeout.Should().Be(timeout, "the budget is a value setting and travels");
+        workerOptions.Constraints.TimeProvider = new AdvancingClock(timeout);
+        var worker = new Engine(workerOptions);
+
+        // A promise nothing will ever settle. The bound has to end the drain, and it is the worker's clock
+        // that decides the bound has elapsed - the parent's is frozen.
+        Invoking(() => worker.Evaluate("new Promise(function () {})").UnwrapIfPromise())
+            .Should().Throw<PromiseRejectedException>().WithMessage("*Timeout of 00:00:00.2000000*");
+    }
+
+    /// <summary>
+    /// The classification itself. A clock is host wiring and stays behind — the decision
+    /// <see href="https://github.com/sebastienros/jint/issues/3481">#3481</see> asked for — and it is named
+    /// rather than merely omitted, which is the whole purpose of the two lists.
+    /// </summary>
+    [Test]
+    public void TheDefaultOptionsDoNotInheritTheParentsClock()
+    {
+        var parentOptions = new Options();
+        parentOptions.Constraints.TimeProvider = new ManualClock();
+        var parent = new Engine(parentOptions);
+
+        var workerOptions = Request(parent).CreateDefaultOptions();
+
+        workerOptions.Constraints.TimeProvider.Should().BeSameAs(
+            TimeProvider.System,
+            "a worker is a separate agent on a separate thread; a host's clock is handed to one engine");
+
+        Options.SecurityPostureNotInherited.Should().Contain(
+            "Constraints.TimeProvider",
+            "a setting that stays behind is a decision on the record, not an omission");
+    }
+
+    /// <summary>A clock the test moves itself, reporting ticks in <see cref="TimeSpan"/> units.</summary>
+    private sealed class ManualClock : TimeProvider
+    {
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => 0;
+    }
+
+    /// <summary>
+    /// A clock that moves on by <paramref name="step"/> every time it is read, so an entry that arms its
+    /// deadline from one reading provably outlives it by the next.
+    /// </summary>
+    private sealed class AdvancingClock(TimeSpan step) : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp()
+        {
+            var now = _timestamp;
+            _timestamp += step.Ticks;
+            return now;
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------
