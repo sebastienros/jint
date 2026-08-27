@@ -200,10 +200,28 @@ public class WebApiTimerTests
         done.Should().BeTrue();
     }
 
+    /// <summary>
+    /// A blocking unwrap runs the timers it finds due, so a timer that is <em>not</em> due leaves the
+    /// unwrap's own bound as the only thing that can end the wait — which is what makes the rejection the
+    /// design and not a lost race.
+    /// </summary>
+    /// <remarks>
+    /// The clock is the test's own and is never advanced, so "outlives the timeout" is a fact about the
+    /// timer rather than a bet on how long this thread takes to reach the next statement. It used to be a
+    /// bet: a five-second timer registered inside <see cref="Engine.Evaluate(string, string?)"/> against
+    /// the system clock is already due if the machine spends five seconds between that call returning and
+    /// the unwrap starting, and the first thing the unwrap does is run the continuations it finds — so the
+    /// promise <em>fulfils</em> and nothing is thrown. That is not a hypothetical: sleeping 5.1 s between
+    /// those two statements reproduces the CI failure exactly, "Expected: &lt;PromiseRejectedException&gt;
+    /// But was: null", and a runner whose test bodies all run at <see cref="ThreadPriority.Lowest"/> under
+    /// three concurrent legs has spent far longer than that on far less (sebastienros/jint#3452, and the
+    /// 200 ms budget measured at 47 s in sebastienros/jint#3406).
+    /// </remarks>
     [Test]
     public void ATimerOutlivingTheUnwrapTimeoutTimesOutByDesign()
     {
-        var engine = new Engine(options => options.UseWebApis());
+        var clock = new ManualClock();
+        var engine = new Engine(options => options.UseWebApis(webApi => webApi.Timers.TimeProvider = clock));
 
         var pending = engine.Evaluate("new Promise(r => setTimeout(r, 5000))");
 
