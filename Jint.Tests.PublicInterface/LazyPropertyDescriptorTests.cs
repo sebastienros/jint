@@ -294,7 +294,7 @@ public class LazyPropertyDescriptorTests
     {
         var calls = 0;
         var engine = new Engine();
-        engine.Global.FastSetProperty("hostValue", PropertyDescriptor.CreateLazy(() =>
+        engine.Global.DefineOwnPropertyUnchecked("hostValue", PropertyDescriptor.CreateLazy(() =>
         {
             calls++;
             return "built";
@@ -320,7 +320,7 @@ public class LazyPropertyDescriptorTests
     public void AHostInstalledLazyGlobalCanBeOverwrittenByScript()
     {
         var engine = new Engine();
-        engine.Global.FastSetProperty("hostValue", PropertyDescriptor.CreateLazy(
+        engine.Global.DefineOwnPropertyUnchecked("hostValue", PropertyDescriptor.CreateLazy(
             static () => "built",
             PropertyFlag.NonEnumerable));
 

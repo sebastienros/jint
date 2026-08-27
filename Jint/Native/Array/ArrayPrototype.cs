@@ -70,22 +70,22 @@ public sealed partial class ArrayPrototype : ArrayInstance
                     _prototype = null
                 };
 
-                unscopables.FastSetDataProperty("at", JsBoolean.True);
-                unscopables.FastSetDataProperty("copyWithin", JsBoolean.True);
-                unscopables.FastSetDataProperty("entries", JsBoolean.True);
-                unscopables.FastSetDataProperty("fill", JsBoolean.True);
-                unscopables.FastSetDataProperty("find", JsBoolean.True);
-                unscopables.FastSetDataProperty("findIndex", JsBoolean.True);
-                unscopables.FastSetDataProperty("findLast", JsBoolean.True);
-                unscopables.FastSetDataProperty("findLastIndex", JsBoolean.True);
-                unscopables.FastSetDataProperty("flat", JsBoolean.True);
-                unscopables.FastSetDataProperty("flatMap", JsBoolean.True);
-                unscopables.FastSetDataProperty("includes", JsBoolean.True);
-                unscopables.FastSetDataProperty("keys", JsBoolean.True);
-                unscopables.FastSetDataProperty("toReversed", JsBoolean.True);
-                unscopables.FastSetDataProperty("toSorted", JsBoolean.True);
-                unscopables.FastSetDataProperty("toSpliced", JsBoolean.True);
-                unscopables.FastSetDataProperty("values", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("at", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("copyWithin", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("entries", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("fill", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("find", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("findIndex", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("findLast", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("findLastIndex", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("flat", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("flatMap", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("includes", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("keys", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("toReversed", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("toSorted", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("toSpliced", JsBoolean.True);
+                unscopables.DefineOwnDataPropertyUnchecked("values", JsBoolean.True);
 
                 return unscopables;
             }, PropertyFlag.Configurable));

@@ -50,7 +50,7 @@ public delegate JsValue LazySlotFactory(JsObject instance, object? state);
 /// reading <c>item.name</c> in a loop over the batch keeps a monomorphic inline cache and no
 /// per-property descriptor or property dictionary is allocated. Contrast with populating a fresh
 /// <see cref="JsObject"/> through
-/// <see cref="ObjectInstance.FastSetDataProperty(string, JsValue)"/>, which stores raw descriptors and
+/// <see cref="ObjectInstance.DefineOwnDataPropertyUnchecked(string, JsValue)"/>, which stores raw descriptors and
 /// therefore forces the dictionary representation.
 /// </para>
 /// <para>

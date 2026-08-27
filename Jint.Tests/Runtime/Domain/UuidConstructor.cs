@@ -57,8 +57,8 @@ internal sealed class UuidConstructor : Constructor
 
     public void Configure()
     {
-        FastSetProperty("parse", new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse), true, false, true));
-        FastSetProperty("Empty", new PropertyDescriptor(JsUuid.Empty, true, false, true));
+        DefineOwnPropertyUnchecked("parse", new PropertyDescriptor(new ClrFunction(Engine, "parse", Parse), true, false, true));
+        DefineOwnPropertyUnchecked("Empty", new PropertyDescriptor(JsUuid.Empty, true, false, true));
     }
 
     public UuidInstance Construct(JsUuid uuid) => new UuidInstance(Engine) { PrimitiveValue = uuid, _prototype = PrototypeObject };

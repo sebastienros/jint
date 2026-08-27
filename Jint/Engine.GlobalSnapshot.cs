@@ -434,9 +434,10 @@ public sealed class GlobalSnapshot
     /// The names are matched against the base definition of each declared override, so a member merely
     /// <em>named</em> like one of these does not trip the check and an override declared in an intermediate
     /// class does. <c>Initialize</c> is deliberately absent — the in-box <c>GlobalObject</c> overrides it, and
-    /// capture forces it to have run before reading anything. <c>get_Extensible</c> used to be listed, for the
-    /// same reason <see cref="ObjectInstance.PreventExtensions"/> still is; it left the list when the getter
-    /// stopped being virtual, so restore's write to the field is now the whole answer by construction.
+    /// capture forces it to have run before reading anything. <c>get_Extensible</c> and <c>GetOwnProperties</c> used to be
+    /// listed, for the same reason <see cref="ObjectInstance.PreventExtensions"/> still is; each left the list
+    /// when it stopped being virtual, and the enumeration a global overrides is
+    /// <see cref="ObjectInstance.GetOwnPropertyKeys"/>, which is still listed.
     /// </para>
     /// </summary>
     private static readonly string[] _storageVirtuals =
@@ -445,7 +446,6 @@ public sealed class GlobalSnapshot
         nameof(ObjectInstance.SetOwnProperty),
         nameof(ObjectInstance.TryGetOwnPropertyValue),
         nameof(ObjectInstance.ProbeOwnProperty),
-        nameof(ObjectInstance.GetOwnProperties),
         nameof(ObjectInstance.GetOwnPropertyKeys),
         nameof(ObjectInstance.DefineOwnProperty),
         nameof(ObjectInstance.RemoveOwnProperty),

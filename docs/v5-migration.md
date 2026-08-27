@@ -73,6 +73,7 @@ This table is filled by the pull request that removes the member. A member that 
 | `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
 | `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
 | `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3459](https://github.com/sebastienros/jint/pull/3459) |
+| `ObjectInstance.GetOwnProperties()` → **no longer `virtual`** | nothing to call instead — the method is still there, and still public. What is gone is the ability to *override* it: it is derived from `GetOwnPropertyKeys` + `GetOwnProperty` now. A host that overrode it declares the same properties by overriding `GetOwnPropertyKeys` (and `ProbeOwnProperty` beside it), which is what every script-visible enumeration already read — see [2.6](#27-getownproperties-is-derived-not-overridden) | [#3461](https://github.com/sebastienros/jint/pull/3461) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
 
 ### 2.1 Sealed types
@@ -248,6 +249,58 @@ once, at construction, instead of once per call. That is not observable — an e
 by the time anything can serialize through it — but it is why one instance can no longer serve two policies.
 A host that used the trailing argument to vary limits per call holds one serializer per policy instead, or
 constructs one per call as `JSON.stringify` does.
+### 2.7 `GetOwnProperties` is derived, not overridden ([#3461](https://github.com/sebastienros/jint/pull/3461))
+
+`ObjectInstance.GetOwnProperties()` used to be a `virtual` that a host could override to declare the
+properties it projects out of native state. It was the wrong one to reach for, and its name is why:
+**nothing script-visible ever called it.** `Object.keys` / `values` / `entries`, `for..in`, object spread
+and rest, `Object.assign`, `JSON.stringify` and `JsonSerializer` list keys through `GetOwnPropertyKeys` and
+filter them with `ProbeOwnProperty`. A host that overrode `GetOwnProperties` alone therefore shipped an
+object whose properties script could not enumerate — and a host that did the right thing and overrode the
+key hooks alone shipped one that `GetOwnProperties`' own consumers could not see, of which the CLR
+conversion behind `ToObject()` and the debugger are the two an embedder meets.
+
+It is now non-virtual and derived: the keys come from `GetOwnPropertyKeys`, each descriptor from
+`GetOwnProperty`, and a key whose descriptor is absent is skipped. One pair of overrides answers everything.
+
+```c#
+// 4.16.x — two independent declarations of the same fact, and only one of them was read by script
+public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
+{
+    foreach (var field in _fields)
+    {
+        yield return new KeyValuePair<JsValue, PropertyDescriptor>(
+            new JsString(field.Key),
+            new PropertyDescriptor(field.Value, PropertyFlag.ConfigurableEnumerableWritable));
+    }
+}
+
+// 5.x — declare the keys; GetOwnProperties, the CLR conversion and the debugger all follow
+public override List<JsValue> GetOwnPropertyKeys(Types types = Types.String | Types.Symbol)
+{
+    var keys = new List<JsValue>();
+    if ((types & Types.String) != Types.Empty)
+    {
+        foreach (var field in _fields)
+        {
+            keys.Add(new JsString(field.Key));
+        }
+    }
+
+    keys.AddRange(base.GetOwnPropertyKeys(types));
+    return keys;
+}
+
+// and, so existence and enumerability cost no descriptor
+protected override OwnPropertyProbe ProbeOwnProperty(JsValue property) => /* ... */;
+```
+
+Better still, do not write either: `NamedPropertyObject` (a named record) and `ArrayLikeObject` (a live
+indexed collection) derive the whole coherence matrix from two or three members and seal the rest.
+
+The in-box overrides are gone with it — `ArrayInstance`, `Function`, `JsRegExp`, `StringInstance`,
+`ObjectWrapper`, `ArrayLikeObject`, `NamedPropertyObject` and six others each declared their keys twice, and
+now declare them once. Two of those pairs did not agree; see [4.45](#445-getownproperties-reports-what-the-key-enumerations-report).
 
 ## 3. Renamed and reshaped API
 
@@ -1002,6 +1055,34 @@ are records, so they have value equality and a `ToString` that prints every dime
 `UntrustedCodeLimits.BeginOperation` still requires the **instance** the engine was configured with: a
 `with` expression produces a value-equal but different object, so configure the engine with the one the
 scope will use.
+### 3.17 The two raw-write helpers say what they do ([#3461](https://github.com/sebastienros/jint/pull/3461))
+
+| 4.16.x | 5.x |
+| --- | --- |
+| `ObjectInstance.FastSetProperty(string, PropertyDescriptor)` | `ObjectInstance.DefineOwnPropertyUnchecked(string, PropertyDescriptor)` |
+| `ObjectInstance.FastSetProperty(JsValue, PropertyDescriptor)` | `ObjectInstance.DefineOwnPropertyUnchecked(JsValue, PropertyDescriptor)` |
+| `ObjectInstance.FastSetDataProperty(string, JsValue)` | `ObjectInstance.DefineOwnDataPropertyUnchecked(string, JsValue)` |
+
+Same bodies, same behaviour — a mechanical rename, and the compiler finds every call site.
+
+The old names claimed a speed the methods do not have and hid the four things they actually do. They are
+`[[DefineOwnProperty]]` with the checks taken out, which is what the new names say:
+
+- the write always creates an **own** property, so it *shadows* anything of that name on the prototype chain;
+- no inherited setter runs, so a data write can end up shadowing an inherited accessor
+  (`Error.prototype.stack` is the concrete one);
+- no `[[DefineOwnProperty]]` validation runs — extensibility, an existing property's configurable/writable
+  flags and the data/accessor compatibility rules are all ignored, so the call always succeeds and can never
+  raise a `TypeError`;
+- and storing a raw descriptor under a string key is a dictionary-mode operation, so a shape-mode receiver is
+  permanently deoptimized and forfeits the shape inline cache.
+
+"Fast" was the opposite of that last point: a loop of `FastSetDataProperty` calls is the *slow* way to project
+a batch of host records, because every object gets its own descriptors and its own property dictionary and the
+script reading them never keeps a monomorphic inline cache. `JsObject.Create` and `JsObject.CreateFromEntries`
+are the fast ones, and they were already what the doc comment pointed at.
+
+Use these for setup-time writes on an object you fully control; use `Set` for steady-state mutation.
 
 ## 4. Breaking without a signature change
 
@@ -2205,7 +2286,6 @@ exactly what it wrote before. It moves for an embedder who has installed a CLDR-
 `ICldrProvider` — `Intl.RelativeTimeFormat` and `Intl.DurationFormat` now write that provider's digits for a
 locale whose default is not Latin, the way `Intl.NumberFormat` and `Intl.DateTimeFormat` already did. To keep
 Latin digits for such a locale, ask for them: `{ numberingSystem: 'latn' }`, or a `-u-nu-latn` subtag.
-
 ### 4.44 Calendar arithmetic is answered by whoever answers for the calendar ([#3403](https://github.com/sebastienros/jint/issues/3403))
 
 `ICalendarProvider` supplies two conversions, ISO ↔ calendar fields, and the engine consulted them for the
@@ -2256,6 +2336,37 @@ engine either.
 Two refusals that used to escape as CLR exceptions are now `RangeError`s a script can catch:
 `DifferenceISODateTime` reached `CalendarDateUntil` with no realm to report against, and an out-of-range
 difference threw out of `Engine.Evaluate`.
+
+
+### 4.45 `GetOwnProperties` reports what the key enumerations report ([#3461](https://github.com/sebastienros/jint/pull/3461))
+
+Deriving `GetOwnProperties` from `GetOwnPropertyKeys` ([2.6](#27-getownproperties-is-derived-not-overridden))
+makes it agree with every other enumeration, and for three object shapes the two used to differ. Nothing in
+script changes; what changes is what a host reading `GetOwnProperties`, converting an object with
+`ToObject()`, or inspecting a scope in the debugger sees.
+
+| Object | `GetOwnProperties()` in 4.16.x | in 5.x |
+| --- | --- | --- |
+| a function | `prototype`, `length`, `name`, [`arguments`, `caller`], own keys | `length`, `name`, `prototype`, [`arguments`, `caller`], own keys — the order `Object.getOwnPropertyNames` always reported, and the order the specification creates them in |
+| a `String` object | own keys, symbols, `length` | `"0"`…`"n-1"`, `length`, own keys, symbols — the character indices are own properties of a `String` object, and every script-visible enumeration already listed them |
+| a host object overriding only `GetOwnPropertyKeys` | the engine's own (usually empty) property tables | the keys the host declares |
+
+A plain object with integer-like keys is also reported in `[[OwnPropertyKeys]]` order now — integer indices
+ascending, then strings in insertion order, then symbols — rather than in storage order. Again, that is the
+order `Object.keys` already used.
+
+One in-box object gained a key rather than reordering its own: a lazily created `f.prototype` keeps
+`constructor` in a field and used to declare it to `GetOwnProperties` alone, so
+`Object.getOwnPropertyNames(f.prototype)` and `Reflect.ownKeys(f.prototype)` answered `[]` for a property
+`hasOwnProperty` and `Object.getOwnPropertyDescriptor` both reported. Both now answer `["constructor"]`. It
+stays non-enumerable, so `Object.keys` and `for..in` are unchanged.
+
+Two smaller consequences of the same derivation, both debugger-only:
+
+- `DebugScope.BindingNames` lists string keys only. A symbol-keyed own property of the binding object used to
+  appear in that list as its `Symbol(...)` description; a symbol is not a binding name.
+- A `with` scope over a host object whose properties live outside the engine's tables is no longer reported as
+  an empty scope and dropped from `DebugInformation.CurrentScopeChain`.
 
 ## 5. New in v5
 

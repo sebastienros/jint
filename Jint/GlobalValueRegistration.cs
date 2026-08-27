@@ -58,7 +58,7 @@ internal static class GlobalValueRegistration
     /// </summary>
     internal static void RegisterDelegate(Engine engine, ObjectInstance globalObject, string name, Delegate value)
     {
-        globalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(engine, value), PropertyFlag.NonEnumerable));
+        globalObject.DefineOwnPropertyUnchecked(name, new PropertyDescriptor(new DelegateWrapper(engine, value), PropertyFlag.NonEnumerable));
     }
 
     /// <summary>

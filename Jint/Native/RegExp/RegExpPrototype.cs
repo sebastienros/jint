@@ -1373,8 +1373,8 @@ internal sealed partial class RegExpPrototype : Prototype
 
             // "aaa".match() => [ '', index: 0, input: 'aaa' ]
             var array = R.Engine.Realm.Intrinsics.Array.ArrayCreate(1);
-            array.FastSetDataProperty(PropertyIndex._value, lastIndex);
-            array.FastSetDataProperty(PropertyInput._value, s);
+            array.DefineOwnDataPropertyUnchecked(PropertyIndex._value, lastIndex);
+            array.DefineOwnDataPropertyUnchecked(PropertyInput._value, s);
             array.SetIndexValue(0, JsString.Empty, updateLength: false);
             return array;
         }

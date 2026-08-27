@@ -103,14 +103,14 @@ public class PropertyDescriptorTests
     }
 
     [Test]
-    public void FastSetPropertyIsVisibleOnBuiltinShapedHost()
+    public void DefineOwnPropertyUncheckedIsVisibleOnBuiltinShapedHost()
     {
         // Math uses builtin-shape storage; a raw property store of a non-shape name joins the
         // hybrid side dictionary, which every read/enumeration surface must consult — without
         // that, the property silently doesn't exist.
         _engine.Evaluate("Math.floor(4.7)").AsNumber().Should().Be(4); // initialize the shaped host
         var math = _engine.Evaluate("Math").AsObject();
-        math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+        math.DefineOwnPropertyUnchecked("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
         _engine.Evaluate("Math.custom").AsNumber().Should().Be(42);
         _engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean().Should().BeTrue();
@@ -118,23 +118,23 @@ public class PropertyDescriptorTests
     }
 
     [Test]
-    public void FastSetPropertyBeforeLazyInitializationSurvivesOnDictionaryHost()
+    public void DefineOwnPropertyUncheckedBeforeLazyInitializationSurvivesOnDictionaryHost()
     {
         // a raw store before the host's first property access used to land in _properties and get
         // wiped when the read-triggered Initialize() replaced the bag; RegExp is a dictionary-path host
         var regExp = _engine.Evaluate("RegExp").AsObject();
-        regExp.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+        regExp.DefineOwnPropertyUnchecked("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
         _engine.Evaluate("RegExp.custom").AsNumber().Should().Be(42);
         _engine.Evaluate("typeof RegExp.escape === 'function'").AsBoolean().Should().BeTrue();
     }
 
     [Test]
-    public void FastSetPropertyBeforeLazyInitializationSurvivesOnBuiltinShapedHost()
+    public void DefineOwnPropertyUncheckedBeforeLazyInitializationSurvivesOnBuiltinShapedHost()
     {
         // the builtin-shape sibling of the dictionary-host case above
         var math = _engine.Evaluate("Math").AsObject();
-        math.FastSetProperty("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
+        math.DefineOwnPropertyUnchecked("custom", new PropertyDescriptor(42, PropertyFlag.ConfigurableEnumerableWritable));
 
         _engine.Evaluate("Math.custom").AsNumber().Should().Be(42);
         _engine.Evaluate("Object.getOwnPropertyNames(Math).includes('custom')").AsBoolean().Should().BeTrue();

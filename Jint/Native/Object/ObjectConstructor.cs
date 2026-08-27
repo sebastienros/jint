@@ -191,7 +191,7 @@ public sealed partial class ObjectConstructor : Constructor
     /// subsequent addition flows through CreateDataProperty, so each add transitions a shared interned
     /// hidden class instead of filling a per-object dictionary; objects built from the same source
     /// layout end up referencing the very same <see cref="Shape"/>. Callers that populate the result
-    /// through raw descriptor stores (FastSetProperty / FastSetDataProperty, descriptor bags) must keep
+    /// through raw descriptor stores (DefineOwnPropertyUnchecked / DefineOwnDataPropertyUnchecked, descriptor bags) must keep
     /// using <see cref="Construct(int)"/> — those stores would immediately deopt a shaped target.
     /// </summary>
     internal JsObject ConstructShapeBuilding()
@@ -570,7 +570,7 @@ public sealed partial class ObjectConstructor : Constructor
         var obj = OrdinaryObjectCreate(_engine, null);
         foreach (var pair in grouping)
         {
-            obj.FastSetProperty(pair.Key, new PropertyDescriptor(pair.Value, PropertyFlag.ConfigurableEnumerableWritable));
+            obj.DefineOwnPropertyUnchecked(pair.Key, new PropertyDescriptor(pair.Value, PropertyFlag.ConfigurableEnumerableWritable));
         }
 
         return obj;

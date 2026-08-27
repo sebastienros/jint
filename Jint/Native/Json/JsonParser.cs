@@ -1053,7 +1053,7 @@ public sealed class JsonParser
             shaped = false;
         }
 
-        obj.FastSetDataProperty(name, value);
+        obj.DefineOwnDataPropertyUnchecked(name, value);
     }
 
     /// <summary>

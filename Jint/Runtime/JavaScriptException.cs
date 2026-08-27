@@ -205,7 +205,7 @@ public class JavaScriptException : JintException
                     jsError.EnsureMessageMaterialized();
                 }
 
-                errObj.FastSetProperty(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
+                errObj.DefineOwnPropertyUnchecked(CommonProperties.Stack._value, new PropertyDescriptor(_callStack, false, false, false));
             }
         }
 

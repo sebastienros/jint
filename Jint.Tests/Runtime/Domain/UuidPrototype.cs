@@ -33,14 +33,14 @@ internal sealed class UuidPrototype : UuidInstance
             _prototype = engine.Realm.Intrinsics.Object.PrototypeObject,
         };
 
-        obj.FastSetProperty("constructor", new PropertyDescriptor(ctor, false, false, true));
+        obj.DefineOwnPropertyUnchecked("constructor", new PropertyDescriptor(ctor, false, false, true));
 
         return obj;
     }
 
     public void Configure()
     {
-        FastSetProperty("toString", new PropertyDescriptor(new ClrFunction(Engine, "toString", ToGuidString), true, false, true));
-        FastSetProperty("valueOf", new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf), true, false, true));
+        DefineOwnPropertyUnchecked("toString", new PropertyDescriptor(new ClrFunction(Engine, "toString", ToGuidString), true, false, true));
+        DefineOwnPropertyUnchecked("valueOf", new PropertyDescriptor(new ClrFunction(Engine, "valueOf", ValueOf), true, false, true));
     }
 }

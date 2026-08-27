@@ -316,8 +316,8 @@ internal sealed partial class PromiseConstructor : Constructor
                     {
                         alreadyCalled = true;
                         var res = _engine.Realm.Intrinsics.Object.Construct(2);
-                        res.FastSetDataProperty("status", "fulfilled");
-                        res.FastSetDataProperty("value", args.At(0));
+                        res.DefineOwnDataPropertyUnchecked("status", "fulfilled");
+                        res.DefineOwnDataPropertyUnchecked("value", args.At(0));
                         values[capturedIndex] = res;
                         remainingElementsCount--;
                         if (remainingElementsCount == 0)
@@ -335,8 +335,8 @@ internal sealed partial class PromiseConstructor : Constructor
                     {
                         alreadyCalled = true;
                         var res = _engine.Realm.Intrinsics.Object.Construct(2);
-                        res.FastSetDataProperty("status", "rejected");
-                        res.FastSetDataProperty("reason", args.At(0));
+                        res.DefineOwnDataPropertyUnchecked("status", "rejected");
+                        res.DefineOwnDataPropertyUnchecked("reason", args.At(0));
                         values[capturedIndex] = res;
                         remainingElementsCount--;
                         if (remainingElementsCount == 0)
@@ -640,8 +640,8 @@ internal sealed partial class PromiseConstructor : Constructor
                                 alreadyCalled = true;
 
                                 var res = Engine.Realm.Intrinsics.Object.Construct(2);
-                                res.FastSetDataProperty("status", "fulfilled");
-                                res.FastSetDataProperty("value", args.At(0));
+                                res.DefineOwnDataPropertyUnchecked("status", "fulfilled");
+                                res.DefineOwnDataPropertyUnchecked("value", args.At(0));
                                 results[capturedIndex] = res;
 
                                 ResolveIfFinished();
@@ -657,8 +657,8 @@ internal sealed partial class PromiseConstructor : Constructor
                                 alreadyCalled = true;
 
                                 var res = Engine.Realm.Intrinsics.Object.Construct(2);
-                                res.FastSetDataProperty("status", "rejected");
-                                res.FastSetDataProperty("reason", args.At(0));
+                                res.DefineOwnDataPropertyUnchecked("status", "rejected");
+                                res.DefineOwnDataPropertyUnchecked("reason", args.At(0));
                                 results[capturedIndex] = res;
 
                                 ResolveIfFinished();

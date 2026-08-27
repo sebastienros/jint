@@ -140,13 +140,6 @@ public sealed class JsError : ErrorInstance, IErrorData
         return base.GetOwnPropertyKeys(types);
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        // Rare path; materialize for correct insertion ordering and descriptor exposure, then defer to base.
-        MaterializeMessage();
-        return base.GetOwnProperties();
-    }
-
     /// <summary>
     /// Deopts the virtual <c>message</c> into ordinary dictionary storage, reproducing the exact
     /// construction-time descriptor. No-op once the message is already materialized or was never set.

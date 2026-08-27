@@ -452,16 +452,6 @@ internal class LazyHostObject : ObjectInstance
         return keys;
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        for (var slot = 0; slot < SlotCount; slot++)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(
-                _keys[slot],
-                new PropertyDescriptor(Project(slot), writable: true, enumerable: true, configurable: true));
-        }
-    }
-
     protected JsValue Project(int slot)
     {
         var projected = _projected[slot];

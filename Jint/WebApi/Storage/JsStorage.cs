@@ -320,35 +320,6 @@ internal sealed class JsStorage : ObjectInstance
     }
 
     /// <summary>
-    /// The same order as <see cref="GetOwnPropertyKeys"/>, with the descriptors materialized. The key list
-    /// is snapshotted first because this is a lazy sequence whose consumer may mutate the store between two
-    /// elements.
-    /// </summary>
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        var live = Provider.Keys;
-        var names = new string[live.Count];
-        for (var i = 0; i < names.Length; i++)
-        {
-            names[i] = live[i];
-        }
-
-        foreach (var name in names)
-        {
-            var key = JsString.Create(name);
-            if (TryGetVisibleNamedProperty(key, out var value))
-            {
-                yield return new KeyValuePair<JsValue, PropertyDescriptor>(key, new PropertyDescriptor(JsString.Create(value), NamedPropertyFlags));
-            }
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
-    /// <summary>
     /// https://webidl.spec.whatwg.org/#legacy-platform-object-preventextensions — a legacy platform object
     /// refuses, which keeps it extensible forever and makes <c>Object.freeze(storage)</c> and
     /// <c>Object.preventExtensions(storage)</c> raise a <c>TypeError</c>, exactly as in a browser.

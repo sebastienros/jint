@@ -33,8 +33,8 @@ namespace Jint.Benchmark;
 /// </description></item>
 /// <item><description>
 /// <see cref="EnvelopeKind.DictionaryCustomValue"/> is what a host had to write before: the same 11 cheap
-/// members through <c>FastSetDataProperty</c> and the same 4 lazy ones as
-/// <see cref="PropertyFlag.CustomJsValue"/> descriptors through <c>FastSetProperty</c>. It decodes exactly
+/// members through <c>DefineOwnDataPropertyUnchecked</c> and the same 4 lazy ones as
+/// <see cref="PropertyFlag.CustomJsValue"/> descriptors through <c>DefineOwnPropertyUnchecked</c>. It decodes exactly
 /// as little as the lazy layout does, so its distance from <see cref="EnvelopeKind.LayoutLazy"/> is purely
 /// the price of the dictionary representation: a per-item property dictionary and 15 descriptors on the
 /// build side, and a batch that never shares a hidden class — so the projection loop's member sites see a
@@ -278,12 +278,12 @@ public class HostLayoutLazySlotBenchmark
         FillEager(values, raw);
         for (var i = 0; i < EagerNames.Length; i++)
         {
-            obj.FastSetDataProperty(EagerNames[i], values[i]!);
+            obj.DefineOwnDataPropertyUnchecked(EagerNames[i], values[i]!);
         }
 
         for (var i = 0; i < LazyNames.Length; i++)
         {
-            obj.FastSetProperty(LazyNames[i], new LazyMemberDescriptor(obj, raw, i));
+            obj.DefineOwnPropertyUnchecked(LazyNames[i], new LazyMemberDescriptor(obj, raw, i));
         }
 
         return obj;

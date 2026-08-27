@@ -907,7 +907,7 @@ public partial class InteropTests : IDisposable
         var contextValue = JsValue.FromObjectWithType(engine, context, typeof(IReadOnlyDictionary<string, object>));
 
         // Lock the context value using the same pattern as the issue reporter:
-        // iterate properties, set writable=false, recurse into values, and call FastSetProperty
+        // iterate properties, set writable=false, recurse into values, and call DefineOwnPropertyUnchecked
         LockDescriptorHelper(contextValue, []);
 
         var contextDescriptor = new Jint.Runtime.Descriptors.PropertyDescriptor
@@ -982,7 +982,7 @@ public partial class InteropTests : IDisposable
 
                 LockDescriptorHelper(property.Value.Value, visited);
 
-                obj.FastSetProperty(property.Key, property.Value);
+                obj.DefineOwnPropertyUnchecked(property.Key, property.Value);
             }
 
             obj.PreventExtensions();
@@ -3620,8 +3620,8 @@ new Thrower().ThrowExceptionWithMessage('boom');";
             Console.WriteLine(message);
         }
 
-        engine.Realm.GlobalObject.FastSetDataProperty("global", engine.Realm.GlobalObject);
-        engine.Realm.GlobalObject.FastSetDataProperty("test", new DelegateWrapper(engine, (Action<string, object>) Test));
+        engine.Realm.GlobalObject.DefineOwnDataPropertyUnchecked("global", engine.Realm.GlobalObject);
+        engine.Realm.GlobalObject.DefineOwnDataPropertyUnchecked("test", new DelegateWrapper(engine, (Action<string, object>) Test));
 
         {
             var ex = Invoking(() => engine.Realm.GlobalObject.ToObject()).Should().ThrowExactly<JavaScriptException>().Which;

@@ -36,12 +36,12 @@ internal static class Test262Object
         var o = ObjectInstance.OrdinaryObjectCreate(engine, realm.Intrinsics.Object.PrototypeObject);
 
         // "A reference to the global object on which the $262 object lives."
-        o.FastSetProperty("global", new PropertyDescriptor(realm.GlobalObject, true, true, true));
+        o.DefineOwnPropertyUnchecked("global", new PropertyDescriptor(realm.GlobalObject, true, true, true));
 
         // %AbstractModuleSource% intrinsic - exposed via $262 for source-phase-imports tests
-        o.FastSetProperty("AbstractModuleSource", new PropertyDescriptor(CreateAbstractModuleSource(engine, realm), true, true, true));
+        o.DefineOwnPropertyUnchecked("AbstractModuleSource", new PropertyDescriptor(CreateAbstractModuleSource(engine, realm), true, true, true));
 
-        o.FastSetProperty("evalScript", new PropertyDescriptor(new ClrFunction(engine, realm, "evalScript",
+        o.DefineOwnPropertyUnchecked("evalScript", new PropertyDescriptor(new ClrFunction(engine, realm, "evalScript",
             (_, args) =>
             {
                 if (args.Length > 1)
@@ -56,10 +56,10 @@ internal static class Test262Object
         // the new realm's global object, and returns the $262 property of the new realm's global object".
         // So the whole API - createRealm included, so realms can nest - goes onto the new global, and the
         // new realm's own $262 is what comes back.
-        o.FastSetProperty("createRealm", new PropertyDescriptor(new ClrFunction(engine, realm, "createRealm",
+        o.DefineOwnPropertyUnchecked("createRealm", new PropertyDescriptor(new ClrFunction(engine, realm, "createRealm",
             (_, _) => Install(engine, engine._host.CreateRealm()), 0), true, true, true));
 
-        o.FastSetProperty("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, realm, "detachArrayBuffer",
+        o.DefineOwnPropertyUnchecked("detachArrayBuffer", new PropertyDescriptor(new ClrFunction(engine, realm, "detachArrayBuffer",
             (_, args) =>
             {
                 var buffer = (JsArrayBuffer) args.At(0);
@@ -67,7 +67,7 @@ internal static class Test262Object
                 return JsValue.Undefined;
             }, 0), true, true, true));
 
-        o.FastSetProperty("gc", new PropertyDescriptor(new ClrFunction(engine, realm, "gc",
+        o.DefineOwnPropertyUnchecked("gc", new PropertyDescriptor(new ClrFunction(engine, realm, "gc",
             (_, _) =>
             {
                 GC.Collect();
@@ -75,7 +75,7 @@ internal static class Test262Object
                 return JsValue.Undefined;
             }, 0), true, true, true));
 
-        o.FastSetProperty("IsHTMLDDA", new PropertyDescriptor(new IsHTMLDDA(engine, realm), true, true, true));
+        o.DefineOwnPropertyUnchecked("IsHTMLDDA", new PropertyDescriptor(new IsHTMLDDA(engine, realm), true, true, true));
 
         realm.GlobalObject.Set("$262", o);
         return o;

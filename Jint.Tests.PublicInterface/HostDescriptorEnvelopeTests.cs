@@ -210,7 +210,7 @@ public class HostDescriptorEnvelopeTests
         var engine = new Engine();
         var body = new PropertyDescriptor(JsValue.Undefined, PropertyFlag.ConfigurableEnumerableWritable);
         var envelope = new JsObject(engine);
-        envelope.FastSetProperty("body", body);
+        envelope.DefineOwnPropertyUnchecked("body", body);
         engine.SetValue("envelope", envelope);
         engine.SetValue("refill", new Action<string>(value => body.Value = value));
 
@@ -288,11 +288,6 @@ internal class EnvelopeHostObject : ObjectInstance
         return keys;
     }
 
-    public override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        _handedOut.Add(_body);
-        yield return new KeyValuePair<JsValue, PropertyDescriptor>(new JsString(BodyName), _body);
-    }
 }
 
 /// <summary>

@@ -16,7 +16,7 @@ public sealed partial class JsObject
     /// indistinguishable from the equivalent object literal, including own-key order.
     /// <para>
     /// Unlike populating a fresh <see cref="JsObject"/> through
-    /// <see cref="ObjectInstance.FastSetDataProperty(string, JsValue)"/> — which stores raw descriptors and
+    /// <see cref="ObjectInstance.DefineOwnDataPropertyUnchecked(string, JsValue)"/> — which stores raw descriptors and
     /// therefore builds a property dictionary — this resolves the layout to an interned hidden class once per
     /// (engine, layout) and then only fills value slots. Every object created from the same layout in the
     /// same engine shares that hidden class, so a script reading the same property across a batch of such
@@ -130,11 +130,11 @@ public sealed partial class JsObject
             {
                 if (fallbackSentinel is not null && layout.GetFactory(i) is not null)
                 {
-                    obj.FastSetProperty(keys[i].Name, new LazySlotPropertyDescriptor(obj, fallbackSentinel, i));
+                    obj.DefineOwnPropertyUnchecked(keys[i].Name, new LazySlotPropertyDescriptor(obj, fallbackSentinel, i));
                 }
                 else
                 {
-                    obj.FastSetDataProperty(keys[i].Name, values[i] ?? Undefined);
+                    obj.DefineOwnDataPropertyUnchecked(keys[i].Name, values[i] ?? Undefined);
                 }
             }
 
@@ -316,6 +316,6 @@ public sealed partial class JsObject
             state.Shaped = false;
         }
 
-        obj.FastSetDataProperty(name, v);
+        obj.DefineOwnDataPropertyUnchecked(name, v);
     }
 }

@@ -585,7 +585,7 @@ public class GlobalSnapshotTests
     public void AHostDescriptorHoldingItsValueOutsideTheEngineIsNotReverted()
     {
         var engine = new Engine();
-        engine.Global.FastSetProperty("cfg", new HostStateDescriptor(JsNumber.Create(1)));
+        engine.Global.DefineOwnPropertyUnchecked("cfg", new HostStateDescriptor(JsNumber.Create(1)));
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         engine.Evaluate("cfg = 5;");
@@ -609,7 +609,7 @@ public class GlobalSnapshotTests
     public void AHostDescriptorsAttributeFlagsAreStillReverted()
     {
         var engine = new Engine();
-        engine.Global.FastSetProperty("cfg", new HostStateDescriptor(JsNumber.Create(1)));
+        engine.Global.DefineOwnPropertyUnchecked("cfg", new HostStateDescriptor(JsNumber.Create(1)));
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();
 
         engine.Evaluate("Object.defineProperty(globalThis, 'cfg', { enumerable: false, configurable: false });");
@@ -856,7 +856,7 @@ public class GlobalSnapshotTests
     {
         var engine = new Engine();
         var holder = new JsObject(engine);
-        holder.FastSetDataProperty("x", 1);
+        holder.DefineOwnDataPropertyUnchecked("x", 1);
         engine.SetValue("holder", holder);
 
         var snapshot = engine.Advanced.CaptureGlobalSnapshot();

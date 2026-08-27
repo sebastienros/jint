@@ -437,49 +437,6 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
         }
     }
 
-    public sealed override IEnumerable<KeyValuePair<JsValue, PropertyDescriptor>> GetOwnProperties()
-    {
-        var temp = _dense;
-        if (temp != null)
-        {
-            var length = System.Math.Min(temp.Length, GetLength());
-            for (uint i = 0; i < length; i++)
-            {
-                var value = temp[i];
-                if (value is not null)
-                {
-                    if (_sparse is null || !_sparse.TryGetValue(i, out var descriptor) || descriptor is null)
-                    {
-                        _sparse ??= new Dictionary<uint, PropertyDescriptor?>();
-                        _sparse[i] = descriptor = new PropertyDescriptor(value, PropertyFlag.ConfigurableEnumerableWritable);
-                    }
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(TypeConverter.ToString(i), descriptor);
-                }
-            }
-        }
-        else if (_sparse != null)
-        {
-            foreach (var entry in _sparse)
-            {
-                var value = entry.Value;
-                if (value is not null)
-                {
-                    yield return new KeyValuePair<JsValue, PropertyDescriptor>(TypeConverter.ToString(entry.Key), value);
-                }
-            }
-        }
-
-        if (GetLengthDescriptor() is { } lengthDescriptor)
-        {
-            yield return new KeyValuePair<JsValue, PropertyDescriptor>(CommonProperties.Length, lengthDescriptor);
-        }
-
-        foreach (var entry in base.GetOwnProperties())
-        {
-            yield return entry;
-        }
-    }
-
     public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
     {
         if (CommonProperties.Length.Equals(property))

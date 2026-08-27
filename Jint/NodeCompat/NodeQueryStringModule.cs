@@ -322,7 +322,7 @@ internal static class NodeQueryStringModule
 
         for (var i = 0; i < accumulated.Count; i++)
         {
-            result.FastSetDataProperty(accumulated[i].Key, accumulated[i].Value);
+            result.DefineOwnDataPropertyUnchecked(accumulated[i].Key, accumulated[i].Value);
         }
 
         return result;
