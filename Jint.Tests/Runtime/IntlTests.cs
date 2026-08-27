@@ -1363,6 +1363,37 @@ public class IntlTests
     /// <c>DateTimeFormatInfo</c> behind them. Should the default provider ever start answering with names of
     /// its own, this fails, and the identity check in <c>DateTimeFormatConstructor</c> is then wrong.
     /// </remarks>
+    /// <summary>
+    /// The <c>CultureInfo</c> instances <c>IntlUtilities</c> caches are process-wide: one per locale tag,
+    /// shared by every engine, never evicted. A <c>CultureInfo</c> is writable unless it is explicitly made
+    /// read-only — <c>useUserOverride: false</c> only suppresses the Windows user regional overrides — so
+    /// without this the two places that adjust a format for one formatter could instead have adjusted it for
+    /// every engine in the process, and nothing would have reported it.
+    /// </summary>
+    /// <remarks>
+    /// Both of those places clone before writing (<c>DateTimeFormatConstructor</c> clones the culture and its
+    /// <c>DateTimeFormatInfo</c>, <c>NumberFormatConstructor</c> clones the <c>NumberFormatInfo</c>) and a
+    /// clone of a read-only instance is writable, which is why the whole <c>Intl</c> suite is the other half
+    /// of this test: it exercises both of those paths on every construction.
+    /// </remarks>
+    [Test]
+    [TestCase("en-US")]
+    [TestCase("de-DE")]
+    [TestCase("ar-SA")]
+    public void ACachedCultureIsReadOnly(string locale)
+    {
+        var culture = IntlUtilities.GetCultureInfo(locale);
+
+        culture.Should().NotBeNull();
+        culture!.IsReadOnly.Should().BeTrue();
+        IntlUtilities.GetCultureInfo(locale).Should().BeSameAs(culture);
+
+        // what the two format-adjusting call sites do, and what has to keep working
+        ((CultureInfo) culture.Clone()).IsReadOnly.Should().BeFalse();
+        ((DateTimeFormatInfo) culture.DateTimeFormat.Clone()).IsReadOnly.Should().BeFalse();
+        ((NumberFormatInfo) culture.NumberFormat.Clone()).IsReadOnly.Should().BeFalse();
+    }
+
     [Test]
     public void TheDefaultCldrProviderAnswersWithDotNetsOwnDateNames()
     {
