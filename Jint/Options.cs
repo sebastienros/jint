@@ -668,7 +668,10 @@ public sealed partial class Options
         AttachExtensionMethodsToPrototype(engine, engine.Realm.Intrinsics.String.PrototypeObject, typeof(string));
     }
 
-    private static void AttachExtensionMethodsToPrototype(Engine engine, ObjectInstance prototype, Type objectType)
+    private static void AttachExtensionMethodsToPrototype(
+        Engine engine,
+        ObjectInstance prototype,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type objectType)
     {
         if (!engine._extensionMethods.TryGetExtensionMethods(objectType, out var methods))
         {

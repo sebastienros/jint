@@ -185,7 +185,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     private static bool TryBuildArrayLikeWrapper(
         Engine engine,
         object target,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces | DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type type,
         [NotNullWhen(true)] out ArrayLikeWrapper? result)
     {
         result = null;

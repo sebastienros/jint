@@ -142,7 +142,9 @@ internal sealed class ExtensionMethodCache
 
     public bool HasMethods => _allExtensionMethods.Count > 0;
 
-    public bool TryGetExtensionMethods(Type objectType, [NotNullWhen(true)] out MethodInfo[]? methods)
+    public bool TryGetExtensionMethods(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type objectType,
+        [NotNullWhen(true)] out MethodInfo[]? methods)
     {
         if (_allExtensionMethods.Count == 0)
         {
@@ -180,7 +182,8 @@ internal sealed class ExtensionMethodCache
         return methods.Length > 0;
     }
 
-    private static IEnumerable<Type> GetParentTypes(Type type)
+    private static IEnumerable<Type> GetParentTypes(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
         // is there any base type?
         if (type == null)
