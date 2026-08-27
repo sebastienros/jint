@@ -2792,6 +2792,7 @@ var worker = new Engine(options);
 
 Before this change that half happened by accident for `LimitExecutionTime` and never for `PromiseTimeout`.
 If you do not supply a `TimeProvider` at all, nothing here is observable.
+
 ### 4.59 `Intl.NumberFormat` walks one pattern for both lanes, non-finite values included ([#3465](https://github.com/sebastienros/jint/issues/3465))
 
 [PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern)'s NaN and infinity branches
@@ -2849,7 +2850,6 @@ a locale whose unit pattern has a prefix (`ja-JP`, `ko-KR`, `zh-TW` long units),
 notation of zero, and a currency's sign in a locale whose sign is not ASCII. A string that was already the
 concatenation of its own parts does not move: this is the two lanes being brought onto one walk, and it is
 that walk that decides.
-
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -3472,3 +3472,12 @@ number is stale by the time it lands — and because two of them edit different 
 git merges them cleanly and the duplicate only shows up in the rendered document. Whoever merges
 second renumbers, and repoints any `[§x.y](#xy-...)` link to the section. A collision that reaches
 `main` is a docs fix, not a rewrite of the section.
+
+**A rebase preserves a section's position, not its rank.** Renumbering the heading is only half of
+it: git replays the section where it sat, so once a lower-numbered section lands on `main` underneath
+a branch, that branch's entry ends up *above* it — distinct numbers, no conflict to resolve, and a
+document whose numbers run backwards. This happened during the v5 campaign to a branch that rebased
+with no conflict at all, which is exactly the case nothing draws attention to. So after **every**
+rebase, not only after one that conflicted, move the section block to the end of its chapter and run
+`dotnet test -c Release --filter "FullyQualifiedName~MigrationGuideTests"`; that is what
+`SectionNumbersAscendInDocumentOrder` is there to catch.
