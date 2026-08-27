@@ -1373,6 +1373,15 @@ public sealed partial class Engine : IDisposable
 
     internal readonly Constraint[] _constraints;
 
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// The clock the engine's own bounded <em>waits</em> measure against — <c>Options.Constraints.TimeProvider</c>
+    /// put through <see cref="ConstraintClock.Resolve"/>, so <see langword="null"/> means
+    /// <see cref="Stopwatch"/>, which is what every engine that named no clock carries.
+    /// </summary>
+    private readonly TimeProvider? _waitClock;
+#endif
+
     // _constraints partitioned once at construction (the set is fixed for the engine's lifetime):
     // exact constraints must run before every statement, amortized ones every N statements.
     // See Engine.Constraints.cs for the partitioning rationale.
@@ -1612,6 +1621,13 @@ public sealed partial class Engine : IDisposable
         _objectConverterTypeFilter = ObjectConverterTypeFilter.Create(_objectConverters);
         _immutableCrossingFilter = ImmutableCrossingTypeFilter.Create(Options.Interop.ImmutableCrossingTypes);
         _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
+
+#if NET8_0_OR_GREATER
+        // Resolved once, here, rather than at each wait: Resolve is what rejects a clock that cannot measure
+        // anything, and a named error at engine construction beats a promise budget that expires the instant
+        // it is armed. Reading it costs nothing on an engine that named no clock — the fold hands back null.
+        _waitClock = ConstraintClock.Resolve(Options.Constraints.TimeProvider);
+#endif
 
         _constraints = BuildConstraints(Options.Constraints);
         var partitionedConstraints = PartitionConstraints(_constraints);
@@ -2711,6 +2727,43 @@ public sealed partial class Engine : IDisposable
     internal bool DrainEventLoopUntilSettled(JsPromise promise, TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default)
         => DrainEventLoopUntil(static state => ((JsPromise) state).State != PromiseState.Pending, promise, promise.CompletedEvent, timeout, cancellationToken);
 
+    // CA1822: on the target frameworks without TimeProvider these two read no instance state. They stay
+    // instance members on every one of them so that the wait loop can call them unconditionally and keep
+    // conditional compilation out of it - the rule Engine.Pump.cs states once for the same reason.
+#pragma warning disable CA1822
+
+    /// <summary>
+    /// A reading of the clock <see cref="DrainEventLoopUntil"/> bounds itself by. Declared on every target
+    /// framework with the conditional compilation inside, the way every pump hook is, so the wait loop needs
+    /// none of its own.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal long GetWaitTimestamp()
+    {
+#if NET8_0_OR_GREATER
+        return _waitClock is null ? Stopwatch.GetTimestamp() : _waitClock.GetTimestamp();
+#else
+        return Stopwatch.GetTimestamp();
+#endif
+    }
+
+    /// <summary>
+    /// The tick frequency <see cref="GetWaitTimestamp"/>'s readings are expressed in.
+    /// </summary>
+    internal long WaitTimestampFrequency
+    {
+        get
+        {
+#if NET8_0_OR_GREATER
+            return ConstraintClock.FrequencyOf(_waitClock);
+#else
+            return Stopwatch.Frequency;
+#endif
+        }
+    }
+
+#pragma warning restore CA1822
+
     /// <summary>
     /// The general form of <see cref="DrainEventLoopUntilSettled"/>: drives the event loop until
     /// <paramref name="isSettled"/> holds for <paramref name="state"/>. Used by the module load phase, where
@@ -2787,8 +2840,17 @@ public sealed partial class Engine : IDisposable
 
         try
         {
+            // Monotonic, and on the clock the host named. Two things follow, and the second is the point of
+            // the first. A deadline read off DateTime.UtcNow - which this was - is cut short by an NTP step
+            // forwards and stretched by one backwards, which is exactly the reason the pump's own ceiling
+            // has always been measured on Stopwatch instead (see Engine.Pump.ElapsedSince). And once the
+            // reading goes through the engine's clock, Options.Constraints.TimeProvider reaches the promise
+            // budget that sits beside it on the same options group, so "the wait ended on the budget it
+            // names" is a claim a test can make exactly rather than by racing a stopwatch against the
+            // ten-second default (sebastienros/jint#3406).
             var hasTimeout = timeout > TimeSpan.Zero;
-            var deadline = hasTimeout ? DateTime.UtcNow + timeout : DateTime.MaxValue;
+            var frequency = WaitTimestampFrequency;
+            var deadline = hasTimeout ? GetWaitTimestamp() + ConstraintClock.ToTimestampTicks(timeout, frequency) : 0;
             var pollInterval = TimeSpan.FromMilliseconds(10);
 
             while (!isSettled(state))
@@ -2808,12 +2870,13 @@ public sealed partial class Engine : IDisposable
                 var waitInterval = pollInterval;
                 if (hasTimeout)
                 {
-                    var remaining = deadline - DateTime.UtcNow;
-                    if (remaining <= TimeSpan.Zero)
+                    var remainingTicks = deadline - GetWaitTimestamp();
+                    if (remainingTicks <= 0)
                     {
                         break;
                     }
 
+                    var remaining = ConstraintClock.ToTimeSpan(remainingTicks, frequency);
                     if (remaining < waitInterval)
                     {
                         waitInterval = remaining;
