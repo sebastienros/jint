@@ -2471,27 +2471,6 @@ else. A host implementing `ICldrProvider` **from scratch** rather than deriving 
 has one more member to write; deriving costs nothing, and [5.2](#52-changing-one-locale-datum-is-one-override)
 is why that is the shape the interface is documented for.
 ### 4.48 The blocking promise drain is bounded on the engine's clock, not on the wall clock ([#3406](https://github.com/sebastienros/jint/issues/3406))
-
-`Engine.DrainEventLoopUntil` — what `UnwrapIfPromise` blocks in, and what a synchronous `Modules.Import`
-waits in — used to arm its deadline from `DateTime.UtcNow`. It now arms it from a monotonic timestamp, read
-through `Options.Constraints.TimeProvider` on `net8.0` and later and from `Stopwatch` everywhere else. Three
-consequences, none of which changes a signature:
-
-- **A system-clock step no longer moves a promise budget.** An NTP correction forwards used to cut a
-  `PromiseTimeout` short and one backwards used to stretch it; neither does now. This is the rule the pump's
-  own ceiling has always followed (`Engine.Pump.ElapsedSince`), and the drain was the one wait that did not.
-- **`Options.Constraints.TimeProvider` now governs `Options.Constraints.PromiseTimeout` as well as
-  `LimitExecutionTime`.** A host that supplied a clock to make its execution-timeout tests exact will find
-  the promise budget measured against the same clock — so a *frozen* clock now keeps a blocking unwrap
-  pending until the host advances it, where before it timed out on real time. If that is not wanted, leave
-  `TimeProvider` at `TimeProvider.System` (the default) and register `OperationDeadlineConstraint` with its
-  own clock instead; it takes one through its own constructor. The web-API timers are unaffected — they keep
-  their own clock in `Options.WebApi.Timers.TimeProvider`, because they are a WHATWG feature rather than an
-  execution budget.
-- **A `TimeProvider` reporting a non-positive `TimestampFrequency` is rejected when the engine is built**,
-  rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
-  `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
-  the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
 ### 4.49 `Duration.prototype.round` reckons in the calendar its `relativeTo` carries ([#3450](https://github.com/sebastienros/jint/issues/3450))
 
 `round` read the calendar off a `PlainDate` `relativeTo` and then wrote `"iso8601"` into both calendar
@@ -2658,6 +2637,81 @@ Two consequences worth naming:
 `Object.getOwnPropertyDescriptor` reporting an out-of-range index as present. Nothing changes for in-range
 indices, for named CLR members, or for a dictionary-shaped target such as Newtonsoft's `JObject`, whose
 index-shaped string keys are dictionary keys and still answer from its own key set.
+### 4.56 An index outside a wrapped collection is refused, not handed to the collection ([#3422](https://github.com/sebastienros/jint/issues/3422))
+
+[§4.40](#440-an-index-on-a-host-collection-is-one-property-however-it-is-spelled-3384) gave the array-like
+*view* ownership of every index-shaped key. A host collection that has a `Count` and an indexer of its own,
+but none of the three interfaces that produce such a view, does not get one — and every index-shaped key on it
+resolved the reflected indexer, which takes whatever index it parsed out of the key straight to the
+collection:
+
+```csharp
+sealed class Window : IReadOnlyCollection<int>
+{
+    public int this[int index] { get => _items[index]; set => _items[index] = value; }
+    public int Count => _items.Count;
+    // ...
+}
+```
+
+```js
+// 4.16.x, three elements, options.Interop.AllowWrite = true
+x[3]                    // ArgumentOutOfRangeException out of Evaluate — a read
+x["3"] = 9              // ArgumentOutOfRangeException
+x[-1] = 9               // ArgumentOutOfRangeException
+Reflect.set(x, 3, 9)    // ArgumentOutOfRangeException
+3 in x                  // true, for a position that cannot be read at all
+```
+
+None of those is a `JavaScriptException`, so neither a script `try`/`catch` nor a host
+`catch (JavaScriptException)` could see them. In 5.x the wrapper answers such a key itself:
+
+```js
+// 5.x
+x[3]                    // undefined
+x["3"] = 9              // sloppy: silently ignored;  strict: TypeError
+x[-1] = 9               // same
+3 in x                  // false
+x.hasOwnProperty(3)     // false
+delete x[3]             // true — there was nothing to delete
+```
+
+The refusal is conditioned on **two** facts, because the same lane serves shapes where an out-of-range key is
+the point:
+
+- the target is **bounded** — it has a `Count` and is not a dictionary. `d[99] = "x"` on a
+  `Dictionary<int, string>` is a legitimate add and is unchanged, in both spellings;
+- the member being resolved is an **integer-keyed** indexer. A string-keyed indexer on a collection — a
+  `NameValueCollection` asked for `x["3"]` — still answers for its own key, whatever the count is.
+
+Positions the collection does have are unchanged, and so is every named CLR member.
+
+**What could break:** a `catch (ArgumentOutOfRangeException)` around `Evaluate` written to absorb an
+out-of-range index on such a target no longer fires — the read is `undefined` and the write is refused. Code
+reading `n in x` or `x.hasOwnProperty(n)` as "the indexer would accept `n`" gets `false` for out-of-range `n`
+instead of `true`.
+
+`Engine.DrainEventLoopUntil` — what `UnwrapIfPromise` blocks in, and what a synchronous `Modules.Import`
+waits in — used to arm its deadline from `DateTime.UtcNow`. It now arms it from a monotonic timestamp, read
+through `Options.Constraints.TimeProvider` on `net8.0` and later and from `Stopwatch` everywhere else. Three
+consequences, none of which changes a signature:
+
+- **A system-clock step no longer moves a promise budget.** An NTP correction forwards used to cut a
+  `PromiseTimeout` short and one backwards used to stretch it; neither does now. This is the rule the pump's
+  own ceiling has always followed (`Engine.Pump.ElapsedSince`), and the drain was the one wait that did not.
+- **`Options.Constraints.TimeProvider` now governs `Options.Constraints.PromiseTimeout` as well as
+  `LimitExecutionTime`.** A host that supplied a clock to make its execution-timeout tests exact will find
+  the promise budget measured against the same clock — so a *frozen* clock now keeps a blocking unwrap
+  pending until the host advances it, where before it timed out on real time. If that is not wanted, leave
+  `TimeProvider` at `TimeProvider.System` (the default) and register `OperationDeadlineConstraint` with its
+  own clock instead; it takes one through its own constructor. The web-API timers are unaffected — they keep
+  their own clock in `Options.WebApi.Timers.TimeProvider`, because they are a WHATWG feature rather than an
+  execution budget.
+- **A `TimeProvider` reporting a non-positive `TimestampFrequency` is rejected when the engine is built**,
+  rather than only when `LimitExecutionTime` happens to be registered. It was always rejected by
+  `ConstraintClock.Resolve` with a named `ArgumentException`; that clock is now resolved for every engine, so
+  the diagnostic arrives where the clock was supplied instead of at whichever budget first tried to use it.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
