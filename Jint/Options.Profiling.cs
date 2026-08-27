@@ -10,7 +10,7 @@ public sealed partial class Options
     /// before this existed.
     /// </summary>
     /// <seealso cref="Engine.DiagnosticOperations.StartProfiling"/>
-    public ProfilingOptions Profiling => Materialize(ref _profiling, _readOnly);
+    public ProfilingOptions Profiling => Materialize(ref _profiling, ref _readOnly);
 
     private ProfilingOptions? _profiling;
 

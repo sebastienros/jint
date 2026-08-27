@@ -73,7 +73,12 @@ untrusted-code profile's private snapshot from sharing state with the host's opt
 
 **`Options` is configuration until an engine reads it, and frozen afterwards.** The `Engine` constructor ends
 with `MakeReadOnly()`, which cascades to every group and registry; a group materialized later is born frozen,
-which is why `Materialize` takes the owner's state. So a new setting needs `ThrowIfReadOnly()` in its setter
+which is why `Materialize` takes the owner's state — **by reference, and read a second time after the
+interlocked publication**, because the freeze sets the flag and *then* cascades over the backing fields,
+so a group materialized inside that window used to be missed by both halves and stay writable on a frozen
+`Options` for the life of the process. `SetReadOnly` publishes the flag with a full barrier for the same
+handshake, and `OptionsList<T>.Clone` carries it the way a group's `MemberwiseClone` does, so no caller of
+a `Clone` has to re-freeze what it copied. A new setting needs `ThrowIfReadOnly()` in its setter
 (`[CallerMemberName]` names it), a new registry is an `OptionsList<T>` rather than a `List<T>`, and a new
 group implements `IOptionsGroup` and joins the two cascades in `Options.ReadOnly.cs`. A setting that
 *memoizes on read* resolves in `SetReadOnly` as well, ahead of the flag — `Engine.Options` hands the frozen

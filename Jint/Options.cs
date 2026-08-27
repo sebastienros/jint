@@ -39,7 +39,7 @@ public sealed partial class Options
     /// </param>
     internal void AddConfiguration(EngineConfiguration configuration, [CallerMemberName] string? verb = null)
     {
-        if (_readOnly)
+        if (Volatile.Read(ref _readOnly))
         {
             Throw.OptionsReadOnlyCall("Options." + verb);
         }
@@ -94,8 +94,17 @@ public sealed partial class Options
     /// and mutable by the very host write that was supposed to be refused, and the engine reads those groups
     /// lazily, so the write would land.
     /// </para>
+    /// <para>
+    /// It is taken by reference and read <b>again after the publication</b>, because one read taken before the
+    /// allocation cannot cover a freeze running on another thread. <c>SetReadOnly</c> sets the flag and then
+    /// cascades over the backing fields, so an accessor that read the flag first and published second is
+    /// missed by both halves — and the group it publishes stays writable on a frozen <see cref="Options"/> for
+    /// the life of the process. The second read means one of the two always catches it: either the cascade
+    /// finds a published group, or this finds the flag. Freezing a group that is already frozen is a no-op, so
+    /// it does not matter which. <c>SetReadOnly</c>'s barrier is the other half of that argument.
+    /// </para>
     /// </remarks>
-    private static T Materialize<T>(ref T? field, bool readOnly) where T : class, IOptionsGroup, new()
+    private static T Materialize<T>(ref T? field, ref bool readOnly) where T : class, IOptionsGroup, new()
     {
         var existing = field;
         if (existing is not null)
@@ -104,74 +113,83 @@ public sealed partial class Options
         }
 
         var created = new T();
-        if (readOnly)
+        if (Volatile.Read(ref readOnly))
         {
             created.SetReadOnly(true);
         }
 
-        return Interlocked.CompareExchange(ref field, created, null) ?? created;
+        var published = Interlocked.CompareExchange(ref field, created, null) ?? created;
+
+        // The publication above is a full fence, so a freeze that has already set the flag is visible here
+        // whether or not its cascade reached this field in time to see the group.
+        if (Volatile.Read(ref readOnly))
+        {
+            published.SetReadOnly(true);
+        }
+
+        return published;
     }
 
     /// <summary>
     /// Execution constraints for the engine.
     /// </summary>
-    public ConstraintOptions Constraints => Materialize(ref _constraints, _readOnly);
+    public ConstraintOptions Constraints => Materialize(ref _constraints, ref _readOnly);
 
     private ConstraintOptions? _constraints;
 
     /// <summary>
     /// Resource limits applied while parsing scripts and modules.
     /// </summary>
-    public ParsingOptions Parsing => Materialize(ref _parsing, _readOnly);
+    public ParsingOptions Parsing => Materialize(ref _parsing, ref _readOnly);
 
     private ParsingOptions? _parsing;
 
     /// <summary>
     /// CLR interop related options.
     /// </summary>
-    public InteropOptions Interop => Materialize(ref _interop, _readOnly);
+    public InteropOptions Interop => Materialize(ref _interop, ref _readOnly);
 
     private InteropOptions? _interop;
 
     /// <summary>
     /// Debugger configuration.
     /// </summary>
-    public DebuggerOptions Debugger => Materialize(ref _debugger, _readOnly);
+    public DebuggerOptions Debugger => Materialize(ref _debugger, ref _readOnly);
 
     private DebuggerOptions? _debugger;
 
     /// <summary>
     /// Script code coverage configuration. Off by default.
     /// </summary>
-    public CoverageOptions Coverage => Materialize(ref _coverage, _readOnly);
+    public CoverageOptions Coverage => Materialize(ref _coverage, ref _readOnly);
 
     private CoverageOptions? _coverage;
 
     /// <summary>
     /// Host options.
     /// </summary>
-    public HostOptions Host => Materialize(ref _host, _readOnly);
+    public HostOptions Host => Materialize(ref _host, ref _readOnly);
 
     private HostOptions? _host;
 
     /// <summary>
     /// Module options
     /// </summary>
-    public ModuleOptions Modules => Materialize(ref _modules, _readOnly);
+    public ModuleOptions Modules => Materialize(ref _modules, ref _readOnly);
 
     private ModuleOptions? _modules;
 
     /// <summary>
     /// Internationalization (Intl) options.
     /// </summary>
-    public IntlOptions Intl => Materialize(ref _intl, _readOnly);
+    public IntlOptions Intl => Materialize(ref _intl, ref _readOnly);
 
     private IntlOptions? _intl;
 
     /// <summary>
     /// Temporal API options.
     /// </summary>
-    public TemporalOptions Temporal => Materialize(ref _temporal, _readOnly);
+    public TemporalOptions Temporal => Materialize(ref _temporal, ref _readOnly);
 
     private TemporalOptions? _temporal;
 
@@ -280,7 +298,7 @@ public sealed partial class Options
     /// Options for the built-in JSON (de)serializer which
     /// gets used using <c>JSON.parse</c> or <c>JSON.stringify</c>
     /// </summary>
-    public JsonOptions Json => Materialize(ref _json, _readOnly);
+    public JsonOptions Json => Materialize(ref _json, ref _readOnly);
 
     private JsonOptions? _json;
 

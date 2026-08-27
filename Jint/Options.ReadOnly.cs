@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Runtime;
 
 namespace Jint;
@@ -18,6 +19,18 @@ internal interface IOptionsGroup
 
 public sealed partial class Options
 {
+    /// <summary>
+    /// The freeze flag, read and written through <see cref="Volatile"/> rather than declared
+    /// <see langword="volatile"/> only because <see cref="Materialize{T}"/> takes it by reference.
+    /// </summary>
+    /// <remarks>
+    /// This flag and <c>WebApiOptions._readOnly</c> are the two that gate a <i>publication</i>, which is why
+    /// they are the two published with a barrier. A stale read of any other group's flag costs one
+    /// setter that should have been refused — the same thing that happens when a setter passes
+    /// <c>ThrowIfReadOnly</c> a moment before the freeze starts, and not something a barrier can prevent,
+    /// because the freeze is a state change rather than a lock. A stale read of one of these two costs an
+    /// object: the group it publishes is writable for as long as the <see cref="Options"/> lives.
+    /// </remarks>
     private bool _readOnly;
 
     /// <summary>
@@ -27,7 +40,7 @@ public sealed partial class Options
     /// Modelled on <c>JsonSerializerOptions.IsReadOnly</c>, and true for the same reason: a component has
     /// taken this instance as its configuration and reads it live.
     /// </remarks>
-    public bool IsReadOnly => _readOnly;
+    public bool IsReadOnly => Volatile.Read(ref _readOnly);
 
     /// <summary>
     /// Freezes this configuration, so that a later write throws instead of reaching an engine that already read it.
@@ -64,7 +77,16 @@ public sealed partial class Options
             _ = TimeSystem;
         }
 
-        _readOnly = value;
+        // The flag is published before the cascade reads the backing fields, and with a full fence rather
+        // than only the release write: a group being materialized on another thread has to either see this
+        // write and be born frozen, or have published itself in time for the cascade below to find it. A
+        // release write orders the stores before it and not the loads after it, so without the barrier both
+        // halves can miss at once — this cascade reading a field the accessor has not published yet, while
+        // that accessor reads a flag still sitting in this thread's store buffer — and the group it goes on
+        // to publish accepts writes on a frozen Options for the life of the process.
+        Volatile.Write(ref _readOnly, value);
+        Thread.MemoryBarrier();
+
         SetReadOnly(_constraints, value);
         SetReadOnly(_parsing, value);
         SetReadOnly(_interop, value);
@@ -85,7 +107,7 @@ public sealed partial class Options
 
     private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
     {
-        if (_readOnly)
+        if (Volatile.Read(ref _readOnly))
         {
             Throw.OptionsReadOnly("Options." + setting);
         }
@@ -322,11 +344,16 @@ public sealed partial class Options
 
     public sealed partial class WebApiOptions : IOptionsGroup
     {
+        /// <inheritdoc cref="Options._readOnly"/>
         private bool _readOnly;
 
         void IOptionsGroup.SetReadOnly(bool value)
         {
-            _readOnly = value;
+            // Published with a barrier for the reason Options.SetReadOnly states: the eight accessors below
+            // read this flag before they publish, and this cascade reads their fields after it.
+            Volatile.Write(ref _readOnly, value);
+            Thread.MemoryBarrier();
+
             Options.SetReadOnly(_console, value);
             Options.SetReadOnly(_timers, value);
             Options.SetReadOnly(_fetch, value);
@@ -353,7 +380,7 @@ public sealed partial class Options
 
         private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
         {
-            if (_readOnly && !IsConfiguringWebApisLive(this))
+            if (Volatile.Read(ref _readOnly) && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi." + setting);
             }
@@ -512,7 +539,21 @@ public sealed class OptionsList<T> : IList<T>, IReadOnlyList<T>
         _items = items;
     }
 
-    internal OptionsList<T> Clone() => new(_name, new List<T>(_items));
+    /// <summary>
+    /// A copy of this registry, carrying its read-only state.
+    /// </summary>
+    /// <remarks>
+    /// A group's own <c>Clone</c> is <c>MemberwiseClone</c> and so carries the group's frozen state; a fresh
+    /// registry would be born writable, which used to make the registries of a clone taken from a frozen
+    /// source the one part of it that still accepted an <c>Add</c>. The caller that wants a writable copy is
+    /// <see cref="Options.CreateEngineOptions"/>, and it thaws the whole clone deliberately.
+    /// </remarks>
+    internal OptionsList<T> Clone()
+    {
+        var clone = new OptionsList<T>(_name, new List<T>(_items));
+        clone._readOnly = _readOnly;
+        return clone;
+    }
 
     internal void SetReadOnly(bool value) => _readOnly = value;
 

@@ -364,6 +364,50 @@ public class HostOptionsReadOnlyTests
         Invoking(() => options.WebApi.Timers.MaxActiveTimers = 4)
             .Should().Throw<InvalidOperationException>();
     }
+
+    /// <summary>
+    /// The engine's private copy of the web-API subtree is frozen around registries that are frozen too.
+    /// </summary>
+    /// <remarks>
+    /// The only public door onto a group cloned from a frozen source. <c>WebApiOptions.Clone</c> copies each
+    /// sub-group with <c>MemberwiseClone</c>, which carries the frozen state, but a registry has to be a new
+    /// list or the copy would share the host's — and a new <see cref="OptionsList{T}"/> used to be born
+    /// writable, so this copy came back frozen around an <c>AllowedSchemes</c> that still accepted an
+    /// <c>Add</c>. The live door is for setting a value on the subtree, never for growing a registry on it,
+    /// and <see cref="TheLiveWebApiDoorSuspendsTheGuardForTheGroupItIsConfiguringAndNothingElse"/> pins the
+    /// same refusal for the sub-group nobody had materialized before the freeze — which reaches the copy
+    /// through the accessor rather than through the clone.
+    /// </remarks>
+    [Test]
+    public void TheEnginesPrivateWebApiCopyIsFrozenAroundFrozenRegistries()
+    {
+        var options = new Options();
+
+        // Materialized before the freeze, so the engine's copy of it comes from Clone rather than from the
+        // accessor that would have made it born frozen.
+        options.WebApi.Fetch.MaxRedirects = 5;
+
+        var engine = new Engine(options);
+        options.WebApi.Fetch.AllowedSchemes.IsReadOnly.Should().BeTrue();
+
+        Options.WebApiOptions? privateCopy = null;
+        engine.WebApi.Enable(WebApiFeatures.Timers, webApi =>
+        {
+            privateCopy = webApi;
+            webApi.Should().NotBeSameAs(options.WebApi);
+            webApi.Fetch.Should().NotBeSameAs(options.WebApi.Fetch);
+
+            webApi.Fetch.AllowedSchemes.IsReadOnly.Should().BeTrue(
+                "the copy is frozen, and a registry inside a frozen group is frozen too");
+            Invoking(() => webApi.Fetch.AllowedSchemes.Add("ftp"))
+                .Should().Throw<InvalidOperationException>();
+        });
+
+        privateCopy.Should().NotBeNull();
+
+        // And the host's own instance was not written to at all.
+        options.WebApi.Fetch.AllowedSchemes.Should().NotContain("ftp");
+    }
 #endif
 
     /// <summary>

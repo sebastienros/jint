@@ -26,7 +26,7 @@ public sealed partial class Options
     /// never does it.
     /// </para>
     /// </remarks>
-    public WebApiOptions WebApi => Materialize(ref _webApi, _readOnly);
+    public WebApiOptions WebApi => Materialize(ref _webApi, ref _readOnly);
 
     private WebApiOptions? _webApi;
 
@@ -56,13 +56,10 @@ public sealed partial class Options
         // invariant is the copy's, not the freeze's.
         clone._timeSystem = TimeSystem;
 
-        var webApi = _webApi?.Clone();
-
-        // Clone gives FetchOptions.AllowedSchemes a fresh OptionsList, and a fresh one is born writable;
-        // every group otherwise carries the source's frozen state through MemberwiseClone. Re-freezing the
-        // subtree is what keeps the live door to setting a value rather than growing a registry.
-        SetReadOnly(webApi, _readOnly);
-        clone._webApi = webApi;
+        // Every part of the copy carries the source's frozen state on its own: the groups through
+        // MemberwiseClone, and the registries through OptionsList<T>.Clone. That is what keeps the live door
+        // to setting a value rather than growing a registry.
+        clone._webApi = _webApi?.Clone();
 
         return clone;
     }
@@ -94,7 +91,7 @@ public sealed partial class Options
         /// Settings for the <c>console</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Console"/>.
         /// </summary>
-        public ConsoleOptions Console => Materialize(ref _console, _readOnly);
+        public ConsoleOptions Console => Materialize(ref _console, ref _readOnly);
 
         private ConsoleOptions? _console;
 
@@ -102,7 +99,7 @@ public sealed partial class Options
         /// Settings for the timer functions, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Timers"/>.
         /// </summary>
-        public TimerOptions Timers => Materialize(ref _timers, _readOnly);
+        public TimerOptions Timers => Materialize(ref _timers, ref _readOnly);
 
         private TimerOptions? _timers;
 
@@ -110,7 +107,7 @@ public sealed partial class Options
         /// Settings for <c>fetch</c>, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Fetch"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public FetchOptions Fetch => Materialize(ref _fetch, _readOnly);
+        public FetchOptions Fetch => Materialize(ref _fetch, ref _readOnly);
 
         private FetchOptions? _fetch;
 
@@ -120,7 +117,7 @@ public sealed partial class Options
         /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
         /// <c>reportError</c> function that feeds it.
         /// </summary>
-        public DiagnosticsOptions Diagnostics => Materialize(ref _diagnostics, _readOnly);
+        public DiagnosticsOptions Diagnostics => Materialize(ref _diagnostics, ref _readOnly);
 
         private DiagnosticsOptions? _diagnostics;
 
@@ -128,7 +125,7 @@ public sealed partial class Options
         /// Settings for <c>localStorage</c> and <c>sessionStorage</c>, installed when <see cref="Features"/>
         /// contains <see cref="WebApiFeatures.Storage"/>.
         /// </summary>
-        public StorageOptions Storage => Materialize(ref _storage, _readOnly);
+        public StorageOptions Storage => Materialize(ref _storage, ref _readOnly);
 
         private StorageOptions? _storage;
 
@@ -136,7 +133,7 @@ public sealed partial class Options
         /// Settings for the <c>caches</c> object, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.CacheApi"/> — which <see cref="WebApiFeatures.Default"/> never does.
         /// </summary>
-        public CacheOptions Cache => Materialize(ref _cache, _readOnly);
+        public CacheOptions Cache => Materialize(ref _cache, ref _readOnly);
 
         private CacheOptions? _cache;
 
@@ -144,7 +141,7 @@ public sealed partial class Options
         /// Settings for channel messaging, installed when <see cref="Features"/> contains
         /// <see cref="WebApiFeatures.Messaging"/>.
         /// </summary>
-        public MessagingOptions Messaging => Materialize(ref _messaging, _readOnly);
+        public MessagingOptions Messaging => Materialize(ref _messaging, ref _readOnly);
 
         private MessagingOptions? _messaging;
 
@@ -153,7 +150,7 @@ public sealed partial class Options
         /// <see cref="WebApiFeatures.Workers"/> — which <see cref="WebApiFeatures.Default"/> never does — and
         /// <see cref="Options.WorkerOptions.Provider"/> names a provider.
         /// </summary>
-        public WorkerOptions Workers => Materialize(ref _workers, _readOnly);
+        public WorkerOptions Workers => Materialize(ref _workers, ref _readOnly);
 
         private WorkerOptions? _workers;
 
