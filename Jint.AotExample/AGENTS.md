@@ -161,7 +161,11 @@ because both tokens are constants.
    script reaches — to be trimmed away.
 4. Add a `Probe` to `Jint.AotExample/Program.cs`, with a sibling using the other kind of type argument
    where the lane is generic. A `KnownAotGap` is for a shape that must *keep* throwing; it is checked
-   in both directions, so a gap that closes fails the leg.
+   in both directions, so a gap that closes fails the leg. A `KnownTrimmedAway` is for a shape that must
+   keep answering **wrongly** — see the next section — and is checked in both directions for the same
+   reason.
+5. If what you added is an *annotation* rather than a lane, its subject goes in
+   `Jint.AotExample.UnrootedHost`, not beside `Program.cs`. See below.
 
 The eight annotated members today are `OptionsExtensions.AllowClr` (two overloads),
 `OptionsExtensions.AddExtensionMethods`, `Engine.SetValue(string, object?)`,
@@ -192,6 +196,47 @@ in the *host's* code. The array half is fixed; the delegate half is not, and the
   the same signature as `SetValue<T>` after substitution and would make every delegate call site
   ambiguous. Widening the annotation is not the fix either; knowing that the annotation is what an
   embedder pays is the point.
+
+#### The unrooted half, and what an annotation is worth
+
+**A rooted subject cannot measure an annotation.** `Jint.AotExample` roots `Jint` and itself, so every host
+type declared beside `Program.cs` — `Company`, `ReadOnlyStrings`, `GenericHost`, `Box<T>` — survives
+whatever `SetValue<T>`'s `[DynamicallyAccessedMembers]` says, and a probe over one cannot tell the
+annotation from the root. `Jint.AotExample.UnrootedHost` is the second project that closes that
+([#3479](https://github.com/sebastienros/jint/issues/3479)): referenced, deliberately **not** in
+`TrimmerRootAssembly`, and the home of every host type whose only protection is the attribute on the entry
+point it is registered through. **Nothing in C# may read a member of a type in there** — one call from
+`Program.cs`, one `ToString` override that touches a property, and the probe silently stops measuring.
+
+**The standard of proof is that removing the annotation makes a probe fail.** Deleting
+`[DynamicallyAccessedMembers]` from `Engine.SetValue<T>(string, T?)` and
+`GlobalValueRegistration.RegisterTyped<T>` — nothing else — turns four probes red on a published native
+binary: the two unrooted ones, *and* `Dictionary<string, object>` / `Dictionary<string, int>`, which were
+already annotation-sensitive because their subject is a framework type this project does not root either.
+Those two discriminated by accident; nothing said they were the annotation's evidence, and rooting one
+more assembly would have retired them without a word. **A probe that passes either way must be deleted
+rather than kept — it reads as evidence and is not.**
+
+**`DynamicallyAccessedMemberTypes.Interfaces` is not what any probe here pins, and it is still worth
+carrying.** Two measurements, and neither is the one the entry looks like it should have:
+
+* Removing it from `InteropHelper.DefaultDynamicallyAccessedMemberTypes` leaves the unrooted
+  `IReadOnlyList<string>` probe **entirely green** — ILC keeps the interface implementations of a type whose
+  MethodTable it emits whenever the interface is used anywhere in the closed program, and Jint itself uses
+  that one. What that probe actually pins is `Count`, riding on `PublicProperties`. So no probe can be
+  written that discriminates the entry at run time, which is why none claims to.
+* What removing it *does* change is the **analysis**: the published inventory goes 67 → **75** (`IL2067`
+  8 → 11, `IL2070` 4 → 9), every one of them in Jint's files and in the embedder's build. That is the
+  opposite of `PublicNestedTypes`, which bought nothing and cost the embedder diagnostics; this one buys
+  nothing at run time and *saves* eight. **Do not delete it** on the strength of the first bullet.
+
+**And it does not reach a member behind an *explicit* implementation at all.** `Interfaces` asks for the
+implemented interfaces, not for their members, so `TypeResolver`'s `iface.GetProperties()` walk finds
+nothing and the member reads `undefined` with the annotation present and correct — pinned as a
+`KnownTrimmedAway`. Adding `typeof(TheInterface).GetProperties()` anywhere in the program makes it
+resolve, which is what identifies the missing thing as member metadata. **Do not close it by widening the
+constant**; the embedder closes it by rooting their own assembly, which is what `docs/v5-migration.md`
+§6.4 already tells them.
 
 #### Reading the example
 

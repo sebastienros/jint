@@ -3161,6 +3161,10 @@ interface implementation nothing else uses, and Jint would then report a member 
 `undefined` — the failure mode [§6.4](#64-what-you-owe-your-own-project) warns about, with no
 diagnostic anywhere. Nothing in your code changes; the annotation is what keeps the interface.
 
+**It keeps the interface, not the interface's members**, and that distinction is measured rather than
+assumed — see [§6.7](#67-the-annotation-contract-is-measured-3479), which also says which half of this
+paragraph a published binary actually confirms.
+
 `TypeReference.ReferenceType` carries the same set now, so a type handed to
 `CreateTypeReference` is still annotated when the reference constructs it — through `Activator` and
 through the resolved constructor set alike. It was a plain `Type` before, and the promise the caller
@@ -3177,6 +3181,40 @@ six candidates with the annotation present and absent. So the requirement is sta
 the lookup happens, and the two `IL2072` it raises against `TypeReference.cs` are two of the
 diagnostics §6.4 counts. This is the `Delegate` trap in §6.4 again, and the choice was not to add a
 second one.
+
+### 6.7 The annotation contract is measured ([#3479](https://github.com/sebastienros/jint/issues/3479))
+
+Everything above [§6.3](#63-apis-that-now-warn) says about `SetValue<T>` preserving what Jint reflects
+over used to be a claim no run checked. `Jint.AotExample` roots both assemblies it publishes, so every
+host type its probes registered was preserved by the root and no probe could tell the annotation from it.
+There is now a second project, `Jint.AotExample.UnrootedHost`, that the AOT leg publishes and deliberately
+does **not** root, and four probes over it. Nothing in your code changes; what changes is that the two
+sentences below are now the output of a native binary rather than prose.
+
+**What the annotation does buy you.** Registering an unrooted host type through `SetValue<T>` — the
+overload C# picks whenever the static type at the call site is the host type — preserves its public
+property, field and method, and preserves enough of an `IReadOnlyList<T>` implementation for `.length` and
+the `Array.prototype` generics to work. Delete the `[DynamicallyAccessedMembers]` from `SetValue<T>` and
+those probes fail with `undefined` and `0`, along with `Dictionary<string, object>` and
+`Dictionary<string, int>`, which are framework types the example does not root either.
+
+**What it does not, and there are two.** Registering the same object through `SetValue(string, object?)`
+preserves nothing: the member reads `undefined`, script sees a property that is not there, and no
+diagnostic anywhere reports it. That is the silent wrong answer §6.4 is about, and it is now pinned as an
+executable entry rather than described. And a member reachable **only through an explicit interface
+implementation** reads `undefined` too, with the annotation present: `Interfaces` asks for the implemented
+interfaces, not for their members, so the walk that would find it has no metadata to read. Both close the
+same way, and it is the way §6.4 already gives:
+
+```xml
+<ItemGroup>
+  <TrimmerRootAssembly Include="YourAssembly" />
+</ItemGroup>
+```
+
+If you cannot root the whole assembly, an explicit interface member is reachable again as soon as anything
+in your program names it with a constant token — `typeof(IYourInterface).GetProperties()` is enough,
+because that *is* a request to preserve them.
 
 ## Keeping this document current
 

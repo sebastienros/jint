@@ -46,6 +46,16 @@
     <ProjectReference Include="..\Jint\Jint.csproj" />
 
     <!--
+      The unrooted half. Deliberately absent from the TrimmerRootAssembly list below, and that absence is
+      the whole measurement: every host type declared beside Program.cs is rooted wholesale, so a probe
+      over one cannot tell "the annotation preserved this member" from "the root did". The types in this
+      assembly have nothing but the attribute on the entry point they are registered through, so removing
+      that attribute makes a probe fail - which is what turns section 6.6 of docs/v5-migration.md from a
+      claim into a measurement.
+    -->
+    <ProjectReference Include="..\Jint.AotExample.UnrootedHost\Jint.AotExample.UnrootedHost.csproj" />
+
+    <!--
       Rooting Jint keeps the probe about *Jint's* AOT behaviour rather than about how much of Jint a
       given program happens to reach; a real embedder would not do this, so treat the run as an upper
       bound on what works, never a lower one.
@@ -54,6 +64,10 @@
       nothing calls it from C# - and `company.shout()` then fails as "not a function": a wrong answer
       with no AOT diagnostic anywhere. An embedder whose host types are reached only through Jint's
       reflection owes itself the same root.
+
+      Jint.AotExample.UnrootedHost is not here, on purpose. Adding it would make every probe in the
+      "annotation" group below pass unconditionally, which is worse than not having them: a probe that
+      cannot fail still reads as evidence.
     -->
     <TrimmerRootAssembly Include="Jint" />
     <TrimmerRootAssembly Include="Jint.AotExample" />

@@ -26,6 +26,19 @@ internal sealed class InteropHelper
     /// mode with no diagnostic anywhere.
     /// </para>
     /// <para>
+    /// Two things about that entry are measured rather than assumed, and both are needed before anyone
+    /// touches it (<see href="https://github.com/sebastienros/jint/issues/3479">#3479</see>). Removing it
+    /// changes <b>no</b> answer a published native binary gives, because ILC keeps the interface
+    /// implementations of a type whose MethodTable it emits whenever the interface is used anywhere in the
+    /// closed program — so no probe can be written that discriminates it at run time. What removing it does
+    /// change is the analysis: the published inventory goes 67 to 75, all in the embedder's build. And it
+    /// does not stretch to a member behind an <em>explicit</em> implementation, because it asks for the
+    /// interfaces and not for their members, so <c>iface.GetProperties()</c> has nothing to read — an
+    /// unrooted host type's explicit member reads <c>undefined</c> with this constant exactly as it stands,
+    /// which <c>Jint.AotExample</c> pins as a <c>KnownTrimmedAway</c>. Neither fact is a reason to widen it;
+    /// the second is the embedder's to close by rooting their own assembly.
+    /// </para>
+    /// <para>
     /// <see cref="DynamicallyAccessedMemberTypes.PublicNestedTypes"/> is deliberately <b>not</b> here, and
     /// that is a measured decision rather than an oversight. Member resolution really does call
     /// <see cref="Type.GetNestedType(string, System.Reflection.BindingFlags)"/> — a nested type is a member a

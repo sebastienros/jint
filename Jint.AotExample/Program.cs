@@ -3,13 +3,20 @@
 // AOT failure actually shows up: <IsAotCompatible> is a property, not evidence, and Jint's own csproj
 // still suppresses the eight IL warning codes that would substantiate it.
 //
-// Two kinds of entry live below.
+// Three kinds of entry live below.
 //
 //   Probe(...)        must succeed on every runtime. A failure fails the run.
 //   KnownAotGap(...)  must succeed under a JIT and must throw NotSupportedException under Native AOT.
 //                     Both directions are checked, so a gap that closes fails the native run and
 //                     forces this file to be updated - the same discipline the vendored
 //                     web-platform-tests exclusion table uses.
+//   KnownTrimmedAway(...)
+//                     must read its value under a JIT and must read `undefined` under Native AOT,
+//                     because the member was trimmed and nothing reported it. Checked in both
+//                     directions for the same reason, and it is the only entry here whose native
+//                     expectation is a WRONG ANSWER rather than a failure - which is precisely the
+//                     failure mode docs/v5-migration.md section 6.4 says to plan for, because no
+//                     diagnostic anywhere reports it.
 //
 // Every known gap is one shape: a generic instantiation over a VALUE TYPE built at run time, either
 // Type.MakeGenericType + Activator.CreateInstance or MethodInfo.MakeGenericMethod. Reference-type
@@ -44,10 +51,12 @@
 using Jint;
 using Jint.Native;
 using Jint.Runtime.Interop;
+using UnrootedAotProbe;
 
 var failures = 0;
 var probes = 0;
 var gaps = 0;
+var trimmed = 0;
 // A Native AOT image has no managed assembly file to point at, so Assembly.Location is the empty
 // string there and a path under every other host. Neither of the two obvious alternatives works:
 // PublishAot=true writes both RuntimeFeature.IsDynamicCodeSupported and .IsDynamicCodeCompiled as
@@ -430,6 +439,100 @@ Probe("extension methods", static () =>
     Expect("JINT", engine.Evaluate("company.shout()"));
 });
 
+// The annotation group. Everything above measures what the ENGINE does natively; these four measure what
+// an ATTRIBUTE preserves, which until now nothing did - Jint.AotExample roots itself and Jint, so every
+// host type declared at the bottom of this file survives whatever SetValue<T>'s
+// [DynamicallyAccessedMembers] says and a probe over one cannot tell the annotation from the root
+// (sebastienros/jint#3479). Their subjects live in Jint.AotExample.UnrootedHost, which the csproj
+// deliberately does not root, so the attribute is the only thing between these members and the trimmer.
+//
+// THE MEASUREMENT IS THAT REMOVING THE ANNOTATION MAKES A PROBE FAIL, and it was run on a published
+// native binary rather than reasoned about. Deleting [DynamicallyAccessedMembers] from
+// Engine.SetValue<T>(string, T?) and GlobalValueRegistration.RegisterTyped<T> - nothing else - turns four
+// probes red:
+//
+//   unrooted host type through SetValue<T>          expected <preserved> but got <>
+//   unrooted IReadOnlyList<string> through SetValue<T>  expected <2> but got <0>
+//   Dictionary<string, object> crossing             expected <1> but got <>
+//   Dictionary<string, int> crossing                expected <1> but got <>
+//
+// The last two are the correction #3479 needs: two probes that were ALREADY annotation-sensitive, because
+// their subject is a framework type this project does not root either. They discriminate by accident
+// rather than by design - nothing said they were the annotation's evidence, and rooting one more assembly
+// would have silently retired them - which is why the group below exists as well.
+//
+// A probe here that passes either way is not testing the annotation and must be deleted rather than kept:
+// it reads as evidence and is not.
+Probe("unrooted host type through SetValue<T>: the annotation preserves its members", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+
+    // T is inferred as PreservedByAnnotation, so the type parameter's [DynamicallyAccessedMembers] names
+    // exactly this type and the trimmer keeps its public property, field and method. This is the claim
+    // docs/v5-migration.md section 6.3 makes when it points an embedder away from SetValue(string, object?).
+    engine.SetValue("h", new PreservedByAnnotation());
+
+    Expect("preserved", engine.Evaluate("h.name"));
+    Expect("preserved field", engine.Evaluate("h.field"));
+    Expect("hello Mary", engine.Evaluate("h.greet('Mary')"));
+});
+
+// The other direction, and the one that had no executable form at all: the SILENT WRONG ANSWER that
+// section 6.4 warns about. Nothing preserves the member, nothing reports its absence, and script reads
+// `undefined` for a property that is plainly declared on the object it was handed.
+KnownTrimmedAway("unrooted host type through SetValue(string, object?): the member is gone", "not preserved", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+
+    // The cast is what picks the overload. `object` at the call site is the whole hazard the annotation
+    // cannot cover, which is why this overload carries [RequiresUnreferencedCode] instead - IL2026 here,
+    // suppressed for the file by the csproj.
+    engine.SetValue("h", (object) new TrimmedWithoutAnnotation());
+
+    return engine.Evaluate("h.name");
+});
+
+// Array-likeness, which is a second lane and not a second spelling of the probe above: seq[1] resolves the
+// type's own indexer, seq.length and the Array.prototype generics arrive only when
+// ObjectWrapper.ResolveArrayLikeWrapperFactoryType finds IReadOnlyList<> among the type's interfaces AND
+// can read Count. Removing the annotation answers <0> rather than throwing, which is why the length is
+// asserted and not merely the element.
+//
+// It is deliberately NOT called a probe of the Interfaces entry #3396 added to the shared set, because it
+// measured as not being one: removing DynamicallyAccessedMemberTypes.Interfaces from
+// InteropHelper.DefaultDynamicallyAccessedMemberTypes on its own leaves every assertion here passing. ILC
+// keeps the interface implementations of a type whose MethodTable it emits when the interface is used
+// anywhere in the closed program, and IReadOnlyList<string> is used by Jint and by the rooted types beside
+// this file. What fails here is Count going with PublicProperties. That entry earns its keep in the
+// ANALYSIS rather than in the binary - removing it takes the published inventory from 67 to 75 - so do not
+// read "no probe discriminates it" as "delete it".
+Probe("unrooted IReadOnlyList<string> through SetValue<T>: the annotation preserves what makes it array-like", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("seq", new PreservedInterfaceSequence());
+
+    Expect(2, engine.Evaluate("seq.length"));
+    Expect("y", engine.Evaluate("seq[1]"));
+    Expect("x-y", engine.Evaluate("Array.prototype.join.call(seq, '-')"));
+});
+
+// The edge of the annotation, and the answer to the other half of #3479's question. TypeResolver walks
+// type.GetInterfaces() and then iface.GetProperties() to find a member a class implements only through an
+// interface. DynamicallyAccessedMemberTypes.Interfaces asks for the implemented interfaces; it does NOT ask
+// for their members, so the interface arrives with no property metadata and the walk finds nothing. The
+// annotation is present and correct, and the member still reads `undefined`.
+//
+// Measured, and the observer effect is worth recording because it is what identifies the missing thing:
+// adding `typeof(IHiddenBehindAnInterface).GetProperties()` anywhere in this file makes the read succeed,
+// because that constant token IS a request to preserve those members. An embedder hitting this closes it
+// the way section 6.4 says - by rooting their own assembly - not by widening Jint's annotation.
+KnownTrimmedAway("unrooted explicit interface implementation through SetValue<T>: Interfaces does not reach the member", "behind an interface", static () =>
+{
+    var engine = new Engine(static cfg => cfg.AllowClr());
+    engine.SetValue("h", new ExplicitInterfaceOnly());
+    return engine.Evaluate("h.hidden");
+});
+
 Probe("JSON round trip", static () =>
 {
     var engine = new Engine();
@@ -457,7 +560,7 @@ Probe("promise and async function", static () =>
 Console.WriteLine();
 if (failures == 0)
 {
-    Console.WriteLine($"ALL PROBES PASSED ({probes} probes, {gaps} known AOT gaps)");
+    Console.WriteLine($"ALL PROBES PASSED ({probes} probes, {gaps} known AOT gaps, {trimmed} known trimming gap{(trimmed == 1 ? "" : "s")})");
     return 0;
 }
 
@@ -519,6 +622,55 @@ void KnownAotGap(string name, Action action)
 
     failures++;
     Console.WriteLine($"FAIL  {name}: this known AOT gap now WORKS - promote it from KnownAotGap to Probe");
+}
+
+// The trimming counterpart of KnownAotGap. A member of an UNROOTED host type reached through an entry
+// point that carries no [DynamicallyAccessedMembers] is preserved by nothing, so under Native AOT it is
+// simply not there and the read answers `undefined`. That is the whole point of the entry: a trimmed member
+// raises nothing anywhere, so the only way to hold the claim is to assert the wrong answer and check the
+// other direction too - a member that starts surviving fails the native run and forces the annotation
+// inventory to be re-derived, exactly as a closing KnownAotGap does.
+void KnownTrimmedAway(string name, string underJit, Func<JsValue> read)
+{
+    trimmed++;
+
+    JsValue value;
+    try
+    {
+        value = read();
+    }
+    catch (Exception ex)
+    {
+        failures++;
+        Console.WriteLine($"FAIL  {name}: {ex.GetType().FullName}: {ex.Message}");
+        return;
+    }
+
+    if (dynamicCode)
+    {
+        try
+        {
+            Expect(underJit, value);
+        }
+        catch (Exception ex)
+        {
+            failures++;
+            Console.WriteLine($"FAIL  {name}: {ex.Message}");
+            return;
+        }
+
+        Console.WriteLine($"PASS  {name} (known trimming gap, the member is present under a JIT)");
+        return;
+    }
+
+    if (value.IsUndefined())
+    {
+        Console.WriteLine($"TRIM  {name}: reads undefined, and nothing anywhere said so.");
+        return;
+    }
+
+    failures++;
+    Console.WriteLine($"FAIL  {name}: the member SURVIVED trimming and read <{value.ToObject()}> - something now preserves it, so re-derive what and either promote this to a Probe or find a member that is genuinely unreachable");
 }
 
 static void Expect(object expected, JsValue actual)
