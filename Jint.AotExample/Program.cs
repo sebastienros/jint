@@ -157,13 +157,12 @@ Probe("IList<string> without IList (GenericListWrapperFactory<string>)", static 
 });
 
 // Same site, value-type argument, and the shape that reaches ArrayOperations.IndexWrappedOperations: a
-// wrapped CLR collection with an index to read but no IList to read it through. Under a JIT *this host*
-// gets the typed GenericListWrapper<int> and the lane is never entered, so Native AOT is what runs the
-// lane for this type - but not the only thing that runs the lane, which is what #3362 got wrong and #3394
-// corrected: exposing any host collection as IList<T> reaches it under a plain JIT, because
-// ResolveArrayLikeWrapperFactoryType scans the exposed type's interfaces and an interface is not among
-// its own. Jint.Tests.PublicInterface/HostExposedCollectionTypeTests.cs covers that route on every leg;
-// what this probe adds is the value-type degradation, which only a published native binary produces.
+// wrapped CLR collection with an index to read but no IList to read it through. Under a JIT this host
+// gets the typed GenericListWrapper<int> and the lane is never entered, so this probe is the only thing
+// that runs it - which is what makes it the boundary the row above is not. #3394 found a second route,
+// under a plain JIT, by exposing a host collection as IList<T>; that route was a defect in
+// ResolveArrayLikeWrapperFactoryType rather than a shape of the engine, and closing it (#3421) left this
+// probe once again the only coverage the lane has. Do not delete it for want of a sibling test.
 // Two bugs sat on the lane undetected until #3302 was fixed beside them: the reflection fallback passed
 // the WRAPPER to PropertyInfo.GetValue instead of the CLR target, a TargetException waiting for its first
 // read, and SetLength threw a bare NotSupportedException where the wrapper's read-only "length" owes

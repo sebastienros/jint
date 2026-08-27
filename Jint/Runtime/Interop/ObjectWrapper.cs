@@ -219,7 +219,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             factory = _arrayLikeWrapperResolution.GetOrAdd(type, factory);
         }
 
-        if (factory is not null)
+        // IsInstanceOfType is what keeps the factory's cast honest. Every factory casts the target to the
+        // contract the exposed type named - (T[]), (IList<T>), (IReadOnlyList<T>) - and until the exposed
+        // type itself was considered (#3421) a factory could only be found by scanning the target's own
+        // interface set, so the cast could not fail. A host is free to hand Create a type its target does
+        // not implement, and that exposure keeps the answer it has always had rather than becoming an
+        // InvalidCastException out of a wrapper creation.
+        if (factory is not null && type.IsInstanceOfType(target))
         {
             result = factory.Create(engine, target, type);
         }
@@ -280,25 +286,62 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             return typeof(ArrayWrapperFactory<>).MakeGenericType(elementType);
         }
 
+        // The exposed type itself, ahead of its interfaces. An interface is not among its own
+        // GetInterfaces() - typeof(IList<int>) yields ICollection<int>, IEnumerable<int> and IEnumerable,
+        // and never IList<int> - so exposing a collection *as* one of the two contracts this method is
+        // written to recognize found nothing at all, and the caller fell back to a wrapper the exposure had
+        // not named: a plain ObjectWrapper for a target that is not an IList, and a target-writable
+        // ListWrapper for one that is. Both are exposures a WrapObjectDelegate writes and the member lane
+        // produces for a declared IList<T> / IReadOnlyList<T> property (#3421).
+        var ownContract = TypedFactoryTypeFor(t);
+        if (ownContract is not null)
+        {
+            return ownContract;
+        }
+
         // check for generic interfaces
         foreach (var i in t.GetInterfaces())
         {
-            if (!i.IsGenericType)
+            var factoryType = TypedFactoryTypeFor(i);
+            if (factoryType is not null)
             {
-                continue;
+                return factoryType;
             }
+        }
 
-            var arrayItemType = i.GenericTypeArguments[0];
+        return null;
+    }
 
-            if (i.GetGenericTypeDefinition() == typeof(IList<>))
-            {
-                return typeof(GenericListWrapperFactory<>).MakeGenericType(arrayItemType);
-            }
+    /// <summary>
+    /// The closed factory type for one contract, or <see langword="null"/> when it names neither of the two
+    /// the typed wrappers are written for. Shared by the exposed type and its interfaces, which is what
+    /// makes the two answer identically.
+    /// </summary>
+    [UnconditionalSuppressMessage("AotAnalysis", "IL3050:RequiresDynamicCode",
+        Justification = "Reached only from ResolveArrayLikeWrapperFactoryType, whose caller wraps it and the " +
+                        "activation of its result in a catch that degrades. See IsMissingGenericInstantiation.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2055:MakeGenericType",
+        Justification = "The two factories are Jint's own internal sealed types, so the only instantiation a " +
+                        "trimmer can remove is one over an element type it also removed; Activator.CreateInstance " +
+                        "then raises MissingMethodException, which the caller's catch degrades.")]
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+    private static Type? TypedFactoryTypeFor(Type contract)
+    {
+        if (!contract.IsGenericType)
+        {
+            return null;
+        }
 
-            if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
-            {
-                return typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
-            }
+        var definition = contract.GetGenericTypeDefinition();
+
+        if (definition == typeof(IList<>))
+        {
+            return typeof(GenericListWrapperFactory<>).MakeGenericType(contract.GenericTypeArguments[0]);
+        }
+
+        if (definition == typeof(IReadOnlyList<>))
+        {
+            return typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(contract.GenericTypeArguments[0]);
         }
 
         return null;

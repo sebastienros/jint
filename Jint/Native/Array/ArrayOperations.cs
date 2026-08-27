@@ -618,14 +618,15 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
         // integer indexer answers an element read. Every member below was already written for a null _list,
         // which is what says the hard cast this replaced was never the intent.
         //
-        // A null _list is not the Native AOT case alone, which is what this comment used to say and what
-        // #3362 assumed. It is reached under a plain JIT whenever a host object is *exposed* as IList<T> —
-        // ObjectWrapper.Create(engine, target, typeof(IList<int>)), which is public API and is what a
-        // WrapObjectDelegate writes. ResolveArrayLikeWrapperFactoryType looks for IList<> among the exposed
-        // type's GetInterfaces(), and an interface is not among its own, so no typed wrapper is built; a
-        // target that is not a non-generic IList has no ListWrapper to fall back to either; and the plain
-        // ObjectWrapper that results still reports an integer index, which is what admits it here.
-        // Jint.Tests.PublicInterface/HostExposedCollectionTypeTests.cs covers that route on every leg (#3394).
+        // A null _list is the Native AOT case: a runtime with no code for the typed factory's value-type
+        // instantiation degrades to a plain ObjectWrapper when the target is not a non-generic IList, and
+        // Jint.AotExample's IList<int> probe is what pins the lane, on a published native binary.
+        //
+        // It was briefly also a JIT case, and that was itself a defect rather than a route: exposing a host
+        // collection as IList<T> found no typed factory, because ResolveArrayLikeWrapperFactoryType scanned
+        // the exposed type's GetInterfaces() and an interface is not among its own (#3394 documented the
+        // route, #3421 closed it). Under a JIT every exposure that reports an integer index now gets the
+        // typed wrapper its own contract names, so nothing reaches this lane.
         public IndexWrappedOperations(ObjectWrapper wrapper)
         {
             _target = wrapper;
