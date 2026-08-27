@@ -2286,36 +2286,6 @@ exactly what it wrote before. It moves for an embedder who has installed a CLDR-
 `ICldrProvider` — `Intl.RelativeTimeFormat` and `Intl.DurationFormat` now write that provider's digits for a
 locale whose default is not Latin, the way `Intl.NumberFormat` and `Intl.DateTimeFormat` already did. To keep
 Latin digits for such a locale, ask for them: `{ numberingSystem: 'latn' }`, or a `-u-nu-latn` subtag.
-### 4.45 `GetOwnProperties` reports what the key enumerations report ([#3461](https://github.com/sebastienros/jint/pull/3461))
-
-Deriving `GetOwnProperties` from `GetOwnPropertyKeys` ([2.6](#27-getownproperties-is-derived-not-overridden))
-makes it agree with every other enumeration, and for three object shapes the two used to differ. Nothing in
-script changes; what changes is what a host reading `GetOwnProperties`, converting an object with
-`ToObject()`, or inspecting a scope in the debugger sees.
-
-| Object | `GetOwnProperties()` in 4.16.x | in 5.x |
-| --- | --- | --- |
-| a function | `prototype`, `length`, `name`, [`arguments`, `caller`], own keys | `length`, `name`, `prototype`, [`arguments`, `caller`], own keys — the order `Object.getOwnPropertyNames` always reported, and the order the specification creates them in |
-| a `String` object | own keys, symbols, `length` | `"0"`…`"n-1"`, `length`, own keys, symbols — the character indices are own properties of a `String` object, and every script-visible enumeration already listed them |
-| a host object overriding only `GetOwnPropertyKeys` | the engine's own (usually empty) property tables | the keys the host declares |
-
-A plain object with integer-like keys is also reported in `[[OwnPropertyKeys]]` order now — integer indices
-ascending, then strings in insertion order, then symbols — rather than in storage order. Again, that is the
-order `Object.keys` already used.
-
-One in-box object gained a key rather than reordering its own: a lazily created `f.prototype` keeps
-`constructor` in a field and used to declare it to `GetOwnProperties` alone, so
-`Object.getOwnPropertyNames(f.prototype)` and `Reflect.ownKeys(f.prototype)` answered `[]` for a property
-`hasOwnProperty` and `Object.getOwnPropertyDescriptor` both reported. Both now answer `["constructor"]`. It
-stays non-enumerable, so `Object.keys` and `for..in` are unchanged.
-
-Two smaller consequences of the same derivation, both debugger-only:
-
-- `DebugScope.BindingNames` lists string keys only. A symbol-keyed own property of the binding object used to
-  appear in that list as its `Symbol(...)` description; a symbol is not a binding name.
-- A `with` scope over a host object whose properties live outside the engine's tables is no longer reported as
-  an empty scope and dropped from `DebugInformation.CurrentScopeChain`.
-
 ### 4.44 Calendar arithmetic is answered by whoever answers for the calendar ([#3403](https://github.com/sebastienros/jint/issues/3403))
 
 `ICalendarProvider` supplies two conversions, ISO ↔ calendar fields, and the engine consulted them for the
@@ -2366,6 +2336,37 @@ engine either.
 Two refusals that used to escape as CLR exceptions are now `RangeError`s a script can catch:
 `DifferenceISODateTime` reached `CalendarDateUntil` with no realm to report against, and an out-of-range
 difference threw out of `Engine.Evaluate`.
+
+
+### 4.45 `GetOwnProperties` reports what the key enumerations report ([#3461](https://github.com/sebastienros/jint/pull/3461))
+
+Deriving `GetOwnProperties` from `GetOwnPropertyKeys` ([2.6](#27-getownproperties-is-derived-not-overridden))
+makes it agree with every other enumeration, and for three object shapes the two used to differ. Nothing in
+script changes; what changes is what a host reading `GetOwnProperties`, converting an object with
+`ToObject()`, or inspecting a scope in the debugger sees.
+
+| Object | `GetOwnProperties()` in 4.16.x | in 5.x |
+| --- | --- | --- |
+| a function | `prototype`, `length`, `name`, [`arguments`, `caller`], own keys | `length`, `name`, `prototype`, [`arguments`, `caller`], own keys — the order `Object.getOwnPropertyNames` always reported, and the order the specification creates them in |
+| a `String` object | own keys, symbols, `length` | `"0"`…`"n-1"`, `length`, own keys, symbols — the character indices are own properties of a `String` object, and every script-visible enumeration already listed them |
+| a host object overriding only `GetOwnPropertyKeys` | the engine's own (usually empty) property tables | the keys the host declares |
+
+A plain object with integer-like keys is also reported in `[[OwnPropertyKeys]]` order now — integer indices
+ascending, then strings in insertion order, then symbols — rather than in storage order. Again, that is the
+order `Object.keys` already used.
+
+One in-box object gained a key rather than reordering its own: a lazily created `f.prototype` keeps
+`constructor` in a field and used to declare it to `GetOwnProperties` alone, so
+`Object.getOwnPropertyNames(f.prototype)` and `Reflect.ownKeys(f.prototype)` answered `[]` for a property
+`hasOwnProperty` and `Object.getOwnPropertyDescriptor` both reported. Both now answer `["constructor"]`. It
+stays non-enumerable, so `Object.keys` and `for..in` are unchanged.
+
+Two smaller consequences of the same derivation, both debugger-only:
+
+- `DebugScope.BindingNames` lists string keys only. A symbol-keyed own property of the binding object used to
+  appear in that list as its `Symbol(...)` description; a symbol is not a binding name.
+- A `with` scope over a host object whose properties live outside the engine's tables is no longer reported as
+  an empty scope and dropped from `DebugInformation.CurrentScopeChain`.
 
 ## 5. New in v5
 
