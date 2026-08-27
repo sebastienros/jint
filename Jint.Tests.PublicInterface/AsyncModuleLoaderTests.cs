@@ -275,7 +275,7 @@ public class AsyncModuleLoaderTests
         using var engine = new Engine();
         return Invoking(() => engine.ConvertResult(
                 engine.Evaluate("[1, 2]"),
-                new ResultLimits(maxPropertyCount: 1)))
+                new ResultLimits { MaxPropertyCount = 1 }))
             .Should().ThrowExactly<ResultLimitExceededException>().Which;
     }
 

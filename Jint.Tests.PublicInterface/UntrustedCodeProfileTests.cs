@@ -14,10 +14,28 @@ namespace Jint.Tests.PublicInterface;
 /// </summary>
 public class UntrustedCodeProfileTests
 {
+    /// <summary>
+    /// The suite's baseline profile, as a value rather than as a factory. The limits are named properties,
+    /// so a case that needs one dimension changed writes <c>Fixture with { MaxArraySize = 2 }</c> instead of
+    /// threading another optional parameter through a wrapper whose only job was to keep eight positional
+    /// arguments in the right order.
+    /// </summary>
+    private static readonly UntrustedCodeLimits Fixture = new()
+    {
+        TimeoutInterval = TimeSpan.FromSeconds(5),
+        MaxStatements = 100_000,
+        MemoryLimit = 16_000_000,
+        MaxRecursionDepth = 64,
+        MaxArraySize = 10_000,
+        RegexTimeout = TimeSpan.FromMilliseconds(100),
+        PromiseTimeout = TimeSpan.FromMilliseconds(100),
+        MaxOperationDuration = TimeSpan.FromSeconds(10),
+    };
+
     [Test]
     public void ProfileOverridesPreviouslyEnabledStaticCapabilities()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         var options = new Options()
             .AllowClr(typeof(UntrustedCodeProfileTests).Assembly)
             .AddExtensionMethods(typeof(UntrustedCodeProfileStringExtensions))
@@ -59,7 +77,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void ProfileIsReappliedAfterEarlierDeferredConfiguration()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         var options = new Options();
         options.Configure(engine =>
         {
@@ -104,7 +122,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void SharedOptionsGiveEachEngineItsOwnOperationDeadline()
     {
-        var options = new Options().ForUntrustedCode(CreateLimits());
+        var options = new Options().ForUntrustedCode(Fixture);
         var first = new Engine(options);
         var second = new Engine(options);
 
@@ -115,7 +133,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public async Task ConcurrentConstructionNeverMutatesSharedOptionsOrReopensAnExistingEngine()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         using var secondCallbackEntered = new ManualResetEventSlim(false);
         using var releaseSecondCallback = new ManualResetEventSlim(false);
         var callbackCount = 0;
@@ -151,7 +169,7 @@ public class UntrustedCodeProfileTests
     {
         var host = new WritableHost();
         var array = new[] { 1, 2, 3 };
-        var engine = new Engine(options => options.ForUntrustedCode(CreateLimits()))
+        var engine = new Engine(options => options.ForUntrustedCode(Fixture))
             .SetValue("host", host)
             .SetValue("array", array);
 
@@ -193,7 +211,7 @@ public class UntrustedCodeProfileTests
                 return new Host();
             });
         options.Interop.AllowOperatorOverloading = true;
-        options.ForUntrustedCode(CreateLimits());
+        options.ForUntrustedCode(Fixture);
         var engine = new Engine(options).SetValue("host", new OperatorHost());
 
         engine.Evaluate("host + host");
@@ -209,7 +227,7 @@ public class UntrustedCodeProfileTests
         options.Interop.ObjectWrapperReportedFieldBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
         options.Interop.ObjectWrapperReportedPropertyBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
         options.Interop.ObjectWrapperReportedMethodBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-        options.ForUntrustedCode(CreateLimits());
+        options.ForUntrustedCode(Fixture);
         var engine = new Engine(options).SetValue("host", new PrivateHost());
 
         engine.Evaluate("host.Secret").IsUndefined().Should().BeTrue();
@@ -219,7 +237,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void CopiedClrArraysRespectTheProfileArrayLimit()
     {
-        var engine = new Engine(options => options.ForUntrustedCode(CreateLimits(maxArraySize: 2)));
+        var engine = new Engine(options => options.ForUntrustedCode(Fixture with { MaxArraySize = 2 }));
 
         Invoking(() => engine.SetValue("array", new[] { 1, 2, 3 }))
             .Should().Throw<MemoryLimitExceededException>()
@@ -229,7 +247,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void PerEntryTimeoutIsEnforced()
     {
-        var limits = CreateLimits(timeoutInterval: TimeSpan.FromMilliseconds(1));
+        var limits = Fixture with { TimeoutInterval = TimeSpan.FromMilliseconds(1) };
         var engine = new Engine(options => options.ForUntrustedCode(limits))
             .SetValue("pause", new Action(() => Thread.Sleep(TimeSpan.FromMilliseconds(25))));
 
@@ -239,7 +257,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeEnforcesAndThenDisarmsTheMultiEntryDeadline()
     {
-        var limits = CreateLimits(maxOperationDuration: TimeSpan.FromMilliseconds(1));
+        var limits = Fixture with { MaxOperationDuration = TimeSpan.FromMilliseconds(1) };
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
         using var cancellation = new CancellationTokenSource();
@@ -257,7 +275,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void NestedOperationScopeIsRejectedWithoutDisarmingTheOuterScope()
     {
-        var limits = CreateLimits(maxOperationDuration: TimeSpan.FromMilliseconds(1));
+        var limits = Fixture with { MaxOperationDuration = TimeSpan.FromMilliseconds(1) };
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
         using var cancellation = new CancellationTokenSource();
@@ -277,7 +295,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public async Task ConcurrentOperationScopesCannotBothAcquireTheDeadline()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         var engine = new Engine(options => options.ForUntrustedCode(limits));
         using var cancellation = new CancellationTokenSource();
         using var start = new Barrier(2);
@@ -332,10 +350,12 @@ public class UntrustedCodeProfileTests
         // profile's own five-second timeout interval and ten-second operation deadline are budgets an
         // embedder would size for their own work, and leaving them at those defaults made this test fail on
         // a loaded runner as a TimeoutException from the gate below rather than as anything about scopes.
-        var limits = CreateLimits(
-            timeoutInterval: TestBudgets.WedgeCeiling,
-            promiseTimeout: TestBudgets.WedgeCeiling,
-            maxOperationDuration: TestBudgets.WedgeCeiling);
+        var limits = Fixture with
+        {
+            TimeoutInterval = TestBudgets.WedgeCeiling,
+            PromiseTimeout = TestBudgets.WedgeCeiling,
+            MaxOperationDuration = TestBudgets.WedgeCeiling,
+        };
         using var cancellation = new CancellationTokenSource();
         // TaskCompletionSource<bool> rather than the non-generic one, which only exists from .NET 5 and
         // this project also compiles for net472.
@@ -358,7 +378,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeFailsClosedWhenTheProfileWasNotInstalled()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
 
         using var cancellation = new CancellationTokenSource();
         Invoking(() => limits.BeginOperation(new Engine(), cancellation.Token))
@@ -369,7 +389,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeRejectsAGeneralPurposeDeadlineWithoutTheProfile()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         var engine = new Engine(options =>
             options.AddConstraint(static () => new OperationDeadlineConstraint()));
 
@@ -382,8 +402,11 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeRejectsADifferentLimitsInstance()
     {
-        var configuredLimits = CreateLimits();
-        var otherLimits = CreateLimits();
+        var configuredLimits = Fixture;
+        // A value-equal copy is still a different object, and the scope wants the one the engine holds.
+        var otherLimits = Fixture with { MaxStatements = Fixture.MaxStatements };
+        otherLimits.Should().NotBeSameAs(configuredLimits);
+        otherLimits.Should().Be(configuredLimits);
         var engine = new Engine(options => options.ForUntrustedCode(configuredLimits));
 
         using var cancellation = new CancellationTokenSource();
@@ -395,27 +418,27 @@ public class UntrustedCodeProfileTests
     [Test]
     public void RejectsNonPositiveLimits()
     {
-        AssertInvalid(() => CreateLimits(timeoutInterval: TimeSpan.Zero), "timeoutInterval");
-        AssertInvalid(() => CreateLimits(maxStatements: 0), "maxStatements");
-        AssertInvalid(() => CreateLimits(memoryLimit: 0), "memoryLimit");
-        AssertInvalid(() => CreateLimits(maxRecursionDepth: -1), "maxRecursionDepth");
-        AssertInvalid(() => CreateLimits(maxArraySize: 0), "maxArraySize");
-        AssertInvalid(() => CreateLimits(regexTimeout: TimeSpan.Zero), "regexTimeout");
-        AssertInvalid(() => CreateLimits(promiseTimeout: TimeSpan.Zero), "promiseTimeout");
-        AssertInvalid(() => CreateLimits(maxOperationDuration: TimeSpan.Zero), "maxOperationDuration");
+        AssertInvalid(() => Fixture with { TimeoutInterval = TimeSpan.Zero }, nameof(UntrustedCodeLimits.TimeoutInterval));
+        AssertInvalid(() => Fixture with { MaxStatements = 0 }, nameof(UntrustedCodeLimits.MaxStatements));
+        AssertInvalid(() => Fixture with { MemoryLimit = 0 }, nameof(UntrustedCodeLimits.MemoryLimit));
+        AssertInvalid(() => Fixture with { MaxRecursionDepth = -1 }, nameof(UntrustedCodeLimits.MaxRecursionDepth));
+        AssertInvalid(() => Fixture with { MaxArraySize = 0 }, nameof(UntrustedCodeLimits.MaxArraySize));
+        AssertInvalid(() => Fixture with { RegexTimeout = TimeSpan.Zero }, nameof(UntrustedCodeLimits.RegexTimeout));
+        AssertInvalid(() => Fixture with { PromiseTimeout = TimeSpan.Zero }, nameof(UntrustedCodeLimits.PromiseTimeout));
+        AssertInvalid(() => Fixture with { MaxOperationDuration = TimeSpan.Zero }, nameof(UntrustedCodeLimits.MaxOperationDuration));
     }
 
     [Test]
     public void RejectsSaturatedUnlimitedLimits()
     {
-        AssertInvalid(() => CreateLimits(timeoutInterval: TimeSpan.MaxValue), "timeoutInterval");
-        AssertInvalid(() => CreateLimits(maxStatements: int.MaxValue), "maxStatements");
-        AssertInvalid(() => CreateLimits(memoryLimit: long.MaxValue), "memoryLimit");
-        AssertInvalid(() => CreateLimits(maxRecursionDepth: int.MaxValue), "maxRecursionDepth");
-        AssertInvalid(() => CreateLimits(maxArraySize: uint.MaxValue), "maxArraySize");
-        AssertInvalid(() => CreateLimits(regexTimeout: TimeSpan.MaxValue), "regexTimeout");
-        AssertInvalid(() => CreateLimits(promiseTimeout: TimeSpan.MaxValue), "promiseTimeout");
-        AssertInvalid(() => CreateLimits(maxOperationDuration: TimeSpan.MaxValue), "maxOperationDuration");
+        AssertInvalid(() => Fixture with { TimeoutInterval = TimeSpan.MaxValue }, nameof(UntrustedCodeLimits.TimeoutInterval));
+        AssertInvalid(() => Fixture with { MaxStatements = int.MaxValue }, nameof(UntrustedCodeLimits.MaxStatements));
+        AssertInvalid(() => Fixture with { MemoryLimit = long.MaxValue }, nameof(UntrustedCodeLimits.MemoryLimit));
+        AssertInvalid(() => Fixture with { MaxRecursionDepth = int.MaxValue }, nameof(UntrustedCodeLimits.MaxRecursionDepth));
+        AssertInvalid(() => Fixture with { MaxArraySize = uint.MaxValue }, nameof(UntrustedCodeLimits.MaxArraySize));
+        AssertInvalid(() => Fixture with { RegexTimeout = TimeSpan.MaxValue }, nameof(UntrustedCodeLimits.RegexTimeout));
+        AssertInvalid(() => Fixture with { PromiseTimeout = TimeSpan.MaxValue }, nameof(UntrustedCodeLimits.PromiseTimeout));
+        AssertInvalid(() => Fixture with { MaxOperationDuration = TimeSpan.MaxValue }, nameof(UntrustedCodeLimits.MaxOperationDuration));
     }
 
     [Test]
@@ -429,18 +452,9 @@ public class UntrustedCodeProfileTests
     [Test]
     public void RejectsUnboundedResultLimits()
     {
-        Invoking(() => new UntrustedCodeLimits(
-                TimeSpan.FromSeconds(1),
-                1_000,
-                1_000_000,
-                16,
-                1_000,
-                TimeSpan.FromMilliseconds(100),
-                TimeSpan.FromMilliseconds(100),
-                TimeSpan.FromSeconds(2),
-                resultLimits: ResultLimits.Unlimited))
+        Invoking(() => Fixture with { ResultLimits = ResultLimits.Unlimited })
             .Should().Throw<ArgumentOutOfRangeException>()
-            .WithParameterName("resultLimits");
+            .WithParameterName(nameof(UntrustedCodeLimits.ResultLimits));
     }
 
     [Test]
@@ -459,7 +473,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeRequiresACancellableToken()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
         Invoking(() => limits.BeginOperation(engine, CancellationToken.None))
@@ -470,7 +484,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeSpansEvaluationConversionSerializationAndErrorRendering()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         using var cancellation = new CancellationTokenSource();
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
@@ -489,7 +503,7 @@ public class UntrustedCodeProfileTests
     [Test]
     public void OperationScopeCancellationIsHostVisibleAndCleansUp()
     {
-        var limits = CreateLimits();
+        var limits = Fixture;
         using var cancellation = new CancellationTokenSource();
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
@@ -507,13 +521,13 @@ public class UntrustedCodeProfileTests
     [Test]
     public void ProfileDiagnosticsAreExactAndUserCallbacksRemainVisible()
     {
-        var cleanOptions = new Options().ForUntrustedCode(CreateLimits());
+        var cleanOptions = new Options().ForUntrustedCode(Fixture);
         cleanOptions.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
         new Engine(cleanOptions).Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
 
         var callbackOptions = new Options();
         callbackOptions.Configure(static _ => { });
-        callbackOptions.ForUntrustedCode(CreateLimits());
+        callbackOptions.ForUntrustedCode(Fixture);
         var report = new Engine(callbackOptions).Diagnostics.ValidateSecurityConfiguration();
 
         report.Diagnostics.Select(static diagnostic => diagnostic.Code)
@@ -523,23 +537,19 @@ public class UntrustedCodeProfileTests
     [Test]
     public void ProfileBoundsParserAndResults()
     {
-        var limits = new UntrustedCodeLimits(
-            TimeSpan.FromSeconds(5),
-            100_000,
-            16_000_000,
-            64,
-            10_000,
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromSeconds(10),
-            maxSourceLength: 30,
-            maxNodeCount: 100,
-            resultLimits: new ResultLimits(
-                maxDepth: 2,
-                maxPropertyCount: 1,
-                maxStringLength: 5,
-                maxOutputCharacters: 10,
-                maxOutputBytes: 10));
+        var limits = Fixture with
+        {
+            MaxSourceLength = 30,
+            MaxNodeCount = 100,
+            ResultLimits = new ResultLimits
+            {
+                MaxDepth = 2,
+                MaxPropertyCount = 1,
+                MaxStringLength = 5,
+                MaxOutputCharacters = 10,
+                MaxOutputBytes = 10,
+            },
+        };
         var engine = new Engine(options => options.ForUntrustedCode(limits));
 
         Invoking(() => engine.Evaluate($"'{new string('1', 31)}'"))
@@ -549,25 +559,94 @@ public class UntrustedCodeProfileTests
             .Should().Throw<ResultLimitExceededException>();
     }
 
-    private static UntrustedCodeLimits CreateLimits(
-        TimeSpan? timeoutInterval = null,
-        int? maxStatements = null,
-        long? memoryLimit = null,
-        int? maxRecursionDepth = null,
-        uint? maxArraySize = null,
-        TimeSpan? regexTimeout = null,
-        TimeSpan? promiseTimeout = null,
-        TimeSpan? maxOperationDuration = null)
+    /// <summary>
+    /// A preset stays a preset: <c>with</c> satisfies the required members, keeps every dimension it does
+    /// not name, and leaves the preset itself alone.
+    /// </summary>
+    [Test]
+    public void TheDefaultPresetIsAdjustedWithoutRestatingTheRest()
     {
-        return new UntrustedCodeLimits(
-            timeoutInterval ?? TimeSpan.FromSeconds(5),
-            maxStatements ?? 100_000,
-            memoryLimit ?? 16_000_000,
-            maxRecursionDepth ?? 64,
-            maxArraySize ?? 10_000,
-            regexTimeout ?? TimeSpan.FromMilliseconds(100),
-            promiseTimeout ?? TimeSpan.FromMilliseconds(100),
-            maxOperationDuration ?? TimeSpan.FromSeconds(10));
+        var preset = UntrustedCodeLimits.Default;
+        var tuned = preset with { MaxStatements = 5_000 };
+
+        tuned.MaxStatements.Should().Be(5_000);
+        tuned.TimeoutInterval.Should().Be(preset.TimeoutInterval);
+        tuned.MemoryLimit.Should().Be(preset.MemoryLimit);
+        tuned.MaxRecursionDepth.Should().Be(preset.MaxRecursionDepth);
+        tuned.MaxArraySize.Should().Be(preset.MaxArraySize);
+        tuned.RegexTimeout.Should().Be(preset.RegexTimeout);
+        tuned.PromiseTimeout.Should().Be(preset.PromiseTimeout);
+        tuned.MaxOperationDuration.Should().Be(preset.MaxOperationDuration);
+        tuned.MaxSourceLength.Should().Be(preset.MaxSourceLength);
+        tuned.MaxNodeCount.Should().Be(preset.MaxNodeCount);
+        tuned.MaxModuleCount.Should().Be(preset.MaxModuleCount);
+        tuned.MaxTotalModuleSourceBytes.Should().Be(preset.MaxTotalModuleSourceBytes);
+        tuned.MaxModuleGraphDepth.Should().Be(preset.MaxModuleGraphDepth);
+        tuned.MaxModuleResolutionHops.Should().Be(preset.MaxModuleResolutionHops);
+        tuned.ResultLimits.Should().BeSameAs(preset.ResultLimits);
+
+        UntrustedCodeLimits.Default.MaxStatements.Should().Be(50_000);
+        UntrustedCodeLimits.Default.Should().BeSameAs(preset);
+    }
+
+    /// <summary>
+    /// The dimensions that carry a default carry the same numbers the positional constructor's optional
+    /// parameters did, so a host that never named them is bounded exactly as before.
+    /// </summary>
+    /// <remarks>
+    /// This row exists because nothing else would notice a weaker default: the value is not in any
+    /// signature a compiler checks, and a looser limit fails no test by failing to fire.
+    /// </remarks>
+    [Test]
+    public void TheDimensionsThatCarryDefaultsCarryTheOnesTheyAlwaysCarried()
+    {
+        var minimal = new UntrustedCodeLimits
+        {
+            TimeoutInterval = TimeSpan.FromSeconds(1),
+            MaxStatements = 1,
+            MemoryLimit = 1,
+            MaxRecursionDepth = 0,
+            MaxArraySize = 1,
+            RegexTimeout = TimeSpan.FromMilliseconds(1),
+            PromiseTimeout = TimeSpan.FromMilliseconds(1),
+            MaxOperationDuration = TimeSpan.FromMilliseconds(1),
+        };
+
+        minimal.MaxSourceLength.Should().Be(1_000_000);
+        minimal.MaxNodeCount.Should().Be(250_000);
+        minimal.MaxModuleCount.Should().Be(100);
+        minimal.MaxTotalModuleSourceBytes.Should().Be(10_000_000);
+        minimal.MaxModuleGraphDepth.Should().Be(32);
+        minimal.MaxModuleResolutionHops.Should().Be(1_000);
+        minimal.ResultLimits.Should().BeSameAs(ResultLimits.Conservative);
+    }
+
+    /// <summary>
+    /// An engine built from the preset still refuses everything the profile refuses, and enforces the
+    /// preset's own budget.
+    /// </summary>
+    [Test]
+    public void ThePresetProfileStillBoundsWhatTheProfileBounds()
+    {
+        var limits = UntrustedCodeLimits.Default with { MaxStatements = 500 };
+        var options = new Options().AllowClr(typeof(UntrustedCodeProfileTests).Assembly);
+        options.Host.StringCompilationAllowed = true;
+        options.Interop.AllowWrite = true;
+        options.ForUntrustedCode(limits);
+        var engine = new Engine(options);
+
+        Invoking(() => engine.Evaluate("var i = 0; while (true) { i++; }"))
+            .Should().Throw<StatementsCountOverflowException>();
+        engine.Evaluate("typeof System").AsString().Should().Be("undefined");
+        Invoking(() => engine.Evaluate("eval('1 + 1')"))
+            .Should().ThrowExactly<JavaScriptException>()
+            .WithMessage("String compilation has been disabled in engine options");
+
+        engine.Options.Constraints.MaxRecursionDepth.Should().Be(64);
+        engine.Options.Constraints.MaxArraySize.Should().Be(10_000u);
+        engine.Options.Constraints.RegexTimeout.Should().Be(TimeSpan.FromMilliseconds(250));
+        engine.Options.ResultLimits.Should().BeSameAs(ResultLimits.Conservative);
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics.Should().BeEmpty();
     }
 
     private static void AssertInvalid(Func<UntrustedCodeLimits> create, string parameterName)
@@ -579,7 +658,8 @@ public class UntrustedCodeProfileTests
     private static (WeakReference Limits, WeakReference Options, WeakReference Engine, SecurityConfigurationReport Report)
         CreateCollectibleProfileReport()
     {
-        var limits = CreateLimits();
+        // A fresh instance rather than the shared Fixture, which a static field would keep alive.
+        var limits = Fixture with { MaxStatements = 99_999 };
         var options = new Options().ForUntrustedCode(limits);
         var engine = new Engine(options);
         var report = engine.Diagnostics.ValidateSecurityConfiguration();

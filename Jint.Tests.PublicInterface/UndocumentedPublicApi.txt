@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 632
+undocumented: 630
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -240,7 +240,6 @@ M:Jint.Native.JsValue.op_Implicit(System.UInt64)~Jint.Native.JsValue
 M:Jint.Native.JsValue.op_Inequality(Jint.Native.JsValue,Jint.Native.JsValue)
 M:Jint.Native.Json.JsonParser.#ctor(Jint.Engine,System.Int32)
 M:Jint.Native.Json.JsonParser.Match(System.Char)
-M:Jint.Native.Json.JsonSerializer.#ctor(Jint.Engine)
 M:Jint.Native.Map.MapConstructor.Construct
 M:Jint.Native.Object.ObjectInstance.EnsureInitialized
 M:Jint.Native.Object.ObjectInstance.Equals(Jint.Native.Object.ObjectInstance)
@@ -301,7 +300,6 @@ M:Jint.OptionsSecurityExtensions.EnsureSecurityConfiguration(Jint.ModulePreparat
 M:Jint.OptionsSecurityExtensions.EnsureSecurityConfiguration(Jint.Options,Jint.IParsingOptions,Jint.SecurityConfigurationPolicy)
 M:Jint.OptionsSecurityExtensions.EnsureSecurityConfiguration(Jint.Options,Jint.SecurityConfigurationPolicy)
 M:Jint.OptionsSecurityExtensions.EnsureSecurityConfiguration(Jint.ScriptPreparationOptions,Jint.SecurityConfigurationPolicy)
-M:Jint.ResultLimits.#ctor(System.Int32,System.Int64,System.Int32,System.Int64,System.Int64)
 M:Jint.Runtime.Arguments.At(Jint.Native.JsValue[],System.Int32)
 M:Jint.Runtime.Completion.#ctor(Jint.Runtime.CompletionType,Jint.Native.JsValue,Acornima.Ast.Node)
 M:Jint.Runtime.Completion.Empty

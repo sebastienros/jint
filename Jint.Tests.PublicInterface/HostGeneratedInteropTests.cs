@@ -363,15 +363,17 @@ public class HostGeneratedInteropTests
     {
         static Engine Host(object model)
         {
-            var engine = new Engine(options => options.ForUntrustedCode(new UntrustedCodeLimits(
-                timeoutInterval: TimeSpan.FromSeconds(5),
-                maxStatements: 100_000,
-                memoryLimit: 16_000_000,
-                maxRecursionDepth: 64,
-                maxArraySize: 10_000,
-                regexTimeout: TimeSpan.FromMilliseconds(100),
-                promiseTimeout: TimeSpan.FromMilliseconds(100),
-                maxOperationDuration: TimeSpan.FromSeconds(10))));
+            var engine = new Engine(options => options.ForUntrustedCode(new UntrustedCodeLimits
+            {
+                TimeoutInterval = TimeSpan.FromSeconds(5),
+                MaxStatements = 100_000,
+                MemoryLimit = 16_000_000,
+                MaxRecursionDepth = 64,
+                MaxArraySize = 10_000,
+                RegexTimeout = TimeSpan.FromMilliseconds(100),
+                PromiseTimeout = TimeSpan.FromMilliseconds(100),
+                MaxOperationDuration = TimeSpan.FromSeconds(10),
+            }));
             engine.SetValue("model", model);
             return engine;
         }

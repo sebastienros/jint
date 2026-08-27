@@ -708,7 +708,7 @@ public class ClrProxyHandlerTests
         {
             OnGet = (_, _, _) =>
             {
-                engine.ConvertResult(value, new ResultLimits(maxPropertyCount: 1));
+                engine.ConvertResult(value, new ResultLimits { MaxPropertyCount = 1 });
                 return null;
             }
         };

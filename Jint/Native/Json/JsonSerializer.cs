@@ -21,7 +21,8 @@ namespace Jint.Native.Json;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Lifetime.</b> An instance is bound to the <see cref="Engine"/> it was constructed with: that engine
+/// <b>Lifetime.</b> An instance is bound to the <see cref="Engine"/> it was constructed with, and to the
+/// <see cref="Jint.ResultLimits"/> it was constructed with: that engine
 /// supplies the wrapper object each call serializes out of, the realm the <c>toJSON</c> lookup resolves
 /// against, and the execution constraints checked while walking large objects and arrays. It is reusable
 /// across calls — every field the per-call prologue only conditionally assigns (the replacer function, the
@@ -44,9 +45,11 @@ namespace Jint.Native.Json;
 /// <b>Document length.</b> The <see cref="JsValue"/>-returning overloads produce a JavaScript string and
 /// are bounded by the same maximum length as every other way of building one: a document that would
 /// exceed it raises <c>RangeError: Invalid string length</c>, which a script can catch, and raises it
-/// while the document is being built rather than after it has been paid for. Configured
-/// <see cref="ResultLimits"/> additionally bound both overload families, including exact UTF-8 bytes before
-/// an <see cref="IBufferWriter{T}"/> is touched. The compatibility default is unlimited.
+/// while the document is being built rather than after it has been paid for. The
+/// <see cref="Jint.ResultLimits"/> this instance was constructed with additionally bound both overload
+/// families, including exact UTF-8 bytes before an <see cref="IBufferWriter{T}"/> is touched. The
+/// single-argument constructor takes <see cref="Options.ResultLimits"/>, whose compatibility default is
+/// unlimited; pass a different set to bound one caller more tightly than the engine.
 /// </para>
 /// <para>
 /// <b>BigInt.</b> A <c>BigInt</c> that reaches the output throws a
@@ -65,12 +68,12 @@ public sealed class JsonSerializer
     private const int ConstraintCheckInterval = Engine.ConstraintCheckInterval;
 
     private readonly Engine _engine;
+    private readonly ResultLimits _limits;
     private ObjectTraverseStack _stack = null!;
     private string? _indent;
     private string _gap = string.Empty;
     private List<JsValue>? _propertyList;
     private bool _hasReplacerFunction;
-    private ResultLimits _limits = ResultLimits.Unlimited;
     private long _propertyCount;
     private int _depth;
     private long _maxOutputBytes;
@@ -94,9 +97,32 @@ public sealed class JsonSerializer
 
     private static readonly JsString toJsonProperty = new("toJSON");
 
+    /// <summary>
+    /// Creates a serializer bound to <paramref name="engine"/>, applying that engine's configured
+    /// <see cref="Jint.ResultLimits"/>.
+    /// </summary>
     public JsonSerializer(Engine engine)
+        : this(engine, engine.Options.ResultLimits)
     {
+    }
+
+    /// <summary>
+    /// Creates a serializer bound to <paramref name="engine"/> that applies <paramref name="limits"/> to
+    /// every document it produces.
+    /// </summary>
+    /// <param name="engine">The engine supplying the realm, the wrapper object and the execution constraints.</param>
+    /// <param name="limits">
+    /// The output bounds for every call on this instance, in place of <see cref="Options.ResultLimits"/>.
+    /// </param>
+    public JsonSerializer(Engine engine, ResultLimits limits)
+    {
+        if (limits is null)
+        {
+            Throw.ArgumentNullException(nameof(limits));
+        }
+
         _engine = engine;
+        _limits = limits!;
     }
 
     /// <summary>
@@ -113,15 +139,7 @@ public sealed class JsonSerializer
     /// </returns>
     public JsValue Serialize(JsValue value)
     {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined, _engine.Options.ResultLimits);
-    }
-
-    /// <summary>
-    /// Serializes <paramref name="value"/> using explicit host output limits.
-    /// </summary>
-    public JsValue SerializeWithLimits(JsValue value, ResultLimits limits)
-    {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined, limits);
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined);
     }
 
     /// <summary>
@@ -142,26 +160,17 @@ public sealed class JsonSerializer
     /// </returns>
     public JsValue Serialize(JsValue value, JsValue replacer, JsValue space)
     {
-        return Serialize(value, replacer, space, _engine.Options.ResultLimits);
-    }
-
-    /// <summary>
-    /// Serializes <paramref name="value"/> with the JSON replacer and spacing rules while enforcing explicit
-    /// host output limits.
-    /// </summary>
-    public JsValue Serialize(JsValue value, JsValue replacer, JsValue space, ResultLimits limits)
-    {
         return _engine.ExecuteWithConstraints(
             _engine.Options.Strict,
-            () => SerializeEntry(value, replacer, space, limits));
+            () => SerializeEntry(value, replacer, space));
     }
 
-    private JsValue SerializeEntry(JsValue value, JsValue replacer, JsValue space, ResultLimits limits)
+    private JsValue SerializeEntry(JsValue value, JsValue replacer, JsValue space)
     {
         Enter();
         try
         {
-            if (!TryCreateHolder(value, replacer, space, JsString.MaxLength, utf8: false, limits, out var wrapper))
+            if (!TryCreateHolder(value, replacer, space, JsString.MaxLength, utf8: false, out var wrapper))
             {
                 return JsValue.Undefined;
             }
@@ -206,15 +215,7 @@ public sealed class JsonSerializer
     /// </returns>
     public bool Serialize(JsValue value, IBufferWriter<byte> writer)
     {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer, _engine.Options.ResultLimits);
-    }
-
-    /// <summary>
-    /// Serializes <paramref name="value"/> as UTF-8 using explicit host output limits.
-    /// </summary>
-    public bool Serialize(JsValue value, IBufferWriter<byte> writer, ResultLimits limits)
-    {
-        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer, limits);
+        return Serialize(value, JsValue.Undefined, JsValue.Undefined, writer);
     }
 
     /// <summary>
@@ -238,20 +239,6 @@ public sealed class JsonSerializer
     /// </remarks>
     public bool Serialize(JsValue value, JsValue replacer, JsValue space, IBufferWriter<byte> writer)
     {
-        return Serialize(value, replacer, space, writer, _engine.Options.ResultLimits);
-    }
-
-    /// <summary>
-    /// Serializes <paramref name="value"/> as UTF-8 with the JSON replacer and spacing rules while enforcing
-    /// explicit host output limits.
-    /// </summary>
-    public bool Serialize(
-        JsValue value,
-        JsValue replacer,
-        JsValue space,
-        IBufferWriter<byte> writer,
-        ResultLimits limits)
-    {
         if (writer is null)
         {
             Throw.ArgumentNullException(nameof(writer));
@@ -259,20 +246,19 @@ public sealed class JsonSerializer
 
         return _engine.ExecuteWithConstraints(
             _engine.Options.Strict,
-            () => SerializeEntry(value, replacer, space, writer, limits));
+            () => SerializeEntry(value, replacer, space, writer));
     }
 
     private bool SerializeEntry(
         JsValue value,
         JsValue replacer,
         JsValue space,
-        IBufferWriter<byte> writer,
-        ResultLimits limits)
+        IBufferWriter<byte> writer)
     {
         Enter();
         try
         {
-            if (!TryCreateHolder(value, replacer, space, ClrLimits.MaxArrayLength, utf8: true, limits, out var wrapper))
+            if (!TryCreateHolder(value, replacer, space, ClrLimits.MaxArrayLength, utf8: true, out var wrapper))
             {
                 return false;
             }
@@ -326,28 +312,21 @@ public sealed class JsonSerializer
         JsValue space,
         long maxDocumentLength,
         bool utf8,
-        ResultLimits limits,
         out ObjectInstance wrapper)
     {
-        if (limits is null)
-        {
-            Throw.ArgumentNullException(nameof(limits));
-        }
-
         _stack = new ObjectTraverseStack(_engine);
-        _limits = limits;
-        var resultLength = limits.MaxOutputCharacters;
+        var resultLength = _limits.MaxOutputCharacters;
         _documentLengthResultLimit = ResultLimit.OutputCharacters;
-        if (utf8 && limits.MaxOutputBytes < resultLength)
+        if (utf8 && _limits.MaxOutputBytes < resultLength)
         {
             // Every UTF-16 code unit contributes at least one UTF-8 byte, so this is a conservative
             // pre-allocation bound. The finished document is counted exactly before the writer is touched.
-            resultLength = limits.MaxOutputBytes;
+            resultLength = _limits.MaxOutputBytes;
             _documentLengthResultLimit = ResultLimit.OutputBytes;
         }
 
         _maxDocumentLength = System.Math.Min(maxDocumentLength, resultLength);
-        _maxOutputBytes = limits.MaxOutputBytes;
+        _maxOutputBytes = _limits.MaxOutputBytes;
         if (maxDocumentLength < resultLength)
         {
             _documentLengthResultLimit = null;

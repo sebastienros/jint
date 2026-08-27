@@ -227,7 +227,7 @@ public class HostOptionsReadOnlyTests
             { "UseModules", static o => o.UseModules(new StubModuleLoader()) },
             { "CatchClrExceptions", static o => o.CatchClrExceptions() },
             { "ExposeDetailedErrors", static o => o.ExposeDetailedErrors() },
-            { "ForUntrustedCode", static o => o.ForUntrustedCode(CreateLimits()) },
+            { "ForUntrustedCode", static o => o.ForUntrustedCode(Limits) },
             { "UseNodeBuiltinModules", static o => o.UseNodeBuiltinModules() },
             { "UseNodeProcess", static o => o.UseNodeProcess() },
         };
@@ -289,7 +289,7 @@ public class HostOptionsReadOnlyTests
     {
         var options = new Options();
         options.Interop.Enabled = true;
-        options.ForUntrustedCode(CreateLimits(maxStatements: 500));
+        options.ForUntrustedCode(Limits with { MaxStatements = 500 });
 
         var engine = new Engine(options);
 
@@ -442,15 +442,17 @@ public class HostOptionsReadOnlyTests
         options.Interop.ObjectConverters.IsReadOnly.Should().BeTrue();
     }
 
-    private static UntrustedCodeLimits CreateLimits(int maxStatements = 100_000) => new(
-        timeoutInterval: TimeSpan.FromSeconds(5),
-        maxStatements: maxStatements,
-        memoryLimit: 16_000_000,
-        maxRecursionDepth: 64,
-        maxArraySize: 10_000,
-        regexTimeout: TimeSpan.FromMilliseconds(100),
-        promiseTimeout: TimeSpan.FromMilliseconds(100),
-        maxOperationDuration: TimeSpan.FromSeconds(10));
+    private static readonly UntrustedCodeLimits Limits = new()
+    {
+        TimeoutInterval = TimeSpan.FromSeconds(5),
+        MaxStatements = 100_000,
+        MemoryLimit = 16_000_000,
+        MaxRecursionDepth = 64,
+        MaxArraySize = 10_000,
+        RegexTimeout = TimeSpan.FromMilliseconds(100),
+        PromiseTimeout = TimeSpan.FromMilliseconds(100),
+        MaxOperationDuration = TimeSpan.FromSeconds(10),
+    };
 
     private sealed class Box
     {

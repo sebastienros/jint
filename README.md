@@ -2434,8 +2434,10 @@ var value = engine.Evaluate(source);
 var result = engine.ConvertResult(value);
 ```
 
-The same option bounds Jint's `JsonSerializer` and script-visible `JSON.stringify`; per-call overloads can use
-a tighter policy. JSON output counts escaped UTF-16 characters before appending and exact UTF-8 bytes before
+The same option bounds Jint's `JsonSerializer` and script-visible `JSON.stringify`; a serializer constructed as
+`new JsonSerializer(engine, limits)` uses a tighter policy for every call it serves, and a preset is something
+to adjust — `ResultLimits.Conservative with { MaxStringLength = 4_096 }`. JSON output counts escaped UTF-16
+characters before appending and exact UTF-8 bytes before
 touching an `IBufferWriter<byte>`. Conversion and serialization run under execution constraints because getters,
 proxy traps, `toJSON`, replacers and error `stack` accessors can execute script. Limits do not make host code
 interruptible: pair them with time, statement, cancellation, memory and stack constraints plus an outer worker
@@ -2870,32 +2872,40 @@ registered extension methods, module loading, debugger handling, blocking `Atomi
 projected CLR objects, live views over CLR arrays, and `eval`/function constructors that compile strings. It
 also enables the native stack-overflow guard.
 
-Core execution limits are required rather than guessed: a useful budget depends on the request and workload,
-and a security API must not silently turn saturated sentinels into "unlimited." Parser, module-graph, and
-result limits have conservative finite defaults that should still be tuned for the host:
+The eight budget dimensions are `required` rather than guessed: a useful budget depends on the request and
+workload, and a security API must not silently turn saturated sentinels into "unlimited." Omitting one is a
+compile error, not a weaker limit. Parser, module-graph, and result limits have conservative finite defaults
+that should still be tuned for the host:
 
 ```c#
-var limits = new UntrustedCodeLimits(
-    timeoutInterval: TimeSpan.FromSeconds(1),       // one Engine entry
-    maxStatements: 100_000,                        // one Engine entry
-    memoryLimit: 16_000_000,                       // one Engine entry
-    maxRecursionDepth: 64,
-    maxArraySize: 10_000,
-    regexTimeout: TimeSpan.FromMilliseconds(250),
-    promiseTimeout: TimeSpan.FromSeconds(1),
-    maxOperationDuration: TimeSpan.FromSeconds(2),
-    maxSourceLength: 100_000,
-    maxNodeCount: 25_000,
-    maxModuleCount: 50,
-    maxTotalModuleSourceBytes: 1_000_000,
-    maxModuleGraphDepth: 10,
-    maxModuleResolutionHops: 200,
-    resultLimits: new ResultLimits(
-        maxDepth: 16,
-        maxPropertyCount: 10_000,
-        maxStringLength: 100_000,
-        maxOutputCharacters: 1_000_000,
-        maxOutputBytes: 2_000_000));
+var limits = new UntrustedCodeLimits
+{
+    TimeoutInterval = TimeSpan.FromSeconds(1),      // one Engine entry
+    MaxStatements = 100_000,                        // one Engine entry
+    MemoryLimit = 16_000_000,                       // one Engine entry
+    MaxRecursionDepth = 64,
+    MaxArraySize = 10_000,
+    RegexTimeout = TimeSpan.FromMilliseconds(250),
+    PromiseTimeout = TimeSpan.FromSeconds(1),
+    MaxOperationDuration = TimeSpan.FromSeconds(2),
+    MaxSourceLength = 100_000,
+    MaxNodeCount = 25_000,
+    MaxModuleCount = 50,
+    MaxTotalModuleSourceBytes = 1_000_000,
+    MaxModuleGraphDepth = 10,
+    MaxModuleResolutionHops = 200,
+    ResultLimits = new ResultLimits
+    {
+        MaxDepth = 16,
+        MaxPropertyCount = 10_000,
+        MaxStringLength = 100_000,
+        MaxOutputCharacters = 1_000_000,
+        MaxOutputBytes = 2_000_000,
+    },
+};
+
+// Or start from Jint's own conservative profile and adjust what your workload needs:
+var tuned = UntrustedCodeLimits.Default with { MaxStatements = 5_000 };
 
 // Build once and share concurrently. ForUntrustedCode records an immutable profile declaration;
 // every Engine gets a private effective snapshot and construction never mutates sharedOptions.

@@ -454,14 +454,14 @@ namespace Jint
         OutputCharacters = 3,
         OutputBytes = 4,
     }
-    public sealed class ResultLimits
+    public sealed class ResultLimits : System.IEquatable<Jint.ResultLimits>
     {
-        public ResultLimits(int maxDepth = 2147483647, long maxPropertyCount = 9223372036854775807, int maxStringLength = 2147483647, long maxOutputCharacters = 9223372036854775807, long maxOutputBytes = 9223372036854775807) { }
-        public int MaxDepth { get; }
-        public long MaxOutputBytes { get; }
-        public long MaxOutputCharacters { get; }
-        public long MaxPropertyCount { get; }
-        public int MaxStringLength { get; }
+        public ResultLimits() { }
+        public int MaxDepth { get; init; }
+        public long MaxOutputBytes { get; init; }
+        public long MaxOutputCharacters { get; init; }
+        public long MaxPropertyCount { get; init; }
+        public int MaxStringLength { get; init; }
         public static Jint.ResultLimits Conservative { get; }
         public static Jint.ResultLimits Unlimited { get; }
     }
@@ -580,24 +580,25 @@ namespace Jint
         Warning = 0,
         Error = 1,
     }
-    public sealed class UntrustedCodeLimits
+    public sealed class UntrustedCodeLimits : System.IEquatable<Jint.UntrustedCodeLimits>
     {
-        public UntrustedCodeLimits(System.TimeSpan timeoutInterval, int maxStatements, long memoryLimit, int maxRecursionDepth, uint maxArraySize, System.TimeSpan regexTimeout, System.TimeSpan promiseTimeout, System.TimeSpan maxOperationDuration, int maxSourceLength = 1000000, int maxNodeCount = 250000, int maxModuleCount = 100, long maxTotalModuleSourceBytes = 10000000, int maxModuleGraphDepth = 32, int maxModuleResolutionHops = 1000, Jint.ResultLimits? resultLimits = null) { }
-        public uint MaxArraySize { get; }
-        public int MaxModuleCount { get; }
-        public int MaxModuleGraphDepth { get; }
-        public int MaxModuleResolutionHops { get; }
-        public int MaxNodeCount { get; }
-        public System.TimeSpan MaxOperationDuration { get; }
-        public int MaxRecursionDepth { get; }
-        public int MaxSourceLength { get; }
-        public int MaxStatements { get; }
-        public long MaxTotalModuleSourceBytes { get; }
-        public long MemoryLimit { get; }
-        public System.TimeSpan PromiseTimeout { get; }
-        public System.TimeSpan RegexTimeout { get; }
-        public Jint.ResultLimits ResultLimits { get; }
-        public System.TimeSpan TimeoutInterval { get; }
+        public UntrustedCodeLimits() { }
+        public required uint MaxArraySize { get; init; }
+        public int MaxModuleCount { get; init; }
+        public int MaxModuleGraphDepth { get; init; }
+        public int MaxModuleResolutionHops { get; init; }
+        public int MaxNodeCount { get; init; }
+        public required System.TimeSpan MaxOperationDuration { get; init; }
+        public required int MaxRecursionDepth { get; init; }
+        public int MaxSourceLength { get; init; }
+        public required int MaxStatements { get; init; }
+        public long MaxTotalModuleSourceBytes { get; init; }
+        public required long MemoryLimit { get; init; }
+        public required System.TimeSpan PromiseTimeout { get; init; }
+        public required System.TimeSpan RegexTimeout { get; init; }
+        public Jint.ResultLimits ResultLimits { get; init; }
+        public required System.TimeSpan TimeoutInterval { get; init; }
+        public static Jint.UntrustedCodeLimits Default { get; }
         public System.IDisposable BeginOperation(Jint.Engine engine, System.Threading.CancellationToken cancellationToken) { }
     }
     [System.Flags]
@@ -1288,14 +1289,11 @@ namespace Jint.Native.Json
     public sealed class JsonSerializer
     {
         public JsonSerializer(Jint.Engine engine) { }
+        public JsonSerializer(Jint.Engine engine, Jint.ResultLimits limits) { }
         public Jint.Native.JsValue Serialize(Jint.Native.JsValue value) { }
         public bool Serialize(Jint.Native.JsValue value, System.Buffers.IBufferWriter<byte> writer) { }
         public Jint.Native.JsValue Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space) { }
-        public bool Serialize(Jint.Native.JsValue value, System.Buffers.IBufferWriter<byte> writer, Jint.ResultLimits limits) { }
-        public Jint.Native.JsValue Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space, Jint.ResultLimits limits) { }
         public bool Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space, System.Buffers.IBufferWriter<byte> writer) { }
-        public bool Serialize(Jint.Native.JsValue value, Jint.Native.JsValue replacer, Jint.Native.JsValue space, System.Buffers.IBufferWriter<byte> writer, Jint.ResultLimits limits) { }
-        public Jint.Native.JsValue SerializeWithLimits(Jint.Native.JsValue value, Jint.ResultLimits limits) { }
     }
 }
 namespace Jint.Native.Map

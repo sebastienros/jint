@@ -69,6 +69,10 @@ This table is filled by the pull request that removes the member. A member that 
 | `WeekInfo.MinimalDays` | nothing. ECMA-402 removed `minimalDays` from `getWeekInfo()`'s result, and test262 asserts the keys are exactly `firstDay` and `weekend`, so no caller could ever have reached it | [#3336](https://github.com/sebastienros/jint/issues/3336) |
 | `ICldrProvider.GetCompactPatterns` and the `CompactPatterns` type (with `DefaultCldrProvider`'s override) | nothing. `CompactPatterns` is a magnitude-to-pattern map with no plural dimension and no digit count, so it cannot express what compact notation actually needs: CLDR keys these patterns by plural category as well as by power of ten (`ru` long is `0 тысяча` / `0 тысячи` / `0 тысяч`), and the zero count in a CLDR pattern (`00 Tsd.`) is the rounding. Compact suffixes come from the engine's embedded table | [#3354](https://github.com/sebastienros/jint/issues/3354) |
 | `ICldrProvider.GetDateTimePatterns` and the `DateTimePatterns` type (with `DefaultCldrProvider`'s override) | nothing. It never had an implementation — the only one in the tree returned `null` unconditionally — so the syntax of its three pattern strings was never fixed, and .NET custom format strings and LDML skeletons disagree on the letters that matter (`yyyy` vs `y`, `tt` vs `a`, `ddd` vs `E`). Wiring it would have meant inventing that contract, and for the `dateStyle`/`timeStyle` pair alone: ECMA-402 resolves both out of the same `availableFormats` skeleton data the component options use, which three strings cannot carry | [#3354](https://github.com/sebastienros/jint/issues/3354) |
+| `JsonSerializer.SerializeWithLimits(JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value)` — the limits are the serializer's, the way `JsonParser`'s depth already was. See [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
+| `JsonSerializer.Serialize(JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
+| `JsonSerializer.Serialize(JsValue, JsValue, JsValue, IBufferWriter<byte>, ResultLimits)` | `new JsonSerializer(engine, limits).Serialize(value, replacer, space, writer)` — see [2.6](#26-a-json-serializers-limits-are-its-own-not-an-argument-to-every-call) | [#3431](https://github.com/sebastienros/jint/pull/3431) |
 | `ICldrProvider.GetSupportedCalendars` (and `DefaultCldrProvider`'s override) | `ICalendarProvider.GetSupportedCalendars`. ECMA-402 has one list of calendars, not two, and defines it as the calendars the implementation can format — which in Jint means the ones it can *convert*, because that is what formatting a non-ISO calendar goes through. A calendar with conversions and no names still formats numerically; one with names and no conversions cannot be formatted at all. Adding a calendar was already three overrides on `ICalendarProvider`, and it now reaches `Intl` as well as `Temporal` | [#3404](https://github.com/sebastienros/jint/issues/3404) |
 
 ### 2.1 Sealed types
@@ -212,6 +216,38 @@ A call site that needed the array is a compile error wherever an array is expect
 Where the result flows straight into something taking an `IEnumerable<JsValue>` it keeps compiling and
 becomes lazy instead — so grep for `.Skip(` in code that also has `using Jint.Runtime;`. `Arguments.At`,
 the other extension on that class, is unaffected and stays: it has no LINQ counterpart to collide with.
+
+### 2.6 A JSON serializer's limits are its own, not an argument to every call ([#3431](https://github.com/sebastienros/jint/pull/3431))
+
+`JsonSerializer` had eight ways to serialize: four that used `Options.ResultLimits`, three that took a
+`ResultLimits` as a trailing argument, and `SerializeWithLimits`, which is the three-argument overload with
+its replacer and space omitted. The trailing argument had to be repeated at every call site that wanted it,
+and forgetting it silently fell back to the engine's limits — which default to unlimited.
+
+The limits are now constructor state, the way `JsonParser`'s `maxDepth` already was, and the eight collapse
+to four:
+
+```c#
+// 4.16.x
+var serializer = new JsonSerializer(engine);
+var a = serializer.SerializeWithLimits(value, limits);
+var b = serializer.Serialize(value, replacer, space, limits);
+var c = serializer.Serialize(value, writer, limits);
+var d = serializer.Serialize(value, replacer, space, writer, limits);
+
+// 5.x
+var serializer = new JsonSerializer(engine, limits);
+var a = serializer.Serialize(value);
+var b = serializer.Serialize(value, replacer, space);
+var c = serializer.Serialize(value, writer);
+var d = serializer.Serialize(value, replacer, space, writer);
+```
+
+`new JsonSerializer(engine)` is unchanged and still takes `Options.ResultLimits`; the instance now reads it
+once, at construction, instead of once per call. That is not observable — an engine's `Options` are frozen
+by the time anything can serialize through it — but it is why one instance can no longer serve two policies.
+A host that used the trailing argument to vary limits per call holds one serializer per policy instead, or
+constructs one per call as `JSON.stringify` does.
 
 ## 3. Renamed and reshaped API
 
@@ -898,6 +934,74 @@ global using Module = Jint.Runtime.Modules.ModuleRecord;
 
 That is the shim, not the recommendation: a file that spells `Module` for the record cannot also spell
 `Module` for Acornima's AST node, which is the whole reason the type was renamed.
+
+### 3.16 `UntrustedCodeLimits` and `ResultLimits` are named properties, and a preset is something you adjust ([#3431](https://github.com/sebastienros/jint/pull/3431))
+
+This is [3.3](#33-options-is-configured-through-its-properties)'s rule — optional configuration is a
+property, never a positional argument — applied to the two limit bags that still ignored it.
+
+`UntrustedCodeLimits` took **fifteen constructor parameters, eight of them required and positional, four of
+those adjacent `TimeSpan`s**. Every call site was a column of unlabelled values in an order nobody
+remembers, and `regexTimeout` and `promiseTimeout` could be swapped without a diagnostic. Both types are now
+records with `init` properties:
+
+```c#
+// 4.16.x — position is the only thing that says which TimeSpan is which
+var limits = new UntrustedCodeLimits(
+    TimeSpan.FromSeconds(1),
+    100_000,
+    16_000_000,
+    64,
+    10_000,
+    TimeSpan.FromMilliseconds(250),
+    TimeSpan.FromSeconds(1),
+    TimeSpan.FromSeconds(2));
+
+// 5.x — every value names the dimension it bounds
+var limits = new UntrustedCodeLimits
+{
+    TimeoutInterval = TimeSpan.FromSeconds(1),
+    MaxStatements = 100_000,
+    MemoryLimit = 16_000_000,
+    MaxRecursionDepth = 64,
+    MaxArraySize = 10_000,
+    RegexTimeout = TimeSpan.FromMilliseconds(250),
+    PromiseTimeout = TimeSpan.FromSeconds(1),
+    MaxOperationDuration = TimeSpan.FromSeconds(2),
+};
+
+// ...or start from Jint's own conservative profile
+var tuned = UntrustedCodeLimits.Default with { MaxStatements = 5_000 };
+```
+
+**The eight that were required are still required**, now as C# `required` members: omitting one is
+`CS9035` at the call site rather than a weaker limit nobody notices. **The seven that had defaults keep the
+same defaults** — `MaxSourceLength` 1,000,000, `MaxNodeCount` 250,000, `MaxModuleCount` 100,
+`MaxTotalModuleSourceBytes` 10,000,000, `MaxModuleGraphDepth` 32, `MaxModuleResolutionHops` 1,000,
+`ResultLimits` `ResultLimits.Conservative`. Nothing became looser: no dimension a host used to state
+acquired a default, and no default moved. `UntrustedCodeLimits.Default` is new API, so nothing can regress
+through it; it is the one place Jint picks the eight itself, and it is a starting point to measure against
+rather than a value to accept unread.
+
+`ResultLimits` gets the same treatment, and its five optional parameters become five `init` properties with
+the same unlimited defaults:
+
+```c#
+// 4.16.x
+var limits = new ResultLimits(maxDepth: 16, maxStringLength: 100_000);
+
+// 5.x
+var limits = new ResultLimits { MaxDepth = 16, MaxStringLength = 100_000 };
+var tighter = ResultLimits.Conservative with { MaxStringLength = 4_096 };
+```
+
+Three consequences worth stating. Validation moved from the constructor to the property, so the
+`ArgumentOutOfRangeException` a bad value raises now names the **property** (`MaxStatements`) rather than
+the parameter (`maxStatements`) — and it still runs for a dimension a `with` expression changes. Both types
+are records, so they have value equality and a `ToString` that prints every dimension. And
+`UntrustedCodeLimits.BeginOperation` still requires the **instance** the engine was configured with: a
+`with` expression produces a value-equal but different object, so configure the engine with the one the
+scope will use.
 
 ## 4. Breaking without a signature change
 

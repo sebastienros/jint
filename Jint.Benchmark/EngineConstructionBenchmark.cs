@@ -20,15 +20,17 @@ public class EngineConstructionBenchmark
         _program = Engine.PrepareScript("([].length + ''.length)");
         _simple = Engine.PrepareScript("1");
         new Engine().Evaluate(_program);
-        _untrustedOptions = new Options().ForUntrustedCode(new UntrustedCodeLimits(
-            timeoutInterval: TimeSpan.FromSeconds(1),
-            maxStatements: 100_000,
-            memoryLimit: 16_000_000,
-            maxRecursionDepth: 64,
-            maxArraySize: 10_000,
-            regexTimeout: TimeSpan.FromMilliseconds(250),
-            promiseTimeout: TimeSpan.FromMilliseconds(500),
-            maxOperationDuration: TimeSpan.FromSeconds(2)));
+        _untrustedOptions = new Options().ForUntrustedCode(new UntrustedCodeLimits
+        {
+            TimeoutInterval = TimeSpan.FromSeconds(1),
+            MaxStatements = 100_000,
+            MemoryLimit = 16_000_000,
+            MaxRecursionDepth = 64,
+            MaxArraySize = 10_000,
+            RegexTimeout = TimeSpan.FromMilliseconds(250),
+            PromiseTimeout = TimeSpan.FromMilliseconds(500),
+            MaxOperationDuration = TimeSpan.FromSeconds(2),
+        });
     }
 
     [Benchmark]
