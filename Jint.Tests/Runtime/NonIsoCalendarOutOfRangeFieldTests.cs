@@ -12,12 +12,16 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>ChineseLunisolarCalendar</c> spans ISO 1901-02-19 to 2101-01-28 and <c>KoreanLunisolarCalendar</c>
+/// <c>ChineseLunisolarCalendar</c> spanned ISO 1901-02-19 to 2101-01-28 and <c>KoreanLunisolarCalendar</c>
 /// 918-02-19 to 2051-02-10, while <c>Temporal.PlainDate</c> spans a quarter of a million years each way.
 /// Outside those two tables the engine used to answer with the ISO year, <c>M{isoMonth}</c>, the ISO
 /// days-in-month and twelve months a year — Gregorian fields wearing a lunisolar label, with nothing
 /// downstream able to tell them from real ones
-/// (<see href="https://github.com/sebastienros/jint/issues/3451"/>).
+/// (<see href="https://github.com/sebastienros/jint/issues/3451"/>). Both tables have since been retired
+/// altogether, because they were not the same table on every target framework
+/// (<see href="https://github.com/sebastienros/jint/issues/3484"/>); what the fixed dates those two
+/// calendars must read as are pinned in <c>LunisolarCalendarAgreementTests</c>, against an authority
+/// outside the engine rather than against whichever table the runtime carries.
 /// </para>
 /// <para>
 /// Refusing instead is not open to the engine.
@@ -72,10 +76,10 @@ public class NonIsoCalendarOutOfRangeFieldTests
     /// it says the same thing.
     /// </summary>
     /// <remarks>
-    /// One date rather than a sweep, because .NET Framework's copy of the Korean table is not .NET Core's
-    /// — it starts five days earlier and reads 1500-06-15 as 1500/5/19 where .NET Core reads 1500/5/9.
-    /// The systematic form of this comparison, measured per runtime, is in
-    /// <c>LunisolarAstronomyTests</c>.
+    /// This read the Korean BCL table when it was written, which is why it was one date rather than a
+    /// sweep: .NET Framework's copy of that table was not .NET Core's, and read 1500-06-15 as 1500/5/19
+    /// where .NET Core read 1500/5/9. Neither table is read any more, so what it now says is that the two
+    /// calendars agree with each other where history says they must.
     /// </remarks>
     [Test]
     public void ThePastDateTheKoreanTableAlsoCoversReadsTheSameInBoth()
@@ -84,21 +88,21 @@ public class NonIsoCalendarOutOfRangeFieldTests
     }
 
     /// <summary>
-    /// The day before a table's first day and the day after its last: the reckoning that takes over has
-    /// to leave the calendar where the table left it, or the boundary is a visible seam.
+    /// The days on which the retired tables began and ended are ordinary days of the calendar: the
+    /// reckoning has to make one continuous calendar across them, with no boundary left where a table
+    /// used to hand over.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Stated structurally rather than as dates, because the tables themselves differ between target
-    /// frameworks. Both end on a year's last day, so what has to hold there is that the two sides make
-    /// one continuous calendar: the day after the table's last is day 1 of the following year.
+    /// Stated structurally rather than as dates, because the tables it was written against differed
+    /// between target frameworks. Both ended on a year's last day, so what has to hold there is that the
+    /// day after is day 1 of the following year.
     /// </para>
     /// <para>
-    /// The start of the table is asserted for <c>chinese</c> only. .NET Framework's
-    /// <c>KoreanLunisolarCalendar</c> begins on 918-02-14 and calls it day 1 of the Korean year 918,
-    /// while .NET Core's begins on 918-02-19 and calls that day 1 — so on .NET Framework there is no year
-    /// boundary at the table's start for the reckoning to join to, and the seam there is that table's,
-    /// not this one's.
+    /// The first day is asserted for <c>chinese</c> only. .NET Framework's <c>KoreanLunisolarCalendar</c>
+    /// began on 918-02-14 and called it day 1 of the Korean year 918, while .NET Core's began on
+    /// 918-02-19 and called that day 1 — one of the disagreements that retired both tables — so the
+    /// <c>MinSupportedDateTime</c> this reads is not a year boundary on every runtime.
     /// </para>
     /// </remarks>
     [TestCase("chinese", true)]
@@ -318,28 +322,23 @@ public class NonIsoCalendarOutOfRangeFieldTests
     }
 
     /// <summary>
-    /// Nothing inside a table moves. The two calendars are read across their whole tabulated span and
-    /// have to answer exactly what they answered before, which is what makes this a fallback rather than
-    /// a replacement.
+    /// Across the whole span the two retired tables covered, every date is a date of the calendar it is
+    /// read in, and the fields it reports build it back.
     /// </summary>
     /// <remarks>
-    /// Except where the table contradicts itself, which <c>KoreanLunisolarCalendar</c> does:
-    /// <c>GetMonth</c> names month 13 for 1189-01-09 while <c>GetLeapMonth</c> reports that year as
-    /// having none, so <c>GetDaysInMonth</c> refuses the month <c>GetMonth</c> just named. Those dates
-    /// used to come back as ISO fields under the calendar's name — the same defect from a second cause —
-    /// and are now reckoned like the ones past the end of the table. They are skipped here because there
-    /// is no table answer to compare against.
+    /// This used to compare the engine against the runtime's own <c>ChineseLunisolarCalendar</c> or
+    /// <c>KoreanLunisolarCalendar</c>, to say that the reckoning was a fallback and never a replacement.
+    /// It is a replacement now: those two tables are not the same table on every target framework, so a
+    /// test that compares against whichever one the runtime carries passes on all three while the engine
+    /// gives three different answers (<see href="https://github.com/sebastienros/jint/issues/3484"/>).
+    /// What replaces the comparison is <c>LunisolarCalendarAgreementTests</c>, whose expectations come
+    /// from the Hong Kong Observatory's published table and from a new-moon test that needs no table at
+    /// all; what stays here is the same span, swept for the properties any lunisolar calendar has.
     /// </remarks>
     [TestCase("chinese", "1901-02-19", "2101-01-28")]
     [TestCase("dangi", "0918-02-19", "2051-02-10")]
-    public void ADateInsideTheTableIsStillAnsweredByTheTable(string calendar, string first, string last)
+    public void EveryDateTheRetiredTablesCoveredIsADateOfItsCalendar(string calendar, string first, string last)
     {
-        var table = calendar switch
-        {
-            "chinese" => (EastAsianLunisolarCalendar) new ChineseLunisolarCalendar(),
-            _ => new KoreanLunisolarCalendar(),
-        };
-
         var failures = new StringBuilder();
         var sampled = 0;
 
@@ -348,30 +347,40 @@ public class NonIsoCalendarOutOfRangeFieldTests
 
         for (var date = from; date <= to; date = date.AddDays(97))
         {
-            try
-            {
-                _ = table.GetDaysInMonth(table.GetYear(date), table.GetMonth(date));
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                continue;
-            }
-
             sampled++;
             var isoDate = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var reported = Fields(isoDate, calendar).Split('|');
-
-            var expected = string.Join(
-                "|",
-                table.GetYear(date).ToString(CultureInfo.InvariantCulture),
-                table.GetMonth(date).ToString(CultureInfo.InvariantCulture),
-                table.GetDayOfMonth(date).ToString(CultureInfo.InvariantCulture));
-
-            var actual = string.Join("|", reported[0], reported[1], reported[2]);
-            if (!string.Equals(expected, actual, StringComparison.Ordinal))
+            if (reported.Length != 9)
             {
-                failures.Append(isoDate).Append(": table said ").Append(expected)
-                    .Append(", engine said ").AppendLine(actual);
+                failures.Append(isoDate).Append(": ").AppendLine(string.Join("|", reported));
+                continue;
+            }
+
+            var day = int.Parse(reported[2], CultureInfo.InvariantCulture);
+            var monthsInYear = int.Parse(reported[4], CultureInfo.InvariantCulture);
+            var daysInMonth = int.Parse(reported[5], CultureInfo.InvariantCulture);
+            var daysInYear = int.Parse(reported[6], CultureInfo.InvariantCulture);
+            var dayOfYear = int.Parse(reported[7], CultureInfo.InvariantCulture);
+
+            if (monthsInYear is not (12 or 13)
+                || daysInMonth is not (29 or 30)
+                || daysInYear < 353 || daysInYear > 385
+                || day < 1 || day > daysInMonth
+                || dayOfYear < 1 || dayOfYear > daysInYear
+                || !WellFormedLunisolarMonthCode.IsMatch(reported[3]))
+            {
+                failures.Append(isoDate).Append(": ").AppendLine(string.Join("|", reported));
+                continue;
+            }
+
+            var roundTripped = Evaluate(
+                $"(function () {{ var d = Temporal.PlainDate.from('{isoDate}').withCalendar('{calendar}');" +
+                $" return Temporal.PlainDate.from({{ calendar: '{calendar}', year: d.year," +
+                " monthCode: d.monthCode, day: d.day }).equals(d); })()");
+
+            if (!string.Equals(roundTripped, "true", StringComparison.Ordinal))
+            {
+                failures.Append(isoDate).Append(": does not build back: ").AppendLine(roundTripped);
             }
         }
 
