@@ -3419,6 +3419,71 @@ did. The significant-digit options are a separate algorithm —
 [ToRawPrecision](https://tc39.es/ecma402/#sec-torawprecision) rather than ToRawFixed — and are
 [#3499](https://github.com/sebastienros/jint/issues/3499).
 
+### 4.78 The significant-digit options are read in every lane and every style ([#3499](https://github.com/sebastienros/jint/issues/3499))
+
+[FormatNumericToString](https://tc39.es/ecma402/#sec-formatnumberstring) computes a value's digits **once**,
+choosing between [ToRawPrecision](https://tc39.es/ecma402/#sec-torawprecision) and
+[ToRawFixed](https://tc39.es/ecma402/#sec-torawfixed) by what the formatter was given — never by what the
+style writes around the digits. Jint had four copies of that decision over a `double`, three of which had no
+significant-digit route at all, so `minimumSignificantDigits` and `maximumSignificantDigits` reached one lane
+and not the other, in four separate ways.
+
+**They were ignored entirely by a currency, a percent and a unit in the parts lane:**
+
+```js
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 2 });
+usd.format(1234.567);                                   // "$1,200"
+usd.formatToParts(1234.567).map(p => p.value).join(''); // 5.0: "$1,234.57"   5.x: "$1,200"
+
+new Intl.NumberFormat('en-US', { style: 'percent', maximumSignificantDigits: 2 }).formatToParts(1234.567);
+                                                        // 5.0: "123,457%"    5.x: "120,000%"
+new Intl.NumberFormat('en-US', { style: 'unit', unit: 'meter', maximumSignificantDigits: 2 }).formatToParts(1234.567);
+                                                        // 5.0: "1,234.567 m" 5.x: "1,200 m"
+```
+
+**ToRawPrecision's trim reached only the string lane.** Its last steps remove up to
+`maxPrecision - minPrecision` trailing zeros, the same shape ToRawFixed has for fraction digits:
+
+```js
+const two = new Intl.NumberFormat('en', { maximumSignificantDigits: 2 });
+two.format(0.4);                                    // "0.4"
+two.formatToParts(0.4).map(p => p.value).join('');  // 5.0: "0.40"    5.x: "0.4"
+```
+
+**A `long` was leaking into a fraction part.** The parts lane computed `fractionDigits = maxSig - magnitude
+- 1` — 21 when `maximumSignificantDigits` defaults to 21 — and then cast `fractionValue * 10^21` to `long`,
+which .NET saturates rather than throwing:
+
+```js
+new Intl.NumberFormat('en', { minimumSignificantDigits: 3 }).formatToParts(0.5).map(p => p.value).join('');
+// 5.0: "0.009223372036854775807"   — 9223372036854775807 is long.MaxValue
+// 5.x: "0.500"
+```
+
+**And the string lane wrote the double's own binary expansion:**
+
+```js
+new Intl.NumberFormat('en', { minimumSignificantDigits: 3 }).format(0.4);
+// 5.0: "0.400000000000000022204"   5.x: "0.400"
+```
+
+That last one is not a judgement call, though it looks like one.
+[ToIntlMathematicalValue](https://tc39.es/ecma402/#sec-tointlmathematicalvalue) reads a Number by taking
+`Number::toString(x, 10)` — the **shortest** decimal that reads back as that double — and only then reading
+that string as a mathematical value. The Intl mathematical value of the Number `0.4` is therefore exactly
+four tenths, not `0.400000000000000022204…`, and `"0.400"` is what the specification requires rather than
+what other engines happen to do.
+
+One `FormatNumericToString` now serves both lanes and all four styles, which also gives the parts lane the
+`roundingPriority` comparison it never had — the specification decides `morePrecision` and `lessPrecision` by
+comparing the two roundings' `[[RoundingMagnitude]]`, and the parts lane simply ignored the option. An
+exactly-read value (a BigInt, a long numeric string) takes the same operation over its own digits, so it
+reads the minimum as a floor too: `format(1n)` under `minimumSignificantDigits: 3` was `"1"` and is `"1.00"`.
+
+**What could break:** any output at all from a formatter that names `minimumSignificantDigits` or
+`maximumSignificantDigits` — both lanes move, in every style — and any `format` under
+`roundingPriority: "morePrecision"` or `"lessPrecision"`. A formatter that names none of them is untouched.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
