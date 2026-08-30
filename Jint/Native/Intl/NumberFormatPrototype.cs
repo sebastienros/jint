@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Jint.Native.BigInt;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -359,15 +360,192 @@ internal sealed partial class NumberFormatPrototype : Prototype
         return numberFormat.Format(number);
     }
 
+    /// <summary>One part of a formatted range: what https://tc39.es/ecma402/#sec-formatnumericrangetoparts reports.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct RangePart(string Type, string Value, string Source);
+
     /// <summary>
-    /// Joins two formatted range endpoints using ECMA-402 / ICU-style range patterns.
-    /// Supports:
-    /// — A locale-specific separator (e.g. en uses en-dash `–`, pt uses ASCII hyphen `-`).
-    /// — Suffix collapse for locales whose currency follows the number (pt-PT etc.) —
-    ///   shared trailing currency moves to the end of the range, separator gets spaces.
-    /// — Sign+currency prefix collapse (signDisplay=always with prefix-currency locales) —
-    ///   duplicate sign+currency dropped from end, tight separator.
+    /// https://tc39.es/ecma402/#sec-partitionnumberrangepattern, including its last step,
+    /// https://tc39.es/ecma402/#sec-collapsenumberrange.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The collapse being implementation-defined does not make it one lane's post-processing of the other's
+    /// output: it is step 8 of the partition both lanes read, so an endpoint whose sign or currency it
+    /// elides is elided in the parts as well. This is where <c>formatRangeToParts</c> gets it.
+    /// </para>
+    /// <para>
+    /// <c>formatRange</c> does not come through here, and the reason is precision rather than principle:
+    /// <see cref="JsNumberFormat.FormatToParts"/> takes a <see cref="double"/>, while
+    /// <see cref="FormatRangeOperand"/> keeps a BigInt and a long decimal string exact — test262's
+    /// <c>formatRange/en-US.js</c> asserts a range of two 18-digit integers that differ in their last digit.
+    /// So the same two shapes are stated twice, here and in <see cref="CollapseFormattedRange"/>, and
+    /// <c>IntlNumberFormatPartsTests.RangePartsConcatenateToFormatRange</c> is what holds them together.
+    /// </para>
+    /// </remarks>
+    private static List<RangePart> PartitionNumberRangePattern(JsNumberFormat numberFormat, double x, double y)
+    {
+        var startParts = numberFormat.FormatToParts(x);
+        var endParts = numberFormat.FormatToParts(y);
+
+        var result = new List<RangePart>(startParts.Count + endParts.Count + 1);
+
+        // Step 4: when the two ends format alike the range is one approximate value, all of it shared.
+        if (string.Equals(JoinParts(startParts), JoinParts(endParts), StringComparison.Ordinal))
+        {
+            result.Add(new RangePart("approximatelySign", "~", "shared"));
+            foreach (var part in startParts)
+            {
+                result.Add(new RangePart(part.Type, part.Value, "shared"));
+            }
+            return result;
+        }
+
+        var plan = PlanRangeCollapse(numberFormat, startParts, endParts);
+
+        for (var i = 0; i < startParts.Count - plan.DropFromStartTail; i++)
+        {
+            result.Add(new RangePart(startParts[i].Type, startParts[i].Value, "startRange"));
+        }
+
+        result.Add(new RangePart("literal", plan.Separator, "shared"));
+
+        for (var i = plan.DropFromEndHead; i < endParts.Count; i++)
+        {
+            result.Add(new RangePart(endParts[i].Type, endParts[i].Value, "endRange"));
+        }
+
+        return result;
+    }
+
+    /// <summary>What <see cref="PlanRangeCollapse"/> decided: how much of each end is redundant, and which separator to write.</summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct RangeCollapsePlan(int DropFromStartTail, int DropFromEndHead, string Separator);
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-collapsenumberrange, on the parts rather than on the string: the two
+    /// ICU range-pattern shapes <see cref="CollapseFormattedRange"/> implements, expressed as "these
+    /// endpoint parts are redundant".
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A prefix-currency locale whose two ends share a sign <em>and</em> a symbol writes them once at the
+    /// front and tightens the separator — test262's <c>formatRange/en-US.js</c> asserts
+    /// <c>"+$2.90–3.10"</c>. A suffix-currency locale whose two ends share a trailing symbol writes it once
+    /// at the back — its <c>formatRange/pt-PT.js</c> asserts <c>"3 - 5 €"</c> and
+    /// <c>"+2,90 - 3,10 €"</c>. A shared symbol with no shared sign is not collapsed at all, which is
+    /// the same file's <c>"$3 – $5"</c>.
+    /// </para>
+    /// <para>
+    /// The scan stops at the first part that carries the number itself, so two ends that happen to end in
+    /// the same digits do not have those digits mistaken for a shared affix.
+    /// </para>
+    /// </remarks>
+    private static RangeCollapsePlan PlanRangeCollapse(
+        JsNumberFormat numberFormat,
+        List<NumberFormatPart> startParts,
+        List<NumberFormatPart> endParts)
+    {
+        GetRangeSeparators(numberFormat.Locale, out var tight, out var loose);
+
+        if (!string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal))
+        {
+            return new RangeCollapsePlan(0, 0, tight);
+        }
+
+        var limit = System.Math.Min(startParts.Count, endParts.Count);
+
+        var prefixLength = 0;
+        while (prefixLength < limit && IsSharedAffix(startParts[prefixLength], endParts[prefixLength]))
+        {
+            prefixLength++;
+        }
+
+        var suffixLength = 0;
+        while (prefixLength + suffixLength < limit
+               && IsSharedAffix(startParts[startParts.Count - 1 - suffixLength], endParts[endParts.Count - 1 - suffixLength]))
+        {
+            suffixLength++;
+        }
+
+        var prefixHasSign = ContainsSignPart(startParts, 0, prefixLength);
+        var prefixHasCurrency = ContainsCurrencyPart(startParts, 0, prefixLength);
+
+        if (prefixHasSign && prefixHasCurrency)
+        {
+            return new RangeCollapsePlan(0, prefixLength, tight);
+        }
+
+        if (ContainsCurrencyPart(startParts, startParts.Count - suffixLength, suffixLength))
+        {
+            return new RangeCollapsePlan(suffixLength, prefixHasSign ? prefixLength : 0, loose);
+        }
+
+        return new RangeCollapsePlan(0, 0, loose);
+    }
+
+    /// <summary>
+    /// True when two parts at matching positions are the same piece of pattern text — the sign, the symbol
+    /// or the spacing around them. A part that carries the number is never one, however equal it looks.
+    /// </summary>
+    private static bool IsSharedAffix(NumberFormatPart a, NumberFormatPart b)
+    {
+        if (!string.Equals(a.Type, b.Type, StringComparison.Ordinal)
+            || !string.Equals(a.Value, b.Value, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return a.Type switch
+        {
+            "integer" or "fraction" or "group" or "decimal" or "exponentInteger" or "nan" or "infinity" => false,
+            _ => true
+        };
+    }
+
+    private static bool ContainsSignPart(List<NumberFormatPart> parts, int start, int count)
+    {
+        for (var i = start; i < start + count; i++)
+        {
+            if (string.Equals(parts[i].Type, "plusSign", StringComparison.Ordinal)
+                || string.Equals(parts[i].Type, "minusSign", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsCurrencyPart(List<NumberFormatPart> parts, int start, int count)
+    {
+        for (var i = start; i < start + count; i++)
+        {
+            if (string.Equals(parts[i].Type, "currency", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Joins two formatted range endpoints using ECMA-402 / ICU-style range patterns — the string lane's
+    /// half of https://tc39.es/ecma402/#sec-collapsenumberrange.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PlanRangeCollapse"/> states the same two shapes on parts, and
+    /// <c>IntlNumberFormatPartsTests.RangePartsConcatenateToFormatRange</c> is what keeps the two honest.
+    /// Every string this lane writes is exercised by test262's <c>formatRange/en-US.js</c> and
+    /// <c>formatRange/pt-PT.js</c>.
+    /// <para>Supports:</para>
+    /// <para>— A locale-specific separator (e.g. en uses en-dash `–`, pt uses ASCII hyphen `-`).</para>
+    /// <para>— Suffix collapse for locales whose currency follows the number (pt-PT etc.) —
+    ///   shared trailing currency moves to the end of the range, separator gets spaces.</para>
+    /// <para>— Sign+currency prefix collapse (signDisplay=always with prefix-currency locales) —
+    ///   duplicate sign+currency dropped from end, tight separator.</para>
+    /// </remarks>
     private static string CollapseFormattedRange(JsNumberFormat numberFormat, string startFormatted, string endFormatted)
     {
         var isCurrencyStyle = string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal);
@@ -378,20 +556,31 @@ internal sealed partial class NumberFormatPrototype : Prototype
         // the suffix typically contains the currency symbol (often preceded by NBSP).
         // Stop as soon as we hit a digit so we don't gobble part of the number itself
         // when both ends happen to share trailing digits (e.g. "+2,90 €" / "+3,10 €").
+        // "A digit" is [[NumberingSystem]]'s question, not char.IsDigit's: hanidec's zero is U+3007, which
+        // is not in the Nd category at all, so scanning past it turned "-$五.〇〇–一.〇〇" into "-$五–一.〇〇".
+        var numberingSystem = numberFormat.ResolvedNumberingSystem;
         var suffixLen = 0;
         var maxSuffix = System.Math.Min(startFormatted.Length, endFormatted.Length);
         while (suffixLen < maxSuffix)
         {
             var ch = startFormatted[startFormatted.Length - 1 - suffixLen];
             if (ch != endFormatted[endFormatted.Length - 1 - suffixLen]) break;
-            if (char.IsDigit(ch)) break;
+            if (numberingSystem.IsDigitCharacter(ch)) break;
             suffixLen++;
         }
 
-        // Find longest common prefix (but stop at the suffix boundary).
+        // Find longest common prefix (but stop at the suffix boundary), and stop at a digit for the same
+        // reason the suffix scan does: what is shared here is the sign and the symbol, never part of the
+        // number. Reading two ends' digits as shared text is how "-$𝟓.𝟎𝟎–𝟏.𝟎𝟎" lost the high half of a
+        // mathbold digit, both ends of which begin with the same surrogate.
         var prefixLen = 0;
         var maxPrefix = System.Math.Min(startFormatted.Length - suffixLen, endFormatted.Length - suffixLen);
-        while (prefixLen < maxPrefix && startFormatted[prefixLen] == endFormatted[prefixLen]) prefixLen++;
+        while (prefixLen < maxPrefix
+               && startFormatted[prefixLen] == endFormatted[prefixLen]
+               && !numberingSystem.IsDigitCharacter(startFormatted[prefixLen]))
+        {
+            prefixLen++;
+        }
 
         if (isCurrencyStyle)
         {
@@ -434,22 +623,6 @@ internal sealed partial class NumberFormatPrototype : Prototype
         // Decimal / percent / unit: use the locale's separator. en-US convention (and the test
         // expectation) is the tight form; pt-PT and similar use a spaced ASCII hyphen.
         return startFormatted + sepTight + endFormatted;
-    }
-
-    /// <summary>
-    /// The literal <c>formatRange</c> puts between two endpoints it did not collapse, which is what
-    /// <c>formatRangeToParts</c> writes as its shared <c>literal</c> part.
-    /// </summary>
-    /// <remarks>
-    /// The one shape this does not reproduce is a currency range whose two ends share a sign and a symbol
-    /// (<c>signDisplay: "always"</c>): <see cref="CollapseFormattedRange"/> drops the duplicate from the end
-    /// and tightens the separator, and the parts lane has no way to say that an endpoint's own parts were
-    /// elided. test262 asserts the two shapes below and not that one.
-    /// </remarks>
-    private static string RangeSeparator(JsNumberFormat numberFormat)
-    {
-        GetRangeSeparators(numberFormat.Locale, out var tight, out var loose);
-        return string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal) ? loose : tight;
     }
 
     // TODO: read range patterns from CLDR (e.g. via Options.Intl.CldrProvider) instead of
@@ -509,70 +682,16 @@ internal sealed partial class NumberFormatPrototype : Prototype
             Throw.TypeError(_realm, "start and end are required");
         }
 
-        var startNum = ToRangeNumber(start);
-        var endNum = ToRangeNumber(end);
+        var parts = PartitionNumberRangePattern(numberFormat, ToRangeNumber(start), ToRangeNumber(end));
 
-        // Get parts for both numbers
-        var startParts = numberFormat.FormatToParts(startNum);
-        var endParts = numberFormat.FormatToParts(endNum);
-
-        // Reconstruct formatted strings from parts to avoid redundant Format() calls
-        var startFormatted = JoinParts(startParts);
-        var endFormatted = JoinParts(endParts);
-        var approximatelyEqual = string.Equals(startFormatted, endFormatted, StringComparison.Ordinal);
-
-        var result = new JsArray(Engine);
-        uint index = 0;
-
-        if (approximatelyEqual)
+        var result = new JsArray(Engine, (uint) parts.Count);
+        for (var i = 0; i < parts.Count; i++)
         {
-            // Add approximately sign first
-            var approxPart = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            approxPart.CreateDataPropertyOrThrow("type", "approximatelySign");
-            approxPart.CreateDataPropertyOrThrow("value", "~");
-            approxPart.CreateDataPropertyOrThrow("source", "shared");
-            result.SetIndexValue(index++, approxPart, updateLength: true);
-
-            // Add all parts with source "shared"
-            foreach (var part in startParts)
-            {
-                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-                partObj.CreateDataPropertyOrThrow("type", part.Type);
-                partObj.CreateDataPropertyOrThrow("value", part.Value);
-                partObj.CreateDataPropertyOrThrow("source", "shared");
-                result.SetIndexValue(index++, partObj, updateLength: true);
-            }
-        }
-        else
-        {
-            // Add start parts with source "startRange"
-            foreach (var part in startParts)
-            {
-                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-                partObj.CreateDataPropertyOrThrow("type", part.Type);
-                partObj.CreateDataPropertyOrThrow("value", part.Value);
-                partObj.CreateDataPropertyOrThrow("source", "startRange");
-                result.SetIndexValue(index++, partObj, updateLength: true);
-            }
-
-            // Add separator — the one CollapseFormattedRange would have written between the same two
-            // endpoints, so the parts join back to what formatRange() returns. A currency range keeps both
-            // ends in full and takes the spaced separator; every other style takes the locale's tight one.
-            var separator = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-            separator.CreateDataPropertyOrThrow("type", "literal");
-            separator.CreateDataPropertyOrThrow("value", RangeSeparator(numberFormat));
-            separator.CreateDataPropertyOrThrow("source", "shared");
-            result.SetIndexValue(index++, separator, updateLength: true);
-
-            // Add end parts with source "endRange"
-            foreach (var part in endParts)
-            {
-                var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
-                partObj.CreateDataPropertyOrThrow("type", part.Type);
-                partObj.CreateDataPropertyOrThrow("value", part.Value);
-                partObj.CreateDataPropertyOrThrow("source", "endRange");
-                result.SetIndexValue(index++, partObj, updateLength: true);
-            }
+            var partObj = ObjectInstance.OrdinaryObjectCreate(Engine, Engine.Realm.Intrinsics.Object.PrototypeObject);
+            partObj.CreateDataPropertyOrThrow("type", parts[i].Type);
+            partObj.CreateDataPropertyOrThrow("value", parts[i].Value);
+            partObj.CreateDataPropertyOrThrow("source", parts[i].Source);
+            result.SetIndexValue((uint) i, partObj, updateLength: true);
         }
 
         return result;
