@@ -3578,6 +3578,54 @@ used to finish and now raises `TimeoutException`, `ExecutionCanceledException` o
 one statement per 256 year-steps, so a script whose statement count sat just under its budget while doing
 bulk calendar arithmetic can now cross it; nothing an ordinary date does reaches the check, since a whole
 year's worth of months is a single step.
+
+### 4.81 Adding months in `chinese` or `dangi` counts lunations ([#3511](https://github.com/sebastienros/jint/issues/3511))
+
+The months of both calendars are consecutive new moons, but `add({ months: n })` reached the right one by
+walking one calendar *year* at a time, asking each year how many months it held. Two things followed, and
+the second is the reason this is not only a performance change.
+
+**It cost a whole year to cross a year.** Building one lunisolar year is a dozen new moons and two solstice
+searches, so a hundred thousand months was eight thousand of them:
+
+```js
+// 5.0: 646 ms      5.x: 0.4 ms
+Temporal.PlainDate.from('2000-01-01').withCalendar('chinese').add({ months: 100000 });
+
+// 5.0: 43 s        5.x: 0.2 ms
+Temporal.PlainDate.from('2000-01-01').withCalendar('chinese').add({ months: 3000000 });
+```
+
+**And the walk drifted.** Far enough out, the lunisolar new year slides clean out of the Gregorian year that
+names it, and no lunisolar year starts in that Gregorian year at all. The walk had nothing to ask there, so
+it counted a twelve-month year that does not exist. The result was an `add` that was not additive:
+
+```js
+const d = Temporal.PlainDate.from('2000-02-05').withCalendar('chinese');
+
+d.add({ months: 500000 });                             // 5.0: +042426-12-30   5.x: +042426-01-10
+d.add({ months: 250000 }).add({ months: 250000 });     // 5.0: RangeError      5.x: +042426-01-10
+```
+
+The same defect made ordinary steps wrong at a far starting date — from `+100000-01-01`, `{ months: -1 }`
+moved back thirteen months and `{ months: 13 }` was refused as out of range, for a year well inside
+Temporal's own limits.
+
+Both are gone: which month lies *n* lunations away is now arithmetic on the lunation index, so the answer is
+exact, additive and reached without touching the years in between. The year walk stays as the fallback for
+the cases a closed form must not answer — a year the reckoning cannot place, an ordinal that does not occur
+in it, or a step so large no representable date could survive it — and it is interruptible either way, per
+[4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511).
+
+`hebrew` is unchanged and still walks: its years hold twelve or thirteen months too, but a step there is
+cheap arithmetic rather than an astronomical reckoning, so the walk costs about 1 µs a month.
+
+**What could break:** a `chinese` or `dangi` value produced by a month step of more than about 200,000
+months (some sixteen thousand years), or by any step from a date more than about that far out. Everything
+closer is unchanged, and that is measured rather than asserted: the two reckonings were compared over
+356,326 cases — every 37th day from ISO 1500 to 2400 plus a dozen dates further out, twenty month steps from
+−37 to +1200, and 444 `until` month differences, in both calendars — and they agree on every one.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
