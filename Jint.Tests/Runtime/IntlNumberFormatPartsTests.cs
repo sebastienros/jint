@@ -54,6 +54,16 @@ public class IntlNumberFormatPartsTests
         "{ style: 'percent', useGrouping: false }",
         "{ style: 'percent', minimumIntegerDigits: 3 }",
         "{ style: 'currency', currency: 'USD', currencySign: 'accounting' }",
+        // the significant-digit options, which ToRawPrecision applies whatever the style writes around them
+        "{ maximumSignificantDigits: 2 }",
+        "{ minimumSignificantDigits: 3 }",
+        "{ minimumSignificantDigits: 2, maximumSignificantDigits: 4 }",
+        "{ style: 'currency', currency: 'USD', maximumSignificantDigits: 2 }",
+        "{ style: 'currency', currency: 'USD', minimumSignificantDigits: 3 }",
+        "{ style: 'percent', maximumSignificantDigits: 2 }",
+        "{ style: 'unit', unit: 'meter', maximumSignificantDigits: 2 }",
+        "{ roundingPriority: 'morePrecision', maximumSignificantDigits: 2, maximumFractionDigits: 3 }",
+        "{ roundingPriority: 'lessPrecision', maximumSignificantDigits: 2, maximumFractionDigits: 3 }",
         "{ notation: 'scientific' }",
         "{ notation: 'engineering' }",
         "{ notation: 'compact' }",
@@ -808,6 +818,108 @@ public class IntlNumberFormatPartsTests
 
         const string Engineering = "new Intl.NumberFormat('en-US', { notation: 'engineering' })";
         Format(Engineering, "12345n").Should().Be(Format(Engineering, "12345"));
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatnumberstring computes the digits once, and which of the two
+    /// roundings it uses is the formatter's — never the style's. The significant-digit options reached the
+    /// decimal parts lane and no other, so a currency, a percent and a unit ignored them there.
+    /// </summary>
+    [Test]
+    public void TheSignificantDigitOptionsReachEveryStyle()
+    {
+        const string Usd =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 2 })";
+        Format(Usd, "1234.567").Should().Be("$1,200");
+        Join(Usd, "1234.567").Should().Be("$1,200");
+
+        const string Percent = "new Intl.NumberFormat('en-US', { style: 'percent', maximumSignificantDigits: 2 })";
+        Format(Percent, "1234.567").Should().Be("120,000%");
+        Join(Percent, "1234.567").Should().Be("120,000%");
+
+        const string Meter =
+            "new Intl.NumberFormat('en-US', { style: 'unit', unit: 'meter', maximumSignificantDigits: 2 })";
+        Format(Meter, "1234.567").Should().Be("1,200 m");
+        Join(Meter, "1234.567").Should().Be("1,200 m");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawprecision's last steps remove up to
+    /// <c>maxPrecision - minPrecision</c> trailing zeros, exactly as
+    /// https://tc39.es/ecma402/#sec-torawfixed does for fraction digits.
+    /// </summary>
+    /// <remarks>
+    /// The defect: only the string lane trimmed, so <c>maximumSignificantDigits: 2</c> wrote <c>"0.4"</c>
+    /// from one lane and <c>"0.40"</c> from the other.
+    /// </remarks>
+    [Test]
+    public void ToRawPrecisionTrimsItsTrailingZeros()
+    {
+        const string TwoDigits = "new Intl.NumberFormat('en', { maximumSignificantDigits: 2 })";
+        Format(TwoDigits, "0.4").Should().Be("0.4");
+        Join(TwoDigits, "0.4").Should().Be("0.4");
+
+        const string TwoToFour =
+            "new Intl.NumberFormat('en', { minimumSignificantDigits: 2, maximumSignificantDigits: 4 })";
+        Format(TwoToFour, "2.9").Should().Be("2.9");
+        Join(TwoToFour, "2.9").Should().Be("2.9");
+        Format(TwoToFour, "2.90001").Should().Be("2.9");
+
+        // the trim stops at the minimum, so the zeros the minimum requires stay
+        const string ThreeToFive =
+            "new Intl.NumberFormat('en', { minimumSignificantDigits: 3, maximumSignificantDigits: 5 })";
+        Format(ThreeToFive, "1.2").Should().Be("1.20");
+        Join(ThreeToFive, "1.2").Should().Be("1.20");
+    }
+
+    /// <summary>
+    /// A Number's Intl mathematical value is the one
+    /// https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads: <c>Number::toString</c>'s digits, which
+    /// is the shortest decimal that reads back as that double — not the double's own binary expansion.
+    /// </summary>
+    /// <remarks>
+    /// <c>maximumSignificantDigits</c> defaults to 21, so a lane reading the expansion had 21 digits to
+    /// write and wrote them: <c>0.4</c> came out as <c>"0.400000000000000022204"</c>. The parts lane got
+    /// there differently and worse — it scaled a fraction by 10^21 and cast the product to
+    /// <c>long</c>, which .NET saturates, so it wrote <c>long.MaxValue</c>'s digits as a fraction.
+    /// </remarks>
+    [Test]
+    public void ANumbersDigitsAreTheOnesNumberToStringWrites()
+    {
+        const string ThreeDigits = "new Intl.NumberFormat('en', { minimumSignificantDigits: 3 })";
+        Format(ThreeDigits, "0.4").Should().Be("0.400");
+        Join(ThreeDigits, "0.4").Should().Be("0.400");
+        Format(ThreeDigits, "0.5").Should().Be("0.500");
+        Join(ThreeDigits, "0.5").Should().Be("0.500");
+        Format(ThreeDigits, "1.1").Should().Be("1.10");
+        Join(ThreeDigits, "1.1").Should().Be("1.10");
+
+        const string TwoDigits = "new Intl.NumberFormat('en', { minimumSignificantDigits: 2 })";
+        Format(TwoDigits, "123.5").Should().Be("123.5");
+        Join(TwoDigits, "123.5").Should().Be("123.5");
+    }
+
+    /// <summary>
+    /// An exactly-read value takes ToRawPrecision too, and the minimum is a floor there as well.
+    /// </summary>
+    [Test]
+    public void AnExactValueReadsTheSignificantDigitOptionsAsWell()
+    {
+        const string ThreeDigits = "new Intl.NumberFormat('en', { minimumSignificantDigits: 3 })";
+        Format(ThreeDigits, "1n").Should().Be("1.00").And.Be(Format(ThreeDigits, "1"));
+        Format(ThreeDigits, "-5n").Should().Be("-5.00").And.Be(Format(ThreeDigits, "-5"));
+
+        const string TwoDigits = "new Intl.NumberFormat('en-US', { maximumSignificantDigits: 2 })";
+        Format(TwoDigits, "1234n").Should().Be("1,200").And.Be(Format(TwoDigits, "1234"));
+
+        // a value no double holds keeps every digit the rounding leaves
+        Format("new Intl.NumberFormat('en-US', { minimumSignificantDigits: 3, maximumSignificantDigits: 5 })",
+                "'12344501000000000000000000000000000'")
+            .Should().Be("12,345,000,000,000,000,000,000,000,000,000,000");
+
+        const string Usd =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 2 })";
+        Format(Usd, "1234n").Should().Be("$1,200").And.Be(Format(Usd, "1234"));
     }
 
     private string Format(string formatter, string value)

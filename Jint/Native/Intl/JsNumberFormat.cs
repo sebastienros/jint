@@ -300,6 +300,17 @@ internal sealed class JsNumberFormat : ObjectInstance
             return FormatWithNotation(value);
         }
 
+        // https://tc39.es/ecma402/#sec-formatnumber is the concatenation of exactly the parts
+        // https://tc39.es/ecma402/#sec-formatnumbertoparts returns, and under the significant-digit
+        // options — and under a rounding priority, which needs both roundings to compare them — that is
+        // the lane https://tc39.es/ecma402/#sec-torawprecision lives in.
+        if (MinimumSignificantDigits.HasValue
+            || MaximumSignificantDigits.HasValue
+            || !string.Equals(RoundingPriority, "auto", StringComparison.Ordinal))
+        {
+            return ConcatenateParts(FormatToPartsCore(value));
+        }
+
         return Style switch
         {
             "currency" => FormatCurrency(value),
@@ -985,8 +996,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// scaled mantissa or an abbreviation, https://tc39.es/ecma402/#sec-partitionnotationsubpattern picks
     /// it from the value's own magnitude, and the exact carrier does not do that arithmetic — so a value
     /// this lane would otherwise keep whole takes the double instead, and gets the exponent the same
-    /// formatter writes for a Number. Scaling a fraction, and rounding one to significant digits, are the
-    /// other two cases it hands over.
+    /// formatter writes for a Number. Scaling a fraction is the other case it hands over.
     /// </remarks>
     private bool CanPartitionExactly(in IntlMathematicalValue value)
     {
@@ -1000,17 +1010,8 @@ internal sealed class JsNumberFormat : ObjectInstance
             return false;
         }
 
-        // Significant-digit rounding under a scaled style, and scaling a fraction at all, are the two
-        // pieces of arithmetic the exact carrier does not do yet.
-        var significantDigits = MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue;
-        var scaledStyle = Style is "currency" or "percent" or "unit";
-
-        if (value.FractionDigits > 0)
-        {
-            return !scaledStyle && !significantDigits;
-        }
-
-        return !significantDigits || !scaledStyle;
+        // Scaling a fraction is the one piece of arithmetic the exact carrier does not do yet.
+        return value.FractionDigits == 0 || Style is not ("currency" or "percent" or "unit");
     }
 
     /// <summary>
@@ -1035,15 +1036,12 @@ internal sealed class JsNumberFormat : ObjectInstance
             abs *= 100;
         }
 
-        // Significant-digit rounding of a whole value is exact, so it stays on this lane.
-        var significantDigits = (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
-            && Style is not ("currency" or "percent" or "unit");
-        if (significantDigits)
-        {
-            abs = ApplySignificantDigitRounding(abs);
-        }
-
-        var body = ExactBody(abs, fractionDigits, out var displaysAsZero);
+        // https://tc39.es/ecma402/#sec-formatnumberstring, over digits rather than over a double: which
+        // of the two roundings applies is the formatter's, not the carrier's.
+        var body = MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue
+            ? ExactPrecisionBody(abs, fractionDigits)
+            : ExactBody(abs, fractionDigits);
+        var displaysAsZero = body.IsZero;
 
         var showNegativeSign = isNegative;
         var showPositiveSign = false;
@@ -1077,9 +1075,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, (double) mantissa);
                 break;
             default:
-                // the significant-digits lane over a double writes a literal "-" rather than the locale's
-                // own sign, and the two lanes have to agree about which one this is
-                AppendSignPart(parts, showNegativeSign, showPositiveSign, significantDigits ? "-" : null);
+                AppendSignPart(parts, showNegativeSign, showPositiveSign);
                 AddNumberParts(parts, in body);
                 break;
         }
@@ -1093,7 +1089,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// <see cref="MaximumFractionDigits"/> with halfExpand, then trimmed of up to
     /// <c>maximumFractionDigits - minimumFractionDigits</c> trailing zeros.
     /// </summary>
-    private NumberBody ExactBody(BigInteger absMantissa, int fractionDigits, out bool displaysAsZero)
+    private NumberBody ExactBody(BigInteger absMantissa, int fractionDigits)
     {
         if (fractionDigits > MaximumFractionDigits)
         {
@@ -1101,8 +1097,6 @@ internal sealed class JsNumberFormat : ObjectInstance
             absMantissa = (absMantissa + divisor / 2) / divisor;
             fractionDigits = MaximumFractionDigits;
         }
-
-        displaysAsZero = absMantissa.IsZero;
 
         var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
 
@@ -1148,53 +1142,11 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     internal string Format(BigInteger value) => Format(IntlMathematicalValue.Exact(value, 0));
 
-    /// <summary>
-    /// Rounds a BigInteger so it carries at most <see cref="MaximumSignificantDigits"/>
-    /// significant digits, using the spec's "halfExpand" rounding (round half away from zero).
-    /// </summary>
-    private BigInteger ApplySignificantDigitRounding(BigInteger value)
-    {
-        if (!MaximumSignificantDigits.HasValue || value.IsZero)
-            return value;
-
-        var maxSig = MaximumSignificantDigits.Value;
-        var isNegative = value.Sign < 0;
-        var abs = isNegative ? -value : value;
-
-        // Number of decimal digits in |value|.
-        var digitCount = abs.ToString("R", CultureInfo.InvariantCulture).Length;
-        if (digitCount <= maxSig)
-            return value;
-
-        // Drop the last (digitCount - maxSig) digits with halfExpand rounding.
-        var dropDigits = digitCount - maxSig;
-        var divisor = BigInteger.Pow(10, dropDigits);
-        var halfDivisor = divisor / 2;
-        var rounded = (abs + halfDivisor) / divisor * divisor;
-
-        // Rounding can push the digit count up by one (e.g., 99500 with 3 sig digits → 100000).
-        // ECMA-402 keeps the same significant-digit count, so re-trim if that happened.
-        var roundedDigitCount = rounded.ToString("R", CultureInfo.InvariantCulture).Length;
-        if (roundedDigitCount > digitCount)
-        {
-            divisor *= 10;
-            rounded = rounded / divisor * divisor;
-        }
-
-        return isNegative ? -rounded : rounded;
-    }
-
     private string FormatDecimal(double value)
     {
         // Check if value is negative (including -0)
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value);
         var absValue = System.Math.Abs(value);
-
-        // Handle significant digits and roundingPriority
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
-        {
-            return FormatWithSignificantDigits(value);
-        }
 
         // Apply rounding based on MaximumFractionDigits
         absValue = ApplyRounding(absValue, MaximumFractionDigits);
@@ -1295,287 +1247,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         return formatted;
     }
 
-    private string FormatWithSignificantDigits(double value)
-    {
-        if (!double.IsFinite(value))
-        {
-            return value.ToString(NumberFormatInfo);
-        }
-
-        var minSigDigits = MinimumSignificantDigits ?? 1;
-        var maxSigDigits = MaximumSignificantDigits ?? 21;
-
-        // Format based on roundingPriority per ECMA-402 §15.5.14 RoundingDecisionForLeadingZeros
-        if (string.Equals(RoundingPriority, "lessPrecision", StringComparison.Ordinal) ||
-            string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal))
-        {
-            var sigDigitsResult = FormatToSignificantDigits(value, minSigDigits, maxSigDigits);
-            var fracDigitsResult = FormatWithFractionDigits(value);
-
-            // Parse both results back to numeric values to compare precision loss
-            var sigValue = ParseFormattedNumber(sigDigitsResult);
-            var fracValue = ParseFormattedNumber(fracDigitsResult);
-
-            // Calculate precision loss (distance from original value)
-            var sigPrecisionLoss = System.Math.Abs(value - sigValue);
-            var fracPrecisionLoss = System.Math.Abs(value - fracValue);
-
-            // Count displayed digits in each result
-            var sigDigitsCount = CountSignificantDigits(sigDigitsResult);
-            var fracDigitsCount = CountSignificantDigits(fracDigitsResult);
-
-            // Determine if each result is constrained by explicit min/max
-            var sdHasExplicitMin = MinimumSignificantDigitsExplicit;
-            var sdHasExplicitMax = MaximumSignificantDigitsExplicit;
-
-            // Get the actual minimum constraint values for comparison
-            var sdMinConstraint = sdHasExplicitMin ? minSigDigits : 0;
-            // FD minimum is the number of fraction digits required (adds to total digits)
-            var fdMinConstraint = MinimumFractionDigits;
-
-            if (string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal))
-            {
-                // morePrecision: prefer the result closer to original value
-                if (sigPrecisionLoss < fracPrecisionLoss - 1e-15)
-                {
-                    return sigDigitsResult;
-                }
-                if (fracPrecisionLoss < sigPrecisionLoss - 1e-15)
-                {
-                    return fracDigitsResult;
-                }
-
-                // When values are equal (tie):
-                // If only SD max is explicit (no explicit SD min), prefer FD (minimum-constrained)
-                if (sdHasExplicitMax && !sdHasExplicitMin)
-                {
-                    return fracDigitsResult;
-                }
-
-                // If SD has explicit max AND min, compare the constraint ranges to determine
-                // which allows more precision potential.
-                if (sdHasExplicitMax && sdHasExplicitMin)
-                {
-                    // Compare maximum constraints - larger max = allows more precision
-                    // SD max is in significant digits; FD max is fraction digits + 1 (for integer digit)
-                    var effectiveFdMax = MaximumFractionDigits + 1;
-                    if (maxSigDigits > effectiveFdMax)
-                    {
-                        return sigDigitsResult;
-                    }
-                    if (effectiveFdMax > maxSigDigits)
-                    {
-                        return fracDigitsResult;
-                    }
-                    // Maximums are equal - compare minimums
-                    // Higher minimum = requires more precision
-                    var effectiveFdMin = MinimumFractionDigits + 1;
-                    if (minSigDigits >= effectiveFdMin)
-                    {
-                        return sigDigitsResult;
-                    }
-                    return fracDigitsResult;
-                }
-
-                // Both have only minimums (no explicit max): prefer SD (the significant digits result)
-                // This follows the spec's preference for significant digits when constraints are equivalent
-                return sigDigitsResult;
-            }
-            else // lessPrecision
-            {
-                // lessPrecision: prefer the result farther from original value
-                if (sigPrecisionLoss > fracPrecisionLoss + 1e-15)
-                {
-                    return sigDigitsResult;
-                }
-                if (fracPrecisionLoss > sigPrecisionLoss + 1e-15)
-                {
-                    return fracDigitsResult;
-                }
-
-                // When values are equal (tie):
-                // If only SD max is explicit (no explicit SD min), prefer SD (no minimum constraint)
-                if (sdHasExplicitMax && !sdHasExplicitMin)
-                {
-                    return sigDigitsResult;
-                }
-
-                // If SD has explicit max AND min, compare constraint ranges
-                // For lessPrecision, prefer smaller max = less precision potential
-                if (sdHasExplicitMax && sdHasExplicitMin)
-                {
-                    var effectiveFdMax = MaximumFractionDigits + 1;
-                    if (maxSigDigits < effectiveFdMax)
-                    {
-                        return sigDigitsResult;
-                    }
-                    if (effectiveFdMax < maxSigDigits)
-                    {
-                        return fracDigitsResult;
-                    }
-                    // Maximums are equal - compare minimums
-                    // For lessPrecision, smaller minimum = less precision required
-                    var effectiveFdMin = MinimumFractionDigits + 1;
-                    if (minSigDigits <= effectiveFdMin)
-                    {
-                        return sigDigitsResult;
-                    }
-                    return fracDigitsResult;
-                }
-
-                // Default for lessPrecision: prefer FD (fraction digits result)
-                return fracDigitsResult;
-            }
-        }
-
-        // Default: use significant digits
-        return FormatToSignificantDigits(value, minSigDigits, maxSigDigits);
-    }
-
-    private string FormatWithFractionDigits(double value)
-    {
-        value = ApplyRounding(value, MaximumFractionDigits);
-        var integerDigits = (int) (value == 0 ? 1 : System.Math.Floor(System.Math.Log10(System.Math.Abs(value))) + 1);
-
-        string integerPart;
-        if (ShouldApplyGrouping(integerDigits))
-        {
-            integerPart = MinimumIntegerDigits <= 1 ? "#,##0" :
-                MinimumIntegerDigits == 2 ? "#,#00" :
-                MinimumIntegerDigits == 3 ? "#,000" :
-                new string('0', MinimumIntegerDigits - 3) + ",000";
-        }
-        else
-        {
-            integerPart = new string('0', MinimumIntegerDigits);
-        }
-
-        string format;
-        if (MaximumFractionDigits == 0)
-        {
-            format = integerPart;
-        }
-        else
-        {
-            var fractionPart = new string('0', MinimumFractionDigits);
-            if (MaximumFractionDigits > MinimumFractionDigits)
-            {
-                fractionPart += new string('#', MaximumFractionDigits - MinimumFractionDigits);
-            }
-            format = $"{integerPart}.{fractionPart}";
-        }
-
-        return value.ToString(format, NumberFormatInfo);
-    }
-
-    private string FormatToSignificantDigits(double value, int minSigDigits, int maxSigDigits)
-    {
-        // Check for negative zero (1.0 / -0 == -Infinity)
-        var isNegativeZero = value == 0 && 1.0 / value == double.NegativeInfinity;
-
-        if (value == 0)
-        {
-            // Use the locale's decimal separator so numbering-system transliteration leaves it
-            // alone. Without this, `.` would be replaced by the numbering-system's default
-            // separator (e.g. Arabic ٫) even when the locale wants a different one (de → `,`).
-            var zeroResult = minSigDigits > 1
-                ? "0" + NumberFormatInfo.NumberDecimalSeparator + new string('0', minSigDigits - 1)
-                : "0";
-            return isNegativeZero ? "-" + zeroResult : zeroResult;
-        }
-
-        var isNegative = value < 0;
-        var absValue = System.Math.Abs(value);
-
-        // Get the order of magnitude
-        var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
-
-        // Round to max significant digits first
-        var decimalPlacesForRounding = maxSigDigits - magnitude - 1;
-        double rounded;
-        if (decimalPlacesForRounding >= 0)
-        {
-            rounded = ApplyRounding(value, decimalPlacesForRounding);
-        }
-        else
-        {
-            // Need to round to whole numbers or higher
-            var divisor = System.Math.Pow(10, -decimalPlacesForRounding);
-            rounded = ApplyRounding(value / divisor, 0) * divisor;
-        }
-
-        // After rounding, take absolute value for formatting
-        rounded = System.Math.Abs(rounded);
-
-        // For the actual formatting, format with max precision
-        // then trim unnecessary trailing zeros beyond minSigDigits
-        string result;
-        if (decimalPlacesForRounding <= 0)
-        {
-            result = rounded.ToString("F0", CultureInfo.InvariantCulture);
-        }
-        else
-        {
-            // Format with max precision, then we'll trim
-            var formatSpec = "F" + decimalPlacesForRounding;
-            result = rounded.ToString(formatSpec, CultureInfo.InvariantCulture);
-
-            // Trim trailing zeros beyond minSigDigits
-            if (result.Contains('.'))
-            {
-                var currentSigDigits = CountSignificantDigits(result);
-                while (currentSigDigits > minSigDigits && result[result.Length - 1] == '0' && result.Contains('.'))
-                {
-                    result = result.Substring(0, result.Length - 1);
-                    currentSigDigits = CountSignificantDigits(result);
-                }
-                // Remove trailing decimal point if no fraction left
-                if (result[result.Length - 1] == '.')
-                {
-                    result = result.Substring(0, result.Length - 1);
-                }
-            }
-        }
-
-        // Ensure minimum significant digits (add trailing zeros if needed)
-        var finalSigDigits = CountSignificantDigits(result);
-        if (finalSigDigits < minSigDigits)
-        {
-            var zerosToAdd = minSigDigits - finalSigDigits;
-            if (!result.Contains('.'))
-            {
-                result += "." + new string('0', zerosToAdd);
-            }
-            else
-            {
-                result += new string('0', zerosToAdd);
-            }
-        }
-
-        // Apply grouping and locale-specific separators
-        var decimalIdx = result.IndexOf('.');
-        var intPartForGrouping = decimalIdx >= 0 ? result.Substring(0, decimalIdx) : result;
-        var fracPart = decimalIdx >= 0 ? result.Substring(decimalIdx + 1) : null; // Exclude the '.'
-        var intDigitCount = intPartForGrouping.Length;
-
-        if (ShouldApplyGrouping(intDigitCount))
-        {
-            intPartForGrouping = ApplyGroupingToString(intPartForGrouping);
-        }
-
-        // Build result with locale-specific decimal separator
-        if (fracPart != null)
-        {
-            result = intPartForGrouping + NumberFormatInfo.NumberDecimalSeparator + fracPart;
-        }
-        else
-        {
-            result = intPartForGrouping;
-        }
-
-        return isNegative ? "-" + result : result;
-    }
-
     private string ApplyGroupingToString(string integerPart)
     {
         var boundaries = GroupBoundariesOf(integerPart.Length);
@@ -1596,163 +1267,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         return sb.Append(integerPart, start, integerPart.Length - start).ToString();
     }
 
-    private static int CountSignificantDigits(string formatted)
-    {
-        var count = 0;
-        var foundNonZero = false;
-        var inFraction = false;
-
-        foreach (var c in formatted)
-        {
-            if (c == '.' || c == ',')
-            {
-                if (c == '.')
-                {
-                    inFraction = true;
-                }
-                continue;
-            }
-
-            if (c == '-')
-            {
-                continue;
-            }
-
-            if (char.IsDigit(c))
-            {
-                if (c != '0')
-                {
-                    foundNonZero = true;
-                }
-
-                if (foundNonZero)
-                {
-                    count++;
-                }
-                else if (inFraction && c == '0')
-                {
-                    // Leading zeros after decimal don't count
-                    continue;
-                }
-            }
-        }
-
-        return count == 0 ? 1 : count; // At least 1 for "0"
-    }
-
-    /// <summary>
-    /// Parses a formatted number string back to a double value.
-    /// Used for comparing precision loss between different formatting approaches.
-    /// Handles non-ASCII digit systems (Arabic, Thai, etc.) and locale-specific decimal separators.
-    /// </summary>
-    private double ParseFormattedNumber(string formatted)
-    {
-        // Use the locale's decimal separator to properly identify decimal vs grouping
-        var decimalSeparator = NumberFormatInfo.NumberDecimalSeparator;
-
-        // Build a clean numeric string by extracting digits and decimal point
-        var sb = new System.Text.StringBuilder(formatted.Length);
-        var hasDecimal = false;
-        var isNegative = false;
-
-        for (var i = 0; i < formatted.Length; i++)
-        {
-            var c = formatted[i];
-
-            // Handle negative sign (various forms)
-            if ((c == '-' || c == '\u2212') && sb.Length == 0) // ASCII minus or Unicode minus
-            {
-                isNegative = true;
-                continue;
-            }
-
-            // Check if this position matches the locale's decimal separator
-            if (!hasDecimal && decimalSeparator.Length > 0 && i + decimalSeparator.Length <= formatted.Length)
-            {
-                var match = true;
-                for (var j = 0; j < decimalSeparator.Length; j++)
-                {
-                    if (formatted[i + j] != decimalSeparator[j])
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match)
-                {
-                    sb.Append('.');
-                    hasDecimal = true;
-                    i += decimalSeparator.Length - 1;
-                    continue;
-                }
-            }
-
-            // Handle other decimal separators (. or Arabic decimal ٫)
-            if ((c == '.' || c == '٫' || c == '\u066B') && !hasDecimal)
-            {
-                sb.Append('.');
-                hasDecimal = true;
-                continue;
-            }
-
-            // Skip grouping separators (likely . or , or space depending on locale)
-            if (c == ',' || c == ' ' || c == '\u00A0' || c == '\u202F') // Also handle narrow no-break space
-            {
-                continue;
-            }
-
-            // Handle ASCII digits 0-9
-            if (char.IsAsciiDigit(c))
-            {
-                sb.Append(c);
-                continue;
-            }
-
-            // Handle Arabic-Indic digits ٠-٩ (U+0660 to U+0669)
-            if (c >= '\u0660' && c <= '\u0669')
-            {
-                sb.Append((char) ('0' + (c - '\u0660')));
-                continue;
-            }
-
-            // Handle Extended Arabic-Indic digits ۰-۹ (U+06F0 to U+06F9)
-            if (c >= '\u06F0' && c <= '\u06F9')
-            {
-                sb.Append((char) ('0' + (c - '\u06F0')));
-                continue;
-            }
-
-            // Handle other numeric systems using char.GetNumericValue
-            var numericValue = char.GetNumericValue(c);
-            if (numericValue >= 0 && numericValue <= 9)
-            {
-                sb.Append((char) ('0' + (int) numericValue));
-            }
-            // Skip grouping separators, currency symbols, etc.
-        }
-
-        if (sb.Length == 0)
-        {
-            return 0;
-        }
-
-        if (double.TryParse(sb.ToString(), System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var result))
-        {
-            return isNegative ? -result : result;
-        }
-
-        return 0;
-    }
-
     private string FormatCurrency(double value)
     {
-        // Handle significant digits if specified
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
-        {
-            return FormatCurrencyWithSignificantDigits(value);
-        }
-
         // Check for negative zero (1.0 / -0 == -Infinity)
         var isNegativeZero = value == 0 && double.IsNegativeInfinity(1.0 / value);
         var isNegative = value < 0 || isNegativeZero;
@@ -1967,75 +1483,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         };
     }
 
-    private string FormatCurrencyWithSignificantDigits(double value)
-    {
-        var isNegative = value < 0;
-        var isZero = value == 0;
-        var absValue = System.Math.Abs(value);
-
-        // Format using significant digits
-        var formatted = FormatToSignificantDigits(absValue, MinimumSignificantDigits ?? 1, MaximumSignificantDigits ?? 21);
-
-        var symbol = NumberFormatInfo.CurrencySymbol;
-        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
-
-        // Build currency string based on locale pattern
-        var posPattern = NumberFormatInfo.CurrencyPositivePattern;
-        string formattedCurrency;
-
-        const string Nbsp = "\u00A0"; // Non-breaking space per CLDR
-        switch (posPattern)
-        {
-            case 0: // $n
-                formattedCurrency = symbol + formatted;
-                break;
-            case 1: // n$
-                formattedCurrency = formatted + symbol;
-                break;
-            case 2: // $ n
-                formattedCurrency = symbol + Nbsp + formatted;
-                break;
-            case 3: // n $
-            default:
-                formattedCurrency = formatted + Nbsp + symbol;
-                break;
-        }
-
-        // Determine sign display
-        var showNegativeSign = isNegative && !isZero;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !isZero;
-                showNegativeSign = isNegative && !isZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                break;
-        }
-
-        if (showNegativeSign)
-        {
-            if (useAccountingFormat)
-            {
-                return FormatNegativeCurrency(formatted, symbol);
-            }
-            return NumberFormatInfo.NegativeSign + formattedCurrency;
-        }
-
-        if (showPositiveSign)
-        {
-            return NumberFormatInfo.PositiveSign + formattedCurrency;
-        }
-
-        return formattedCurrency;
-    }
-
     /// <summary>
     /// https://tc39.es/ecma402/#sec-formatnumber under the percent style, which is the concatenation of
     /// exactly the parts https://tc39.es/ecma402/#sec-formatnumbertoparts returns.
@@ -2046,74 +1493,7 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// fraction digits always, never the trim https://tc39.es/ecma402/#sec-torawfixed ends with, and none
     /// of <c>signDisplay</c>, <c>useGrouping</c> or <c>minimumIntegerDigits</c> at all.
     /// </remarks>
-    private string FormatPercent(double value)
-    {
-        // Handle significant digits for percent formatting
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
-        {
-            var percentValue = value * 100;
-            var formatted = FormatWithSignificantDigits(percentValue);
-            // Apply locale-specific percent pattern
-            return ApplyPercentPattern(formatted, percentValue >= 0);
-        }
-
-        return ConcatenateParts(FormatPercentToParts(value));
-    }
-
-    /// <summary>
-    /// Applies locale-specific percent formatting pattern.
-    /// Uses non-breaking space (U+00A0) for spacing as per CLDR.
-    /// </summary>
-    private string ApplyPercentPattern(string formattedNumber, bool isPositive)
-    {
-        var symbol = NumberFormatInfo.PercentSymbol;
-        const string Nbsp = "\u00A0"; // Non-breaking space
-        int pattern;
-
-        if (isPositive)
-        {
-            pattern = NumberFormatInfo.PercentPositivePattern;
-            // PercentPositivePattern values:
-            // 0: n %  (space between)
-            // 1: n%   (no space)
-            // 2: %n   (symbol before, no space)
-            // 3: % n  (symbol before, space)
-            return pattern switch
-            {
-                0 => formattedNumber + Nbsp + symbol,
-                1 => formattedNumber + symbol,
-                2 => symbol + formattedNumber,
-                3 => symbol + Nbsp + formattedNumber,
-                _ => formattedNumber + symbol
-            };
-        }
-        else
-        {
-            pattern = NumberFormatInfo.PercentNegativePattern;
-            // the sign is the locale's own, so it is also what has to be stripped back off
-            var minus = NumberFormatInfo.NegativeSign;
-            var absNumber = formattedNumber.StartsWith(minus, StringComparison.Ordinal)
-                ? formattedNumber.Substring(minus.Length)
-                : formattedNumber;
-            // PercentNegativePattern values vary by locale
-            return pattern switch
-            {
-                0 => minus + absNumber + Nbsp + symbol,
-                1 => minus + absNumber + symbol,
-                2 => minus + symbol + absNumber,
-                3 => symbol + minus + absNumber,
-                4 => symbol + absNumber + minus,
-                5 => absNumber + minus + symbol,
-                6 => absNumber + symbol + minus,
-                7 => minus + symbol + Nbsp + absNumber,
-                8 => absNumber + Nbsp + symbol + minus,
-                9 => symbol + Nbsp + absNumber + minus,
-                10 => symbol + Nbsp + minus + absNumber,
-                11 => absNumber + minus + Nbsp + symbol,
-                _ => minus + absNumber + symbol
-            };
-        }
-    }
+    private string FormatPercent(double value) => ConcatenateParts(FormatPercentToParts(value));
 
     private string FormatUnit(double value)
     {
@@ -2335,6 +1715,31 @@ internal sealed class JsNumberFormat : ObjectInstance
         internal static NumberBody Finite(string integerDigits, string fractionDigits) => new(integerDigits, fractionDigits, null);
 
         internal static NumberBody Of(NumberFormatPart nonFinite) => new("", "", nonFinite);
+
+        /// <summary>Whether every digit written is a zero, which is what <c>signDisplay</c> reads.</summary>
+        internal bool IsZero
+        {
+            get
+            {
+                foreach (var c in IntegerDigits)
+                {
+                    if (c != '0')
+                    {
+                        return false;
+                    }
+                }
+
+                foreach (var c in FractionDigits)
+                {
+                    if (c != '0')
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
     }
 
     /// <summary>
@@ -2347,6 +1752,220 @@ internal sealed class JsNumberFormat : ObjectInstance
         return NumberBody.Finite(
             IntegerDigitsOf(integral),
             FractionDigitsOf(roundedAbsValue - integral, MaximumFractionDigits));
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatnumberstring over a finite value: the digits, before any pattern
+    /// is written around them.
+    /// </summary>
+    /// <remarks>
+    /// The specification computes these once, for every style — the style decides only what is written
+    /// around them. Jint had four copies over a <see cref="double"/> and three of them had no
+    /// significant-digit route at all, so <c>maximumSignificantDigits</c> was read under the decimal style
+    /// and silently ignored under a currency, a percent and a unit. The value keeps its sign here even
+    /// though only its digits come back, because <c>GetUnsignedRoundingMode</c> reads it: <c>ceil</c>
+    /// rounds a positive value's magnitude up and a negative one's down.
+    /// </remarks>
+    private NumberBody FormatNumericToString(double value)
+    {
+        if (string.Equals(RoundingPriority, "auto", StringComparison.Ordinal))
+        {
+            return MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue
+                ? RawPrecisionBody(value, out _)
+                : RawFixedBody(value);
+        }
+
+        // more-precision and less-precision compute both and keep one, chosen by which rounded further:
+        // ToRawFixed's magnitude is -maximumFractionDigits and ToRawPrecision's is e - p + 1.
+        var significant = RawPrecisionBody(value, out var significantMagnitude);
+        var fixedIsMorePrecise = -MaximumFractionDigits < significantMagnitude;
+        var takeFixed = string.Equals(RoundingPriority, "morePrecision", StringComparison.Ordinal)
+            ? fixedIsMorePrecise
+            : !fixedIsMorePrecise;
+
+        return takeFixed ? RawFixedBody(value) : significant;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawfixed over a finite value.
+    /// </summary>
+    private NumberBody RawFixedBody(double value)
+        => FiniteBody(System.Math.Abs(ApplyRounding(value, MaximumFractionDigits)));
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawprecision over a finite value, reporting the
+    /// <c>[[RoundingMagnitude]]</c> the priority comparison reads.
+    /// </summary>
+    private NumberBody RawPrecisionBody(double value, out int roundingMagnitude)
+    {
+        var minSig = MinimumSignificantDigits ?? 1;
+        var maxSig = MaximumSignificantDigits ?? 21;
+        var absValue = System.Math.Abs(value);
+
+        if (absValue != 0)
+        {
+            var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
+            var decimalPlaces = maxSig - magnitude - 1;
+
+            double rounded;
+            if (decimalPlaces >= 0)
+            {
+                rounded = ApplyRounding(value, decimalPlaces);
+            }
+            else
+            {
+                var divisor = System.Math.Pow(10, -decimalPlaces);
+                rounded = ApplyRounding(value / divisor, 0) * divisor;
+            }
+
+            absValue = System.Math.Abs(rounded);
+        }
+
+        if (absValue == 0)
+        {
+            roundingMagnitude = 1 - maxSig;
+            return RawPrecision("0", 0, minSig, maxSig);
+        }
+
+        DecimalDigitsOf(absValue, out var significand, out var exponent);
+        roundingMagnitude = exponent - maxSig + 1;
+        return RawPrecision(significand, exponent, minSig, maxSig);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawprecision over an exact
+    /// <paramref name="absMantissa"/> × 10^-<paramref name="fractionDigits"/>.
+    /// </summary>
+    private NumberBody ExactPrecisionBody(BigInteger absMantissa, int fractionDigits)
+    {
+        var minSig = MinimumSignificantDigits ?? 1;
+        var maxSig = MaximumSignificantDigits ?? 21;
+
+        if (absMantissa.IsZero)
+        {
+            return RawPrecision("0", 0, minSig, maxSig);
+        }
+
+        var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
+        var end = digits.Length;
+        while (end > 1 && digits[end - 1] == '0')
+        {
+            end--;
+        }
+
+        return RawPrecision(digits.Substring(0, end), digits.Length - 1 - fractionDigits, minSig, maxSig);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawprecision's last steps: <paramref name="significand"/> × 10^
+    /// <paramref name="exponent"/> written out to <paramref name="maxSig"/> digits, split at the decimal
+    /// point, and stripped of up to <c>maxSig - minSig</c> trailing zeros.
+    /// </summary>
+    /// <remarks>
+    /// The trim is the step the parts lane never had, which is why <c>maximumSignificantDigits: 2</c> wrote
+    /// <c>"0.40"</c> where the string lane wrote <c>"0.4"</c>.
+    /// </remarks>
+    private static NumberBody RawPrecision(string significand, int exponent, int minSig, int maxSig)
+    {
+        var m = significand.Length > maxSig
+            ? RoundDigits(significand, maxSig, ref exponent)
+            : significand.PadRight(maxSig, '0');
+
+        string integerStr;
+        string fractionStr;
+        if (exponent >= maxSig - 1)
+        {
+            integerStr = m + new string('0', exponent - maxSig + 1);
+            fractionStr = string.Empty;
+        }
+        else if (exponent >= 0)
+        {
+            integerStr = m.Substring(0, exponent + 1);
+            fractionStr = m.Substring(exponent + 1);
+        }
+        else
+        {
+            integerStr = "0";
+            fractionStr = new string('0', -(exponent + 1)) + m;
+        }
+
+        var cut = maxSig - minSig;
+        var keep = fractionStr.Length;
+        while (cut > 0 && keep > 0 && fractionStr[keep - 1] == '0')
+        {
+            keep--;
+            cut--;
+        }
+
+        return NumberBody.Finite(integerStr, keep == fractionStr.Length ? fractionStr : fractionStr.Substring(0, keep));
+    }
+
+    /// <summary>Keeps the leading <paramref name="keep"/> digits, rounding half away from zero.</summary>
+    private static string RoundDigits(string digits, int keep, ref int exponent)
+    {
+        var kept = digits.Substring(0, keep).ToCharArray();
+        if (digits[keep] < '5')
+        {
+            return new string(kept);
+        }
+
+        for (var i = keep - 1; i >= 0; i--)
+        {
+            if (kept[i] != '9')
+            {
+                kept[i]++;
+                return new string(kept);
+            }
+
+            kept[i] = '0';
+        }
+
+        // every digit was a nine, so the carry adds one to the magnitude
+        exponent++;
+        return "1".PadRight(keep, '0');
+    }
+
+    /// <summary>
+    /// A non-negative finite <see cref="double"/> as significant digits and the exponent of the first of
+    /// them, which is how https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads a Number: the digits
+    /// of <c>Number::toString</c>, the shortest decimal that reads back as this double.
+    /// </summary>
+    /// <remarks>
+    /// Reading the double's own binary expansion instead is what made <c>minimumSignificantDigits: 3</c>
+    /// write <c>"0.400000000000000022204"</c> for <c>0.4</c>: the Intl mathematical value of the Number
+    /// <c>0.4</c> is exactly four tenths, because the specification reads it through
+    /// <c>Number::toString</c> before it reads it as a mathematical value at all.
+    /// </remarks>
+    private static void DecimalDigitsOf(double absValue, out string significand, out int exponent)
+    {
+        var text = Number.NumberPrototype.ToNumberString(absValue);
+
+        var exponentIndex = text.IndexOf('e');
+        var written = 0;
+        if (exponentIndex >= 0)
+        {
+            written = int.Parse(text.AsSpan(exponentIndex + 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+            text = text.Substring(0, exponentIndex);
+        }
+
+        var point = text.IndexOf('.');
+        var digits = point < 0 ? text : text.Remove(point, 1);
+        var integerLength = point < 0 ? text.Length : point;
+
+        var first = 0;
+        while (first < digits.Length - 1 && digits[first] == '0')
+        {
+            first++;
+        }
+
+        var last = digits.Length;
+        while (last > first + 1 && digits[last - 1] == '0')
+        {
+            last--;
+        }
+
+        significand = digits.Substring(first, last - first);
+        exponent = integerLength - 1 - first + written;
     }
 
     /// <summary>
@@ -2458,19 +2077,13 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     /// <remarks>
     /// ECMA-402 calls the sign "the ILND String representing the minus sign", so it is the locale's own
-    /// datum: <c>ar</c> prefixes U+061C ARABIC LETTER MARK to it. <paramref name="minusSignOverride"/> is
-    /// for the one lane that does not write it — the significant-digits lane over a
-    /// <see cref="double"/> writes a plain hyphen, and the two lanes have to agree about which one this is.
+    /// datum in every lane: <c>ar</c> prefixes U+061C ARABIC LETTER MARK to it.
     /// </remarks>
-    private void AppendSignPart(
-        List<NumberFormatPart> parts,
-        bool showNegativeSign,
-        bool showPositiveSign,
-        string? minusSignOverride = null)
+    private void AppendSignPart(List<NumberFormatPart> parts, bool showNegativeSign, bool showPositiveSign)
     {
         if (showNegativeSign)
         {
-            parts.Add(new NumberFormatPart("minusSign", minusSignOverride ?? NumberFormatInfo.NegativeSign));
+            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
         }
         else if (showPositiveSign)
         {
@@ -2610,9 +2223,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
-        // Apply rounding first to determine if value displays as zero
-        absValue = ApplyRounding(absValue, MaximumFractionDigits);
-        var displaysAsZero = absValue == 0;
+        var body = FormatNumericToString(value);
+        var displaysAsZero = body.IsZero;
 
         // Determine if we should show a sign based on signDisplay
         var showNegativeSign = isNegative;
@@ -2638,122 +2250,10 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        if (showNegativeSign)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-        }
-        else if (showPositiveSign)
-        {
-            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-        }
-
-        value = absValue;
-
-        // Handle significant digits if specified
-        if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
-        {
-            FormatWithSignificantDigitsToParts(parts, value);
-            return parts;
-        }
-
-        // Value is already rounded
-        AddNumberParts(parts, FiniteBody(value));
+        AppendSignPart(parts, showNegativeSign, showPositiveSign);
+        AddNumberParts(parts, in body);
 
         return parts;
-    }
-
-    /// <summary>
-    /// Formats a number with significant digits and adds parts to the list.
-    /// </summary>
-    private void FormatWithSignificantDigitsToParts(List<NumberFormatPart> parts, double value)
-    {
-        if (value == 0)
-        {
-            var minSigDigits = MinimumSignificantDigits ?? 1;
-            if (minSigDigits > 1)
-            {
-                parts.Add(new NumberFormatPart("integer", "0"));
-                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-                parts.Add(new NumberFormatPart("fraction", new string('0', minSigDigits - 1)));
-            }
-            else
-            {
-                parts.Add(new NumberFormatPart("integer", "0"));
-            }
-            return;
-        }
-
-        var minSig = MinimumSignificantDigits ?? 1;
-        var maxSig = MaximumSignificantDigits ?? 21;
-
-        // Get the order of magnitude
-        var magnitude = (int) System.Math.Floor(System.Math.Log10(value));
-        var decimalPlaces = maxSig - magnitude - 1;
-
-        // Round to the required number of significant digits
-        double rounded;
-        if (decimalPlaces >= 0)
-        {
-            rounded = ApplyRounding(value, decimalPlaces);
-        }
-        else
-        {
-            // Need to round to whole numbers or higher
-            var divisor = System.Math.Pow(10, -decimalPlaces);
-            rounded = ApplyRounding(value / divisor, 0) * divisor;
-        }
-
-        // Get integer and fraction parts from rounded value
-        var integerPart = (long) System.Math.Truncate(rounded);
-        var fractionValue = rounded - integerPart;
-
-        // Calculate actual significant digits we have
-        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
-        var currentSigDigits = intStr.TrimStart('0').Length;
-        if (currentSigDigits == 0) currentSigDigits = 1;
-
-        // Format integer part with grouping
-        FormatIntegerToParts(parts, intStr);
-
-        // Calculate fraction digits needed
-        var fractionDigitsNeeded = 0;
-        if (decimalPlaces > 0)
-        {
-            fractionDigitsNeeded = decimalPlaces;
-        }
-
-        // Ensure minimum significant digits
-        var zerosToAdd = minSig - currentSigDigits;
-        if (zerosToAdd > fractionDigitsNeeded)
-        {
-            fractionDigitsNeeded = zerosToAdd;
-        }
-
-        // Add fraction if needed
-        if (fractionDigitsNeeded > 0 || fractionValue > 0)
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-
-            // Format fraction
-            var fractionDigits = System.Math.Max(fractionDigitsNeeded, decimalPlaces > 0 ? decimalPlaces : 0);
-            if (fractionDigits > 0)
-            {
-                var multiplier = System.Math.Pow(10, fractionDigits);
-                var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-                var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
-                parts.Add(new NumberFormatPart("fraction", fractionStr));
-            }
-            else if (zerosToAdd > 0)
-            {
-                parts.Add(new NumberFormatPart("fraction", new string('0', zerosToAdd)));
-            }
-        }
-        else if (zerosToAdd > 0)
-        {
-            // Need to add trailing zeros to meet minSig requirement
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            parts.Add(new NumberFormatPart("fraction", new string('0', zerosToAdd)));
-        }
     }
 
     private void FormatIntegerToParts(List<NumberFormatPart> parts, string intStr)
@@ -2859,11 +2359,10 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
-        // Apply rounding first to determine if value displays as zero. The digit count is the one
-        // https://tc39.es/ecma402/#sec-torawfixed rounds at, which the constructor has already defaulted
-        // to the currency's own — an explicit maximumFractionDigits of zero is a caller asking for none.
-        absValue = ApplyRounding(absValue, MaximumFractionDigits);
-        var displaysAsZero = absValue == 0;
+        // The digits are https://tc39.es/ecma402/#sec-formatnumberstring's, which is one operation for
+        // every style: the currency pattern is written around them and never instead of them.
+        var body = FormatNumericToString(value);
+        var displaysAsZero = body.IsZero;
 
         // Determine if we should show a negative sign based on signDisplay
         var showNegativeSign = isNegative;
@@ -2889,7 +2388,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        AppendCurrencyParts(parts, FiniteBody(absValue), showNegativeSign, showPositiveSign);
+        AppendCurrencyParts(parts, in body, showNegativeSign, showPositiveSign);
 
         return parts;
     }
@@ -3110,9 +2609,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
 
         // Multiply by 100 for percent
-        var percentValue = System.Math.Abs(value) * 100;
-        percentValue = ApplyRounding(percentValue, MaximumFractionDigits);
-        var displaysAsZero = percentValue == 0;
+        var body = FormatNumericToString(value * 100);
+        var displaysAsZero = body.IsZero;
 
         // Determine if we should show a sign based on signDisplay
         var showNegativeSign = isNegative;
@@ -3137,7 +2635,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        AppendPercentParts(parts, FiniteBody(percentValue), showNegativeSign, showPositiveSign);
+        AppendPercentParts(parts, in body, showNegativeSign, showPositiveSign);
 
         return parts;
     }
@@ -3190,9 +2688,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
-        // Apply rounding first to determine if value displays as zero
-        absValue = ApplyRounding(absValue, MaximumFractionDigits);
-        var displaysAsZero = absValue == 0;
+        var body = FormatNumericToString(value);
+        var displaysAsZero = body.IsZero;
 
         // Determine if we should show a sign based on signDisplay
         var showNegativeSign = isNegative;
@@ -3217,7 +2714,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        AppendUnitParts(parts, FiniteBody(absValue), showNegativeSign, showPositiveSign, value);
+        AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, value);
 
         return parts;
     }
