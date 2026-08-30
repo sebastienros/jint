@@ -38,7 +38,7 @@
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.11" />
     <PackageVersion Include="System.Text.Json" Version="10.0.11" />
     <PackageVersion Include="Test262Harness" Version="1.1.2" />
-    <PackageVersion Include="YantraJS.Core" Version="1.2.462" />
+    <PackageVersion Include="YantraJS.Core" Version="1.2.463" />
     <PackageVersion Include="Zio" Version="0.24.0" />
   </ItemGroup>
   <ItemGroup>
