@@ -52,7 +52,6 @@
     "staging/sm/Date/dst-offset-caching-7-of-8.js",
     "staging/sm/Date/dst-offset-caching-8-of-8.js",
     "staging/sm/JSON/parse-mega-huge-array.js",
-    "staging/sm/generators/delegating-yield-9.js",
     "staging/sm/regress/regress-610026.js",
     "staging/sm/regress/regress-1507322-deep-weakmap.js",
 

@@ -172,7 +172,19 @@ internal sealed class JintYieldExpression : JintExpression
             // Fall through to normal yield logic
         }
 
-        // Normal yield: evaluate argument and yield the value
+        // Normal yield: evaluate argument and yield the value.
+        //
+        // Reaching here is a *fresh* evaluation of this yield node, so whatever the node's previous
+        // evaluation produced stops being an answer to it. The memo above exists only to replay one
+        // evaluation - a statement that is re-executed from the top after a later suspension must
+        // not re-run the yields it already got past - and a loop that comes back round to the same
+        // node starts a new evaluation the memo has nothing to say about. Leaving the stale entry in
+        // place made `yield (yield* g())` inside a loop answer its second iteration with the first
+        // iteration's value without ever evaluating the operand, so the delegation was abandoned
+        // mid-flight (and, when the operand carried the loop's own decrement, the loop never ended).
+        generator?._yieldNodeValues?.Remove(_expression);
+        asyncGenerator?._yieldNodeValues?.Remove(_expression);
+
         JsValue value;
         if (_argument is not null)
         {
