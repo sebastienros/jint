@@ -1299,6 +1299,67 @@ public class IntlTests
     }
 
     /// <summary>
+    /// <see href="https://tc39.es/ecma402/#sec-formatdatetime">FormatDateTime</see> concatenates the very
+    /// list <see href="https://tc39.es/ecma402/#sec-formatdatetimetoparts">FormatDateTimeToParts</see> walks,
+    /// so <c>format</c> and <c>formatToParts</c> are two views of one partition and cannot disagree.
+    /// </summary>
+    [Test]
+    public void DateStyleFormatIsTheConcatenationOfItsParts()
+    {
+        const string Script = """
+            (function () {
+              const d = new Date(Date.UTC(2026, 7, 27, 15, 4, 5));
+              const locales = ['en-US', 'en-GB', 'de-DE', 'fr-FR', 'ja-JP', 'pt-PT',
+                               'ru-RU', 'ko-KR', 'sv-SE', 'hu-HU', 'tr-TR', 'nl-NL', 'fi-FI', 'it-IT'];
+              const styles = [undefined, 'full', 'long', 'medium', 'short'];
+              const mismatches = [];
+              for (const locale of locales) {
+                for (const dateStyle of styles) {
+                  for (const timeStyle of styles) {
+                    if (dateStyle === undefined && timeStyle === undefined) continue;
+                    const f = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', dateStyle, timeStyle });
+                    const whole = f.format(d);
+                    const joined = f.formatToParts(d).map(p => p.value).join('');
+                    if (whole !== joined) {
+                      mismatches.push(locale + ' ' + dateStyle + '/' + timeStyle +
+                                      ': format="' + whole + '" parts="' + joined + '"');
+                    }
+                  }
+                }
+              }
+              return mismatches.join(' | ');
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// <see href="https://tc39.es/ecma402/#sec-date-time-style-format">DateTimeStyleFormat</see> takes the
+    /// pattern out of the locale's own data, so a styled date is written in the locale's field order with the
+    /// locale's own literals - not in the American order with hard-coded slashes.
+    /// </summary>
+    [TestCase("de-DE", "short", "27.08.2026")]
+    [TestCase("de-DE", "long", "27. August 2026")]
+    [TestCase("de-DE", "full", "Donnerstag, 27. August 2026")]
+    [TestCase("fr-FR", "full", "jeudi 27 août 2026")]
+    [TestCase("ja-JP", "short", "2026/08/27")]
+    [TestCase("en-US", "medium", "Aug 27, 2026")]
+    [TestCase("en-US", "full", "Thursday, August 27, 2026")]
+    public void DateStyleWritesTheLocalesOwnDateShape(string locale, string dateStyle, string expected)
+    {
+        var script = $$"""
+            (function () {
+              const f = new Intl.DateTimeFormat('{{locale}}', { timeZone: 'UTC', dateStyle: '{{dateStyle}}' });
+              const d = new Date(Date.UTC(2026, 7, 27));
+              return f.format(d) + '|' + f.formatToParts(d).map(p => p.value).join('');
+            })()
+            """;
+
+        _engine.Evaluate(script).AsString().Should().Be(expected + "|" + expected);
+    }
+
+    /// <summary>
     /// <see href="https://tc39.es/ecma402/#sec-resolveoptions">ResolveOptions</see> step 3 reads the
     /// <c>localeMatcher</c> option through <c>GetOption</c>, which admits only <c>"lookup"</c> and
     /// <c>"best fit"</c> and raises a <c>RangeError</c> for anything else. <c>Intl.PluralRules</c> left the
