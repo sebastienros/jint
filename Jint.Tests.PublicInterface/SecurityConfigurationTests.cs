@@ -214,19 +214,33 @@ public class SecurityConfigurationTests
             .Should().ThrowExactly<SecurityConfigurationException>();
     }
 
+    /// <summary>
+    /// A preparation that chose no regex timeout says nothing about one: the engine that runs the prepared
+    /// program decides, and its own report is where that value is judged (sebastienros/jint#3442). Only a
+    /// chosen override is this report's business, and it is still judged here without an engine in sight.
+    /// </summary>
     [Test]
     public void PreparationTimeoutIsValidatedIndependentlyOfEngineOptions()
     {
-        var scriptDefault = ScriptPreparationOptions.Default.ValidateSecurityConfiguration()
-            .Diagnostics.Should().ContainSingle(
-                diagnostic => diagnostic.Code == SecurityDiagnosticCodes.RegexTimeoutOverrideLong).Which;
-        scriptDefault.Code.Should().Be(SecurityDiagnosticCodes.RegexTimeoutOverrideLong);
-        scriptDefault.Severity.Should().Be(SecurityDiagnosticSeverity.Warning);
+        ScriptPreparationOptions.Default.ValidateSecurityConfiguration()
+            .Diagnostics.Should().NotContain(diagnostic => IsRegexOverrideCode(diagnostic.Code));
 
-        var moduleDefault = ModulePreparationOptions.Default.ValidateSecurityConfiguration()
-            .Diagnostics.Should().ContainSingle(
-                diagnostic => diagnostic.Code == SecurityDiagnosticCodes.RegexTimeoutOverrideLong).Which;
-        moduleDefault.Code.Should().Be(SecurityDiagnosticCodes.RegexTimeoutOverrideLong);
+        ModulePreparationOptions.Default.ValidateSecurityConfiguration()
+            .Diagnostics.Should().NotContain(diagnostic => IsRegexOverrideCode(diagnostic.Code));
+
+        var longScript = ScriptPreparationOptions.Default with
+        {
+            ParsingOptions = ScriptParsingOptions.Default with
+            {
+                RegexTimeout = TimeSpan.FromSeconds(10),
+                MaxSourceLength = 100_000,
+                MaxNodeCount = 25_000
+            }
+        };
+        var longDiagnostic = longScript.ValidateSecurityConfiguration()
+            .Diagnostics.Should().ContainSingle().Which;
+        longDiagnostic.Code.Should().Be(SecurityDiagnosticCodes.RegexTimeoutOverrideLong);
+        longDiagnostic.Severity.Should().Be(SecurityDiagnosticSeverity.Warning);
 
         var safeScript = ScriptPreparationOptions.Default with
         {
@@ -257,6 +271,11 @@ public class SecurityConfigurationTests
         Invoking(() => excessiveModule.EnsureSecurityConfiguration())
             .Should().ThrowExactly<SecurityConfigurationException>();
     }
+
+    private static bool IsRegexOverrideCode(string code)
+        => code == SecurityDiagnosticCodes.RegexTimeoutOverrideLong
+           || code == SecurityDiagnosticCodes.RegexTimeoutOverrideUnbounded
+           || code == SecurityDiagnosticCodes.RegexTimeoutOverrideExcessive;
 
     [Test]
     public void EveryEngineConstructionCallbackIsRejected()

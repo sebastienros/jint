@@ -2250,8 +2250,9 @@ it was silently tightened from Jint's 10-second default to 5.
 budget the engine was configured with, so an engine with a deliberately short `RegexTimeout` can raise
 `RegexMatchTimeoutException` where it did not before. That is the setting doing what it says; raise
 `Constraints.RegexTimeout`, or set `RegexTimeout` on the parsing options of the script in question, which
-still outranks the constraint. A prepared script keeps carrying its own prepare-time value and now applies
-it to the regexes it builds as well as the ones it declares.
+still outranks the constraint. A prepared script applies its budget to the regexes it builds as well as the
+ones it declares; which budget that is became a question of its own in
+[4.67](#467-a-prepared-scripts-regexes-run-under-the-executing-engines-regextimeout-3442).
 ### 4.43 A locale's own numbering system is what every `Intl` formatter resolves to ([#3418](https://github.com/sebastienros/jint/issues/3418))
 
 Four formatters carry a `[[NumberingSystem]]`. Two of them asked `ICldrProvider.GetDefaultNumberingSystem`
@@ -3010,6 +3011,68 @@ whichever one `formatRange` writes for that range rather than always the spaced 
 range is unchanged, and so is every `formatRange` string. A part that survives still names its
 `source` — `"startRange"`, `"endRange"` or `"shared"` — so code that groups by `source` keeps working; code
 that assumed the end always repeats the start's currency does not.
+
+### 4.67 A prepared script's regexes run under the executing engine's `RegexTimeout` ([#3442](https://github.com/sebastienros/jint/issues/3442))
+
+`Engine.PrepareScript` / `Engine.PrepareModule` run where there is no engine, so a preparation that set no
+`RegexTimeout` of its own baked in Jint's own ten-second default and carried it into every engine that ran
+the result. A host that tightened `Options.Constraints.RegexTimeout` for security and then adopted
+preparation — the path this repository recommends for production — silently ran at ten seconds, and nothing
+said so: `ValidateSecurityConfiguration` reads `Options`, which by then says 400 ms.
+
+```csharp
+var prepared = Engine.PrepareScript("'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!'.match(/^(a+)+$/)");
+var engine = new Engine(options => options.Constraints.RegexTimeout = TimeSpan.FromMilliseconds(400));
+
+// 4.16.x / earlier 5.0: RegexMatchTimeoutException after ~10 s, MatchTimeout == 00:00:10
+// 5.x:                  RegexMatchTimeoutException after ~400 ms, MatchTimeout == 00:00:00.4
+engine.Execute(prepared);
+```
+
+`RegexTimeout` is `TimeSpan?` on both parsing options types, so "the host chose ten seconds" and "nobody
+chose anything" were always distinguishable — the preparation path just resolved the second case eagerly,
+against a default rather than against a constraint it could not see. It now leaves the value unresolved and
+each engine supplies its own at the point of use, which reaches the same two lanes
+[4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431) unified: the literals
+a prepared program declares and the patterns it builds while running.
+
+An explicit `RegexTimeout` on the preparation's parsing options is unchanged and still outranks the engine:
+
+```csharp
+var pinned = Engine.PrepareScript(source, new ScriptPreparationOptions
+{
+    ParsingOptions = new ScriptParsingOptions { RegexTimeout = TimeSpan.FromSeconds(2) }
+});
+
+// 2 s on every engine, whatever its Constraints.RegexTimeout says.
+```
+
+One `Prepared<Script>` shared across engines with different budgets gives each engine its own. The adapted
+regex is memoized on the shared AST node, and that memo is now keyed by the timeout it embeds, so the first
+engine to reach a literal no longer decides for the next one. A memo built under a timeout the source chose,
+and any memo on Jint's custom regex engine — which embeds no timeout and re-reads it per match — serves every
+engine and is never re-adapted. The rest re-adapt through the process-wide `RegExpParseCache`, whose key
+already covered pattern, flags, compilation mode and timeout, so the cost of two engines alternating on one
+node is a dictionary lookup, not a regex compilation.
+
+A module supplied by an `IModuleLoader` through `ModuleFactory.BuildSourceTextModule` was resolving its
+timeout the same engine-less way and moves with it.
+
+`ScriptPreparationOptions.ValidateSecurityConfiguration()` / `ModulePreparationOptions.ValidateSecurityConfiguration()`
+change with the behaviour they report. A preparation that chose no `RegexTimeout` now produces no
+`JINTSEC` regex diagnostic at all, where the default preparation options used to produce a
+`RegexTimeoutOverrideLong` warning about the ten seconds they baked in; a chosen value is still judged
+exactly as before. The engine's budget is judged where it lives, by `options.ValidateSecurityConfiguration()`.
+
+**What could break:** a prepared program now moves to whatever the executing engine was configured with.
+For the overwhelmingly common case that is no change at all — `Constraints.RegexTimeout` defaults to the same
+ten seconds preparation used to bake in. A host that *tightened* the constraint gets the tighter budget it
+asked for, which can raise `RegexMatchTimeoutException` where a prepared pattern used to complete; a host
+that *raised* it above ten seconds gets the looser one. Either way the fix is the same as it was for
+[4.42](#442-a-regex-built-at-run-time-is-bounded-by-the-configured-regextimeout-3431): set the value you want
+on `Constraints.RegexTimeout`, or pin one on the preparation's parsing options, which still wins. A host
+relying on the preparation report to warn about an unset `RegexTimeout` should validate the engine's
+`Options` instead.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

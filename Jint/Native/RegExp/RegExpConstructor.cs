@@ -508,8 +508,9 @@ public sealed partial class RegExpConstructor : Constructor
         // be read from Acornima's own ParserOptions.RegexTimeout beside it, which Jint never assigns: every
         // regex built at run time got the parser package's process-wide default instead of the budget the
         // host configured, in both directions (sebastienros/jint#3431). The fallback covers parser options
-        // that did not come from Jint's handler, and is the same expression
-        // RegExpPrototype.GetCustomEngineTimeout resolves at match time.
+        // that did not come from Jint's handler, and a preparation, which has no engine to resolve a
+        // timeout against and so deliberately chooses none (sebastienros/jint#3442). It is the same
+        // expression RegExpPrototype.GetCustomEngineTimeout resolves at match time.
         var conversionOptions = _engine.GetActiveParserOptions().OnRegExp?.Target as Engine.RegexConversionOptions;
         var regexTimeout = Options.ConstraintOptions.NormalizeRegexTimeout(
             conversionOptions?.Timeout ?? _engine.Options.Constraints.RegexTimeout);
