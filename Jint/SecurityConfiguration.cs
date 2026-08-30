@@ -379,7 +379,14 @@ public static class OptionsSecurityExtensions
     {
         ValidatePolicy(policy);
         var diagnostics = new List<SecurityDiagnostic>();
-        AddRegexOverride(parsingOptions.RegexTimeout ?? Engine.DefaultRegexTimeout, diagnostics);
+        // Only a chosen value is this report's business. A null RegexTimeout no longer means a baked-in
+        // ten seconds, it means the engine running the prepared program decides — and Options'
+        // own report is where that engine's Constraints.RegexTimeout is judged.
+        if (parsingOptions.RegexTimeout.HasValue)
+        {
+            AddRegexOverride(parsingOptions.RegexTimeout.Value, diagnostics);
+        }
+
         var limits = parsingOptions as IParsingLimitOptions;
         AddParsing(
             limits?.MaxSourceLength,

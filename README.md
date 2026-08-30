@@ -2940,8 +2940,10 @@ cannot preempt a host callback that does not return. Keep an outer worker/reques
 Scopes cannot overlap, cannot end while async work still owns the engine, and failed disposal remains
 retryable after that work completes.
 
-Prepared scripts and modules carry the regex timeout selected when they were prepared. When preparing
-untrusted code for reuse, pass the same limit explicitly:
+Prepared scripts and modules run their regular expressions under the `Constraints.RegexTimeout` of the
+engine executing them, so one prepared program shared across a pool observes each engine's own budget.
+Pass `RegexTimeout` on the preparation's parsing options only to pin a value the executing engine cannot
+override:
 
 ```c#
 var prepared = Engine.PrepareScript(source, new ScriptPreparationOptions
@@ -3039,9 +3041,9 @@ A report with no findings is not proof of sandboxing. Jint remains in-process; w
 privilege, request/response limits, callback authorization, and correct operation bracketing are host
 architecture responsibilities.
 
-Explicit `ScriptParsingOptions` / `ModuleParsingOptions` can override the engine regex timeout, and
-prepared programs embed their preparation-time timeout instead of consulting the engine. Validate
-the actual pair before direct parsing, and validate every preparation configuration before preparing:
+Explicit `ScriptParsingOptions` / `ModuleParsingOptions` can override the engine regex timeout; a
+preparation that sets none leaves the budget to whichever engine runs the result. Validate the actual
+pair before direct parsing, and validate every preparation configuration before preparing:
 
 ```c#
 options.EnsureSecurityConfiguration(scriptParsingOptions);
@@ -3049,9 +3051,11 @@ scriptPreparationOptions.EnsureSecurityConfiguration();
 modulePreparationOptions.EnsureSecurityConfiguration();
 ```
 
-The default preparation options use Jint's 10-second regex timeout and unbounded parser size limits.
-Set `RegexTimeout`, `MaxSourceLength`, and `MaxNodeCount` on the actual nested parsing options used
-for untrusted source.
+The default preparation options have unbounded parser size limits, and report no regex diagnostic
+because the engine's own `Constraints.RegexTimeout` is what governs them — validate that through
+`options.EnsureSecurityConfiguration()`. Set `MaxSourceLength` and `MaxNodeCount` on the actual nested
+parsing options used for untrusted source, and `RegexTimeout` there too when the preparation must pin a
+budget of its own.
 
 You can configure them via the options:
 

@@ -19,7 +19,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
 {
     private static readonly ParserOptions _defaultParserOptions = ScriptParsingOptions.Default.GetParserOptions() with
     {
-        OnRegExp = Engine.DefaultCompileRegExpHandler,
+        OnRegExp = Engine.DeferredCompiledRegExpHandler,
     };
 
     /// <summary>
@@ -27,7 +27,8 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
     /// preparing repeatedly under one set of options does not clone a <see cref="ParserOptions"/> — plus a regexp
     /// handler and its state object — on every call. Keying on the parsing options rather than on the preparation
     /// options is exact, because <see cref="GetParserOptions"/> derives its result from nothing else: the base
-    /// options, the compilation mode and the timeout it applies are all constants.
+    /// options and the compilation mode it applies are constants, and the timeout is deliberately left
+    /// unresolved for the executing engine to supply.
     /// <para>
     /// Static, not an instance field, and deliberately so. A private field on a record is part of the compiler's
     /// synthesized equality — warming it would flip <c>==</c> and change <see cref="object.GetHashCode"/> on a
@@ -39,7 +40,7 @@ public sealed record class ScriptPreparationOptions : IPreparationOptions<Script
     private static readonly ConditionalWeakTable<ScriptParsingOptions, ParserOptions> _parserOptionsCache = new();
 
     private static readonly ConditionalWeakTable<ScriptParsingOptions, ParserOptions>.CreateValueCallback _createParserOptions =
-        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, Engine.DefaultRegexTimeout);
+        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, fallbackRegexTimeout: null);
 
     public static readonly ScriptPreparationOptions Default = new();
 
@@ -109,7 +110,7 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
 {
     private static readonly ParserOptions _defaultParserOptions = ModuleParsingOptions.Default.GetParserOptions() with
     {
-        OnRegExp = Engine.DefaultCompileRegExpHandler,
+        OnRegExp = Engine.DeferredCompiledRegExpHandler,
     };
 
     /// <summary>
@@ -119,7 +120,7 @@ public sealed record class ModulePreparationOptions : IPreparationOptions<Module
     private static readonly ConditionalWeakTable<ModuleParsingOptions, ParserOptions> _parserOptionsCache = new();
 
     private static readonly ConditionalWeakTable<ModuleParsingOptions, ParserOptions>.CreateValueCallback _createParserOptions =
-        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, Engine.DefaultRegexTimeout);
+        static parsingOptions => parsingOptions.ApplyTo(_defaultParserOptions, RegexCompilation.Compiled, fallbackRegexTimeout: null);
 
     public static readonly ModulePreparationOptions Default = new();
 

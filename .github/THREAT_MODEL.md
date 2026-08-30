@@ -135,10 +135,11 @@ The untrusted-script policy reports:
 Explicit parsing options and prepared programs are separate configuration surfaces:
 `ValidateSecurityConfiguration(options, parsingOptions)` checks an override together with the
 engine options, while `ValidateSecurityConfiguration` / `EnsureSecurityConfiguration` on
-`ScriptPreparationOptions` and `ModulePreparationOptions` check the regex timeout that will be
-embedded in prepared code. The actual source-length, AST-node, source-retention, and regex settings
-are validated together; the default preparation options therefore report unbounded parser limits and
-the 10-second regex warning.
+`ScriptPreparationOptions` and `ModulePreparationOptions` check the regex timeout the preparation
+pins for itself. The actual source-length, AST-node, source-retention, and regex settings are
+validated together; the default preparation options therefore report unbounded parser limits, and no
+regex diagnostic at all, because a preparation that pins no timeout leaves the budget to the engine
+that runs it — where `ValidateSecurityConfiguration` on the engine options is what judges it.
 
 After construction, `engine.Diagnostics.ValidateSecurityConfiguration()` reads the effective options and
 the constraint instances the engine already created. It does not replay a callback or factory. Public
