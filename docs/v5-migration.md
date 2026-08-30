@@ -2850,6 +2850,47 @@ a locale whose unit pattern has a prefix (`ja-JP`, `ko-KR`, `zh-TW` long units),
 notation of zero, and a currency's sign in a locale whose sign is not ASCII. A string that was already the
 concatenation of its own parts does not move: this is the two lanes being brought onto one walk, and it is
 that walk that decides.
+
+### 4.60 `Intl.DateTimeFormat` formats in the calendar it reports ([#3467](https://github.com/sebastienros/jint/issues/3467))
+
+[FormatDateTimePattern](https://tc39.es/ecma402/#sec-formatdatetimepattern) step 13 reads a pattern's field
+values out of `dateTimeFormat.[[Calendar]]` — the resolved calendar, and the one `resolvedOptions().calendar`
+reports — so the two cannot come apart. They did wherever a locale's own .NET `CultureInfo` carried a
+non-Gregorian `Calendar` of its own: Jint applied the resolved calendar and .NET then applied the culture's on
+top, so `ar-SA` asked for `gregory` answered `"gregory"` and wrote a Hijri date. The parts lane, which reads
+the `DateTime` fields directly, applied only one of the two — which is why it disagreed with `format()` field
+by field rather than agreeing on the wrong answer.
+
+A formatter's `DateTimeFormatInfo` is now pinned to the culture's own Gregorian calendar, leaving the resolved
+calendar the only one anything converts to.
+
+```js
+const d = new Date(Date.UTC(2026, 7, 27)); // 27 August 2026 = 14 Rabi' I 1448
+
+// 5.0
+new Intl.DateTimeFormat('ar-SA', { calendar: 'gregory' }).format(d);        // "14/3/1448" - the Hijri date
+new Intl.DateTimeFormat('ar-SA', { calendar: 'gregory' }).formatToParts(d); // ...spells "14/3/2026"
+new Intl.DateTimeFormat('th-TH', { calendar: 'gregory' }).format(d);        // "27/8/2569" - the Buddhist year
+new Intl.DateTimeFormat('fa-IR', { calendar: 'gregory' }).format(d);        // "1405/6/5"  - the Persian date
+
+// 5.x - each of the six writes the Gregorian date its resolvedOptions() names
+new Intl.DateTimeFormat('ar-SA', { calendar: 'gregory' }).format(d);        // "27/8/2026"
+new Intl.DateTimeFormat('th-TH', { calendar: 'gregory' }).format(d);        // "27/8/2026"
+new Intl.DateTimeFormat('fa-IR', { calendar: 'gregory' }).format(d);        // "2026/8/27"
+```
+
+`-u-ca-gregory` is the same case and moves with it. The locale defaults are unchanged in both what they
+resolve to and what they write — `ar-SA` still reports `islamic-umalqura` and still prints `14/3/1448`,
+`th-TH` still prints `2569` and `fa-IR` still prints `1405` — but the conversion behind them is now Jint's
+own, the one that already served `new Intl.DateTimeFormat('en-US', { calendar: 'islamic-umalqura' })`.
+
+**What could break:** a formatter whose locale is one of the fifteen .NET cultures with a non-Gregorian
+default calendar — `ar-SA`, `th`/`th-TH`, and the Persian-calendar group `fa`, `fa-AF`, `fa-IR`, `ps`,
+`ps-AF`, `ckb-IR`, `lrc`, `lrc-IR`, `mzn`, `mzn-IR`, `uz-Arab`, `uz-Arab-AF` — *and* which asks for a
+different calendar than the locale's own. Those formatters wrote a date in the wrong calendar and now write it
+in the requested one. Every other locale is untouched, its culture having carried a Gregorian calendar all
+along.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
