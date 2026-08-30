@@ -3280,6 +3280,41 @@ as it was — a per-thread cache of built years serves more than the single entr
 off a hundred *different* years costs six to fourteen times more than the table lookup did, since each
 fresh year is a dozen new moons and two solstice searches to build.
 
+### 4.72 A `yield*` a loop comes back to delegates again ([#3505](https://github.com/sebastienros/jint/issues/3505))
+
+Jint resumes a generator by replaying its body from the top and skipping the work the earlier passes already
+did, and part of that bookkeeping was a memo of what each `yield` node had last returned. Nothing ever
+invalidated an entry, so the *second* time a loop reached the same `yield` node it was answered from the
+first iteration's value — without evaluating its operand at all. A `yield` whose operand is a `yield*`
+therefore abandoned the new delegation before it started:
+
+```js
+function* countdown(n) {
+    while (n > 0) {
+        yield (yield* countdown(--n));
+    }
+    return 34;
+}
+
+// 4.16.x / earlier 5.0: never returns from the sixth next()
+// 5.x:                  [34, 34, 34, 34, 34, 34, 34], as SpiderMonkey and V8 report
+[...countdown(3)];
+```
+
+The hang is the same defect wearing its worst face: the un-evaluated operand here carries `--n`, so the loop
+counter never moved. Where the decrement sits in its own statement the loop still ends, and the answer is
+merely wrong — `countdown(3)` produced six `next()` results instead of eight, with no error and nothing to
+notice.
+Per
+[14.4.14](https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation),
+each evaluation of `yield * AssignmentExpression` evaluates its operand, calls `GetIterator` on the result
+and drives that iterator, so a node a loop returns to starts a delegation of its own every time.
+
+**What could break:** nothing that was reading a correct value. A generator that hung now terminates, and one
+that quietly dropped yields now emits them, so a host that had pinned the old count in a snapshot or an
+assertion sees it change to the count every other engine reports. `staging/sm/generators/delegating-yield-9.js`
+leaves the test262 exclusion list with this.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

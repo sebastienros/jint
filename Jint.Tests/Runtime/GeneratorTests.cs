@@ -871,6 +871,75 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
     }
 
+    [Test, CancelAfter(10000)]
+    public void ADelegatingYieldInsideAYieldStartsOverOnEveryLoopIteration()
+    {
+        // https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation:
+        // every evaluation of `yield * AssignmentExpression` evaluates its operand and drives the
+        // resulting iterator to completion, so a loop that comes back round to the same yield* node
+        // starts a fresh delegation. Jint replays a generator body from the top on each resume and
+        // memoized what each yield node had already returned; the memo was never invalidated, so the
+        // second iteration answered the outer yield from the first iteration's value without ever
+        // evaluating the operand -- which abandoned the delegation and, because the operand carries
+        // the loop's own decrement here, left n unchanged and the loop running forever.
+        // staging/sm/generators/delegating-yield-9.js is this shape; SpiderMonkey and V8 both
+        // report eight results for countdown(3).
+        const string Script = """
+            function* countdown(n) {
+                while (n > 0) {
+                    yield (yield* countdown(--n));
+                }
+                return 34;
+            }
+
+            var results = [];
+            var it = countdown(3);
+            var result;
+            do {
+                result = it.next();
+                results.push(result.value + ':' + result.done);
+            } while (!result.done && results.length < 100);
+            return results.join(' ');
+        """;
+
+        // A regression here spins forever, and [CancelAfter] cannot abort a synchronous test method
+        // on its own; the engine has to observe the test's token for the timeout to bite.
+        var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+
+        engine.Evaluate(Script).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
+    [Test, CancelAfter(10000)]
+    public void ADelegatingYieldInsideAYieldKeepsItsPlaceWhenTheDecrementIsElsewhere()
+    {
+        // The same defect without the runaway loop: with the decrement in its own statement the loop
+        // still terminates, but the outer yield answered from the memo instead of yielding, so two of
+        // the eight results went missing. Kept separate because a fix that only stopped the hang
+        // would leave this one silently wrong.
+        const string Script = """
+            function* countdown(n) {
+                while (n > 0) {
+                    n = n - 1;
+                    yield (yield* countdown(n));
+                }
+                return 34;
+            }
+
+            var results = [];
+            var it = countdown(3);
+            var result;
+            do {
+                result = it.next();
+                results.push(result.value + ':' + result.done);
+            } while (!result.done && results.length < 100);
+            return results.join(' ');
+        """;
+
+        var engine = new Engine(options => options.ObserveCancellation(TestContext.CurrentContext.CancellationToken));
+
+        engine.Evaluate(Script).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
     [Test]
     public void GeneratorFunctionConstructorsInheritFromTheFunctionConstructor()
     {
