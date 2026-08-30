@@ -106,7 +106,7 @@ public partial class Engine
         /// This implements the HostPromiseRejectionTracker abstract operation from the TC39 spec.
         /// </summary>
         /// <remarks>
-        /// https://tc39.es/ecma262/#sec-hostpromiserejectiontracker
+        /// https://tc39.es/ecma262/#sec-host-promise-rejection-tracker
         /// </remarks>
         public event EventHandler<PromiseRejectionTrackerEventArgs>? PromiseRejectionTracker;
 

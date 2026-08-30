@@ -6,7 +6,7 @@ using Jint.Native.Temporal;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-datetimeformat-objects
+/// https://tc39.es/ecma402/#datetimeformat-objects
 /// Represents an Intl.DateTimeFormat instance with locale-aware date/time formatting.
 /// </summary>
 internal sealed class JsDateTimeFormat : ObjectInstance

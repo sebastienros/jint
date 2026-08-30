@@ -233,7 +233,7 @@ public sealed partial class RegExpConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-encodeforregexescape
+    /// https://tc39.es/ecma262/#sec-encodeforregexpescape
     /// </summary>
     private static void EncodeForRegExpEscape(ref ValueStringBuilder sb, int codePoint)
     {

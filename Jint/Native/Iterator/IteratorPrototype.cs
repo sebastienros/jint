@@ -29,13 +29,13 @@ internal partial class IteratorPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-get-iteratorprototype-constructor
+    /// https://tc39.es/ecma262/#sec-get-iterator.prototype.constructor
     /// </summary>
     [JsAccessor("constructor")]
     private IteratorConstructor ConstructorGet(JsValue thisObject) => _engine.Intrinsics.Iterator;
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-set-iteratorprototype-constructor
+    /// https://tc39.es/ecma262/#sec-set-iterator.prototype.constructor
     /// </summary>
     [JsAccessor("constructor", AccessorKind.Set)]
     private JsValue ConstructorSet(JsValue thisObject, JsValue value)
@@ -45,7 +45,7 @@ internal partial class IteratorPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-get-iteratorprototype-@@tostringtag
+    /// https://tc39.es/ecma262/#sec-get-iterator.prototype-%symbol.tostringtag%
     /// </summary>
     private static readonly JsString IteratorToStringTag = new("Iterator");
 
@@ -53,7 +53,7 @@ internal partial class IteratorPrototype : Prototype
     private static JsString ToStringTagGet(JsValue thisObject) => IteratorToStringTag;
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-set-iteratorprototype-@@tostringtag
+    /// https://tc39.es/ecma262/#sec-set-iterator.prototype-%symbol.tostringtag%
     /// </summary>
     [JsSymbolAccessor("ToStringTag", AccessorKind.Set)]
     private JsValue ToStringTagSet(JsValue thisObject, JsValue value)

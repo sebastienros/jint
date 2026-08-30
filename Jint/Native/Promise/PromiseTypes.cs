@@ -96,7 +96,7 @@ public sealed record ManualPromise
 }
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-hostpromiserejectiontracker
+/// https://tc39.es/ecma262/#sec-host-promise-rejection-tracker
 /// Operation type for the HostPromiseRejectionTracker abstract operation.
 /// </summary>
 public enum PromiseRejectionOperation

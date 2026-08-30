@@ -183,7 +183,7 @@ internal sealed partial class IteratorConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zip
+    /// https://tc39.es/ecma262/#sec-iterator.zip
     /// </summary>
     [JsFunction(Length = 1)]
     private JsValue Zip(JsValue thisObject, JsValue iterables, JsValue options)
@@ -382,7 +382,7 @@ internal sealed partial class IteratorConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-joint-iteration/#sec-iterator.zipkeyed
+    /// https://tc39.es/ecma262/#sec-iterator.zipkeyed
     /// </summary>
     [JsFunction(Length = 1)]
     private JsValue ZipKeyed(JsValue thisObject, JsValue iterables, JsValue options)
@@ -539,7 +539,7 @@ internal sealed partial class IteratorConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-joint-iteration/#sec-getoptionsobject
+    /// https://tc39.es/ecma262/#sec-getoptionsobject
     /// </summary>
     private ObjectInstance? GetOptionsObject(JsValue options)
     {

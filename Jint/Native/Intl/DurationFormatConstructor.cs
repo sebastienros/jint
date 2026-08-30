@@ -47,7 +47,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat
+    /// https://tc39.es/ecma402/#sec-Intl.DurationFormat
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -338,7 +338,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-intl-duration-format/#sec-intl.durationformat.supportedlocalesof
+    /// https://tc39.es/ecma402/#sec-Intl.DurationFormat.supportedLocalesOf
     /// </summary>
     [JsFunction(Length = 1)]
     private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)

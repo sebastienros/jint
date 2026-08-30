@@ -4,8 +4,8 @@ namespace Jint.Tests.Runtime;
 
 /// <summary>
 /// <c>Intl.NumberFormat</c>'s two lanes are one algorithm.
-/// https://tc39.es/ecma402/#sec-formatnumeric defines <c>format</c> as the concatenation of exactly the
-/// parts https://tc39.es/ecma402/#sec-formatnumerictoparts returns, both of them
+/// https://tc39.es/ecma402/#sec-formatnumber defines <c>format</c> as the concatenation of exactly the
+/// parts https://tc39.es/ecma402/#sec-formatnumbertoparts returns, both of them
 /// https://tc39.es/ecma402/#sec-partitionnumberpattern, so the digits, the separators and the pattern text
 /// are the same characters read two ways — including when <c>[[NumberingSystem]]</c> is not Latin.
 /// </summary>
@@ -326,7 +326,7 @@ public class IntlNumberFormatPartsTests
 
     /// <summary>
     /// <c>Intl.RelativeTimeFormat.prototype.formatToParts</c> copies <c>NumberFormat</c>'s parts
-    /// (https://tc39.es/ecma402/#sec-partitionrelativetimepattern step 8.b), so it inherited whichever digits
+    /// (https://tc39.es/ecma402/#sec-PartitionRelativeTimePattern step 8.b), so it inherited whichever digits
     /// that lane wrote — and its own <c>format</c> transliterated the assembled string, pattern text and all.
     /// </summary>
     [Test]

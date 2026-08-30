@@ -31,13 +31,13 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-get-asynciteratorprototype-constructor
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.constructor
     /// </summary>
     [JsAccessor("constructor")]
     private AsyncIteratorConstructor ConstructorGet(JsValue thisObject) => _engine.Intrinsics.AsyncIterator;
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-set-asynciteratorprototype-constructor
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype.constructor
     /// </summary>
     [JsAccessor("constructor", AccessorKind.Set)]
     private JsValue ConstructorSet(JsValue thisObject, JsValue value)
@@ -47,13 +47,13 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-get-asynciteratorprototype-@@tostringtag
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype-@@tostringtag
     /// </summary>
     [JsSymbolAccessor("ToStringTag")]
     private static JsString ToStringTagGet(JsValue thisObject) => AsyncIteratorToStringTag;
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-set-asynciteratorprototype-@@tostringtag
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciteratorprototype-@@tostringtag
     /// </summary>
     [JsSymbolAccessor("ToStringTag", AccessorKind.Set)]
     private JsValue ToStringTagSet(JsValue thisObject, JsValue value)
@@ -332,7 +332,7 @@ internal sealed partial class AsyncIteratorPrototype : Prototype
     private static JsValue AsyncIterator(JsValue thisObject) => thisObject;
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-%asynciteratorprototype%-@@asyncDispose
+    /// https://tc39.es/ecma262/#sec-%asynciteratorprototype%-%symbol.asyncdispose%
     /// </summary>
     [JsSymbolFunction("AsyncDispose", Length = 0, Flags = PropertyFlag.Configurable | PropertyFlag.Writable)]
     private JsValue AsyncDispose(JsValue thisObject)

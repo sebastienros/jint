@@ -9,7 +9,7 @@ namespace Jint.Native.Iterator;
 
 /// <summary>
 /// Base class for async iterator helper instances (map, filter, take, drop, flatMap).
-/// https://tc39.es/ecma262/#sec-asynciteratorhelper-objects
+/// https://tc39.es/proposal-async-iterator-helpers/#sec-async-iterator-helper-objects
 /// </summary>
 internal abstract class AsyncIteratorHelper : ObjectInstance
 {

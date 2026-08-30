@@ -4,7 +4,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-pluralrules-objects
+/// https://tc39.es/ecma402/#pluralrules-objects
 /// Represents an Intl.PluralRules instance for locale-aware plural form selection.
 /// </summary>
 internal sealed class JsPluralRules : ObjectInstance

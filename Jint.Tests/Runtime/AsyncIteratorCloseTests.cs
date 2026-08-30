@@ -16,7 +16,7 @@ namespace Jint.Tests.Runtime;
 /// So the whole of steps 4.d-7 was skipped: a <c>return()</c> that rejected was dropped on the floor
 /// and <c>for await (…) { break; }</c> completed normally where V8 throws — issue #3098. The same hole
 /// swallowed a sync iterable's close failure under <c>for await</c>, because
-/// <a href="https://tc39.es/ecma262/#sec-%25asyncfromsynciteratorprototype%25.return">%AsyncFromSyncIteratorPrototype%.return</a>
+/// <a href="https://tc39.es/ecma262/#sec-%asyncfromsynciteratorprototype%.return">%AsyncFromSyncIteratorPrototype%.return</a>
 /// reports every one of those as a rejection of the promise it hands back.
 /// </para>
 /// </summary>

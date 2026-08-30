@@ -4,7 +4,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-segmenter-objects
+/// https://tc39.es/ecma402/#segmenter-objects
 /// Represents an Intl.Segmenter instance for locale-aware text segmentation.
 /// </summary>
 internal sealed class JsSegmenter : ObjectInstance

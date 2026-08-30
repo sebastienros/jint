@@ -908,7 +908,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-totemporalcalendaridentifier
+    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalcalendaridentifier
     /// </summary>
     private string ToTemporalCalendarIdentifier(JsValue value)
     {
@@ -938,7 +938,7 @@ internal sealed partial class PlainDatePrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-getoptionsobject
+    /// https://tc39.es/ecma262/#sec-getoptionsobject
     /// </summary>
     private ObjectInstance? GetOptionsObject(JsValue options)
     {

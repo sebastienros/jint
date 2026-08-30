@@ -7,7 +7,7 @@ namespace Jint.Native.Temporal;
 /// This allows users to provide custom time zone implementations (e.g., using TimeZoneConverter or NodaTime).
 /// </summary>
 /// <remarks>
-/// https://tc39.es/proposal-temporal/#sec-temporal-timezone-objects
+/// https://tc39.es/proposal-temporal/#sec-temporal-timezones
 /// </remarks>
 public interface ITimeZoneProvider
 {

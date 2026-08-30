@@ -4,7 +4,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-relativetimeformat-objects
+/// https://tc39.es/ecma402/#relativetimeformat-objects
 /// Represents an Intl.RelativeTimeFormat instance for locale-aware relative time formatting.
 /// </summary>
 internal sealed class JsRelativeTimeFormat : ObjectInstance
@@ -70,7 +70,7 @@ internal sealed class JsRelativeTimeFormat : ObjectInstance
     /// </summary>
     /// <remarks>
     /// <para>
-    /// https://tc39.es/ecma402/#sec-partitionrelativetimepattern substitutes one number — through
+    /// https://tc39.es/ecma402/#sec-PartitionRelativeTimePattern substitutes one number — through
     /// PartitionNumberPattern, which is where <c>[[NumberingSystem]]</c> is written — into a pattern whose
     /// every other character is a literal. So the digits arrive already transliterated, in
     /// <see cref="NumberFormat"/>'s output, and the pattern text around them is never a number: a

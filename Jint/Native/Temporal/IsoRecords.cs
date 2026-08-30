@@ -222,7 +222,7 @@ internal readonly record struct IsoTime(
 
 /// <summary>
 /// Internal ISO date-time record combining date and time.
-/// https://tc39.es/proposal-temporal/#sec-temporal-isodatetime-records
+/// https://tc39.es/proposal-temporal/#sec-temporal-iso-date-time-records
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct IsoDateTime(IsoDate Date, IsoTime Time)
@@ -250,7 +250,7 @@ internal readonly record struct IsoDateTime(IsoDate Date, IsoTime Time)
 
 /// <summary>
 /// Internal duration record storing all duration components.
-/// https://tc39.es/proposal-temporal/#sec-temporal-duration-records
+/// https://tc39.es/proposal-temporal/#sec-temporal-internal-duration-records
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct DurationRecord(
@@ -321,7 +321,7 @@ internal readonly record struct DurationRecord(
 
 /// <summary>
 /// Internal time duration record (no date components).
-/// https://tc39.es/proposal-temporal/#sec-temporal-time-duration-records
+/// https://tc39.es/proposal-temporal/#sec-temporal-internal-duration-records
 /// </summary>
 internal readonly record struct TimeDuration
 {

@@ -83,7 +83,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formattoparts
+    /// https://tc39.es/ecma402/#sec-Intl.DateTimeFormat.prototype.formatToParts
     /// </summary>
     [JsFunction]
     private JsArray FormatToParts(JsValue thisObject, JsValue dateValue)
@@ -118,7 +118,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-todatetimeformattable
+    /// https://tc39.es/proposal-temporal/#sec-todatetimeformattable
     /// Returns the Temporal object as-is if it is a Temporal object, otherwise converts to Number.
     /// </summary>
     private static JsValue ToDateTimeFormattable(JsValue value)
@@ -849,7 +849,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrange
+    /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatRange
     /// </summary>
     [JsFunction]
     private JsValue FormatRange(JsValue thisObject, JsValue startDate, JsValue endDate)
@@ -937,7 +937,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.datetimeformat.prototype.formatrangetoparts
+    /// https://tc39.es/ecma402/#sec-Intl.DateTimeFormat.prototype.formatRangeToParts
     /// </summary>
     [JsFunction]
     private JsArray FormatRangeToParts(JsValue thisObject, JsValue startDate, JsValue endDate)

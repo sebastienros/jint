@@ -43,7 +43,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.of
+    /// https://tc39.es/ecma402/#sec-Intl.DisplayNames.prototype.of
     /// </summary>
     [JsFunction]
     private JsValue Of(JsValue thisObject, JsValue code)
@@ -385,7 +385,7 @@ internal sealed partial class DisplayNamesPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames.prototype.resolvedoptions
+    /// https://tc39.es/ecma402/#sec-Intl.DisplayNames.prototype.resolvedOptions
     /// </summary>
     [JsFunction]
     private JsObject ResolvedOptions(JsValue thisObject)

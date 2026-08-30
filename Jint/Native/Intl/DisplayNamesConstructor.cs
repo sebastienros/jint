@@ -47,7 +47,7 @@ internal sealed partial class DisplayNamesConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames
+    /// https://tc39.es/ecma402/#sec-Intl.DisplayNames
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -137,7 +137,7 @@ internal sealed partial class DisplayNamesConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.displaynames.supportedlocalesof
+    /// https://tc39.es/ecma402/#sec-Intl.DisplayNames.supportedLocalesOf
     /// </summary>
     [JsFunction(Length = 1)]
     private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)

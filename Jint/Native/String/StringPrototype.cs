@@ -1672,7 +1672,7 @@ internal sealed partial class StringPrototype : StringInstance
 
     /// <summary>
     /// https://tc39.es/ecma262/#sec-string.prototype.localecompare
-    /// https://tc39.es/ecma402/#sup-string.prototype.localecompare
+    /// https://tc39.es/ecma402/#sup-String.prototype.localeCompare
     /// </summary>
     [JsFunction(Length = 1)]
     [RequireObjectCoercible]

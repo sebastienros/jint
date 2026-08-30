@@ -454,7 +454,7 @@ public class Host
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-shadowrealm/#sec-host-initialize-shadow-shadowrealm
+    /// https://tc39.es/proposal-shadowrealm/#sec-hostinitializeshadowrealm
     /// </summary>
     public virtual void InitializeShadowRealm(Realm realm)
     {
@@ -469,7 +469,7 @@ public class Host
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-hostpromiserejectiontracker
+    /// https://tc39.es/ecma262/#sec-host-promise-rejection-tracker
     /// Called when a promise is rejected without a handler, or when a handler is
     /// added to a previously unhandled rejected promise.
     /// </summary>
@@ -489,7 +489,7 @@ public class Host
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-host-enqueue-finalization-registry-cleanup-job
+    /// https://tc39.es/ecma262/#sec-host-cleanup-finalization-registry
     /// <para>
     /// "An implementation of HostEnqueueFinalizationRegistryCleanupJob schedules cleanupJob to be performed
     /// at some future time, if possible." Jint schedules it on the event loop, so the callback runs on the

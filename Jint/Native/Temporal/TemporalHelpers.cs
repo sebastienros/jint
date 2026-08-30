@@ -888,7 +888,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Parses an ISO 8601 instant string and returns epoch nanoseconds.
-    /// https://tc39.es/proposal-temporal/#sec-temporal-parsetemporalinstantstring
+    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalinstant
     /// </summary>
     public static BigInteger? ParseInstantString(string input)
     {
@@ -1157,7 +1157,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Validates that a duration has valid components.
-    /// https://tc39.es/proposal-temporal/#sec-temporal-isvalidduration
+    /// https://tc39.es/proposal-temporal/#sec-isvalidduration
     /// </summary>
     public static bool IsValidDuration(DurationRecord duration)
     {
@@ -1403,7 +1403,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Compares two time zone identifiers for equality per TC39 TimeZoneEquals.
     /// Resolves IANA aliases to their primary identifiers before comparing.
-    /// https://tc39.es/proposal-temporal/#sec-timezoneequals
+    /// https://tc39.es/proposal-temporal/#sec-temporal-timezoneequals
     /// </summary>
     public static bool TimeZoneEquals(Engine engine, string one, string two)
     {
@@ -1434,7 +1434,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Parses a time zone string and returns the canonical time zone identifier.
     /// Handles IANA IDs, offset strings, and ISO date-time strings with embedded time zones.
-    /// https://tc39.es/proposal-temporal/#sec-parsetemporaltimezonestring
+    /// https://tc39.es/proposal-temporal/#sec-temporal-parsetemporaltimezonestring
     /// </summary>
     public static string ParseTemporalTimeZoneString(Engine engine, Realm realm, string input)
     {
@@ -1641,7 +1641,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Canonicalizes a calendar identifier (case-insensitive matching).
-    /// https://tc39.es/proposal-temporal/#sec-temporal-canonicalizetemporalcalendaridentifier
+    /// https://tc39.es/proposal-temporal/#sec-temporal-canonicalizecalendar
     /// </summary>
     /// <remarks>
     /// Step 1 of that operation is <c>AvailableCalendars()</c>, and
@@ -2894,7 +2894,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// CheckISODaysRange ( isoDate )
-    /// https://tc39.es/proposal-temporal/#sec-temporal-checkisodaysrange
+    /// https://tc39.es/proposal-temporal/#sec-checkisodaysrange
     /// Checks that the given date is within the range of 10^8 days from the epoch.
     /// </summary>
     public static void CheckISODaysRange(Realm realm, IsoDate isoDate)
@@ -3878,7 +3878,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Gets the options object from a JsValue, throwing TypeError if it's not an object or undefined.
-    /// https://tc39.es/proposal-temporal/#sec-getoptionsobject
+    /// https://tc39.es/ecma262/#sec-getoptionsobject
     /// </summary>
     public static ObjectInstance? GetOptionsObject(Realm realm, JsValue options)
     {
@@ -4248,7 +4248,7 @@ internal static class TemporalHelpers
     /// <summary>
     /// Gets a temporal unit option from an options object.
     /// Returns null if the option is undefined, throws if invalid.
-    /// https://tc39.es/proposal-temporal/#sec-temporal-totemporalroundingmode
+    /// https://tc39.es/proposal-temporal/#sec-temporal-gettemporalunitvaluedoption
     /// </summary>
     public static string? GetTemporalUnit(
         Realm realm,
@@ -4284,7 +4284,7 @@ internal static class TemporalHelpers
 
     /// <summary>
     /// Validates a rounding increment for temporal rounding operations.
-    /// https://tc39.es/proposal-temporal/#sec-temporal-validatetemporalroundingincrement
+    /// https://tc39.es/proposal-temporal/#sec-validatetemporalroundingincrement
     /// </summary>
     public static void ValidateTemporalRoundingIncrement(
         Realm realm,

@@ -4,7 +4,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-collator-objects
+/// https://tc39.es/ecma402/#collator-objects
 /// Represents an Intl.Collator instance with locale-aware string comparison.
 /// </summary>
 internal sealed class JsCollator : ObjectInstance

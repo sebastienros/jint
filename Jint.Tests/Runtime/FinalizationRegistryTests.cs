@@ -7,7 +7,7 @@ namespace Jint.Tests.Runtime;
 /// <summary>
 /// The <c>FinalizationRegistry</c> cleanup callback is discovered by the CLR garbage collector but must be
 /// <em>run</em> by the engine, on the engine's own thread and from the event loop —
-/// https://tc39.es/ecma262/#sec-host-enqueue-finalization-registry-cleanup-job. These tests pin that split,
+/// https://tc39.es/ecma262/#sec-host-cleanup-finalization-registry. These tests pin that split,
 /// and the parts of https://tc39.es/ecma262/#sec-cleanup-finalization-registry a host can observe.
 /// </summary>
 /// <remarks>
