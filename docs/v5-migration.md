@@ -3073,6 +3073,48 @@ that *raised* it above ten seconds gets the looser one. Either way the fix is th
 on `Constraints.RegexTimeout`, or pin one on the preparation's parsing options, which still wins. A host
 relying on the preparation report to warn about an unset `RegexTimeout` should validate the engine's
 `Options` instead.
+### 4.68 A currency's fraction digits are the two counts it was given, in both lanes ([#3493](https://github.com/sebastienros/jint/issues/3493))
+
+[ToRawFixed](https://tc39.es/ecma402/#sec-torawfixed) rounds at `maximumFractionDigits` and then removes up
+to `maximumFractionDigits - minimumFractionDigits` trailing zeros. A currency read neither number: the parts
+lane rounded at two digits whatever was asked for and then truncated the integer, and the string lane padded
+the fraction out to `maximumFractionDigits` and never trimmed it.
+
+```js
+const nf = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+// 5.0 — the two lanes are a whole unit apart above .5
+nf.format(2.9);                  // "$3"
+nf.formatToParts(2.9);           // [currency "$"][integer "2"]  → "$2"
+
+// 5.x
+nf.formatToParts(2.9);           // [currency "$"][integer "3"]  → "$3"
+```
+
+A currency whose own default is zero digits reaches the same rounding without asking for anything, so this
+moves `JPY`, `KRW` and the other zero-digit currencies too: `formatToParts(2.9)` under `JPY` was `¥2` and is
+`¥3`.
+
+The trim is the other half, and it moves the string lane:
+
+```js
+const one = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 1 });
+// 5.0
+one.format(0.4);                 // "$0.40"   — padded to the maximum, which is still 2
+one.formatToParts(0.4);          // "$0.4"    — its parts lane already trimmed
+// 5.x
+one.format(0.4);                 // "$0.4"
+
+const none = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+none.format(2);                  // 5.0: "$2.00"   5.x: "$2"
+```
+
+**What could break:** any currency output whose formatter names `minimumFractionDigits` or
+`maximumFractionDigits`, and any `formatToParts` walk over a currency with zero fraction digits — asked for
+or defaulted. A formatter that names neither is untouched, its two counts both being the currency's own.
+`style: "percent"` pads the same way and is not fixed here; that half is
+[#3498](https://github.com/sebastienros/jint/issues/3498), and the significant-digit options are
+[#3499](https://github.com/sebastienros/jint/issues/3499).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

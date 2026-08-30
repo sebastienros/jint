@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using Jint.Native.Object;
 
@@ -1822,14 +1822,17 @@ internal sealed class JsNumberFormat : ObjectInstance
             intStr = ApplyGroupingToString(intStr);
         }
 
-        // Format fraction
+        // Format fraction. https://tc39.es/ecma402/#sec-torawfixed rounds at maximumFractionDigits and
+        // then removes up to maximumFractionDigits - minimumFractionDigits trailing zeros, so a currency
+        // whose two digit counts differ writes the narrower one when the wider one would only be zeros.
         var fractionStr = "";
         if (fractionDigits > 0)
         {
-            var multiplier = System.Math.Pow(10, fractionDigits);
-            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-            fractionStr = NumberFormatInfo.CurrencyDecimalSeparator +
-                         fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+            var digits = FractionDigitsOf(fractionValue, fractionDigits);
+            if (digits.Length > 0)
+            {
+                fractionStr = NumberFormatInfo.CurrencyDecimalSeparator + digits;
+            }
         }
 
         var numberPart = intStr + fractionStr;
@@ -2508,26 +2511,10 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Add fraction part if needed
         if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
         {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-
-            var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : MinimumFractionDigits;
-            var multiplier = System.Math.Pow(10, fractionDigits);
-            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-            var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
-
-            // Trim trailing zeros above minimum
-            if (fractionStr.Length > MinimumFractionDigits)
-            {
-                var trimEnd = fractionStr.Length;
-                while (trimEnd > MinimumFractionDigits && fractionStr[trimEnd - 1] == '0')
-                {
-                    trimEnd--;
-                }
-                fractionStr = fractionStr.Substring(0, trimEnd);
-            }
-
+            var fractionStr = FractionDigitsOf(fractionValue, MaximumFractionDigits);
             if (fractionStr.Length > 0)
             {
+                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
                 parts.Add(new NumberFormatPart("fraction", fractionStr));
             }
         }
@@ -2753,38 +2740,45 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private void FormatFractionToParts(List<NumberFormatPart> parts, double fractionValue)
     {
-        // Convert fraction to string with required precision
-        var fractionDigits = MaximumFractionDigits;
-        if (fractionDigits == 0 && MinimumFractionDigits > 0)
-        {
-            fractionDigits = MinimumFractionDigits;
-        }
-
-        var multiplier = System.Math.Pow(10, fractionDigits);
-        var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-        var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
-
-        // Trim trailing zeros if above minimum
-        if (fractionStr.Length > MinimumFractionDigits)
-        {
-            var trimEnd = fractionStr.Length;
-            while (trimEnd > MinimumFractionDigits && fractionStr[trimEnd - 1] == '0')
-            {
-                trimEnd--;
-            }
-            fractionStr = fractionStr.Substring(0, trimEnd);
-        }
-
-        // Ensure minimum fraction digits
-        if (fractionStr.Length < MinimumFractionDigits)
-        {
-            fractionStr = fractionStr.PadRight(MinimumFractionDigits, '0');
-        }
-
+        var fractionStr = FractionDigitsOf(fractionValue, MaximumFractionDigits);
         if (fractionStr.Length > 0)
         {
             parts.Add(new NumberFormatPart("fraction", fractionStr));
         }
+    }
+
+    /// <summary>
+    /// The fraction digits https://tc39.es/ecma402/#sec-torawfixed writes for a value already rounded to
+    /// <paramref name="fractionDigits"/> places: that many digits, less the trailing zeros its last two
+    /// steps remove down to <see cref="MinimumFractionDigits"/>.
+    /// </summary>
+    /// <remarks>
+    /// The result is empty when every digit was removed, which is what the caller has to notice: the
+    /// decimal separator goes with them, and neither lane writes a separator with nothing after it.
+    /// </remarks>
+    private string FractionDigitsOf(double fractionValue, int fractionDigits)
+    {
+        if (fractionDigits < MinimumFractionDigits)
+        {
+            fractionDigits = MinimumFractionDigits;
+        }
+
+        if (fractionDigits == 0)
+        {
+            return string.Empty;
+        }
+
+        var multiplier = System.Math.Pow(10, fractionDigits);
+        var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
+        var digits = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
+
+        var keep = digits.Length;
+        while (keep > MinimumFractionDigits && digits[keep - 1] == '0')
+        {
+            keep--;
+        }
+
+        return keep == digits.Length ? digits : digits.Substring(0, keep);
     }
 
     private List<NumberFormatPart> FormatCurrencyToParts(double value)
@@ -2793,9 +2787,10 @@ internal sealed class JsNumberFormat : ObjectInstance
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
         var absValue = System.Math.Abs(value);
 
-        // Apply rounding first to determine if value displays as zero
-        var fractionDigits = MaximumFractionDigits > 0 ? MaximumFractionDigits : 2;
-        absValue = ApplyRounding(absValue, fractionDigits);
+        // Apply rounding first to determine if value displays as zero. The digit count is the one
+        // https://tc39.es/ecma402/#sec-torawfixed rounds at, which the constructor has already defaulted
+        // to the currency's own — an explicit maximumFractionDigits of zero is a caller asking for none.
+        absValue = ApplyRounding(absValue, MaximumFractionDigits);
         var displaysAsZero = absValue == 0;
 
         // Determine if we should show a negative sign based on signDisplay
