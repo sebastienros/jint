@@ -759,6 +759,21 @@ public class Options
         public TimeSpan RegexTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
         /// <summary>
+        /// The largest interval .NET's <see cref="System.Text.RegularExpressions.Regex"/> accepts as a match
+        /// timeout: <see cref="int.MaxValue"/> milliseconds, about 24.8 days.
+        /// </summary>
+        private static readonly TimeSpan _maximumEnforceableRegexTimeout = TimeSpan.FromMilliseconds(int.MaxValue);
+
+        /// <summary>
+        /// Reduces a configured regex timeout to the two states a regex engine can be in: an enforceable
+        /// interval, or <see cref="System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> for untimed.
+        /// </summary>
+        internal static TimeSpan NormalizeRegexTimeout(TimeSpan timeout)
+            => timeout <= TimeSpan.Zero || timeout >= _maximumEnforceableRegexTimeout
+                ? System.Text.RegularExpressions.Regex.InfiniteMatchTimeout
+                : timeout;
+
+        /// <summary>
         /// Maximum time allowed for unwrapping a Promise and getting its resolved/rejected value.
         /// Defaults to 10 seconds.
         /// </summary>
