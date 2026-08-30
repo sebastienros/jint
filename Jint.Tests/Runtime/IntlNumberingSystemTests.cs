@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Jint.Native.Intl;
 
@@ -183,6 +183,66 @@ public class IntlNumberingSystemTests
 
         engine.Evaluate("new Intl.NumberFormat('ar-EG').format(1234.5)").AsString().Should().MatchRegex("[0-9]");
         engine.Evaluate("new Intl.DurationFormat('ar-EG').format({ hours: 12 })").AsString().Should().MatchRegex("[0-9]");
+    }
+
+    /// <summary>
+    /// A numbering system rewrites the digits of a date's fields, and nothing else the pattern wrote.
+    /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern splits the pattern with PartitionPattern and
+    /// copies every <c>literal</c> through untouched; <c>[[NumberingSystem]]</c> reaches only a field's
+    /// value, through the FormatNumeric calls in the numeric and 2-digit branches. Those values are
+    /// integers, so a date carries no decimal separator to rewrite — and <c>de-DE</c>, whose pattern
+    /// separates the fields with a full stop, is where rewriting one anyway shows up.
+    /// </remarks>
+    [Test]
+    public void ADatePatternsPunctuationIsNotADecimalSeparator()
+    {
+        var engine = new Engine();
+        const string TwentySeventhOfAugust = "new Date(Date.UTC(2026, 7, 27))";
+        // 27.08.2026 in Arabic-Indic digits, around the full stops de-DE's own pattern writes. Spelled
+        // out because a bidirectional literal is unreadable in a diff and easy to reorder by accident.
+        const string Expected = "٢٧.٠٨.٢٠٢٦";
+
+        var components = "new Intl.DateTimeFormat('de-DE', { numberingSystem: 'arab', "
+            + "year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })";
+
+        engine.Evaluate($"{components}.format({TwentySeventhOfAugust})")
+            .AsString().Should().Be(Expected, "the pattern's full stops are literals, not decimal separators");
+        engine.Evaluate($"{components}.formatToParts({TwentySeventhOfAugust}).map(p => p.value).join('')")
+            .AsString().Should().Be(Expected, "https://tc39.es/ecma402/#sec-formatdatetime is the concatenation of the parts");
+
+        var styled = "new Intl.DateTimeFormat('de-DE', { numberingSystem: 'arab', dateStyle: 'short', timeZone: 'UTC' })";
+        engine.Evaluate($"{styled}.format({TwentySeventhOfAugust})")
+            .AsString().Should().Be(Expected, "a dateStyle pattern's full stops are literals too");
+    }
+
+    /// <summary>
+    /// The one separator a date formatter writes itself — the one before a fractional second — is the
+    /// numbering system's, and both lanes write it.
+    /// </summary>
+    /// <remarks>
+    /// No CLDR pattern supplies this separator: <c>fractionalSecondDigits</c> is a component option, and
+    /// the component lane assembles its own pattern around it. That makes the character
+    /// implementation-, locale- and numbering-system-dependent in the sense
+    /// https://tc39.es/ecma402/#sec-formatdatetimepattern allows, and <c>arab</c> writes U+066B for it —
+    /// which is a different question from the pattern text above, and is pinned here so that answering
+    /// the first one does not silently change this one.
+    /// </remarks>
+    [Test]
+    public void TheSeparatorBeforeAFractionalSecondIsTheNumberingSystems()
+    {
+        var engine = new Engine();
+        const string Instant = "new Date(Date.UTC(2026, 7, 27, 1, 2, 3, 456))";
+        // 02:03 and 456 in Arabic-Indic digits, around U+066B ARABIC DECIMAL SEPARATOR
+        const string Expected = "٠٢:٠٣٫٤٥٦";
+
+        var formatter = "new Intl.DateTimeFormat('en-US', { numberingSystem: 'arab', "
+            + "minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, timeZone: 'UTC' })";
+
+        engine.Evaluate($"{formatter}.format({Instant})").AsString().Should().Be(Expected);
+        engine.Evaluate($"{formatter}.formatToParts({Instant}).map(p => p.value).join('')")
+            .AsString().Should().Be(Expected);
     }
 
     private static void ShouldWriteArabicIndicDigits(Engine engine, string expression, string expectedDigits)
