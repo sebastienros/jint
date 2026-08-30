@@ -27,7 +27,8 @@ public class IntlNumberFormatPartsTests
         "mathbold"
     ];
 
-    private static readonly string[] Locales = ["en", "en-US", "de-DE", "fr-FR", "pt-PT", "ar-EG", "ja-JP"];
+    // en-IN groups its digits 3, then 2 — 12,34,567 — which no lane may assume away
+    private static readonly string[] Locales = ["en", "en-US", "de-DE", "fr-FR", "pt-PT", "ar-EG", "ja-JP", "en-IN"];
 
     private static readonly string[] OptionSets =
     [
@@ -45,6 +46,14 @@ public class IntlNumberFormatPartsTests
         "{ style: 'currency', currency: 'EUR', minimumFractionDigits: 3, maximumFractionDigits: 4 }",
         "{ style: 'unit', unit: 'meter' }",
         "{ style: 'unit', unit: 'kilometer-per-hour', unitDisplay: 'long' }",
+        // a percent with a fraction-digit count, which ToRawFixed trims rather than pads, and with each
+        // of the options .NET's "P" specifier does not read at all
+        "{ style: 'percent', maximumFractionDigits: 1 }",
+        "{ style: 'percent', minimumFractionDigits: 3, maximumFractionDigits: 4 }",
+        "{ style: 'percent', signDisplay: 'always' }",
+        "{ style: 'percent', useGrouping: false }",
+        "{ style: 'percent', minimumIntegerDigits: 3 }",
+        "{ style: 'currency', currency: 'USD', currencySign: 'accounting' }",
         "{ notation: 'scientific' }",
         "{ notation: 'engineering' }",
         "{ notation: 'compact' }",
@@ -55,7 +64,9 @@ public class IntlNumberFormatPartsTests
         "[0, 1, -1, 0.5, 1234.5, -1234.5, 1234567.891, 12345678901234, NaN, Infinity, -Infinity, "
         // values ToIntlMathematicalValue reads exactly, which no double holds: a BigInt, an integer
         // string past 2^53, and a decimal string with more significant digits than a double carries
-        + "987654321987654321n, -987654321987654321n, '987654321987654321', '1.00000000000000012']";
+        + "987654321987654321n, -987654321987654321n, '987654321987654321', '1.00000000000000012', "
+        // whole doubles past 2^63, where a cast to long saturates rather than answers
+        + "1e21, 1e25]";
 
     /// <summary>
     /// The defect: <c>format</c> transliterated and <c>formatToParts</c> did not, so
@@ -629,6 +640,174 @@ public class IntlNumberFormatPartsTests
                 """
                 [{"type":"integer","value":"987"},{"type":"literal","value":" "},{"type":"unit","value":"Kilometer pro Stunde"}]
                 """);
+    }
+
+    /// <summary>
+    /// ToRawFixed's trim is the same two steps whatever the style wraps them in, so a percent asked for
+    /// one fraction digit writes none when that digit would be a zero.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the percent string lane was .NET's <c>"P"</c> specifier over
+    /// <c>NumberFormatInfo.PercentDecimalDigits</c>, which the constructor sets to
+    /// <c>maximumFractionDigits</c> — so it wrote exactly that many digits always.
+    /// </remarks>
+    [Test]
+    public void APercentTrimsItsFractionDownToTheMinimum()
+    {
+        const string OneDigit = "new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 })";
+        Format(OneDigit, "0.4").Should().Be("40%");
+        Join(OneDigit, "0.4").Should().Be("40%");
+        Format(OneDigit, "0.455").Should().Be("45.5%");
+        Join(OneDigit, "0.455").Should().Be("45.5%");
+
+        const string Wide =
+            "new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 3, maximumFractionDigits: 4 })";
+        Format(Wide, "2.9").Should().Be("290.000%");
+        Join(Wide, "2.9").Should().Be("290.000%");
+        Format(Wide, "2.912345").Should().Be("291.2345%");
+        Join(Wide, "2.912345").Should().Be("291.2345%");
+    }
+
+    /// <summary>
+    /// The percent pattern is walked around a number the rest of the options built, so the options that
+    /// build it are read: the sign, the grouping and the integer-digit floor.
+    /// </summary>
+    /// <remarks>
+    /// <c>"P"</c> reads one datum and it is the fraction-digit count, so none of these reached the string
+    /// lane at all — <c>signDisplay: "always"</c> wrote no plus sign, <c>useGrouping: false</c> grouped
+    /// anyway, and <c>minimumIntegerDigits</c> padded nothing.
+    /// </remarks>
+    [Test]
+    public void APercentReadsTheOptionsThatBuildItsNumber()
+    {
+        const string Always = "new Intl.NumberFormat('en-US', { style: 'percent', signDisplay: 'always' })";
+        Format(Always, "0.4").Should().Be("+40%");
+        Join(Always, "0.4").Should().Be("+40%");
+
+        const string Never = "new Intl.NumberFormat('en-US', { style: 'percent', signDisplay: 'never' })";
+        Format(Never, "-0.4").Should().Be("40%");
+        Join(Never, "-0.4").Should().Be("40%");
+
+        const string NoGrouping = "new Intl.NumberFormat('en-US', { style: 'percent', useGrouping: false })";
+        Format(NoGrouping, "1234.567").Should().Be("123457%");
+        Join(NoGrouping, "1234.567").Should().Be("123457%");
+
+        const string ThreeIntegers = "new Intl.NumberFormat('en-US', { style: 'percent', minimumIntegerDigits: 3 })";
+        Format(ThreeIntegers, "0.04").Should().Be("004%");
+        Join(ThreeIntegers, "0.04").Should().Be("004%");
+    }
+
+    /// <summary>
+    /// The space a percent pattern puts before its sign is CLDR's U+00A0, which is the character
+    /// <c>intl402/BigInt/prototype/toLocaleString/de-DE.js</c> asserts. .NET writes a plain space for the
+    /// same locale, so the pattern says where the space goes and CLDR says which space it is.
+    /// </summary>
+    [Test]
+    public void APercentPatternsSpaceIsTheOneCldrWrites()
+    {
+        const string German = "new Intl.NumberFormat('de-DE', { style: 'percent' })";
+        Format(German, "2").Should().Be("200 %");
+        Join(German, "2").Should().Be("200 %");
+    }
+
+    /// <summary>
+    /// A locale whose groups are not three digits wide keeps them in both lanes: <c>en-IN</c> writes
+    /// <c>12,34,567</c>, which is what <c>NumberFormatInfo.NumberGroupSizes</c> carries as <c>[3, 2]</c>.
+    /// </summary>
+    [Test]
+    public void TheGroupsAreTheWidthsTheLocaleUses()
+    {
+        const string Indian = "new Intl.NumberFormat('en-IN')";
+        Format(Indian, "1234567.891").Should().Be("12,34,567.891");
+        Join(Indian, "1234567.891").Should().Be("12,34,567.891");
+
+        // .NET Framework and .NET disagree about whether en-IN spaces its currency symbol, so the digits
+        // are what is asserted here
+        Join("new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })", "123456789")
+            .Should().EndWith("12,34,56,789.00");
+        Join("new Intl.NumberFormat('en-IN', { style: 'percent' })", "1234567.891").Should().Be("12,34,56,789%");
+    }
+
+    /// <summary>
+    /// A value a <c>long</c> cannot hold is written, not saturated:
+    /// https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads a Number as <c>Number::toString</c>'s
+    /// digits, and every one of them survives to https://tc39.es/ecma402/#sec-torawfixed.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the parts lane split its value with <c>(long) Math.Truncate(value)</c>, and .NET's
+    /// saturating conversion pins everything from 2^63 up to <c>long.MaxValue</c> — so every such value
+    /// formatted as <c>9,223,372,036,854,775,807.9223372036854775807</c>, whatever it was.
+    /// </remarks>
+    [Test]
+    public void AValuePastTheRangeOfALongIsStillItsOwnDigits()
+    {
+        const string Plain = "new Intl.NumberFormat('en-US')";
+        const string Sextillion = "1,000,000,000,000,000,000,000";
+        Format(Plain, "1e21").Should().Be(Sextillion);
+        Join(Plain, "1e21").Should().Be(Sextillion);
+
+        Join("new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })", "1e21")
+            .Should().Be("$" + Sextillion + ".00");
+        Join("new Intl.NumberFormat('en-US', { style: 'unit', unit: 'meter' })", "1e21")
+            .Should().Be(Sextillion + " m");
+        Join("new Intl.NumberFormat('en-US', { style: 'percent' })", "1e19")
+            .Should().Be(Sextillion + "%");
+    }
+
+    /// <summary>
+    /// A value read exactly is dressed in the pattern a Number of the same size is dressed in:
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern chooses that pattern with
+    /// https://tc39.es/ecma402/#sec-getnumberformatpattern, which reads the style and the sign and never
+    /// the value's carrier.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the exact lane wrote the currency symbol and then the number, with none of the locale's
+    /// pattern, its accounting form or the sign display — so <c>format(-123n)</c> was <c>"$-123.00"</c>
+    /// where <c>format(-123)</c> was <c>"-$123.00"</c>, and a suffix-currency locale put its symbol in
+    /// front.
+    /// </remarks>
+    [Test]
+    public void AnExactValueTakesTheSamePatternADoubleTakes()
+    {
+        const string Usd = "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })";
+        Format(Usd, "-123n").Should().Be("-$123.00").And.Be(Format(Usd, "-123"));
+
+        const string Euro = "new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })";
+        Format(Euro, "123n").Should().Be("123,00 €").And.Be(Format(Euro, "123"));
+
+        const string Accounting =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencySign: 'accounting' })";
+        Format(Accounting, "-123n").Should().Be("($123.00)").And.Be(Format(Accounting, "-123"));
+
+        const string Always = "new Intl.NumberFormat('en-US', { signDisplay: 'always' })";
+        Format(Always, "5n").Should().Be("+5").And.Be(Format(Always, "5"));
+
+        // a decimal string long enough to reach the exact lane takes the same pattern
+        Format(Usd, "'987654321987654321'").Should().Be("$987,654,321,987,654,321.00");
+        Format(Accounting, "'-987654321987654321'").Should().Be("($987,654,321,987,654,321.00)");
+    }
+
+    /// <summary>
+    /// A notation writes a scaled mantissa or an abbreviation that
+    /// https://tc39.es/ecma402/#sec-partitionnotationsubpattern picks from the value's own magnitude, and
+    /// an exactly-read value gets the one a Number of that magnitude gets.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the exact lane never looked at <c>[[Notation]]</c>, so a BigInt and a long numeric
+    /// string wrote a plain grouped decimal under every notation.
+    /// </remarks>
+    [Test]
+    public void AnExactValueTakesTheNotationTheFormatterWasGiven()
+    {
+        const string Scientific = "new Intl.NumberFormat('en-US', { notation: 'scientific' })";
+        Format(Scientific, "12345n").Should().Be("1.235E4").And.Be(Format(Scientific, "12345"));
+        Format(Scientific, "'987654321987654321'").Should().Be("9.877E17");
+
+        const string Compact = "new Intl.NumberFormat('en-US', { notation: 'compact' })";
+        Format(Compact, "12345n").Should().Be("12K").And.Be(Format(Compact, "12345"));
+
+        const string Engineering = "new Intl.NumberFormat('en-US', { notation: 'engineering' })";
+        Format(Engineering, "12345n").Should().Be(Format(Engineering, "12345"));
     }
 
     private string Format(string formatter, string value)
