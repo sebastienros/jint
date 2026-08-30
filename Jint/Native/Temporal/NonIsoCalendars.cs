@@ -20,7 +20,8 @@ namespace Jint.Native.Temporal;
 /// states why it cannot answer below 1, and each maximum taken from System.Globalization instead
 /// (Calendar.GetDaysInMonth, GetMonthsInYear, GetLeapMonth, IsLeapYear — all of which either answer 1
 /// or more or throw for a year outside the calendar's range) sits inside a try whose catch answers
-/// with a literal or with one of those helpers. What keeps all of it true is
+/// with a literal, with one of those helpers, or with the algorithmic reckoning the calendar's own
+/// field accessors read past the end of its table — never below 1. What keeps all of it true is
 /// Jint.Tests/Runtime/NonIsoCalendarTests.cs: 85,800 field combinations per overflow mode across all
 /// eleven calendars, every one of which has to come back as a date or as null rather than throw.
 /// </remarks>
@@ -189,21 +190,7 @@ internal static class NonIsoCalendars
             return iso is null ? null : new IsoDate(iso.Value.Year, iso.Value.Month, iso.Value.Day);
         }
 
-        var result = calendar switch
-        {
-            "chinese" => LunisolarDateToIso(ChineseCal, LunisolarRegion.China, year, monthCode, month, day, overflow),
-            "dangi" => LunisolarDateToIso(DangiCal, LunisolarRegion.Korea, year, monthCode, month, day, overflow),
-            "hebrew" => HebrewDateToIso(year, monthCode, month, day, overflow),
-            "persian" => PersianDateToIso(year, monthCode, month, day, overflow),
-            "coptic" => FixedEpochDateToIso(CopticEpochDays, 13, year, monthCode, month, day, overflow),
-            "ethiopic" => FixedEpochDateToIso(EthiopicEpochDays, 13, year, monthCode, month, day, overflow),
-            "ethioaa" => FixedEpochDateToIso(EthioAAEpochDays, 13, year, monthCode, month, day, overflow),
-            "indian" => IndianDateToIso(year, monthCode, month, day, overflow),
-            "islamic-umalqura" => IslamicUmalquraDateToIso(year, monthCode, month, day, overflow),
-            "islamic-civil" => IslamicCivilTabularDateToIso(year, monthCode, month, day, overflow, 1948439L),
-            "islamic-tbla" => IslamicCivilTabularDateToIso(year, monthCode, month, day, overflow, 1948438L),
-            _ => throw new NotSupportedException($"Calendar '{calendar}' not supported by NonIsoCalendars")
-        };
+        var result = BuiltinCalendarDateToIso(calendar, year, monthCode, month, day, overflow);
 
         // If calendar conversion failed (e.g., year out of .NET calendar range),
         // fall back to treating fields as ISO (best effort)
@@ -226,6 +213,35 @@ internal static class NonIsoCalendars
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// The engine's own reckoning of a calendar date, with no host provider consulted and no last-resort
+    /// ISO fallback: null means this calendar cannot place these fields, and says so.
+    /// </summary>
+    /// <remarks>
+    /// Each arm answers across the whole of Temporal's range, falling back past the end of whatever
+    /// <see cref="Calendar"/> backs it to a reckoning of its own — which is why
+    /// <see cref="CalendarDateAdd"/> can place a result the backing calendar declines by asking this
+    /// rather than by refusing.
+    /// </remarks>
+    private static IsoDate? BuiltinCalendarDateToIso(string calendar, int year, string? monthCode, int month, int day, string overflow)
+    {
+        return calendar switch
+        {
+            "chinese" => LunisolarDateToIso(ChineseCal, LunisolarRegion.China, year, monthCode, month, day, overflow),
+            "dangi" => LunisolarDateToIso(DangiCal, LunisolarRegion.Korea, year, monthCode, month, day, overflow),
+            "hebrew" => HebrewDateToIso(year, monthCode, month, day, overflow),
+            "persian" => PersianDateToIso(year, monthCode, month, day, overflow),
+            "coptic" => FixedEpochDateToIso(CopticEpochDays, 13, year, monthCode, month, day, overflow),
+            "ethiopic" => FixedEpochDateToIso(EthiopicEpochDays, 13, year, monthCode, month, day, overflow),
+            "ethioaa" => FixedEpochDateToIso(EthioAAEpochDays, 13, year, monthCode, month, day, overflow),
+            "indian" => IndianDateToIso(year, monthCode, month, day, overflow),
+            "islamic-umalqura" => IslamicUmalquraDateToIso(year, monthCode, month, day, overflow),
+            "islamic-civil" => IslamicCivilTabularDateToIso(year, monthCode, month, day, overflow, 1948439L),
+            "islamic-tbla" => IslamicCivilTabularDateToIso(year, monthCode, month, day, overflow, 1948438L),
+            _ => throw new NotSupportedException($"Calendar '{calendar}' not supported by NonIsoCalendars")
+        };
     }
 
     /// <summary>
@@ -376,6 +392,14 @@ internal static class NonIsoCalendars
     /// from being corrected in its field accessors and not in its arithmetic. The per-calendar
     /// implementations below answer for every calendar the provider leaves to the engine, so an engine
     /// that configures nothing reaches exactly the same one it always did.
+    /// <para>
+    /// The BCL arm asks its backing <see cref="Calendar"/> five things — a year's month count, its leap
+    /// month's ordinal, a monthCode's ordinal in that year, a month's length, and where a resolved
+    /// (year, ordinal, day) lands in ISO — and every one of them falls back to the same reckoning
+    /// <see cref="IsoToCalendarDate"/> and <see cref="BuiltinCalendarDateToIso"/> read past the end of
+    /// that calendar's table, so a date whose fields the engine reports is a date whose arithmetic the
+    /// engine performs (https://github.com/sebastienros/jint/issues/3483).
+    /// </para>
     /// </remarks>
     internal static IsoDate CalendarDateAdd(string calendar, in IsoDate isoDate, int years, int months, string overflow, Engine? engine = null)
     {
@@ -461,7 +485,7 @@ internal static class NonIsoCalendars
         }
 
         // Constrain day
-        var maxDay = GetDaysInMonthCal(cal, newYear, newOrdinalMonth);
+        var maxDay = GetDaysInMonthCal(calendar, cal, newYear, newOrdinalMonth);
         var newDay = calDate.Day;
         if (newDay > maxDay)
         {
@@ -481,19 +505,37 @@ internal static class NonIsoCalendars
         }
         catch (ArgumentOutOfRangeException)
         {
-            // The result lies outside the range the backing System.Globalization.Calendar represents.
-            // That is not the month-or-day overflow "constrain" is allowed to clamp -- there is no
-            // nearby valid date to clamp to, only the calendar's own boundary -- so both overflow modes
-            // report it. NonISODateAdd is implementation-defined and may throw
+            // The result lies outside the range the backing System.Globalization.Calendar represents --
+            // which is the end of a table, not the end of the calendar. The conversion this calls has a
+            // reckoning of its own for exactly those years, and it is the reckoning the field accessors
+            // already read the same date with, so placing the result there is what keeps one date from
+            // getting two verdicts (https://github.com/sebastienros/jint/issues/3483).
+            //
+            // BuiltinCalendarDateToIso rather than CalendarDateToIso: the latter's last-resort arm
+            // answers an unplaceable date with its fields read as ISO, which is a different calendar's
+            // answer wearing this one's name -- and, worse for the walk below, an answer whose progress
+            // says nothing about this calendar's.
+            var placed = BuiltinCalendarDateToIso(calendar, newYear, null, newOrdinalMonth, newDay, "constrain");
+            if (placed is not null)
+            {
+                return placed.Value;
+            }
+
+            // Nothing left that can place it: the reckoning declines for a year outside Temporal's own
+            // range, and there is no nearby valid date to clamp to, so both overflow modes report it.
+            // NonISODateAdd is implementation-defined and may throw
             // (https://tc39.es/proposal-temporal/#sec-temporal-nonisodateadd), and CalendarDateAdd
             // raises a RangeError for a result it cannot represent
             // (https://tc39.es/proposal-temporal/#sec-temporal-calendardateadd).
             //
-            // The clamp this replaced answered with the calendar's MaxSupportedDateTime for an
+            // The clamp both of these replaced answered with the calendar's MaxSupportedDateTime for an
             // underflow as well as an overflow, so subtracting a century from a chinese date moved it
             // forward to 2101-01-28 -- and, since every further step landed on that same date,
             // CalendarDateUntil's month walk below never passed its target and never returned
-            // (https://github.com/sebastienros/jint/issues/3428).
+            // (https://github.com/sebastienros/jint/issues/3428). What makes this arm safe where that
+            // clamp was not is that the reckoning it defers to is strictly monotone in (year, ordinal
+            // month), so a step still moves; CalendarDateUntil's no-progress guard stays as the
+            // structural backstop for a reckoning that saturates rather than progressing.
             throw new CalendarRangeException(calendar);
         }
     }
@@ -606,12 +648,25 @@ internal static class NonIsoCalendars
         {
             if (years != 0)
             {
-                // Whole-year skip estimate. How many months a year holds is the calendar's own answer, and
-                // for one only a provider knows nothing else here can give it, so the count the conversion
-                // already reported for the starting date's year is the guess — a guess, because the year
-                // beside it may hold one more or one fewer in a lunisolar calendar.
-                months = years * System.Math.Max(calOne.MonthsInYear, 1);
+                // Whole-year skip estimate, from the average month length the conversion already reported
+                // for the starting date's year. Multiplying the year span by that year's month count
+                // instead -- which is what this was -- drifts wherever a calendar's years do not all hold
+                // the same number of months: a lunisolar year holds twelve or thirteen, averaging 12.37, so
+                // starting from a thirteen-month year and walking a millennium overestimates by some 625
+                // months, every one of which the back-off loop below then steps off one at a time. The
+                // estimate only decides how long that walk is; the two loops decide the answer.
+                var monthsInYear = System.Math.Max(calOne.MonthsInYear, 1);
+                var averageMonthDays = System.Math.Max(calOne.DaysInYear, 1) / (double) monthsInYear;
+                months = (int) System.Math.Round((epochTwo - epochOne) / averageMonthDays);
+
+                // A provider free enough with its fields to report an average that puts the estimate on the
+                // wrong side of zero gets the old one, which at least has the sign of the walk.
+                if (System.Math.Sign(months) != sign)
+                {
+                    months = years * monthsInYear;
+                }
             }
+
             years = 0;
         }
 
@@ -690,7 +745,7 @@ internal static class NonIsoCalendars
             {
                 var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
                 if (ord <= 0) continue;
-                var dim = GetDaysInMonthCal(cal, y, ord);
+                var dim = GetDaysInMonthCal(calendar, cal, y, ord);
                 if (dim > maxSeen) maxSeen = dim;
             }
             catch
@@ -717,7 +772,7 @@ internal static class NonIsoCalendars
             {
                 var ord = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
                 if (ord <= 0) continue;
-                var dim = GetDaysInMonthCal(cal, y, ord);
+                var dim = GetDaysInMonthCal(calendar, cal, y, ord);
                 if (dim > maxSeen) maxSeen = dim;
             }
             catch
@@ -1150,7 +1205,7 @@ internal static class NonIsoCalendars
             try
             {
                 var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
-                var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                var maxDay = GetDaysInMonthCal(calendar, cal, y, ordinal);
                 if (day > maxDay)
                 {
                     continue; // day not valid in this year — skip in pass 1
@@ -1193,7 +1248,7 @@ internal static class NonIsoCalendars
                 try
                 {
                     var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
-                    var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                    var maxDay = GetDaysInMonthCal(calendar, cal, y, ordinal);
                     if (day > maxDay) continue;
                     var dt = cal.ToDateTime(y, ordinal, day, 0, 0, 0, 0);
                     if (dt.Ticks > upperBound && dt.Ticks < futureIsoTicks)
@@ -1235,7 +1290,7 @@ internal static class NonIsoCalendars
             try
             {
                 var ordinal = MonthCodeToOrdinal(calendar, cal, y, monthCode, "reject");
-                var maxDay = GetDaysInMonthCal(cal, y, ordinal);
+                var maxDay = GetDaysInMonthCal(calendar, cal, y, ordinal);
                 var clampedDay = System.Math.Min(day, maxDay);
                 var dt = cal.ToDateTime(y, ordinal, clampedDay, 0, 0, 0, 0);
                 if (dt.Ticks > upperBound)
@@ -1534,9 +1589,19 @@ internal static class NonIsoCalendars
         }
         catch
         {
-            return 0;
+            // Past the end of the table. Answering "no leap month" here is the same mistake as
+            // answering with ISO fields under the calendar's name: the reckoning the field accessors
+            // already use knows which month of this year is the leap one, so ask it.
+            var resolved = LunisolarAstronomy.ForYear(year, RegionOf(calendar));
+            return resolved is null ? 0 : resolved.LeapIndex + 1;
         }
     }
+
+    /// <summary>
+    /// The meridian a lunisolar calendar is reckoned at, for the two the engine implements.
+    /// </summary>
+    private static LunisolarRegion RegionOf(string calendar)
+        => string.Equals(calendar, "dangi", StringComparison.Ordinal) ? LunisolarRegion.Korea : LunisolarRegion.China;
 
     /// <summary>
     /// Gets the display month number of the leap month at the given ordinal.
@@ -1586,6 +1651,15 @@ internal static class NonIsoCalendars
                 return IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
             }
 
+            if (calendar is "chinese" or "dangi")
+            {
+                var resolved = LunisolarAstronomy.ForYear(year, RegionOf(calendar));
+                if (resolved is not null)
+                {
+                    return resolved.MonthCount;
+                }
+            }
+
             return 12;
         }
     }
@@ -1593,21 +1667,66 @@ internal static class NonIsoCalendars
     /// <summary>
     /// Gets the number of days in a calendar month.
     /// </summary>
-    private static int GetDaysInMonthCal(Calendar? cal, int year, int month)
+    /// <remarks>
+    /// A year past the end of the backing <see cref="Calendar"/> is answered by the same reckoning the
+    /// field accessors read that year with, rather than with a flat 30 — a month length is what decides
+    /// where <see cref="CalendarDateAdd"/> clamps the day, so a guessed one places the wrong date.
+    /// </remarks>
+    private static int GetDaysInMonthCal(string calendar, Calendar? cal, int year, int month)
     {
-        if (cal is null)
+        if (cal is not null)
         {
-            return 30; // fallback for calendars without .NET Calendar
+            try
+            {
+                return cal.GetDaysInMonth(year, month);
+            }
+            catch
+            {
+                // Past the end of the table; fall through to the reckoning below.
+            }
         }
 
-        try
+        return AlgorithmicDaysInMonth(calendar, year, month);
+    }
+
+    /// <summary>
+    /// The length of an ordinal month in a year no <see cref="Calendar"/> covers, from the same
+    /// algorithmic reckoning <see cref="IsoToCalendarDate"/> and <see cref="CalendarDateToIso"/> use
+    /// there. 30 is the last resort, for a calendar with no reckoning of its own and for an ordinal that
+    /// does not occur in the year at all.
+    /// </summary>
+    private static int AlgorithmicDaysInMonth(string calendar, int year, int ordinalMonth)
+    {
+        switch (calendar)
         {
-            return cal.GetDaysInMonth(year, month);
+            case "chinese":
+            case "dangi":
+                var resolved = LunisolarAstronomy.ForYear(year, RegionOf(calendar));
+                if (resolved is not null && ordinalMonth >= 1 && ordinalMonth <= resolved.MonthCount)
+                {
+                    return resolved.DaysInMonth(ordinalMonth);
+                }
+
+                break;
+
+            case "hebrew":
+                if (ordinalMonth >= 1 && ordinalMonth <= 13)
+                {
+                    return HebrewDaysInMonthOrdinal(year, ordinalMonth);
+                }
+
+                break;
+
+            case "persian":
+                if (ordinalMonth >= 1 && ordinalMonth <= 12)
+                {
+                    return PersianAlgorithmicDaysInMonth(year, ordinalMonth);
+                }
+
+                break;
         }
-        catch
-        {
-            return 30; // fallback
-        }
+
+        return 30;
     }
 
     #endregion
