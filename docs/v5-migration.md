@@ -2532,9 +2532,11 @@ without `?`. So the accessors have to answer, and `withCalendar` has no range to
 What answers now is the reckoning both calendars are defined by: months begin on the day of an
 astronomical new moon in the calendar's own time zone, the eleventh month is the one containing the winter
 solstice, and a year needing a thirteenth month takes it at the first month of its *sui* carrying no major
-solar term. It is a fallback, not a replacement — inside a table that table still answers, byte for byte —
-and it reproduces both tables exactly across every year over which they tabulate this calendar rather than
-an older one: `chinese` from 1929, `dangi` from 1912, to the end of each.
+solar term. It landed as a fallback rather than a replacement — inside a table that table still answered,
+byte for byte — and it reproduces both tables exactly across every year over which they tabulate this
+calendar rather than an older one: `chinese` from 1929, `dangi` from 1912, to the end of each. It is the
+replacement now, for the reason
+[4.71](#471-chinese-and-dangi-read-the-same-on-every-target-framework-3484) gives.
 
 **What could break:** anything reading `year`, `month`, `monthCode`, `day`, `dayOfYear`, `daysInMonth`,
 `daysInYear`, `monthsInYear` or `inLeapYear` off a `chinese` or `dangi` date outside those tables, and
@@ -3224,6 +3226,59 @@ astronomical reckoning keeps a process-wide cache of built years. Adding or subt
 still linear in the years crossed for `chinese`, `dangi` and `hebrew`, so
 `add({ months: 3000000 })` is seconds of work that no execution constraint interrupts; the six calendars
 with no backing calendar have always been closed-form there and are unaffected.
+
+### 4.71 `chinese` and `dangi` read the same on every target framework ([#3484](https://github.com/sebastienros/jint/issues/3484))
+
+The `chinese` and `dangi` calendars were read from `System.Globalization.ChineseLunisolarCalendar` and
+`KoreanLunisolarCalendar`, and **those are not the same table on every runtime**. So one script gave three
+answers:
+
+```js
+Temporal.PlainDate.from('1500-06-15').withCalendar('dangi').day;
+// 5.0:  net472 19   net8.0 9    net10.0 9
+// 5.x:  9 everywhere
+
+Temporal.PlainDate.from('2057-09-28').withCalendar('chinese').monthCode;
+// 5.0:  net472 "M08"  net8.0 "M09"  net10.0 "M08"
+// 5.x:  "M09" everywhere
+```
+
+Both calendars are now reckoned by the astronomical implementation
+[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451) added for the
+dates past the end of those tables, for **every** date rather than only for those. It is the same code on
+every runtime, and it is at least as accurate as the tables it replaces: measured against the Hong Kong
+Observatory's published conversion table over 1901–2100 (2,473 months), it names one month boundary
+differently, where .NET 8's table names none, .NET 10's one and .NET Framework's three. ICU — which is
+what every other JavaScript engine reckons these two calendars with — names fifteen, including the leap
+month of 1917, 1922 and 1987.
+
+**What could break:** any `chinese` or `dangi` value inside ISO 1901–2101 and 918–2051 respectively.
+Concretely, and this is the whole list for `chinese` across 1901–2100:
+
+| what moves | before | after |
+| --- | --- | --- |
+| 1906-04-24 | `M04` day 1 | `M04` day 2 |
+| 2057-09-28 | `M08` day 30 on `net472`/`net10.0`, `M09` day 1 on `net8.0` | `M09` day 1 |
+| 2089-09-04 | `M07` day 30 on `net472` | `M08` day 1 |
+| 2097-08-07 | `M06` day 30 on `net472` | `M07` day 1 |
+
+`dangi` from 1912 does not move at all on any runtime — the reckoning reproduces the modern Korean
+calendar exactly, all 1,720 months of it from 1912 to 2051. Before 1912 it moves: on `net472` it moves a
+great deal, because that runtime's `KoreanLunisolarCalendar` puts 8,225 of its 8,447 month starts before
+1600 more than two days away from a new moon, a median of 7.2 days out. On .NET Core it moves for about
+one month start in twenty after 1300 and more often before it, where that table records a calendar
+computed by pre-modern methods that no modern reckoning reproduces — the same trade every other engine
+makes, none of which carries such a table either.
+
+`Intl.DateTimeFormat` with `-u-ca-chinese` or `-u-ca-dangi` moves with it, and gains one thing besides: a
+date outside the retired tables used to be **clamped** to the table's own first or last date and formatted
+as that, so 1800-01-01 printed as the Chinese new year of 1901. It now prints the date asked for, and
+agrees with `Temporal` field for field.
+
+**Performance.** Reading the six calendar fields off dates in one year, 100 times, is about twice as fast
+as it was — a per-thread cache of built years serves more than the single entry it replaces. Reading them
+off a hundred *different* years costs six to fourteen times more than the table lookup did, since each
+fresh year is a dozen new moons and two solstice searches to build.
 
 ## 5. New in v5
 

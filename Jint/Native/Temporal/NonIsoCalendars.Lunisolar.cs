@@ -44,21 +44,28 @@ internal sealed class LunisolarYear
 }
 
 /// <summary>
-/// The astronomical reckoning behind the Chinese and Korean lunisolar calendars, used where
-/// <see cref="System.Globalization.ChineseLunisolarCalendar"/> and
-/// <see cref="System.Globalization.KoreanLunisolarCalendar"/> stop.
+/// The astronomical reckoning behind the Chinese and Korean lunisolar calendars, and the only thing that
+/// answers for either of them.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The two BCL classes are tables, and short ones: <c>ChineseLunisolarCalendar</c> spans ISO 1901-02-19 to
-/// 2101-01-28 and <c>KoreanLunisolarCalendar</c> 918-02-19 to 2051-02-10, while
-/// <c>Temporal.PlainDate</c> spans ±10<sup>8</sup> days. Outside the table the engine used to answer with
-/// the ISO year, <c>M{isoMonth}</c> and twelve months a year — Gregorian fields wearing a lunisolar label
-/// (<see href="https://github.com/sebastienros/jint/issues/3451"/>). It cannot refuse instead:
+/// <see cref="System.Globalization.ChineseLunisolarCalendar"/> and
+/// <see cref="System.Globalization.KoreanLunisolarCalendar"/> are tables, and short ones: ISO 1901-02-19
+/// to 2101-01-28 and 918-02-19 to 2051-02-10, while <c>Temporal.PlainDate</c> spans ±10<sup>8</sup> days.
+/// Outside them the engine used to answer with the ISO year, <c>M{isoMonth}</c> and twelve months a year —
+/// Gregorian fields wearing a lunisolar label (<see href="https://github.com/sebastienros/jint/issues/3451"/>).
+/// It cannot refuse instead:
 /// <see href="https://tc39.es/proposal-temporal/#sec-temporal-nonisocalendarisotodate">NonISOCalendarISOToDate</see>
 /// is declared as returning <em>a Calendar Date Record</em>, with no throw completion, and
 /// <c>get PlainDate.prototype.monthCode</c> reads it without <c>?</c>. So it has to answer, and the answer
 /// has to be the calendar.
+/// </para>
+/// <para>
+/// Nor are those two tables the same table on every target framework, which is why nothing reads them any
+/// more: <c>ChineseLunisolarCalendar</c> read 2057-09-28 as 2057/9/1 on .NET 8 and as 2057/8/30 on .NET
+/// Framework 4.8 and .NET 10, and .NET Framework's <c>KoreanLunisolarCalendar</c> put 8,225 of its 8,447
+/// month starts before 1600 more than two days from a new moon
+/// (<see href="https://github.com/sebastienros/jint/issues/3484"/>).
 /// </para>
 /// <para>
 /// What is implemented is the reckoning both calendars are actually defined by: months begin on the day of
@@ -66,8 +73,9 @@ internal sealed class LunisolarYear
 /// winter solstice, and a year that needs a thirteenth month takes it at the first month carrying no major
 /// solar term. The solar-longitude, new-moon and ephemeris-correction series are Reingold and Dershowitz,
 /// <em>Calendrical Calculations</em> (4th ed.), §14.4 and §19.4 — the same body of algorithms ICU reckons
-/// these calendars with. It is a fallback, not a replacement: inside a BCL calendar's range that table
-/// still answers, and <see cref="NonIsoCalendars"/> only reaches this file outside it.
+/// these calendars with. Measured against the Hong Kong Observatory's published conversion table over
+/// 1901–2100, it names one of 2,473 month boundaries differently, where the three BCL tables name none,
+/// one and three, and ICU fifteen.
 /// </para>
 /// <para>
 /// <b>Every search here is bounded.</b> The series are polynomials in centuries from J2000, and a quarter
@@ -110,14 +118,15 @@ internal static class LunisolarAstronomy
 
     /// <summary>
     /// How many built years each calendar keeps. A power of two, so the slot is a mask rather than a
-    /// division, and wide enough that the centuries a script actually walks stay resident.
+    /// division, and wide enough to hold the ±75-year window <c>FindReferenceYear</c> sweeps for a
+    /// <c>PlainMonthDay</c> without a year evicting another: 151 consecutive years map to 151 slots.
     /// </summary>
     /// <remarks>
     /// A year costs a dozen new moons and a pair of solstice searches to build, and reading one date's
     /// fields asks for the same year once per accessor, so the first tier is what makes reading a date
     /// cost one build rather than six. The second is what makes a month-by-month difference walk
-    /// affordable now that one past the end of a table is answered rather than refused: measuring
-    /// 2050-01-01 to 2300-01-03 in months steps through 250 lunisolar years some three thousand times.
+    /// affordable: measuring 2050-01-01 to 2300-01-03 in months steps through 250 lunisolar years some
+    /// three thousand times.
     /// </remarks>
     private const int YearCacheSize = 256;
 

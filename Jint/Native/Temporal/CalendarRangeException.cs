@@ -5,12 +5,12 @@ namespace Jint.Native.Temporal;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Jint reckons the eleven non-ISO calendars with <see cref="System.Globalization.Calendar"/> classes and
-/// with fixed-epoch arithmetic, and several of those classes cover far less than Temporal's own date
-/// range: <c>ChineseLunisolarCalendar</c> spans ISO 1901-02-19 to 2101-01-28, <c>HebrewCalendar</c>
-/// 1583-01-01 to 2239-09-29. The end of one of those is <em>not</em> what this reports: each of the four
-/// has a reckoning of its own past it, the same one its field accessors read, and the arithmetic asks it
-/// rather than refusing. What is left is a step past Temporal's own range, which no reckoning can place.
+/// Jint reckons the eleven non-ISO calendars with <see cref="System.Globalization.Calendar"/> classes,
+/// with fixed-epoch arithmetic and with astronomy, and the calendar classes cover far less than Temporal's
+/// own date range: <c>HebrewCalendar</c> spans ISO 1583-01-01 to 2239-09-29, <c>PersianCalendar</c> from
+/// 622. The end of one of those is <em>not</em> what this reports: each calendar has a reckoning of its
+/// own past it, the same one its field accessors read, and the arithmetic asks it rather than refusing.
+/// What is left is a step past Temporal's own range, which no reckoning can place.
 /// </para>
 /// <para>
 /// What used to be answered there was the calendar's <em>maximum</em> supported date, whichever end had

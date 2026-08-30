@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.Native.Temporal;
 
 namespace Jint.Native.Intl;
 
@@ -9,16 +10,6 @@ namespace Jint.Native.Intl;
 /// </summary>
 internal static class ChineseCalendarHelper
 {
-    // Lazy initialization to avoid startup overhead when Chinese calendar is not used
-    private static ChineseLunisolarCalendar? _chineseCalendar;
-    private static KoreanLunisolarCalendar? _koreanCalendar;
-
-    private static ChineseLunisolarCalendar ChineseCalendar =>
-        _chineseCalendar ??= new ChineseLunisolarCalendar();
-
-    private static KoreanLunisolarCalendar KoreanCalendar =>
-        _koreanCalendar ??= new KoreanLunisolarCalendar();
-
     /// <summary>
     /// The 10 Heavenly Stems (天干 Tiāngān) in Chinese characters.
     /// Used as part of the 60-year sexagenary cycle.
@@ -64,7 +55,7 @@ internal static class ChineseCalendarHelper
     /// <returns>Chinese calendar date information including related year, year name, month, and day.</returns>
     public static ChineseCalendarDate GetChineseDate(DateTime dateTime)
     {
-        return GetLunisolarDate(dateTime, ChineseCalendar, isDangi: false);
+        return GetLunisolarDate(dateTime, "chinese");
     }
 
     /// <summary>
@@ -75,54 +66,51 @@ internal static class ChineseCalendarHelper
     /// <returns>Dangi calendar date information including related year, year name, month, and day.</returns>
     public static ChineseCalendarDate GetDangiDate(DateTime dateTime)
     {
-        return GetLunisolarDate(dateTime, KoreanCalendar, isDangi: true);
+        return GetLunisolarDate(dateTime, "dangi");
     }
 
-    private static ChineseCalendarDate GetLunisolarDate(DateTime dateTime, EastAsianLunisolarCalendar calendar, bool isDangi)
+    /// <summary>
+    /// The lunisolar fields of a date, read through the same conversion <c>Temporal</c> reads, so the two
+    /// name the same day.
+    /// </summary>
+    /// <remarks>
+    /// This used to read <c>ChineseLunisolarCalendar</c> and <c>KoreanLunisolarCalendar</c> directly, and
+    /// to clamp a date outside their span to the table's own first or last date and report that instead —
+    /// so 1800-01-01 formatted as the Chinese new year of 1901. Those tables are also not the same table
+    /// on every target framework (https://github.com/sebastienros/jint/issues/3484).
+    /// </remarks>
+    private static ChineseCalendarDate GetLunisolarDate(DateTime dateTime, string calendar)
     {
-        // Clamp to supported range
-        var minDate = calendar.MinSupportedDateTime;
-        var maxDate = calendar.MaxSupportedDateTime;
+        var fields = NonIsoCalendars.IsoToCalendarDate(calendar, new IsoDate(dateTime.Year, dateTime.Month, dateTime.Day));
 
-        if (dateTime < minDate)
+        // The month code is M plus the display month, with an L for a leap month; a leap month carries the
+        // display number of the month it follows, which is what Intl renders as "4bis".
+        var displayMonth = int.Parse(
+            fields.MonthCode.AsSpan(1, 2),
+            NumberStyles.None,
+            CultureInfo.InvariantCulture);
+
+        return new ChineseCalendarDate(
+            fields.Year,
+            GetSexagenaryYearName(SexagenaryYearOf(fields.Year)),
+            displayMonth,
+            fields.Day,
+            fields.IsLeapMonth);
+    }
+
+    /// <summary>
+    /// The 1-to-60 position of a lunisolar year in the sexagenary cycle. 1984 is 甲子, position 1, which
+    /// is the anchor <c>EastAsianLunisolarCalendar.GetSexagenaryYear</c> counts from too.
+    /// </summary>
+    private static int SexagenaryYearOf(int relatedYear)
+    {
+        var position = (relatedYear - 3) % 60;
+        if (position <= 0)
         {
-            dateTime = minDate;
-        }
-        else if (dateTime > maxDate)
-        {
-            dateTime = maxDate;
-        }
-
-        var year = calendar.GetYear(dateTime);
-        var month = calendar.GetMonth(dateTime);
-        var day = calendar.GetDayOfMonth(dateTime);
-
-        // Check if this is a leap month
-        var leapMonth = calendar.GetLeapMonth(year);
-        var isLeapMonth = leapMonth > 0 && month == leapMonth;
-
-        // Adjust month number for display (leap month has same number as previous month)
-        var displayMonth = month;
-        if (leapMonth > 0 && month >= leapMonth)
-        {
-            // If we're in or past the leap month, adjust the month number
-            displayMonth = month - 1;
-            if (month == leapMonth)
-            {
-                isLeapMonth = true;
-            }
+            position += 60;
         }
 
-        // The year from both ChineseLunisolarCalendar and KoreanLunisolarCalendar
-        // is already the Gregorian-aligned "related year" (the Gregorian year that mostly
-        // contains this lunar year). No offset adjustment is needed for either calendar.
-        var relatedYear = year;
-
-        // Get the sexagenary cycle year name (干支)
-        var sexagenaryYear = calendar.GetSexagenaryYear(dateTime);
-        var yearName = GetSexagenaryYearName(sexagenaryYear);
-
-        return new ChineseCalendarDate(relatedYear, yearName, displayMonth, day, isLeapMonth);
+        return position;
     }
 
     /// <summary>
