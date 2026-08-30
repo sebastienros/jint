@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 namespace Jint.Tests.Runtime;
 
@@ -38,6 +38,11 @@ public class IntlNumberFormatPartsTests
         "{ style: 'percent' }",
         "{ style: 'currency', currency: 'USD' }",
         "{ style: 'currency', currency: 'EUR', currencyDisplay: 'name' }",
+        // an explicit fraction-digit count on a currency, which is the pair of digit counts
+        // https://tc39.es/ecma402/#sec-torawfixed rounds at and trims to
+        "{ style: 'currency', currency: 'USD', maximumFractionDigits: 0 }",
+        "{ style: 'currency', currency: 'USD', minimumFractionDigits: 1 }",
+        "{ style: 'currency', currency: 'EUR', minimumFractionDigits: 3, maximumFractionDigits: 4 }",
         "{ style: 'unit', unit: 'meter' }",
         "{ style: 'unit', unit: 'kilometer-per-hour', unitDisplay: 'long' }",
         "{ notation: 'scientific' }",
@@ -202,6 +207,62 @@ public class IntlNumberFormatPartsTests
             .AsString().Should().Be(expected, "formatRange writes the collapsed range");
         _engine.Evaluate($"{formatter}.formatRangeToParts({operands}).map(function (p) {{ return p.value; }}).join('')")
             .AsString().Should().Be(expected, "formatRangeToParts carries the same collapse");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-torawfixed rounds at <c>maximumFractionDigits</c> and then removes up
+    /// to <c>maximumFractionDigits - minimumFractionDigits</c> trailing zeros. Both lanes read the same two
+    /// numbers, so a currency told to write no fraction rounds rather than truncates.
+    /// </summary>
+    [Test]
+    public void ACurrencyRoundsAtTheFractionDigitsItWasGiven()
+    {
+        const string NoFraction =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })";
+        Format(NoFraction, "2.9").Should().Be("$3");
+        Join(NoFraction, "2.9").Should().Be("$3");
+        Parts(NoFraction, "2.9").Should().Be(
+            """[{"type":"currency","value":"$"},{"type":"integer","value":"3"}]""");
+
+        Format(NoFraction, "0.5").Should().Be("$1");
+        Join(NoFraction, "0.5").Should().Be("$1");
+        Format(NoFraction, "1234.567").Should().Be("$1,235");
+        Join(NoFraction, "1234.567").Should().Be("$1,235");
+
+        // a currency whose own default is already zero reaches the same rounding without being asked
+        const string Yen = "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'JPY' })";
+        Format(Yen, "2.9").Should().Be("¥3");
+        Join(Yen, "2.9").Should().Be("¥3");
+    }
+
+    /// <summary>
+    /// ToRawFixed's last two steps are the trim: a currency whose two digit counts differ writes the
+    /// narrower one when the wider one would only be zeros.
+    /// </summary>
+    [Test]
+    public void ACurrencyTrimsItsFractionDownToTheMinimum()
+    {
+        const string OneDigit =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 1 })";
+        Format(OneDigit, "0.4").Should().Be("$0.4");
+        Join(OneDigit, "0.4").Should().Be("$0.4");
+        Format(OneDigit, "0.45").Should().Be("$0.45");
+        Join(OneDigit, "0.45").Should().Be("$0.45");
+
+        // minimumFractionDigits 0 lets the whole fraction go, decimal separator included
+        const string NoMinimum =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })";
+        Format(NoMinimum, "2").Should().Be("$2");
+        Join(NoMinimum, "2").Should().Be("$2");
+        Format(NoMinimum, "2.5").Should().Be("$2.5");
+        Join(NoMinimum, "2.5").Should().Be("$2.5");
+
+        const string Wide =
+            "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 3, maximumFractionDigits: 4 })";
+        Format(Wide, "2.9").Should().Be("$2.900");
+        Join(Wide, "2.9").Should().Be("$2.900");
+        Format(Wide, "2.98765").Should().Be("$2.9877");
+        Join(Wide, "2.98765").Should().Be("$2.9877");
     }
 
     /// <summary>
