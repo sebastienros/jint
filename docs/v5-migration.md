@@ -3315,6 +3315,41 @@ that quietly dropped yields now emits them, so a host that had pinned the old co
 assertion sees it change to the count every other engine reports. `staging/sm/generators/delegating-yield-9.js`
 leaves the test262 exclusion list with this.
 
+### 4.73 A `@@species` constructor is handed the length `ToLength` produced ([#3505](https://github.com/sebastienros/jint/issues/3505))
+
+`Array.prototype.map` and `Array.prototype.slice` checked the source's length against the 2^32-1 array limit
+themselves and raised `RangeError` before calling
+[ArraySpeciesCreate](https://tc39.es/ecma262/#sec-arrayspeciescreate). Neither algorithm has that step: the
+`RangeError` belongs to [ArrayCreate](https://tc39.es/ecma262/#sec-arraycreate), which ArraySpeciesCreate
+reaches only when nothing answered for `@@species`. A host or a script that supplied one never saw its
+constructor called, even though the length it was entitled to receive — `ToLength` clamps to 2^53-1 and never
+truncates — is a perfectly ordinary argument for a constructor that is not `Array`.
+
+```js
+var proxy = new Proxy([], {
+    get(target, property) {
+        if (property === "length") return Infinity;
+        function fake(length) { throw length; }
+        fake[Symbol.species] = fake;
+        return fake;
+    }
+});
+
+// 4.16.x / earlier 5.0: RangeError: Invalid array length
+// 5.x:                  9007199254740991, thrown by the species constructor
+try { Array.prototype.map.call(proxy, () => {}); } catch (e) { e; }
+```
+
+`filter`, `splice`, `concat`, `flat` and `flatMap` create their result with a length of 0 and already behaved
+this way, so the two that did not are the whole change. The five other array generics
+`staging/sm/Array/to-length.js` exercises — `indexOf`, `every`, `fill` and the rest — were already correct;
+that file leaves the test262 exclusion list with this.
+
+**What could break:** a `RangeError` that used to arrive from `map` or `slice` now arrives from whatever the
+`@@species` constructor does, which for the default case — no species, so ArrayCreate — is still a
+`RangeError`, with the length appended to its message. Only a receiver that actually supplies a species
+constructor changes shape, and there the old behaviour was refusing to call code the specification requires
+be called.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
