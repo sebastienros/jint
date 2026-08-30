@@ -1,3 +1,5 @@
+﻿using System.Threading;
+
 namespace Jint.Native.Temporal;
 
 /// <summary>
@@ -106,26 +108,69 @@ internal static class LunisolarAstronomy
     private static readonly long _koreaZoneChange1961 = TemporalHelpers.IsoDateToDays(1961, 8, 10);
     private static readonly long _daysTo1900 = TemporalHelpers.IsoDateToDays(1900, 1, 1);
 
-    // Reading a date's fields asks for the same year once per accessor, and a year costs a dozen new
-    // moons and a pair of solstice searches to build. One entry per calendar is enough for that, and
-    // [ThreadStatic] is what makes it safe without a lock: the value is a pure function of the year, so
-    // two threads computing it separately compute the same thing, and neither can see the other's
-    // half-written object. Nothing engine-affine goes in here.
+    /// <summary>
+    /// How many built years each calendar keeps. A power of two, so the slot is a mask rather than a
+    /// division, and wide enough that the centuries a script actually walks stay resident.
+    /// </summary>
+    /// <remarks>
+    /// A year costs a dozen new moons and a pair of solstice searches to build, and reading one date's
+    /// fields asks for the same year once per accessor, so the first tier is what makes reading a date
+    /// cost one build rather than six. The second is what makes a month-by-month difference walk
+    /// affordable now that one past the end of a table is answered rather than refused: measuring
+    /// 2050-01-01 to 2300-01-03 in months steps through 250 lunisolar years some three thousand times.
+    /// </remarks>
+    private const int YearCacheSize = 256;
+
+    // _lastChina / _lastKorea are the first tier and answer the common shape on their own: reading a run
+    // of dates asks for the same year over and over. They are [ThreadStatic] because they need no
+    // synchronisation at all that way.
     [ThreadStatic]
-    private static LunisolarYear? _memoChina;
+    private static LunisolarYear? _lastChina;
 
     [ThreadStatic]
-    private static LunisolarYear? _memoKorea;
+    private static LunisolarYear? _lastKorea;
+
+    // The second tier is shared, because a LunisolarYear is a pure function of its year and region --
+    // two threads building one separately build the same thing, and nothing engine-affine goes in here.
+    // Volatile.Write publishes it: every field of the year is written before the reference is, and the
+    // Volatile.Read below is the matching acquire, so no thread can observe a half-built one. A slot lost
+    // to a race costs a rebuild and nothing else.
+    private static readonly LunisolarYear?[] _cacheChina = new LunisolarYear?[YearCacheSize];
+
+    private static readonly LunisolarYear?[] _cacheKorea = new LunisolarYear?[YearCacheSize];
+
+    private static LunisolarYear?[] CacheFor(LunisolarRegion region)
+        => region == LunisolarRegion.China ? _cacheChina : _cacheKorea;
+
+    /// <summary>The cached year, or null when it has not been built.</summary>
+    private static LunisolarYear? Cached(int year, LunisolarRegion region)
+    {
+        var entry = Volatile.Read(ref CacheFor(region)[year & (YearCacheSize - 1)]);
+        return entry is not null && entry.Year == year ? entry : null;
+    }
 
     /// <summary>
     /// The lunisolar year containing <paramref name="days"/> (days since 1970-01-01).
     /// </summary>
     internal static LunisolarYear ForFixed(long days, LunisolarRegion region)
     {
-        var memo = region == LunisolarRegion.China ? _memoChina : _memoKorea;
-        if (memo is not null && days >= memo.Start && days < memo.MonthStarts[memo.MonthCount])
+        var last = region == LunisolarRegion.China ? _lastChina : _lastKorea;
+        if (last is not null && days >= last.Start && days < last.MonthStarts[last.MonthCount])
         {
-            return memo;
+            return last;
+        }
+
+        // A lunisolar year carries the number of the Gregorian year it mostly falls in, and begins in that
+        // year's first two months, so the year holding a date is that Gregorian year or the one before.
+        // The range check is what makes a hit a hit; the slot lookup only narrows the two candidates.
+        var gregorian = GregorianYearOf(days);
+        for (var candidate = gregorian; candidate >= gregorian - 1; candidate--)
+        {
+            var memo = Cached(candidate, region);
+            if (memo is not null && days >= memo.Start && days < memo.MonthStarts[memo.MonthCount])
+            {
+                return Remember(memo, region);
+            }
         }
 
         return Remember(Build(NewYearOnOrBefore(days, region), region), region);
@@ -138,10 +183,16 @@ internal static class LunisolarAstronomy
     /// </summary>
     internal static LunisolarYear? ForYear(int year, LunisolarRegion region)
     {
-        var memo = region == LunisolarRegion.China ? _memoChina : _memoKorea;
-        if (memo is not null && memo.Year == year)
+        var last = region == LunisolarRegion.China ? _lastChina : _lastKorea;
+        if (last is not null && last.Year == year)
         {
-            return memo;
+            return last;
+        }
+
+        var memo = Cached(year, region);
+        if (memo is not null)
+        {
+            return Remember(memo, region);
         }
 
         // A related Gregorian year outside Temporal's own ISO range cannot name a representable date
@@ -178,13 +229,15 @@ internal static class LunisolarAstronomy
 
     private static LunisolarYear Remember(LunisolarYear year, LunisolarRegion region)
     {
+        Volatile.Write(ref CacheFor(region)[year.Year & (YearCacheSize - 1)], year);
+
         if (region == LunisolarRegion.China)
         {
-            _memoChina = year;
+            _lastChina = year;
         }
         else
         {
-            _memoKorea = year;
+            _lastKorea = year;
         }
 
         return year;

@@ -2549,16 +2549,16 @@ Two consequences worth naming:
   reports month 13 for 1189-01-09 and reports the year holding it as having no leap month, so
   `GetDaysInMonth` refuses the month `GetMonth` just named; the date used to come back as ISO fields for
   that reason rather than for being out of range.
-- **Arithmetic past a table's end still refuses**, unchanged from
+- **Arithmetic past a table's end refused when this landed**, unchanged from
   [4.44](#444-calendar-arithmetic-is-answered-by-whoever-answers-for-the-calendar-3403) and
-  [#3452](https://github.com/sebastienros/jint/pull/3452): `add`, `subtract`, `until` and `since` are
-  written against the BCL calendar directly, and a result it cannot represent is still a `RangeError`.
-  That is the same split `hebrew` and `persian` have always had — fields reckoned, arithmetic refused.
-  What does change is the **provider** path: §4.44 said a provider claiming `chinese` walks the two
-  conversions and so answers `1849-11-13` where a default engine raises `RangeError`, because those
-  conversions fell back to ISO-like fields. They no longer do, so that walk is now the Chinese calendar
-  rather than an ISO one wearing its name; the two paths still part in kind, but the answering one is no
-  longer wrong.
+  [#3452](https://github.com/sebastienros/jint/pull/3452): `add`, `subtract`, `until` and `since` were
+  written against the BCL calendar directly, and a result it could not represent was a `RangeError` —
+  the same split `hebrew` and `persian` had always had, fields reckoned and arithmetic refused. That
+  split is what [4.70](#470-a-date-a-calendar-reports-fields-for-is-a-date-it-reckons-arithmetic-in-3483)
+  closes; the note stays because it is the reason the **provider** path changed here too. §4.44 said a
+  provider claiming `chinese` walks the two conversions and so answers `1849-11-13` where a default
+  engine raised `RangeError`, because those conversions fell back to ISO-like fields. They no longer do,
+  so that walk is the Chinese calendar rather than an ISO one wearing its name.
 
 Far past either table the series the reckoning is built on lose accuracy — beyond roughly ±70,000 years a
 month can come back at 28 or 31 days — which is what implementation-defined permits and what every engine
@@ -3166,6 +3166,64 @@ over a fraction) still takes the double, and now takes it in **both** lanes rath
 more digits, and of a decimal string carrying more than 16 significant digits. Each of those used to throw
 or to write a rounded number, and now writes what its own `format` writes. Nothing that passed a Number
 moves.
+
+### 4.70 A date a calendar reports fields for is a date it reckons arithmetic in ([#3483](https://github.com/sebastienros/jint/issues/3483))
+
+Four calendars are backed by a `System.Globalization.Calendar` that covers less than Temporal's range:
+`hebrew` (ISO 1583-01-01 to 2239-09-29), `persian` (from 622), `chinese` (1901–2101) and `dangi`
+(918–2051). Their field accessors have long answered past those bounds from a reckoning of the calendar's
+own — algorithmic for `hebrew` and `persian`, astronomical for the other two since
+[4.50](#450-a-date-past-a-lunisolar-calendars-table-is-still-reckoned-in-that-calendar-3451). Their
+arithmetic did not: it read the backing calendar directly and turned its refusal into a `RangeError`.
+
+```js
+const d = Temporal.PlainDate.from('1500-06-15').withCalendar('hebrew');
+d.year;               // 5260, in both
+d.monthCode;          // "M10", in both
+d.add({ days: 1 });   // answers in both -- days are added as ISO days
+d.add({ months: 1 }); // 5.0: RangeError   5.x: 1500-07-14[u-ca=hebrew]
+
+Temporal.PlainDate.from('1950-01-01').withCalendar('chinese').subtract({ years: 100 });
+// 5.0: RangeError   5.x: 1849-12-26[u-ca=chinese]
+```
+
+The five things the walk asks the backing calendar — how many months a year holds, which of them is the
+leap one, where a monthCode sits in a given year, how long a month is, and where a resolved
+(year, month, day) lands in ISO — now come from the same conversions the accessors read, for exactly the
+years the backing calendar declines. All eleven non-ISO calendars therefore measure and add across the
+whole of Temporal's range.
+
+**What could break:** code that treated the `RangeError` as the boundary of what the engine could reckon
+— a `catch` that fell back to `iso8601`, or a range check written against
+`ChineseLunisolarCalendar.MaxSupportedDateTime`. Those dates now produce a date. Nothing inside a backing
+calendar's range moves: the tables still answer there, and `add`/`until` still agree with each other and
+with `PlainDate.from({ calendar, year, monthCode, day })` everywhere.
+
+**What still refuses.** Temporal's own range does end, and past it `RangeError` is still the answer:
+
+```js
+Temporal.PlainDate.from('2000-01-01').withCalendar('chinese').add({ years: 300000 }); // RangeError
+```
+
+That refusal is what [`NonISODateAdd`](https://tc39.es/proposal-temporal/#sec-temporal-nonisodateadd)
+permits — it is declared as returning "either a normal completion containing an ISO Date Record or a throw
+completion", which is what let [#3452](https://github.com/sebastienros/jint/pull/3452) make out-of-range
+arithmetic a `RangeError` in the first place. The end of a *table* was never that boundary, though, and
+the difference walk that [#3428](https://github.com/sebastienros/jint/issues/3428) hung in stays bounded:
+the reckoning that now places these results is strictly monotone in (year, ordinal month), so every step
+of the walk moves, and `CalendarDateUntil`'s no-progress guard stays as the structural guarantee against
+one that saturates.
+
+**What it costs.** A difference these calendars used to refuse is now walked, and walking is not free.
+`until` with `largestUnit: 'month'` across 250 years of `chinese` takes about 190 ms; across 990 years,
+about 1.9 s. Two things keep that from being far worse: the whole-year estimate the walk starts from is
+now the average month length the calendar reports rather than the starting year's month count, which does
+not drift over a millennium — starting from a thirteen-month lunisolar year and walking one used to
+overshoot by some 625 months, every one of which the walk then stepped off one at a time — and the
+astronomical reckoning keeps a process-wide cache of built years. Adding or subtracting months in bulk is
+still linear in the years crossed for `chinese`, `dangi` and `hebrew`, so
+`add({ months: 3000000 })` is seconds of work that no execution constraint interrupts; the six calendars
+with no backing calendar have always been closed-form there and are unaffected.
 
 ## 5. New in v5
 
