@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-08-30
-anchors: 1240
+anchors: 1242
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -864,6 +864,7 @@ ecma402 sec-formatdatetime
 ecma402 sec-formatdatetimepattern
 ecma402 sec-formatdatetimetoparts
 ecma402 sec-formatnumber
+ecma402 sec-formatnumberstring
 ecma402 sec-formatnumbertoparts
 ecma402 sec-formatnumerichours
 ecma402 sec-formatnumericminutes
@@ -935,6 +936,7 @@ ecma402 sec-segments-objects
 ecma402 sec-the-intl-collator-constructor
 ecma402 sec-tointlmathematicalvalue
 ecma402 sec-torawfixed
+ecma402 sec-torawprecision
 ecma402 segmenter-objects
 ecma402 sup-String.prototype.localeCompare
 ecma402 sup-bigint.prototype.tolocalestring

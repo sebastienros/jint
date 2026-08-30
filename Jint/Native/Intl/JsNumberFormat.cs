@@ -849,6 +849,14 @@ internal sealed class JsNumberFormat : ObjectInstance
             return value;
         }
 
+        // A double from 2^53 up carries no fraction at all, so rounding one is the identity — and
+        // scaling it by a power of ten to round it is not, since the product is past what a double
+        // holds exactly: 1e21 came back as 999999999999999900000.
+        if (decimalPlaces > 0 && System.Math.Abs(value) >= 9007199254740992d)
+        {
+            return value;
+        }
+
         var multiplier = System.Math.Pow(10, decimalPlaces);
         var scaled = value * multiplier;
 
@@ -973,9 +981,12 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// double first. One answer, read by both lanes, so neither can format a value the other approximated.
     /// </summary>
     /// <remarks>
-    /// The exact lane covers a plain decimal number in every configuration, and the three scaled styles
-    /// only for a whole one: scaling a fraction, a notation's mantissa, and significant-digit rounding of a
-    /// fraction each need arithmetic the exact carrier does not do yet, and take the double.
+    /// The exact lane covers the standard notation in every style, and only there: a notation writes a
+    /// scaled mantissa or an abbreviation, https://tc39.es/ecma402/#sec-partitionnotationsubpattern picks
+    /// it from the value's own magnitude, and the exact carrier does not do that arithmetic — so a value
+    /// this lane would otherwise keep whole takes the double instead, and gets the exponent the same
+    /// formatter writes for a Number. Scaling a fraction, and rounding one to significant digits, are the
+    /// other two cases it hands over.
     /// </remarks>
     private bool CanPartitionExactly(in IntlMathematicalValue value)
     {
@@ -984,14 +995,19 @@ internal sealed class JsNumberFormat : ObjectInstance
             return false;
         }
 
+        if (!string.Equals(Notation, "standard", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // Significant-digit rounding under a scaled style, and scaling a fraction at all, are the two
+        // pieces of arithmetic the exact carrier does not do yet.
         var significantDigits = MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue;
         var scaledStyle = Style is "currency" or "percent" or "unit";
 
         if (value.FractionDigits > 0)
         {
-            return !scaledStyle
-                && !significantDigits
-                && string.Equals(Notation, "standard", StringComparison.Ordinal);
+            return !scaledStyle && !significantDigits;
         }
 
         return !significantDigits || !scaledStyle;
@@ -1001,11 +1017,22 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// https://tc39.es/ecma402/#sec-partitionnumberpattern over an exact
     /// mantissa × 10^-<paramref name="fractionDigits"/>.
     /// </summary>
+    /// <remarks>
+    /// The value's digits are the only thing this lane owns. Everything written around them — the currency
+    /// pattern https://tc39.es/ecma402/#sec-getnumberformatpattern selects, its accounting form, the unit's
+    /// two affixes, the percent sign and the sign itself — is the same pattern walk a
+    /// <see cref="double"/> takes, so a value read exactly cannot be dressed differently from the value a
+    /// Number of the same size is dressed in.
+    /// </remarks>
     private List<NumberFormatPart> PartitionExact(BigInteger mantissa, int fractionDigits)
     {
-        if (fractionDigits > 0)
+        var isNegative = mantissa.Sign < 0;
+        var abs = isNegative ? -mantissa : mantissa;
+
+        if (string.Equals(Style, "percent", StringComparison.Ordinal))
         {
-            return ExactDecimalParts(mantissa, fractionDigits);
+            // percent scales by 100, which the exact carrier does by moving the mantissa, not the point
+            abs *= 100;
         }
 
         // Significant-digit rounding of a whole value is exact, so it stays on this lane.
@@ -1013,46 +1040,70 @@ internal sealed class JsNumberFormat : ObjectInstance
             && Style is not ("currency" or "percent" or "unit");
         if (significantDigits)
         {
-            mantissa = ApplySignificantDigitRounding(mantissa);
+            abs = ApplySignificantDigitRounding(abs);
         }
 
-        return Style switch
+        var body = ExactBody(abs, fractionDigits, out var displaysAsZero);
+
+        var showNegativeSign = isNegative;
+        var showPositiveSign = false;
+        switch (SignDisplay)
         {
-            "currency" => ExactCurrencyParts(mantissa),
-            "percent" => ExactPercentParts(mantissa),
-            "unit" => ExactUnitParts(mantissa),
-            // the significant-digits lane over a double writes a literal "-" rather than the locale's own
-            // sign, and the two lanes have to agree about which one this is
-            _ => ExactNumberParts(mantissa, useLiteralMinus: significantDigits)
-        };
+            case "always":
+                showPositiveSign = !isNegative;
+                break;
+            case "exceptZero":
+                showPositiveSign = !isNegative && !displaysAsZero;
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "negative":
+                showNegativeSign = isNegative && !displaysAsZero;
+                break;
+            case "never":
+                showNegativeSign = false;
+                break;
+        }
+
+        var parts = new List<NumberFormatPart>();
+        switch (Style)
+        {
+            case "currency":
+                AppendCurrencyParts(parts, in body, showNegativeSign, showPositiveSign);
+                break;
+            case "percent":
+                AppendPercentParts(parts, in body, showNegativeSign, showPositiveSign);
+                break;
+            case "unit":
+                AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, (double) mantissa);
+                break;
+            default:
+                // the significant-digits lane over a double writes a literal "-" rather than the locale's
+                // own sign, and the two lanes have to agree about which one this is
+                AppendSignPart(parts, showNegativeSign, showPositiveSign, significantDigits ? "-" : null);
+                AddNumberParts(parts, in body);
+                break;
+        }
+
+        return parts;
     }
 
     /// <summary>
-    /// The parts of an exact mantissa × 10^-<paramref name="fractionDigits"/> under the decimal style:
-    /// https://tc39.es/ecma402/#sec-torawfixed on a mathematical value instead of on a double.
+    /// The digits https://tc39.es/ecma402/#sec-torawfixed writes for a non-negative exact
+    /// <paramref name="absMantissa"/> × 10^-<paramref name="fractionDigits"/>: rounded at
+    /// <see cref="MaximumFractionDigits"/> with halfExpand, then trimmed of up to
+    /// <c>maximumFractionDigits - minimumFractionDigits</c> trailing zeros.
     /// </summary>
-    private List<NumberFormatPart> ExactDecimalParts(BigInteger mantissa, int fractionDigits)
+    private NumberBody ExactBody(BigInteger absMantissa, int fractionDigits, out bool displaysAsZero)
     {
-        var maxFrac = MaximumFractionDigits;
-        var minFrac = MinimumFractionDigits;
-
-        // Track the original sign so a "-0.000..." input that rounds to zero still displays
-        // as negative (ECMA-402 preserves negative-zero in formatted output).
-        var originallyNegative = mantissa.Sign < 0;
-
-        // Trim or round fraction digits to MaximumFractionDigits using halfExpand.
-        if (fractionDigits > maxFrac)
+        if (fractionDigits > MaximumFractionDigits)
         {
-            var dropDigits = fractionDigits - maxFrac;
-            var divisor = BigInteger.Pow(10, dropDigits);
-            var halfDivisor = divisor / 2;
-            var absM = originallyNegative ? -mantissa : mantissa;
-            var rounded = (absM + halfDivisor) / divisor;
-            mantissa = originallyNegative ? -rounded : rounded;
-            fractionDigits = maxFrac;
+            var divisor = BigInteger.Pow(10, fractionDigits - MaximumFractionDigits);
+            absMantissa = (absMantissa + divisor / 2) / divisor;
+            fractionDigits = MaximumFractionDigits;
         }
 
-        var absMantissa = mantissa.Sign < 0 ? -mantissa : mantissa;
+        displaysAsZero = absMantissa.IsZero;
+
         var digits = absMantissa.ToString("R", CultureInfo.InvariantCulture);
 
         string integerStr;
@@ -1073,11 +1124,15 @@ internal sealed class JsNumberFormat : ObjectInstance
             fractionStr = digits.Substring(digits.Length - fractionDigits);
         }
 
-        // Trim trailing zeros down to MinimumFractionDigits.
+        var minFrac = MinimumFractionDigits;
         if (fractionStr.Length > minFrac)
         {
             var keep = fractionStr.Length;
-            while (keep > minFrac && fractionStr[keep - 1] == '0') keep--;
+            while (keep > minFrac && fractionStr[keep - 1] == '0')
+            {
+                keep--;
+            }
+
             fractionStr = fractionStr.Substring(0, keep);
         }
         else if (fractionStr.Length < minFrac)
@@ -1085,125 +1140,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             fractionStr = fractionStr.PadRight(minFrac, '0');
         }
 
-        // Apply MinimumIntegerDigits padding.
-        if (MinimumIntegerDigits > 1 && integerStr.Length < MinimumIntegerDigits)
-        {
-            integerStr = integerStr.PadLeft(MinimumIntegerDigits, '0');
-        }
-
-        // Apply grouping if needed.
-        if (ShouldApplyGrouping(integerStr.Length))
-        {
-            integerStr = ApplyGrouping(integerStr, false);
-        }
-
-        var parts = new List<NumberFormatPart>();
-        if (originallyNegative)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-        }
-
-        AddGroupedIntegerParts(parts, integerStr);
-
-        if (fractionStr.Length > 0)
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            parts.Add(new NumberFormatPart("fraction", fractionStr));
-        }
-
-        return parts;
-    }
-
-    /// <summary>The parts of an exact whole value under the decimal style.</summary>
-    private List<NumberFormatPart> ExactNumberParts(BigInteger value, bool useLiteralMinus)
-    {
-        var isNegative = value.Sign < 0;
-        var abs = isNegative ? -value : value;
-        var digits = abs.ToString("R", CultureInfo.InvariantCulture);
-
-        if (ShouldApplyGrouping(digits.Length))
-        {
-            digits = ApplyGrouping(digits, false);
-        }
-
-        // Apply minimum integer digits padding
-        if (MinimumIntegerDigits > 1 && digits.Length < MinimumIntegerDigits)
-        {
-            digits = digits.PadLeft(MinimumIntegerDigits, '0');
-        }
-
-        var parts = new List<NumberFormatPart>();
-        if (isNegative)
-        {
-            // ar prefixes U+061C ARABIC LETTER MARK to its NegativeSign, which System.Globalization also
-            // writes for a double; the significant-digits lane writes a plain hyphen instead, so this
-            // follows whichever of the two the double lane would have written.
-            parts.Add(new NumberFormatPart("minusSign", useLiteralMinus ? "-" : NumberFormatInfo.NegativeSign));
-        }
-
-        AddGroupedIntegerParts(parts, digits);
-
-        if (MinimumFractionDigits > 0)
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            parts.Add(new NumberFormatPart("fraction", new string('0', MinimumFractionDigits)));
-        }
-
-        return parts;
-    }
-
-    /// <summary>
-    /// Splits an already-grouped integer string into the <c>integer</c> and <c>group</c> parts
-    /// https://tc39.es/ecma402/#sec-partitionnumberpattern reports for it.
-    /// </summary>
-    private void AddGroupedIntegerParts(List<NumberFormatPart> parts, string integerText)
-    {
-        var separator = NumberFormatInfo.NumberGroupSeparator;
-        if (separator.Length == 0 || integerText.IndexOf(separator, StringComparison.Ordinal) < 0)
-        {
-            parts.Add(new NumberFormatPart("integer", integerText));
-            return;
-        }
-
-        var start = 0;
-        while (true)
-        {
-            var next = integerText.IndexOf(separator, start, StringComparison.Ordinal);
-            if (next < 0)
-            {
-                parts.Add(new NumberFormatPart("integer", integerText.Substring(start)));
-                return;
-            }
-
-            parts.Add(new NumberFormatPart("integer", integerText.Substring(start, next - start)));
-            parts.Add(new NumberFormatPart("group", separator));
-            start = next + separator.Length;
-        }
-    }
-
-    private List<NumberFormatPart> ExactCurrencyParts(BigInteger value)
-    {
-        var parts = new List<NumberFormatPart> { new("currency", NumberFormatInfo.CurrencySymbol) };
-        parts.AddRange(ExactNumberParts(value, useLiteralMinus: false));
-        return parts;
-    }
-
-    private List<NumberFormatPart> ExactPercentParts(BigInteger value)
-    {
-        // Percent multiplies by 100
-        var parts = ExactNumberParts(value * 100, useLiteralMinus: false);
-        parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
-        return parts;
-    }
-
-    private List<NumberFormatPart> ExactUnitParts(BigInteger value)
-    {
-        var parts = new List<NumberFormatPart>();
-        GetUnitAffixes((double) value, out var beforeNumber, out var afterNumber);
-        AddUnitAffixParts(parts, beforeNumber, leading: true);
-        parts.AddRange(ExactNumberParts(value, useLiteralMinus: false));
-        AddUnitAffixParts(parts, afterNumber, leading: false);
-        return parts;
+        return NumberBody.Finite(integerStr, fractionStr);
     }
 
     /// <summary>
@@ -1245,38 +1182,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
 
         return isNegative ? -rounded : rounded;
-    }
-
-    private string ApplyGrouping(string number, bool isNegative)
-    {
-        var startIndex = isNegative ? 1 : 0;
-        var integerPart = number.Substring(startIndex);
-
-        if (integerPart.Length <= 3)
-        {
-            return number;
-        }
-
-        var groupSeparator = NumberFormatInfo.NumberGroupSeparator;
-        var result = new System.Text.StringBuilder();
-
-        var count = 0;
-        for (var i = integerPart.Length - 1; i >= 0; i--)
-        {
-            if (count > 0 && count % 3 == 0)
-            {
-                result.Insert(0, groupSeparator);
-            }
-            result.Insert(0, integerPart[i]);
-            count++;
-        }
-
-        if (isNegative)
-        {
-            result.Insert(0, '-');
-        }
-
-        return result.ToString();
     }
 
     private string FormatDecimal(double value)
@@ -1673,26 +1578,22 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     private string ApplyGroupingToString(string integerPart)
     {
-        if (integerPart.Length <= 3)
+        var boundaries = GroupBoundariesOf(integerPart.Length);
+        if (boundaries.Count == 0)
         {
             return integerPart;
         }
 
-        var groupSeparator = NumberFormatInfo.NumberGroupSeparator;
-        var sb = new System.Text.StringBuilder();
-        var count = 0;
-
-        for (var i = integerPart.Length - 1; i >= 0; i--)
+        var separator = NumberFormatInfo.NumberGroupSeparator;
+        var sb = new System.Text.StringBuilder(integerPart.Length + boundaries.Count * separator.Length);
+        var start = 0;
+        foreach (var boundary in boundaries)
         {
-            if (count > 0 && count % 3 == 0)
-            {
-                sb.Insert(0, groupSeparator);
-            }
-            sb.Insert(0, integerPart[i]);
-            count++;
+            sb.Append(integerPart, start, boundary - start).Append(separator);
+            start = boundary;
         }
 
-        return sb.ToString();
+        return sb.Append(integerPart, start, integerPart.Length - start).ToString();
     }
 
     private static int CountSignificantDigits(string formatted)
@@ -1895,11 +1796,11 @@ internal sealed class JsNumberFormat : ObjectInstance
         var symbol = NumberFormatInfo.CurrencySymbol;
 
         // Build the number part
-        var integerPart = (long) System.Math.Truncate(absValue);
-        var fractionValue = absValue - integerPart;
+        var integral = System.Math.Truncate(absValue);
+        var fractionValue = absValue - integral;
 
         // Format integer with grouping
-        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
+        var intStr = IntegerDigitsOf(integral);
         var digitCount = intStr.Length;
         if (ShouldApplyGrouping(digitCount))
         {
@@ -2135,20 +2036,28 @@ internal sealed class JsNumberFormat : ObjectInstance
         return formattedCurrency;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatnumber under the percent style, which is the concatenation of
+    /// exactly the parts https://tc39.es/ecma402/#sec-formatnumbertoparts returns.
+    /// </summary>
+    /// <remarks>
+    /// The digits were .NET's <c>"P"</c> specifier, which consults one datum — <c>PercentDecimalDigits</c>,
+    /// which the constructor sets to <c>maximumFractionDigits</c> — and therefore wrote exactly that many
+    /// fraction digits always, never the trim https://tc39.es/ecma402/#sec-torawfixed ends with, and none
+    /// of <c>signDisplay</c>, <c>useGrouping</c> or <c>minimumIntegerDigits</c> at all.
+    /// </remarks>
     private string FormatPercent(double value)
     {
-        // Percent multiplies by 100
-        var percentValue = value * 100;
-
         // Handle significant digits for percent formatting
         if (MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue)
         {
+            var percentValue = value * 100;
             var formatted = FormatWithSignificantDigits(percentValue);
             // Apply locale-specific percent pattern
             return ApplyPercentPattern(formatted, percentValue >= 0);
         }
 
-        return value.ToString("P", NumberFormatInfo);
+        return ConcatenateParts(FormatPercentToParts(value));
     }
 
     /// <summary>
@@ -2409,15 +2318,68 @@ internal sealed class JsNumberFormat : ObjectInstance
 
     /// <summary>
     /// What a pattern walk writes where https://tc39.es/ecma402/#sec-partitionnumberpattern puts its
-    /// <c>number</c> part: a finite value split into its integer and fraction, or the single part
-    /// https://tc39.es/ecma402/#sec-partitionnotationsubpattern makes of NaN and infinity.
+    /// <c>number</c> part: the digits https://tc39.es/ecma402/#sec-formatnumberstring produced, or the
+    /// single part https://tc39.es/ecma402/#sec-partitionnotationsubpattern makes of NaN and infinity.
     /// </summary>
+    /// <remarks>
+    /// The digits are carried as the two strings ToRawFixed wrote and not as a <c>long</c> plus a
+    /// <c>double</c>, because the same pattern walk has to serve a value read exactly — a BigInt, a long
+    /// decimal string — as well as one read as a <see cref="double"/>, and an exact value's digits are
+    /// not a <c>long</c>. <see cref="FractionDigits"/> is empty when ToRawFixed's last two steps removed
+    /// every one of them, which is what decides whether a decimal separator is written at all: neither
+    /// lane writes a separator with nothing after it.
+    /// </remarks>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-    private readonly record struct NumberBody(long IntegerPart, double FractionValue, NumberFormatPart? NonFinite)
+    private readonly record struct NumberBody(string IntegerDigits, string FractionDigits, NumberFormatPart? NonFinite)
     {
-        internal static NumberBody Finite(long integerPart, double fractionValue) => new(integerPart, fractionValue, null);
+        internal static NumberBody Finite(string integerDigits, string fractionDigits) => new(integerDigits, fractionDigits, null);
 
-        internal static NumberBody Of(NumberFormatPart nonFinite) => new(0, 0, nonFinite);
+        internal static NumberBody Of(NumberFormatPart nonFinite) => new("", "", nonFinite);
+    }
+
+    /// <summary>
+    /// The digits https://tc39.es/ecma402/#sec-torawfixed writes for a non-negative value already rounded
+    /// at <see cref="MaximumFractionDigits"/>.
+    /// </summary>
+    private NumberBody FiniteBody(double roundedAbsValue)
+    {
+        var integral = System.Math.Truncate(roundedAbsValue);
+        return NumberBody.Finite(
+            IntegerDigitsOf(integral),
+            FractionDigitsOf(roundedAbsValue - integral, MaximumFractionDigits));
+    }
+
+    /// <summary>
+    /// The integer digits of a non-negative whole <see cref="double"/>, however large.
+    /// </summary>
+    /// <remarks>
+    /// Past <see cref="long.MaxValue"/> a cast does not answer: .NET saturates, so every value from
+    /// 2^63 up wrote the same 9223372036854775807. The digits are
+    /// <c>Number::toString</c>'s instead — the shortest decimal that reads back as this double, which is
+    /// what https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads a Number as — with its exponent
+    /// written out, since https://tc39.es/ecma402/#sec-torawfixed works on digits and not on a magnitude.
+    /// </remarks>
+    private static string IntegerDigitsOf(double integral)
+    {
+        if (integral < 9.2e18)
+        {
+            return ((long) integral).ToString(CultureInfo.InvariantCulture);
+        }
+
+        var text = Number.NumberPrototype.ToNumberString(integral);
+        var exponentIndex = text.IndexOf('e');
+        if (exponentIndex < 0)
+        {
+            return text;
+        }
+
+        var mantissa = text.Substring(0, exponentIndex);
+        var exponent = int.Parse(text.AsSpan(exponentIndex + 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        var point = mantissa.IndexOf('.');
+        var integerLength = (point < 0 ? mantissa.Length : point) + exponent;
+        var digits = point < 0 ? mantissa : mantissa.Remove(point, 1);
+
+        return digits.PadRight(integerLength, '0');
     }
 
     private List<NumberFormatPart> FormatToPartsCore(double value)
@@ -2494,11 +2456,21 @@ internal sealed class JsNumberFormat : ObjectInstance
         return parts;
     }
 
-    private void AppendSignPart(List<NumberFormatPart> parts, bool showNegativeSign, bool showPositiveSign)
+    /// <remarks>
+    /// ECMA-402 calls the sign "the ILND String representing the minus sign", so it is the locale's own
+    /// datum: <c>ar</c> prefixes U+061C ARABIC LETTER MARK to it. <paramref name="minusSignOverride"/> is
+    /// for the one lane that does not write it — the significant-digits lane over a
+    /// <see cref="double"/> writes a plain hyphen, and the two lanes have to agree about which one this is.
+    /// </remarks>
+    private void AppendSignPart(
+        List<NumberFormatPart> parts,
+        bool showNegativeSign,
+        bool showPositiveSign,
+        string? minusSignOverride = null)
     {
         if (showNegativeSign)
         {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
+            parts.Add(new NumberFormatPart("minusSign", minusSignOverride ?? NumberFormatInfo.NegativeSign));
         }
         else if (showPositiveSign)
         {
@@ -2517,12 +2489,12 @@ internal sealed class JsNumberFormat : ObjectInstance
             return;
         }
 
-        FormatIntegerToParts(parts, body.IntegerPart);
+        FormatIntegerToParts(parts, body.IntegerDigits);
 
-        if (MinimumFractionDigits > 0 || (body.FractionValue > 0 && MaximumFractionDigits > 0))
+        if (body.FractionDigits.Length > 0)
         {
             parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            FormatFractionToParts(parts, body.FractionValue);
+            parts.Add(new NumberFormatPart("fraction", body.FractionDigits));
         }
     }
 
@@ -2537,8 +2509,13 @@ internal sealed class JsNumberFormat : ObjectInstance
             return;
         }
 
-        FormatIntegerToParts(parts, body.IntegerPart);
-        AddFractionPartsIfNeeded(parts, body.FractionValue);
+        FormatIntegerToParts(parts, body.IntegerDigits);
+
+        if (body.FractionDigits.Length > 0)
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.CurrencyDecimalSeparator));
+            parts.Add(new NumberFormatPart("fraction", body.FractionDigits));
+        }
     }
 
     private List<NumberFormatPart> FormatNotationToParts(double value)
@@ -2680,20 +2657,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
 
         // Value is already rounded
-
-        // Split into integer and fraction parts
-        var integerPart = (long) System.Math.Truncate(value);
-        var fractionValue = value - integerPart;
-
-        // Format integer part with grouping
-        FormatIntegerToParts(parts, integerPart);
-
-        // Format fraction part if needed
-        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-            FormatFractionToParts(parts, fractionValue);
-        }
+        AddNumberParts(parts, FiniteBody(value));
 
         return parts;
     }
@@ -2749,7 +2713,7 @@ internal sealed class JsNumberFormat : ObjectInstance
         if (currentSigDigits == 0) currentSigDigits = 1;
 
         // Format integer part with grouping
-        FormatIntegerToParts(parts, integerPart);
+        FormatIntegerToParts(parts, intStr);
 
         // Calculate fraction digits needed
         var fractionDigitsNeeded = 0;
@@ -2792,49 +2756,67 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
     }
 
-    private void FormatIntegerToParts(List<NumberFormatPart> parts, long integerValue)
+    private void FormatIntegerToParts(List<NumberFormatPart> parts, string intStr)
     {
-        var intStr = integerValue.ToString(CultureInfo.InvariantCulture);
-
         // Pad with zeros if needed
         if (intStr.Length < MinimumIntegerDigits)
         {
             intStr = intStr.PadLeft(MinimumIntegerDigits, '0');
         }
 
-        var digitCount = intStr.Length;
-        var applyGrouping = ShouldApplyGrouping(digitCount);
-
-        if (!applyGrouping)
+        if (!ShouldApplyGrouping(intStr.Length))
         {
             parts.Add(new NumberFormatPart("integer", intStr));
             return;
         }
 
-        // Add grouped integer parts
-        var groupSeparator = NumberFormatInfo.NumberGroupSeparator;
-        var groupSize = 3;
-        var position = intStr.Length % groupSize;
-        if (position == 0) position = groupSize;
-
-        var currentGroup = intStr.Substring(0, position);
-        parts.Add(new NumberFormatPart("integer", currentGroup));
-
-        while (position < intStr.Length)
+        var separator = NumberFormatInfo.NumberGroupSeparator;
+        var start = 0;
+        foreach (var boundary in GroupBoundariesOf(intStr.Length))
         {
-            parts.Add(new NumberFormatPart("group", groupSeparator));
-            parts.Add(new NumberFormatPart("integer", intStr.Substring(position, groupSize)));
-            position += groupSize;
+            parts.Add(new NumberFormatPart("integer", intStr.Substring(start, boundary - start)));
+            parts.Add(new NumberFormatPart("group", separator));
+            start = boundary;
         }
+
+        parts.Add(new NumberFormatPart("integer", intStr.Substring(start)));
     }
 
-    private void FormatFractionToParts(List<NumberFormatPart> parts, double fractionValue)
+    /// <summary>
+    /// Where the locale puts a group separator in an integer of <paramref name="digitCount"/> digits, left
+    /// to right.
+    /// </summary>
+    /// <remarks>
+    /// A group is not always three digits: <c>en-IN</c> writes <c>12,34,567</c>, and
+    /// <see cref="NumberFormatInfo.NumberGroupSizes"/> carries that as <c>[3, 2]</c> — the sizes apply from
+    /// the right, and the last one repeats until a zero ends the grouping. Assuming three is the reason the
+    /// parts lane wrote <c>1,234,567</c> where the string lane wrote <c>12,34,567</c>.
+    /// </remarks>
+    private List<int> GroupBoundariesOf(int digitCount)
     {
-        var fractionStr = FractionDigitsOf(fractionValue, MaximumFractionDigits);
-        if (fractionStr.Length > 0)
+        var sizes = NumberFormatInfo.NumberGroupSizes;
+        var boundaries = new List<int>();
+        var position = digitCount;
+
+        for (var i = 0; position > 0; i++)
         {
-            parts.Add(new NumberFormatPart("fraction", fractionStr));
+            var size = sizes.Length == 0 ? 0 : sizes[System.Math.Min(i, sizes.Length - 1)];
+            if (size <= 0)
+            {
+                break;
+            }
+
+            position -= size;
+            if (position <= 0)
+            {
+                break;
+            }
+
+            boundaries.Add(position);
         }
+
+        boundaries.Reverse();
+        return boundaries;
     }
 
     /// <summary>
@@ -2907,11 +2889,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        // Split value
-        var integerPart = (long) System.Math.Truncate(absValue);
-        var fractionValue = absValue - integerPart;
-
-        AppendCurrencyParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign);
+        AppendCurrencyParts(parts, FiniteBody(absValue), showNegativeSign, showPositiveSign);
 
         return parts;
     }
@@ -3126,20 +3104,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
     }
 
-    private void AddFractionPartsIfNeeded(List<NumberFormatPart> parts, double fractionValue)
-    {
-        if (MaximumFractionDigits == 0)
-        {
-            return;
-        }
-
-        if (MinimumFractionDigits > 0 || fractionValue > 0)
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.CurrencyDecimalSeparator));
-            FormatFractionToParts(parts, fractionValue);
-        }
-    }
-
     private List<NumberFormatPart> FormatPercentToParts(double value)
     {
         var parts = new List<NumberFormatPart>();
@@ -3173,10 +3137,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        var integerPart = (long) System.Math.Truncate(percentValue);
-        var fractionValue = percentValue - integerPart;
-
-        AppendPercentParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign);
+        AppendPercentParts(parts, FiniteBody(percentValue), showNegativeSign, showPositiveSign);
 
         return parts;
     }
@@ -3193,6 +3154,10 @@ internal sealed class JsNumberFormat : ObjectInstance
         // Determine if symbol comes before or after, and if there's spacing
         // Positive patterns: 0="n %", 1="n%", 2="%n", 3="% n"
         var symbolAfter = pattern == 0 || pattern == 1;
+        // CLDR's de percent pattern is "#,##0 %" with U+00A0, which is the character
+        // intl402/BigInt/prototype/toLocaleString/de-DE.js asserts; .NET writes a plain space for the
+        // same locale, so the pattern says where the space goes and CLDR says which space it is.
+        const string Nbsp = "\u00A0";
         var hasSpace = pattern == 0 || pattern == 3;
 
         if (!symbolAfter)
@@ -3201,7 +3166,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
             if (hasSpace)
             {
-                parts.Add(new NumberFormatPart("literal", " "));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
             }
         }
 
@@ -3213,7 +3178,7 @@ internal sealed class JsNumberFormat : ObjectInstance
             // Symbol after number
             if (hasSpace)
             {
-                parts.Add(new NumberFormatPart("literal", " "));
+                parts.Add(new NumberFormatPart("literal", Nbsp));
             }
             parts.Add(new NumberFormatPart("percentSign", NumberFormatInfo.PercentSymbol));
         }
@@ -3252,10 +3217,7 @@ internal sealed class JsNumberFormat : ObjectInstance
                 break;
         }
 
-        var integerPart = (long) System.Math.Truncate(absValue);
-        var fractionValue = absValue - integerPart;
-
-        AppendUnitParts(parts, NumberBody.Finite(integerPart, fractionValue), showNegativeSign, showPositiveSign, value);
+        AppendUnitParts(parts, FiniteBody(absValue), showNegativeSign, showPositiveSign, value);
 
         return parts;
     }

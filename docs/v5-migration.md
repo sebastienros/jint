@@ -3226,7 +3226,6 @@ astronomical reckoning keeps a process-wide cache of built years. Adding or subt
 still linear in the years crossed for `chinese`, `dangi` and `hebrew`, so
 `add({ months: 3000000 })` is seconds of work that no execution constraint interrupts; the six calendars
 with no backing calendar have always been closed-form there and are unaffected.
-
 ### 4.71 `chinese` and `dangi` read the same on every target framework ([#3484](https://github.com/sebastienros/jint/issues/3484))
 
 The `chinese` and `dangi` calendars were read from `System.Globalization.ChineseLunisolarCalendar` and
@@ -3350,6 +3349,76 @@ that file leaves the test262 exclusion list with this.
 `RangeError`, with the length appended to its message. Only a receiver that actually supplies a species
 constructor changes shape, and there the old behaviour was refusing to call code the specification requires
 be called.
+### 4.77 A value read exactly wears the pattern a Number of that size wears, and a percent's digits are ToRawFixed's ([#3498](https://github.com/sebastienros/jint/issues/3498), [#3504](https://github.com/sebastienros/jint/issues/3504))
+
+[PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern) computes the digits once, with
+[FormatNumericToString](https://tc39.es/ecma402/#sec-formatnumberstring), and then walks the pattern
+[GetNumberFormatPattern](https://tc39.es/ecma402/#sec-getnumberformatpattern) selects around them. Jint
+computed both together, once per lane, and two lanes got it wrong in different ways.
+
+**The exact lane wrote the wrong pattern.** A BigInt, an integer string of 17 or more digits and a long
+decimal string take a lane that keeps every digit — and that lane wrote the currency symbol followed by the
+number, with none of the locale's own pattern, its accounting form, `signDisplay` or `notation`:
+
+```js
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+usd.format(-123);     // "-$123.00"
+usd.format(-123n);    // 5.0: "$-123.00"    5.x: "-$123.00"
+
+new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(123n);
+                      // 5.0: "€123,00"     5.x: "123,00 €"
+new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', currencySign: 'accounting' }).format(-123n);
+                      // 5.0: "$-123.00"    5.x: "($123.00)"
+new Intl.NumberFormat('en-US', { signDisplay: 'always' }).format(5n);
+                      // 5.0: "5"           5.x: "+5"
+new Intl.NumberFormat('en-US', { notation: 'scientific' }).format(12345n);
+                      // 5.0: "12,345"      5.x: "1.235E4"
+```
+
+The exact lane now produces only the digits, and hands them to the same pattern walk a `double` goes
+through. A notation is the one thing it cannot write exactly — the abbreviation and the exponent are chosen
+from the value's magnitude — so a formatter that names one takes the `double` lane in both of its own lanes,
+which is how `12345n` reaches `"1.235E4"`.
+
+**A percent's digits were .NET's, not ToRawFixed's.** The percent string lane was `value.ToString("P")`,
+which reads exactly one datum — `NumberFormatInfo.PercentDecimalDigits`, set from `maximumFractionDigits` —
+and therefore wrote that many fraction digits always, never the trim
+[ToRawFixed](https://tc39.es/ecma402/#sec-torawfixed) ends with, and none of `signDisplay`, `useGrouping` or
+`minimumIntegerDigits` at all:
+
+```js
+new Intl.NumberFormat('en-US', { style: 'percent', maximumFractionDigits: 1 }).format(0.4);
+                                                   // 5.0: "40.0%"    5.x: "40%"
+new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 3, maximumFractionDigits: 4 }).format(2.9);
+                                                   // 5.0: "290.0000%" 5.x: "290.000%"
+new Intl.NumberFormat('en-US', { style: 'percent', signDisplay: 'always' }).format(0.4);
+                                                   // 5.0: "40%"      5.x: "+40%"
+new Intl.NumberFormat('en-US', { style: 'percent', useGrouping: false }).format(1234.567);
+                                                   // 5.0: "123,457%" 5.x: "123457%"
+new Intl.NumberFormat('en-US', { style: 'percent', minimumIntegerDigits: 3 }).format(0.04);
+                                                   // 5.0: "4%"       5.x: "004%"
+```
+
+Two defects fall out of putting the digits in one place. A value from 2^63 up used to saturate, because the
+parts lanes split it with a cast to `long` and .NET pins an out-of-range conversion rather than throwing;
+and a group was assumed to be three digits wide, which `en-IN` does not do:
+
+```js
+new Intl.NumberFormat('en-US').formatToParts(1e21).map(p => p.value).join('');
+       // 5.0: "9,223,372,036,854,775,807.9223372036854775807"   5.x: "1,000,000,000,000,000,000,000"
+new Intl.NumberFormat('en-IN').formatToParts(1234567.891).map(p => p.value).join('');
+       // 5.0: "1,234,567.891"   5.x: "12,34,567.891", which is what its own format always wrote
+```
+
+**What could break:** any `style: "percent"` output whose formatter names a fraction-digit count,
+`signDisplay`, `useGrouping` or `minimumIntegerDigits` — a percent formatter that names none of them is
+untouched; any `format` or `formatToParts` of a BigInt or of a numeric string long enough to be read
+exactly, under a currency, a sign display or a notation; any `formatToParts` of a value at or past 2^63; and
+`en-IN` (and the other Indic locales) in the parts lane, which now groups the way its string lane already
+did. The significant-digit options are a separate algorithm —
+[ToRawPrecision](https://tc39.es/ecma402/#sec-torawprecision) rather than ToRawFixed — and are
+[#3499](https://github.com/sebastienros/jint/issues/3499).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
