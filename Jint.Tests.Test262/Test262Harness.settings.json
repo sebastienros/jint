@@ -36,6 +36,13 @@
     // Non-terminating under an interpreter: each of these only ends at the 30-second
     // TimeoutInterval, and the DST ones additionally drive the engine into multi-GB
     // allocation. Removed when the underlying loop terminates, not by "make it faster".
+    //
+    // What earns a place in this group is a file that does not finish on its own, and nothing else.
+    // Five entries that sat here were re-measured and pass, in 0.2 to 1.0 seconds each: the group
+    // was filed off one run in which every file still listed here was running too, and
+    // TimeoutInterval is wall clock, so a test whose worker is starved by a neighbour holding the
+    // whole 30 seconds times out on the neighbour's behalf. Before adding an entry, run the file on
+    // its own and confirm that the file is what does not terminate.
     "staging/sm/Date/dst-offset-caching-1-of-8.js",
     "staging/sm/Date/dst-offset-caching-2-of-8.js",
     "staging/sm/Date/dst-offset-caching-3-of-8.js",
@@ -44,19 +51,19 @@
     "staging/sm/Date/dst-offset-caching-6-of-8.js",
     "staging/sm/Date/dst-offset-caching-7-of-8.js",
     "staging/sm/Date/dst-offset-caching-8-of-8.js",
+    "staging/sm/JSON/parse-mega-huge-array.js",
     "staging/sm/generators/delegating-yield-9.js",
     "staging/sm/regress/regress-610026.js",
-    "staging/sm/regress/regress-619003-1.js",
-    // Same shape, found by running the suite: each of these burns the whole 30-second budget and
-    // (times two modes, times ~1400 new files running in parallel) starves the rest of the run
-    // badly enough to make unrelated tests elsewhere in the suite time out too.
-    "staging/sm/Function/has-instance-jitted.js",
-    "staging/sm/JSON/parse-mega-huge-array.js",
-    "staging/sm/RegExp/unicode-braced.js",
-    "staging/sm/RegExp/unicode-class-braced.js",
-    "staging/sm/RegExp/unicode-ignoreCase.js",
-    "staging/sm/expressions/nullish-coalescing.js",
     "staging/sm/regress/regress-1507322-deep-weakmap.js",
+
+    // Terminates, and passes, but is the most expensive file in the whole suite: 1e5 iterations of
+    // a thirteen-assertion function, three seconds per mode with the machine to itself, against a
+    // staging/sm median in the single-digit milliseconds. Three times the next slowest, which is
+    // enough that a full run starves it past the 30-second budget - four full runs, four failures,
+    // including the run in which nothing else failed at all. So the entry stays, but not for the
+    // reason above: this one is a cost, not a loop that never ends. Removed by raising the
+    // throughput of the interpreted loop, or by a budget that measures work rather than wall clock.
+    "staging/sm/expressions/nullish-coalescing.js",
 
     // === PERMANENT EXCLUSIONS ===
     //
