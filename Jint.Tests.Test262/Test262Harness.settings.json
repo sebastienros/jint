@@ -198,9 +198,6 @@
     "intl402/Collator/prototype/compare/non-normative-phonebook.js",
     "intl402/Collator/usage-de.js",
 
-    // DateTimeFormat - hanidec numbering system has different AM/PM behavior in ICU/CLDR
-    "intl402/DateTimeFormat/prototype/format/numbering-system.js",
-
     // DateTimeFormat - Chinese/Dangi calendar date range issues (.NET ChineseLunisolarCalendar limitations)
     "intl402/DateTimeFormat/prototype/formatRangeToParts/chinese-calendar-dates.js",
     "intl402/DateTimeFormat/prototype/formatRangeToParts/dangi-calendar-dates.js",

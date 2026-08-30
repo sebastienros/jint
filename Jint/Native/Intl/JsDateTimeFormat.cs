@@ -166,10 +166,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             result = FormatWithComponents(dateTime, originalYear);
         }
 
-        // Apply numbering system transliteration if not using Latin digits
+        // Write [[NumberingSystem]]'s digits, and only its digits. https://tc39.es/ecma402/#sec-formatdatetimepattern
+        // splits the pattern with PartitionPattern and copies every "literal" through untouched; the
+        // numbering system reaches a field's value only, through the FormatNumeric calls in the "numeric"
+        // and "2-digit" branches. Those values are integers, so no field carries a decimal separator to
+        // rewrite - and rewriting every full stop instead reached the ones de-DE's own date pattern owns,
+        // turning 27.08.2026 into ٢٧٫٠٨٫٢٠٢٦.
         if (_numberingSystem.RewritesDigits)
         {
-            result = _numberingSystem.Transliterate(result);
+            result = _numberingSystem.TransliterateDigitsOnly(result);
         }
 
         return result;
@@ -1331,7 +1336,14 @@ internal sealed class JsDateTimeFormat : ObjectInstance
                     }
                     else if (firstChar == 'f')
                     {
-                        result.Append('.');
+                        // The separator before a fractional second is this formatter's own, not a
+                        // pattern's: no CLDR pattern supplies one, because fractionalSecondDigits is a
+                        // component option and this method assembles the pattern around it. The parts
+                        // lane writes the numbering system's decimal separator for it, so this lane
+                        // writes the same character - quoted, so .NET copies it out verbatim.
+                        result.Append('\'');
+                        result.Append(_numberingSystem.DecimalSeparator);
+                        result.Append('\'');
                     }
                 }
                 else if (firstChar == 'z')
@@ -1444,13 +1456,15 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             FormatComponentsToParts(dateTime, result, originalYear);
         }
 
-        // Apply numbering system transliteration if not using Latin digits
+        // The digits of every part, and nothing else - the same rewrite Format applies to the assembled
+        // string, one part at a time. A "literal" is pattern text, and the one separator this formatter
+        // writes itself, before a fractional second, is already the numbering system's.
         if (_numberingSystem.RewritesDigits)
         {
             for (var i = 0; i < result.Count; i++)
             {
                 var part = result[i];
-                var transliterated = _numberingSystem.Transliterate(part.Value);
+                var transliterated = _numberingSystem.TransliterateDigitsOnly(part.Value);
                 if (!ReferenceEquals(transliterated, part.Value))
                 {
                     result[i] = new DateTimePart(part.Type, transliterated);

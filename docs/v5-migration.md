@@ -2891,6 +2891,45 @@ different calendar than the locale's own. Those formatters wrote a date in the w
 in the requested one. Every other locale is untouched, its culture having carried a Gregorian calendar all
 along.
 
+### 4.61 `Intl.DateTimeFormat` writes the numbering system's digits, and leaves the pattern's punctuation alone ([#3468](https://github.com/sebastienros/jint/issues/3468))
+
+[FormatDateTimePattern](https://tc39.es/ecma402/#sec-formatdatetimepattern) splits the pattern with
+`PartitionPattern` and copies every `literal` through untouched; `[[NumberingSystem]]` reaches a *field's*
+value only, through the `FormatNumeric` calls in the `"numeric"` and `"2-digit"` branches. Those values are
+integers, so no date field carries a decimal separator to rewrite. Both lanes rewrote the whole assembled
+string instead — `format` the result, `formatToParts` every part including the literals — so a locale whose
+date pattern separates its fields with a full stop came out with the numbering system's decimal separator in
+place of its own punctuation:
+
+```js
+const f = new Intl.DateTimeFormat('de-DE', { numberingSystem: 'arab', dateStyle: 'short', timeZone: 'UTC' });
+
+// 4.16.x / earlier 5.0
+f.format(new Date(Date.UTC(2026, 7, 27)));  // "٢٧٫٠٨٫٢٠٢٦"  - U+066B ARABIC DECIMAL SEPARATOR for de-DE's full stops
+
+// 5.x
+f.format(new Date(Date.UTC(2026, 7, 27)));  // "٢٧.٠٨.٢٠٢٦"
+```
+
+This is [4.46](#446-intl-writes-the-numbering-systems-digits-in-the-parts-lane-and-only-in-the-number) one
+constructor over: the same "a literal is pattern text and only a number is a number" split, applied to
+`Intl.DateTimeFormat`'s two lanes rather than `Intl.NumberFormat`'s.
+
+The one separator this formatter writes *itself* is unchanged. `fractionalSecondDigits` is a component
+option, so no CLDR pattern supplies the character between the second and its fraction — the component lane
+assembles the pattern around it, and both lanes write the numbering system's decimal separator there, as the
+parts lane always did:
+
+```js
+new Intl.DateTimeFormat('en-US', { numberingSystem: 'arab', minute: '2-digit', second: '2-digit',
+                                   fractionalSecondDigits: 3, timeZone: 'UTC' })
+  .format(new Date(Date.UTC(2026, 7, 27, 1, 2, 3, 456)));  // "٠٢:٠٣٫٤٥٦" - unchanged
+```
+
+**What could break:** nothing on a default engine. Every formatter that resolves `latn` writes exactly what
+it wrote before, and `latn` is what an unconfigured engine resolves for every locale. Output moves only for a
+formatter that asked for another numbering system, or for an embedder whose `ICldrProvider` gives a locale a
+non-Latin default — and it moves towards the locale's own punctuation.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
