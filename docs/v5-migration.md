@@ -3115,6 +3115,58 @@ or defaulted. A formatter that names neither is untouched, its two counts both b
 [#3498](https://github.com/sebastienros/jint/issues/3498), and the significant-digit options are
 [#3499](https://github.com/sebastienros/jint/issues/3499).
 
+### 4.69 `formatToParts` and `formatRangeToParts` read the value `format` reads ([#3494](https://github.com/sebastienros/jint/issues/3494))
+
+[Intl.NumberFormat.prototype.formatToParts](https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formattoparts)
+and [formatRangeToParts](https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrangetoparts) read
+their arguments with [ToIntlMathematicalValue](https://tc39.es/ecma402/#sec-tointlmathematicalvalue), which
+keeps a BigInt and a decimal string exactly — that is the whole reason it is not `ToNumber`. Jint's parts
+lanes used `ToNumber`, so a BigInt did not convert at all and a long decimal string arrived as the nearest
+`double`.
+
+```js
+const nf = new Intl.NumberFormat('en');
+
+// 5.0
+nf.formatToParts(1n);                  // TypeError: Cannot convert a BigInt value to a number
+nf.formatToParts('987654321987654321').map(p => p.value).join('');
+// "987,654,321,987,654,272"           — format() wrote …321
+
+nf.formatRangeToParts('987654321987654321', '987654321987654322').map(p => p.value).join('');
+// "~987,654,321,987,654,272"          — an approximatelySign for a range with two distinct ends,
+//                                        where formatRange wrote "987,654,321,987,654,321–…322"
+
+// 5.x — both lanes read the same value, so both write the same digits
+nf.formatToParts(1n);                  // [{ type: "integer", value: "1" }]
+nf.formatToParts('987654321987654321').map(p => p.value).join('');  // "987,654,321,987,654,321"
+nf.formatRangeToParts('987654321987654321', '987654321987654322').map(p => p.value).join('');
+// "987,654,321,987,654,321–987,654,321,987,654,322"
+```
+
+Whether a range collapses is decided inside
+[PartitionNumberRangePattern](https://tc39.es/ecma402/#sec-partitionnumberrangepattern) by comparing the two
+ends *formatted*, so reading them as doubles also decided that question differently in the two lanes. It is
+now one decision over one pair of values.
+
+`formatRange` is now literally the concatenation of what `formatRangeToParts` returns, which is what
+[FormatNumericRange](https://tc39.es/ecma402/#sec-formatnumericrange) says it is. §4.63 stated the collapse
+on the parts and left the string lane collapsing a second time on its own two formatted strings, for one
+reason: the partition took a `double` and could not carry the range above. It takes the mathematical value
+now, so the second implementation is gone and there is one place the collapse is decided. Nothing it writes
+moves — the two were held in step by
+`IntlNumberFormatPartsTests.RangePartsConcatenateToFormatRange`, which is now an identity.
+
+`format`, `formatRange` and `BigInt.prototype.toLocaleString` write exactly what they wrote before, down to
+the byte: the exact string lane is now the concatenation of the exact parts lane rather than a second
+implementation of it, and the configurations it covers are unchanged — a formatter it had no exact lane for
+(a fraction under `style: "currency"`, `"percent"` or `"unit"`, a notation's mantissa, significant digits
+over a fraction) still takes the double, and now takes it in **both** lanes rather than one.
+
+**What could break:** `formatToParts` and `formatRangeToParts` of a BigInt, of an integer string of 17 or
+more digits, and of a decimal string carrying more than 16 significant digits. Each of those used to throw
+or to write a rounded number, and now writes what its own `format` writes. Nothing that passed a Number
+moves.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -65,41 +65,65 @@ internal sealed partial class NumberFormatPrototype : Prototype
 
         // Return a bound format function
         return new ClrFunction(Engine, "", (_, args) =>
+            numberFormat.Format(ToIntlMathematicalValue(args.At(0))), 1, PropertyFlag.Configurable);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-tointlmathematicalvalue, which is what all four of
+    /// <c>format</c>, <c>formatToParts</c>, <c>formatRange</c> and <c>formatRangeToParts</c> read their
+    /// arguments with.
+    /// </summary>
+    /// <remarks>
+    /// It is <em>not</em> <c>ToNumber</c>: a BigInt and a decimal string carry more digits than a
+    /// <see cref="double"/> holds, and the specification keeps them, so that a value one lane writes
+    /// exactly is a value the other lane writes exactly.
+    /// </remarks>
+    private static IntlMathematicalValue ToIntlMathematicalValue(JsValue value)
+    {
+        if (value is JsBigInt bigInt)
         {
-            var value = args.At(0);
+            return IntlMathematicalValue.Exact(bigInt._value, 0);
+        }
 
-            // Handle BigInt values separately to preserve precision
-            if (value is JsBigInt bigInt)
+        if (value is BigIntInstance bigIntInstance)
+        {
+            return IntlMathematicalValue.Exact(bigIntInstance.BigIntData._value, 0);
+        }
+
+        // When a string represents an integer that exceeds Number.MAX_SAFE_INTEGER precision, route
+        // through the BigInteger path so significant digits are preserved exactly.
+        if (value is JsString jsStr)
+        {
+            var s = jsStr.ToString();
+            if (TryParseLargeInteger(s, out var bigValue))
             {
-                return numberFormat.Format(bigInt._value);
+                return IntlMathematicalValue.Exact(bigValue, 0);
             }
-
-            if (value is BigIntInstance bigIntInstance)
+            // Fractional decimal strings whose precision exceeds what double can represent
+            // (16+ significant digits): carry the (mantissa, fractionDigits) pair instead, so no
+            // trailing digit is lost to TypeConverter.ToNumber.
+            if (TryParseHighPrecisionDecimal(s, out var mantissa, out var fractionDigits))
             {
-                return numberFormat.Format(bigIntInstance.BigIntData._value);
+                return IntlMathematicalValue.Exact(mantissa, fractionDigits);
             }
+        }
 
-            // Per ECMA-402 ToIntlMathematicalValue: when a string represents an integer that
-            // exceeds Number.MAX_SAFE_INTEGER precision, route through the BigInteger path so
-            // significant digits are preserved exactly.
-            if (value is JsString jsStr)
-            {
-                var s = jsStr.ToString();
-                if (TryParseLargeInteger(s, out var bigValue))
-                {
-                    return numberFormat.Format(bigValue);
-                }
-                // Fractional decimal strings whose precision exceeds what double can represent
-                // (16+ significant digits): format directly from the (mantissa, fractionDigits)
-                // pair to avoid losing trailing digits via TypeConverter.ToNumber.
-                if (TryParseHighPrecisionDecimal(s, out var mantissa, out var fractionDigits))
-                {
-                    return numberFormat.FormatExactDecimal(mantissa, fractionDigits);
-                }
-            }
+        return IntlMathematicalValue.Of(TypeConverter.ToNumber(value));
+    }
 
-            return numberFormat.Format(TypeConverter.ToNumber(value));
-        }, 1, PropertyFlag.Configurable);
+    /// <summary>
+    /// One end of a range, which https://tc39.es/ecma402/#sec-partitionnumberrangepattern refuses to
+    /// partition when it is not-a-number.
+    /// </summary>
+    private IntlMathematicalValue ToRangeValue(JsValue value)
+    {
+        var converted = ToIntlMathematicalValue(value);
+        if (!converted.IsExact && double.IsNaN(converted.Number))
+        {
+            Throw.RangeError(_realm, "Invalid number value");
+        }
+
+        return converted;
     }
 
     /// <summary>
@@ -271,18 +295,7 @@ internal sealed partial class NumberFormatPrototype : Prototype
     {
         var numberFormat = ValidateNumberFormat(thisObject);
 
-        double number;
-        if (value.IsUndefined())
-        {
-            number = double.NaN;
-        }
-        else
-        {
-            number = TypeConverter.ToNumber(value);
-        }
-
-        // Get parts from the number format
-        var parts = numberFormat.FormatToParts(number);
+        var parts = numberFormat.FormatToParts(ToIntlMathematicalValue(value));
 
         // Convert to JsArray of objects
         var result = new JsArray(Engine, (uint) parts.Count);
@@ -311,53 +324,15 @@ internal sealed partial class NumberFormatPrototype : Prototype
             Throw.TypeError(_realm, "start and end are required");
         }
 
-        var startFormatted = FormatRangeOperand(numberFormat, start);
-        var endFormatted = FormatRangeOperand(numberFormat, end);
+        var parts = PartitionNumberRangePattern(numberFormat, ToRangeValue(start), ToRangeValue(end));
 
-        // If the numbers are the same when formatted, return with approximately sign
-        if (string.Equals(startFormatted, endFormatted, StringComparison.Ordinal))
+        var result = new System.Text.StringBuilder();
+        foreach (var part in parts)
         {
-            // Add approximately sign prefix
-            return $"~{startFormatted}";
+            result.Append(part.Value);
         }
 
-        return CollapseFormattedRange(numberFormat, startFormatted, endFormatted);
-    }
-
-    /// <summary>
-    /// Formats a single end of a range, preserving precision for high-precision string inputs.
-    /// </summary>
-    private string FormatRangeOperand(JsNumberFormat numberFormat, JsValue value)
-    {
-        if (value is JsBigInt bigInt)
-        {
-            return numberFormat.Format(bigInt._value);
-        }
-
-        if (value is BigIntInstance bigIntInstance)
-        {
-            return numberFormat.Format(bigIntInstance.BigIntData._value);
-        }
-
-        if (value is JsString jsStr)
-        {
-            var s = jsStr.ToString();
-            if (TryParseLargeInteger(s, out var bigValue))
-            {
-                return numberFormat.Format(bigValue);
-            }
-            if (TryParseHighPrecisionDecimal(s, out var mantissa, out var fractionDigits))
-            {
-                return numberFormat.FormatExactDecimal(mantissa, fractionDigits);
-            }
-        }
-
-        var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number))
-        {
-            Throw.RangeError(_realm, "Invalid number value");
-        }
-        return numberFormat.Format(number);
+        return result.ToString();
     }
 
     /// <summary>One part of a formatted range: what https://tc39.es/ecma402/#sec-formatnumericrangetoparts reports.</summary>
@@ -375,18 +350,20 @@ internal sealed partial class NumberFormatPrototype : Prototype
     /// elides is elided in the parts as well. This is where <c>formatRangeToParts</c> gets it.
     /// </para>
     /// <para>
-    /// <c>formatRange</c> does not come through here, and the reason is precision rather than principle:
-    /// <see cref="JsNumberFormat.FormatToParts"/> takes a <see cref="double"/>, while
-    /// <see cref="FormatRangeOperand"/> keeps a BigInt and a long decimal string exact — test262's
-    /// <c>formatRange/en-US.js</c> asserts a range of two 18-digit integers that differ in their last digit.
-    /// So the same two shapes are stated twice, here and in <see cref="CollapseFormattedRange"/>, and
-    /// <c>IntlNumberFormatPartsTests.RangePartsConcatenateToFormatRange</c> is what holds them together.
+    /// <c>formatRange</c> is the concatenation of what this returns, which is what
+    /// https://tc39.es/ecma402/#sec-formatnumericrange says it is. It used to collapse a second time, on
+    /// its own two already-formatted strings, because this partition took a <see cref="double"/> and could
+    /// not carry the 18-digit range test262's <c>formatRange/en-US.js</c> asserts; it takes an
+    /// <see cref="IntlMathematicalValue"/> now, so there is one collapse and one place it is decided.
     /// </para>
     /// </remarks>
-    private static List<RangePart> PartitionNumberRangePattern(JsNumberFormat numberFormat, double x, double y)
+    private static List<RangePart> PartitionNumberRangePattern(
+        JsNumberFormat numberFormat,
+        in IntlMathematicalValue x,
+        in IntlMathematicalValue y)
     {
-        var startParts = numberFormat.FormatToParts(x);
-        var endParts = numberFormat.FormatToParts(y);
+        var startParts = numberFormat.FormatToParts(in x);
+        var endParts = numberFormat.FormatToParts(in y);
 
         var result = new List<RangePart>(startParts.Count + endParts.Count + 1);
 
@@ -423,9 +400,8 @@ internal sealed partial class NumberFormatPrototype : Prototype
     private readonly record struct RangeCollapsePlan(int DropFromStartTail, int DropFromEndHead, string Separator);
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-collapsenumberrange, on the parts rather than on the string: the two
-    /// ICU range-pattern shapes <see cref="CollapseFormattedRange"/> implements, expressed as "these
-    /// endpoint parts are redundant".
+    /// https://tc39.es/ecma402/#sec-collapsenumberrange, expressed as "these endpoint parts are
+    /// redundant". Both lanes read it, because both lanes read the partition it is the last step of.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -530,101 +506,6 @@ internal sealed partial class NumberFormatPrototype : Prototype
         return false;
     }
 
-    /// <summary>
-    /// Joins two formatted range endpoints using ECMA-402 / ICU-style range patterns — the string lane's
-    /// half of https://tc39.es/ecma402/#sec-collapsenumberrange.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PlanRangeCollapse"/> states the same two shapes on parts, and
-    /// <c>IntlNumberFormatPartsTests.RangePartsConcatenateToFormatRange</c> is what keeps the two honest.
-    /// Every string this lane writes is exercised by test262's <c>formatRange/en-US.js</c> and
-    /// <c>formatRange/pt-PT.js</c>.
-    /// <para>Supports:</para>
-    /// <para>— A locale-specific separator (e.g. en uses en-dash `–`, pt uses ASCII hyphen `-`).</para>
-    /// <para>— Suffix collapse for locales whose currency follows the number (pt-PT etc.) —
-    ///   shared trailing currency moves to the end of the range, separator gets spaces.</para>
-    /// <para>— Sign+currency prefix collapse (signDisplay=always with prefix-currency locales) —
-    ///   duplicate sign+currency dropped from end, tight separator.</para>
-    /// </remarks>
-    private static string CollapseFormattedRange(JsNumberFormat numberFormat, string startFormatted, string endFormatted)
-    {
-        var isCurrencyStyle = string.Equals(numberFormat.Style, "currency", StringComparison.Ordinal);
-        string sepTight, sepLoose;
-        GetRangeSeparators(numberFormat.Locale, out sepTight, out sepLoose);
-
-        // Find longest common suffix. When the locale puts currency after the number,
-        // the suffix typically contains the currency symbol (often preceded by NBSP).
-        // Stop as soon as we hit a digit so we don't gobble part of the number itself
-        // when both ends happen to share trailing digits (e.g. "+2,90 €" / "+3,10 €").
-        // "A digit" is [[NumberingSystem]]'s question, not char.IsDigit's: hanidec's zero is U+3007, which
-        // is not in the Nd category at all, so scanning past it turned "-$五.〇〇–一.〇〇" into "-$五–一.〇〇".
-        var numberingSystem = numberFormat.ResolvedNumberingSystem;
-        var suffixLen = 0;
-        var maxSuffix = System.Math.Min(startFormatted.Length, endFormatted.Length);
-        while (suffixLen < maxSuffix)
-        {
-            var ch = startFormatted[startFormatted.Length - 1 - suffixLen];
-            if (ch != endFormatted[endFormatted.Length - 1 - suffixLen]) break;
-            if (numberingSystem.IsDigitCharacter(ch)) break;
-            suffixLen++;
-        }
-
-        // Find longest common prefix (but stop at the suffix boundary), and stop at a digit for the same
-        // reason the suffix scan does: what is shared here is the sign and the symbol, never part of the
-        // number. Reading two ends' digits as shared text is how "-$𝟓.𝟎𝟎–𝟏.𝟎𝟎" lost the high half of a
-        // mathbold digit, both ends of which begin with the same surrogate.
-        var prefixLen = 0;
-        var maxPrefix = System.Math.Min(startFormatted.Length - suffixLen, endFormatted.Length - suffixLen);
-        while (prefixLen < maxPrefix
-               && startFormatted[prefixLen] == endFormatted[prefixLen]
-               && !numberingSystem.IsDigitCharacter(startFormatted[prefixLen]))
-        {
-            prefixLen++;
-        }
-
-        if (isCurrencyStyle)
-        {
-            var prefix = startFormatted.Substring(0, prefixLen);
-            var suffix = startFormatted.Substring(startFormatted.Length - suffixLen);
-            var prefixHasSign = ContainsSign(prefix);
-            var prefixHasCurrency = ContainsCurrencyChar(prefix);
-            var suffixHasCurrency = ContainsCurrencyChar(suffix);
-
-            // Prefix-currency locales (en-US) with shared sign+currency up front: tight separator,
-            // collapse the duplicate sign+currency from the end.
-            if (prefixHasSign && prefixHasCurrency)
-            {
-                var startTail = startFormatted.Substring(prefixLen, startFormatted.Length - prefixLen - suffixLen);
-                var endTail = endFormatted.Substring(prefixLen, endFormatted.Length - prefixLen - suffixLen);
-                return prefix + startTail + sepTight + endTail + suffix;
-            }
-
-            // Suffix-currency locales (pt-PT) with shared trailing currency: collapse to one
-            // currency at the end, with the loose separator. If the prefix also contains a
-            // shared sign, drop it from the end too.
-            if (suffixHasCurrency)
-            {
-                var startCore = startFormatted.Substring(prefixLen, startFormatted.Length - prefixLen - suffixLen);
-                var endCore = endFormatted.Substring(prefixLen, endFormatted.Length - prefixLen - suffixLen);
-                if (prefixHasSign)
-                {
-                    return prefix + startCore + sepLoose + endCore + suffix;
-                }
-                // No shared sign — keep the prefix-less cores and append the shared suffix.
-                var startNoSuffix = startFormatted.Substring(0, startFormatted.Length - suffixLen);
-                var endNoSuffix = endFormatted.Substring(0, endFormatted.Length - suffixLen);
-                return startNoSuffix + sepLoose + endNoSuffix + suffix;
-            }
-
-            // Currency without any meaningful sharing — keep both ends in full and use loose sep.
-            return startFormatted + sepLoose + endFormatted;
-        }
-
-        // Decimal / percent / unit: use the locale's separator. en-US convention (and the test
-        // expectation) is the tight form; pt-PT and similar use a spaced ASCII hyphen.
-        return startFormatted + sepTight + endFormatted;
-    }
-
     // TODO: read range patterns from CLDR (e.g. via Options.Intl.CldrProvider) instead of
     // hard-coding language detection here. Other locales (fr, ja, …) have their own pattern
     // shapes and will silently fall through to the en-style default until that data path
@@ -645,29 +526,6 @@ internal sealed partial class NumberFormatPrototype : Prototype
         loose = " – ";
     }
 
-    private static bool ContainsSign(string s)
-    {
-        foreach (var c in s)
-        {
-            if (c == '+' || c == '-' || c == '−') return true;
-        }
-        return false;
-    }
-
-    private static bool ContainsCurrencyChar(string s)
-    {
-        foreach (var c in s)
-        {
-            // UnicodeCategory.CurrencySymbol covers $, €, £, ¥, ₹, ﷼, ¤, etc. — every
-            // single-character currency mark we care about for prefix/suffix collapse.
-            if (char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.CurrencySymbol)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /// <summary>
     /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formatrangetoparts
     /// </summary>
@@ -682,7 +540,9 @@ internal sealed partial class NumberFormatPrototype : Prototype
             Throw.TypeError(_realm, "start and end are required");
         }
 
-        var parts = PartitionNumberRangePattern(numberFormat, ToRangeNumber(start), ToRangeNumber(end));
+        // The same mathematical values formatRange reads, so the two lanes cannot disagree about the
+        // digits — nor about whether the range collapsed, which is decided by comparing them formatted.
+        var parts = PartitionNumberRangePattern(numberFormat, ToRangeValue(start), ToRangeValue(end));
 
         var result = new JsArray(Engine, (uint) parts.Count);
         for (var i = 0; i < parts.Count; i++)
@@ -695,28 +555,6 @@ internal sealed partial class NumberFormatPrototype : Prototype
         }
 
         return result;
-    }
-
-    private double ToRangeNumber(JsValue value)
-    {
-        // Handle BigInt values - convert to double
-        if (value is JsBigInt bigInt)
-        {
-            return (double) bigInt._value;
-        }
-
-        if (value is BigIntInstance bigIntInstance)
-        {
-            return (double) bigIntInstance.BigIntData._value;
-        }
-
-        var number = TypeConverter.ToNumber(value);
-        if (double.IsNaN(number))
-        {
-            Throw.RangeError(_realm, "Invalid number value");
-        }
-
-        return number;
     }
 
     private static string JoinParts(List<NumberFormatPart> parts)

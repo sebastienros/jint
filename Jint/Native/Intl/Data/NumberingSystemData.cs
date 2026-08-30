@@ -39,17 +39,6 @@ internal readonly record struct ResolvedNumberingSystem(string Name, string? Dig
     public bool RewritesDecimalSeparator => DecimalSeparator != '.';
 
     /// <summary>
-    /// True when this character is one a number of this system is written with.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="char.IsDigit(char)"/> alone is not that question: it answers the Unicode Nd category, and
-    /// <c>hanidec</c>'s zero is U+3007 IDEOGRAPHIC NUMBER ZERO, which is not in it — while
-    /// <c>mathbold</c>'s ten are astral, so each of them reaches this as a surrogate half.
-    /// </remarks>
-    public bool IsDigitCharacter(char c)
-        => char.IsDigit(c) || (Digits is not null && Digits.Contains(c));
-
-    /// <summary>
     /// Rewrites the ASCII digits and the decimal point of an already-formatted string in this system.
     /// </summary>
     public string Transliterate(string input) => NumberingSystemData.TransliterateDigits(input, Digits, '.', DecimalSeparator);
