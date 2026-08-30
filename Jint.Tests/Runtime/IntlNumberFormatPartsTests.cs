@@ -52,7 +52,10 @@ public class IntlNumberFormatPartsTests
     ];
 
     private const string Values =
-        "[0, 1, -1, 0.5, 1234.5, -1234.5, 1234567.891, 12345678901234, NaN, Infinity, -Infinity]";
+        "[0, 1, -1, 0.5, 1234.5, -1234.5, 1234567.891, 12345678901234, NaN, Infinity, -Infinity, "
+        // values ToIntlMathematicalValue reads exactly, which no double holds: a BigInt, an integer
+        // string past 2^53, and a decimal string with more significant digits than a double carries
+        + "987654321987654321n, -987654321987654321n, '987654321987654321', '1.00000000000000012']";
 
     /// <summary>
     /// The defect: <c>format</c> transliterated and <c>formatToParts</c> did not, so
@@ -124,7 +127,10 @@ public class IntlNumberFormatPartsTests
                 var optionSets = [{}, { minimumFractionDigits: 2 }, { style: 'percent' },
                                   { style: 'unit', unit: 'meter' }, { notation: 'compact' },
                                   { style: 'currency', currency: 'USD' }];
-                var pairs = [[1, 5], [3, 3], [-5, -1], [0, 1000000], [1234.5, 2345.6]];
+                var pairs = [[1, 5], [3, 3], [-5, -1], [0, 1000000], [1234.5, 2345.6],
+                             // two ends a double cannot tell apart, which formatRange keeps apart
+                             ['987654321987654321', '987654321987654322'],
+                             [987654321987654321n, 987654321987654322n]];
                 function join(parts) { return parts.map(function (p) { return p.value; }).join(''); }
                 for (var l = 0; l < locales.length; l++) {
                     for (var o = 0; o < optionSets.length; o++) {
@@ -263,6 +269,59 @@ public class IntlNumberFormatPartsTests
         Join(Wide, "2.9").Should().Be("$2.900");
         Format(Wide, "2.98765").Should().Be("$2.9877");
         Join(Wide, "2.98765").Should().Be("$2.9877");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-intl.numberformat.prototype.formattoparts reads its argument with
+    /// https://tc39.es/ecma402/#sec-tointlmathematicalvalue, not with <c>ToNumber</c>. It took a
+    /// <c>double</c>, so a BigInt did not convert at all.
+    /// </summary>
+    [Test]
+    public void ABigIntIsAValueBothLanesCanRead()
+    {
+        const string Plain = "new Intl.NumberFormat('en')";
+        Format(Plain, "1n").Should().Be("1");
+        Join(Plain, "1n").Should().Be("1");
+        Parts(Plain, "1n").Should().Be("""[{"type":"integer","value":"1"}]""");
+
+        // a value no double holds, so the two lanes can only agree by reading the same one
+        Format(Plain, "987654321987654321n").Should().Be("987,654,321,987,654,321");
+        Join(Plain, "987654321987654321n").Should().Be("987,654,321,987,654,321");
+        Format(Plain, "'987654321987654321'").Should().Be("987,654,321,987,654,321");
+        Join(Plain, "'987654321987654321'").Should().Be("987,654,321,987,654,321");
+
+        Join("new Intl.NumberFormat('en', { style: 'currency', currency: 'USD' })", "987654321987654321n")
+            .Should().Be("$987,654,321,987,654,321.00");
+        Join("new Intl.NumberFormat('en', { numberingSystem: 'arab' })", "987654321987654321n")
+            .Should().Be("٩٨٧,٦٥٤,٣٢١,٩٨٧,٦٥٤,٣٢١");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-formatnumericrange and
+    /// https://tc39.es/ecma402/#sec-formatnumericrangetoparts are the same
+    /// https://tc39.es/ecma402/#sec-partitionnumberrangepattern over the same two Intl mathematical
+    /// values, so the lanes cannot disagree about the digits — nor about whether the range is a range,
+    /// which that algorithm decides by comparing the two ends formatted.
+    /// </summary>
+    [Test]
+    public void ARangeOfExactValuesIsARangeInBothLanes()
+    {
+        const string Nf = "new Intl.NumberFormat('en')";
+        const string Expected = "987,654,321,987,654,321–987,654,321,987,654,322";
+
+        Range(Nf, "'987654321987654321'", "'987654321987654322'").Should().Be(Expected);
+        JoinRange(Nf, "'987654321987654321'", "'987654321987654322'").Should().Be(Expected);
+
+        Range(Nf, "987654321987654321n", "987654321987654322n").Should().Be(Expected);
+        JoinRange(Nf, "987654321987654321n", "987654321987654322n").Should().Be(Expected);
+
+        // the two ends round to the same double, so reading them as doubles collapsed the range
+        _engine.Evaluate(
+            $"{Nf}.formatRangeToParts('987654321987654321', '987654321987654322').map(function (p) {{ return p.type; }})[0]")
+            .AsString().Should().NotBe("approximatelySign");
+
+        // two ends that really are one value still collapse
+        JoinRange(Nf, "'987654321987654321'", "'987654321987654321'").Should().Be("~987,654,321,987,654,321");
     }
 
     /// <summary>
@@ -581,6 +640,14 @@ public class IntlNumberFormatPartsTests
 
     private string Parts(string formatter, string value)
         => _engine.Evaluate($"JSON.stringify({formatter}.formatToParts({value}))").AsString();
+
+    private string Range(string formatter, string start, string end)
+        => _engine.Evaluate($"{formatter}.formatRange({start}, {end})").AsString();
+
+    private string JoinRange(string formatter, string start, string end)
+        => _engine.Evaluate(
+            $"{formatter}.formatRangeToParts({start}, {end}).map(function (p) {{ return p.value; }}).join('')")
+            .AsString();
 
     private string PartValue(string formatter, string value, string type)
         => _engine.Evaluate(
