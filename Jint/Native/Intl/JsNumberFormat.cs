@@ -61,7 +61,7 @@ internal readonly record struct IntlMathematicalValue
 }
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-numberformat-objects
+/// https://tc39.es/ecma402/#numberformat-objects
 /// Represents an Intl.NumberFormat instance with locale-aware number formatting.
 /// </summary>
 internal sealed class JsNumberFormat : ObjectInstance
@@ -216,8 +216,8 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// Formats a number according to the formatter's locale and options.
     /// </summary>
     /// <remarks>
-    /// https://tc39.es/ecma402/#sec-formatnumeric is the concatenation of exactly the parts
-    /// https://tc39.es/ecma402/#sec-formatnumerictoparts returns. A non-finite value reads its result from
+    /// https://tc39.es/ecma402/#sec-formatnumber is the concatenation of exactly the parts
+    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns. A non-finite value reads its result from
     /// that list rather than assembling a second one, which is what keeps the style's affixes — a currency
     /// symbol, a unit, a percent sign — on both sides of the same walk.
     /// </remarks>
@@ -2347,8 +2347,8 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     /// <remarks>
     /// <para>
-    /// https://tc39.es/ecma402/#sec-formatnumeric is defined as the concatenation of exactly the parts
-    /// https://tc39.es/ecma402/#sec-formatnumerictoparts returns, so both lanes write
+    /// https://tc39.es/ecma402/#sec-formatnumber is defined as the concatenation of exactly the parts
+    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns, so both lanes write
     /// <c>[[NumberingSystem]]</c>'s digits or neither does. <see cref="Format(double)"/> transliterates the
     /// assembled string; this lane transliterates the parts a number's digits went into, which is the same
     /// rewrite applied one part at a time. <c>IntlNumberFormatPartsTests.PartsConcatenateToFormat</c> walks a grid

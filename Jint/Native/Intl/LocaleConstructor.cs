@@ -31,7 +31,7 @@ internal sealed class LocaleConstructor : Constructor
     private LocalePrototype PrototypeObject { get; }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.locale
+    /// https://tc39.es/ecma402/#sec-Intl.Locale
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {

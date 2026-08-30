@@ -4,7 +4,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-displaynames-objects
+/// https://tc39.es/ecma402/#intl-displaynames-objects
 /// Represents an Intl.DisplayNames instance for locale-aware display name resolution.
 /// </summary>
 internal sealed class JsDisplayNames : ObjectInstance

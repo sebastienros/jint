@@ -45,7 +45,7 @@ internal sealed partial class ListFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.listformat
+    /// https://tc39.es/ecma402/#sec-Intl.ListFormat
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -110,7 +110,7 @@ internal sealed partial class ListFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.listformat.supportedlocalesof
+    /// https://tc39.es/ecma402/#sec-Intl.ListFormat.supportedLocalesOf
     /// </summary>
     [JsFunction(Length = 1)]
     private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)

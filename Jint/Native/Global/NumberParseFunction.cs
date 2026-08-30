@@ -6,7 +6,7 @@ namespace Jint.Native.Global;
 
 /// <summary>
 /// %parseInt% and %parseFloat% — one function object per realm each, because
-/// https://tc39.es/ecma262/#sec-number.parseint and https://tc39.es/ecma402/#sec-number.parsefloat
+/// https://tc39.es/ecma262/#sec-number.parseint and https://tc39.es/ecma262/#sec-number.parsefloat
 /// require <c>Number.parseInt</c> and <c>Number.parseFloat</c> to be <em>the same</em> function objects
 /// as the ones on the global object.
 /// </summary>

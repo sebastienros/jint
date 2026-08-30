@@ -2376,8 +2376,8 @@ Two smaller consequences of the same derivation, both debugger-only:
 
 ### 4.46 `Intl` writes the numbering system's digits in the parts lane, and only in the number ([#3455](https://github.com/sebastienros/jint/issues/3455), [#3456](https://github.com/sebastienros/jint/issues/3456))
 
-[FormatNumeric](https://tc39.es/ecma402/#sec-formatnumeric) is defined as the concatenation of exactly the
-parts [FormatNumericToParts](https://tc39.es/ecma402/#sec-formatnumerictoparts) returns — both of them
+[FormatNumeric](https://tc39.es/ecma402/#sec-formatnumber) is defined as the concatenation of exactly the
+parts [FormatNumericToParts](https://tc39.es/ecma402/#sec-formatnumbertoparts) returns — both of them
 [PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern) — so the two lanes cannot
 legally disagree. `format` transliterated into `[[NumberingSystem]]` and `formatToParts` did not, and
 `Intl.RelativeTimeFormat.prototype.formatToParts` inherited the Latin digits by copying those parts:

@@ -5,7 +5,7 @@ using Jint.Native.Object;
 namespace Jint.Native.Intl;
 
 /// <summary>
-/// https://tc39.es/ecma402/#sec-listformat-objects
+/// https://tc39.es/ecma402/#listformat-objects
 /// Represents an Intl.ListFormat instance for locale-aware list formatting.
 /// </summary>
 internal sealed class JsListFormat : ObjectInstance

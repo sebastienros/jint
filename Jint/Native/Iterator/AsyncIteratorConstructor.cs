@@ -9,7 +9,7 @@ using Jint.Runtime.Interop;
 namespace Jint.Native.Iterator;
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-asynciterator-constructor
+/// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciterator-constructor
 /// </summary>
 [JsObject(UseShape = true)]
 internal sealed partial class AsyncIteratorConstructor : Constructor
@@ -47,7 +47,7 @@ internal sealed partial class AsyncIteratorConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-asynciterator.from
+    /// https://tc39.es/proposal-async-iterator-helpers/#sec-asynciterator.from
     /// </summary>
     [JsFunction]
     private JsValue From(JsValue thisObject, JsValue o)
@@ -133,7 +133,7 @@ internal sealed class WrapForValidAsyncIterator : ObjectInstance
 }
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-%wrapforvalidasynciteratorprototype%-object
+/// https://tc39.es/proposal-async-iterator-helpers/#sec-wrapforvalidasynciteratorprototype-object
 /// </summary>
 [JsObject(UseShape = true)]
 internal sealed partial class WrapForValidAsyncIteratorPrototype : Prototype

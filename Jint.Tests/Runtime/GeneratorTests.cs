@@ -888,7 +888,7 @@ public class GeneratorTests
             .AsBoolean().Should().BeTrue();
 
         // The prototype objects are unaffected: %GeneratorFunction.prototype%.[[Prototype]] stays
-        // %Function.prototype% (https://tc39.es/ecma262/#sec-properties-of-generatorfunction-prototype).
+        // %Function.prototype% (https://tc39.es/ecma262/#sec-properties-of-the-generatorfunction-prototype-object).
         _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(function* () {})) === Function.prototype")
             .AsBoolean().Should().BeTrue();
         _engine.Evaluate("Object.getPrototypeOf(Object.getPrototypeOf(async function* () {})) === Function.prototype")

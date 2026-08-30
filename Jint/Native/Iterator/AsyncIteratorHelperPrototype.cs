@@ -4,7 +4,7 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Native.Iterator;
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-%asynciteratorhelperprototype%-object
+/// https://tc39.es/proposal-async-iterator-helpers/#sec-%asynciteratorhelperprototype%-object
 /// The %AsyncIteratorHelperPrototype% object is the prototype of async iterator helper objects.
 /// </summary>
 [JsObject(UseShape = true)]

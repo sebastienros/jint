@@ -789,7 +789,8 @@ internal sealed partial class DurationPrototype : Prototype
     private static DurationRecord RoundBalancedDuration(DurationRecord duration, string smallestUnit, double increment, string roundingMode)
     {
         // Convert duration to the smallest unit and apply rounding
-        // https://tc39.es/proposal-temporal/#sec-temporal-roundduration
+        // https://tc39.es/proposal-temporal/#sec-temporal-roundtimeduration for the time units and
+        // https://tc39.es/proposal-temporal/#sec-temporal-roundrelativeduration for the calendar ones
 
         double valueToRound = 0;
 

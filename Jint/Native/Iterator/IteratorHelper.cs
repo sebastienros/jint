@@ -739,7 +739,7 @@ internal sealed class ConcatIterator : ObjectInstance
 
 /// <summary>
 /// Iterator helper for Iterator.zip and Iterator.zipKeyed.
-/// https://tc39.es/proposal-joint-iteration/#sec-iteratorzip
+/// https://tc39.es/ecma262/#sec-iteratorzip
 /// </summary>
 internal sealed class ZipIterator : ObjectInstance
 {

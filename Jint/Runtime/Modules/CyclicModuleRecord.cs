@@ -911,7 +911,7 @@ public abstract class CyclicModuleRecord : ModuleRecord
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-defer-import-eval/#sec-EvaluateSync
+    /// https://tc39.es/proposal-defer-import-eval/#sec-EvaluateModuleSync
     /// </summary>
     internal static void EvaluateSync(ModuleRecord module)
     {

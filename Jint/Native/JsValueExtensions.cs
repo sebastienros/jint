@@ -744,7 +744,7 @@ public static class JsValueExtensions
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-canonicalize-keyed-collection-key
+    /// https://tc39.es/ecma262/#sec-canonicalizekeyedcollectionkey
     /// </summary>
     internal static JsValue CanonicalizeKeyedCollectionKey(this JsValue key)
     {

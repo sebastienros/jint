@@ -120,7 +120,7 @@ internal sealed partial class ErrorPrototype : ErrorInstance
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-setterthatignoresprototypeproperties
+    /// https://tc39.es/ecma262/#sec-SetterThatIgnoresPrototypeProperties
     /// </summary>
     private void SetterThatIgnoresPrototypeProperties(JsValue thisValue, ObjectInstance home, JsValue p, JsValue v)
     {

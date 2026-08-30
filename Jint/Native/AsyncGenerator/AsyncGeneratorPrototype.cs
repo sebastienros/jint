@@ -7,7 +7,7 @@ using Jint.Runtime.Descriptors;
 namespace Jint.Native.AsyncGenerator;
 
 /// <summary>
-/// https://tc39.es/ecma262/#sec-asyncgenerator-prototype-object
+/// https://tc39.es/ecma262/#sec-properties-of-asyncgenerator-prototype
 /// </summary>
 [JsObject]
 internal sealed partial class AsyncGeneratorPrototype : BuiltinShapeObject

@@ -1912,7 +1912,7 @@ internal static class IntlUtilities
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-getoptionsobject
+    /// https://tc39.es/ecma262/#sec-getoptionsobject
     /// Stricter than CoerceOptionsToObject - throws TypeError for non-object values.
     /// </summary>
     internal static ObjectInstance GetOptionsObject(Engine engine, JsValue options)
@@ -1986,7 +1986,7 @@ internal static class IntlUtilities
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-getbooleanoption
+    /// https://tc39.es/ecma402/#sec-getoption
     /// </summary>
     internal static bool GetBooleanOption(Engine engine, JsValue options, string property, bool fallback)
     {
@@ -1995,7 +1995,7 @@ internal static class IntlUtilities
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-getstringorbooleanoption
+    /// https://tc39.es/ecma402/#sec-getbooleanorstringnumberformatoption
     /// </summary>
     internal static JsValue GetStringOrBooleanOption(
         Engine engine,

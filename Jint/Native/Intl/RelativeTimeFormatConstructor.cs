@@ -44,7 +44,7 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.relativetimeformat
+    /// https://tc39.es/ecma402/#sec-Intl.RelativeTimeFormat
     /// </summary>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
     {
@@ -324,7 +324,7 @@ internal sealed partial class RelativeTimeFormatConstructor : Constructor
     }
 
     /// <summary>
-    /// https://tc39.es/ecma402/#sec-intl.relativetimeformat.supportedlocalesof
+    /// https://tc39.es/ecma402/#sec-Intl.RelativeTimeFormat.supportedLocalesOf
     /// </summary>
     [JsFunction(Length = 1)]
     private JsArray SupportedLocalesOf(JsValue thisObject, JsValue locales, JsValue options)

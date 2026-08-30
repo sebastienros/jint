@@ -120,7 +120,8 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-asyncgeneratorresumenext
+    /// https://tc39.es/ecma262/#sec-asyncgeneratorresume and
+    /// https://tc39.es/ecma262/#sec-asyncgeneratordrainqueue
     /// Processes the next request in the queue if any.
     /// </summary>
     internal void AsyncGeneratorResumeNext()
@@ -368,7 +369,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-asyncgeneratorresolve
+    /// https://tc39.es/ecma262/#sec-asyncgeneratorcompletestep
     /// Resolves the current request's promise with an iterator result.
     /// </summary>
     internal void AsyncGeneratorResolve(JsValue value, bool done, PromiseCapability promiseCapability)
@@ -378,7 +379,7 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
     }
 
     /// <summary>
-    /// https://tc39.es/ecma262/#sec-asyncgeneratorreject
+    /// https://tc39.es/ecma262/#sec-asyncgeneratorcompletestep
     /// Rejects the current request's promise.
     /// </summary>
     internal static void AsyncGeneratorReject(JsValue exception, PromiseCapability promiseCapability)

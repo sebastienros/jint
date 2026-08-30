@@ -10,7 +10,7 @@ namespace Jint.Tests.Runtime;
 /// </summary>
 public class DeclarationScopeTests
 {
-    // https://tc39.es/ecma262/#sec-class-static-block-definitions
+    // https://tc39.es/ecma262/#sec-runtime-semantics-classstaticblockdefinitionevaluation
     // A ClassStaticBlockBody is its own var scope, hoisted as a function body of its own by
     // ClassStaticBlockDefinitionEvaluation, so nothing it declares reaches the enclosing scope.
 

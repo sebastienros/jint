@@ -146,7 +146,7 @@ internal sealed partial class InstantPrototype : Prototype
     }
 
     /// <summary>
-    /// https://tc39.es/proposal-temporal/#sec-differencetemporalinstant
+    /// https://tc39.es/proposal-temporal/#sec-temporal-differencetemporalinstant
     /// </summary>
     private JsDuration DifferenceTemporalInstant(JsValue thisObject, JsCallArguments arguments, bool isSince)
     {
@@ -422,7 +422,7 @@ internal sealed partial class InstantPrototype : Prototype
     /// <summary>
     /// RoundNumberToIncrementAsIfPositive - uses floor division and treats value as positive for rounding mode.
     /// Used by Instant.round and toString per the Temporal spec.
-    /// https://tc39.es/proposal-temporal/#sec-roundnumbertoincrementasifpositive
+    /// https://tc39.es/proposal-temporal/#sec-temporal-roundnumbertoincrementasifpositive
     /// </summary>
     private static BigInteger RoundToIncrementAsIfPositive(BigInteger value, long increment, string mode)
     {
@@ -467,7 +467,7 @@ internal sealed partial class InstantPrototype : Prototype
 
     /// <summary>
     /// RoundNumberToIncrement - sign-aware rounding used by Until/Since.
-    /// https://tc39.es/proposal-temporal/#sec-roundnumbertoincrement
+    /// https://tc39.es/proposal-temporal/#sec-temporal-roundnumbertoincrement
     /// </summary>
     private static BigInteger RoundToIncrement(BigInteger value, long increment, string mode)
     {

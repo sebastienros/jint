@@ -66,7 +66,7 @@ internal static class NodeBuiltinHelpers
     }
 
     /// <summary>
-    /// <c>decodeURIComponent</c>, https://tc39.es/ecma262/#sec-decodeuricomponent, reduced to the question its
+    /// <c>decodeURIComponent</c>, https://tc39.es/ecma262/#sec-decodeuricomponent-encodeduricomponent, reduced to the question its
     /// two callers actually have: did it succeed, and with what. Both of them — <c>querystring.unescape</c>
     /// and <c>url.fileURLToPath</c> — need the failure rather than an exception, because Node catches it in one
     /// and rethrows it as its own error in the other.

@@ -253,7 +253,7 @@ internal sealed partial class DurationConstructor : Constructor
     private DurationRecord ToDurationRecord(ObjectInstance obj)
     {
         // Properties must be read in alphabetical order per spec
-        // https://tc39.es/proposal-temporal/#sec-temporal-totemporaldurationrecord
+        // https://tc39.es/proposal-temporal/#sec-temporal-totemporalpartialdurationrecord
         var hasAny = false;
         var days = GetDurationProperty(obj, "days", ref hasAny);
         var hours = GetDurationProperty(obj, "hours", ref hasAny);
