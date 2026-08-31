@@ -111,6 +111,13 @@ internal static class LunisolarAstronomy
     /// </summary>
     private const int MaxSolsticeScan = 400;
 
+    /// <summary>
+    /// The largest month step <see cref="StepMonths"/> answers in closed form. Temporal's whole range is
+    /// 2 × 10⁸ days and a lunation is a little over twenty-nine of them, so no larger step can reach a
+    /// representable date from a representable one.
+    /// </summary>
+    private const int MaxSteppableMonths = 8_000_000;
+
     private static readonly long _koreaZoneChange1912 = TemporalHelpers.IsoDateToDays(1912, 1, 1);
     private static readonly long _koreaZoneChange1954 = TemporalHelpers.IsoDateToDays(1954, 3, 21);
     private static readonly long _koreaZoneChange1961 = TemporalHelpers.IsoDateToDays(1961, 8, 10);
@@ -471,6 +478,46 @@ internal static class LunisolarAstronomy
 
         return n;
     }
+
+    /// <summary>
+    /// The first day of the month <paramref name="months"/> lunations after the one beginning on
+    /// <paramref name="monthStart"/>, or null when the step is one this reckoning declines to make.
+    /// </summary>
+    /// <remarks>
+    /// The months of both calendars are consecutive new moons — that is what <see cref="Build"/> builds —
+    /// so the month a given number of them later is a closed-form question, and walking one calendar year
+    /// at a time was only ever one way of counting to it
+    /// (<see href="https://github.com/sebastienros/jint/issues/3511"/>).
+    /// <para>
+    /// Two things make it decline, and both leave the caller to walk instead. A step larger than
+    /// <see cref="MaxSteppableMonths"/> cannot land on a representable date from any representable date, and
+    /// evaluating the series that far out would ask for a Gregorian year no <see cref="int"/> holds. And the
+    /// index is checked by reading the month start back off it: where the series have drifted far enough to
+    /// stop being monotone the new moon named is not the one the month began on, and that is exactly where a
+    /// closed form must not answer.
+    /// </para>
+    /// </remarks>
+    internal static long? StepMonths(long monthStart, int months, LunisolarRegion region)
+    {
+        if (months > MaxSteppableMonths || months < -MaxSteppableMonths)
+        {
+            return null;
+        }
+
+        // A month begins on the day of its new moon in the calendar's own civil time, so that new moon is
+        // the last one strictly before the following midnight.
+        var index = NewMoonIndexBefore(UniversalFromStandard(monthStart + 1, region));
+        if (DayOfNewMoon(index, region) != monthStart)
+        {
+            return null;
+        }
+
+        return DayOfNewMoon(index + months, region);
+    }
+
+    /// <summary>The day the <paramref name="index"/>th new moon falls on, in the calendar's civil time.</summary>
+    private static long DayOfNewMoon(long index, LunisolarRegion region)
+        => (long) System.Math.Floor(StandardFromUniversal(NthNewMoon(index), region));
 
     #endregion
 

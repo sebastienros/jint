@@ -246,6 +246,68 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// Steps <paramref name="months"/> ordinal months out from (<paramref name="year"/>,
+    /// <paramref name="ordinalMonth"/>) in a lunisolar calendar, without walking the years between.
+    /// </summary>
+    /// <remarks>
+    /// The walk below costs one whole <see cref="LunisolarYear"/> per calendar year crossed — a dozen new
+    /// moons and two solstice searches — so a hundred thousand months was eight thousand of them, and the
+    /// largest addition the calendar's range permits ran for three quarters of a minute
+    /// (<see href="https://github.com/sebastienros/jint/issues/3511"/>). The months of <c>chinese</c> and
+    /// <c>dangi</c> are consecutive new moons, so which month lies a given number of them away is
+    /// arithmetic on the lunation index.
+    /// <para>
+    /// <see langword="false"/> means "ask the walk", and every reason for it is a place a closed form must
+    /// not answer: the reckoning cannot place the year to start from, the ordinal does not occur in it, the
+    /// step is larger than any representable date could need, or the month the step landed on does not
+    /// begin on the new moon it counted to. None of them is reachable for a date this engine can represent,
+    /// which is why the walk stays as the fallback rather than being deleted.
+    /// </para>
+    /// </remarks>
+    private static bool TryStepLunisolarMonths(
+        string calendar,
+        int year,
+        int ordinalMonth,
+        int months,
+        out int steppedYear,
+        out int steppedOrdinalMonth)
+    {
+        steppedYear = year;
+        steppedOrdinalMonth = ordinalMonth;
+
+        var region = RegionOf(calendar);
+        var from = LunisolarAstronomy.ForYear(year, region);
+        if (from is null || ordinalMonth < 1 || ordinalMonth > from.MonthCount)
+        {
+            return false;
+        }
+
+        var landedOn = LunisolarAstronomy.StepMonths(from.MonthStarts[ordinalMonth - 1], months, region);
+        if (landedOn is null)
+        {
+            return false;
+        }
+
+        var target = landedOn.Value;
+        var landed = LunisolarAstronomy.ForFixed(target, region);
+
+        var ordinal = 1;
+        while (ordinal < landed.MonthCount && landed.MonthStarts[ordinal] <= target)
+        {
+            ordinal++;
+        }
+
+        if (landed.MonthStarts[ordinal - 1] != target)
+        {
+            return false;
+        }
+
+        steppedYear = landed.Year;
+        steppedOrdinalMonth = ordinal;
+        return true;
+    }
+
+    /// <summary>
     /// How many steps a calendar walk takes between two constraint checks.
     /// </summary>
     /// <remarks>
@@ -506,7 +568,14 @@ internal static class NonIsoCalendars
         }
 
         // Add months (ordinal stepping)
-        if (months != 0)
+        if (months != 0
+            && calendar is "chinese" or "dangi"
+            && TryStepLunisolarMonths(calendar, newYear, newOrdinalMonth, months, out var steppedYear, out var steppedMonth))
+        {
+            newYear = steppedYear;
+            newOrdinalMonth = steppedMonth;
+        }
+        else if (months != 0)
         {
             newOrdinalMonth += months;
             var steps = 0;
