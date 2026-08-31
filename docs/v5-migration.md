@@ -3672,6 +3672,65 @@ so a budget that used to expire on a bulk month addition now returns the date in
 calendar a host `ICalendarProvider` answers for still walks, since only the provider knows how many months
 its years hold, and that walk is bounded exactly as before.
 
+### 4.84 A JavaScript function converts to the delegate type the host asked for ([#3434](https://github.com/sebastienros/jint/issues/3434))
+
+Converting a JavaScript function to a CLR delegate is memoized, and has to be: `host.on(f)` followed by
+`host.off(f)` only unsubscribes if both conversions hand the host the *same* `Delegate` instance. The memo was
+keyed on the function instance, and one level below it on that function's AST node. Neither carries the target
+delegate type, which is the one thing the compiled binder bakes in — so the second delegate type a given
+function was converted for was served the first one's delegate, and the reflection invoke behind the call
+rejected it:
+
+```
+System.ArgumentException : Object of type 'Notify' cannot be converted to type 'Transform'.
+```
+
+Three shapes reached it, in increasing order of surprise. Given a host exposing both
+
+```csharp
+public delegate void Notify(int value);
+public delegate string Transform(string value);
+```
+
+the first two need only one engine:
+
+```js
+// one function instance, two delegate types
+var f = function (x) { return String(x); };
+host.a(f) + '|' + host.b(f);            // 5.0: ArgumentException   5.x: "notify|transform:x"
+
+// two instances of one AST node, two delegate types
+function make() { return function (x) { return String(x); }; }
+host.a(make()) + '|' + host.b(make());  // 5.0: ArgumentException   5.x: "notify|transform:x"
+```
+
+The third needs no second delegate type in any one script. The AST node is process-wide state and
+`Engine.PrepareScript` is documented as shareable across engines, so a cached `Prepared<Script>` — the shape
+the README recommends for production — let whichever engine evaluated it first decide the delegate type for
+every engine after it, whatever those engines' own host types and `Options` said:
+
+```csharp
+var prepared = Engine.PrepareScript("host.call(function (x) { return String(x); });");
+
+var first = new Engine();
+first.SetValue("host", new NotifyHost());
+first.Evaluate(prepared);    // "notify"
+
+var second = new Engine();
+second.SetValue("host", new TransformHost());
+second.Evaluate(prepared);   // 5.0: ArgumentException   5.x: "transform:x"
+```
+
+Both memos are keyed by the target delegate type as well now, so the memoized delegate is the one built for
+the type being asked for. The identity guarantee the memo exists for is unchanged and merely finer-grained:
+one `Delegate` instance per *(function instance, delegate type)* pair, which is exactly the identity `-=`
+needs, and the first delegate type a function is converted for gets the same instance it always did.
+
+**What could break:** a host that caught this `ArgumentException` and treated it as "the script passed a
+callback of the wrong shape" now sees the call succeed instead. There is nothing else on the other side of
+it — the exception was raised while binding a conversion that had already been asked for and could be
+performed, never by a script mistake — so the handler is dead code rather than a behaviour to preserve. No
+signature changed, and no conversion that used to succeed produces a different delegate.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

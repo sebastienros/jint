@@ -6,6 +6,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
@@ -101,9 +102,81 @@ public class DefaultTypeConverter : ClrTypeConverter
         return TryConvertInternal(value, type, formatProvider, propagateException: false, out converted, out _);
     }
 
-    private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
-    private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
+    private static readonly ConditionalWeakTable<IFunction, TypeKeyedCache<Func<object, Delegate>>> _targetBinderDelegateCache = new();
+    private static readonly ConditionalWeakTable<object, TypeKeyedCache<Delegate>> _boundTargetDelegateCache = new();
     private static readonly ConditionalWeakTable<Delegate, ObjectInstance> _hostCallbackDelegates = new();
+
+    private static readonly ConditionalWeakTable<IFunction, TypeKeyedCache<Func<object, Delegate>>>.CreateValueCallback _createBinderCache =
+        static _ => new TypeKeyedCache<Func<object, Delegate>>();
+
+    private static readonly ConditionalWeakTable<object, TypeKeyedCache<Delegate>>.CreateValueCallback _createBoundDelegateCache =
+        static _ => new TypeKeyedCache<Delegate>();
+
+    /// <summary>
+    /// An append-only map from a target delegate <see cref="Type"/> to the artefact that was built for it.
+    /// </summary>
+    /// <remarks>
+    /// The two delegate caches above are process-wide and keyed on something that does not carry the target
+    /// type: a function instance, and one level below it that function's AST node, which a shared
+    /// <c>Prepared&lt;Script&gt;</c> makes process-wide state outliving every engine that runs it. Entries are
+    /// added and never replaced, so the delegate identity an event unregistration needs holds per target type;
+    /// the list is one node long for the overwhelming majority of functions, which are converted to exactly
+    /// one delegate type. Nothing stored here is engine-affine - a <see cref="Type"/>, and a binder that takes
+    /// its target as a parameter - so the AST node stays shareable across engines.
+    /// </remarks>
+    private sealed class TypeKeyedCache<T> where T : class
+    {
+        private Node? _head;
+
+        internal bool TryGetValue(Type type, [NotNullWhen(true)] out T? value)
+        {
+            var node = Volatile.Read(ref _head);
+            while (node is not null)
+            {
+                if (ReferenceEquals(node._type, type))
+                {
+                    value = node._value;
+                    return true;
+                }
+
+                node = node._next;
+            }
+
+            value = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Publishes <paramref name="value"/> for <paramref name="type"/>, or returns what a concurrent
+        /// caller published for it first - the winner is the one instance every caller then sees.
+        /// </summary>
+        internal T GetOrAdd(Type type, T value)
+        {
+            while (true)
+            {
+                var head = Volatile.Read(ref _head);
+                for (var node = head; node is not null; node = node._next)
+                {
+                    if (ReferenceEquals(node._type, type))
+                    {
+                        return node._value;
+                    }
+                }
+
+                if (ReferenceEquals(Interlocked.CompareExchange(ref _head, new Node(type, value, head), head), head))
+                {
+                    return value;
+                }
+            }
+        }
+
+        private sealed class Node(Type type, T value, Node? next)
+        {
+            internal readonly Type _type = type;
+            internal readonly T _value = value;
+            internal readonly Node? _next = next;
+        }
+    }
 
     private bool TryConvertInternal(
         object? value,
@@ -220,22 +293,35 @@ public class DefaultTypeConverter : ClrTypeConverter
                 }
 
                 // caching of .NET delegates per function instance is required to be able to support
-                // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged)
-                var d = functionInstance is not null ?
-                    _boundTargetDelegateCache.GetValue(functionInstance!, target =>
+                // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged). Both caches
+                // are keyed by the target delegate type as well, because that type is what the compiled
+                // binder bakes in and neither a function instance nor its AST node carries it - and the AST
+                // node is process-wide state, so a shared Prepared<Script> otherwise lets whichever engine
+                // converted first decide the delegate type for every engine after it (#3434).
+                Delegate d;
+                if (functionInstance is not null)
+                {
+                    var boundDelegates = _boundTargetDelegateCache.GetValue(functionInstance, _createBoundDelegateCache);
+                    if (!boundDelegates.TryGetValue(type, out var bound))
                     {
                         var astFunction = (functionInstance as Function)?._functionDefinition?.Function;
 
-                        // use a single builder per unique function AST
+                        // use a single builder per unique function AST and target delegate type
                         var targetBinder = astFunction is not null
-                            ? _targetBinderDelegateCache.GetValue(astFunction, _ => BuildTargetBinderDelegate(type, func))
+                            ? GetOrBuildTargetBinderDelegate(astFunction, type, func)
                             : BuildTargetBinderDelegate(type, func);
 
-                        return targetBinder(target)!;
-                    }) :
-                    BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+                        bound = boundDelegates.GetOrAdd(type, targetBinder(functionInstance)!);
+                    }
 
-                if (functionInstance is ObjectInstance callbackTarget)
+                    d = bound;
+                }
+                else
+                {
+                    d = BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+                }
+
+                if (functionInstance is ObjectInstance callbackTarget && !_hostCallbackDelegates.TryGetValue(d, out _))
                 {
                     _hostCallbackDelegates.GetValue(d, _ => callbackTarget);
                 }
@@ -430,6 +516,17 @@ public class DefaultTypeConverter : ClrTypeConverter
             return false;
         }
 #endif
+    }
+
+    private static Func<object, Delegate> GetOrBuildTargetBinderDelegate(
+        IFunction astFunction,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
+        JsCallDelegate function)
+    {
+        var binders = _targetBinderDelegateCache.GetValue(astFunction, _createBinderCache);
+        return binders.TryGetValue(delegateType, out var binder)
+            ? binder
+            : binders.GetOrAdd(delegateType, BuildTargetBinderDelegate(delegateType, function));
     }
 
     private static Func<object, Delegate> BuildTargetBinderDelegate(
