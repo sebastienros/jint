@@ -13,7 +13,10 @@ namespace Jint.Extensions;
 /// infinity, and loses the sign of a negative zero. ECMA-262 makes every string-to-number conversion one
 /// rounding to the nearest Number, so the answer may not depend on which target framework an embedder
 /// loaded, and every lane that turns number text into a double reads the digits here rather than asking
-/// the platform.
+/// the platform. The same rule catches a lane that does its own arithmetic: <c>parseInt</c> accumulated
+/// digits into a <c>double</c> and rounded once per digit where the spec rounds once overall, in every
+/// radix and on every target framework (sebastienros/jint#3534). Everything here keeps the value exact
+/// until it can decide the answer, and rounds at the end.
 /// </remarks>
 internal static class NumberParser
 {
@@ -41,6 +44,18 @@ internal static class NumberParser
         1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
         1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
     };
+
+    /// <summary>
+    /// The digit count at which an integer in a given radix has certainly passed every finite double.
+    /// Indexed by radix; 0 and 1 are not digit bases and hold zero.
+    /// </summary>
+    /// <remarks>
+    /// An n-digit integer with a non-zero leading digit is at least R^(n-1), so once n reaches
+    /// ceil(1024 / log2 R) + 2 the value is above 2^1024 and no further digit can bring it back. This is
+    /// what bounds the exact accumulation: a value that is not an infinity never carries more than about
+    /// 1030 bits, however long the text is, and the scan stops at the count rather than reading the rest.
+    /// </remarks>
+    private static readonly int[] DigitsThatOverflow = BuildDigitsThatOverflow();
 
     private static readonly BigInteger Ten = new BigInteger(10);
     private static readonly BigInteger TenPow19 = new BigInteger(10000000000000000000UL);
@@ -405,6 +420,273 @@ internal static class NumberParser
             quotient = BigInteger.DivRem(numerator << -binaryExponent, denominator, out remainder);
         }
     }
+
+    /// <summary>
+    /// The <see cref="double"/> nearest the integer the longest radix-<paramref name="radix"/> digit
+    /// prefix of <paramref name="text"/> denotes, without a sign.
+    /// </summary>
+    /// <param name="text">Digits, and whatever follows the first character that is not one.</param>
+    /// <param name="radix">The base the digits are read in, between 2 and 36.</param>
+    /// <param name="result">The value read, non-negative; the caller applies the sign.</param>
+    /// <returns><see langword="true"/> when at least one digit was read.</returns>
+    internal static bool TryParseRadixInteger(ReadOnlySpan<char> text, int radix, out double result)
+    {
+        var length = text.Length;
+        var i = 0;
+
+        // A leading zero is a digit that carries no magnitude, so it is skipped rather than counted; that
+        // is what makes the digit count below a statement about the value rather than about the text.
+        while (i < length && text[i] == '0')
+        {
+            i++;
+        }
+
+        var sawDigit = i > 0;
+        var start = i;
+
+        // The index the value has passed every finite double at, whatever the digits there say.
+        var overflowIndex = start + DigitsThatOverflow[radix] - 1;
+
+        var accumulator = 0UL;
+        var accumulatorLimit = ulong.MaxValue / (uint) radix;
+        var accumulated = true;
+
+        while (i < length)
+        {
+            var digit = DigitValue(text[i]);
+            if (digit < 0 || digit >= radix)
+            {
+                break;
+            }
+
+            if (i >= overflowIndex)
+            {
+                result = double.PositiveInfinity;
+                return true;
+            }
+
+            if (accumulated)
+            {
+                if (accumulator > accumulatorLimit)
+                {
+                    accumulated = false;
+                }
+                else
+                {
+                    var next = accumulator * (uint) radix + (uint) digit;
+                    if (next < accumulator)
+                    {
+                        accumulated = false;
+                    }
+                    else
+                    {
+                        accumulator = next;
+                    }
+                }
+            }
+
+            sawDigit = true;
+            i++;
+        }
+
+        if (!sawDigit)
+        {
+            result = 0;
+            return false;
+        }
+
+        if (accumulated)
+        {
+            // Everything under 2^64, which is every digit run a program is likely to hand parseInt.
+            result = UInt64ToDouble(accumulator);
+            return true;
+        }
+
+        var digits = text.Slice(start, i - start);
+
+        // A radix that is a power of two lays its digits straight onto the bits, so the exact value is a
+        // shift and everything dropped is a sticky bit; any other radix needs the value itself.
+        result = (radix & (radix - 1)) == 0
+            ? ParsePowerOfTwoRadix(digits, radix)
+            : ParseExactRadixInteger(digits, radix);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Reads digits whose radix is a power of two, keeping the leading bits and a sticky flag for the
+    /// rest, which is all the rounding can need and costs no <see cref="BigInteger"/> at all.
+    /// </summary>
+    private static double ParsePowerOfTwoRadix(ReadOnlySpan<char> digits, int radix)
+    {
+        var bitsPerDigit = BitLength((ulong) radix) - 1;
+        var ceiling = ulong.MaxValue >> bitsPerDigit;
+
+        var significand = 0UL;
+        long binaryExponent = 0;
+        var sticky = false;
+
+        foreach (var c in digits)
+        {
+            var digit = (ulong) DigitValue(c);
+            if (significand <= ceiling)
+            {
+                significand = (significand << bitsPerDigit) | digit;
+            }
+            else
+            {
+                // The accumulator is full, and it holds at least 60 bits by then - well past the 53 the
+                // answer keeps and the one more that decides which way it rounds.
+                binaryExponent += bitsPerDigit;
+                sticky |= digit != 0;
+            }
+        }
+
+        return RoundScaled(significand, binaryExponent, sticky);
+    }
+
+    /// <summary>
+    /// Reads digits in a radix that is not a power of two into the exact integer they denote, in chunks as
+    /// wide as a <c>ulong</c> holds.
+    /// </summary>
+    /// <remarks>
+    /// The caller has already ruled out everything that would not fit: the digit count is under
+    /// <see cref="DigitsThatOverflow"/>, so the value built here is below 2^1024 and about 130 bytes wide,
+    /// whatever the input's length was.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static double ParseExactRadixInteger(ReadOnlySpan<char> digits, int radix)
+    {
+        var chunkCapacity = 1;
+        var chunkScale = (ulong) radix;
+        while (chunkScale <= ulong.MaxValue / (uint) radix)
+        {
+            chunkScale *= (uint) radix;
+            chunkCapacity++;
+        }
+
+        var scale = new BigInteger(chunkScale);
+        var value = BigInteger.Zero;
+        var chunk = 0UL;
+        var chunkDigits = 0;
+
+        foreach (var c in digits)
+        {
+            chunk = chunk * (uint) radix + (uint) DigitValue(c);
+            chunkDigits++;
+            if (chunkDigits == chunkCapacity)
+            {
+                value = value * scale + chunk;
+                chunk = 0;
+                chunkDigits = 0;
+            }
+        }
+
+        if (chunkDigits > 0)
+        {
+            var tail = 1UL;
+            for (var i = 0; i < chunkDigits; i++)
+            {
+                tail *= (uint) radix;
+            }
+
+            value = value * new BigInteger(tail) + chunk;
+        }
+
+        // An integer is its own significand at a decimal exponent of zero, with nothing dropped to be
+        // sticky about, so the rounding the decimal lane already does is the rounding this one needs.
+        return Round(value, exponent: 0, truncated: false, negative: false);
+    }
+
+    /// <summary>
+    /// The double nearest <paramref name="significand"/> times 2^<paramref name="binaryExponent"/>, ties
+    /// to even unless <paramref name="sticky"/> says the value sits strictly above the boundary.
+    /// </summary>
+    private static double RoundScaled(ulong significand, long binaryExponent, bool sticky)
+    {
+        var length = BitLength(significand);
+        if (length > 53)
+        {
+            var drop = length - 53;
+            var dropped = significand & ((1UL << drop) - 1);
+            var half = 1UL << (drop - 1);
+
+            significand >>= drop;
+            binaryExponent += drop;
+
+            if (dropped > half || (dropped == half && (sticky || (significand & 1) != 0)))
+            {
+                significand++;
+                if (significand == 1UL << 53)
+                {
+                    significand >>= 1;
+                    binaryExponent++;
+                }
+            }
+        }
+
+        return ComposeInteger(significand, binaryExponent);
+    }
+
+    /// <summary>
+    /// Builds the double holding <paramref name="significand"/> times 2^<paramref name="binaryExponent"/>,
+    /// saturating to an infinity rather than wrapping.
+    /// </summary>
+    /// <remarks>
+    /// Unlike <see cref="Compose"/> this one has no subnormal case to serve: an integer read from digits
+    /// is at least one, so its exponent never reaches the floor.
+    /// </remarks>
+    private static double ComposeInteger(ulong significand, long binaryExponent)
+    {
+        if (significand < 1UL << 52)
+        {
+            // Only reachable with a zero exponent: everything that dropped a bit normalised to 53 of them.
+            return (long) significand;
+        }
+
+        // The significand carries 53 bits, so the value is 1.f x 2^(binaryExponent + 52).
+        var biased = binaryExponent + 1075;
+        if (biased >= 2047)
+        {
+            return double.PositiveInfinity;
+        }
+
+        return BitConverter.Int64BitsToDouble((biased << 52) | (long) (significand - (1UL << 52)));
+    }
+
+    private static int[] BuildDigitsThatOverflow()
+    {
+        var counts = new int[37];
+        for (var radix = 2; radix <= 36; radix++)
+        {
+            // Rounded up and then one further, so a logarithm landing a hair low still names a count the
+            // value has certainly passed 2^1024 at. Two extra digits cost the accumulation a few bits.
+            var bitsPerDigit = System.Math.Log(radix) / System.Math.Log(2);
+            counts[radix] = (int) System.Math.Ceiling(1024 / bitsPerDigit) + 2;
+        }
+
+        return counts;
+    }
+
+    private static int BitLength(ulong value)
+    {
+        var bits = 0;
+        while (value != 0)
+        {
+            bits++;
+            value >>= 1;
+        }
+
+        return bits;
+    }
+
+    private static int DigitValue(char c) => c switch
+    {
+        >= '0' and <= '9' => c - '0',
+        >= 'a' and <= 'z' => c - 'a' + 10,
+        >= 'A' and <= 'Z' => c - 'A' + 10,
+        _ => -1,
+    };
 
     private static int BitLength(BigInteger value)
     {

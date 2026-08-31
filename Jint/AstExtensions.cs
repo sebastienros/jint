@@ -366,29 +366,64 @@ internal static class AstExtensions
             }
 
             var digit = DigitValue(c);
-            if (digit < 0 || digit >= radix || accumulated > limit)
+            if (digit < 0 || digit >= radix)
             {
                 return scanned;
+            }
+
+            if (accumulated > limit)
+            {
+                return RereadWideRadixLiteral(digits, radix, scanned);
             }
 
             var next = accumulated * (uint) radix + (uint) digit;
             if (next < accumulated)
             {
-                return scanned;
+                return RereadWideRadixLiteral(digits, radix, scanned);
             }
 
             accumulated = next;
         }
 
-        // A radix literal wider than the accumulator was built by the scanner one digit at a time in a
-        // double, which rounds repeatedly and is one ULP off on every target framework rather than only
-        // on .NET Framework; sebastienros/jint#3536 tracks that branch, and it is not this one.
         if (accumulated < 1UL << 63)
         {
+            // The digits did not re-read into the octave the scanned value sits in, so this reader has
+            // not understood the text; the scanner's own answer stands.
             return scanned;
         }
 
         return NumberParser.UInt64ToDouble(accumulated);
+    }
+
+    /// <summary>
+    /// Reads a radix literal wider than a <c>ulong</c>, which the scanner rebuilt one digit at a time in a
+    /// <c>double</c> and therefore rounded once per digit rather than once overall.
+    /// </summary>
+    /// <remarks>
+    /// Every radix a literal can be written in is a power of two, so the exact value is the digits' own
+    /// bits and rounding them costs no big-integer arithmetic (sebastienros/jint#3536). A wide legacy
+    /// octal literal moves further than one ULP: the scanner abandons its accumulator and re-reads those
+    /// digits as decimal, which is the wrong base entirely.
+    /// </remarks>
+    private static double RereadWideRadixLiteral(ReadOnlySpan<char> digits, int radix, double scanned)
+    {
+        if (digits.IndexOf('_') < 0)
+        {
+            return NumberParser.TryParseRadixInteger(digits, radix, out var parsed) ? parsed : scanned;
+        }
+
+        // A numeric separator is not part of the number's text; the scanner strips it the same way.
+        Span<char> stripped = digits.Length <= 128 ? stackalloc char[128] : new char[digits.Length];
+        var length = 0;
+        foreach (var c in digits)
+        {
+            if (c != '_')
+            {
+                stripped[length++] = c;
+            }
+        }
+
+        return NumberParser.TryParseRadixInteger(stripped.Slice(0, length), radix, out var separated) ? separated : scanned;
     }
 
     private static bool IsLegacyOctal(ReadOnlySpan<char> digits)

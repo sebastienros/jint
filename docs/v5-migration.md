@@ -4045,9 +4045,9 @@ Four more `net472`-only answers change with it, each of them previously wrong:
 **What could break:** anything on `net472`, `netstandard2.0` or `netstandard2.1` that stored, hashed or
 compared the double one of these three produced for text of 16 or more significant digits, and anything
 catching an `OverflowException` around `JSON.parse`. There is no option to restore the old values: they
-were different numbers from the ones the text names. `parseInt` is a separate lane that accumulates in
-`double` and is one ULP off on *every* target framework for a long digit run —
-[#3534](https://github.com/sebastienros/jint/issues/3534) — and is unchanged here.
+were different numbers from the ones the text names. `parseInt` is a separate lane that accumulated in
+`double` and was one ULP off on *every* target framework for a long digit run; it is
+[4.92](#492-parseint-returns-the-number-nearest-the-digits-it-read-3534) below.
 
 ### 4.91 A literal carrying a fraction or an exponent holds the same double on every target framework ([#3533](https://github.com/sebastienros/jint/issues/3533))
 
@@ -4093,6 +4093,91 @@ re-baselined against the value its source names. There is no option to restore t
 different numbers from the ones the source names. A hexadecimal, octal or binary literal wider than 64 bits
 is a third branch, wrong on *every* target framework for a different reason
 ([#3536](https://github.com/sebastienros/jint/issues/3536)), and is unchanged here.
+
+### 4.92 `parseInt` returns the Number nearest the digits it read ([#3534](https://github.com/sebastienros/jint/issues/3534))
+
+Step 15 of [parseInt](https://tc39.es/ecma262/#sec-parseint-string-radix) is `Return 𝔽(sign × mathInt)`:
+`mathInt` is the exact integer the accepted digits denote in the radix, and 𝔽 rounds it to the nearest
+Number, once. Jint accumulated the digits into a `double` instead — `result += digit * pow` — so every
+addition past the 53rd significant bit rounded, and a long digit run rounded many times where the spec
+rounds once. Unlike [4.89](#489-a-whole-number-literal-holds-the-same-double-on-every-target-framework-3530)
+and [4.90](#490-parsefloat-number-and-jsonparse-read-the-same-double-on-every-target-framework-3532) this
+was not a runtime difference: the accumulation was Jint's own and was equally wrong on every target
+framework.
+
+```js
+// 5.0: "678851690709701400"      5.x: "678851690709701200"
+parseInt('678851690709701306').toString();
+
+// 5.0: false                     5.x: true
+parseInt('678851690709701306') === Number('678851690709701306');
+
+// 5.0: "2.837451455076133e+22"   5.x: "2.8374514550761333e+22"
+parseInt('4MC89bZOPkUnec5', 36).toString();
+```
+
+Measured over 2000 random operands per shape, and identical on `net472`, `net8.0` and `net10.0`, the answer
+was not the nearest Number for 6.7 % of whole numbers of 17 to 19 digits, 14.3 % of those in
+`[2^63, 2^64)`, and 6.3 % of 22-digit ones. Past about 25 digits it was wrong for most operands, and past
+40 digits for every one of them, in every radix.
+
+Which characters are accepted has not moved. Leading whitespace, the sign, the `0x` prefix at radix 0 or
+16, stopping at the first character that is not a digit in the radix, and `NaN` for an empty digit prefix
+are all unchanged — the only change is how the digits that were accepted become a number.
+
+A long digit run is still answered in time proportional to the digits that can affect the answer rather
+than to the input. A value's magnitude follows from its digit count, so at 311 digits in radix 10 — 1026 in
+radix 2, 201 in radix 36 — the result is an infinity whatever the rest of the text says, and the scan stops
+there; `parseInt('9'.repeat(1e8))` returns `Infinity` without reading its second thousand characters.
+
+**What could break:** a `parseInt` call whose digits denote a value above 2^53, in any radix, on any target
+framework. The value it returns now is the one `Number(…)` returns for the same decimal digits, and the one
+a literal of those digits denotes. There is no option to restore the old value: it was not the number the
+digits name.
+
+### 4.93 A hexadecimal, octal or binary literal wider than 64 bits holds the nearest Number ([#3536](https://github.com/sebastienros/jint/issues/3536))
+
+A [NumericLiteral](https://tc39.es/ecma262/#sec-literals-numeric-literals) denotes one rounding of its
+mathematical value. The scanner accumulates a literal's digits into a `ulong`; when a **radix** literal
+overflows that, it rebuilds the value one digit at a time in a `double`, which rounds once per digit past
+the 53rd significant bit. It is the same defect as
+[4.92](#492-parseint-returns-the-number-nearest-the-digits-it-read-3534) in a second reader, and like that
+one it owed nothing to the platform — every target framework was wrong in the same places:
+
+```js
+// 5.0: "36073444770624365000"       5.x: "36073444770624370000"
+(0x1F49E9EE4C1BCE961).toString();
+
+// 5.0: false                        5.x: true
+0x1F49E9EE4C1BCE961 === Number('36073444770624366945');
+
+// 5.0: "1.1683224628333039e+21"     5.x: "1.1683224628333037e+21"
+(0b1111110101010110111011001100011110100011000000100101101011000110110000).toString();
+```
+
+Measured over 500 random literals per shape, and identical on `net472`, `net8.0` and `net10.0`, the number
+that were not the nearest double: 28 of 17 hexadecimal digits, 25 of 20, 24 of 60; 35 of 25 octal digits
+and 43 of 90; 77 of 70 binary digits and 62 of 200. All zero afterwards. `AstExtensions.NearestDouble`
+re-reads such a literal's own text — every radix a literal can be written in is a power of two, so the
+exact value is the digits' own bits and rounding them costs no big-integer arithmetic.
+
+**A wide sloppy-mode legacy octal literal moved further than one ULP**, because the scanner does not fall
+back to `double` accumulation for that spelling at all — it abandons the octal reading and re-reads the
+digits as decimal, which is the wrong base:
+
+```js
+// 5.0: 1.7777777777777777e+22       5.x: 147573952589676410000
+017777777777777777777777;
+
+// 5.0: false                        5.x: true
+017777777777777777777777 === 0o17777777777777777777777;
+```
+
+**What could break:** a hexadecimal, octal or binary literal denoting a value above 2^64, and any legacy
+octal literal denoting a value above 2^64 in sloppy mode. Nothing at or below 2^64 moves, and neither does
+a decimal literal, which takes a different branch of the scanner —
+[4.91](#491-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
+covers that one. There is no option to restore the old values: they were not the numbers the literals name.
 
 ## 5. New in v5
 
