@@ -231,18 +231,18 @@ internal static class AstExtensions
     }
 
     private const double TwoPow63 = 9223372036854775808.0;
-    private const double TwoPow64 = 18446744073709551616.0;
 
     /// <summary>
     /// The number a numeric literal denotes, rounded the same way on every runtime Jint targets.
     /// </summary>
     /// <remarks>
-    /// The scanner reads an integer literal's digits into a <c>ulong</c> and converts that to
-    /// <c>double</c>, and no runtime before .NET 9 rounds that conversion once: for a value in
-    /// <c>[2^63, 2^64)</c> it rounds twice and lands one ULP off about one operand in six, so
-    /// <c>12345678901234567890</c> held a different number on <c>net472</c> and <c>net8.0</c> than on
-    /// <c>net10.0</c>. Literals in that one octave are re-read from their own source text here; every
-    /// other literal is handed back exactly as scanned. Reported upstream as
+    /// The scanner settles a literal it can accumulate into a <c>ulong</c> with a conversion that no
+    /// runtime before .NET 9 rounds once above <c>2^63</c>, and hands everything else - a fraction, an
+    /// exponent, more digits than the accumulator holds - to <c>double.Parse</c>, which .NET Framework
+    /// does not round correctly at all. Both are re-read from the literal's own source text here, the
+    /// first through <see cref="NumberParser.UInt64ToDouble"/> and the second through
+    /// <see cref="NumberParser.TryParseDouble"/>; everything the scanner already rounded once is handed
+    /// back exactly as scanned. Reported upstream as
     /// <see href="https://github.com/adams85/acornima/issues/53">adams85/acornima#53</see>, and this
     /// can go when a release carrying the fix is picked up.
     /// </remarks>
@@ -250,19 +250,47 @@ internal static class AstExtensions
     internal static double NearestDouble(this NumericLiteral literal)
     {
         var value = literal.Value;
-        if (value < TwoPow63 || value > TwoPow64)
+
+        // Nearly every literal ever written lands here: the scanner accumulated its digits itself, and
+        // the signed conversion it reached below 2^63 is correctly rounded on every runtime.
+        if (value < TwoPow63 && !HasFractionOrExponent(literal.Raw))
         {
             return value;
         }
 
-        return RereadIntegerLiteral(literal.Raw, value);
+        return RereadLiteral(literal.Raw, value);
     }
 
     /// <summary>
-    /// Re-derives an integer literal's value from its raw text, in whichever radix the scanner read it.
+    /// Whether the literal's text carries a fraction or an exponent, which is what sends the scanner to
+    /// <c>double.Parse</c> instead of its own accumulator.
+    /// </summary>
+    private static bool HasFractionOrExponent(string raw)
+    {
+        // 'e' is a hexadecimal digit, so a 0x literal has to be recognised before looking for an
+        // exponent. The other two radix prefixes admit neither character, and none of the three admits
+        // a '.', so a plain scan answers for them.
+        if (raw.Length > 1 && raw[0] == '0' && (raw[1] | 0x20) == 'x')
+        {
+            return false;
+        }
+
+        foreach (var c in raw)
+        {
+            if (c == '.' || (c | 0x20) == 'e')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Re-derives a literal's value from its raw text, in whichever spelling the scanner read it.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static double RereadIntegerLiteral(string raw, double scanned)
+    private static double RereadLiteral(string raw, double scanned)
     {
         var digits = raw.AsSpan();
         var radix = 10;
@@ -292,6 +320,42 @@ internal static class AstExtensions
             }
         }
 
+        return radix == 10
+            ? RereadDecimalLiteral(digits, scanned)
+            : RereadRadixLiteral(digits, radix, scanned);
+    }
+
+    /// <summary>
+    /// Reads a decimal literal's own digits, which is the only way to round them once on a target
+    /// framework whose <c>double.Parse</c> does not (sebastienros/jint#3533).
+    /// </summary>
+    private static double RereadDecimalLiteral(ReadOnlySpan<char> digits, double scanned)
+    {
+        if (digits.IndexOf('_') < 0)
+        {
+            return NumberParser.TryParseDouble(digits, out var parsed) ? parsed : scanned;
+        }
+
+        // A numeric separator is not part of the number's text; the scanner strips it the same way.
+        Span<char> stripped = digits.Length <= 128 ? stackalloc char[128] : new char[digits.Length];
+        var length = 0;
+        foreach (var c in digits)
+        {
+            if (c != '_')
+            {
+                stripped[length++] = c;
+            }
+        }
+
+        return NumberParser.TryParseDouble(stripped.Slice(0, length), out var separated) ? separated : scanned;
+    }
+
+    /// <summary>
+    /// Accumulates a hexadecimal, octal or binary literal's digits and converts them in managed code,
+    /// which is what the scanner's own <c>ulong</c> conversion gets wrong in <c>[2^63, 2^64)</c>.
+    /// </summary>
+    private static double RereadRadixLiteral(ReadOnlySpan<char> digits, int radix, double scanned)
+    {
         ulong accumulated = 0;
         var limit = ulong.MaxValue / (uint) radix;
         foreach (var c in digits)
@@ -316,10 +380,9 @@ internal static class AstExtensions
             accumulated = next;
         }
 
-        // Anything that did not re-read into the octave the scanned value sits in was produced by some
-        // other branch of the scanner — a fraction, an exponent, digits too wide for its accumulator.
-        // That branch reaches double.Parse, which rounds correctly everywhere except on .NET Framework;
-        // sebastienros/jint#3533 tracks the residue, and #3532 fixed the same thing on the string side.
+        // A radix literal wider than the accumulator was built by the scanner one digit at a time in a
+        // double, which rounds repeatedly and is one ULP off on every target framework rather than only
+        // on .NET Framework; sebastienros/jint#3536 tracks that branch, and it is not this one.
         if (accumulated < 1UL << 63)
         {
             return scanned;
