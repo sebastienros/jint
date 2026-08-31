@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -337,147 +337,32 @@ public sealed class JsonParser
         }
 
         JsNumber value;
-#if NET8_0_OR_GREATER
         // Parse straight off the scanned span so the common case never materializes the intermediate
         // number string. The raw text is only needed for the (rare) "unexpected trailing token"
         // diagnostic, which the token carries no eager copy of: TokenText reconstructs it from the token
-        // range on demand. Both long.TryParse and double.Parse have span overloads on net8+.
+        // range on demand.
         var number = sb.AsSpan();
         if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
         {
             value = JsNumber.Create(longResult);
         }
-        else if (TryParseDecimalFast(number, out var fastValue))
+        else if (NumberParser.TryParseDouble(number, out var parsed))
         {
-            // Bit-identical to the double.Parse fallback below for every shape it accepts (proven by
-            // JsonTests.NumberFastPath*); the constructor keeps the Types.Number tagging the
-            // double.Parse path produces. Gated to net8+ because only there is double.Parse guaranteed
-            // to be IEEE correctly-rounded — on the legacy runtimes it can differ by an ULP, so we keep
-            // deferring to it to stay byte-for-byte identical to the pre-existing behavior.
-            value = new JsNumber(fastValue);
+            // Not double.Parse: on .NET Framework it is not IEEE correctly-rounded, it loses the sign of
+            // "-0", and it reports 1e999 by throwing an OverflowException straight out of JSON.parse
+            // instead of returning an infinity.
+            value = new JsNumber(parsed);
         }
         else
         {
-            value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
+            // Unreachable: the scan above accepts only the JSON number grammar, which is a subset of
+            // what NumberParser reads, and an overflow saturates rather than failing.
+            value = JsNumber.DoubleNaN;
         }
 
         // Number tokens carry no eager Text (null); the trailing-token diagnostic rebuilds it from Range.
         return CreateToken(Tokens.Number, text: null, '\0', value, new TextRange(start, _index));
-#else
-        // Legacy runtimes have no span-based number parsing and no correctly-rounded double.Parse fast
-        // path, so keep the original string-materializing behavior byte-for-byte.
-        var number = sb.ToString();
-        if (canBeInteger && long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var longResult) && longResult != -0)
-        {
-            value = JsNumber.Create(longResult);
-        }
-        else
-        {
-            value = new JsNumber(double.Parse(number, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture));
-        }
-
-        return CreateToken(Tokens.Number, number, '\0', value, new TextRange(start, _index));
-#endif
     }
-
-#if NET8_0_OR_GREATER
-    // Exact power-of-ten scaling factors for the fraction fast path. 10^0..10^15 are all exactly
-    // representable doubles (each significand fits in 53 bits), so dividing an exact long numerator
-    // (&lt; 10^15 &lt; 2^53) by one of these yields the correctly-rounded quotient — bit-identical to
-    // double.Parse on the same text (see JsonTests.NumberFastPath*). The fraction path only ever indexes
-    // 0..14 (at least one integer digit is required), the extra slots are headroom.
-    private static readonly double[] PowersOf10 =
-    {
-        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7,
-        1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
-    };
-
-    /// <summary>
-    /// Fast path for the dominant JSON number shape: an optional leading '-', integer digits, an
-    /// optional '.fraction' and NO exponent, with at most 15 total digits. Every digit is accumulated
-    /// into a single exact <see cref="long"/> numerator which is divided once by an exact power of ten,
-    /// avoiding the general floating-point parse. Returns <see langword="false"/> — deferring to
-    /// <c>double.Parse</c> — for anything outside that shape (an exponent, a 16th significant digit, or
-    /// any unexpected trailing character). The result is bit-identical to <c>double.Parse</c> for every
-    /// accepted input because both operands of the division are exactly representable.
-    /// </summary>
-    private static bool TryParseDecimalFast(ReadOnlySpan<char> text, out double result)
-    {
-        result = 0;
-        var len = text.Length;
-        var i = 0;
-
-        var negative = false;
-        if (len > 0 && text[0] == '-')
-        {
-            negative = true;
-            i = 1;
-        }
-
-        long mantissa = 0;
-        var totalDigits = 0;
-        var intDigits = 0;
-        while (i < len)
-        {
-            var c = text[i];
-            if (!IsDecimalDigit(c))
-            {
-                break;
-            }
-            if (totalDigits == 15)
-            {
-                return false; // more significant digits than the exact long numerator can hold
-            }
-            mantissa = mantissa * 10 + (c - '0');
-            totalDigits++;
-            intDigits++;
-            i++;
-        }
-
-        if (intDigits == 0)
-        {
-            return false; // no integer digit (e.g. a lone '.') — let the general path handle it
-        }
-
-        var fractionDigits = 0;
-        if (i < len && text[i] == '.')
-        {
-            i++;
-            while (i < len)
-            {
-                var c = text[i];
-                if (!IsDecimalDigit(c))
-                {
-                    break;
-                }
-                if (totalDigits == 15)
-                {
-                    return false;
-                }
-                mantissa = mantissa * 10 + (c - '0');
-                totalDigits++;
-                fractionDigits++;
-                i++;
-            }
-        }
-
-        if (i != len)
-        {
-            return false; // exponent or other trailing character — not covered by the fast path
-        }
-
-        if (negative && mantissa == 0)
-        {
-            // Negative zero ("-0", "-0.0", ...): defer to double.Parse so the sign of zero always comes
-            // from the platform parser rather than being synthesized here.
-            return false;
-        }
-
-        var value = fractionDigits == 0 ? (double) mantissa : (double) mantissa / PowersOf10[fractionDigits];
-        result = negative ? -value : value;
-        return true;
-    }
-#endif
 
     private Token ScanBooleanLiteral(ReadOnlySpan<char> source)
     {

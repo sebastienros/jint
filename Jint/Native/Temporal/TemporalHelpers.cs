@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Jint.Extensions;
 using Jint.Native.Object;
 using Jint.Runtime;
 
@@ -458,7 +459,7 @@ internal static class TemporalHelpers
             }
             else if (match.Groups[10].Success)
             {
-                seconds = double.Parse(match.Groups[10].Value, CultureInfo.InvariantCulture);
+                seconds = ParseDecimal(match.Groups[10].Value);
                 if (match.Groups[11].Success)
                 {
                     ParseFractionDigits(match.Groups[11].Value, out var ms, out var us, out var ns);
@@ -492,7 +493,17 @@ internal static class TemporalHelpers
     private static double ParseFraction(string fractionDigits)
     {
         // Convert fractional digit string like "03125" to 0.03125
-        return double.Parse("0." + fractionDigits, CultureInfo.InvariantCulture);
+        return ParseDecimal("0." + fractionDigits);
+    }
+
+    /// <summary>
+    /// Reads decimal text as the nearest double. Not <c>double.Parse</c>, whose .NET Framework
+    /// implementation is not IEEE correctly-rounded and would make a duration's components depend on
+    /// which target framework an embedder loaded.
+    /// </summary>
+    private static double ParseDecimal(string text)
+    {
+        return NumberParser.TryParseDouble(text.AsSpan(), out var value) ? value : double.NaN;
     }
 
     private static double ParseDurationComponent(string value)
@@ -501,7 +512,7 @@ internal static class TemporalHelpers
             return 0;
         // Use TryParse to handle very large numbers that would overflow double
         // (e.g., "9".repeat(1000) should become Infinity, not throw)
-        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result))
+        if (NumberParser.TryParseDouble(value.AsSpan(), out var result))
             return result;
         // If parsing fails (overflow), return Infinity so IsValidDuration rejects it
         return double.PositiveInfinity;
@@ -5171,7 +5182,7 @@ internal static class TemporalHelpers
 
         // Compute the exact rational q + r/absDen as the nearest float64.
         // Use string-based conversion for correctness: build a decimal string with
-        // enough fractional digits and use double.Parse which is correctly rounded.
+        // enough fractional digits and read it back through the correctly-rounded parser.
         // We need ~20 significant digits. When q=0, leading zeros in the fraction
         // don't count, so we use 40 fractional digits to handle all Temporal cases.
         const int fracDigits = 40;
@@ -5179,10 +5190,7 @@ internal static class TemporalHelpers
         var fracBig = r * scale / absDen;
         var fracStr = fracBig.ToString(CultureInfo.InvariantCulture).PadLeft(fracDigits, '0');
 
-        var result = double.Parse(
-            string.Concat(q.ToString(CultureInfo.InvariantCulture), ".", fracStr),
-            System.Globalization.NumberStyles.Float,
-            CultureInfo.InvariantCulture);
+        var result = ParseDecimal(string.Concat(q.ToString(CultureInfo.InvariantCulture), ".", fracStr));
         return negative ? -result : result;
     }
 

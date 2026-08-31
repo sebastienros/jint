@@ -1,5 +1,6 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Threading;
+using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -316,14 +317,15 @@ internal static class AstExtensions
         }
 
         // Anything that did not re-read into the octave the scanned value sits in was produced by some
-        // other branch of the scanner — a fraction, an exponent, digits too wide for its accumulator —
-        // and that branch already rounded correctly.
+        // other branch of the scanner — a fraction, an exponent, digits too wide for its accumulator.
+        // That branch reaches double.Parse, which rounds correctly everywhere except on .NET Framework;
+        // sebastienros/jint#3533 tracks the residue, and #3532 fixed the same thing on the string side.
         if (accumulated < 1UL << 63)
         {
             return scanned;
         }
 
-        return UInt64ToDouble(accumulated);
+        return NumberParser.UInt64ToDouble(accumulated);
     }
 
     private static bool IsLegacyOctal(ReadOnlySpan<char> digits)
@@ -357,25 +359,6 @@ internal static class AstExtensions
         }
 
         return -1;
-    }
-
-    /// <summary>
-    /// Converts an unsigned 64-bit integer to the nearest <see cref="double"/>, alike on every runtime.
-    /// </summary>
-    /// <remarks>
-    /// The signed conversion is correctly rounded everywhere, so halve the operand to reach it, OR-ing
-    /// the bit that falls off back in so a tie still reads as a tie, and double the result — which is
-    /// exact — to get back.
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static double UInt64ToDouble(ulong value)
-    {
-        if (value < 1UL << 63)
-        {
-            return (long) value;
-        }
-
-        return (double) (long) ((value >> 1) | (value & 1)) * 2.0;
     }
 
     internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)

@@ -295,37 +295,15 @@ public static class TypeConverter
             }
         }
 
-#if NETFRAMEWORK
-        // if we are on full framework, one extra check for whether it was actually over the bounds of double
-        // in modern NET parsing was fixed to be IEEE 754 compliant, full framework is not and cannot detect positive infinity
-        try
+        // Not double.TryParse: .NET Framework's is not IEEE correctly-rounded, fails rather than
+        // saturating on overflow, and loses the sign of a negative zero, so Number('...') would answer
+        // three different questions depending on which target framework an embedder loaded.
+        if (NumberParser.TryParseDouble(input.AsSpan(), out var n))
         {
-            var targetString = firstChar == '-' ? input.Substring(1) : input;
-            var n = double.Parse(targetString, NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, CultureInfo.InvariantCulture);
-
-            if (n == 0 && firstChar == '-')
-            {
-                return -0.0;
-            }
-
-            return firstChar == '-' ? -1 * n : n;
-        }
-        catch (Exception e) when (e is OverflowException)
-        {
-            return firstChar == '-' ? double.NegativeInfinity : double.PositiveInfinity;
-        }
-        catch
-        {
-            return double.NaN;
-        }
-#else
-        if (double.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var n))
-        {
-            return n == 0 && firstChar == '-' ? -0.0 : n;
+            return n;
         }
 
         return double.NaN;
-#endif
     }
 
     /// <summary>

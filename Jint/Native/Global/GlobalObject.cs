@@ -241,8 +241,7 @@ public sealed partial class GlobalObject : ObjectInstance
 
         var substring = trimmedString.AsSpan(0, i);
 
-        const NumberStyles Styles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent | NumberStyles.AllowLeadingSign;
-        if (double.TryParse(substring, Styles, CultureInfo.InvariantCulture, out var d))
+        if (NumberParser.TryParseDouble(substring, out var d))
         {
             return d;
         }
