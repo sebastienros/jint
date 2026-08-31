@@ -13,6 +13,18 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal sealed class JintUnaryExpression : JintExpression
 {
+    /// <summary>
+    /// A unary operator's resolution is the operand type's first <see cref="MethodInfo"/> of that name taking
+    /// one parameter, which is why this key carries nothing about the engine and this table may be shared by
+    /// the process: no score is computed, so neither <c>Options.Interop.ValueCoercion</c> nor the installed
+    /// <see cref="Jint.Runtime.Interop.ClrTypeConverter"/> is consulted.
+    /// </summary>
+    /// <remarks>
+    /// That is what makes it different from <see cref="JintBinaryExpression"/>'s table, whose key carries the
+    /// coercion setting and whose choice of table carries the converter (#3424). Anything that gives this one
+    /// a scoring step — a second candidate to choose between, <see cref="Jint.Runtime.Interop.InteropHelper.FindBestMatch"/>
+    /// — inherits those rules with it.
+    /// </remarks>
     private readonly record struct OperatorKey(string OperatorName, Type Operand);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
 
