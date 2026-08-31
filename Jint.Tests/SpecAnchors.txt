@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-08-31
-anchors: 1245
+anchors: 1246
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -413,6 +413,7 @@ ecma262 sec-json.parse
 ecma262 sec-json.stringify
 ecma262 sec-keyforsymbol
 ecma262 sec-lengthofarraylike
+ecma262 sec-literals-numeric-literals
 ecma262 sec-localtime
 ecma262 sec-makedataviewwithbufferwitnessrecord
 ecma262 sec-makematchindicesindexpairarray
