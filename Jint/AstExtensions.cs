@@ -197,7 +197,7 @@ internal static class AstExtensions
         // prevent conversion to scientific notation
         if (literal is NumericLiteral numericLiteral)
         {
-            return TypeConverter.ToString(numericLiteral.Value);
+            return TypeConverter.ToString(numericLiteral.NearestDouble());
         }
 
         if (literal is BigIntLiteral bigIntLiteral)
@@ -227,6 +227,155 @@ internal static class AstExtensions
             NullLiteral => "null",
             _ => literal.Raw ?? "",
         };
+    }
+
+    private const double TwoPow63 = 9223372036854775808.0;
+    private const double TwoPow64 = 18446744073709551616.0;
+
+    /// <summary>
+    /// The number a numeric literal denotes, rounded the same way on every runtime Jint targets.
+    /// </summary>
+    /// <remarks>
+    /// The scanner reads an integer literal's digits into a <c>ulong</c> and converts that to
+    /// <c>double</c>, and no runtime before .NET 9 rounds that conversion once: for a value in
+    /// <c>[2^63, 2^64)</c> it rounds twice and lands one ULP off about one operand in six, so
+    /// <c>12345678901234567890</c> held a different number on <c>net472</c> and <c>net8.0</c> than on
+    /// <c>net10.0</c>. Literals in that one octave are re-read from their own source text here; every
+    /// other literal is handed back exactly as scanned. Reported upstream as
+    /// <see href="https://github.com/adams85/acornima/issues/53">adams85/acornima#53</see>, and this
+    /// can go when a release carrying the fix is picked up.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static double NearestDouble(this NumericLiteral literal)
+    {
+        var value = literal.Value;
+        if (value < TwoPow63 || value > TwoPow64)
+        {
+            return value;
+        }
+
+        return RereadIntegerLiteral(literal.Raw, value);
+    }
+
+    /// <summary>
+    /// Re-derives an integer literal's value from its raw text, in whichever radix the scanner read it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static double RereadIntegerLiteral(string raw, double scanned)
+    {
+        var digits = raw.AsSpan();
+        var radix = 10;
+        if (digits.Length > 1 && digits[0] == '0')
+        {
+            var prefix = digits[1];
+            if (prefix is 'x' or 'X')
+            {
+                radix = 16;
+                digits = digits.Slice(2);
+            }
+            else if (prefix is 'o' or 'O')
+            {
+                radix = 8;
+                digits = digits.Slice(2);
+            }
+            else if (prefix is 'b' or 'B')
+            {
+                radix = 2;
+                digits = digits.Slice(2);
+            }
+            else if (IsLegacyOctal(digits))
+            {
+                // A leading zero followed only by octal digits is a legacy octal literal; the scanner
+                // re-reads the whole thing as decimal as soon as an 8 or a 9 turns up in it.
+                radix = 8;
+            }
+        }
+
+        ulong accumulated = 0;
+        var limit = ulong.MaxValue / (uint) radix;
+        foreach (var c in digits)
+        {
+            if (c == '_')
+            {
+                continue;
+            }
+
+            var digit = DigitValue(c);
+            if (digit < 0 || digit >= radix || accumulated > limit)
+            {
+                return scanned;
+            }
+
+            var next = accumulated * (uint) radix + (uint) digit;
+            if (next < accumulated)
+            {
+                return scanned;
+            }
+
+            accumulated = next;
+        }
+
+        // Anything that did not re-read into the octave the scanned value sits in was produced by some
+        // other branch of the scanner — a fraction, an exponent, digits too wide for its accumulator —
+        // and that branch already rounded correctly.
+        if (accumulated < 1UL << 63)
+        {
+            return scanned;
+        }
+
+        return UInt64ToDouble(accumulated);
+    }
+
+    private static bool IsLegacyOctal(ReadOnlySpan<char> digits)
+    {
+        foreach (var c in digits)
+        {
+            if (c is < '0' or > '7')
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static int DigitValue(char c)
+    {
+        if (c is >= '0' and <= '9')
+        {
+            return c - '0';
+        }
+
+        if (c is >= 'a' and <= 'f')
+        {
+            return c - 'a' + 10;
+        }
+
+        if (c is >= 'A' and <= 'F')
+        {
+            return c - 'A' + 10;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Converts an unsigned 64-bit integer to the nearest <see cref="double"/>, alike on every runtime.
+    /// </summary>
+    /// <remarks>
+    /// The signed conversion is correctly rounded everywhere, so halve the operand to reach it, OR-ing
+    /// the bit that falls off back in so a tie still reads as a tie, and double the result — which is
+    /// exact — to get back.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double UInt64ToDouble(ulong value)
+    {
+        if (value < 1UL << 63)
+        {
+            return (long) value;
+        }
+
+        return (double) (long) ((value >> 1) | (value & 1)) * 2.0;
     }
 
     internal static void GetBoundNames(this VariableDeclaration variableDeclaration, List<Key> target)

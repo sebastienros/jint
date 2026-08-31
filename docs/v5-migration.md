@@ -3971,6 +3971,34 @@ locales, thirty-three option sets and thirty-nine values: the percent and curren
 all under the standard notation, and no string that was already the concatenation of its own parts changes
 except where one of the above applies.
 
+### 4.89 A whole-number literal holds the same double on every target framework ([#3530](https://github.com/sebastienros/jint/issues/3530))
+
+A [NumericLiteral](https://tc39.es/ecma262/#sec-literals-numeric-literals) denotes the Number nearest its
+mathematical value, which is the rounding `Number(…)` performs on the same digits. Jint's scanner reads a
+whole-number literal's digits into a `ulong` and converts, and no runtime before .NET 9 rounds that
+conversion once — for a value in `[2^63, 2^64)` it rounds twice and lands one ULP away about one operand in
+six. So the same source held two different numbers depending only on which target framework was loaded:
+
+```js
+// 5.0 on net472 and net8.0: "12345678901234570000"   5.0 on net10.0 and 5.x everywhere: "12345678901234567000"
+(12345678901234567890).toString();
+
+// 5.0 on net472 and net8.0: false                    5.0 on net10.0 and 5.x everywhere: true
+12345678901234567890 === 12345678901234567168;
+```
+
+`12345678901234567168` is the nearest double, and it is exactly representable, so it always scanned
+correctly — which is why the two spellings of one number used to compare unequal. Every radix reaches the
+same conversion, so `0xAB54A98CEB1F0AD2`, `0o1255245230635307605322`, the binary spelling,
+`12_345_678_901_234_567_890` and the sloppy-mode legacy octal `01255245230635307605322` all moved with it.
+
+**What could break:** a value written as a bare whole-number literal between 9223372036854775808 and
+18446744073709551615, on `net472`, `netstandard2.0`, `netstandard2.1` or `net8.0`. Nothing below
+9223372036854775808 moves, and neither does any literal carrying a decimal point or an exponent — those
+never took the affected conversion, which is why `12345678901234567890.0`, `1.2345678901234567e19`,
+`Number('12345678901234567890')`, `parseFloat` and `JSON.parse` already agreed everywhere. There is no
+option to restore the old value: it was a different number from the one the source names.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

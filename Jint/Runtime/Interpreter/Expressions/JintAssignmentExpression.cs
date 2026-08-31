@@ -746,7 +746,7 @@ internal sealed class JintAssignmentExpression : JintExpression
                     id = new JintIdentifierExpression(identifier);
                     return true;
                 case NumericLiteral numeric:
-                    literal = numeric.Value;
+                    literal = numeric.NearestDouble();
                     return true;
                 default:
                     return false;
