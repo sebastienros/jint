@@ -3994,10 +3994,59 @@ same conversion, so `0xAB54A98CEB1F0AD2`, `0o1255245230635307605322`, the binary
 
 **What could break:** a value written as a bare whole-number literal between 9223372036854775808 and
 18446744073709551615, on `net472`, `netstandard2.0`, `netstandard2.1` or `net8.0`. Nothing below
-9223372036854775808 moves, and neither does any literal carrying a decimal point or an exponent — those
-never took the affected conversion, which is why `12345678901234567890.0`, `1.2345678901234567e19`,
-`Number('12345678901234567890')`, `parseFloat` and `JSON.parse` already agreed everywhere. There is no
-option to restore the old value: it was a different number from the one the source names.
+9223372036854775808 moves through *this* conversion. A literal carrying a decimal point or an exponent
+takes the scanner's own `double.Parse` instead, which on `net472` and `netstandard2.0` is a second, separate
+source of the same one-ULP divergence — [#3533](https://github.com/sebastienros/jint/issues/3533) tracks it,
+and §4.90 is the string side of it. There is no option to restore the old value: it was a different number
+from the one the source names.
+
+### 4.90 `parseFloat`, `Number` and `JSON.parse` read the same double on every target framework ([#3532](https://github.com/sebastienros/jint/issues/3532))
+
+[parseFloat](https://tc39.es/ecma262/#sec-parsefloat-string) and
+[ToNumber](https://tc39.es/ecma262/#sec-tonumber) both make turning a string into a number one rounding to
+the nearest Number, so `parseFloat('…')`, `Number('…')` and `JSON.parse('…')` must all answer with the same
+double for the same digits. They asked `double.Parse` for
+it, and .NET Framework's is not IEEE correctly-rounded, so on `net472` and on the `netstandard` assets
+loaded there they did not:
+
+```js
+// 5.0 on net472: 1995089590579635500      5.0 on net10.0 and 5.x everywhere: 1995089590579635700
+parseFloat('1995089590579635589');
+
+// 5.0 on net472: false                    5.0 on net10.0 and 5.x everywhere: true
+parseFloat('1995089590579635589') === Number('1995089590579635589');
+```
+
+All three now read the digits themselves. Measured over 2000 random operands per shape on `net472`, the
+number of answers that were not the nearest double:
+
+| text | `parseFloat` | `Number` | `JSON.parse` |
+| --- | --- | --- | --- |
+| whole number, 17–19 digits | 14 | 0 | 0 |
+| whole number in `[2^63, 2^64)` | 42 | 42 | 42 |
+| whole number, 22 digits | 14 | 14 | 14 |
+| 18 significant digits with a fraction | 1 | 1 | 1 |
+| 18 significant digits, `e+200` | 8 | 8 | 8 |
+| 18 significant digits, `e-200` | 52 | 52 | 52 |
+
+All of those are zero afterwards, on every target framework. `Number` and `JSON.parse` were right for the
+first row only because they try `long.TryParse` first, which is what `parseFloat` never had.
+
+Four more `net472`-only answers change with it, each of them previously wrong:
+
+| | 5.0 on `net472` | 5.x everywhere |
+| --- | --- | --- |
+| `parseFloat('1e999')` | `NaN` | `Infinity` |
+| `JSON.parse('1e999')` | throws `System.OverflowException` out of the engine | `Infinity` |
+| `1 / parseFloat('-0')`, `1 / JSON.parse('-0.0')` | `Infinity` | `-Infinity` |
+| `Number('+1.5')` | `NaN` | `1.5` |
+
+**What could break:** anything on `net472`, `netstandard2.0` or `netstandard2.1` that stored, hashed or
+compared the double one of these three produced for text of 16 or more significant digits, and anything
+catching an `OverflowException` around `JSON.parse`. There is no option to restore the old values: they
+were different numbers from the ones the text names. `parseInt` is a separate lane that accumulates in
+`double` and is one ULP off on *every* target framework for a long digit run —
+[#3534](https://github.com/sebastienros/jint/issues/3534) — and is unchanged here.
 
 ## 5. New in v5
 
