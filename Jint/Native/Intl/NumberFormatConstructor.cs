@@ -180,9 +180,12 @@ internal sealed partial class NumberFormatConstructor : Constructor
         }
 
         // Per spec: fractionDigits range is 0-100
-        var minimumFractionDigits = GetNumberOption(optionsObj, "minimumFractionDigits", 0, 100, minFracDefault);
+        var minFracDigitsValue = optionsObj.Get("minimumFractionDigits");
+        var maxFracDigitsValue = optionsObj.Get("maximumFractionDigits");
+        var hasFractionDigits = !minFracDigitsValue.IsUndefined() || !maxFracDigitsValue.IsUndefined();
+        var minimumFractionDigits = GetNumberOptionFromValue(minFracDigitsValue, "minimumFractionDigits", 0, 100, minFracDefault);
         // Per spec: maximumFractionDigits minimum is 0, fallback is max(mnfd, mxfdDefault)
-        var maximumFractionDigits = GetNumberOption(optionsObj, "maximumFractionDigits", 0, 100, System.Math.Max(minimumFractionDigits, maxFracDefault));
+        var maximumFractionDigits = GetNumberOptionFromValue(maxFracDigitsValue, "maximumFractionDigits", 0, 100, System.Math.Max(minimumFractionDigits, maxFracDefault));
 
         // Per spec: if mnfd > mxfd, adjust mnfd down to mxfd
         if (minimumFractionDigits > maximumFractionDigits)
@@ -216,6 +219,24 @@ internal sealed partial class NumberFormatConstructor : Constructor
         var compactDisplay = GetStringOption(optionsObj, "compactDisplay", CompactDisplayValues, "short");
         var useGrouping = GetUseGroupingOption(optionsObj, notation);
         var signDisplay = GetStringOption(optionsObj, "signDisplay", SignDisplayValues, "auto");
+
+        // https://tc39.es/ecma402/#sec-setnumberformatdigitoptions: compact notation asked for no digit
+        // option at all is the one case that leaves both roundings unconfigured, and the algorithm gives
+        // it a rounding of its own — one to two significant digits, at more-precision against no fraction
+        // digits. That is the rule that writes "1.2K" for 1234 and "12K" for 12345, and the compact lane
+        // now reads it here instead of open-coding a rounding of its own.
+        if (isCompact
+            && !minimumSignificantDigits.HasValue
+            && !maximumSignificantDigits.HasValue
+            && !hasFractionDigits
+            && string.Equals(roundingPriority, "auto", StringComparison.Ordinal))
+        {
+            minimumFractionDigits = 0;
+            maximumFractionDigits = 0;
+            minimumSignificantDigits = 1;
+            maximumSignificantDigits = 2;
+            roundingPriority = "morePrecision";
+        }
 
         // Validate roundingIncrement constraints
         if (roundingIncrement > 1)

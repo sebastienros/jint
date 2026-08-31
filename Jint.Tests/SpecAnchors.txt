@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-08-30
-anchors: 1242
+verified: 2026-08-31
+anchors: 1245
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -857,6 +857,8 @@ ecma402 sec-chaindatetimeformat
 ecma402 sec-coerceoptionstoobject
 ecma402 sec-collapsenumberrange
 ecma402 sec-collationsoflocale
+ecma402 sec-computeexponent
+ecma402 sec-computeexponentformagnitude
 ecma402 sec-createdatetimeformat
 ecma402 sec-createstringlistfromiterable
 ecma402 sec-date-time-style-format
@@ -933,6 +935,7 @@ ecma402 sec-properties-of-the-intl-collator-prototype-object
 ecma402 sec-resolvelocale
 ecma402 sec-resolveoptions
 ecma402 sec-segments-objects
+ecma402 sec-setnumberformatdigitoptions
 ecma402 sec-the-intl-collator-constructor
 ecma402 sec-tointlmathematicalvalue
 ecma402 sec-torawfixed
