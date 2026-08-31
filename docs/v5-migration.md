@@ -3731,6 +3731,65 @@ callback of the wrong shape" now sees the call succeed instead. There is nothing
 it — the exception was raised while binding a conversion that had already been asked for and could be
 performed, never by a script mistake — so the handler is dead code rather than a behaviour to preserve. No
 signature changed, and no conversion that used to succeed produces a different delegate.
+
+### 4.85 A member of a host type carrying an indexer reads the same whichever engine asked first ([#3436](https://github.com/sebastienros/jint/issues/3436))
+
+Resolved CLR member accessors live on the `TypeResolver`, and every engine built without an explicit one
+shares `TypeResolver.Default`, which lives for the process. An entry may therefore only be served back to an
+engine that would have resolved the member the same way — which is what `InteropResolutionProfile` partitions
+on, and what `TypeResolver.IsConverterNeutral` excludes the rest of.
+
+The exclusion was one artefact short. A host-installed `ClrTypeConverter` is asked one question during
+resolution — does this *member name* convert to that indexer's index type — and the answer decides more than
+the `IndexerAccessor` it was thought to decide. It also decides whether the **declared** property or field
+accessor is handed an indexer to probe, and that probe runs *ahead* of the declared member. A
+`PropertyAccessor` is not an `IndexerAccessor`, so it passed straight through the exclusion, in both
+directions.
+
+```csharp
+public sealed class Bag
+{
+    private readonly Dictionary<string, string> _entries = new() { ["Name"] = "from-indexer" };
+
+    public string Name => "from-property";
+
+    public string? this[string key] => _entries.TryGetValue(key, out var v) ? v : null;
+}
+
+// a converter that declines the string -> string conversion the stock one accepts outright
+var withConverter = new Engine(o => o.SetTypeConverter(_ => new NarrowConverter()));
+withConverter.SetValue("bag", new Bag());
+withConverter.Evaluate("bag.Name");   // "from-property" - correct, the indexer was never keyed
+
+var stock = new Engine();
+stock.SetValue("bag", new Bag());
+// 5.0: "from-property" - served the other engine's entry
+// 5.x: "from-indexer"  - what this engine reads when it is the only one in the process
+stock.Evaluate("bag.Name");
+```
+
+Run the two blocks the other way round and the answers swapped: order-dependence was the tell.
+
+The same answer decides two more things. Where the indexer is the *only* way to reach a name — an
+explicitly implemented `IEntries.this[string]` and no declared member — a declining converter resolves "no
+such member", which is a `ConstantValueAccessor` and not an indexer accessor either, so a stock engine
+asking afterwards read `undefined` where alone it reads the value. And it decides whether a `[JsAccessible]`
+type is served its generated accessor or the reflected one, which costs a fast lane rather than a wrong
+answer.
+
+`IsConverterNeutral` now asks the question of the **type** instead of the resolved accessor: an entry is
+shared only when the engine's converter is not consulted about any index key type the type could offer —
+the index parameter types of its own and its interfaces' single-parameter indexers, minus `int`, which is
+keyed without asking anyone. `TypeReference`'s static-member lane drops the check entirely; it resolves
+through a path that never probes an indexer, so it never consults the converter at all.
+
+**What could break:** nothing an engine reads on its own changes — every answer above is the answer that
+engine gives when it is the only one in the process. What changes is that a host converter now costs a
+little more cache: an engine whose converter claims a type's index key type re-resolves *every* member of
+that type rather than only its indexer accessors. The declaration narrows it exactly as before —
+`SetTypeConverter(f, targetTypes)` or `ClrTypeConverter.HandledTargetTypes`, so declaring `TimeSpan` costs
+nothing on a `string`-keyed dictionary — and the affected population already paid this cost on the indexer
+lane, which was excluded from the shared cache before this change and still is.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

@@ -28,6 +28,12 @@ public sealed class TypeResolver
     private readonly ConcurrentDictionary<Type, MethodDescriptor[]> _constructors = new();
 
     /// <summary>
+    /// Memo behind <see cref="ConverterProbedIndexKeyTypes"/>, populated only for engines that installed a
+    /// <see cref="ClrTypeConverter"/> of their own and therefore have to ask the question at all.
+    /// </summary>
+    private readonly ConcurrentDictionary<Type, Type[]> _converterProbedIndexKeyTypes = new();
+
+    /// <summary>
     /// How many accessors this resolver currently holds. The cache never evicts, so this is the retention
     /// the resolver commits to: it must stay bounded by the distinct members the engines using it resolve,
     /// and must not grow with the number of engines constructed.
@@ -96,6 +102,7 @@ public sealed class TypeResolver
         _reflectionAccessors.Clear();
         _staticAccessors.Clear();
         _constructors.Clear();
+        _converterProbedIndexKeyTypes.Clear();
     }
 
     internal bool Filter(Engine engine, Type targetType, MemberInfo m)
@@ -260,7 +267,7 @@ public sealed class TypeResolver
         var key = new AccessorCacheKey(type, member, requirement, profile);
 
         var factories = _reflectionAccessors;
-        if (factories.TryGetValue(key, out var accessor) && IsConverterNeutral(engine, accessor))
+        if (factories.TryGetValue(key, out var accessor) && IsConverterNeutral(engine, type))
         {
             if (throwOnError
                 && ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor)
@@ -279,7 +286,7 @@ public sealed class TypeResolver
             return accessor;
         }
 
-        if (IsShareable(engine, accessor))
+        if (IsShareable(engine, type, accessor))
         {
             // racy, we don't care: both racers resolved the same member the same way
             factories.TryAdd(key, accessor);
@@ -300,14 +307,17 @@ public sealed class TypeResolver
             return ResolveStaticAccessor(engine, type, member);
         }
 
+        // No converter-neutrality question on this lane. ResolveStaticAccessor goes through
+        // TryFindMemberAccessor alone, passing no indexer to try, and that method never probes one — so
+        // nothing here ever consults the engine's ClrTypeConverter and every entry answers every engine.
         var key = new StaticAccessorCacheKey(type, member, profile);
-        if (_staticAccessors.TryGetValue(key, out var accessor) && IsConverterNeutral(engine, accessor))
+        if (_staticAccessors.TryGetValue(key, out var accessor))
         {
             return accessor;
         }
 
         accessor = ResolveStaticAccessor(engine, type, member);
-        if (IsShareable(engine, accessor))
+        if (accessor is not NestedTypeAccessor)
         {
             _staticAccessors.TryAdd(key, accessor);
         }
@@ -354,7 +364,10 @@ public sealed class TypeResolver
     /// <see cref="MethodDescriptor"/> set, a converted indexer key — and the engine-affine parts are built
     /// per call in <see cref="ReflectionAccessor.CreatePropertyDescriptor"/>. The two exceptions are below.
     /// </summary>
-    private static bool IsShareable(Engine engine, ReflectionAccessor accessor)
+    private bool IsShareable(
+        Engine engine,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type,
+        ReflectionAccessor accessor)
     {
         // A nested type resolves to a TypeReference, which is a JsValue owned by the engine that created it:
         // sharing it would hand one engine's object to another and pin that engine for the resolver's lifetime.
@@ -363,35 +376,114 @@ public sealed class TypeResolver
             return false;
         }
 
-        return IsConverterNeutral(engine, accessor);
+        return IsConverterNeutral(engine, type);
     }
 
     /// <summary>
-    /// Whether <paramref name="accessor"/> would have resolved identically under the stock
-    /// <see cref="ClrTypeConverter"/>, and may therefore be both stored in and served from the cache this
-    /// resolver shares between engines whose converters differ.
+    /// Whether a member of <paramref name="type"/> resolves identically under the stock
+    /// <see cref="ClrTypeConverter"/> and under <paramref name="engine"/>'s, and may therefore be both stored
+    /// in and served from the cache this resolver shares between engines whose converters differ.
     /// </summary>
     /// <remarks>
-    /// An <see cref="IndexerAccessor"/> bakes in the index key that the engine's converter produced from the
-    /// member name, and the stock converter only ever yields a plain CLR value while a host-installed one may
-    /// return anything at all, including something bound to its engine. That is the whole of the converter's
-    /// influence on resolution, which is why it is answered here rather than by partitioning the cache — and
-    /// why the answer has to be given on the <b>read</b> side too: a stock engine stores a stock-keyed indexer
-    /// accessor, and an engine whose converter would have keyed it differently must not be served that entry.
-    /// A converter that declared its target types is asked about the indexer's own index type, so declaring
-    /// (say) <c>TimeSpan</c> costs nothing on a <c>string</c>-keyed dictionary.
+    /// <para>
+    /// Resolution consults the converter in exactly one place — <see cref="IndexerAccessor.TryFindIndexer"/>,
+    /// which asks whether the member <em>name</em> converts to an indexer's index type — and that single
+    /// answer decides four things: whether an <see cref="IndexerAccessor"/> is produced at all and what index
+    /// key it bakes in; whether the declared property or field accessor is handed an indexer to probe, which
+    /// <see cref="ReflectionAccessor.GetValue"/> probes <b>before</b> the declared member; whether a
+    /// <c>[JsAccessible]</c> type may use its generated lane, which is gated on there being no such indexer;
+    /// and whether resolution ends at "no such member" rather than at the indexer.
+    /// </para>
+    /// <para>
+    /// Only the first of those is visible in the resolved artefact, which is why the question is asked of the
+    /// <paramref name="type"/> instead of the accessor: an entry is neutral when this engine's converter is
+    /// never consulted about any index key type the type could offer. The answer has to be given on the
+    /// <b>read</b> side as well as the write side, and in both directions — an entry a stock engine stored
+    /// must not be served to an engine whose converter would have answered differently, nor the reverse.
+    /// A converter that declared its target types is asked only about those, so declaring (say)
+    /// <c>TimeSpan</c> costs nothing on a <c>string</c>-keyed dictionary.
+    /// </para>
     /// </remarks>
-    private static bool IsConverterNeutral(Engine engine, ReflectionAccessor accessor)
+    private bool IsConverterNeutral(
+        Engine engine,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
         var filter = engine._typeConverterTargetFilter;
-        if (filter is null || accessor is not IndexerAccessor indexer)
+        if (filter is null)
         {
+            // The stock converter is the reference every other engine's neutrality is measured against, so an
+            // ordinary engine pays one null check here and nothing else - on the read side as on the write one.
             return true;
         }
 
-        // an int-keyed indexer never consults the converter at all, see IndexerAccessor.TryFindIndexer
-        var indexType = indexer.FirstIndexParameter.ParameterType;
-        return indexType == typeof(int) || !filter.Claims(indexType);
+        foreach (var indexKeyType in ConverterProbedIndexKeyTypes(type))
+        {
+            if (filter.Claims(indexKeyType))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The index key types a <see cref="ClrTypeConverter"/> can be consulted about while resolving a member
+    /// of <paramref name="type"/>: the index parameter types of every single-parameter indexer the type or
+    /// one of its interfaces declares, minus <see cref="int"/>, which
+    /// <see cref="IndexerAccessor.TryFindIndexer"/> keys without asking anyone.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately computed without <see cref="MemberFilter"/>, which the probe itself applies: the filter
+    /// belongs to the resolver rather than to the type, and answering conservatively only ever costs an
+    /// engine a cache entry it could have shared. Memoized per resolver rather than per process so it keeps
+    /// the reflected types alive on exactly the terms the accessor cache already does, and reached only by
+    /// engines that installed a converter of their own.
+    /// </remarks>
+    private Type[] ConverterProbedIndexKeyTypes(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+    {
+        if (_converterProbedIndexKeyTypes.TryGetValue(type, out var cached))
+        {
+            return cached;
+        }
+
+        List<Type>? found = null;
+        Collect(type, ref found);
+
+        // ResolvePropertyDescriptorFactory probes each interface separately, and an explicitly implemented
+        // indexer is reported by the interface alone.
+        foreach (var iface in type.GetInterfaces())
+        {
+            Collect(iface, ref found);
+        }
+
+        var indexKeyTypes = found is null ? [] : found.ToArray();
+        _converterProbedIndexKeyTypes[type] = indexKeyTypes;
+        return indexKeyTypes;
+
+        static void Collect(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type declaringType,
+            ref List<Type>? found)
+        {
+            foreach (var candidate in declaringType.GetProperties())
+            {
+                var indexParameters = candidate.GetIndexParameters();
+                if (indexParameters.Length != 1)
+                {
+                    continue;
+                }
+
+                var indexKeyType = indexParameters[0].ParameterType;
+                if (indexKeyType == typeof(int) || found?.Contains(indexKeyType) == true)
+                {
+                    continue;
+                }
+
+                found ??= [];
+                found.Add(indexKeyType);
+            }
+        }
     }
 
     /// <summary>
@@ -1122,9 +1214,10 @@ internal readonly record struct StaticAccessorCacheKey(
 /// <para>
 /// A host-installed <see cref="ClrTypeConverter"/> is deliberately <b>not</b> here. It was, as "is it the stock
 /// one", which gave every engine with a converter a partition of its own and so cost it the whole shared cache
-/// — for one artefact: an <see cref="Reflection.IndexerAccessor"/>'s baked-in key, the only thing the converter
-/// steers during resolution. <see cref="TypeResolver.IsConverterNeutral"/> excludes exactly those, on the way
-/// in and on the way out, so an engine with a converter shares everything else with its stock siblings.
+/// — for one question: whether a member name converts to an index key, which resolution asks only of a type
+/// carrying a non-<see cref="int"/> indexer. <see cref="TypeResolver.IsConverterNeutral"/> excludes the members
+/// of exactly those types, on the way in and on the way out, so an engine with a converter shares every other
+/// type with its stock siblings.
 /// </para>
 /// <para>
 /// Hand-written rather than a positional record struct so the hash is computed once, when an engine captures

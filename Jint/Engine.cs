@@ -1701,10 +1701,11 @@ public sealed partial class Engine : IDisposable
         // one has to reach the expressions that consult it.
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
-        // Likewise after Apply. The installed ClrTypeConverter is deliberately not part of this: the only
-        // resolution artefact it can steer is an IndexerAccessor's baked-in key, and TypeResolver excludes
-        // exactly those from the shared cache in both directions instead - see TypeResolver.IsConverterNeutral.
-        // Partitioning on the converter here would have cost every engine with one the whole shared cache.
+        // Likewise after Apply. The installed ClrTypeConverter is deliberately not part of this: the one
+        // question resolution asks it is whether a member name converts to an index key, which only a type
+        // carrying a non-int indexer is ever asked, and TypeResolver excludes that type's members from the
+        // shared cache in both directions instead - see TypeResolver.IsConverterNeutral. Partitioning on the
+        // converter here would have cost every engine with one the whole shared cache.
         _interopResolutionProfile = new InteropResolutionProfile(
             Options.Interop.AllowGetType,
             Options.Interop.ObjectWrapperReportedFieldBindingFlags,
