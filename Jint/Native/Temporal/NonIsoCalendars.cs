@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Jint.Runtime;
 
@@ -245,6 +246,42 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// How many steps a calendar walk takes between two constraint checks.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not <see cref="Engine.ConstraintCheckInterval"/>'s ten thousand, which is calibrated
+    /// for an array element — tens of nanoseconds apiece. One step here is a calendar <em>year</em>, and
+    /// for <c>chinese</c> and <c>dangi</c> building one costs a dozen new moons and two solstice searches,
+    /// something like a hundred microseconds, so ten thousand of them would be a second of latency on a
+    /// budget a host may have set to a hundred milliseconds. 256 steps is a hundredth of that, and a power
+    /// of two so the cadence costs a mask rather than a division. Nothing an ordinary date does reaches it:
+    /// a year's worth of months is one step.
+    /// </remarks>
+    private const int CalendarWalkCheckInterval = 256;
+
+    /// <summary>
+    /// Counts one step of a calendar walk, and every <see cref="CalendarWalkCheckInterval"/>th one gives
+    /// the engine's execution constraints the chance to stop it.
+    /// </summary>
+    /// <remarks>
+    /// A walk of ordinal months is a CLR loop inside one interpreter step, so it crosses no statement
+    /// boundary and nothing in <see cref="Engine.RunPerStatementChecks"/> is ever reached from it: a
+    /// <c>LimitExecutionTime</c> never got a check, a <c>LimitStatements</c> never counted and a
+    /// <c>CancellationToken</c> was never observed for as long as one <c>add</c> ran
+    /// (<see href="https://github.com/sebastienros/jint/issues/3511"/>). This is the same self-checking the
+    /// bulk array built-ins do with <see cref="Engine.ConstraintCheckInterval"/>, at the cadence one step
+    /// of <em>this</em> loop costs.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void CountWalkStep(ref int steps, Engine? engine)
+    {
+        if ((++steps & (CalendarWalkCheckInterval - 1)) == 0)
+        {
+            engine?.Constraints.Check();
+        }
+    }
+
+    /// <summary>
     /// Whether the engine's <see cref="ICalendarProvider"/> is the one that answers for this calendar.
     /// It is the same identity-then-membership test <see cref="IsoToCalendarDate"/> and
     /// <see cref="CalendarDateToIso"/> already make, asked once here so that a date's arithmetic and its
@@ -337,9 +374,11 @@ internal static class NonIsoCalendars
         if (months != 0)
         {
             newOrdinalMonth += months;
+            var steps = 0;
             var monthsInYear = ProviderMonthsInYear(calendar, newYear, engine);
             while (newOrdinalMonth > monthsInYear)
             {
+                CountWalkStep(ref steps, engine);
                 newOrdinalMonth -= monthsInYear;
                 newYear++;
                 monthsInYear = ProviderMonthsInYear(calendar, newYear, engine);
@@ -347,6 +386,7 @@ internal static class NonIsoCalendars
 
             while (newOrdinalMonth < 1)
             {
+                CountWalkStep(ref steps, engine);
                 newYear--;
                 newOrdinalMonth += ProviderMonthsInYear(calendar, newYear, engine);
             }
@@ -469,9 +509,11 @@ internal static class NonIsoCalendars
         if (months != 0)
         {
             newOrdinalMonth += months;
+            var steps = 0;
             var monthsInYear = GetMonthsInYear(calendar, cal, newYear);
             while (newOrdinalMonth > monthsInYear)
             {
+                CountWalkStep(ref steps, engine);
                 newOrdinalMonth -= monthsInYear;
                 newYear++;
                 monthsInYear = GetMonthsInYear(calendar, cal, newYear);
@@ -479,6 +521,7 @@ internal static class NonIsoCalendars
 
             while (newOrdinalMonth < 1)
             {
+                CountWalkStep(ref steps, engine);
                 newYear--;
                 newOrdinalMonth += GetMonthsInYear(calendar, cal, newYear);
             }
@@ -677,12 +720,18 @@ internal static class NonIsoCalendars
             years = 0;
         }
 
+        // Both walks below count their steps against one budget: each step runs a whole CalendarDateAdd,
+        // which counts its own year steps, but a walk of many short adds would otherwise reach no check at
+        // all — and a month difference is measured by walking, so the walk is where the cost is.
+        var walkSteps = 0;
+
         // The iteration below only ever steps in the direction of sign, so an estimate that has already
         // reached past two would be returned as it stands and the overshoot would come back as a negative
         // day count. Walk it back a month at a time until it is short of two again; an estimate that was
         // never past it leaves this loop untouched.
         while (months != 0 && MonthStepSurpasses(calendar, in one, in calOne, in calTwo, years, months, sign, engine, out _))
         {
+            CountWalkStep(ref walkSteps, engine);
             months -= sign;
         }
 
@@ -692,6 +741,8 @@ internal static class NonIsoCalendars
 
         while (true)
         {
+            CountWalkStep(ref walkSteps, engine);
+
             var prevMonths = months;
             months += sign;
 

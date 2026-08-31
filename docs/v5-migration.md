@@ -3540,6 +3540,44 @@ generator was standing when it stopped.
 that quietly dropped the tail of an iteration now runs it, so a host that pinned the old sequence in a snapshot
 or an assertion sees it change to the sequence every other engine produces. No test262 file covers a `yield*`
 inside a loop in an async generator, so the exclusion list is untouched.
+
+### 4.80 A bulk month addition in a lunisolar calendar can be interrupted ([#3511](https://github.com/sebastienros/jint/issues/3511))
+
+Three of the eleven non-ISO calendars have years that do not all hold the same number of months —
+`chinese`, `dangi` and `hebrew` — so adding months to a date in one of them is a walk of one step per
+calendar year crossed. That walk is a CLR loop inside a single interpreter step. It crosses no statement
+boundary, so **nothing in the per-statement path was reached for as long as it ran**: `LimitExecutionTime`
+never got a check, `LimitStatements` never counted, and a `CancellationToken` was never observed.
+
+```csharp
+var engine = new Engine(options => options.LimitExecutionTime(TimeSpan.FromMilliseconds(100)));
+
+// 5.0: returns +026256-07-15 after ~2 s, having never checked the budget
+// 5.x: TimeoutException, ~130 ms in
+engine.Evaluate("Temporal.PlainDate.from('2000-01-01').withCalendar('chinese').add({ months: 300000 })");
+```
+
+`LimitStatements(10)` behaved the same way — an answer 2.2 s later — and a token cancelled from another
+thread 210 ms into the call was still unobserved 3 s later, when the call returned normally. The largest
+`add` the calendar's own range permits, `{ months: 3000000 }`, ran for **43 seconds** on one intrinsic
+call, and `until` with `largestUnit: 'month'` measures a difference by walking, so it makes many such calls
+in a row.
+
+The walk now consults the engine's constraints every 256 steps, which is what the bulk array built-ins
+already do at their own cadence (`Engine.ConstraintCheckInterval`). 256 rather than that constant's ten
+thousand because a step here is a whole lunisolar year to build — a dozen new moons and two solstice
+searches — so ten thousand of them would be a second of latency on a budget a host may have set to a
+hundred milliseconds.
+
+The bound is on the *walk*, not on the request: `add({ months: 3000000 })` is legal JavaScript and lands
+inside `Temporal`'s range, so an unbounded engine still owes it a real answer and still returns one.
+
+**What could break:** an engine that configures a limit and evaluates one of these additions. The addition
+used to finish and now raises `TimeoutException`, `ExecutionCanceledException` or
+`StatementsCountOverflowException` — which is the limit doing what it says. `LimitStatements` also charges
+one statement per 256 year-steps, so a script whose statement count sat just under its budget while doing
+bulk calendar arithmetic can now cross it; nothing an ordinary date does reaches the check, since a whole
+year's worth of months is a single step.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
