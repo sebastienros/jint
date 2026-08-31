@@ -20,9 +20,10 @@ namespace Jint.Native.Temporal;
 /// value nor a catchable JavaScript error. Every helper below that produces such a max therefore
 /// states why it cannot answer below 1, and each maximum taken from System.Globalization instead
 /// (Calendar.GetDaysInMonth, GetMonthsInYear, GetLeapMonth, IsLeapYear — all of which either answer 1
-/// or more or throw for a year outside the calendar's range) sits inside a try whose catch answers
-/// with a literal, with one of those helpers, or with the algorithmic reckoning the calendar's own
-/// field accessors read past the end of its table — never below 1. What keeps all of it true is
+/// or more or throw for a year outside the calendar's range) is asked only for a year that calendar
+/// covers (see SupportsYear); a year past the end of its table is answered with a literal, with one of
+/// those helpers, or with the algorithmic reckoning the calendar's own field accessors read there —
+/// never below 1. What keeps all of it true is
 /// Jint.Tests/Runtime/NonIsoCalendarTests.cs: 85,800 field combinations per overflow mode across all
 /// eleven calendars, every one of which has to come back as a date or as null rather than throw.
 /// </remarks>
@@ -40,6 +41,93 @@ internal static class NonIsoCalendars
     private static HebrewCalendar HebrewCal => _hebrewCalendar ??= new HebrewCalendar();
     private static PersianCalendar PersianCal => _persianCalendar ??= new PersianCalendar();
     private static UmAlQuraCalendar UmAlQuraCal => _umAlQuraCalendar ??= new UmAlQuraCalendar();
+
+    private static YearBand? _hebrewYears;
+    private static YearBand? _persianYears;
+    private static YearBand? _umAlQuraYears;
+
+    /// <summary>
+    /// The years a backing <see cref="Calendar"/> answers for, read from the range it states itself.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct YearBand(int Min, int Max)
+    {
+        public bool Covers(int year) => year >= Min && year <= Max;
+
+        public static YearBand Of(Calendar cal)
+            => new(cal.GetYear(cal.MinSupportedDateTime), cal.GetYear(cal.MaxSupportedDateTime));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="cal"/>'s own table covers <paramref name="year"/> — the question every
+    /// year-taking <see cref="Calendar"/> member below used to be asked by calling it and catching the
+    /// <see cref="ArgumentOutOfRangeException"/> it raises outside its range.
+    /// </summary>
+    /// <remarks>
+    /// <c>[GetYear(MinSupportedDateTime), GetYear(MaxSupportedDateTime)]</c> is exactly the band in which
+    /// <c>GetMonthsInYear</c>, <c>IsLeapYear</c>, <c>GetDaysInYear</c>, <c>GetLeapMonth</c> and
+    /// <c>GetDaysInMonth</c> (for a month that year holds) succeed on all three backing calendars: they
+    /// throw at <c>Min − 1</c> and <c>Max + 1</c> and nowhere inside, measured year by year across each
+    /// band and twenty years past both ends on <c>net472</c>, <c>net8.0</c> and <c>net10.0</c>. So the
+    /// comparison answers what the catch answered, and the walks below cross tens of thousands of years
+    /// outside the band, where an exception apiece was most of what a month step cost
+    /// (https://github.com/sebastienros/jint/issues/3520).
+    /// <para>
+    /// <c>ToDateTime</c> is <em>not</em> one of them and keeps its <c>try</c>: Hebrew 5343 is inside the
+    /// band and its first four months still begin before <c>MinSupportedDateTime</c>, so a year the band
+    /// covers can still hold a date the calendar declines to place.
+    /// </para>
+    /// </remarks>
+    private static bool SupportsYear(Calendar cal, int year) => YearsOf(cal).Covers(year);
+
+    /// <summary>
+    /// The length of an ordinal month according to <paramref name="cal"/>'s own table, or false for a
+    /// month that table does not reach.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SupportsYear"/> answers for the year, which is the dimension a walk crosses by the
+    /// thousand. The month is the one it cannot answer for: a Hebrew common year has no thirteenth
+    /// month, and one year inside a band holds fewer months than its calendar nominally does — Persian
+    /// 9378, the year <c>MaxSupportedDateTime</c> falls in, stops at month 10. So this call keeps the
+    /// catch, and every caller has a reckoning of its own for what it declines.
+    /// </remarks>
+    private static bool TryGetDaysInMonth(Calendar cal, int year, int month, out int days)
+    {
+        try
+        {
+            days = cal.GetDaysInMonth(year, month);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            days = 0;
+            return false;
+        }
+    }
+
+    /// <summary>The band of <paramref name="cal"/>, read once and remembered.</summary>
+    private static YearBand YearsOf(Calendar cal)
+    {
+        if (ReferenceEquals(cal, _hebrewCalendar))
+        {
+            _hebrewYears ??= YearBand.Of(cal);
+            return _hebrewYears.Value;
+        }
+
+        if (ReferenceEquals(cal, _persianCalendar))
+        {
+            _persianYears ??= YearBand.Of(cal);
+            return _persianYears.Value;
+        }
+
+        if (ReferenceEquals(cal, _umAlQuraCalendar))
+        {
+            _umAlQuraYears ??= YearBand.Of(cal);
+            return _umAlQuraYears.Value;
+        }
+
+        return YearBand.Of(cal);
+    }
 
     // Epoch day constants (days since Unix epoch 1970-01-01)
     // Coptic epoch: Coptic year 1, month 1, day 1 = proleptic Gregorian August 29, 284 CE
@@ -304,6 +392,73 @@ internal static class NonIsoCalendars
 
         steppedYear = landed.Year;
         steppedOrdinalMonth = ordinal;
+        return true;
+    }
+
+    /// <summary>
+    /// Where <paramref name="months"/> ordinal months out from (<paramref name="year"/>,
+    /// <paramref name="ordinalMonth"/>) lands in a calendar that can say so without walking, and false
+    /// for one that cannot.
+    /// </summary>
+    /// <remarks>
+    /// The walk this replaces asks each year in turn how many months it holds, which is one
+    /// <see cref="Calendar"/> call per year crossed and, past the end of that calendar's table, was one
+    /// caught <see cref="ArgumentOutOfRangeException"/> apiece. Both calendars that reach it answer the
+    /// question in closed form. Every <c>persian</c> year holds twelve months, so the month a step lands
+    /// on is a division. A <c>hebrew</c> year holds twelve or thirteen by the Metonic cycle — 235 months
+    /// every 19 years, with the leap years of a cycle fixed at 3, 6, 8, 11, 14, 17 and 19 — so
+    /// <see cref="HebrewMonthsBeforeYear"/> counts the months before a year and inverting it names the
+    /// year a month index falls in. Both are exact rather than approximate, which is what makes the
+    /// result identical to the walk's and makes <c>add</c> additive
+    /// (https://github.com/sebastienros/jint/issues/3520).
+    /// <para>
+    /// The one case it declines is a landing year no <see cref="int"/> can hold, which needs a duration
+    /// whose years and months are both in the billions. The walk stays as the fallback for that, as it
+    /// does for <c>chinese</c> and <c>dangi</c>, whose month lengths are an astronomical reckoning rather
+    /// than a cycle and are stepped by <see cref="TryStepLunisolarMonths"/> instead.
+    /// </para>
+    /// </remarks>
+    private static bool TryStepOrdinalMonths(
+        string calendar,
+        int year,
+        int ordinalMonth,
+        int months,
+        out int steppedYear,
+        out int steppedOrdinalMonth)
+    {
+        long landedYear;
+        long landedOrdinal;
+
+        if (string.Equals(calendar, "hebrew", StringComparison.Ordinal))
+        {
+            var index = HebrewMonthsBeforeYear(year) + ordinalMonth - 1 + months;
+            landedYear = HebrewYearOfMonthIndex(index);
+            landedOrdinal = index - HebrewMonthsBeforeYear(landedYear) + 1;
+        }
+        else
+        {
+            var monthsInYear = UniformMonthsInYear(calendar);
+            if (monthsInYear == 0)
+            {
+                steppedYear = year;
+                steppedOrdinalMonth = ordinalMonth;
+                return false;
+            }
+
+            var index = (long) year * monthsInYear + ordinalMonth - 1 + months;
+            landedYear = FloorDiv(index, monthsInYear);
+            landedOrdinal = index - landedYear * monthsInYear + 1;
+        }
+
+        if (landedYear > int.MaxValue || landedYear < int.MinValue)
+        {
+            steppedYear = year;
+            steppedOrdinalMonth = ordinalMonth;
+            return false;
+        }
+
+        steppedYear = (int) landedYear;
+        steppedOrdinalMonth = (int) landedOrdinal;
         return true;
     }
 
@@ -574,6 +729,12 @@ internal static class NonIsoCalendars
         {
             newYear = steppedYear;
             newOrdinalMonth = steppedMonth;
+        }
+        else if (months != 0
+            && TryStepOrdinalMonths(calendar, newYear, newOrdinalMonth, months, out var countedYear, out var countedMonth))
+        {
+            newYear = countedYear;
+            newOrdinalMonth = countedMonth;
         }
         else if (months != 0)
         {
@@ -1511,9 +1672,47 @@ internal static class NonIsoCalendars
         return r;
     }
 
+    /// <summary>
+    /// How many months the Hebrew years before <paramref name="year"/> hold, counted from year 1 — the
+    /// month index Tishrei of that year begins at.
+    /// </summary>
+    /// <remarks>
+    /// The Metonic cycle fixes it: 235 months every 19 years, with the leap years of a cycle at 3, 6, 8,
+    /// 11, 14, 17 and 19, which is the same cycle <see cref="IsHebrewLeapYearAlgorithmic"/> reads. It is
+    /// also the quantity the Reingold–Dershowitz year start below counts days from, so the two agree by
+    /// construction. Floor division, so it extends into proleptic years.
+    /// </remarks>
+    private static long HebrewMonthsBeforeYear(long year) => FloorDiv(235L * year - 234L, 19L);
+
+    /// <summary>
+    /// The Hebrew year the month at <paramref name="index"/> falls in, inverting
+    /// <see cref="HebrewMonthsBeforeYear"/>.
+    /// </summary>
+    /// <remarks>
+    /// Nineteen years per 235 months is the estimate, and the two corrections below settle it — never
+    /// more than a year out, and checked rather than assumed, so the answer is the year whose own month
+    /// count contains the index rather than one derived from a rounding.
+    /// </remarks>
+    private static long HebrewYearOfMonthIndex(long index)
+    {
+        var year = FloorDiv(index * 19L, 235L) + 1L;
+
+        while (HebrewMonthsBeforeYear(year) > index)
+        {
+            year--;
+        }
+
+        while (HebrewMonthsBeforeYear(year + 1L) <= index)
+        {
+            year++;
+        }
+
+        return year;
+    }
+
     private static long HebrewElapsedDays(int year)
     {
-        long monthsElapsed = FloorDiv(235L * year - 234L, 19L);
+        long monthsElapsed = HebrewMonthsBeforeYear(year);
         long partsElapsed = 12084L + 13753L * monthsElapsed;
         long days = 29L * monthsElapsed + FloorDiv(partsElapsed, 25920L);
         // Lo Adu Rosh dehiyya: postpone Tishrei 1 to avoid Sun/Wed/Fri.
@@ -1738,16 +1937,11 @@ internal static class NonIsoCalendars
 
         if (calendar is "hebrew")
         {
-            try
-            {
-                return HebrewCal.IsLeapYear(year) ? 6 : 0;
-            }
-            catch
-            {
-                // Out of .NET range: use algorithmic 19-year cycle
-                // Years 3, 6, 8, 11, 14, 17, 19 of each 19-year cycle are leap years
-                return IsHebrewLeapYearAlgorithmic(year) ? 6 : 0;
-            }
+            // Past the end of .NET's table, the algorithmic 19-year cycle answers: years 3, 6, 8, 11,
+            // 14, 17 and 19 of each cycle are leap years.
+            var hebrew = HebrewCal;
+            var isLeap = SupportsYear(hebrew, year) ? hebrew.IsLeapYear(year) : IsHebrewLeapYearAlgorithmic(year);
+            return isLeap ? 6 : 0;
         }
 
         if (calendar is "chinese" or "dangi")
@@ -1779,24 +1973,35 @@ internal static class NonIsoCalendars
     }
 
     /// <summary>
+    /// How many months every year of <paramref name="calendar"/> holds, or 0 for one whose years differ.
+    /// </summary>
+    /// <remarks>
+    /// Eight of the eleven are the same length every year, which is what lets
+    /// <see cref="TryStepOrdinalMonths"/> divide rather than walk. The three that are not are
+    /// <c>chinese</c>, <c>dangi</c> and <c>hebrew</c>, whose years hold twelve months or thirteen.
+    /// </remarks>
+    private static int UniformMonthsInYear(string calendar) => calendar switch
+    {
+        "persian" or "indian" or "islamic-umalqura" or "islamic-civil" or "islamic-tbla" => 12,
+        "coptic" or "ethiopic" or "ethioaa" => 13,
+        _ => 0,
+    };
+
+    /// <summary>
     /// Gets the number of months in a calendar year.
     /// </summary>
     /// <remarks>
     /// Never below 12: every arm answers 12 or 13 outright, and Calendar.GetMonthsInYear answers 12 or
-    /// 13 for the lunisolar calendars that reach it — or throws for a year outside its range, which the
-    /// catch answers with 12 or 13 too. The value becomes the max of Math.Clamp(month, 1, ...); see the
-    /// type's remarks for what an answer below 1 would cost.
+    /// 13 for the lunisolar calendars that reach it — for a year outside its range the reckoning past
+    /// the end of its table answers 12 or 13 too. The value becomes the max of Math.Clamp(month, 1, ...);
+    /// see the type's remarks for what an answer below 1 would cost.
     /// </remarks>
     private static int GetMonthsInYear(string calendar, Calendar? cal, int year)
     {
-        if (calendar is "persian" or "indian" or "islamic-umalqura" or "islamic-civil" or "islamic-tbla")
+        var uniform = UniformMonthsInYear(calendar);
+        if (uniform != 0)
         {
-            return 12;
-        }
-
-        if (calendar is "coptic" or "ethiopic" or "ethioaa")
-        {
-            return 13;
+            return uniform;
         }
 
         if (calendar is "chinese" or "dangi")
@@ -1805,25 +2010,18 @@ internal static class NonIsoCalendars
             return reckoned?.MonthCount ?? 12;
         }
 
-        if (cal is null)
-        {
-            return 12;
-        }
-
-        try
+        if (cal is not null && SupportsYear(cal, year))
         {
             return cal.GetMonthsInYear(year);
         }
-        catch
-        {
-            // For Hebrew out-of-range, use algorithmic leap year detection
-            if (calendar is "hebrew")
-            {
-                return IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
-            }
 
-            return 12;
+        // For Hebrew out-of-range, use algorithmic leap year detection
+        if (calendar is "hebrew")
+        {
+            return IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
         }
+
+        return 12;
     }
 
     /// <summary>
@@ -1836,16 +2034,9 @@ internal static class NonIsoCalendars
     /// </remarks>
     private static int GetDaysInMonthCal(string calendar, Calendar? cal, int year, int month)
     {
-        if (cal is not null)
+        if (cal is not null && SupportsYear(cal, year) && TryGetDaysInMonth(cal, year, month, out var days))
         {
-            try
-            {
-                return cal.GetDaysInMonth(year, month);
-            }
-            catch
-            {
-                // Past the end of the table; fall through to the reckoning below.
-            }
+            return days;
         }
 
         return AlgorithmicDaysInMonth(calendar, year, month);
@@ -2111,15 +2302,7 @@ internal static class NonIsoCalendars
                 return null;
             }
 
-            bool yearIsLeap;
-            try
-            {
-                yearIsLeap = cal.IsLeapYear(year);
-            }
-            catch
-            {
-                yearIsLeap = IsHebrewLeapYearAlgorithmic(year);
-            }
+            var yearIsLeap = SupportsYear(cal, year) ? cal.IsLeapYear(year) : IsHebrewLeapYearAlgorithmic(year);
 
             if (isLeap)
             {
@@ -2176,17 +2359,8 @@ internal static class NonIsoCalendars
         }
 
         // Constrain ordinal month
-        int maxMonths;
-        bool yearInDotNetRange = true;
-        try
-        {
-            maxMonths = cal.IsLeapYear(year) ? 13 : 12;
-        }
-        catch
-        {
-            yearInDotNetRange = false;
-            maxMonths = IsHebrewLeapYearAlgorithmic(year) ? 13 : 12;
-        }
+        var yearInDotNetRange = SupportsYear(cal, year);
+        var maxMonths = (yearInDotNetRange ? cal.IsLeapYear(year) : IsHebrewLeapYearAlgorithmic(year)) ? 13 : 12;
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
@@ -2198,17 +2372,9 @@ internal static class NonIsoCalendars
         }
 
         // Constrain day
-        int maxDay;
-        try
-        {
-            maxDay = yearInDotNetRange
-                ? cal.GetDaysInMonth(year, ordinalMonth)
-                : HebrewDaysInMonthOrdinal(year, ordinalMonth);
-        }
-        catch
-        {
-            maxDay = HebrewDaysInMonthOrdinal(year, ordinalMonth);
-        }
+        var maxDay = yearInDotNetRange && TryGetDaysInMonth(cal, year, ordinalMonth, out var tableDay)
+            ? tableDay
+            : HebrewDaysInMonthOrdinal(year, ordinalMonth);
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
@@ -2391,17 +2557,11 @@ internal static class NonIsoCalendars
             return null;
         }
 
-        // Constrain day
-        int maxDay;
-        try
-        {
-            maxDay = cal.GetDaysInMonth(year, ordinalMonth);
-        }
-        catch
-        {
-            // Fallback: use the algorithmic computation, which works for all years.
-            maxDay = PersianAlgorithmicDaysInMonth(year, ordinalMonth);
-        }
+        // Constrain day. The algorithmic computation answers for every year past the end of the table,
+        // and for the one month inside it the table declines.
+        var maxDay = SupportsYear(cal, year) && TryGetDaysInMonth(cal, year, ordinalMonth, out var tableDay)
+            ? tableDay
+            : PersianAlgorithmicDaysInMonth(year, ordinalMonth);
 
         if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
         {
@@ -3282,33 +3442,29 @@ internal static class NonIsoCalendars
             return null;
         }
 
-        // Try UmAlQura calendar first
+        // Try UmAlQura calendar first, for a year its own table covers
         var cal = UmAlQuraCal;
-        try
+        if (SupportsYear(cal, year) && TryGetDaysInMonth(cal, year, ordinalMonth, out var maxDay))
         {
-            // Check if year is in UmAlQura's supported range
-            var minYear = cal.GetYear(cal.MinSupportedDateTime);
-            var maxYear = cal.GetYear(cal.MaxSupportedDateTime);
-
-            if (year >= minYear && year <= maxYear)
+            if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
             {
-                var maxDay = cal.GetDaysInMonth(year, ordinalMonth);
-                if (string.Equals(overflow, "constrain", StringComparison.Ordinal))
-                {
-                    day = System.Math.Clamp(day, 1, maxDay);
-                }
-                else if (day < 1 || day > maxDay)
-                {
-                    return null;
-                }
+                day = System.Math.Clamp(day, 1, maxDay);
+            }
+            else if (day < 1 || day > maxDay)
+            {
+                return null;
+            }
 
+            try
+            {
                 var dt = cal.ToDateTime(year, ordinalMonth, day, 0, 0, 0, 0);
                 return new IsoDate(dt.Year, dt.Month, dt.Day);
             }
-        }
-        catch
-        {
-            // Fall through to islamic-civil
+            catch
+            {
+                // A date inside the year band the calendar still declines to place; fall through to
+                // islamic-civil, which is what the catch this replaced did for it.
+            }
         }
 
         // Fall back to islamic-civil algorithm
@@ -3478,23 +3634,9 @@ internal static class NonIsoCalendars
         if (calendar is "islamic-umalqura")
         {
             var cal = UmAlQuraCal;
-            try
-            {
-                var minYear = cal.GetYear(cal.MinSupportedDateTime);
-                var maxYear = cal.GetYear(cal.MaxSupportedDateTime);
-                if (newYear >= minYear && newYear <= maxYear)
-                {
-                    maxDay = cal.GetDaysInMonth(newYear, newMonth);
-                }
-                else
-                {
-                    maxDay = IslamicCivilDaysInMonth(newYear, newMonth);
-                }
-            }
-            catch
-            {
-                maxDay = IslamicCivilDaysInMonth(newYear, newMonth);
-            }
+            maxDay = SupportsYear(cal, newYear) && TryGetDaysInMonth(cal, newYear, newMonth, out var tableDay)
+                ? tableDay
+                : IslamicCivilDaysInMonth(newYear, newMonth);
         }
         else
         {
