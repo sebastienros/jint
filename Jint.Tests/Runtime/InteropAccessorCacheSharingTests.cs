@@ -49,6 +49,18 @@ public class InteropAccessorCacheSharingTests
         public string this[string key] => key + "!";
     }
 
+    /// <summary>
+    /// A declared member on a type that also carries a string-keyed indexer. The indexer is probed ahead of
+    /// the member, and whether it is probed at all is the converter's answer — so this member's accessor is
+    /// converter-derived even though it is not an indexer accessor.
+    /// </summary>
+    public sealed class StringIndexedWithMember
+    {
+        public string this[string key] => key + "!";
+
+        public int Value => 7;
+    }
+
     private sealed class CountingResolver
     {
         private int _memberFilterCalls;
@@ -287,10 +299,9 @@ public class InteropAccessorCacheSharingTests
     }
 
     /// <summary>
-    /// The only resolution artefact a host <see cref="ClrTypeConverter"/> steers is an indexer accessor's
-    /// baked-in key, so that is the only thing it costs: an engine with a converter shares every other member
-    /// with its stock siblings, and a string-keyed indexer is re-resolved only by an engine whose converter
-    /// could have produced a different key.
+    /// A host <see cref="ClrTypeConverter"/> steers resolution by answering whether a member name converts to
+    /// an indexer's index type, so what it costs is the members of types carrying such an indexer — and only
+    /// for an engine whose converter could have answered that question differently.
     /// </summary>
     [Test]
     public void ACustomTypeConverterOnlyCostsTheIndexerAccessorsItCouldHaveKeyedDifferently()
@@ -333,7 +344,36 @@ public class InteropAccessorCacheSharingTests
         counting.Reset().Should().Be(0, "a declared converter shares the stock engine's resolution");
 
         undeclared.Evaluate("host.Value").Should().Be(3);
-        counting.Reset().Should().Be(0, "and so does an undeclared one - only indexer accessors are at stake");
+        counting.Reset().Should().Be(0, "and so does an undeclared one - only indexer-carrying types are at stake");
+    }
+
+    /// <summary>
+    /// The converter's answer also decides whether a <em>declared</em> member is handed an indexer to probe,
+    /// and that probe runs ahead of the member itself. So a declared member of a type carrying a non-int
+    /// indexer is converter-derived too, and an engine whose converter claims that index type has to resolve
+    /// its own — which is what stops it being served, or serving, an answer the other engine would not have
+    /// reached.
+    /// </summary>
+    [Test]
+    public void ADeclaredMemberOfAnIndexerCarryingTypeIsConverterDerivedToo()
+    {
+        var counting = new CountingResolver();
+        var stock = CreateEngine(counting.Resolver, new StringIndexedWithMember());
+        var unrelated = CreateEngine(counting.Resolver, new StringIndexedWithMember(),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine), typeof(TimeSpan)));
+        var claiming = CreateEngine(counting.Resolver, new StringIndexedWithMember(),
+            options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine), typeof(string)));
+        counting.Reset();
+
+        // the indexer is probed before the declared member, which is why this reads "Value!" and not 7
+        stock.Evaluate("host.Value").Should().Be("Value!");
+        counting.Reset().Should().BeGreaterThan(0, "the first engine has to resolve the member");
+
+        unrelated.Evaluate("host.Value").Should().Be("Value!");
+        counting.Reset().Should().Be(0, "a converter that cannot produce a string key would have probed the same indexer");
+
+        claiming.Evaluate("host.Value").Should().Be("Value!");
+        counting.Reset().Should().BeGreaterThan(0, "this converter decides whether that indexer is probed at all");
     }
 
     #endregion

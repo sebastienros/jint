@@ -19,7 +19,7 @@ consults so the promise and the check cannot diverge.
 | Registration | What it disarms, undeclared | Declaring narrows it to | What still costs |
 | --- | --- | --- | --- |
 | `AddObjectConverter(c)` | compiled member-**read** lane and compiled method-**invoker** lane, every member and method | `AddObjectConverter(c, types)` or `ObjectConverter.HandledTypes` — members/return types no declared type can produce | a member or return type of `object`, which can hold anything; **one** undeclared converter unrestricts the whole set |
-| `SetTypeConverter(f)` | compiled member-**write** lane, compiled method-**invoker** lane, and every non-`int`-keyed indexer accessor's place in the shared accessor cache | `SetTypeConverter(f, targetTypes)` or `ClrTypeConverter.HandledTargetTypes` — members/parameters/index types none of them is a supertype of | conversions to a declared type, and every target type when nothing was declared |
+| `SetTypeConverter(f)` | compiled member-**write** lane, compiled method-**invoker** lane, and the shared-accessor-cache place of every member of a type carrying a non-`int`-keyed indexer | `SetTypeConverter(f, targetTypes)` or `ClrTypeConverter.HandledTargetTypes` — members/parameters/index types none of them is a supertype of | conversions to a declared type, and every target type when nothing was declared |
 | a non-default `IReferenceResolver` | the non-computed member-read caches, the dense-array indexed-read lane, the member-call callee lane | `ReferenceResolverInterests`, at registration or on `Options` | identifier caches were never affected either way |
 | `Options.Interop.TypeResolver` = a private resolver | nothing directly — but the accessor cache is per resolver, so a private one starts cold | — | see the `AddImmutableCrossing` row below for the read that stays uncached |
 
@@ -34,9 +34,19 @@ runs the stock conversion beside the host's for every undeclared target and repo
 Two further notes on the type-converter row. `_typeConverterTargetFilter` is `null` **only** for
 `DefaultTypeConverter` itself, an exact type test that is now the only one left — a subclass of it exists to
 change some conversion, and which ones is what the declaration is for. And the converter is deliberately not
-part of `InteropResolutionProfile`: the only resolution artefact it steers is an `IndexerAccessor`'s baked-in
-key, so `TypeResolver.IsConverterNeutral` excludes exactly those on the way in *and* on the way out, rather
-than giving every engine with a converter a cache partition of its own.
+part of `InteropResolutionProfile`: resolution asks it exactly one question — `IndexerAccessor.TryFindIndexer`
+asking whether the member *name* converts to an indexer's index type — so `TypeResolver.IsConverterNeutral`
+excludes the members of the types that question is ever asked about, on the way in *and* on the way out,
+rather than giving every engine with a converter a cache partition of its own. **That one answer decides four
+things, and only the first is visible in the resolved artefact**: whether an `IndexerAccessor` exists and what
+key it bakes in; whether a `PropertyAccessor`/`FieldAccessor` is handed an `indexerToTry`, which
+`ReflectionAccessor.GetValue` probes *before* the declared member; whether a `[JsAccessible]` type may take
+its generated lane, gated on there being no such indexer; and whether resolution ends at `NullAccessor`
+instead of at the indexer. So the exclusion is asked of the **type** — does it carry a non-`int` indexer whose
+index type this engine's converter claims — and not of the accessor. Asking the accessor was
+[#3436](https://github.com/sebastienros/jint/issues/3436): a declining converter's engine warmed the cache
+with a `PropertyAccessor` carrying no indexer probe, which is not an `IndexerAccessor`, so a stock engine
+asking next read the declared member where alone it reads the indexer — and reversing the order flipped it.
 
 ### What counts as a public contract
 
