@@ -3617,14 +3617,60 @@ the cases a closed form must not answer — a year the reckoning cannot place, a
 in it, or a step so large no representable date could survive it — and it is interruptible either way, per
 [4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511).
 
-`hebrew` is unchanged and still walks: its years hold twelve or thirteen months too, but a step there is
-cheap arithmetic rather than an astronomical reckoning, so the walk costs about 1 µs a month.
+`hebrew` walked for one release more, and now counts its own cycle instead — see
+[4.83](#483-adding-months-in-hebrew-counts-the-metonic-cycle-3520).
 
 **What could break:** a `chinese` or `dangi` value produced by a month step of more than about 200,000
 months (some sixteen thousand years), or by any step from a date more than about that far out. Everything
 closer is unchanged, and that is measured rather than asserted: the two reckonings were compared over
 356,326 cases — every 37th day from ISO 1500 to 2400 plus a dozen dates further out, twenty month steps from
 −37 to +1200, and 444 `until` month differences, in both calendars — and they agree on every one.
+
+### 4.83 Adding months in `hebrew` counts the Metonic cycle ([#3520](https://github.com/sebastienros/jint/issues/3520))
+
+`hebrew` was the walk [4.81](#481-adding-months-in-chinese-or-dangi-counts-lunations-3511) left behind, and
+so was every other calendar the engine reads a BCL `Calendar` for. Adding months asked each year in turn how
+many months it held, one step per year crossed — and past the end of that calendar's own table, which for
+`hebrew` is only ISO 1583 to 2239, the question was answered by *catching* the
+`ArgumentOutOfRangeException` the call raises there. So most steps of a long walk cost an exception:
+
+```js
+// 5.0: 552 ms      5.x: 0.2 ms
+Temporal.PlainDate.from('2000-01-01').withCalendar('hebrew').add({ months: 1000000 });
+
+// 5.0: 1.5 s       5.x: 0.1 ms
+Temporal.PlainDate.from('2000-01-01').withCalendar('hebrew').add({ months: 3000000 });
+```
+
+A month difference is measured by walking one month at a time, and every step of *that* walk was an
+addition that walked the years between, so it was quadratic in the span:
+
+```js
+// 5.0: 71 s        5.x: 12 ms
+Temporal.PlainDate.from('2000-01-01').withCalendar('hebrew')
+  .until(Temporal.PlainDate.from('+020000-01-01').withCalendar('hebrew'), { largestUnit: 'month' });
+```
+
+Both are arithmetic now. A Hebrew year holds twelve months or thirteen by the Metonic cycle — 235 months
+every 19 years, with the leap years of a cycle fixed — so the months before a year are a division and the
+year a month index falls in is that division inverted; a calendar whose years all hold the same number of
+months, `persian` among them, divides by that number instead. The year range each backing calendar answers
+for is now read once from its own `MinSupportedDateTime` and `MaxSupportedDateTime` and compared against,
+rather than discovered by catching, which is what removes the exception from every out-of-range *field* read
+too.
+
+**No date moved.** The two reckonings were compared over 483,875 cases — every 37th day from ISO 1500 to
+2400 against twenty month steps, twenty-one dates from ISO −400 to +100000 against twenty-six steps out to
+three million months, 528 `until` and `since` differences, and 126,455 field reads across five calendars —
+and they agree on every one.
+
+**What could break:** an engine that configures a limit and evaluates one of these additions.
+[4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511) charges `LimitStatements`
+one statement per 256 years stepped, and for `hebrew` and `persian` there are no year steps left to charge,
+so a budget that used to expire on a bulk month addition now returns the date instead — the same reversal
+[4.81](#481-adding-months-in-chinese-or-dangi-counts-lunations-3511) made for `chinese` and `dangi`. A
+calendar a host `ICalendarProvider` answers for still walks, since only the provider knows how many months
+its years hold, and that walk is bounded exactly as before.
 
 ## 5. New in v5
 
