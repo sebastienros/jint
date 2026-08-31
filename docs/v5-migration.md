@@ -3618,7 +3618,7 @@ in it, or a step so large no representable date could survive it — and it is i
 [4.80](#480-a-bulk-month-addition-in-a-lunisolar-calendar-can-be-interrupted-3511).
 
 `hebrew` walked for one release more, and now counts its own cycle instead — see
-[4.82](#482-adding-months-in-hebrew-counts-the-metonic-cycle-3520).
+[4.83](#483-adding-months-in-hebrew-counts-the-metonic-cycle-3520).
 
 **What could break:** a `chinese` or `dangi` value produced by a month step of more than about 200,000
 months (some sixteen thousand years), or by any step from a date more than about that far out. Everything
@@ -3626,7 +3626,7 @@ closer is unchanged, and that is measured rather than asserted: the two reckonin
 356,326 cases — every 37th day from ISO 1500 to 2400 plus a dozen dates further out, twenty month steps from
 −37 to +1200, and 444 `until` month differences, in both calendars — and they agree on every one.
 
-### 4.82 Adding months in `hebrew` counts the Metonic cycle ([#3520](https://github.com/sebastienros/jint/issues/3520))
+### 4.83 Adding months in `hebrew` counts the Metonic cycle ([#3520](https://github.com/sebastienros/jint/issues/3520))
 
 `hebrew` was the walk [4.81](#481-adding-months-in-chinese-or-dangi-counts-lunations-3511) left behind, and
 so was every other calendar the engine reads a BCL `Calendar` for. Adding months asked each year in turn how
