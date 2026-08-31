@@ -3790,6 +3790,64 @@ that type rather than only its indexer accessors. The declaration narrows it exa
 `SetTypeConverter(f, targetTypes)` or `ClrTypeConverter.HandledTargetTypes`, so declaring `TimeSpan` costs
 nothing on a `string`-keyed dictionary — and the affected population already paid this cost on the indexer
 lane, which was excluded from the shared cache before this change and still is.
+
+### 4.86 Two engines configured differently no longer decide each other's operator overloads ([#3424](https://github.com/sebastienros/jint/issues/3424))
+
+With `Options.Interop.AllowOperatorOverloading` on, which CLR operator a `+` over host types selects was
+resolved once per `(operator name, left CLR type, right CLR type)` and remembered for the **process**. The
+resolution reads two things the embedder configures, and neither was in that key:
+
+* `Options.Interop.ValueCoercion`, which overload scoring's gray-zone rule consults;
+* the installed `ClrTypeConverter`, whose answer is the last scoring rule outright — a conversion it confirms
+  keeps the candidate at a usable score, one it refuses scores it −1, which discards it.
+
+So two engines in one process, over the same host types, could disagree about which operator applies, and
+whichever evaluated first decided for both.
+
+```csharp
+public sealed class Money
+{
+    // the only +, so 's' + v asks whether a string can become a Money - a question only the converter answers
+    public static string operator +(Money left, Money right) => "operator";
+
+    public override string ToString() => "Money";
+}
+
+var withConverter = new Engine(o =>
+{
+    o.Interop.AllowOperatorOverloading = true;
+    o.SetTypeConverter(e => new StringToMoneyConverter(e));
+});
+withConverter.SetValue("v", new Money());
+withConverter.Evaluate("'s' + v");   // "operator" - the converter said yes
+
+var stock = new Engine(o => o.Interop.AllowOperatorOverloading = true);
+stock.SetValue("v", new Money());
+// 5.0: "operator" - served the other engine's resolution, then the conversion this engine cannot do
+// 5.x: "sMoney"   - string concatenation, which is what this engine reaches on its own
+stock.Evaluate("'s' + v");
+```
+
+Run the blocks the other way round and they swapped: the stock engine's `null` resolution made the converter
+engine concatenate where its own converter had asked for the operator. The `ValueCoercion` half behaves the
+same way, and predates the converter half.
+
+The two inputs are now handled differently, because of what they are. **`ValueCoercion` is a value**, so it
+joins the key: engines that coerce alike go on sharing their entries. **The converter is an object the host
+built** — `SetTypeConverter` hands its factory the `Engine` — so keying a process-lived static dictionary on
+it would pin that converter, and any engine it captured, for the life of the process. It selects the table
+instead: an engine running the stock `DefaultTypeConverter` resolves what every other stock engine would and
+uses the process-wide one, while an engine with a converter of its own keeps its resolutions on itself, where
+they are dropped if its converter is replaced and collected when it is.
+
+`JintUnaryExpression`'s table is untouched and stays process-wide: a unary operator is the operand type's
+first one-parameter method of that name, no score is computed, and neither input is consulted.
+
+**What could break:** nothing an engine reads on its own changes — both answers above are what that engine
+gives when it is the only one in the process. An engine that has installed its own `ClrTypeConverter` no
+longer shares operator resolutions with any other engine, so it resolves each `(operator, left, right)` triple
+once for itself rather than once for the process; an engine on the stock converter is unaffected, and shares
+with every stock engine that coerces the way it does.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
