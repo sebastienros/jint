@@ -3995,10 +3995,11 @@ same conversion, so `0xAB54A98CEB1F0AD2`, `0o1255245230635307605322`, the binary
 **What could break:** a value written as a bare whole-number literal between 9223372036854775808 and
 18446744073709551615, on `net472`, `netstandard2.0`, `netstandard2.1` or `net8.0`. Nothing below
 9223372036854775808 moves through *this* conversion. A literal carrying a decimal point or an exponent
-takes the scanner's own `double.Parse` instead, which on `net472` and `netstandard2.0` is a second, separate
-source of the same one-ULP divergence — [#3533](https://github.com/sebastienros/jint/issues/3533) tracks it,
-and §4.90 is the string side of it. There is no option to restore the old value: it was a different number
-from the one the source names.
+takes the scanner's own `double.Parse` instead, which on `net472` and the `netstandard` assets loaded
+there is a second, separate source of the same one-ULP divergence;
+[§4.91](#491-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
+fixes that one, and §4.90 is the string side of both. There is no option to restore the old value: it was
+a different number from the one the source names.
 
 ### 4.90 `parseFloat`, `Number` and `JSON.parse` read the same double on every target framework ([#3532](https://github.com/sebastienros/jint/issues/3532))
 
@@ -4047,6 +4048,51 @@ catching an `OverflowException` around `JSON.parse`. There is no option to resto
 were different numbers from the ones the text names. `parseInt` is a separate lane that accumulates in
 `double` and is one ULP off on *every* target framework for a long digit run —
 [#3534](https://github.com/sebastienros/jint/issues/3534) — and is unchanged here.
+
+### 4.91 A literal carrying a fraction or an exponent holds the same double on every target framework ([#3533](https://github.com/sebastienros/jint/issues/3533))
+
+§4.89 corrected the whole-number literals the scanner accumulates into a `ulong` itself. Everything it
+cannot accumulate — a decimal point, an exponent, or more digits than a `ulong` holds — it hands to
+`double.Parse`, and .NET Framework's is not IEEE correctly-rounded, so those literals held a different
+number on `net472` and on the `netstandard` assets loaded there:
+
+```js
+// 5.0 on net472: 28643790.050924525    5.0 on net10.0 and 5.x everywhere: 28643790.05092452
+28643790.0509245228;
+
+// 5.0 on net472: 1.9523212464608192e-200   5.0 on net10.0 and 5.x everywhere: 1.952321246460819e-200
+1.95232124646081910e-200;
+
+// 5.0 on net472: false                 5.0 on net10.0 and 5.x everywhere: true
+1.95232124646081910e-200 === Number('1.95232124646081910e-200');
+```
+
+The literal now reads its own digits through the same `NumberParser` §4.90 gave the string lanes, so all
+four routes to a Number denote one double on every target framework. Measured over 2000 random literals per
+shape on `net472`, the number that were not the nearest double, with `net8.0` and `net10.0` at zero for
+every row and all rows zero afterwards:
+
+| literal shape | 5.0 on `net472` |
+| --- | --- |
+| whole number, 22 digits (past the scanner's `ulong`) | 23 |
+| 18 significant digits with a decimal point | 2 |
+| 18 significant digits with `e+200` | 4 |
+| 18 significant digits with `e-200` | 54 |
+| 18 significant digits with `e-310` … `e-320` (the `Number.MIN_VALUE` region) | 1015 |
+
+The `Number.MIN_VALUE` region is where it shows worst: half of the subnormal literals measured were a
+different number, and the two spellings either side of the boundary swapped places —
+`2.4703282292062327e-324` is below half of `Number.MIN_VALUE` and must read `0`, and on `net472` it read
+`5e-324`.
+
+**What could break:** anything on `net472`, `netstandard2.0` or `netstandard2.1` that stored, hashed or
+compared the double a literal carrying a decimal point, an exponent or 19 or more digits produced. There is
+no digit count below which the old value was safe — a subnormal literal such as `3.3e-311` was wrong about
+half the time at any width — so a script that pinned one of these values on .NET Framework has to be
+re-baselined against the value its source names. There is no option to restore the old numbers: they were
+different numbers from the ones the source names. A hexadecimal, octal or binary literal wider than 64 bits
+is a third branch, wrong on *every* target framework for a different reason
+([#3536](https://github.com/sebastienros/jint/issues/3536)), and is unchanged here.
 
 ## 5. New in v5
 
