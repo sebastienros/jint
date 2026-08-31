@@ -74,10 +74,9 @@ public class HebrewMonthSteppingTests
     /// own table.
     /// </summary>
     /// <remarks>
-    /// The Persian starts stay clear of ISO 9999, where the two spellings disagree by a day and have
-    /// since before any of this: the calendar's last year, 9378, holds ten months rather than twelve, so
-    /// a step that stops inside its eleventh materializes a date the table cannot place and the
-    /// arithmetic reckoning answers for, one day off what the table would have said.
+    /// The Persian start at ISO 9999-06-01 is the one the two spellings disagreed on until the year the
+    /// table stops inside stopped being read as a ten-month year; <see cref="CalendarBandEdgeTests"/>
+    /// sweeps the window it sits in day by day.
     /// </remarks>
     [TestCase("hebrew", "2000-01-01")]
     [TestCase("hebrew", "1582-11-30")]
@@ -85,6 +84,7 @@ public class HebrewMonthSteppingTests
     [TestCase("hebrew", "+010000-06-06")]
     [TestCase("persian", "2000-01-01")]
     [TestCase("persian", "9000-06-01")]
+    [TestCase("persian", "9999-06-01")]
     [TestCase("persian", "+010500-06-06")]
     public void SteppingByOneMonthAtATimeReachesTheSamePlace(string calendar, string start)
     {
@@ -184,8 +184,8 @@ public class HebrewMonthSteppingTests
     /// <summary>
     /// One step across the end of a backing calendar's table, which is where the year range the walk used
     /// to discover by catching <c>ArgumentOutOfRangeException</c> is now compared against. The Hebrew
-    /// table runs to ISO 2239-09-29 and starts at 1583-01-01; the Persian one stops in the middle of its
-    /// last year, 9378, which holds ten months rather than twelve.
+    /// table runs to ISO 2239-09-29 and starts at 1583-01-01; the Persian one stops in the middle of
+    /// 9378, which is why the band leaves that year out and the reckoning answers for it.
     /// </summary>
     [TestCase("hebrew", "1583-01-01", -13, "1581-12-12")]
     [TestCase("hebrew", "1583-01-01", -1, "1582-12-02")]

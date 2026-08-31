@@ -3848,6 +3848,43 @@ gives when it is the only one in the process. An engine that has installed its o
 longer shares operator resolutions with any other engine, so it resolves each `(operator, left, right)` triple
 once for itself rather than once for the process; an engine on the stock converter is unaffected, and shares
 with every stock engine that coerces the way it does.
+
+### 4.87 A `persian` year the .NET table stops inside is measured by the calendar ([#3523](https://github.com/sebastienros/jint/issues/3523))
+
+`PersianCalendar` ends at ISO 9999-12-31 because `DateTime` does, not because the Persian calendar does, and
+that date falls inside Persian year 9378. Asked about that year, the table answered with the part it holds —
+ten months, 289 days, and a tenth month thirteen days long — and answered consistently, so nothing it said
+gave the truncation away. A month step that stopped inside that tenth month had its day clamped to the
+thirteenth and carried the loss forward; one that flew over the month kept the day. So the two spellings of
+the same addition parted:
+
+```js
+const p = Temporal.PlainDate.from('9999-06-01').withCalendar('persian');
+
+// 5.0: +010000-02-01   5.x: +010000-02-01
+p.add({ months: 8 });
+
+// 5.0: +010000-01-31   5.x: +010000-02-01
+let d = p; for (let i = 0; i < 8; i++) { d = d.add({ months: 1 }); }
+```
+
+The year range each backing calendar is trusted for now covers only the years its table holds *whole*, so
+9378's month count and month lengths come from the same arithmetic reckoning that already answered for every
+year past it. Where a date **sits** is unchanged: the table placed every ISO date it covers and still does.
+
+**What could break**, all of it inside Persian 9378 and nowhere else:
+
+- `daysInMonth` for a date in its tenth month is `30` rather than `13`, and `daysInYear` for any date in the
+  year is `365` rather than `289` — ISO 9999-03-18 to 9999-12-31, 289 days in all;
+- days 14 to 30 of that tenth month are dates now. They used to constrain to ISO 9999-12-31 and to be
+  rejected under `overflow: 'reject'`; they now place at ISO +010000-01-02 through +010000-01-18;
+- an addition that lands in one of them lands there rather than collapsing onto ISO 9999-12-31, and a
+  difference measured across the seam no longer comes back with the mixed-sign day count that collapse
+  produced.
+
+**No date moved, and no other calendar changed.** Measured before and after over 417,136 field reads, 14.5
+million additions, 22,568 field-to-ISO conversions and 580,544 differences across seven calendars: the only
+answers that differ are the ones listed above.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
