@@ -3484,6 +3484,62 @@ reads the minimum as a floor too: `format(1n)` under `minimumSignificantDigits: 
 `maximumSignificantDigits` — both lanes move, in every style — and any `format` under
 `roundingPriority: "morePrecision"` or `"lessPrecision"`. A formatter that names none of them is untouched.
 
+### 4.79 A generator suspended inside a `yield*` keeps its place in the statement around it ([#3509](https://github.com/sebastienros/jint/issues/3509))
+
+Jint resumes a generator by replaying its body, and each statement on the way back in has to recognise that it
+is being *re-entered* rather than entered: a `while` whose body holds the suspension point must not re-run its
+test, or it judges the iteration it is already inside by state that iteration has since changed. What told a
+statement so was the node the generator suspended at — and a `yield*` delegation recorded its suspension in a
+different field, which nothing published. So every resume taken with a delegation in flight looked like a
+resume that had suspended nowhere, and the enclosing `while`, `for`, `do`, `if`, `switch` or `try` re-ran its
+own test and dropped the generator into whichever branch that test picked *this* time, abandoning the rest of
+the iteration it was in the middle of:
+
+```js
+function* leaf() { yield 1; }
+function* outer() {
+    var log = [];
+    var n = 2;
+    while (n > 0) {
+        n = 0;
+        yield* leaf();
+        log.push('after');
+    }
+    return log.join(',');
+}
+
+// 4.16.x / earlier 5.0: yields 1, then finishes with '' — the loop was abandoned mid-iteration
+// 5.x:                  yields 1, then finishes with 'after', as SpiderMonkey and V8 report
+```
+
+An async generator pays it twice, because a delegation that *completes* also resumes through a replay: the
+inner iterator's step settles on a later microtask, so the stack that began the delegation is gone by the time
+there is an answer. Recursion through both halves lost exactly one `yield` per nesting level:
+
+```js
+async function* countdown(n) {
+    while (n > 0) {
+        yield (yield* countdown(--n));
+    }
+    return 34;
+}
+
+// 4.16.x:      never returns
+// earlier 5.0: four results for countdown(3)
+// 5.x:         eight, the count V8 and SpiderMonkey report
+```
+
+Per [AsyncGeneratorYield](https://tc39.es/ecma262/#sec-asyncgeneratoryield) the generator is suspended *at* the
+yield, and [14.4.14](https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation)
+resumes a `yield*` delegation with the completion its caller sent; neither re-evaluates the iteration statement
+the `yield*` sits inside. This is a second defect under the same shape as [§4.72](#472-a-yield-a-loop-comes-back-to-delegates-again),
+not the same one: that one was a stale memo of what a `yield` node had returned, this one is where the
+generator was standing when it stopped.
+
+**What could break:** nothing that was reading a correct value. A generator that hung now terminates, and one
+that quietly dropped the tail of an iteration now runs it, so a host that pinned the old sequence in a snapshot
+or an assertion sees it change to the sequence every other engine produces. No test262 file covers a `yield*`
+inside a loop in an async generator, so the exclusion list is untouched.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
