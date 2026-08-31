@@ -47,35 +47,74 @@ internal static class NonIsoCalendars
     private static YearBand? _umAlQuraYears;
 
     /// <summary>
-    /// The years a backing <see cref="Calendar"/> answers for, read from the range it states itself.
+    /// The whole years a backing <see cref="Calendar"/> answers for, read from the range it states itself.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct YearBand(int Min, int Max)
     {
         public bool Covers(int year) => year >= Min && year <= Max;
 
-        public static YearBand Of(Calendar cal)
-            => new(cal.GetYear(cal.MinSupportedDateTime), cal.GetYear(cal.MaxSupportedDateTime));
+        /// <summary>
+        /// The band <paramref name="cal"/> states, with a boundary year it stops inside left out of it.
+        /// </summary>
+        /// <remarks>
+        /// A table cut off mid-year reports the part it holds as the whole year, and does so
+        /// consistently: <c>PersianCalendar</c> ends at ISO 9999-12-31 because <c>DateTime</c> does, and
+        /// answers for the Persian year that falls in — 9378 — with ten months, 289 days and a tenth
+        /// month thirteen days long. Nothing the table says contradicts any of it, so the only way to
+        /// notice is to ask the calendar's own reckoning how many months that year holds and see whether
+        /// the table can state a length for the last of them. Hebrew and Um al-Qura both end where their
+        /// data ends, on a year boundary, and are unchanged by this
+        /// (https://github.com/sebastienros/jint/issues/3523).
+        /// </remarks>
+        public static YearBand Of(string calendar, Calendar cal)
+        {
+            var min = cal.GetYear(cal.MinSupportedDateTime);
+            var max = cal.GetYear(cal.MaxSupportedDateTime);
+
+            if (min < max && !HoldsWholeYear(calendar, cal, min))
+            {
+                min++;
+            }
+
+            if (min < max && !HoldsWholeYear(calendar, cal, max))
+            {
+                max--;
+            }
+
+            return new(min, max);
+        }
+
+        private static bool HoldsWholeYear(string calendar, Calendar cal, int year)
+            => TryGetDaysInMonth(cal, year, GetMonthsInYear(calendar, cal: null, year), out _);
     }
 
     /// <summary>
-    /// Whether <paramref name="cal"/>'s own table covers <paramref name="year"/> — the question every
-    /// year-taking <see cref="Calendar"/> member below used to be asked by calling it and catching the
-    /// <see cref="ArgumentOutOfRangeException"/> it raises outside its range.
+    /// Whether <paramref name="cal"/>'s own table covers <paramref name="year"/> from its first month to
+    /// its last — the question every year-taking <see cref="Calendar"/> member below used to be asked by
+    /// calling it and catching the <see cref="ArgumentOutOfRangeException"/> it raises outside its range.
     /// </summary>
     /// <remarks>
-    /// <c>[GetYear(MinSupportedDateTime), GetYear(MaxSupportedDateTime)]</c> is exactly the band in which
-    /// <c>GetMonthsInYear</c>, <c>IsLeapYear</c>, <c>GetDaysInYear</c>, <c>GetLeapMonth</c> and
-    /// <c>GetDaysInMonth</c> (for a month that year holds) succeed on all three backing calendars: they
-    /// throw at <c>Min − 1</c> and <c>Max + 1</c> and nowhere inside, measured year by year across each
-    /// band and twenty years past both ends on <c>net472</c>, <c>net8.0</c> and <c>net10.0</c>. So the
-    /// comparison answers what the catch answered, and the walks below cross tens of thousands of years
-    /// outside the band, where an exception apiece was most of what a month step cost
+    /// <c>[GetYear(MinSupportedDateTime), GetYear(MaxSupportedDateTime)]</c>, less a boundary year the
+    /// table stops inside, is exactly the band in which <c>GetMonthsInYear</c>, <c>IsLeapYear</c>,
+    /// <c>GetDaysInYear</c>, <c>GetLeapMonth</c> and <c>GetDaysInMonth</c> (for a month that year holds)
+    /// answer for the calendar rather than for the table: they throw at <c>Min − 1</c> and <c>Max + 1</c>
+    /// and nowhere inside, measured year by year across each band and twenty years past both ends on
+    /// <c>net472</c>, <c>net8.0</c> and <c>net10.0</c>. So the comparison answers what the catch
+    /// answered, and the walks below cross tens of thousands of years outside the band, where an
+    /// exception apiece was most of what a month step cost
     /// (https://github.com/sebastienros/jint/issues/3520).
     /// <para>
-    /// <c>ToDateTime</c> is <em>not</em> one of them and keeps its <c>try</c>: Hebrew 5343 is inside the
-    /// band and its first four months still begin before <c>MinSupportedDateTime</c>, so a year the band
-    /// covers can still hold a date the calendar declines to place.
+    /// It says which reckoning knows how long a year and its months are, <em>not</em> where a date sits:
+    /// the table placed every ISO date it covers and goes on placing them, so a Persian date in 9378 that
+    /// the table can still put somewhere keeps the table's answer and round-trips back to the same
+    /// fields. What changed is only that its month is no longer thirteen days long.
+    /// </para>
+    /// <para>
+    /// <c>ToDateTime</c> is not one of the members above and keeps its <c>try</c>: Hebrew 5343 holds
+    /// twelve months the table can measure and is inside the band, and its first four still begin before
+    /// <c>MinSupportedDateTime</c>, so a year the band covers can hold a date the calendar declines to
+    /// place.
     /// </para>
     /// </remarks>
     private static bool SupportsYear(Calendar cal, int year) => YearsOf(cal).Covers(year);
@@ -86,10 +125,10 @@ internal static class NonIsoCalendars
     /// </summary>
     /// <remarks>
     /// <see cref="SupportsYear"/> answers for the year, which is the dimension a walk crosses by the
-    /// thousand. The month is the one it cannot answer for: a Hebrew common year has no thirteenth
-    /// month, and one year inside a band holds fewer months than its calendar nominally does — Persian
-    /// 9378, the year <c>MaxSupportedDateTime</c> falls in, stops at month 10. So this call keeps the
-    /// catch, and every caller has a reckoning of its own for what it declines.
+    /// thousand. The month is the one it cannot answer for: a Hebrew common year has no thirteenth month.
+    /// So this call keeps the catch, and every caller has a reckoning of its own for what it declines —
+    /// including <see cref="YearBand.Of"/>, which decides what a whole year is by asking it for the last
+    /// month of one.
     /// </remarks>
     private static bool TryGetDaysInMonth(Calendar cal, int year, int month, out int days)
     {
@@ -110,24 +149,32 @@ internal static class NonIsoCalendars
     {
         if (ReferenceEquals(cal, _hebrewCalendar))
         {
-            _hebrewYears ??= YearBand.Of(cal);
-            return _hebrewYears.Value;
+            return _hebrewYears ??= YearBand.Of("hebrew", cal);
         }
 
         if (ReferenceEquals(cal, _persianCalendar))
         {
-            _persianYears ??= YearBand.Of(cal);
-            return _persianYears.Value;
+            return _persianYears ??= YearBand.Of("persian", cal);
         }
 
         if (ReferenceEquals(cal, _umAlQuraCalendar))
         {
-            _umAlQuraYears ??= YearBand.Of(cal);
-            return _umAlQuraYears.Value;
+            return _umAlQuraYears ??= YearBand.Of("islamic-umalqura", cal);
         }
 
-        return YearBand.Of(cal);
+        return YearBand.Of(NameOf(cal), cal);
     }
+
+    /// <summary>
+    /// Which calendar a backing <see cref="Calendar"/> is, for an instance that reached
+    /// <see cref="YearsOf"/> without being one of the three it remembers.
+    /// </summary>
+    private static string NameOf(Calendar cal) => cal switch
+    {
+        HebrewCalendar => "hebrew",
+        PersianCalendar => "persian",
+        _ => "islamic-umalqura",
+    };
 
     // Epoch day constants (days since Unix epoch 1970-01-01)
     // Coptic epoch: Coptic year 1, month 1, day 1 = proleptic Gregorian August 29, 284 CE
@@ -2504,11 +2551,20 @@ internal static class NonIsoCalendars
         var year = cal.GetYear(dt);
         var ordinalMonth = cal.GetMonth(dt);
         var day = cal.GetDayOfMonth(dt);
-        var isLeapYear = cal.IsLeapYear(year);
+
+        // Where this date sits is the table's to say, since the table is what placed it. How long its
+        // month and its year are is not, for the year the table stops inside: 9378 answers with ten
+        // months, 289 days and a tenth month thirteen days long, which is DateTime's end rather than the
+        // calendar's, and a month reported thirteen days long is a month a step clamps its day against
+        // (https://github.com/sebastienros/jint/issues/3523).
+        var wholeYear = SupportsYear(cal, year);
+        var isLeapYear = wholeYear ? cal.IsLeapYear(year) : IsPersianLeapYearAlgorithmic(year);
+        var daysInMonth = wholeYear
+            ? cal.GetDaysInMonth(year, ordinalMonth)
+            : PersianAlgorithmicDaysInMonth(year, ordinalMonth);
+        var daysInYear = wholeYear ? cal.GetDaysInYear(year) : (isLeapYear ? 366 : 365);
 
         var monthCode = $"M{ordinalMonth:D2}";
-        var daysInMonth = cal.GetDaysInMonth(year, ordinalMonth);
-        var daysInYear = cal.GetDaysInYear(year);
 
         return new CalendarDate(year, ordinalMonth, monthCode, day, false, 12, daysInMonth, daysInYear, isLeapYear);
     }
@@ -2557,8 +2613,10 @@ internal static class NonIsoCalendars
             return null;
         }
 
-        // Constrain day. The algorithmic computation answers for every year past the end of the table,
-        // and for the one month inside it the table declines.
+        // Constrain day. The algorithmic computation answers for every year past the last whole one the
+        // table holds, which includes the partial year at the end of it: there the table's month lengths
+        // are DateTime's end rather than the calendar's. The placement below still tries the table
+        // first, so a day it can still put somewhere keeps the table's answer.
         var maxDay = SupportsYear(cal, year) && TryGetDaysInMonth(cal, year, ordinalMonth, out var tableDay)
             ? tableDay
             : PersianAlgorithmicDaysInMonth(year, ordinalMonth);
