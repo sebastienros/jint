@@ -109,6 +109,120 @@ public class NumericLiteralPrecisionTests
         }
     }
 
+    /// <summary>
+    /// A radix literal wider than the scanner's <see cref="ulong"/> accumulator is rebuilt one digit at a
+    /// time in a <c>double</c>, which rounds once per digit where the literal denotes one rounding of the
+    /// whole value. Unlike the octave above, this one was wrong on every target framework: no platform
+    /// parser is involved in it at all.
+    /// </summary>
+    // Every expected string is the shortest round-tripping decimal of the double nearest the literal's
+    // mathematical value, which is what Number::toString must print.
+    [TestCase("0x1F49E9EE4C1BCE961", "36073444770624370000")]
+    [TestCase("0x1F49_E9EE_4C1B_CE961", "36073444770624370000")]
+    [TestCase("0b1111110101010110111011001100011110100011000000100101101011000110110000", "1.1683224628333037e+21")]
+    [TestCase("0o1777777777777777777777777", "9.44473296573929e+21")]
+    [TestCase("0xFFFFFFFFFFFFFFFFF", "295147905179352830000")]
+    [TestCase("0b1111111111111111111111111111111111111111111111111111111111111111111111", "1.1805916207174113e+21")]
+    // The exact midpoint between two doubles rounds to the one with an even significand, and one unit
+    // either side of it does not — which is what the sticky bit past the read window decides.
+    [TestCase("0x10000000000000800", "18446744073709552000")]
+    [TestCase("0x10000000000001800", "18446744073709560000")]
+    [TestCase("0x10000000000000801", "18446744073709556000")]
+    [TestCase("0x100000000000007FF", "18446744073709552000")]
+    // Controls: exactly representable, so they always scanned correctly.
+    [TestCase("0x10000000000000000", "18446744073709552000")]
+    [TestCase("0x100000000000000000000000000000000", "3.402823669209385e+38")]
+    public void AWideRadixLiteralHoldsTheNearestDouble(string literal, string expected)
+    {
+        var engine = new Engine();
+        engine.Evaluate($"({literal}).toString()").AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// A legacy octal literal too wide for the accumulator moved further than one ULP: the scanner gave up
+    /// on its own accumulator and re-read the digits as decimal, which is the wrong base entirely.
+    /// </summary>
+    [Test]
+    public void AWideLegacyOctalLiteralIsStillOctal()
+    {
+        var engine = new Engine();
+        engine.Evaluate("""
+            (017777777777777777777777 === 0o17777777777777777777777)
+            && (017777777777777777777777 === Number('147573952589676412927'))
+            && (01777777777777777777777777 === Number('9444732965739290427391'))
+            """).AsBoolean().Should().BeTrue();
+        engine.Evaluate("(017777777777777777777777).toString()").AsString().Should().Be("147573952589676410000");
+    }
+
+    /// <summary>
+    /// One source text of a number denotes one double, and a radix literal is a second spelling of the
+    /// digits <c>parseInt</c> reads in the same radix.
+    /// </summary>
+    [Test]
+    public void AWideRadixLiteralAgreesWithParseInt()
+    {
+        var engine = new Engine();
+        engine.Evaluate("""
+            (0x1F49E9EE4C1BCE961 === parseInt('1F49E9EE4C1BCE961', 16))
+            && (0x1F49E9EE4C1BCE961 === Number('36073444770624366945'))
+            && (0o1777777777777777777777777 === parseInt('1777777777777777777777777', 8))
+            && (0b1111110101010110111011001100011110100011000000100101101011000110110000
+                  === parseInt('1111110101010110111011001100011110100011000000100101101011000110110000', 2))
+            """).AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The same exact oracle over random radix literals: whatever the engine holds must be the double
+    /// nearest the integer the digits denote, decided in exact integer arithmetic.
+    /// </summary>
+    [TestCase(2, 70)]
+    [TestCase(2, 200)]
+    [TestCase(8, 25)]
+    [TestCase(8, 90)]
+    [TestCase(16, 17)]
+    [TestCase(16, 20)]
+    [TestCase(16, 60)]
+    public void EveryWideRadixLiteralRoundsToNearest(int radix, int length)
+    {
+        const string Alphabet = "0123456789abcdef";
+
+        var engine = new Engine();
+        var random = new Random(20260901 + radix * 1000 + length);
+        var prefix = radix switch { 2 => "0b", 8 => "0o", _ => "0x" };
+        var failures = 0;
+        var first = "";
+
+        for (var i = 0; i < 500; i++)
+        {
+            var builder = new StringBuilder(length);
+            builder.Append(Alphabet[1 + random.Next(radix - 1)]);
+            for (var j = 1; j < length; j++)
+            {
+                builder.Append(Alphabet[random.Next(radix)]);
+            }
+
+            var source = prefix + builder;
+            var exact = BigInteger.Zero;
+            foreach (var c in builder.ToString())
+            {
+                exact = exact * radix + Alphabet.IndexOf(c);
+            }
+
+            if (ParseIntPrecisionTests.IsNearestDouble(exact, engine.Evaluate(source).AsNumber()))
+            {
+                continue;
+            }
+
+            failures++;
+            if (first.Length == 0)
+            {
+                first = source;
+            }
+        }
+
+        failures.Should().Be(0, $"every literal must hold the double nearest it; first miss was {first}");
+    }
+
     // Every expected string is the shortest round-tripping decimal of the double nearest the literal's
     // mathematical value. These are the spellings the scanner hands to double.Parse: a fraction, an
     // exponent, or more digits than its ulong accumulator holds.
