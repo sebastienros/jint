@@ -3885,6 +3885,92 @@ year past it. Where a date **sits** is unchanged: the table placed every ISO dat
 **No date moved, and no other calendar changed.** Measured before and after over 417,136 field reads, 14.5
 million additions, 22,568 field-to-ISO conversions and 580,544 differences across seven calendars: the only
 answers that differ are the ones listed above.
+### 4.88 `Intl.NumberFormat` computes its digits in one place, notations included ([#3517](https://github.com/sebastienros/jint/issues/3517))
+
+[FormatNumericToString](https://tc39.es/ecma402/#sec-formatnumberstring) is where a number's digits are
+decided, once, for every style and every notation — the style and the notation only choose what is written
+around them. [§4.59](#459-intlnumberformat-walks-one-pattern-for-both-lanes-non-finite-values-included-3465)
+brought the two lanes onto one pattern walk; this brings them onto one digit computation, and `format` is
+now literally the concatenation of the parts `formatToParts` returns, as
+[FormatNumber](https://tc39.es/ecma402/#sec-formatnumber) defines it. Three lanes were still computing
+their own, and each got a different answer wrong.
+
+**The decimal string lane rounded at fifteen significant digits.** It built a .NET custom numeric format
+string (`"#,##0.###"`) and handed the value to `double.ToString`, which rounds there;
+[ToIntlMathematicalValue](https://tc39.es/ecma402/#sec-tointlmathematicalvalue) reads a Number by parsing
+`Number::toString`, which keeps up to seventeen. `style: "unit"` reported the same, because it formatted its
+number with that lane:
+
+```js
+const nf = new Intl.NumberFormat('en-US');
+// 5.0: "12,345,678,901,234,600,000"      5.x: "12,345,678,901,234,567,000"
+nf.format(12345678901234567890);
+// its own formatToParts already said "12,345,678,901,234,567,000", as does every other engine
+```
+
+**The compact lane saturated a `long`.** It split its scaled value with `(long) Math.Truncate(…)`, and .NET
+pins an out-of-range conversion rather than throwing, so both lanes agreed on `long.MaxValue`'s digits.
+There is no CLDR abbreviation past a trillion, so the answer is the mantissa written out:
+
+```js
+const c = new Intl.NumberFormat('en-US', { notation: 'compact' });
+c.format(1e300);  // 5.0: "9223372036854775807T"   5.x: "1" followed by 288 zeros, then "T"
+```
+
+**No notation read the significant-digit options.**
+[PartitionNumberPattern](https://tc39.es/ecma402/#sec-partitionnumberpattern) calls
+[ComputeExponent](https://tc39.es/ecma402/#sec-computeexponent) first and *then* FormatNumericToString on
+the scaled value, so those options apply to a notation's mantissa exactly as they apply to any other number.
+The three notation lanes rounded a mantissa of their own at `maximumFractionDigits` and read neither:
+
+```js
+new Intl.NumberFormat('en-US', { notation: 'scientific', maximumSignificantDigits: 2 }).format(12345);
+// 5.0: "1.235E4"   5.x: "1.2E4"
+new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 4 }).format(12345);
+// 5.0: "12K"       5.x: "12.35K"
+```
+
+Compact's own rounding comes from the same place now.
+[SetNumberFormatDigitOptions](https://tc39.es/ecma402/#sec-setnumberformatdigitoptions) gives compact
+notation asked for no digit option a rounding of its own — one to two significant digits at
+more-precision against no fraction digits, which is what writes `"1.2K"` for 1234 and `"12K"` for 12345 —
+and that is a resolved option, not an internal convention:
+
+```js
+new Intl.NumberFormat('en-US', { notation: 'compact' }).resolvedOptions();
+// gains minimumSignificantDigits: 1, maximumSignificantDigits: 2, and roundingPriority: "morePrecision"
+```
+
+Four narrower disagreements go with them, all of them a notation lane now reading what the standard lane
+already read.
+
+`ComputeExponent` re-reads the exponent when rounding the mantissa carries it into the next magnitude,
+which is what its own note is about. Neither lane did: `format(999999)` under `notation: "compact"` was
+`"1000K"` and is `"1M"`, and under `"scientific"` `format(99999)` was `"10E4"` and is `"1E5"`.
+
+`signDisplay` reached no notation at all, so a plus sign was never written and `"never"` never suppressed a
+minus. `{ notation: 'scientific', signDisplay: 'always' }.format(1)` was `"1E0"` and is `"+1E0"`;
+`{ notation: 'scientific', signDisplay: 'never' }.format(-1)` was `"-1E0"` and is `"1E0"`;
+`{ notation: 'compact' }.format(-0)` was `"0"` and is `"-0"`, which is what the standard notation already
+wrote. `minimumIntegerDigits` reached none of them either, and now pads the mantissa.
+
+Rounding at a place below the value's last significant digit is the identity, and scaling by
+10^`maximumFractionDigits` to do it anyway was not. That reached the parts lane of every style:
+`{ maximumFractionDigits: 20 }.formatToParts(100000)` joined to `"100,000.00000000001455191523"`, and
+`{ minimumSignificantDigits: 3 }.format(0.00159)` was `"0.0015900000000000003"`. Both are the digits the
+value has now, because the split is made from `Number::toString`'s digits rather than from a `Truncate` and
+a fraction scaled by a power of ten.
+
+And a value small enough that the scaling overflowed produced a rounding of `NaN`, which was then written
+out: `{ maximumSignificantDigits: 2 }.format(1e-320)` was the three characters `"Nb0"` and is the number.
+
+**What could break:** any output holding more than fifteen significant digits, anything under a notation
+that also set a digit option or a `signDisplay`, a compact `resolvedOptions()` snapshot, and a
+`maximumFractionDigits` wide enough to reach past a double's digits. Measured across a grid of twelve
+locales, thirty-three option sets and thirty-nine values: the percent and currency styles do not move at
+all under the standard notation, and no string that was already the concatenation of its own parts changes
+except where one of the above applies.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

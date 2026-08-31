@@ -67,7 +67,16 @@ public class IntlNumberFormatPartsTests
         "{ notation: 'scientific' }",
         "{ notation: 'engineering' }",
         "{ notation: 'compact' }",
-        "{ notation: 'compact', compactDisplay: 'long' }"
+        "{ notation: 'compact', compactDisplay: 'long' }",
+        // https://tc39.es/ecma402/#sec-partitionnumberpattern scales the value by
+        // https://tc39.es/ecma402/#sec-computeexponent and then runs FormatNumericToString over the
+        // mantissa, so a digit option applies to a notation's number exactly as it applies to any other
+        "{ notation: 'scientific', maximumSignificantDigits: 2 }",
+        "{ notation: 'engineering', minimumSignificantDigits: 4 }",
+        "{ notation: 'compact', maximumSignificantDigits: 4 }",
+        "{ notation: 'compact', compactDisplay: 'long', minimumSignificantDigits: 3 }",
+        "{ notation: 'compact', maximumFractionDigits: 2 }",
+        "{ notation: 'scientific', signDisplay: 'exceptZero' }"
     ];
 
     private const string Values =
@@ -75,15 +84,23 @@ public class IntlNumberFormatPartsTests
         // values ToIntlMathematicalValue reads exactly, which no double holds: a BigInt, an integer
         // string past 2^53, and a decimal string with more significant digits than a double carries
         + "987654321987654321n, -987654321987654321n, '987654321987654321', '1.00000000000000012', "
-        // whole doubles past 2^63, where a cast to long saturates rather than answers
-        + "1e21, 1e25]";
+        // whole doubles past 2^63, where a cast to long saturates rather than answers, and one past
+        // 10^15, where a .NET custom format string stops writing the digits Number::toString kept
+        + "1e21, 1e25, 12345678901234567890, 1e300]";
 
     /// <summary>
     /// The defect: <c>format</c> transliterated and <c>formatToParts</c> did not, so
     /// <c>new Intl.NumberFormat('en', { numberingSystem: 'arab' })</c> wrote <c>"١,٢٣٤٫٥"</c> from one lane
     /// and <c>"1,234.5"</c> from the other. The grid asserts the join outright, so it also stands over the
     /// four disagreements that had nothing to do with digits — a unit pattern's prefix, a currency's sign,
-    /// scientific notation of zero, and a non-finite value's style.
+    /// scientific notation of zero, and a non-finite value's style — and over the four the digit lanes
+    /// added: fifteen significant digits under the decimal style, a saturated <c>long</c> under compact, a
+    /// significant-digit option under a notation, and a notation's sign display.
+    /// <para>
+    /// <c>format</c> is now the concatenation itself rather than a second assembly of the same characters,
+    /// so what the grid asserts is that this one assembly reaches every combination in it without throwing
+    /// or dropping a part. The exact strings the four defects produced are asserted separately, below.
+    /// </para>
     /// </summary>
     [Test]
     public void PartsConcatenateToFormat()
@@ -920,6 +937,158 @@ public class IntlNumberFormatPartsTests
         const string Usd =
             "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 2 })";
         Format(Usd, "1234n").Should().Be("$1,200").And.Be(Format(Usd, "1234"));
+    }
+
+    /// <summary>
+    /// A Number's digits are the seventeen <c>Number::toString</c> can write, in the string lane as much
+    /// as in the parts lane: https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads a Number by
+    /// parsing that string, and never by rounding it again.
+    /// </summary>
+    /// <remarks>
+    /// The defect: <c>FormatDecimal</c> handed the value to <c>double.ToString("#,##0.###")</c>, and a
+    /// .NET custom numeric format string rounds at fifteen significant digits. So
+    /// <c>format(12345678901234567890)</c> wrote <c>"12,345,678,901,234,600,000"</c> against the parts'
+    /// <c>"12,345,678,901,234,567,000"</c> — and <c>style: "unit"</c> reported the first, because
+    /// <c>FormatUnit</c> formatted its number with <c>FormatDecimal</c>.
+    /// </remarks>
+    [Test]
+    public void TheStringLaneKeepsEverySignificantDigitTheValueHas()
+    {
+        // 12345678901234567890 as a decimal literal does not parse to the same double on every target
+        // framework this builds for, so the value is written as the double the issue is about — the one
+        // Number::toString spells with seventeen significant digits and .NET's "#,##0.###" with fifteen.
+        const string Value = "1.2345678901234567e19";
+        _engine.Evaluate($"({Value}).toString()").AsString().Should().Be("12345678901234567000");
+
+        const string Expected = "12,345,678,901,234,567,000";
+        const string Plain = "new Intl.NumberFormat('en-US')";
+        Format(Plain, Value).Should().Be(Expected);
+        Join(Plain, Value).Should().Be(Expected);
+
+        const string Meter = "new Intl.NumberFormat('en-US', { style: 'unit', unit: 'meter' })";
+        Format(Meter, Value).Should().Be(Expected + " m");
+        Join(Meter, Value).Should().Be(Expected + " m");
+
+        const string Usd = "new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })";
+        Format(Usd, Value).Should().Be("$" + Expected + ".00");
+    }
+
+    /// <summary>
+    /// A compact mantissa is written from digits, so it is written for a value of any size:
+    /// https://tc39.es/ecma402/#sec-computeexponentformagnitude stops at the largest abbreviation the
+    /// locale has, and everything above it is the mantissa spelled out.
+    /// </summary>
+    /// <remarks>
+    /// The defect: both compact lanes split their scaled value with <c>(long) Math.Truncate(...)</c>, and
+    /// .NET pins an out-of-range conversion rather than throwing — so they agreed, on
+    /// <c>long.MaxValue</c>'s digits, and <c>format(1e300)</c> was <c>"9223372036854775807T"</c>.
+    /// </remarks>
+    [Test]
+    public void ACompactMantissaPastTheRangeOfALongIsStillItsOwnDigits()
+    {
+        const string Compact = "new Intl.NumberFormat('en-US', { notation: 'compact' })";
+
+        // there is no abbreviation past a trillion, so 1e300 is 10^288 of them
+        var sextillion = "1" + new string('0', 288) + "T";
+        Format(Compact, "1e300").Should().Be(sextillion);
+        Join(Compact, "1e300").Should().Be(sextillion);
+
+        Format(Compact, "1e21").Should().Be("1000000000T");
+        Join(Compact, "1e21").Should().Be("1000000000T");
+
+        // CLDR's compact patterns carry no group separator, so a wide mantissa is one integer part
+        Parts(Compact, "1e21").Should()
+            .Be("""[{"type":"integer","value":"1000000000"},{"type":"compact","value":"T"}]""");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern computes the exponent first and runs
+    /// https://tc39.es/ecma402/#sec-formatnumberstring over the scaled value, so a notation's mantissa
+    /// reads <c>[[MinimumSignificantDigits]]</c> and <c>[[MaximumSignificantDigits]]</c> the way a
+    /// standard-notation number does.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the three notation lanes rounded a mantissa of their own at
+    /// <c>maximumFractionDigits</c> and read neither option, so both lanes agreed on an answer that
+    /// ignored it — <c>"1.235E4"</c> for 12345 at <c>maximumSignificantDigits: 2</c>, and <c>"12K"</c> at
+    /// <c>maximumSignificantDigits: 4</c>.
+    /// </remarks>
+    [Test]
+    public void ANotationsMantissaReadsTheSignificantDigitOptions()
+    {
+        const string Scientific =
+            "new Intl.NumberFormat('en-US', { notation: 'scientific', maximumSignificantDigits: 2 })";
+        Format(Scientific, "12345").Should().Be("1.2E4");
+        Join(Scientific, "12345").Should().Be("1.2E4");
+
+        const string Engineering =
+            "new Intl.NumberFormat('en-US', { notation: 'engineering', maximumSignificantDigits: 2 })";
+        Format(Engineering, "12345").Should().Be("12E3");
+        Join(Engineering, "12345").Should().Be("12E3");
+
+        const string Compact =
+            "new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 4 })";
+        Format(Compact, "12345").Should().Be("12.35K");
+        Join(Compact, "12345").Should().Be("12.35K");
+
+        // the minimum is a floor under a notation too
+        const string Padded =
+            "new Intl.NumberFormat('en-US', { notation: 'scientific', minimumSignificantDigits: 4 })";
+        Format(Padded, "1000").Should().Be("1.000E3");
+        Join(Padded, "1000").Should().Be("1.000E3");
+    }
+
+    /// <summary>
+    /// Compact notation with no digit option of its own is the one case
+    /// https://tc39.es/ecma402/#sec-setnumberformatdigitoptions configures itself: one to two significant
+    /// digits at more-precision against no fraction digits, which is what it resolves to.
+    /// </summary>
+    /// <remarks>
+    /// That rounding is the reason <c>1234</c> is <c>"1.2K"</c> and <c>12345</c> is <c>"12K"</c>, and it
+    /// used to be open-coded in the compact lanes as "two significant figures" instead of being read from
+    /// the formatter — which is why the significant-digit options had nowhere to arrive.
+    /// </remarks>
+    [Test]
+    public void CompactResolvesTheDigitOptionsTheAlgorithmGivesIt()
+    {
+        var resolved = _engine.Evaluate(
+            "JSON.stringify(new Intl.NumberFormat('en-US', { notation: 'compact' }).resolvedOptions())").AsString();
+
+        resolved.Should().Contain("\"minimumFractionDigits\":0");
+        resolved.Should().Contain("\"maximumFractionDigits\":0");
+        resolved.Should().Contain("\"minimumSignificantDigits\":1");
+        resolved.Should().Contain("\"maximumSignificantDigits\":2");
+        resolved.Should().Contain("\"roundingPriority\":\"morePrecision\"");
+
+        const string Compact = "new Intl.NumberFormat('en-US', { notation: 'compact' })";
+        Format(Compact, "1234").Should().Be("1.2K");
+        Format(Compact, "12345").Should().Be("12K");
+
+        // an explicit digit option is the formatter's own, so the default is not applied over it
+        var explicitly = _engine.Evaluate(
+            "JSON.stringify(new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 })"
+            + ".resolvedOptions())").AsString();
+        explicitly.Should().Contain("\"roundingPriority\":\"auto\"");
+        explicitly.Should().NotContain("minimumSignificantDigits");
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-computeexponent re-reads the exponent when rounding the mantissa
+    /// carries it into the next magnitude, which is what its own note is about.
+    /// </summary>
+    /// <remarks>
+    /// The defect: the compact lanes picked an abbreviation from the unrounded value and never looked
+    /// again, so 999999 rounded to a thousand thousands and was written <c>"1000K"</c> rather than
+    /// <c>"1M"</c>.
+    /// </remarks>
+    [Test]
+    public void ACompactMantissaThatRoundsUpTakesTheNextAbbreviation()
+    {
+        const string Compact = "new Intl.NumberFormat('en-US', { notation: 'compact' })";
+        Format(Compact, "999999").Should().Be("1M");
+        Join(Compact, "999999").Should().Be("1M");
+        Format(Compact, "999999999").Should().Be("1B");
+        Format(Compact, "999").Should().Be("999");
     }
 
     private string Format(string formatter, string value)

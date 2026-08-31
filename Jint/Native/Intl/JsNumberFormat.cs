@@ -217,19 +217,14 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     /// <remarks>
     /// https://tc39.es/ecma402/#sec-formatnumber is the concatenation of exactly the parts
-    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns. A non-finite value reads its result from
-    /// that list rather than assembling a second one, which is what keeps the style's affixes — a currency
-    /// symbol, a unit, a percent sign — on both sides of the same walk.
+    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns, so this reads that list rather than
+    /// assembling a second one. Every lane that assembled a second one disagreed with the parts somewhere:
+    /// the decimal lane handed its value to <c>double.ToString</c>, which rounds a custom format string at
+    /// fifteen significant digits where https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads
+    /// seventeen, so <c>format(12345678901234567890)</c> wrote <c>…234,600,000</c> against the parts'
+    /// <c>…567,000</c>.
     /// </remarks>
-    internal string Format(double value)
-    {
-        if (!double.IsFinite(value))
-        {
-            return ConcatenateParts(FormatToParts(value));
-        }
-
-        return Transliterate(FormatCore(value));
-    }
+    internal string Format(double value) => ConcatenateParts(FormatToParts(value));
 
     private static string ConcatenateParts(List<NumberFormatPart> parts)
     {
@@ -247,608 +242,8 @@ internal sealed class JsNumberFormat : ObjectInstance
         return builder.ToString();
     }
 
-    /// <summary>
-    /// Rewrites an assembled result in <c>[[NumberingSystem]]</c>: the digits wherever they stand, and the
-    /// one character this formatter writes as its decimal separator.
-    /// </summary>
-    /// <remarks>
-    /// Rewriting every full stop instead — which is what the shared
-    /// <see cref="Data.ResolvedNumberingSystem.Transliterate(string)"/> does — reaches the full stops a pattern owns
-    /// as well as the one the number owns, and a locale whose own separator is a comma has both:
-    /// <c>de-DE</c> compact writes <c>"1,2 Mio."</c>, where the comma is the number's and the full stop
-    /// belongs to the abbreviation. https://tc39.es/ecma402/#sec-partitionnumberpattern puts the two in
-    /// different parts — <c>decimal</c> and <c>compact</c> — and only the first is a number.
-    /// </remarks>
-    private string Transliterate(string result)
-    {
-        if (!_numberingSystem.RewritesDigits)
-        {
-            return result;
-        }
-
-        var separator = DecimalSeparator;
-        if (_numberingSystem.RewritesDecimalSeparator && separator.Length == 1)
-        {
-            return _numberingSystem.Transliterate(result, separator[0]);
-        }
-
-        return _numberingSystem.TransliterateDigitsOnly(result);
-    }
-
-    /// <summary>
-    /// The decimal separator this formatter's own lanes write, which is the currency one for a currency and
-    /// the number one for everything else.
-    /// </summary>
-    private string DecimalSeparator
-    {
-        get
-        {
-            if (string.Equals(Style, "currency", StringComparison.Ordinal))
-            {
-                return NumberFormatInfo.CurrencyDecimalSeparator;
-            }
-
-            return NumberFormatInfo.NumberDecimalSeparator;
-        }
-    }
-
-    private string FormatCore(double value)
-    {
-        // Handle notation first (scientific, engineering, compact)
-        if (!string.Equals(Notation, "standard", StringComparison.Ordinal))
-        {
-            return FormatWithNotation(value);
-        }
-
-        // https://tc39.es/ecma402/#sec-formatnumber is the concatenation of exactly the parts
-        // https://tc39.es/ecma402/#sec-formatnumbertoparts returns, and under the significant-digit
-        // options — and under a rounding priority, which needs both roundings to compare them — that is
-        // the lane https://tc39.es/ecma402/#sec-torawprecision lives in.
-        if (MinimumSignificantDigits.HasValue
-            || MaximumSignificantDigits.HasValue
-            || !string.Equals(RoundingPriority, "auto", StringComparison.Ordinal))
-        {
-            return ConcatenateParts(FormatToPartsCore(value));
-        }
-
-        return Style switch
-        {
-            "currency" => FormatCurrency(value),
-            "percent" => FormatPercent(value),
-            "unit" => FormatUnit(value),
-            _ => FormatDecimal(value)
-        };
-    }
-
-    private string FormatWithNotation(double value)
-    {
-        if (string.Equals(Notation, "scientific", StringComparison.Ordinal))
-        {
-            return FormatScientific(value);
-        }
-
-        if (string.Equals(Notation, "engineering", StringComparison.Ordinal))
-        {
-            return FormatEngineering(value);
-        }
-
-        if (string.Equals(Notation, "compact", StringComparison.Ordinal))
-        {
-            return FormatCompact(value);
-        }
-
-        return FormatDecimal(value);
-    }
-
     /// <summary>Distinguishes -0 from +0, which format differently but compare equal.</summary>
     private static bool IsNegativeZero(double value) => value == 0 && double.IsNegativeInfinity(1 / value);
-
-    private string FormatScientific(double value)
-    {
-        if (!double.IsFinite(value))
-        {
-            return FormatDecimal(value);
-        }
-
-        // Get the exponent. https://tc39.es/ecma402/#sec-partitionnotationsubpattern writes "0" for an
-        // exponent of zero rather than omitting the exponent, so exactly zero is "0E0". Zero's mantissa is
-        // taken as positive and signed below, because .NET Framework and .NET disagree on whether a custom
-        // format string writes negative zero's sign.
-        var exponent = value == 0 ? 0 : (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
-        var mantissa = value == 0 ? 0d : value / System.Math.Pow(10, exponent);
-
-        // Round the mantissa
-        mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
-
-        // Format mantissa
-        var mantissaFormat = MaximumFractionDigits > 0
-            ? "0." + new string('0', MinimumFractionDigits) + new string('#', MaximumFractionDigits - MinimumFractionDigits)
-            : "0";
-        var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
-        if (IsNegativeZero(value))
-        {
-            mantissaStr = NumberFormatInfo.NegativeSign + mantissaStr;
-        }
-
-        // Format exponent (no plus sign for positive exponents per spec). PartitionNotationSubPattern
-        // takes the exponent's minus sign from the resolved locale's data, so it comes from this
-        // object's own NumberFormatInfo - as the mantissa above does - and never from the host's
-        // ambient culture. https://tc39.es/ecma402/#sec-partitionnotationsubpattern
-        return $"{mantissaStr}E{exponent.ToString(NumberFormatInfo)}";
-    }
-
-    private string FormatEngineering(double value)
-    {
-        if (!double.IsFinite(value))
-        {
-            return FormatDecimal(value);
-        }
-
-        // Engineering notation uses exponents that are multiples of 3. See FormatScientific for why zero
-        // still carries one, and why its mantissa is signed separately.
-        var exponent = value == 0 ? 0 : (int) System.Math.Floor(System.Math.Log10(System.Math.Abs(value)));
-        var engineeringExponent = (int) (System.Math.Floor(exponent / 3.0) * 3);
-        var mantissa = value == 0 ? 0d : value / System.Math.Pow(10, engineeringExponent);
-
-        // Round the mantissa
-        mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
-
-        // Format mantissa
-        var mantissaFormat = MaximumFractionDigits > 0
-            ? "0." + new string('0', MinimumFractionDigits) + new string('#', MaximumFractionDigits - MinimumFractionDigits)
-            : "0";
-        var mantissaStr = mantissa.ToString(mantissaFormat, NumberFormatInfo);
-        if (IsNegativeZero(value))
-        {
-            mantissaStr = NumberFormatInfo.NegativeSign + mantissaStr;
-        }
-
-        // Format exponent (no plus sign for positive exponents per spec). See FormatScientific for why
-        // the exponent's sign comes from this object's NumberFormatInfo rather than the ambient culture.
-        return $"{mantissaStr}E{engineeringExponent.ToString(NumberFormatInfo)}";
-    }
-
-    private string FormatCompact(double value)
-    {
-        // Handle special values first
-        if (double.IsNaN(value))
-        {
-            return NumberFormatInfo.NaNSymbol;
-        }
-
-        if (double.IsPositiveInfinity(value))
-        {
-            return NumberFormatInfo.PositiveInfinitySymbol;
-        }
-
-        if (double.IsNegativeInfinity(value))
-        {
-            return NumberFormatInfo.NegativeSign + NumberFormatInfo.PositiveInfinitySymbol;
-        }
-
-        var absValue = System.Math.Abs(value);
-        var isNegative = value < 0;
-        var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
-
-        // Get locale-specific compact patterns
-        var patterns = Data.CompactPatterns.GetPatterns(Locale);
-        var threshold = patterns.GetThreshold(isLong);
-
-        // For values below threshold, use regular decimal formatting
-        if (absValue < threshold)
-        {
-            return FormatCompactSmallValue(value, absValue, isNegative);
-        }
-
-        // Determine the appropriate compact unit
-        string suffix;
-        string longSuffix;
-        double divisor;
-
-        // For East Asian languages (ja, ko, zh), use different divisors
-        var divisorMillion = patterns.DivisorMillion;
-        var divisorBillion = patterns.DivisorBillion;
-
-        if (absValue >= 1_000_000_000_000)
-        {
-            suffix = patterns.ShortTrillion;
-            longSuffix = patterns.LongTrillion;
-            divisor = 1_000_000_000_000;
-        }
-        else if (absValue >= divisorBillion)
-        {
-            suffix = patterns.ShortBillion;
-            longSuffix = patterns.LongBillion;
-            divisor = divisorBillion;
-        }
-        else if (absValue >= divisorMillion)
-        {
-            suffix = patterns.ShortMillion;
-            longSuffix = patterns.LongMillion;
-            divisor = divisorMillion;
-        }
-        else if (absValue >= 1000)
-        {
-            var thousandSuffix = isLong ? patterns.LongThousand : patterns.ShortThousand;
-            if (string.IsNullOrEmpty(thousandSuffix))
-            {
-                // No thousand suffix for this locale/mode, use small value formatting
-                return FormatCompactSmallValue(value, absValue, isNegative);
-            }
-            suffix = patterns.ShortThousand;
-            longSuffix = patterns.LongThousand;
-            divisor = 1000;
-        }
-        else
-        {
-            // Below compact threshold but above small value handling
-            return FormatCompactSmallValue(value, absValue, isNegative);
-        }
-
-        // If suffix is empty, don't use compact notation
-        var actualSuffix = isLong ? longSuffix : suffix;
-        if (string.IsNullOrEmpty(actualSuffix))
-        {
-            return FormatCompactSmallValue(value, absValue, isNegative);
-        }
-
-        var compactValue = absValue / divisor;
-
-        // Use 2 significant figures for compact notation
-        var compactMagnitude = compactValue >= 1 ? (int) System.Math.Floor(System.Math.Log10(compactValue)) : 0;
-        var compactDecimalPlaces = 1 - compactMagnitude; // For 2 sig figs
-        if (compactDecimalPlaces < 0)
-        {
-            compactDecimalPlaces = 0;
-        }
-
-        compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
-
-        // Format the number part using locale's decimal separator
-        string compactFormatted;
-        if (compactDecimalPlaces > 0 && compactValue != System.Math.Floor(compactValue))
-        {
-            compactFormatted = compactValue.ToString("F" + compactDecimalPlaces, NumberFormatInfo);
-            // Trim trailing zeros after decimal
-            var decSep = NumberFormatInfo.NumberDecimalSeparator;
-            if (compactFormatted.Contains(decSep, StringComparison.Ordinal))
-            {
-                compactFormatted = compactFormatted.TrimEnd('0');
-                if (compactFormatted.EndsWith(decSep, StringComparison.Ordinal))
-                {
-                    compactFormatted = compactFormatted.Substring(0, compactFormatted.Length - decSep.Length);
-                }
-            }
-        }
-        else
-        {
-            compactFormatted = ((long) compactValue).ToString(NumberFormatInfo);
-        }
-
-        // Build result with appropriate spacing
-        string result;
-        if (isLong)
-        {
-            // Long format: spacing depends on locale
-            if (patterns.LongSpace)
-            {
-                result = compactFormatted + " " + actualSuffix;
-            }
-            else
-            {
-                result = compactFormatted + actualSuffix;
-            }
-        }
-        else
-        {
-            // Short format: spacing depends on locale
-            if (patterns.ShortSpace)
-            {
-                result = compactFormatted + "\u00a0" + actualSuffix;
-            }
-            else
-            {
-                result = compactFormatted + actualSuffix;
-            }
-        }
-
-        return isNegative ? NumberFormatInfo.NegativeSign + result : result;
-    }
-
-    private string FormatCompactSmallValue(double value, double absValue, bool isNegative)
-    {
-        if (absValue == 0)
-        {
-            return "0";
-        }
-
-        // For values >= 1, format with locale's grouping/decimal separators
-        if (absValue >= 1)
-        {
-            var magnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
-
-            // Determine decimal places based on magnitude
-            int decimalPlaces;
-            if (magnitude >= 4)
-            {
-                // 10000+ - no decimals, use grouping
-                decimalPlaces = 0;
-            }
-            else if (magnitude >= 2)
-            {
-                // 100-9999 - no decimals
-                decimalPlaces = 0;
-            }
-            else
-            {
-                // 1-99 - use 2 significant figures
-                decimalPlaces = 1 - magnitude;
-            }
-
-            var rounded = ApplyRounding(absValue, decimalPlaces);
-
-            string formatted;
-            if (decimalPlaces <= 0)
-            {
-                // Use grouping only for numbers with 5+ digits (10000+)
-                if (rounded >= 10000)
-                {
-                    formatted = rounded.ToString("#,##0", NumberFormatInfo);
-                }
-                else
-                {
-                    formatted = ((long) rounded).ToString(CultureInfo.InvariantCulture);
-                }
-            }
-            else
-            {
-                formatted = rounded.ToString("F" + decimalPlaces, NumberFormatInfo);
-                // Trim trailing zeros
-                var decSep = NumberFormatInfo.NumberDecimalSeparator;
-                if (formatted.Contains(decSep, StringComparison.Ordinal))
-                {
-                    formatted = formatted.TrimEnd('0');
-                    if (formatted.EndsWith(decSep, StringComparison.Ordinal))
-                    {
-                        formatted = formatted.Substring(0, formatted.Length - decSep.Length);
-                    }
-                }
-            }
-
-            return isNegative ? NumberFormatInfo.NegativeSign + formatted : formatted;
-        }
-
-        // For values < 1
-        var smallMagnitude = (int) System.Math.Floor(System.Math.Log10(absValue));
-        var smallDecimalPlaces = 1 - smallMagnitude; // 2 sig figs
-
-        var smallRounded = ApplyRounding(absValue, smallDecimalPlaces);
-        var smallFormatted = smallRounded.ToString("F" + smallDecimalPlaces, NumberFormatInfo);
-
-        // Trim trailing zeros but keep at least required precision
-        var sep = NumberFormatInfo.NumberDecimalSeparator;
-        if (smallFormatted.Contains(sep, StringComparison.Ordinal))
-        {
-            smallFormatted = smallFormatted.TrimEnd('0');
-            if (smallFormatted.EndsWith(sep, StringComparison.Ordinal))
-            {
-                smallFormatted = smallFormatted.Substring(0, smallFormatted.Length - sep.Length);
-            }
-        }
-
-        return isNegative ? NumberFormatInfo.NegativeSign + smallFormatted : smallFormatted;
-    }
-
-    private List<NumberFormatPart> FormatCompactToParts(double value)
-    {
-        var parts = new List<NumberFormatPart>();
-
-        // Handle special values
-        if (double.IsNaN(value))
-        {
-            parts.Add(new NumberFormatPart("nan", NumberFormatInfo.NaNSymbol));
-            return parts;
-        }
-
-        if (double.IsPositiveInfinity(value))
-        {
-            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
-            return parts;
-        }
-
-        if (double.IsNegativeInfinity(value))
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-            parts.Add(new NumberFormatPart("infinity", NumberFormatInfo.PositiveInfinitySymbol));
-            return parts;
-        }
-
-        var absValue = System.Math.Abs(value);
-        var isNegative = value < 0;
-        var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
-
-        // Handle sign
-        if (isNegative)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-        }
-
-        // Get locale-specific compact patterns
-        var patterns = Data.CompactPatterns.GetPatterns(Locale);
-        var threshold = patterns.GetThreshold(isLong);
-
-        // For values below threshold, format as regular decimal parts
-        if (absValue < threshold || absValue == 0)
-        {
-            AddDecimalParts(parts, absValue);
-            return parts;
-        }
-
-        // Determine the appropriate compact unit
-        string? compactSuffix = null;
-        double divisor = 1;
-
-        var divisorMillion = patterns.DivisorMillion;
-        var divisorBillion = patterns.DivisorBillion;
-
-        if (absValue >= 1_000_000_000_000)
-        {
-            compactSuffix = isLong ? patterns.LongTrillion : patterns.ShortTrillion;
-            divisor = 1_000_000_000_000;
-        }
-        else if (absValue >= divisorBillion)
-        {
-            compactSuffix = isLong ? patterns.LongBillion : patterns.ShortBillion;
-            divisor = divisorBillion;
-        }
-        else if (absValue >= divisorMillion)
-        {
-            compactSuffix = isLong ? patterns.LongMillion : patterns.ShortMillion;
-            divisor = divisorMillion;
-        }
-        else if (absValue >= 1000)
-        {
-            var thousandSuffix = isLong ? patterns.LongThousand : patterns.ShortThousand;
-            if (!string.IsNullOrEmpty(thousandSuffix))
-            {
-                compactSuffix = thousandSuffix;
-                divisor = 1000;
-            }
-        }
-
-        // If no compact suffix, format as decimal parts
-        if (string.IsNullOrEmpty(compactSuffix))
-        {
-            AddDecimalParts(parts, absValue);
-            return parts;
-        }
-
-        var compactValue = absValue / divisor;
-
-        // Round to 2 significant figures
-        var compactMagnitude = compactValue >= 1 ? (int) System.Math.Floor(System.Math.Log10(compactValue)) : 0;
-        var compactDecimalPlaces = 1 - compactMagnitude;
-        if (compactDecimalPlaces < 0)
-        {
-            compactDecimalPlaces = 0;
-        }
-
-        compactValue = ApplyRounding(compactValue, compactDecimalPlaces);
-
-        // Add integer part
-        var integerPart = (long) System.Math.Truncate(compactValue);
-        parts.Add(new NumberFormatPart("integer", integerPart.ToString(CultureInfo.InvariantCulture)));
-
-        // Add decimal part if needed
-        var fractionValue = compactValue - integerPart;
-        if (compactDecimalPlaces > 0 && fractionValue > 0.00001)
-        {
-            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-
-            var multiplier = System.Math.Pow(10, compactDecimalPlaces);
-            var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-            var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture);
-
-            // Trim trailing zeros
-            fractionStr = fractionStr.TrimEnd('0');
-            if (fractionStr.Length > 0)
-            {
-                parts.Add(new NumberFormatPart("fraction", fractionStr));
-            }
-        }
-
-        // Add literal space and compact suffix (only if locale uses space)
-        if (isLong && patterns.LongSpace)
-        {
-            parts.Add(new NumberFormatPart("literal", " "));
-        }
-        else if (!isLong && patterns.ShortSpace)
-        {
-            parts.Add(new NumberFormatPart("literal", "\u00a0")); // Non-breaking space for short format
-        }
-        // For formats without space, we don't add a literal part
-
-        parts.Add(new NumberFormatPart("compact", compactSuffix!));
-
-        return parts;
-    }
-
-    private void AddDecimalParts(List<NumberFormatPart> parts, double value)
-    {
-        if (value == 0)
-        {
-            parts.Add(new NumberFormatPart("integer", "0"));
-            return;
-        }
-
-        var magnitude = value >= 1 ? (int) System.Math.Floor(System.Math.Log10(value)) : 0;
-        int decimalPlaces;
-
-        if (magnitude >= 4)
-        {
-            decimalPlaces = 0;
-        }
-        else if (magnitude >= 2)
-        {
-            decimalPlaces = 0;
-        }
-        else if (value >= 1)
-        {
-            decimalPlaces = 1 - magnitude;
-        }
-        else
-        {
-            var smallMagnitude = (int) System.Math.Floor(System.Math.Log10(value));
-            decimalPlaces = 1 - smallMagnitude;
-        }
-
-        var rounded = ApplyRounding(value, decimalPlaces);
-
-        // Add integer part
-        var integerPart = (long) System.Math.Truncate(rounded);
-        var intStr = integerPart.ToString(CultureInfo.InvariantCulture);
-
-        // Add grouping for large numbers
-        if (rounded >= 10000)
-        {
-            intStr = integerPart.ToString("#,##0", NumberFormatInfo);
-            // Parse groups and add as separate parts
-            var groups = intStr.Split(new[] { NumberFormatInfo.NumberGroupSeparator }, StringSplitOptions.None);
-            for (var i = 0; i < groups.Length; i++)
-            {
-                if (i > 0)
-                {
-                    parts.Add(new NumberFormatPart("group", NumberFormatInfo.NumberGroupSeparator));
-                }
-                parts.Add(new NumberFormatPart("integer", groups[i]));
-            }
-        }
-        else
-        {
-            parts.Add(new NumberFormatPart("integer", intStr));
-        }
-
-        // Add decimal part if needed
-        if (decimalPlaces > 0)
-        {
-            var fractionValue = rounded - integerPart;
-            if (fractionValue > 0.00001)
-            {
-                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-
-                var multiplier = System.Math.Pow(10, decimalPlaces);
-                var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-                var fractionStr = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(decimalPlaces, '0');
-
-                // Trim trailing zeros
-                fractionStr = fractionStr.TrimEnd('0');
-                if (fractionStr.Length > 0)
-                {
-                    parts.Add(new NumberFormatPart("fraction", fractionStr));
-                }
-            }
-        }
-    }
 
     /// <summary>
     /// Applies rounding to a value based on the RoundingMode and RoundingIncrement settings.
@@ -864,6 +259,17 @@ internal sealed class JsNumberFormat : ObjectInstance
         // scaling it by a power of ten to round it is not, since the product is past what a double
         // holds exactly: 1e21 came back as 999999999999999900000.
         if (decimalPlaces > 0 && System.Math.Abs(value) >= 9007199254740992d)
+        {
+            return value;
+        }
+
+        // The same identity, at the other end: rounding at a place below the value's last significant
+        // digit changes nothing, and scaling by 10^decimalPlaces to do it anyway does — 100000 multiplied
+        // by 10^20 and divided back is 100000.00000000001, which maximumFractionDigits: 20 then wrote out.
+        // Where the last digit sits is read from Number::toString, which is where this object's digits come
+        // from everywhere else. A rounding increment is excluded because it is not the identity there:
+        // it rounds to a multiple at that place whether or not the value has a digit in it.
+        if (decimalPlaces > 0 && RoundingIncrement == 1 && value != 0 && IsRoundedAlready(value, decimalPlaces))
         {
             return value;
         }
@@ -889,6 +295,16 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
 
         return scaled / multiplier;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/>'s last significant digit already sits at or above the
+    /// <paramref name="decimalPlaces"/> place, so rounding it there leaves it alone.
+    /// </summary>
+    private static bool IsRoundedAlready(double value, int decimalPlaces)
+    {
+        DecimalDigitsOf(System.Math.Abs(value), out var significand, out var exponent);
+        return exponent - significand.Length + 1 >= -decimalPlaces;
     }
 
     private double ApplyRoundingMode(double scaled, bool isPositive)
@@ -1041,41 +457,22 @@ internal sealed class JsNumberFormat : ObjectInstance
         var body = MinimumSignificantDigits.HasValue || MaximumSignificantDigits.HasValue
             ? ExactPrecisionBody(abs, fractionDigits)
             : ExactBody(abs, fractionDigits);
-        var displaysAsZero = body.IsZero;
-
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                break;
-        }
+        var sign = SignFor(isNegative, body.IsZero);
 
         var parts = new List<NumberFormatPart>();
         switch (Style)
         {
             case "currency":
-                AppendCurrencyParts(parts, in body, showNegativeSign, showPositiveSign);
+                AppendCurrencyParts(parts, in body, sign.ShowNegative, sign.ShowPositive);
                 break;
             case "percent":
-                AppendPercentParts(parts, in body, showNegativeSign, showPositiveSign);
+                AppendPercentParts(parts, in body, sign.ShowNegative, sign.ShowPositive);
                 break;
             case "unit":
-                AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, (double) mantissa);
+                AppendUnitParts(parts, in body, sign.ShowNegative, sign.ShowPositive, (double) mantissa);
                 break;
             default:
-                AppendSignPart(parts, showNegativeSign, showPositiveSign);
+                AppendSignPart(parts, sign.ShowNegative, sign.ShowPositive);
                 AddNumberParts(parts, in body);
                 break;
         }
@@ -1142,288 +539,6 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     internal string Format(BigInteger value) => Format(IntlMathematicalValue.Exact(value, 0));
 
-    private string FormatDecimal(double value)
-    {
-        // Check if value is negative (including -0)
-        var isNegative = value < 0 || double.IsNegativeInfinity(1 / value);
-        var absValue = System.Math.Abs(value);
-
-        // Apply rounding based on MaximumFractionDigits
-        absValue = ApplyRounding(absValue, MaximumFractionDigits);
-        var displaysAsZero = absValue == 0;
-        var isNaN = double.IsNaN(value);
-
-        // Determine if we should show a sign based on signDisplay
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                // NaN still gets a plus sign for "always"
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                // NaN never gets a sign for exceptZero (NaN is not a number, neither zero nor non-zero)
-                showPositiveSign = !isNegative && !displaysAsZero && !isNaN;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showPositiveSign = false;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        value = absValue;
-
-        // Build custom format string that respects min integer digits, min/max fraction digits
-        // e.g., MinimumIntegerDigits=3, MinimumFractionDigits=1, MaximumFractionDigits=3 -> "000.0##"
-
-        // Build integer part with minimum integer digits
-        // Calculate integer digits for min2 grouping check
-        var integerDigits = (int) (value == 0 ? 1 : System.Math.Floor(System.Math.Log10(System.Math.Abs(value))) + 1);
-
-        string integerPart;
-        if (ShouldApplyGrouping(integerDigits))
-        {
-            // For grouping, we need at least 4 characters for the group separator pattern
-            // e.g., "#,##0" for 1 min digit, "#,#00" for 2, "#,000" for 3, "0,000" for 4+
-            if (MinimumIntegerDigits <= 1)
-            {
-                integerPart = "#,##0";
-            }
-            else if (MinimumIntegerDigits == 2)
-            {
-                integerPart = "#,#00";
-            }
-            else if (MinimumIntegerDigits == 3)
-            {
-                integerPart = "#,000";
-            }
-            else
-            {
-                // For 4+, we need additional leading zeros
-                var extraZeros = new string('0', MinimumIntegerDigits - 3);
-                integerPart = extraZeros + ",000";
-            }
-        }
-        else
-        {
-            integerPart = new string('0', MinimumIntegerDigits);
-        }
-
-        string format;
-        if (MaximumFractionDigits == 0)
-        {
-            format = integerPart;
-        }
-        else
-        {
-            var fractionPart = new string('0', MinimumFractionDigits);
-            if (MaximumFractionDigits > MinimumFractionDigits)
-            {
-                fractionPart += new string('#', MaximumFractionDigits - MinimumFractionDigits);
-            }
-            format = $"{integerPart}.{fractionPart}";
-        }
-
-        var formatted = value.ToString(format, NumberFormatInfo);
-
-        // Apply sign based on signDisplay
-        if (showNegativeSign)
-        {
-            return NumberFormatInfo.NegativeSign + formatted;
-        }
-
-        if (showPositiveSign)
-        {
-            return NumberFormatInfo.PositiveSign + formatted;
-        }
-
-        return formatted;
-    }
-
-    private string ApplyGroupingToString(string integerPart)
-    {
-        var boundaries = GroupBoundariesOf(integerPart.Length);
-        if (boundaries.Count == 0)
-        {
-            return integerPart;
-        }
-
-        var separator = NumberFormatInfo.NumberGroupSeparator;
-        var sb = new System.Text.StringBuilder(integerPart.Length + boundaries.Count * separator.Length);
-        var start = 0;
-        foreach (var boundary in boundaries)
-        {
-            sb.Append(integerPart, start, boundary - start).Append(separator);
-            start = boundary;
-        }
-
-        return sb.Append(integerPart, start, integerPart.Length - start).ToString();
-    }
-
-    private string FormatCurrency(double value)
-    {
-        // Check for negative zero (1.0 / -0 == -Infinity)
-        var isNegativeZero = value == 0 && double.IsNegativeInfinity(1.0 / value);
-        var isNegative = value < 0 || isNegativeZero;
-        var absValue = System.Math.Abs(value);
-
-        // Apply rounding - use MaximumFractionDigits directly (constructor sets appropriate defaults)
-        var fractionDigits = MaximumFractionDigits;
-        absValue = ApplyRounding(absValue, fractionDigits);
-
-        // Check if rounded value displays as zero
-        var displaysAsZero = absValue < System.Math.Pow(10, -fractionDigits) / 2;
-
-        // Determine if we should show a sign and what kind
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-        var useAccountingFormat = string.Equals(CurrencySign, "accounting", StringComparison.Ordinal);
-
-        // Handle signDisplay
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                // For exceptZero, don't show sign if the displayed value is zero
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                // For negative, only show negative sign for truly negative, non-zero display
-                showPositiveSign = false;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        // Format the absolute value
-        var symbol = NumberFormatInfo.CurrencySymbol;
-
-        // Build the number part
-        var integral = System.Math.Truncate(absValue);
-        var fractionValue = absValue - integral;
-
-        // Format integer with grouping
-        var intStr = IntegerDigitsOf(integral);
-        var digitCount = intStr.Length;
-        if (ShouldApplyGrouping(digitCount))
-        {
-            intStr = ApplyGroupingToString(intStr);
-        }
-
-        // Format fraction. https://tc39.es/ecma402/#sec-torawfixed rounds at maximumFractionDigits and
-        // then removes up to maximumFractionDigits - minimumFractionDigits trailing zeros, so a currency
-        // whose two digit counts differ writes the narrower one when the wider one would only be zeros.
-        var fractionStr = "";
-        if (fractionDigits > 0)
-        {
-            var digits = FractionDigitsOf(fractionValue, fractionDigits);
-            if (digits.Length > 0)
-            {
-                fractionStr = NumberFormatInfo.CurrencyDecimalSeparator + digits;
-            }
-        }
-
-        var numberPart = intStr + fractionStr;
-
-        // Build result based on locale's currency pattern
-        // CurrencyPositivePattern: 0=$n, 1=n$, 2=$ n, 3=n $
-        // Use non-breaking space (U+00A0) per CLDR conventions
-        var pattern = NumberFormatInfo.CurrencyPositivePattern;
-        const string Nbsp = " ";
-        string formattedCurrency;
-
-        switch (pattern)
-        {
-            case 0: // $n
-                formattedCurrency = symbol + numberPart;
-                break;
-            case 1: // n$
-                formattedCurrency = numberPart + symbol;
-                break;
-            case 2: // $ n
-                formattedCurrency = symbol + Nbsp + numberPart;
-                break;
-            case 3: // n $
-            default:
-                formattedCurrency = numberPart + Nbsp + symbol;
-                break;
-        }
-
-        // Apply sign based on signDisplay
-        string result;
-        if (showNegativeSign)
-        {
-            if (useAccountingFormat)
-            {
-                // Use CLDR-based accounting format (parentheses for most locales)
-                result = FormatAccountingNegativeCurrency(numberPart, symbol);
-            }
-            else
-            {
-                // Standard format uses minus sign before everything. ECMA-402 calls it "the ILND String
-                // representing the minus sign", so it is the locale's own datum and not a literal "-":
-                // ar writes U+061C ARABIC LETTER MARK ahead of it, which is what the parts lane reports.
-                result = NumberFormatInfo.NegativeSign + formattedCurrency;
-            }
-        }
-        else if (showPositiveSign)
-        {
-            result = NumberFormatInfo.PositiveSign + formattedCurrency;
-        }
-        else
-        {
-            result = formattedCurrency;
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Formats a negative currency value for accounting format using CLDR-based patterns.
-    /// </summary>
-    private string FormatAccountingNegativeCurrency(string numberPart, string symbol)
-    {
-        // CLDR accounting patterns vary by locale:
-        // - English, Japanese, Korean, Chinese locales use parentheses
-        // - German, French, and other European locales use minus sign (same as standard)
-        // Check if locale uses parentheses for accounting
-        if (UsesParenthesesForAccounting())
-        {
-            // Use parentheses matching the positive pattern position:
-            // Positive pattern 0 ($n) → Accounting uses "($n)"
-            // Positive pattern 1 (n$) → Accounting uses "(n$)"
-            // Positive pattern 2 ($ n) → Accounting uses "($ n)"
-            // Positive pattern 3 (n $) → Accounting uses "(n $)"
-            var posPattern = NumberFormatInfo.CurrencyPositivePattern;
-            const string Nbsp = "\u00A0"; // Non-breaking space
-
-            return posPattern switch
-            {
-                0 => $"({symbol}{numberPart})", // ($n)
-                1 => $"({numberPart}{symbol})", // (n$)
-                2 => $"({symbol}{Nbsp}{numberPart})", // ($ n)
-                3 => $"({numberPart}{Nbsp}{symbol})", // (n $)
-                _ => $"({symbol}{numberPart})"
-            };
-        }
-
-        // Fall back to standard negative currency format (minus sign)
-        return FormatNegativeCurrency(numberPart, symbol);
-    }
-
     /// <summary>
     /// Determines if the current locale uses parentheses for accounting format.
     /// Based on CLDR accounting currency patterns.
@@ -1446,88 +561,6 @@ internal sealed class JsNumberFormat : ObjectInstance
             "zh" => true,
             _ => false
         };
-    }
-
-    /// <summary>
-    /// Formats a negative currency value according to the locale's CurrencyNegativePattern.
-    /// Uses non-breaking space (U+00A0) per CLDR conventions.
-    /// </summary>
-    private string FormatNegativeCurrency(string numberPart, string symbol)
-    {
-        // CurrencyNegativePattern values:
-        // 0: ($n), 1: -$n, 2: $-n, 3: $n-, 4: (n$), 5: -n$, 6: n-$, 7: n$-
-        // 8: -n $, 9: -$ n, 10: n $-, 11: $ n-, 12: $ -n, 13: n- $, 14: ($ n), 15: (n $)
-        var negPattern = NumberFormatInfo.CurrencyNegativePattern;
-        const string Nbsp = " "; // Non-breaking space
-        var minus = NumberFormatInfo.NegativeSign;
-
-        return negPattern switch
-        {
-            0 => $"({symbol}{numberPart})",
-            1 => $"{minus}{symbol}{numberPart}",
-            2 => $"{symbol}{minus}{numberPart}",
-            3 => $"{symbol}{numberPart}{minus}",
-            4 => $"({numberPart}{symbol})",
-            5 => $"{minus}{numberPart}{symbol}",
-            6 => $"{numberPart}{minus}{symbol}",
-            7 => $"{numberPart}{symbol}{minus}",
-            8 => $"{minus}{numberPart}{Nbsp}{symbol}",
-            9 => $"{minus}{symbol}{Nbsp}{numberPart}",
-            10 => $"{numberPart}{Nbsp}{symbol}{minus}",
-            11 => $"{symbol}{Nbsp}{numberPart}{minus}",
-            12 => $"{symbol}{Nbsp}{minus}{numberPart}",
-            13 => $"{numberPart}{minus}{Nbsp}{symbol}",
-            14 => $"({symbol}{Nbsp}{numberPart})",
-            15 => $"({numberPart}{Nbsp}{symbol})",
-            _ => $"{minus}{symbol}{numberPart}"
-        };
-    }
-
-    /// <summary>
-    /// https://tc39.es/ecma402/#sec-formatnumber under the percent style, which is the concatenation of
-    /// exactly the parts https://tc39.es/ecma402/#sec-formatnumbertoparts returns.
-    /// </summary>
-    /// <remarks>
-    /// The digits were .NET's <c>"P"</c> specifier, which consults one datum — <c>PercentDecimalDigits</c>,
-    /// which the constructor sets to <c>maximumFractionDigits</c> — and therefore wrote exactly that many
-    /// fraction digits always, never the trim https://tc39.es/ecma402/#sec-torawfixed ends with, and none
-    /// of <c>signDisplay</c>, <c>useGrouping</c> or <c>minimumIntegerDigits</c> at all.
-    /// </remarks>
-    private string FormatPercent(double value) => ConcatenateParts(FormatPercentToParts(value));
-
-    private string FormatUnit(double value)
-    {
-        var formattedNumber = FormatDecimal(value);
-        var unitDisplay = UnitDisplay ?? "short";
-        var unitStr = Unit ?? "";
-
-        // Try to get unit patterns from CLDR provider
-        var unitPatterns = CldrProvider.GetUnitPatterns(Locale, unitStr, unitDisplay);
-        if (unitPatterns != null)
-        {
-            // Use the CLDR pattern - it already contains spacing information
-            // Select singular or plural pattern based on the absolute value
-            var isSingular = System.Math.Abs(value) == 1;
-            var pattern = isSingular ? (unitPatterns.One ?? unitPatterns.Other) : unitPatterns.Other;
-            return pattern.Replace("{0}", formattedNumber);
-        }
-
-        // Fallback to legacy behavior if no CLDR pattern found
-        var unitSuffix = GetUnitSuffix(unitStr, unitDisplay, value);
-
-        // Determine if we need a space before the unit
-        // Narrow display never has space; percent/degree units don't have space
-        var needsSpace = !string.Equals(unitDisplay, "narrow", StringComparison.Ordinal) &&
-                        !string.Equals(unitStr, "percent", StringComparison.Ordinal) &&
-                        !string.Equals(unitStr, "celsius", StringComparison.Ordinal) &&
-                        !string.Equals(unitStr, "fahrenheit", StringComparison.Ordinal);
-
-        if (needsSpace)
-        {
-            return $"{formattedNumber} {unitSuffix}";
-        }
-
-        return $"{formattedNumber}{unitSuffix}";
     }
 
     private static string GetUnitSuffix(string unit, string display, double value)
@@ -1637,11 +670,11 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// <remarks>
     /// <para>
     /// https://tc39.es/ecma402/#sec-formatnumber is defined as the concatenation of exactly the parts
-    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns, so both lanes write
-    /// <c>[[NumberingSystem]]</c>'s digits or neither does. <see cref="Format(double)"/> transliterates the
-    /// assembled string; this lane transliterates the parts a number's digits went into, which is the same
-    /// rewrite applied one part at a time. <c>IntlNumberFormatPartsTests.PartsConcatenateToFormat</c> walks a grid
-    /// of locales, numbering systems and styles and asserts the two agree, rather than assuming it.
+    /// https://tc39.es/ecma402/#sec-formatnumbertoparts returns, and <see cref="Format(double)"/> is now
+    /// that concatenation, so <c>[[NumberingSystem]]</c>'s digits — and every other character — reach both
+    /// lanes or neither. <c>IntlNumberFormatPartsTests.PartsConcatenateToFormat</c> still walks its grid of
+    /// locales, numbering systems and styles: what it asserts is no longer that two assemblies agree but
+    /// that this one assembly never throws or drops a part anywhere in the grid.
     /// </para>
     /// </remarks>
     internal List<NumberFormatPart> FormatToParts(double value) => TransliterateParts(FormatToPartsCore(value));
@@ -1678,9 +711,8 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// </summary>
     /// <remarks>
     /// <c>decimal</c> is a separator rather than a digit, and is here because a numbering system can carry
-    /// one of its own — <c>arab</c> writes U+066B — which is the same rewrite
-    /// <see cref="Transliterate(string)"/> applies to the assembled string. <c>group</c> is a separator the
-    /// system has no opinion about, and keeps the locale's.
+    /// one of its own — <c>arab</c> writes U+066B. <c>group</c> is a separator the system has no opinion
+    /// about, and keeps the locale's.
     /// </remarks>
     private string TransliterateNumericPart(string type, string value)
     {
@@ -1746,12 +778,31 @@ internal sealed class JsNumberFormat : ObjectInstance
     /// The digits https://tc39.es/ecma402/#sec-torawfixed writes for a non-negative value already rounded
     /// at <see cref="MaximumFractionDigits"/>.
     /// </summary>
+    /// <remarks>
+    /// The value's digits are read once, from <c>Number::toString</c>, and then split and trimmed by the
+    /// same operation an exactly-read value takes — so a double and a decimal string of the same digits
+    /// cannot be split differently. Splitting a double instead, with <c>Truncate</c> and a fraction scaled
+    /// by 10^maximumFractionDigits, wrote fractions the value does not have: at
+    /// <c>maximumFractionDigits: 20</c> the fraction of 1.0000000000000001 came out
+    /// <c>"00000000000000022204"</c>, which is the binary expansion and not the number.
+    /// </remarks>
     private NumberBody FiniteBody(double roundedAbsValue)
     {
-        var integral = System.Math.Truncate(roundedAbsValue);
-        return NumberBody.Finite(
-            IntegerDigitsOf(integral),
-            FractionDigitsOf(roundedAbsValue - integral, MaximumFractionDigits));
+        if (roundedAbsValue == 0)
+        {
+            return ExactBody(BigInteger.Zero, 0);
+        }
+
+        DecimalDigitsOf(roundedAbsValue, out var significand, out var exponent);
+
+        // significand × 10^scale is the value, so a non-negative scale is a whole number written out and a
+        // negative one is that many fraction digits
+        var scale = exponent - significand.Length + 1;
+        var mantissa = BigInteger.Parse(significand, CultureInfo.InvariantCulture);
+
+        return scale >= 0
+            ? ExactBody(mantissa * BigInteger.Pow(10, scale), 0)
+            : ExactBody(mantissa, -scale);
     }
 
     /// <summary>
@@ -1968,39 +1019,6 @@ internal sealed class JsNumberFormat : ObjectInstance
         exponent = integerLength - 1 - first + written;
     }
 
-    /// <summary>
-    /// The integer digits of a non-negative whole <see cref="double"/>, however large.
-    /// </summary>
-    /// <remarks>
-    /// Past <see cref="long.MaxValue"/> a cast does not answer: .NET saturates, so every value from
-    /// 2^63 up wrote the same 9223372036854775807. The digits are
-    /// <c>Number::toString</c>'s instead — the shortest decimal that reads back as this double, which is
-    /// what https://tc39.es/ecma402/#sec-tointlmathematicalvalue reads a Number as — with its exponent
-    /// written out, since https://tc39.es/ecma402/#sec-torawfixed works on digits and not on a magnitude.
-    /// </remarks>
-    private static string IntegerDigitsOf(double integral)
-    {
-        if (integral < 9.2e18)
-        {
-            return ((long) integral).ToString(CultureInfo.InvariantCulture);
-        }
-
-        var text = Number.NumberPrototype.ToNumberString(integral);
-        var exponentIndex = text.IndexOf('e');
-        if (exponentIndex < 0)
-        {
-            return text;
-        }
-
-        var mantissa = text.Substring(0, exponentIndex);
-        var exponent = int.Parse(text.AsSpan(exponentIndex + 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
-        var point = mantissa.IndexOf('.');
-        var integerLength = (point < 0 ? mantissa.Length : point) + exponent;
-        var digits = point < 0 ? mantissa : mantissa.Remove(point, 1);
-
-        return digits.PadRight(integerLength, '0');
-    }
-
     private List<NumberFormatPart> FormatToPartsCore(double value)
     {
         if (!double.IsFinite(value))
@@ -2075,6 +1093,27 @@ internal sealed class JsNumberFormat : ObjectInstance
         return parts;
     }
 
+    /// <summary>Which of the two signs a pattern writes around a finite value.</summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct SignDecision(bool ShowNegative, bool ShowPositive);
+
+    /// <summary>
+    /// Which sign https://tc39.es/ecma402/#sec-getnumberformatpattern selects a pattern for, read from
+    /// <c>[[SignDisplay]]</c> and from whether the digits that were produced are all zeros.
+    /// </summary>
+    /// <remarks>
+    /// One decision for every style and every notation, because the algorithm makes it once: the pattern
+    /// is chosen before it is walked, and what is walked around is the only thing a style changes.
+    /// </remarks>
+    private SignDecision SignFor(bool isNegative, bool displaysAsZero) => SignDisplay switch
+    {
+        "always" => new SignDecision(isNegative, !isNegative),
+        "exceptZero" => new SignDecision(isNegative && !displaysAsZero, !isNegative && !displaysAsZero),
+        "negative" => new SignDecision(isNegative && !displaysAsZero, false),
+        "never" => new SignDecision(false, false),
+        _ => new SignDecision(isNegative, false)
+    };
+
     /// <remarks>
     /// ECMA-402 calls the sign "the ILND String representing the minus sign", so it is the locale's own
     /// datum in every lane: <c>ar</c> prefixes U+061C ARABIC LETTER MARK to it.
@@ -2131,88 +1170,213 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-partitionnumberpattern under a notation: the exponent
+    /// https://tc39.es/ecma402/#sec-computeexponent picks, and the digits
+    /// https://tc39.es/ecma402/#sec-formatnumberstring writes for the mantissa it scales the value down to.
+    /// </summary>
+    /// <remarks>
+    /// The mantissa is an ordinary number to that operation, so a digit option applies to it exactly as it
+    /// applies to a standard-notation number. None of the three notations read one: each rounded a mantissa
+    /// of its own at <c>maximumFractionDigits</c> and never looked at <c>[[MaximumSignificantDigits]]</c>,
+    /// so <c>{ notation: "scientific", maximumSignificantDigits: 2 }</c> wrote <c>"1.235E4"</c> for 12345
+    /// where every other engine writes <c>"1.2E4"</c>. Compact then split its own mantissa with a cast to
+    /// <c>long</c>, which .NET pins instead of throwing, so every value from 2^63 up wrote
+    /// <see cref="long.MaxValue"/>'s digits and <c>1e300</c> came out <c>"9223372036854775807T"</c>.
+    /// </remarks>
     private List<NumberFormatPart> FormatNotationToParts(double value)
     {
-        // Handle compact notation separately
-        if (string.Equals(Notation, "compact", StringComparison.Ordinal))
-        {
-            return FormatCompactToParts(value);
-        }
-
         var parts = new List<NumberFormatPart>();
 
         // negative zero takes the negative pattern too, per https://tc39.es/ecma402/#sec-getnumberformatpattern
         var isNegative = value < 0 || IsNegativeZero(value);
-        if (isNegative)
-        {
-            parts.Add(new NumberFormatPart("minusSign", NumberFormatInfo.NegativeSign));
-            value = System.Math.Abs(value);
-        }
-        else if (ShouldShowPlusSign(value))
-        {
-            parts.Add(new NumberFormatPart("plusSign", NumberFormatInfo.PositiveSign));
-        }
+        var absValue = System.Math.Abs(value);
 
-        if (value == 0)
-        {
-            parts.Add(new NumberFormatPart("integer", "0"));
-            parts.Add(new NumberFormatPart("exponentSeparator", "E"));
-            parts.Add(new NumberFormatPart("exponentInteger", "0"));
-            return parts;
-        }
+        var exponent = ComputeExponent(absValue, out var compactSuffix);
+        var body = FormatNumericToString(ScaleDown(absValue, exponent));
 
-        int exponent;
-        double mantissa;
+        var sign = SignFor(isNegative, body.IsZero);
+        AppendSignPart(parts, sign.ShowNegative, sign.ShowPositive);
 
-        if (string.Equals(Notation, "engineering", StringComparison.Ordinal))
+        if (exponent == 0)
         {
-            // Engineering notation uses exponents that are multiples of 3
-            var rawExponent = (int) System.Math.Floor(System.Math.Log10(value));
-            exponent = (int) (System.Math.Floor(rawExponent / 3.0) * 3);
-            mantissa = value / System.Math.Pow(10, exponent);
+            // nothing was scaled, so the number is written by the standard sub-pattern — the one that groups
+            AddNumberParts(parts, in body);
         }
         else
         {
-            // Scientific notation
-            exponent = (int) System.Math.Floor(System.Math.Log10(value));
-            mantissa = value / System.Math.Pow(10, exponent);
+            AddNotationNumberParts(parts, in body);
         }
 
-        // Round the mantissa
-        mantissa = ApplyRounding(mantissa, MaximumFractionDigits);
-
-        // Split mantissa into integer and fraction
-        var integerPart = (long) System.Math.Truncate(mantissa);
-        var fractionValue = mantissa - integerPart;
-
-        // Add integer part
-        parts.Add(new NumberFormatPart("integer", integerPart.ToString(CultureInfo.InvariantCulture)));
-
-        // Add fraction part if needed
-        if (MinimumFractionDigits > 0 || (fractionValue > 0 && MaximumFractionDigits > 0))
+        if (string.Equals(Notation, "compact", StringComparison.Ordinal))
         {
-            var fractionStr = FractionDigitsOf(fractionValue, MaximumFractionDigits);
-            if (fractionStr.Length > 0)
-            {
-                parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
-                parts.Add(new NumberFormatPart("fraction", fractionStr));
-            }
+            AppendCompactSuffix(parts, compactSuffix);
+            return parts;
         }
 
-        // Add exponent separator
         parts.Add(new NumberFormatPart("exponentSeparator", "E"));
 
-        // Add exponent sign if negative
         if (exponent < 0)
         {
             parts.Add(new NumberFormatPart("exponentMinusSign", NumberFormatInfo.NegativeSign));
-            exponent = System.Math.Abs(exponent);
         }
 
-        // Add exponent integer
-        parts.Add(new NumberFormatPart("exponentInteger", exponent.ToString(CultureInfo.InvariantCulture)));
+        parts.Add(new NumberFormatPart(
+            "exponentInteger",
+            System.Math.Abs(exponent).ToString(CultureInfo.InvariantCulture)));
 
         return parts;
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-computeexponent: the power of ten this notation scales
+    /// <paramref name="absValue"/> by, together with the abbreviation compact notation writes after it.
+    /// </summary>
+    /// <remarks>
+    /// The last steps are the reason this is not a table lookup: rounding the mantissa can carry it into
+    /// the next magnitude, and the exponent is then the one that magnitude asks for. 999999 scaled by a
+    /// thousand rounds to 1000, which is one million — <c>"1M"</c>, where Jint wrote <c>"1000K"</c>.
+    /// </remarks>
+    private int ComputeExponent(double absValue, out string compactSuffix)
+    {
+        compactSuffix = string.Empty;
+
+        if (absValue == 0 || string.Equals(Notation, "standard", StringComparison.Ordinal))
+        {
+            return 0;
+        }
+
+        // the magnitude of the Intl mathematical value, which https://tc39.es/ecma402/#sec-tointlmathematicalvalue
+        // reads through Number::toString rather than through a logarithm
+        DecimalDigitsOf(absValue, out _, out var magnitude);
+
+        var exponent = ComputeExponentForMagnitude(magnitude, out compactSuffix);
+        var body = FormatNumericToString(ScaleDown(absValue, exponent));
+        if (body.IsZero || MagnitudeOf(in body) == magnitude - exponent)
+        {
+            return exponent;
+        }
+
+        return ComputeExponentForMagnitude(magnitude + 1, out compactSuffix);
+    }
+
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-computeexponentformagnitude, whose compact branch is the locale's own
+    /// datum and comes from <see cref="Data.CompactPatterns"/>.
+    /// </summary>
+    private int ComputeExponentForMagnitude(int magnitude, out string compactSuffix)
+    {
+        compactSuffix = string.Empty;
+
+        switch (Notation)
+        {
+            case "scientific":
+                return magnitude;
+            case "engineering":
+                return (int) (System.Math.Floor(magnitude / 3.0) * 3);
+            case "compact":
+                var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
+                return Data.CompactPatterns.GetPatterns(Locale).CompactExponent(magnitude, isLong, out compactSuffix);
+            default:
+                return 0;
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="value"/> × 10^-<paramref name="exponent"/>, in steps a <see cref="double"/> holds.
+    /// </summary>
+    /// <remarks>
+    /// Scientific notation scales a value by its own magnitude, and the widest of those is wider than any
+    /// power of ten a double carries: <c>Math.Pow(10, 324)</c> is already an infinity, so scaling 5e-324
+    /// up in one step loses the number it was asked about. Every exponent inside ±300 divides exactly as it
+    /// did before, which is every exponent the conformance suite reaches.
+    /// </remarks>
+    private static double ScaleDown(double value, int exponent)
+    {
+        const int Step = 300;
+
+        while (exponent > Step)
+        {
+            value /= 1e300;
+            exponent -= Step;
+        }
+
+        while (exponent < -Step)
+        {
+            value *= 1e300;
+            exponent += Step;
+        }
+
+        return value / System.Math.Pow(10, exponent);
+    }
+
+    /// <summary>The power of ten of the first digit these digits carry.</summary>
+    private static int MagnitudeOf(in NumberBody body)
+    {
+        var integerDigits = body.IntegerDigits;
+        if (integerDigits.Length > 0 && integerDigits[0] != '0')
+        {
+            return integerDigits.Length - 1;
+        }
+
+        var fractionDigits = body.FractionDigits;
+        for (var i = 0; i < fractionDigits.Length; i++)
+        {
+            if (fractionDigits[i] != '0')
+            {
+                return -(i + 1);
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Writes a scaled mantissa, which a notation's sub-pattern does not group.
+    /// </summary>
+    /// <remarks>
+    /// CLDR's compact patterns carry no group separator, so the mantissa of 1e21 in compact notation is
+    /// <c>"1000000000"</c> and not <c>"1,000,000,000"</c> — and a mantissa is the only thing wide enough
+    /// for the difference to show, since scientific and engineering keep theirs under four digits.
+    /// </remarks>
+    private void AddNotationNumberParts(List<NumberFormatPart> parts, in NumberBody body)
+    {
+        var integerDigits = body.IntegerDigits;
+        if (integerDigits.Length < MinimumIntegerDigits)
+        {
+            integerDigits = integerDigits.PadLeft(MinimumIntegerDigits, '0');
+        }
+
+        parts.Add(new NumberFormatPart("integer", integerDigits));
+
+        if (body.FractionDigits.Length > 0)
+        {
+            parts.Add(new NumberFormatPart("decimal", NumberFormatInfo.NumberDecimalSeparator));
+            parts.Add(new NumberFormatPart("fraction", body.FractionDigits));
+        }
+    }
+
+    /// <summary>
+    /// Writes the <c>compactSymbol</c> or <c>compactName</c> https://tc39.es/ecma402/#sec-partitionnotationsubpattern
+    /// puts after the number, and the literal the locale separates it with.
+    /// </summary>
+    private void AppendCompactSuffix(List<NumberFormatPart> parts, string compactSuffix)
+    {
+        if (compactSuffix.Length == 0)
+        {
+            return;
+        }
+
+        var patterns = Data.CompactPatterns.GetPatterns(Locale);
+        var isLong = string.Equals(CompactDisplay, "long", StringComparison.Ordinal);
+
+        if (isLong ? patterns.LongSpace : patterns.ShortSpace)
+        {
+            // a short abbreviation is separated by a non-breaking space, per CLDR
+            parts.Add(new NumberFormatPart("literal", isLong ? " " : "\u00a0"));
+        }
+
+        parts.Add(new NumberFormatPart("compact", compactSuffix));
     }
 
     private List<NumberFormatPart> FormatDecimalToParts(double value)
@@ -2221,36 +1385,11 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         // Handle sign
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
-        var absValue = System.Math.Abs(value);
 
         var body = FormatNumericToString(value);
-        var displaysAsZero = body.IsZero;
+        var sign = SignFor(isNegative, body.IsZero);
 
-        // Determine if we should show a sign based on signDisplay
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showPositiveSign = false;
-                // For "negative" signDisplay, only show negative sign for truly negative, non-zero display
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        AppendSignPart(parts, showNegativeSign, showPositiveSign);
+        AppendSignPart(parts, sign.ShowNegative, sign.ShowPositive);
         AddNumberParts(parts, in body);
 
         return parts;
@@ -2319,76 +1458,17 @@ internal sealed class JsNumberFormat : ObjectInstance
         return boundaries;
     }
 
-    /// <summary>
-    /// The fraction digits https://tc39.es/ecma402/#sec-torawfixed writes for a value already rounded to
-    /// <paramref name="fractionDigits"/> places: that many digits, less the trailing zeros its last two
-    /// steps remove down to <see cref="MinimumFractionDigits"/>.
-    /// </summary>
-    /// <remarks>
-    /// The result is empty when every digit was removed, which is what the caller has to notice: the
-    /// decimal separator goes with them, and neither lane writes a separator with nothing after it.
-    /// </remarks>
-    private string FractionDigitsOf(double fractionValue, int fractionDigits)
-    {
-        if (fractionDigits < MinimumFractionDigits)
-        {
-            fractionDigits = MinimumFractionDigits;
-        }
-
-        if (fractionDigits == 0)
-        {
-            return string.Empty;
-        }
-
-        var multiplier = System.Math.Pow(10, fractionDigits);
-        var fractionInt = (long) System.Math.Round(fractionValue * multiplier);
-        var digits = fractionInt.ToString(CultureInfo.InvariantCulture).PadLeft(fractionDigits, '0');
-
-        var keep = digits.Length;
-        while (keep > MinimumFractionDigits && digits[keep - 1] == '0')
-        {
-            keep--;
-        }
-
-        return keep == digits.Length ? digits : digits.Substring(0, keep);
-    }
-
     private List<NumberFormatPart> FormatCurrencyToParts(double value)
     {
         var parts = new List<NumberFormatPart>();
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
-        var absValue = System.Math.Abs(value);
 
         // The digits are https://tc39.es/ecma402/#sec-formatnumberstring's, which is one operation for
         // every style: the currency pattern is written around them and never instead of them.
         var body = FormatNumericToString(value);
-        var displaysAsZero = body.IsZero;
+        var sign = SignFor(isNegative, body.IsZero);
 
-        // Determine if we should show a negative sign based on signDisplay
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showPositiveSign = false;
-                // For "negative" signDisplay, only show negative sign for truly negative, non-zero display
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        AppendCurrencyParts(parts, in body, showNegativeSign, showPositiveSign);
+        AppendCurrencyParts(parts, in body, sign.ShowNegative, sign.ShowPositive);
 
         return parts;
     }
@@ -2610,32 +1690,9 @@ internal sealed class JsNumberFormat : ObjectInstance
 
         // Multiply by 100 for percent
         var body = FormatNumericToString(value * 100);
-        var displaysAsZero = body.IsZero;
+        var sign = SignFor(isNegative, body.IsZero);
 
-        // Determine if we should show a sign based on signDisplay
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showPositiveSign = false;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        AppendPercentParts(parts, in body, showNegativeSign, showPositiveSign);
+        AppendPercentParts(parts, in body, sign.ShowNegative, sign.ShowPositive);
 
         return parts;
     }
@@ -2686,35 +1743,11 @@ internal sealed class JsNumberFormat : ObjectInstance
     {
         var parts = new List<NumberFormatPart>();
         var isNegative = value < 0 || double.IsNegativeInfinity(1 / value); // Handles -0
-        var absValue = System.Math.Abs(value);
 
         var body = FormatNumericToString(value);
-        var displaysAsZero = body.IsZero;
+        var sign = SignFor(isNegative, body.IsZero);
 
-        // Determine if we should show a sign based on signDisplay
-        var showNegativeSign = isNegative;
-        var showPositiveSign = false;
-
-        switch (SignDisplay)
-        {
-            case "always":
-                showPositiveSign = !isNegative;
-                break;
-            case "exceptZero":
-                showPositiveSign = !isNegative && !displaysAsZero;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "negative":
-                showPositiveSign = false;
-                showNegativeSign = isNegative && !displaysAsZero;
-                break;
-            case "never":
-                showNegativeSign = false;
-                showPositiveSign = false;
-                break;
-        }
-
-        AppendUnitParts(parts, in body, showNegativeSign, showPositiveSign, value);
+        AppendUnitParts(parts, in body, sign.ShowNegative, sign.ShowPositive, value);
 
         return parts;
     }
@@ -2812,15 +1845,4 @@ internal sealed class JsNumberFormat : ObjectInstance
         }
     }
 
-    private bool ShouldShowPlusSign(double value)
-    {
-        if (value <= 0) return false;
-
-        return SignDisplay switch
-        {
-            "always" => true,
-            "exceptZero" => value != 0,
-            _ => false
-        };
-    }
 }
