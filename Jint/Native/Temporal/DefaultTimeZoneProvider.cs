@@ -37,8 +37,31 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     // Unix epoch in .NET ticks
     private static readonly long UnixEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
 
-    // Cache for resolved time zones
-    private readonly ConcurrentDictionary<string, TimeZoneInfo?> _timeZoneCache = new(StringComparer.OrdinalIgnoreCase);
+    // Cache of resolved time zones. The field is instance-scoped, which is right, but the instance that
+    // matters is Instance, the singleton every unconfigured engine gets from Options.Temporal.TimeZoneProvider,
+    // so in practice it is process-wide and outlives the engine that filled it.
+    //
+    // Only a resolution that *succeeded* is stored. A rejected identifier is never remembered: the identifier
+    // is a string a script chose and there is no bound on how many distinct ones it can invent, so a negative
+    // cache is unbounded growth no engine's LimitMemory can see. CreateTimeZone answers an identifier that
+    // cannot name a zone from the string alone, which makes recomputing a rejection cheaper than the
+    // dictionary write that would remember it.
+    //
+    // The successes need a bound of their own, because an offset identifier resolves to a zone this provider
+    // manufactures rather than to one the system has: getTimeZoneTransition on a ZonedDateTime built with
+    // '+HH:MM' reaches here, and there are 1440 of those. Once the cache holds Capacity entries it is cleared
+    // and refilled -- the rule RegExpParseCache uses: cheap, thread-safe, nothing on the hit path and
+    // self-healing when the working set shifts. A dropped entry costs one re-resolution and never a different
+    // answer, since the value is a total function of the identifier and TimeZoneInfo is immutable.
+    private const int TimeZoneCacheCapacity = 256;
+
+    private readonly ConcurrentDictionary<string, TimeZoneInfo> _timeZoneCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Number of cached time zones. Exists so the growth test can assert on the bound.</summary>
+    internal int TimeZoneCacheCount => _timeZoneCache.Count;
+
+    /// <summary>The bound <see cref="TimeZoneCacheCount"/> can never exceed for long.</summary>
+    internal static int TimeZoneCacheBound => TimeZoneCacheCapacity;
 
     // Common IANA to Windows mappings (subset for common cases)
     private static readonly Dictionary<string, string> IanaToWindows = new(StringComparer.OrdinalIgnoreCase)
@@ -659,82 +682,109 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
 
     private TimeZoneInfo? ResolveTimeZone(string timeZoneId)
     {
-        return _timeZoneCache.GetOrAdd(timeZoneId, id =>
+        if (_timeZoneCache.TryGetValue(timeZoneId, out var cached))
         {
-            // Handle UTC
-            if (id.Equals("UTC", StringComparison.OrdinalIgnoreCase) ||
-                id.Equals("Etc/UTC", StringComparison.OrdinalIgnoreCase))
-            {
-                return TimeZoneInfo.Utc;
-            }
+            return cached;
+        }
 
-            // Handle offset strings (e.g., +01:00, -05:30, +01:30:00)
-            var offset = ParseOffsetString(id);
-            if (offset.HasValue)
-            {
-                // .NET TimeZoneInfo only supports whole minute offsets, but we need to allow
-                // seconds precision for Temporal. We'll create a custom TimeZoneInfo with
-                // the offset rounded to minutes, but GetOffsetNanosecondsFor will return the exact offset.
-                //
-                // IMPORTANT: TimeZoneInfo.CreateCustomTimeZone only accepts offsets within ±14 hours,
-                // but ISO 8601/Temporal allows ±23:59. We clamp to ±14 hours for the TimeZoneInfo,
-                // but GetOffsetNanosecondsFor will still return the actual parsed offset.
-                var totalMinutes = (int) offset.Value.TotalMinutes;
-                const int MaxOffsetMinutes = 14 * 60; // ±14 hours
-                if (totalMinutes > MaxOffsetMinutes)
-                    totalMinutes = MaxOffsetMinutes;
-                else if (totalMinutes < -MaxOffsetMinutes)
-                    totalMinutes = -MaxOffsetMinutes;
+        var resolved = CreateTimeZone(timeZoneId);
+        if (resolved is null)
+        {
+            // Deliberately not remembered -- see the note on _timeZoneCache. IsValidTimeZone ends here, so a
+            // negative entry would be one per rejected identifier, and a script chooses those.
+            return null;
+        }
 
-                var roundedOffset = TimeSpan.FromMinutes(totalMinutes);
-                return TimeZoneInfo.CreateCustomTimeZone(id, roundedOffset, id, id);
-            }
+        if (_timeZoneCache.Count >= TimeZoneCacheCapacity)
+        {
+            _timeZoneCache.Clear();
+        }
 
-            // On Windows, .NET resolves non-IANA identifiers (Java abbreviations like ACT, BST, etc.)
-            // Reject identifiers that don't follow IANA naming conventions
-            if (!IsValidIanaIdentifier(id))
-            {
-                return null;
-            }
+        // GetOrAdd rather than the indexer: another thread may already have published an instance for this
+        // identifier, and a caller holding that one has to keep matching what the next lookup returns.
+        return _timeZoneCache.GetOrAdd(timeZoneId, resolved);
+    }
 
-            // Try direct lookup first
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(id);
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                // Continue to mapping
-            }
+    private static TimeZoneInfo? CreateTimeZone(string id)
+    {
+        // Handle UTC
+        if (id.Equals("UTC", StringComparison.OrdinalIgnoreCase) ||
+            id.Equals("Etc/UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return TimeZoneInfo.Utc;
+        }
 
-            // Try IANA to Windows mapping (case-insensitive via dictionary comparer)
-            if (IsWindowsPlatform() &&
-                IanaToWindows.TryGetValue(id, out var windowsId))
-            {
-                try
-                {
-                    return TimeZoneInfo.FindSystemTimeZoneById(windowsId);
-                }
-                catch (TimeZoneNotFoundException)
-                {
-                    // Continue
-                }
-            }
+        // Handle offset strings (e.g., +01:00, -05:30, +01:30:00)
+        var offset = ParseOffsetString(id);
+        if (offset.HasValue)
+        {
+            // .NET TimeZoneInfo only supports whole minute offsets, but we need to allow
+            // seconds precision for Temporal. We'll create a custom TimeZoneInfo with
+            // the offset rounded to minutes, but GetOffsetNanosecondsFor will return the exact offset.
+            //
+            // IMPORTANT: TimeZoneInfo.CreateCustomTimeZone only accepts offsets within ±14 hours,
+            // but ISO 8601/Temporal allows ±23:59. We clamp to ±14 hours for the TimeZoneInfo,
+            // but GetOffsetNanosecondsFor will still return the actual parsed offset.
+            var totalMinutes = (int) offset.Value.TotalMinutes;
+            const int MaxOffsetMinutes = 14 * 60; // ±14 hours
+            if (totalMinutes > MaxOffsetMinutes)
+                totalMinutes = MaxOffsetMinutes;
+            else if (totalMinutes < -MaxOffsetMinutes)
+                totalMinutes = -MaxOffsetMinutes;
+
+            var roundedOffset = TimeSpan.FromMinutes(totalMinutes);
+            return TimeZoneInfo.CreateCustomTimeZone(id, roundedOffset, id, id);
+        }
+
+        // On Windows, .NET resolves non-IANA identifiers (Java abbreviations like ACT, BST, etc.)
+        // Reject identifiers that don't follow IANA naming conventions. This is the screen that answers an
+        // identifier a script invented -- 'A/0', 'A/1', ... -- from the string alone: no system lookup, no
+        // exception, nothing retained.
+        if (!IsValidIanaIdentifier(id))
+        {
+            return null;
+        }
+
+        // Try direct lookup first. TryFindSystemTimeZoneById rather than FindSystemTimeZoneById in a catch:
+        // on net8 and net10 an identifier the system does not have is answered without a throw at all, and
+        // below that the polyfill is the same catch written once.
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var direct))
+        {
+            return direct;
+        }
+
+        // Try IANA to Windows mapping (case-insensitive via dictionary comparer)
+        if (IsWindowsPlatform() &&
+            IanaToWindows.TryGetValue(id, out var windowsId) &&
+            TimeZoneInfo.TryFindSystemTimeZoneById(windowsId, out var mapped))
+        {
+            return mapped;
+        }
 
 #if NET8_0_OR_GREATER
-            // Case-insensitive fallback: try all system timezones
-            foreach (var systemTz in TimeZoneInfo.GetSystemTimeZones())
-            {
-                if (string.Equals(systemTz.Id, id, StringComparison.OrdinalIgnoreCase))
-                {
-                    return systemTz;
-                }
-            }
+        // Case-insensitive fallback over the system's zones, answered from a dictionary built once rather
+        // than by re-scanning every zone the machine has on each unresolved identifier.
+        return SystemTimeZonesByIdIgnoreCase.Value.TryGetValue(id, out var systemTz) ? systemTz : null;
+#else
+        return null;
 #endif
-
-            return null;
-        });
     }
+
+#if NET8_0_OR_GREATER
+    // Built once from the same TimeZoneInfo.GetSystemTimeZones() the linear scan used to walk, in the same
+    // order, so first-wins here is the first match that scan returned.
+    private static readonly Lazy<Dictionary<string, TimeZoneInfo>> SystemTimeZonesByIdIgnoreCase = new(static () =>
+    {
+        var zones = TimeZoneInfo.GetSystemTimeZones();
+        var map = new Dictionary<string, TimeZoneInfo>(zones.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var zone in zones)
+        {
+            map.TryAdd(zone.Id, zone);
+        }
+
+        return map;
+    });
+#endif
 
     /// <summary>
     /// Parses an offset string like "+01:00" or "-05:30" to a TimeSpan.
@@ -898,15 +948,72 @@ public sealed class DefaultTimeZoneProvider : ITimeZoneProvider
     /// </summary>
     private static bool IsValidIanaIdentifier(string id)
     {
-        // IDs containing '/' are Area/Location format (always valid IANA)
+        // IDs containing '/' are Area/Location format, valid IANA as long as every component could be a TZDB
+        // name at all. That second half is what keeps an identifier a script invented from reaching a system
+        // lookup: it is answered from the string, and it only ever declines what the lookup would decline.
         if (id.Contains('/'))
         {
-            return true;
+            return IsPlausibleIanaName(id);
         }
 
         // IDs containing digits with letters (like EST5EDT, CST6CDT) are IANA compound TZ names
         // Known single-word IANA identifiers (Zone and Link names from TZDB)
         return s_validSingleWordIanaIds.Contains(id);
+    }
+
+    // No TZDB name comes close; the longest the database has is America/Argentina/ComodRivadavia at 32, and
+    // the posix/ and right/ prefixes .NET exposes on Unix add six. The bound exists so that hashing a
+    // megabyte of script-supplied text is not the cost of asking whether it names a time zone.
+    private const int MaxIanaIdentifierLength = 128;
+
+    /// <summary>
+    /// Whether <paramref name="id"/> has the shape of a TZDB Zone or Link name: '/'-separated components,
+    /// each beginning with an ASCII letter and continuing with letters, digits, '.', '_', '+' or '-'.
+    /// </summary>
+    /// <remarks>
+    /// Every name in the database fits -- <c>Etc/GMT+5</c>, <c>America/Port-au-Prince</c>,
+    /// <c>America/Argentina/Buenos_Aires</c>, and the <c>posix/</c> and <c>right/</c> prefixes .NET exposes
+    /// on Unix -- so declining anything else costs no identifier a system lookup could have resolved. That
+    /// is what <c>EverySystemTimeZoneIdentifierSurvivesTheSyntacticScreen</c> pins, against whatever zones
+    /// the machine running the tests happens to have.
+    /// </remarks>
+    internal static bool IsPlausibleIanaName(string id)
+    {
+        if (id.Length == 0 || id.Length > MaxIanaIdentifierLength)
+        {
+            return false;
+        }
+
+        var atComponentStart = true;
+        for (var i = 0; i < id.Length; i++)
+        {
+            var c = id[i];
+
+            if (atComponentStart)
+            {
+                if (!char.IsAsciiLetter(c))
+                {
+                    return false;
+                }
+
+                atComponentStart = false;
+                continue;
+            }
+
+            if (c == '/')
+            {
+                atComponentStart = true;
+                continue;
+            }
+
+            if (!char.IsAsciiLetterOrDigit(c) && c != '.' && c != '_' && c != '+' && c != '-')
+            {
+                return false;
+            }
+        }
+
+        // a trailing '/' leaves an empty component
+        return !atComponentStart;
     }
 
     private static readonly HashSet<string> s_validSingleWordIanaIds = new(StringComparer.OrdinalIgnoreCase)
