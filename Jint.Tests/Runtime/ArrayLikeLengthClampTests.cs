@@ -203,4 +203,70 @@ public class ArrayLikeLengthClampTests
 
         Assert.Equal("RangeError", result);
     }
+
+    /// <summary>
+    /// <see href="https://tc39.es/ecma262/#sec-arrayspeciescreate">ArraySpeciesCreate</see> passes the length
+    /// it was given straight to the <c>@@species</c> constructor; the <c>RangeError</c> for a length above
+    /// 2^32-1 is a step of <see href="https://tc39.es/ecma262/#sec-arraycreate">ArrayCreate</see>, which runs
+    /// only when nothing answered for <c>@@species</c>. <c>map</c> and <c>slice</c> raised it themselves,
+    /// before the species constructor was called at all.
+    /// </summary>
+    [Theory]
+    [InlineData("Array.prototype.map.call(proxy, function () { })")]
+    [InlineData("Array.prototype.slice.call(proxy, 0)")]
+    public void ASpeciesConstructorIsCalledWithTheLengthToLengthProduced(string call)
+    {
+        var result = Run(
+            "var seen = 'not called';" +
+            "var proxy = new Proxy([], { get: function (target, property) {" +
+            "    if (property === 'length') return Infinity;" +
+            "    if (property !== 'constructor') return undefined;" +
+            "    function fake(length) { seen = length; throw 'invoked'; }" +
+            "    fake[Symbol.species] = fake;" +
+            "    return fake;" +
+            "} });" +
+            "try { " + call + "; } catch (e) { return e + '|' + seen; }" +
+            "return 'no-throw|' + seen;");
+
+        // 9007199254740991 is Number.MAX_SAFE_INTEGER, which is ToLength(Infinity). The constructor throws
+        // rather than return, which is what stops the 2^53-1 element walk that would otherwise follow it.
+        Assert.Equal("invoked|9007199254740991", result);
+    }
+
+    /// <summary>
+    /// The length check was also in the wrong place in <c>map</c>'s step order: step 3 rejects a callback
+    /// that is not callable, and step 4 is the create. A <c>RangeError</c> raised before step 3 answered the
+    /// wrong complaint.
+    /// </summary>
+    [Theory]
+    [InlineData("Infinity")]
+    [InlineData("5e9")]
+    public void MapRejectsANonCallableCallbackBeforeItCreatesAnything(string length)
+    {
+        var result = Run(
+            "try { Array.prototype.map.call({ length: " + length + " }, 'not a function'); return 'no-throw'; }" +
+            "catch (e) { return e instanceof TypeError ? 'TypeError' : e.constructor.name; }");
+
+        Assert.Equal("TypeError", result);
+    }
+
+    /// <summary>
+    /// The other half of the same rule: with no <c>@@species</c> to answer, ArraySpeciesCreate does reach
+    /// ArrayCreate and the <c>RangeError</c> is raised there, exactly as before.
+    /// </summary>
+    [Theory]
+    [InlineData("Array.prototype.map.call({ length: LEN }, function () { })", "Infinity")]
+    [InlineData("Array.prototype.map.call({ length: LEN }, function () { })", "5e9")]
+    [InlineData("Array.prototype.map.call({ length: LEN }, function () { })", "4294967296")]
+    [InlineData("Array.prototype.slice.call({ length: LEN })", "Infinity")]
+    [InlineData("Array.prototype.slice.call({ length: LEN })", "5e9")]
+    [InlineData("Array.prototype.slice.call({ length: LEN })", "4294967296")]
+    public void AnOrdinaryArrayLikeTooLongToCreateStillRaisesRangeError(string call, string length)
+    {
+        var result = Run(
+            "try { " + call.Replace("LEN", length) + "; return 'no-throw'; }" +
+            "catch (e) { return e instanceof RangeError ? 'RangeError' : String(e); }");
+
+        Assert.Equal("RangeError", result);
+    }
 }

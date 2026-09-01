@@ -631,18 +631,18 @@ public sealed partial class ArrayPrototype : ArrayInstance
         var o = ArrayOperations.For(_realm, thisObject, forWrite: false);
         var len = o.GetLongLength();
 
-        if (len > ArrayOperations.MaxArrayLength)
-        {
-            Throw.RangeError(_realm, "Invalid array length");
-        }
-
         var callbackfn = arguments.At(0);
         var thisArg = arguments.At(1);
         var callable = GetCallable(callbackfn);
 
-        var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), (uint) len), forWrite: true);
+        // Step 4 hands len to ArraySpeciesCreate unchanged. The RangeError for a length above
+        // 2^32-1 belongs to https://tc39.es/ecma262/#sec-arraycreate, which ArraySpeciesCreate
+        // reaches only when nothing answered for @@species; a species constructor is entitled to
+        // receive the length LengthOfArrayLike produced, and ToLength(Infinity) is 2^53-1. Raising
+        // it up here refused that call before it happened.
+        var a = ArrayOperations.For(_realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), len), forWrite: true);
         var invoker = CallbackInvoker.Rent(_engine, callable, 3, o.Target);
-        for (uint k = 0; k < len; k++)
+        for (ulong k = 0; k < len; k++)
         {
             if (k > 0 && k % ConstraintCheckInterval == 0)
             {
@@ -1672,22 +1672,21 @@ public sealed partial class ArrayPrototype : ArrayInstance
             }
         }
 
-        if (k < final && final - k > ArrayOperations.MaxArrayLength)
-        {
-            Throw.RangeError(_realm, "Invalid array length");
-        }
-
-        var length = (uint) System.Math.Max(0, (long) final - (long) k);
+        // Step 9 hands count to ArraySpeciesCreate unchanged; see the note in Map for why the
+        // RangeError of https://tc39.es/ecma262/#sec-arraycreate cannot be raised ahead of it.
+        var length = final > k ? final - k : 0UL;
         var a = _realm.Intrinsics.Array.ArraySpeciesCreate(TypeConverter.ToObject(_realm, thisObject), length);
+        // A JsArray source caps len -- and so both k and final -- at 2^32-1, so the copy's uint
+        // arguments are in range on this lane whatever the generic one above had to allow for.
         if (thisObject is JsArray ai && a is JsArray a2)
         {
-            a2.CopyValues(ai, (uint) k, 0, length);
+            a2.CopyValues(ai, (uint) k, 0, (uint) length);
         }
         else
         {
             // slower path
             var operations = ArrayOperations.For(a, forWrite: true);
-            uint n = 0;
+            ulong n = 0;
             for (; k < final; k++, n++)
             {
                 if (n > 0 && n % ConstraintCheckInterval == 0)
