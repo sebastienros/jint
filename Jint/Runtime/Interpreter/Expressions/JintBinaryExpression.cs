@@ -785,7 +785,12 @@ internal abstract class JintBinaryExpression : JintExpression
                 }
                 catch (Exception e)
                 {
-                    Throw.MeaningfulException(context.Engine, new TargetInvocationException(e.InnerException));
+                    // The same normalization every other interop call site uses. Wrapping e.InnerException
+                    // instead reported the wrong exception twice over: MethodDescriptor.Call has already
+                    // unwrapped the invoke, so `e` is the host's own exception and its InnerException is
+                    // that exception's cause - null for the common case, which left MeaningfulException
+                    // with a contentless TargetInvocationException to report.
+                    Throw.MeaningfulException(context.Engine, e as TargetInvocationException ?? new TargetInvocationException(e));
                     result = null;
                     return false;
                 }
