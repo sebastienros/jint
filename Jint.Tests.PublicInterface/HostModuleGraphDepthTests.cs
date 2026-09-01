@@ -67,7 +67,31 @@ public sealed class HostModuleGraphDepthTests
     /// </summary>
     private static readonly TimeSpan WedgeCeiling = TimeSpan.FromMinutes(2);
 
-    private const int LongChainLength = 1_000;
+    /// <summary>The stack the walk under test runs on: the smallest a thread request is honoured with.</summary>
+    /// <remarks>
+    /// 256 KB is the floor Windows rounds a request up to, so asking for less buys nothing there and the
+    /// depth cannot be pinned from this end. How much stack this actually yields is a platform question and
+    /// deliberately not assumed to be 256 KB — see <see cref="ChainLengths"/>.
+    /// </remarks>
+    private const int StackUnderTest = 256 * 1024;
+
+    /// <summary>
+    /// The chain lengths tried, in order, until one meets the probe.
+    /// </summary>
+    /// <remarks>
+    /// The suite used to name a single length and an argued margin — five times the depth measured to trip
+    /// on a 256 KB Windows thread. That reasoning was sound about frame sizes and wrong about stacks: the
+    /// <em>frames</em> agree across platforms to within a percent (this branch trips at 157 modules on a
+    /// 256 KB Windows thread, where main measured 156), but the requested stack size does not. On the Linux
+    /// runner the same 1,000-module chain on the same 256 KB request linked and evaluated <em>successfully</em>,
+    /// so the test asserted an exception that legitimately never happened and the margin was a margin over
+    /// the wrong quantity. Growing the chain until the walk meets the probe measures the machine instead of
+    /// predicting it, which is the only form of this test that is portable: whatever stack the platform
+    /// really handed over, doubling reaches the end of it. The cap exists so a regression is reported rather
+    /// than pursued forever — on a genuinely 8 MB stack the last entry is still several times too deep to
+    /// fit.
+    /// </remarks>
+    private static readonly int[] ChainLengths = [2_000, 4_000, 8_000, 16_000, 32_000];
 
     /// <summary>A chain of <paramref name="count"/> modules, each importing the next.</summary>
     private static Dictionary<string, string> ImportChain(int count)
@@ -97,22 +121,8 @@ public sealed class HostModuleGraphDepthTests
     }
 
     /// <summary>
-    /// A stack the chain below cannot possibly fit in, so that what this suite measures is Jint's probe and
-    /// not the machine it runs on.
-    /// </summary>
-    /// <remarks>
-    /// 256 KB is the floor a thread request is rounded up to on Windows, and at that size a chain reaches
-    /// roughly two hundred modules before a recursive phase runs out. <see cref="LongChainLength"/> is five
-    /// times that, which is the point: the per-module cost differs by runtime, architecture and operating
-    /// system by tens of percent, and it was exactly a margin thinner than that which let
-    /// <see href="https://github.com/sebastienros/jint/issues/3308">#3308</see> pass on four legs and end
-    /// the process on the fifth. Nothing decided by codegen can move a factor of five.
-    /// </remarks>
-    private const int StackTooSmallForTheChain = 256 * 1024;
-
-    /// <summary>
-    /// The slice a chain is walked in, chosen so that a phase driven slice by slice stays comfortably inside
-    /// <see cref="StackTooSmallForTheChain"/> — about half of what that stack holds.
+    /// The slice a chain is walked in, chosen so that a phase driven slice by slice stays shallow whatever
+    /// stack the preparing thread turns out to have.
     /// </summary>
     private const int SliceLength = 100;
 
@@ -136,6 +146,75 @@ public sealed class HostModuleGraphDepthTests
         }
     }
 
+    /// <summary>What the walk under test did, once a chain long enough to reach the probe was found.</summary>
+    private sealed record Probed(int Length, Exception Failure, Exception? Again, double Afterwards);
+
+    /// <summary>
+    /// Grows the chain until importing it meets the probe, with every phase before the one under test
+    /// already driven, and hands back what that import raised.
+    /// </summary>
+    /// <remarks>
+    /// The preparation runs on an ordinary thread and only the walk under test runs on
+    /// <see cref="StackUnderTest"/>. Two reasons, and the second is why it is not merely tidier: a prepared
+    /// graph is not what this test is about, and where a platform's probe reserve is itself larger than the
+    /// small stack — a 64 KB page size makes the runtime's reserve 768 KB — preparing on that stack would
+    /// meet the probe during setup and report a failure about the wrong thing.
+    /// </remarks>
+    private static Probed DriveUntilProbed(string phase, Action<Jint.Runtime.Modules.Module> prepare)
+    {
+        foreach (var length in ChainLengths)
+        {
+            var modules = ImportChain(length);
+            Engine engine = null!;
+
+            DedicatedThread.Run(
+                () =>
+                {
+                    engine = ChainEngine(modules);
+                    InSlices(engine, modules, prepare);
+                },
+                joinTimeout: WedgeCeiling,
+                timeoutMessage: $"preparing a {length}-module chain for {phase} did not complete within {WedgeCeiling}");
+
+            Exception? failure = null;
+            Exception? again = null;
+            var afterwards = 0d;
+
+            DedicatedThread.Run(
+                () =>
+                {
+                    failure = Record.Exception(() => engine.Modules.Import("0.js"));
+                    if (failure is null)
+                    {
+                        return;
+                    }
+
+                    // Asked on the same thread as the first import, because "the same way again" is only
+                    // meaningful where the stack is the same too.
+                    again = Record.Exception(() => engine.Modules.Import("0.js"));
+
+                    // The other half of the promise the guard makes for script recursion: an engine that is
+                    // still usable. Nothing about a native stack overflow leaves one.
+                    afterwards = engine.Evaluate("1 + 1").AsNumber();
+                },
+                joinTimeout: WedgeCeiling,
+                timeoutMessage: $"importing a {length}-module chain did not complete within {WedgeCeiling}",
+                maxStackSize: StackUnderTest);
+
+            if (failure is not null)
+            {
+                return new Probed(length, failure, again, afterwards);
+            }
+        }
+
+        Assert.Fail(
+            $"a chain of {ChainLengths[^1]} modules {phase} inside a {StackUnderTest / 1024} KB thread request without " +
+            "ever meeting the stack probe, so nothing here exercised it. Either the request bought a far larger stack " +
+            "than any platform is known to give it, or the probe is no longer armed.");
+
+        throw new InvalidOperationException("unreachable");
+    }
+
     /// <summary>
     /// A module graph deeper than the calling thread can link fails with a <c>RangeError</c> the host
     /// catches, naming the module it gave up on, and leaves an engine that still runs script.
@@ -148,36 +227,18 @@ public sealed class HostModuleGraphDepthTests
     /// <see cref="IModuleLoader"/> is to serve a graph it did not author could be killed by one.
     /// <para>
     /// The linking half is selected rather than hoped for: loading the chain in slices first means the only
-    /// walk left with a thousand levels to descend is linking's.
+    /// walk left with the whole chain to descend is linking's.
     /// </para>
     /// </remarks>
     [Fact]
     public void ALinkTooDeepForTheStackThrowsRatherThanEndingTheProcess()
     {
-        var modules = ImportChain(LongChainLength);
-        Exception? failure = null;
-        var afterwards = 0d;
+        var probed = DriveUntilProbed("linking", static m => m.LoadRequestedModules());
 
-        DedicatedThread.Run(
-            () =>
-            {
-                var engine = ChainEngine(modules);
-                InSlices(engine, modules, static m => m.LoadRequestedModules());
-
-                failure = Record.Exception(() => engine.Modules.Import("0.js"));
-
-                // The other half of the promise the guard makes for script recursion: an engine that is
-                // still usable. Nothing about a native stack overflow leaves one.
-                afterwards = engine.Evaluate("1 + 1").AsNumber();
-            },
-            joinTimeout: WedgeCeiling,
-            timeoutMessage: $"importing a pre-loaded {LongChainLength}-module chain did not complete within {WedgeCeiling}",
-            maxStackSize: StackTooSmallForTheChain);
-
-        failure.Should().BeOfType<JavaScriptException>()
+        probed.Failure.Should().BeOfType<JavaScriptException>()
             .Which.Message.Should().StartWith("Maximum call stack size exceeded while linking module '");
 
-        afterwards.Should().Be(2);
+        probed.Afterwards.Should().Be(2);
     }
 
     /// <summary>
@@ -189,39 +250,25 @@ public sealed class HostModuleGraphDepthTests
     /// This is what makes the evaluation half of the probe hand back a throw <em>completion</em> where the
     /// linking half throws. <c>Evaluate</c> step 9.a is the only thing that marks the modules still on the
     /// Tarjan stack, and only an abrupt completion returned to it reaches that step; an exception thrown past
-    /// it leaves them in <c>evaluating</c> forever. Measured against a build that throws instead: the first
-    /// import fails as it does here and the second one <b>succeeds</b>, handing the host a namespace for a
-    /// graph not one body of which ever ran. That is the failure this second assertion exists for — a
-    /// half-evaluated graph that reports itself as fine is worse than the crash the probe replaced.
+    /// it leaves them in <c>evaluating</c> forever. Measured on this branch against a build that throws
+    /// instead: the first import fails as it does here and the second one <b>succeeds</b>, handing the host
+    /// a namespace for a graph not one body of which ever ran. That is the failure this second assertion
+    /// exists for — a half-evaluated graph that reports itself as fine is worse than the crash the probe
+    /// replaced.
     /// <para>
     /// The evaluation half is selected rather than hoped for: linking the chain in slices first means the
-    /// only walk left with a thousand levels to descend is evaluation's.
+    /// only walk left with the whole chain to descend is evaluation's.
     /// </para>
     /// </remarks>
     [Fact]
     public void AnEvaluationTooDeepForTheStackLeavesTheGraphErrored()
     {
-        var modules = ImportChain(LongChainLength);
-        Exception? first = null;
-        Exception? second = null;
+        var probed = DriveUntilProbed("evaluation", static m => m.Link());
 
-        DedicatedThread.Run(
-            () =>
-            {
-                var engine = ChainEngine(modules);
-                InSlices(engine, modules, static m => m.Link());
-
-                first = Record.Exception(() => engine.Modules.Import("0.js"));
-                second = Record.Exception(() => engine.Modules.Import("0.js"));
-            },
-            joinTimeout: WedgeCeiling,
-            timeoutMessage: $"importing a pre-linked {LongChainLength}-module chain did not complete within {WedgeCeiling}",
-            maxStackSize: StackTooSmallForTheChain);
-
-        first.Should().BeOfType<JavaScriptException>()
+        probed.Failure.Should().BeOfType<JavaScriptException>()
             .Which.Message.Should().StartWith("Maximum call stack size exceeded while evaluating module '");
 
-        second.Should().BeOfType<JavaScriptException>()
-            .Which.Message.Should().Be(first!.Message);
+        probed.Again.Should().BeOfType<JavaScriptException>()
+            .Which.Message.Should().Be(probed.Failure.Message);
     }
 }
