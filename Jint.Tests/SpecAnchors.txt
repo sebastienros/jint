@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-08-31
-anchors: 1246
+anchors: 1251
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -413,6 +413,7 @@ ecma262 sec-json.parse
 ecma262 sec-json.stringify
 ecma262 sec-keyforsymbol
 ecma262 sec-lengthofarraylike
+ecma262 sec-line-terminators
 ecma262 sec-literals-numeric-literals
 ecma262 sec-localtime
 ecma262 sec-makedataviewwithbufferwitnessrecord
@@ -738,6 +739,8 @@ ecma262 sec-stringcreate
 ecma262 sec-stringgetownproperty
 ecma262 sec-stringindexof
 ecma262 sec-stringpad
+ecma262 sec-stringtobigint
+ecma262 sec-stringtonumber
 ecma262 sec-super-keyword-runtime-semantics-evaluation
 ecma262 sec-symbol.for
 ecma262 sec-symbol.keyfor
@@ -775,6 +778,7 @@ ecma262 sec-touint32
 ecma262 sec-touint8
 ecma262 sec-touint8clamp
 ecma262 sec-triggerpromisereactions
+ecma262 sec-trimstring
 ecma262 sec-try-statement
 ecma262 sec-try-statement-runtime-semantics-evaluation
 ecma262 sec-typedarray-constructors
@@ -795,6 +799,7 @@ ecma262 sec-weakset.prototype.has
 ecma262 sec-web-compat-functiondeclarationinstantiation
 ecma262 sec-web-compat-globaldeclarationinstantiation
 ecma262 sec-week-day
+ecma262 sec-white-space
 ecma262 sec-yield
 ecma262 table-cyclic-module-methods
 ecma262 table-module-record-fields

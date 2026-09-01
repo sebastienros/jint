@@ -4179,6 +4179,59 @@ a decimal literal, which takes a different branch of the scanner —
 [4.91](#491-a-literal-carrying-a-fraction-or-an-exponent-holds-the-same-double-on-every-target-framework-3533)
 covers that one. There is no option to restore the old values: they were not the numbers the literals name.
 
+### 4.94 One definition of white space, and U+0085 is not in it ([#3539](https://github.com/sebastienros/jint/issues/3539))
+
+`String.prototype.trim`, its two halves, `parseInt`, `parseFloat`, `Number(...)` and `BigInt(...)` asked
+`char.IsWhiteSpace`, which answers a Unicode question rather than an ECMAScript one. The parser, the `\s`
+character class and `RegExp.escape` spelled the specification's set out instead, so the same string was
+white-space-delimited to one half of the engine and not to the other. [WhiteSpace](https://tc39.es/ecma262/#sec-white-space)
+is TAB, VT, FF, SP, NBSP, ZWNBSP and the Unicode `Space_Separator` category; [LineTerminator](https://tc39.es/ecma262/#sec-line-terminators)
+adds LF, CR, LS and PS. Swept over the whole Basic Multilingual Plane, `char.IsWhiteSpace` differs from
+that union on exactly two code points, and it differs in both directions on every target framework:
+
+| code point | ECMAScript | `char.IsWhiteSpace` | why |
+| --- | --- | --- | --- |
+| U+0085 NEXT LINE | not white space | white space | category `Cc`, in neither production |
+| U+FEFF ZERO WIDTH NO-BREAK SPACE | white space | not white space | category `Cf`, dropped from the framework's set in .NET Framework 4.0 |
+
+U+FEFF was patched back on the trim lane alone, so only U+0085 changed answers there — while the string-to-number
+lanes, which had no such patch, were wrong about both:
+
+```js
+var nel = String.fromCharCode(0x85);
+var bom = String.fromCharCode(0xFEFF);
+
+// 5.0                          5.x
+(nel + 'abc').trim();       // 'abc'                        nel + 'abc'
+parseInt(nel + '12');       // 12                           NaN
+parseFloat(nel + '1.5');    // 1.5                          NaN
+Number(nel + '12');         // 12                           NaN
+Number('12' + nel);         // 12                           NaN
+BigInt(nel + '12');         // 12n                          SyntaxError
+
+Number(bom);                // NaN                          0
+BigInt(bom + '12');         // SyntaxError                  12n
+
+eval('var' + nel + 'x = 1');  // SyntaxError in both - the parser was always right
+```
+
+`Jint.Extensions.Character` now holds the one definition all of them read, and its
+`Space_Separator` members are enumerated rather than looked up in `char.GetUnicodeCategory`, so the answer
+does not move with the Unicode table the loaded framework happens to carry. The regular-expression matcher
+and `RegExp.escape` keep their behaviour and lose their private copies of the list. `JSON.parse` is
+deliberately untouched: it defers its grammar to ECMA-404
+([`JSON.parse`](https://tc39.es/ecma262/#sec-json.parse)), whose white space is TAB, LF, CR and SP and
+nothing else, so NBSP, U+FEFF and the line separators end a JSON document rather than pad it.
+
+**What could break:** a script or host that relied on U+0085 being stripped or skipped. Text coming out of
+a mainframe or an EBCDIC conversion is where it turns up, and `'...'.trim()` no longer removes it; nor do
+`parseInt`, `parseFloat`, `Number` and `BigInt` skip it, so a numeric string carrying one is now `NaN` (or,
+for `BigInt`, a `SyntaxError`) rather than a number. `.NET`'s own `string.Trim()` still removes it, so a host
+that wants the old behaviour can trim on the CLR side before the value reaches the engine, or replace
+U+0085 with `\n` — which is what the Unicode newline function actually calls for. There is no option to
+restore it: the two halves of the engine disagreed, and the parser's half is the one the specification
+writes down.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
