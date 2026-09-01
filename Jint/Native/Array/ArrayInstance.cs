@@ -868,7 +868,14 @@ public class ArrayInstance : ObjectInstance, IEnumerable<JsValue>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static uint ParseArrayIndex(string p)
     {
-        if (p.Length == 0 || p.Length > 1 && !IsInRange(p[0], '1', '9') || !uint.TryParse(p, out var d))
+        // An array index is the canonical decimal spelling of its value, so it both begins and ends in a
+        // digit - and the first-digit test is also what rules out the leading zero of a non-canonical "01".
+        // uint.TryParse alone tolerates padding an index may not carry: white space on either side, a leading
+        // sign, and a trailing U+0000 run it reads as a C string terminator whatever the styles say
+        // (sebastienros/jint#3541). Every one of those puts a non-digit at one end or the other.
+        if (p.Length == 0
+            || p.Length > 1 && (!IsInRange(p[0], '1', '9') || !IsInRange(p[p.Length - 1], '0', '9'))
+            || !uint.TryParse(p, out var d))
         {
             return uint.MaxValue;
         }
