@@ -223,9 +223,12 @@ public static class TypeConverter
         }
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-stringtonumber
+    /// </summary>
     private static double ToNumber(string input)
     {
-        if (string.IsNullOrWhiteSpace(input))
+        if (input.Length == 0)
         {
             return 0;
         }
@@ -233,20 +236,29 @@ public static class TypeConverter
         var firstChar = input[0];
         if (input.Length == 1)
         {
-            return firstChar is >= '0' and <= '9' ? firstChar - '0' : double.NaN;
+            // StrWhiteSpace is what a one-character string may be made entirely of, so the answer for a
+            // lone space is the empty string's 0. Asking char.IsWhiteSpace here instead read a lone U+FEFF
+            // as NaN and a lone U+0085 as 0, which is both directions of the same mistake.
+            if (firstChar is >= '0' and <= '9')
+            {
+                return firstChar - '0';
+            }
+
+            return firstChar.IsJsWhiteSpace() ? 0 : double.NaN;
         }
 
         input = StringPrototype.TrimEx(input);
         if (input.Length == 0)
         {
-            // The pre-trim IsNullOrWhiteSpace check can miss BOM and other characters
-            // that Jint's TrimEx considers whitespace per the ECMAScript spec.
             return 0;
         }
         firstChar = input[0];
 
+        // No AllowLeadingWhite or AllowTrailingWhite. TrimEx has already removed every character the spec
+        // lets pad a StringNumericLiteral, and the framework's own white space is a subset of that set, so
+        // the two styles can no longer admit anything: all they did was apply a second, differently spelled
+        // padding policy behind the one this lane had already settled.
         const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
-                                          NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
                                           NumberStyles.AllowExponent;
 
         if (long.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var longValue))
@@ -640,15 +652,20 @@ public static class TypeConverter
         return result;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-stringtobigint
+    /// </summary>
     internal static bool TryStringToBigInt(string str, out BigInteger result)
     {
-        if (string.IsNullOrWhiteSpace(str))
+        // StringIntegerLiteral is StrWhiteSpace-padded, which is JavaScript's white space and not the
+        // framework's: string.Trim() left a leading U+FEFF in place and took a U+0085 out.
+        str = StringPrototype.TrimEx(str);
+
+        if (str.Length == 0)
         {
             result = BigInteger.Zero;
             return true;
         }
-
-        str = str.Trim();
 
         for (var i = 0; i < str.Length; i++)
         {

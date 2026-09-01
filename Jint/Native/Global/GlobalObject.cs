@@ -126,7 +126,10 @@ public sealed partial class GlobalObject : ObjectInstance
         var inputString = TypeConverter.ToString(value);
         var trimmedString = StringPrototype.TrimStartEx(inputString);
 
-        if (string.IsNullOrWhiteSpace(trimmedString))
+        // Whatever survives TrimStartEx begins with something that is not white space, so an all-white-space
+        // input is exactly an empty one here. Asking IsNullOrWhiteSpace instead put a third definition of
+        // white space on a lane the trim above had already settled.
+        if (trimmedString.Length == 0)
         {
             return JsNumber.DoubleNaN;
         }

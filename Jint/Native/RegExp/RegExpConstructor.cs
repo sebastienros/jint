@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using System.Threading;
 using Jint.Collections;
+using Jint.Extensions;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -384,37 +385,12 @@ public sealed partial class RegExpConstructor : Constructor
         };
     }
 
-    private static bool IsWhiteSpace(int c)
-    {
-        // WhiteSpace includes TAB, VT, FF, ZWNBSP, SPACE, NO-BREAK SPACE, and other USP
-        // TAB (0x09), VT (0x0B), FF (0x0C) are handled separately as control escapes
-        return c switch
-        {
-            0x0009 or 0x000B or 0x000C => true, // Already handled but include for completeness
-            0x0020 => true, // SPACE
-            0x00A0 => true, // NO-BREAK SPACE
-            0xFEFF => true, // ZWNBSP
-            0x1680 => true, // OGHAM SPACE MARK
-            0x2000 or 0x2001 or 0x2002 or 0x2003 or 0x2004 or 0x2005 or 0x2006 or 0x2007 or 0x2008 or 0x2009 or 0x200A => true, // Various spaces
-            0x202F => true, // NARROW NO-BREAK SPACE
-            0x205F => true, // MEDIUM MATHEMATICAL SPACE
-            0x3000 => true, // IDEOGRAPHIC SPACE
-            _ => false
-        };
-    }
+    // TAB, VT, FF, LF and CR are already spelled as control escapes above and reach neither of these; the
+    // rest of both productions comes from the one definition in Character, so a supplementary code point
+    // — which is in neither — is out of range for it rather than missing from a list.
+    private static bool IsWhiteSpace(int c) => c <= 0xFFFF && ((char) c).IsJsWhiteSpaceExceptLineTerminator();
 
-    private static bool IsLineTerminator(int c)
-    {
-        // LineTerminator: LF, CR, LS, PS
-        // LF (0x0A) and CR (0x0D) are handled separately as control escapes
-        return c switch
-        {
-            0x000A or 0x000D => true, // Already handled but include for completeness
-            0x2028 => true, // LINE SEPARATOR
-            0x2029 => true, // PARAGRAPH SEPARATOR
-            _ => false
-        };
-    }
+    private static bool IsLineTerminator(int c) => c <= 0xFFFF && ((char) c).IsJsLineTerminator();
 
     private static char ToHexDigit(int value)
     {
