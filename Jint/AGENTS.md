@@ -92,6 +92,15 @@ first (`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for
 keeps process-wide, so a per-tenant client set there used to reach every default-built engine. The copy stays
 frozen; the guard is suspended for it on the calling thread alone.
 
+**Which side of `Options.Apply` a derived field is read on is a decision, not an accident.** `Apply` runs the
+host's `Configure` callbacks, so anything a callback may legitimately set has to be read after it —
+`_maxRecursionDepth`, `_operatorOverloadingAllowed`, `_valueCoercion` and `_interopResolutionProfile` all are.
+The extension-method lookup was not, so `options.Configure(_ => options.AddExtensionMethods(…))` reached
+neither the prototypes nor `TypeResolver`, while the attach beside it read the grown registry and ran anyway
+([#3568](https://github.com/sebastienros/jint/issues/3568)). After `Apply` also means after the
+untrusted-code profile's re-expansion, which clears registries from inside it: a refresh placed before that
+would hand a hardened engine what its own callback registered.
+
 ### Type co-location
 
 Keep small supporting types — enums, record structs, tiny helpers — **in the same file** as the type they serve, provided they share a namespace and the file stays readable (e.g. `ModuleImportPhase` lives in `ModuleRequest.cs`). Split them out when the type has several independent consumers, is `public` and needs its own XML-doc discoverability, or when the file would exceed ~500 lines or mix unrelated concepts.

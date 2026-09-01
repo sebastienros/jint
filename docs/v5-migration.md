@@ -4485,6 +4485,41 @@ with `ToObject()` on every evaluation — and the reflection scan the table exis
 triple, now once per *process* rather than once per engine carrying a converter of its own. An engine that
 never turns the option on is not affected at all.
 
+### 4.100 `AddExtensionMethods` from a `Configure` callback reaches the engine ([#3568](https://github.com/sebastienros/jint/issues/3568))
+
+A callback registered with `options.Configure(...)` runs from `Options.Apply`, which is also what attaches
+extension methods to the prototypes. The lookup those two consumers read — the prototype attach and
+`TypeResolver` — was built before `Apply`, so a container type registered from inside a callback grew
+`Options.Interop.ExtensionMethodTypes` and nothing else. The attach ran (it reads the registration list, and
+the list had grown) and attached nothing.
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.Configure(_ => options.AddExtensionMethods(typeof(MyExtensions)));
+});
+```
+
+```js
+// 5.0                                  5.x
+'Hello'.Backwards();  // TypeError: not a function      'olleH'
+```
+
+The lookup is now re-derived once, from `Apply`, after every configuration callback has run and after an
+untrusted-code profile has had its say. The registry as it stands at that moment is what the engine installs,
+for the prototypes and for the resolver alike. Registering outside a callback was never affected and is
+unchanged.
+
+The same registry read the other way changes with it: a callback that *empties* it — which is what
+`ForUntrustedCode` does on its way through `Apply` — now uninstalls the lookup as well as skipping the
+prototype attach. Before, such an engine attached nothing to its prototypes and went on resolving
+`obj.SomeExtension()` through `TypeResolver`.
+
+**What could break:** an engine whose `Configure` callback registers extension methods now has them, and one
+whose callback clears the registry no longer has them. `engine.Diagnostics.ValidateSecurityConfiguration()`
+reports `JINTSEC057` accordingly in both directions — it still reads what the engine installed rather than
+what the options list says, the two simply no longer disagree. A host that did not want a registration to
+take effect should stop making it; it was never a no-op to rely on.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
