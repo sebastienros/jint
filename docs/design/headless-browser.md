@@ -1,0 +1,203 @@
+# A headless browser on Jint — design
+
+**Status: finalized design; implementation under way.** The authoritative statement of this design is the body
+of [sebastienros/jint#3575](https://github.com/sebastienros/jint/issues/3575); where this
+document and that issue disagree, the issue wins and this file is brought back into line. What this file adds is
+the longer form: the mechanisms each decision rests on, named so that a reader can find them. The protocol half
+is [`devtools-protocol.md`](devtools-protocol.md).
+
+Everything normative here was read from the [DOM](https://dom.spec.whatwg.org/), [HTML](https://html.spec.whatwg.org/multipage/),
+[Fetch](https://fetch.spec.whatwg.org/), [XMLHttpRequest](https://xhr.spec.whatwg.org/) and
+[WebIDL](https://webidl.spec.whatwg.org/) living standards, and from the
+[Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/).
+
+> **On citations.** This file cites files and members, not line numbers.
+
+---
+
+## 1. The premise, and the one principle
+
+Jint already carries the web platform's non-DOM half — thirty opt-in subtrees under `Jint/WebApi/` that cover
+WinterTC's Minimum Common API except `WebAssembly` (declined by design), plus `fetch`, `WebSocket`,
+`EventSource`, `Storage`, `caches`, `Worker` and the Streams family. The only missing layer between that and a
+browser is the document: HTML parsing, the DOM, the CSSOM, and the runtime that ties navigation, script
+scheduling, timers, network and storage to a `Window`.
+
+**AngleSharp** already has the parser, the DOM and (with `AngleSharp.Css`) the CSSOM, and **AngleSharp.Js**
+already binds Jint to that DOM, executes `<script>`s, loads modules and import maps, and runs Web Workers. The
+project founder's guidance for this campaign is the principle every decision below is checked against:
+
+> Jint should add value to AngleSharp without competing too much.
+
+So: AngleSharp is the parser, the DOM and the CSSOM; nothing here re-implements any of them. What Jint owns is
+what nobody else has — a binding layer built on Jint's own shape and layout machinery instead of a reflection
+trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
+execution constraints, and the automation protocol. The generated bindings and the tree-aware event dispatcher
+are designed so that AngleSharp.Js can adopt them, and the offer is made as soon as they work; every AngleSharp
+or AngleSharp.Js defect the conformance lane finds is filed upstream, and where we can, fixed there. In every
+document and README sentence, `Jint.Browser` is "AngleSharp + Jint", never a rival DOM stack.
+
+## 2. What it is, and what it is not
+
+The shape is Lightpanda's, not Chromium's: **a browser that does not render.** DOM, JavaScript, network, storage,
+workers, and the Chrome DevTools Protocol so that Puppeteer, Playwright, PuppeteerSharp, Playwright for .NET,
+chrome-remote-interface and the Chrome DevTools frontend can drive it — in-process, with no native binaries and no
+browser download, on any platform .NET runs on, with Jint's statement, time and memory constraints bounding what
+a page may do. Kitesurf's framing of the trade is the honest one and it is exactly an interpreter's profile: a
+fraction of Chromium's CPU and memory per page, at some multiple of its wall-clock time.
+
+| v1 delivers | Out of v1 (absent, so feature detection is honest) |
+| --- | --- |
+| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
+
+`Page.captureScreenshot` answers a CDP error with a sentence, the way Lightpanda does.
+
+## 3. The runtime model
+
+- **The global stays `GlobalObject`.** `Host.CreateGlobalObject(Realm)` is virtual and `GlobalEnvironment`
+  tolerates a host-defined global, but substituting one forfeits the global-identifier inline cache
+  (`JintIdentifierExpression` keys on the realm's `GlobalObject`) and would mean re-installing every intrinsic
+  `GlobalObject.Properties` emits. Instead the global's `[[Prototype]]` becomes
+  `Window.prototype → EventTarget.prototype → Object.prototype` (`GlobalEnvironment.HasBindingOnGlobalPrototype`
+  already resolves prototype members as globals), and the per-document singletons — `document`, `location`,
+  `history`, `navigator`, `screen`, `window`, `frames`, `top`, `parent`, `customElements` — are own lazy
+  properties installed through the public `Engine.AddLazyGlobal`, which keeps them on the identifier cache.
+  `window instanceof EventTarget` holds through the chain; `EventTarget.prototype.addEventListener.call(window, …)`
+  works because `EventTargetPrototype.Brand` accepts the realm's global and maps it to the engine's
+  `GlobalEventTarget` (engine PR B1).
+- **One `Engine` per top-level navigation.** A navigation is a new realm in a browser; here it is a new engine
+  built from the same `BrowserOptions`, so "per document" and "per engine" coincide and no `WindowProxy` is needed
+  in v1. The previous engine receives `beforeunload`, `pagehide` and `unload`, its cancellation token is
+  cancelled, its pending fetches abandoned, and it is disposed on the page loop.
+- **One `PageLoop` thread per page**, owning the engine and the DOM: it drains a mailbox of host and protocol
+  work, calls `Tasks.ProcessTasks()`, runs the animation-frame lane, and sleeps by
+  `Tasks.TimeUntilNextScheduledWork` — the `WptHarness.PumpWorker` shape. Every public `Page` API and every CDP
+  command posts to the mailbox and awaits a completion; nothing else touches the engine or the DOM. Workers come
+  from a `ThreadPerWorkerProvider` (the package is a host, so it may start threads; the engine still never does).
+- **Iframes parse but do not run script in v1**: frames are real in the frame tree and their documents are
+  fetched and parsed, but `contentWindow` is `null`. v1.1 adds one realm per frame on the same engine through an
+  `Engine.WebApi.InstallInRealm(Realm)` seam (today `WebApiRegistration.InstallGlobals` targets the main realm
+  only); a second engine could never satisfy `parent.document`.
+
+## 4. The binding layer
+
+A curated generator, `tools/dom-bindings/`, reads `AngleSharp.dll` and `AngleSharp.Css.dll` at the pinned
+version through `System.Reflection.MetadataLoadContext` and treats AngleSharp's `[DomName]`, `[DomAccessor]`,
+`[DomConstructor]`, `[DomNoInterfaceObject]` and `[DomPutForwards]` attributes as the WebIDL they effectively
+are. It emits checked-in `Jint.Browser/Dom/Generated/*.g.cs`: one `JsObjectShape` per interface (methods,
+accessors, constants, a per-realm `constructor` slot, `@@toStringTag`), interface objects, the prototype chain
+down to Jint's `EventTarget.prototype`, a `DomTypeMap` from AngleSharp runtime type to shape, and collections
+over `ArrayLikeObject` / `NamedPropertyObject`. A curated `overrides.json` skips or replaces what the attributes
+cannot express: event-handler content attributes, `Task`-returning members, navigation-shaped members,
+`innerHTML`/`outerHTML` setters (routed through the parser driver so inserted scripts run), `[PutForwards]`.
+`JINT_DOM_BINDINGS=update` regenerates; a staleness test fails on drift — the `JINT_SPEC_ANCHORS` /
+`JINT_WPT_CENSUS` discipline. Checked-in rather than a live source generator for the same reasons as the
+protocol layer: reviewable diffs, an analyzer-free build, and swapping later is mechanical.
+
+Why generated on Jint shapes rather than AngleSharp.Js's reflection bindings: a shape-mode prototype per
+interface is what the inline caches and the prototype-method cache want, member bodies are static lambdas that
+call the AngleSharp interface member directly (interface dispatch, zero reflection), the output is AOT-safe, and
+it is the answer to the one actionable question Starling's "we will not embed Jint" poses — host-object cost.
+This is the piece offered upstream: AngleSharp.Js can adopt the generated bindings without adopting anything
+else here.
+
+Wrapper identity: `DomNodeObject : JsEventTarget` holds an `INode`, the prototype picked from `DomTypeMap`, the
+brand check in a generated member is the interface cast (`Illegal invocation` otherwise). One wrapper per node
+through a per-page `ConditionalWeakTable<INode, DomNodeObject>`: a node in the tree keeps its wrapper and its
+expandos alive (React and Vue rely on that), a node dropped by both the tree and script collects with its
+wrapper — the browsers' wrapper-preservation rule for free. Short-lived views (`DOMTokenList`, `NamedNodeMap`,
+`Range`, `CSSStyleDeclaration`) wrap with a strong reference.
+
+## 5. Events: one bus, Jint's
+
+**AngleSharp's event bus is neither observed nor driven by script.** Every script-visible event is a Jint `Event`
+dispatched through the tree-aware dispatcher engine PR B1 adds to `JsEventTarget` (DOM §2.9 dispatch, get the
+parent, the event path, retargeting, activation behaviour, over virtuals a DOM wrapper overrides), at the
+algorithm points the package owns: navigation (`readystatechange`, `DOMContentLoaded`, `load`, `pageshow`,
+`beforeunload`, `unload`), input (the `InputDispatcher`), forms (`submit`, `formdata`, `reset`, `invalid`),
+history (`popstate`, `hashchange`), observers, scripts (`load`/`error` on `<script>`). AngleSharp's own
+`Dispatch` calls run into AngleSharp's listener lists, which hold nothing script-registered, so they are
+invisible, and whatever AngleSharp-internal listeners exist keep working untouched. `DomNodeObject.GetParent`
+implements "get the parent": parent node or assigned slot; `ShadowRoot → host`; `Document → window` except for
+`load`; `Window → null`.
+
+## 6. Navigation and the parser baton
+
+A document fetch goes through Jint's own fetch pipeline (`FetchTransport`, engine-free by design) with the
+context's cookie jar, `Referer`/`Origin`, the `UrlFilter` re-checked per redirect hop and `MaxResponseBytes`
+bounding the document (engine PR B3 adds the base URL, referrer, cookie jar and observer seams). Then the
+`ParserDriver` runs AngleSharp's parser on a parser thread and hands a **baton** back and forth with the page
+loop: `IScriptingService.EvaluateScriptAsync` and the resource loader park the parser and give the DOM to the
+loop, which runs the script (or the fetch and any due tasks) and hands it back; completions use
+`RunContinuationsAsynchronously` so the parser never resumes inline on the loop thread. Invariant: exactly one
+side holds the baton, and only the holder touches the DOM. That is also what gives browser-correct timing — timers
+fire while the parser waits on a parser-blocking `<script src>`. If AngleSharp's synchronous parse turns out to
+call the scripting hook inline, the fallback is a fully synchronous parse on the loop with blocking script
+fetches: correct, with no timers mid-load. Classic, `defer`, `async` and module scripts, import maps and
+dynamic `import()` go over Jint's `IModuleLoader` against the page's fetch; `DOMContentLoaded` fires after the
+deferred scripts and `load` after subresources; `document.write` during parsing writes into the live text source
+while the parser is parked; `innerHTML` insertion routes through the same driver with a depth guard.
+
+## 7. Constraints per page
+
+The constraints gotcha in the root `AGENTS.md` applies twice over: a page is a host-driven sequence of entries,
+and its event loop is pumped. So a page's budget is built only from what survives the per-entry reset:
+`BrowserOptions.MaxTaskDuration` brackets each loop turn — one `ProcessTasks` drain, one baton hand-off, one
+animation-frame batch — with `OperationDeadlineConstraint.Begin/End`, so a runaway job chain throws into the
+diagnostics sink and the page survives; a per-page `MemoryLimitConstraint` bounds each job chain;
+`Page.Close` and `Target.closeTarget` cancel the page token registered with `ObserveCancellation`;
+`LimitExecutionTime` still governs each `Runtime.evaluate` / `Page.Evaluate` entry; `MaxDomNodes` is checked in
+the wrapper factory and the parser driver; `Timers.MaxActiveTimers` and the fetch limits apply; one `UrlFilter`
+covers document, subresource, XHR, WebSocket, EventSource and worker loads. `BrowserOptions.ForUntrustedContent`
+applies `Options.ForUntrustedCode` to page engines and `CopySecurityPosture` to their workers, with
+`BlockPrivateNetwork` on by default.
+
+## 8. Input without layout
+
+Every element gets a deterministic synthetic box (document order, no overlap) — the "flat renderer" — so that
+`elementFromPoint`, `getBoundingClientRect`, `DOM.getBoxModel`, `DOM.getNodeForLocation` and
+`Input.dispatchMouseEvent(x, y)` resolve without a layout engine. `dispatchMouseEvent` becomes the
+pointer/mouse event sequence with focus and click activation (`<a>` navigates, submit buttons submit,
+checkbox/radio toggle with legacy pre-activation rollback, `<label>` forwards, `<summary>` toggles, `<option>`
+selects); `dispatchKeyEvent` becomes `keydown`/`keypress`/`keyup` with editing on `<input>` and `<textarea>`
+(characters, Backspace/Delete, Home/End/arrows, selection, Enter implicit submission, Tab traversal,
+`beforeinput`/`input`/`change`); `insertText` and a `contenteditable`-lite complete it. WPT's `testdriver.js` is
+mapped onto the same dispatcher.
+
+## 9. The scoreboard
+
+WPT is the conformance suite the way test262 is the language's, with the discipline `Jint.Tests/Wpt/AGENTS.md`
+already enforces: the exclusion table is the artefact (an entry matches at least one failing test and no passing
+one), `NeedsTriage` empty is the signal, the census is a ceiling that only lowers. `Jint.Tests.Browser` adds the
+browser lane: the in-process `WptServer` serves `.html`, the real upstream `testharness.js`, `.headers` sidecars
+and `.sub.html` substitution; a `testharnessreport.js` overlay posts results through a page binding; the existing
+`.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers; the initial
+suites are `dom/nodes`, `dom/events`, `dom/collections`, `dom/lists`, `dom/traversal`, `html/dom`,
+`html/semantics/scripting-1/the-script-element`, `html/webappapis`, `html/browsers/history`,
+`html/browsers/the-window-object` (limited), `xhr`, `url` and `fetch/api` in page mode, `FileAPI`. A nightly
+real `wpt run` over CDP produces a public scoreboard later; it is not a PR gate. Next to it, an obstacle course
+of offline fixtures (React, Vue, Preact and Svelte TodoMVC, SSR hydration, jQuery 3 with `async: false`, htmx,
+Alpine, a `pushState` router, custom elements, modules with an import map, forms with redirects, a cookie login,
+`localStorage` persistence, `IntersectionObserver` and `MutationObserver` widgets, dialogs) each asserting a DOM
+end state and an empty error sink, and PuppeteerSharp / Playwright for .NET smoke suites over the in-process
+WebSocket.
+
+## 10. Packages and the engine seams
+
+| Where | What |
+| --- | --- |
+| `Jint/` (engine, public, additive) | B1 tree event dispatch; B2 `XMLHttpRequest` (`WebApiFeatures.XmlHttpRequest`, sync supported as a blocking wait on the engine-free transport); B3 fetch for documents (`BaseUrl`, referrer policy, `Origin`, `CookieJar`, `FetchObserver` with interception); B4 `PerformanceObserver`, `FileReader`, blob URLs |
+| `Jint.Browser/` (net8.0+, `InternalsVisibleTo` from Jint for now, promoted to public seams as they prove their shape) | the runtime of §3–§8 and the page-level CDP domains, plus the custom `Jint` domain (`getMarkdown`, `getText`, `getAccessibilitySnapshot`) |
+| `Jint.Browser.Tool/` | the `jint-browser` dotnet tool (`serve --port 9222`, `fetch <url> --dump html|text|markdown|ax`) and the MCP server |
+| `Jint.Tests.Browser/` | the WPT browser lane, the obstacle course, the client smoke suites |
+
+`Jint.Browser` ships `IsAotCompatible=false` in v1 and says so: AngleSharp is not trim-annotated. An AOT
+inventory is a v1.1 item once its warnings are counted.
+
+## 11. Verification
+
+Every PR keeps the repository's gates. Engine PRs run the affected WPT `.any.js` suites and, when they touch a hot
+path, the full SunSpider/Dromaeo tables. The browser lane's exclusion table and census, the obstacle course on all
+four CI legs, and the two .NET client smoke suites gate `Jint.Browser`. The benchmark that closes the campaign
+runs the same PuppeteerSharp script against `Jint.Browser`, headless Chromium and, where installed, Lightpanda,
+and records wall time, CPU and peak memory per page load in the honest framing of §2.
