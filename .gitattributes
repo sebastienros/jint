@@ -30,3 +30,10 @@ Jint.Tests.Test262/Test262Harness.settings.json text eol=lf
 # stay byte-identical to it, so that re-fetching at the same SHA produces no diff and the pin means what it
 # says. Upstream is LF, so pin the working tree to LF too rather than letting autocrlf rewrite it.
 Jint.Tests/Wpt/Vendor/** text eol=lf
+
+# The Chrome DevTools Protocol description is copied verbatim from a pinned upstream commit and is meant
+# to stay byte-identical to it, so that re-fetching at the same commit produces no diff and the pin means
+# what it says. Upstream is LF, so pin the working tree to LF rather than letting autocrlf rewrite it.
+tools/devtools-protocol/js_protocol.json text eol=lf
+tools/devtools-protocol/browser_protocol.json text eol=lf
+tools/devtools-protocol/devtools-protocol-LICENSE text eol=lf

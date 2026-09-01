@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <!-- The whole package is net8.0+, the same floor Jint/WebApi/ sits on and for the same reason: this
+         is host surface built on the modern BCL (System.Text.Json source generation, ValueTask, spans),
+         not engine surface a netstandard consumer resolves. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Jint.DevTools</PackageId>
+    <Description>Chrome DevTools Protocol server for Jint, the Javascript interpreter for .NET.</Description>
+    <PackageTags>javascript, interpreter, jint, devtools, chrome-devtools-protocol, cdp, debugger, profiler</PackageTags>
+
+    <Nullable>enable</Nullable>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!--
+      Trim and AOT analysis. Read Jint.csproj's much longer note before assuming this claim means more
+      than it says: NoWarn is a property of THIS compilation and reaches nothing downstream, and what
+      substantiates the property is a published, RUN native binary rather than a silent build.
+
+      Nothing here is suppressed, and that is the point of the design: every payload crosses through the
+      source-generated ProtocolJsonContext, so no protocol type is reached by reflection and the assembly
+      produces no IL2xxx or IL3050 of its own. The AOT probe that turns the claim into evidence arrives
+      with the end-to-end pull request (campaign P7); until then this property says "analysed clean",
+      not "measured".
+    -->
+    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Jint's PUBLIC surface only. There is deliberately no InternalsVisibleTo grant from Jint to this
+         package: a protocol server that cannot be written against the published engine API is a protocol
+         server no third party could have written, and every seam it turns out to need is a seam the engine
+         should expose. -->
+    <ProjectReference Include="..\Jint\Jint.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- This assembly never touches the AST, so the repository-wide Acornima global usings are noise here. -->
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>

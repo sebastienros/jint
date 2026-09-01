@@ -77,6 +77,17 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
+    # Jint.DevTools ships from the same tag and carries the same version: it references Jint by project and
+    # its protocol surface is only meaningful against the engine it was built with, so a version of its own
+    # would be a second number to reason about for no gain.
+    - name: Pack Jint.DevTools with dotnet
+      run: >
+        dotnet pack Jint.DevTools/Jint.DevTools.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
     # Kept next to the push: the minted key is short-lived, so it must not be requested
     # before the (slow) test and pack steps.
     - name: NuGet login

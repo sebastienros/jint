@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+
+    <!--
+      One target framework, and it is the LOWEST one Jint.Tests.DevTools runs on rather than the newest.
+      The currency test runs this emitter in memory on every leg of that suite, so the emitter has to be
+      loadable by the net8.0 leg as well; and a single target framework is what lets the regeneration
+      command in tools/devtools-protocol/README.md be a plain `dotnet run` with no framework switch.
+    -->
+    <TargetFramework>net8.0</TargetFramework>
+
+    <AssemblyOriginatorKeyFile>..\..\..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>
