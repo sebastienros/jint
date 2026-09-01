@@ -29,10 +29,6 @@
     // overflows and the whole test host dies, taking every other test in the process with it.
     "staging/sm/extensions/recursion.js",
 
-    // { length: Infinity } array generics: the loop is bounded only by the 30-second
-    // TimeoutInterval, which it reaches on every run.
-    "staging/sm/Array/to-length.js",
-
     // Non-terminating under an interpreter: each of these only ends at the 30-second
     // TimeoutInterval, and the DST ones additionally drive the engine into multi-GB
     // allocation. Removed when the underlying loop terminates, not by "make it faster".
