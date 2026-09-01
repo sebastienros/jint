@@ -37,6 +37,12 @@ public sealed class TypeResolver
     private readonly ConcurrentDictionary<Type, bool> _indexedElementExposure = new();
 
     /// <summary>
+    /// Memo behind <see cref="ResolutionConsultsConverter"/>, populated only for engines carrying an
+    /// <see cref="ITypeConverter"/> of the host's own and therefore having a question to ask at all.
+    /// </summary>
+    private readonly ConcurrentDictionary<Type, bool> _converterKeyedIndexers = new();
+
+    /// <summary>
     /// How many accessors this resolver currently holds. The cache never evicts, so this is the retention
     /// the resolver commits to: it must stay bounded by the distinct members the engines using it resolve,
     /// and must not grow with the number of engines constructed.
@@ -87,6 +93,7 @@ public sealed class TypeResolver
     {
         _reflectionAccessors.Clear();
         _indexedElementExposure.Clear();
+        _converterKeyedIndexers.Clear();
     }
 
     /// <summary>
@@ -304,8 +311,16 @@ public sealed class TypeResolver
 
         var key = new AccessorCacheKey(type, member, requirement, profile);
 
+        // Every engine carrying an ITypeConverter of the host's own lands in one partition, because the
+        // profile can only record that the converter is not the stock one - naming the converter itself
+        // would pin a host object in a cache that lives for the process. So when resolving this type asks
+        // that converter a question, the engine neither answers from the shared cache nor adds to it: the
+        // answer belongs to the converter that gave it, not to the partition every such engine shares
+        // (#3560).
+        var converterDecides = !engine._typeConverterIsDefault && ResolutionConsultsConverter(type);
+
         var factories = _reflectionAccessors;
-        if (factories.TryGetValue(key, out var accessor))
+        if (!converterDecides && factories.TryGetValue(key, out var accessor))
         {
             if (throwOnError
                 && ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor)
@@ -324,7 +339,7 @@ public sealed class TypeResolver
             return accessor;
         }
 
-        if (IsShareable(engine, accessor))
+        if (!converterDecides && IsShareable(engine, accessor))
         {
             // racy, we don't care: both racers resolved the same member the same way
             factories.TryAdd(key, accessor);
@@ -358,6 +373,66 @@ public sealed class TypeResolver
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Whether resolving a member of <paramref name="type"/> asks the engine's <see cref="ITypeConverter"/>
+    /// anything, and therefore produces an answer that belongs to that converter alone.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="IndexerAccessor.TryFindIndexer"/> converts the member <em>name</em> to the index type of
+    /// every single-parameter indexer the type or one of its interfaces offers; an <see cref="int"/>-keyed
+    /// one is the only kind settled without the converter, from the name itself. That single answer decides
+    /// whether the declared member is handed an indexer to probe ahead of itself, so it reaches well past the
+    /// <see cref="IndexerAccessor"/> that <see cref="IsShareable"/> withholds. The scan is deliberately
+    /// blind to the member filter and to which accessors an indexer carries: answering "yes" too readily only
+    /// costs such an engine a re-resolution per wrapper, while answering "no" wrongly hands one host
+    /// converter's decision to another. Memoized per resolver and per type, and asked only by an engine whose
+    /// converter is not the stock one, so the default configuration pays nothing.
+    /// </remarks>
+    private bool ResolutionConsultsConverter(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.Interfaces)] Type type)
+    {
+        if (_converterKeyedIndexers.TryGetValue(type, out var consults))
+        {
+            return consults;
+        }
+
+        consults = HasConverterKeyedIndexer(type);
+        if (!consults)
+        {
+            foreach (var interfaceType in type.GetInterfaces())
+            {
+                if (HasConverterKeyedIndexer(interfaceType))
+                {
+                    consults = true;
+                    break;
+                }
+            }
+        }
+
+        // GetOrAdd's value overload rather than TryAdd, so a race still hands every caller the same answer
+        return _converterKeyedIndexers.GetOrAdd(type, consults);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="type"/> offers a single-parameter indexer keyed by anything other than
+    /// <see cref="int"/> — the one index type <see cref="IndexerAccessor.TryFindIndexer"/> keys without
+    /// consulting the engine's <see cref="ITypeConverter"/>.
+    /// </summary>
+    private static bool HasConverterKeyedIndexer(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        foreach (var candidate in type.GetProperties())
+        {
+            var indexParameters = candidate.GetIndexParameters();
+            if (indexParameters.Length == 1 && indexParameters[0].ParameterType != typeof(int))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private ReflectionAccessor ResolvePropertyDescriptorFactory(

@@ -49,6 +49,23 @@ public class InteropAccessorCacheSharingTests
         public string this[string key] => key + "!";
     }
 
+    /// <summary>
+    /// Carries both halves of the decision a host <see cref="ITypeConverter"/> makes during resolution: a
+    /// declared property an indexer of the same name shadows, and a key only the indexer can answer.
+    /// </summary>
+    public sealed class Bag
+    {
+        private readonly Dictionary<string, string> _entries = new()
+        {
+            ["Name"] = "from-indexer",
+            ["Extra"] = "indexer-only",
+        };
+
+        public string Name => "from-property";
+
+        public string? this[string key] => _entries.TryGetValue(key, out var value) ? value : null;
+    }
+
     private sealed class CountingResolver
     {
         private int _memberFilterCalls;
@@ -296,6 +313,88 @@ public class InteropAccessorCacheSharingTests
         custom.Evaluate("host.key").Should().Be("key!");
     }
 
+    [Fact]
+    public void TwoCustomTypeConvertersDoNotDecideForEachOther()
+    {
+        // Both engines report a host-installed converter, so the profile puts them in the same partition -
+        // but their converters answer differently, and that answer is what decides whether the declared
+        // property is handed the indexer to probe ahead of itself (#3560).
+        var resolver = new TypeResolver();
+        var narrow = CreateEngine(resolver, new Bag(), options => options.SetTypeConverter(_ => new NarrowTypeConverter()));
+        var wide = CreateEngine(resolver, new Bag(), options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine)));
+
+        narrow.Evaluate("host.Name").Should().Be("from-property", "the narrow converter finds no usable indexer");
+        narrow.Evaluate("typeof host.Extra").Should().Be("undefined");
+
+        wide.Evaluate("host.Name").Should().Be("from-indexer", "the wide converter converts the member name to the indexer's key");
+        wide.Evaluate("host.Extra").Should().Be("indexer-only");
+    }
+
+    [Fact]
+    public void TwoCustomTypeConvertersDoNotDecideForEachOtherInEitherOrder()
+    {
+        var resolver = new TypeResolver();
+        var wide = CreateEngine(resolver, new Bag(), options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine)));
+        var narrow = CreateEngine(resolver, new Bag(), options => options.SetTypeConverter(_ => new NarrowTypeConverter()));
+
+        wide.Evaluate("host.Name").Should().Be("from-indexer");
+        narrow.Evaluate("host.Name").Should().Be("from-property");
+
+        // a fresh wrapper, so the answer is resolved again rather than served from the first one's own store
+        wide.SetValue("second", new Bag());
+        wide.Evaluate("second.Name").Should().Be("from-indexer");
+        wide.Evaluate("second.Extra").Should().Be("indexer-only");
+    }
+
+    [Fact]
+    public void CustomTypeConverterEnginesStillShareWhatTheirConverterCannotDecide()
+    {
+        // The withholding is per type, not per engine: a type whose members no converter is consulted about
+        // keeps being resolved once for every engine sharing the resolver.
+        var counting = new CountingResolver();
+        var first = CreateEngine(counting.Resolver, new Host(1), options => options.SetTypeConverter(_ => new NarrowTypeConverter()));
+        var second = CreateEngine(counting.Resolver, new Host(2), options => options.SetTypeConverter(engine => new WrappingTypeConverter(engine)));
+        counting.Reset();
+
+        first.Evaluate("host.Value").Should().Be(1);
+        counting.Reset().Should().BeGreaterThan(0, "the first engine has to resolve the member");
+
+        second.Evaluate("host.Value").Should().Be(2);
+        counting.Reset().Should().Be(0, "Host declares no indexer, so nothing here depends on the converter");
+    }
+
+    [Fact]
+    public void CustomTypeConverterEnginesDoNotGrowTheSharedCachePerEngine()
+    {
+        // Keying the partition on the converter itself would be one entry set per engine in a cache that
+        // never evicts, and would pin every host converter for the life of the process.
+        var resolver = new TypeResolver();
+
+        Engine Create()
+        {
+            var engine = CreateEngine(resolver, new Bag(), options => options.SetTypeConverter(e => new WrappingTypeConverter(e)));
+            engine.SetValue("plain", new Host(1));
+            return engine;
+        }
+
+        void Exercise(Engine engine)
+        {
+            engine.Evaluate("host.Name").Should().Be("from-indexer");
+            engine.Evaluate("plain.Value").Should().Be(1);
+        }
+
+        Exercise(Create());
+        var countAfterFirstEngine = resolver.ResolvedAccessorCount;
+        countAfterFirstEngine.Should().BeGreaterThan(0, "Host carries no indexer, so its members are still shared");
+
+        for (var i = 0; i < 20; i++)
+        {
+            Exercise(Create());
+        }
+
+        resolver.ResolvedAccessorCount.Should().Be(countAfterFirstEngine);
+    }
+
     #endregion
 
     #region 3. nothing engine-affine is shared
@@ -325,6 +424,22 @@ public class InteropAccessorCacheSharingTests
     /// Behaves exactly like the stock converter but is not it, so the engine counts as having a
     /// host-installed <see cref="ITypeConverter"/>.
     /// </summary>
+    /// <summary>
+    /// Declines every conversion, including the string to string the stock converter accepts outright, so
+    /// resolution finds no indexer this member name can be handed to.
+    /// </summary>
+    private sealed class NarrowTypeConverter : ITypeConverter
+    {
+        public object? Convert(object? value, Type type, IFormatProvider formatProvider)
+            => throw new NotSupportedException();
+
+        public bool TryConvert(object? value, Type type, IFormatProvider formatProvider, [NotNullWhen(true)] out object? converted)
+        {
+            converted = null;
+            return false;
+        }
+    }
+
     private sealed class WrappingTypeConverter : ITypeConverter
     {
         private readonly ITypeConverter _inner;
