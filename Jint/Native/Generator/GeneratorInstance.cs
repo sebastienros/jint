@@ -108,7 +108,19 @@ internal sealed class GeneratorInstance : ObjectInstance, ISuspendable
 
     JsValue? ISuspendable.SuspendedValue => _suspendedValue;
 
-    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
+    // A yield* delegation suspends AT the yield* expression, and its node is kept in
+    // _delegatingYieldNode rather than in _lastYieldNode: JintYieldExpression selects its delegation
+    // branch on the first field and its plain-yield branch on the second, so the two cannot share a
+    // slot. Only _lastYieldNode used to be published here, which made a resume taken in the middle
+    // of a delegation look to every resume-aware statement -- JintWhileStatement, JintForStatement,
+    // JintDoWhileStatement, JintIfStatement, JintSwitchStatement, JintTryStatement -- like a resume
+    // that had suspended nowhere. Each of them then re-ran its own test, and a test the delegated
+    // iteration had already falsified sent the generator down the other branch, abandoning the rest
+    // of the iteration it was actually in the middle of. The fallback cannot answer with a stale
+    // node: _lastYieldNode is cleared the moment the yield it names is resumed, so it is null for
+    // the whole time a delegation is in flight, and _delegatingYieldNode is cleared when the
+    // delegation ends.
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode ?? _delegatingYieldNode;
 
     bool ISuspendable.ReturnRequested => _returnRequested;
 

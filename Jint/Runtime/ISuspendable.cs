@@ -31,6 +31,13 @@ internal interface ISuspendable
     /// The AST node where execution last suspended (yield or await expression).
     /// Unified property for tracking suspension location across all suspendable types.
     /// </summary>
+    /// <remarks>
+    /// This is what tells a resume-aware statement that it is being re-entered rather than entered,
+    /// so it must not re-evaluate the test that chose the branch the suspension is inside; see
+    /// <see cref="Interpreter.Statements.JintStatement.GetSuspensionNode"/>. A generator suspended
+    /// inside a <c>yield*</c> delegation reports the <c>yield*</c> expression, which is where the
+    /// specification says it is suspended.
+    /// </remarks>
     object? LastSuspensionNode { get; }
 
     /// <summary>
