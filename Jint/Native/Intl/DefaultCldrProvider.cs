@@ -47,7 +47,9 @@ public class DefaultCldrProvider : ICldrProvider
     /// </summary>
     public static readonly DefaultCldrProvider Instance = new();
 
-    // Caches for immutable locale-dependent data
+    // Caches for immutable locale-dependent data, keyed on every argument the answer is allowed to depend
+    // on — which for months and day periods includes the calendar, even though the bodies below read the
+    // culture's own names and so answer the same for all of them. See NameCacheKey.
     private static readonly ConcurrentDictionary<string, string[]?> _monthNameCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, string[]?> _weekdayNameCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, string[]?> _dayPeriodCache = new(StringComparer.Ordinal);
@@ -398,10 +400,38 @@ public class DefaultCldrProvider : ICldrProvider
 
     // === Date/Time Formatting ===
 
+    /// <summary>
+    /// The key a cached name array is stored under: every argument its member takes, so an entry can never
+    /// answer a question the caller did not ask.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The calendar is in it because the two members taking one are <c>public virtual</c> on a class hosts
+    /// derive from, and a derived provider answering per calendar for some calendars and delegating the rest
+    /// asks the base for more than one. Whether the base's answer happens to depend on the argument is a
+    /// property of today's body rather than of the contract, and these caches outlive every engine in the
+    /// process.
+    /// </para>
+    /// <para>
+    /// The key space stays closed: a calendar reaching a provider from <c>Intl.DateTimeFormat</c> has been
+    /// through <c>AvailableCalendars.ResolveForDateTimeFormat</c>, so it is one of the sixteen built-in
+    /// identifiers, one an <see cref="Temporal.ICalendarProvider"/> claims, or <c>"gregory"</c> — never a
+    /// string a script invented.
+    /// </para>
+    /// </remarks>
+    private static string NameCacheKey(string locale, string style, string? calendar)
+        => string.Concat(locale, "_", style, "_", calendar);
+
     /// <inheritdoc />
+    /// <remarks>
+    /// The answer is cached per locale, style and calendar. This body reads
+    /// <see cref="DateTimeFormatInfo.MonthNames"/>, which answers for whatever calendar the culture carries,
+    /// so it returns equal names for every calendar it is asked about; an override that answers per calendar
+    /// is what the key is for, and gets one entry per calendar rather than the first one it was asked for.
+    /// </remarks>
     public virtual string[]? GetMonthNames(string locale, string style, string? calendar)
     {
-        var cacheKey = string.Concat(locale, "_", style);
+        var cacheKey = NameCacheKey(locale, style, calendar);
         return _monthNameCache.GetOrAdd(cacheKey, _ =>
         {
             var culture = IntlUtilities.GetCultureInfo(locale);
@@ -488,9 +518,13 @@ public class DefaultCldrProvider : ICldrProvider
         => name.Length == 0 ? name : culture.TextInfo.ToUpper(StringInfo.GetNextTextElement(name, 0));
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The answer is cached per locale and style, which is every argument there is: a weekday name is the
+    /// same in every calendar, which is why this is the one of the three name members taking no calendar.
+    /// </remarks>
     public virtual string[]? GetWeekdayNames(string locale, string style)
     {
-        var cacheKey = string.Concat(locale, "_", style);
+        var cacheKey = NameCacheKey(locale, style, calendar: null);
         return _weekdayNameCache.GetOrAdd(cacheKey, _ =>
         {
             var culture = IntlUtilities.GetCultureInfo(locale);
@@ -510,9 +544,14 @@ public class DefaultCldrProvider : ICldrProvider
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The answer is cached per locale, style and calendar, for the reason given over
+    /// <see cref="GetMonthNames"/>: this body reads the culture's own designators and answers the same for
+    /// every calendar, and an override that does not gets one entry per calendar.
+    /// </remarks>
     public virtual string[]? GetDayPeriods(string locale, string style, string? calendar)
     {
-        var cacheKey = string.Concat(locale, "_", style);
+        var cacheKey = NameCacheKey(locale, style, calendar);
         return _dayPeriodCache.GetOrAdd(cacheKey, _ =>
         {
             var culture = IntlUtilities.GetCultureInfo(locale);
