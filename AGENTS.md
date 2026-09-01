@@ -24,6 +24,7 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | touch the vendored web-platform-tests corpus, its shim or its driver | [`Jint.Tests/Wpt/AGENTS.md`](Jint.Tests/Wpt/AGENTS.md) | The exclusion table is the artefact — an entry must match a failing test and no passing one — and a non-zero `NeedsTriage` count means the corpus found a defect somebody still owes the engine a fix for. Cost: five thousand green cases that mean nothing. |
 | bump the pinned test262 SHA or triage a conformance failure | [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) | A bump is a code change, not a pin change; and the three exclusion banners, one of which is deliberately not debt. Cost: an upstream normative change landing unread. |
 | write a test proving a third party can reach an API, or read a run that died rather than failed | [`Jint.Tests.PublicInterface/AGENTS.md`](Jint.Tests.PublicInterface/AGENTS.md) | It is the only test project without `InternalsVisibleTo`, which is the whole reason a test there means anything; and what a `TestPipelineException` naming no test actually means. |
+| touch `Jint.DevTools/` — the Chrome DevTools Protocol server, its sessions, or an engine hook it consumes | [`Jint.DevTools/AGENTS.md`](Jint.DevTools/AGENTS.md) | Which thread may touch the engine, the pause-time message loop, the protocol pin. Cost: a command run on the socket thread. |
 | write, run, or quote a benchmark number | [`Jint.Benchmark/AGENTS.md`](Jint.Benchmark/AGENTS.md) | The measurement environment and its three modes, the paired comparison, one engine per row. Cost: a `--job short` number in a PR, or a row whose result depends on which sibling rows exist. |
 
 Before adding to any of them, read [the size budget](#the-size-budget-and-which-agents-load-what) at the end of this file: keep this one under 24 KiB and each of those under 32 KiB, which `dotnet test` fails on rather than merely states.
@@ -79,6 +80,7 @@ Acornima Parser (external) → AST → Interpreter → Runtime → Interop
 - **`Jint.Tests.Test262`** — Official TC39 conformance suite (NUnit); `Test262Harness.settings.json` holds its exclusions and which of test262's `test/` sub-directories are generated at all, and [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) says where the suite's own sources are and how to reproduce a failure. **Never "fix" these tests.** No runner timeout needed; the engine defaults to 30 seconds.
 - **`Jint.Tests.CommonScripts`** — Real-world scripts (crypto, 3D rendering, …) run as correctness and performance validation (NUnit).
 - **`Jint.Tests.PublicInterface`** — API contract tests (NUnit). See the integration-surface section below.
+- **`Jint.Tests.DevTools`** — In-process protocol tests for `Jint.DevTools`, and the generated-protocol currency check (NUnit).
 - **`Jint.Tests.SourceGenerators`** — Tests for the source generators.
 
 ## Third-party integration surface

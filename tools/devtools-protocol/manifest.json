@@ -1,0 +1,38 @@
+{
+  // What Jint.DevTools generates from, and what it claims to answer. Read tools/devtools-protocol/README.md
+  // before editing: an edit here without a regeneration fails GeneratedProtocolIsCurrentTests.
+
+  // The domains that get DTOs, a dispatch base and an event factory class. A domain listed here is
+  // *generated*, which is not the same as implemented: every command it declares gets a virtual whose
+  // default answers -32601, and only the entries in "implementedMethods" below are overridden.
+  "generatedDomains": [
+    "Runtime",
+    "Debugger",
+    "Profiler",
+    "Console",
+    "Log",
+    "Schema",
+    "Target",
+    "Browser"
+  ],
+
+  // The commands Jint.DevTools actually answers. Every entry is checked against the vendored protocol,
+  // and ProtocolManifestTests checks each one is overridden on a registered domain - and that nothing
+  // else is. An unlisted command is not a silent success; it is 'Domain.method' wasn't found.
+  "implementedMethods": [
+    "Browser.close",
+    "Browser.getVersion",
+    "Schema.getDomains"
+  ],
+
+  // The events Jint.DevTools emits. None yet: Runtime.consoleAPICalled and the Debugger pause events
+  // arrive with the domains that raise them.
+  "implementedEvents": [],
+
+  // What Schema.getDomains answers. A domain reaches this list only once it has an implemented command,
+  // so a client feature-detecting through it is never told about a domain that answers nothing.
+  "reportedDomains": [
+    { "name": "Browser", "version": "1.3" },
+    { "name": "Schema", "version": "1.3" }
+  ]
+}
