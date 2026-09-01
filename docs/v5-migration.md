@@ -4271,6 +4271,39 @@ rather than an element. There is no option to restore the old behaviour: it was 
 ECMAScript one. A host that wants it can trim on the CLR side — `value.TrimEnd('\0')` — before the value
 reaches the engine.
 
+### 4.96 `BigInt` reads the leading `+` that `StringIntegerLiteral` signs ([#3540](https://github.com/sebastienros/jint/issues/3540))
+
+[StringToBigInt](https://tc39.es/ecma262/#sec-stringtobigint) parses its argument as a
+`StringIntegerLiteral`, and that grammar's `StrIntegerLiteral` is either a `SignedInteger` —
+`DecimalDigits`, `+ DecimalDigits` or `- DecimalDigits` — or a `NonDecimalIntegerLiteral`, which carries
+no sign at all. Jint walked the string once before parsing it and admitted a non-digit at the front only
+when it was `-`, so the plus was a `SyntaxError` on the one spelling the grammar signs, while
+`Number('+12')` had always been `12`.
+
+```js
+// 5.0: SyntaxError               5.x: 12n
+BigInt('+12');
+
+// 5.0: SyntaxError               5.x: 12n
+BigInt(' +12 ');
+
+// 5.0: false                     5.x: true
+12n == '+12';
+
+// 5.0: false                     5.x: true
+12n < '+13';
+```
+
+The sign belongs to the decimal spelling and to nothing else, so `BigInt('+0x10')`, `BigInt('-0b11')` and
+`BigInt('+0o17')` are still `SyntaxError`s, as are `'+'`, `'++12'`, `'+ 12'`, `'+12.5'` and `'+1e3'`.
+Nothing about which strings are rejected has otherwise moved.
+
+**What could break:** a host or script reading the `SyntaxError` as "this text is not an integer" — a
+`try`/`catch` around `BigInt(...)` used as a validator now accepts a plus-signed decimal string, and a
+`==` or `<` against a `BigInt` that answered `false` for one now compares it. There is no option to
+restore the old behaviour: the sign is part of the production `BigInt` says it parses, and every other
+engine reads it.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
