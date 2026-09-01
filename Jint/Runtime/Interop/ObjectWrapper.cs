@@ -80,19 +80,34 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         }
 
+        // The three members below are the only ones this constructor builds eagerly, and each is a function
+        // of the realm this wrapper is being created in — the same realm ObjectInstance's constructor just
+        // took this object's own prototype from, and the one ArrayLikeWrapper takes Array.prototype from a
+        // few lines above. That is what an ObjectWrapper answers with: not a realm of its own, but whichever
+        // one is running when it is built, which ShadowRealm.SetValue brackets deliberately (#3367).
+        //
+        // The public ClrFunction(Engine, string, …) constructor is the wrong one here, and not by accident:
+        // it pins engine._originalIntrinsics so that a function a *host* wires up against an engine belongs
+        // to the principal realm whatever was constructed since (#2893, HostClrFunctionRealmTests). Used
+        // here it made these three principal-realm functions hanging off a shadow-realm object, so
+        // `handle.Dispose instanceof Function` was true while `handle[Symbol.dispose] instanceof Function`
+        // was false on the same object — every lazily resolved member reads engine.Realm at materialization
+        // and was already right (#3365).
+        var realm = engine.Realm;
+
         if (_typeDescriptor.IsDisposable)
         {
-            SetProperty(GlobalSymbolRegistry.Dispose, new PropertyDescriptor(new ClrFunction(engine, "dispose", static (thisObject, _) =>
+            SetProperty(GlobalSymbolRegistry.Dispose, new PropertyDescriptor(new ClrFunction(engine, realm, "dispose", static (thisObject, _) =>
             {
                 ((thisObject as ObjectWrapper)?.Target as IDisposable)?.Dispose();
                 return Undefined;
-            }), PropertyFlag.NonEnumerable));
+            }, 0), PropertyFlag.NonEnumerable));
         }
 
 #if SUPPORTS_ASYNC_DISPOSE
         if (_typeDescriptor.IsAsyncDisposable)
         {
-            SetProperty(GlobalSymbolRegistry.AsyncDispose, new PropertyDescriptor(new ClrFunction(engine, "asyncDispose", (thisObject, _) =>
+            SetProperty(GlobalSymbolRegistry.AsyncDispose, new PropertyDescriptor(new ClrFunction(engine, realm, "asyncDispose", (thisObject, _) =>
             {
                 var target = ((thisObject as ObjectWrapper)?.Target as IAsyncDisposable)?.DisposeAsync();
                 if (target is not null)
@@ -100,14 +115,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     return ConvertAwaitableToPromise(engine, target);
                 }
                 return Undefined;
-            }), PropertyFlag.NonEnumerable));
+            }, 0), PropertyFlag.NonEnumerable));
         }
 #endif
 
         if (_typeDescriptor.ToJsonMethod is not null)
         {
             // Wrap the toJSON method in a ClrFunction with the expected signature for JSON.stringify
-            var toJsonFunction = new ClrFunction(engine, "toJSON", (thisObject, arguments) =>
+            var toJsonFunction = new ClrFunction(engine, realm, "toJSON", (thisObject, arguments) =>
             {
                 var wrapper = thisObject as ObjectWrapper;
                 if (wrapper is null)
@@ -126,7 +141,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     Throw.MeaningfulException(engine, exception);
                     return Undefined;
                 }
-            });
+            }, 0);
 
             // toJSON should be writable, configurable, and non-enumerable to match JavaScript standard
             // (e.g., Date.prototype.toJSON has these same flags)
