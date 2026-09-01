@@ -685,8 +685,9 @@ public class Options
         public int MaxExecutionStackCount { get; set; } = StackGuard.Disabled;
 
         /// <summary>
-        /// Whether every entry into an interpreted function probes the remaining native stack and throws a
-        /// catchable <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
+        /// Whether the engine probes the remaining native stack — on every entry into an interpreted
+        /// function, and on every module of a graph being linked or evaluated — and throws a catchable
+        /// <c>RangeError: Maximum call stack size exceeded</c> when it is nearly gone. Defaults to
         /// <see langword="false"/>.
         /// </summary>
         /// <remarks>
@@ -721,6 +722,17 @@ public class Options
         /// call row worse than about 1%, so it ships opt-in. A host whose scripts are all its own can bound
         /// them with <see cref="MaxRecursionDepth"/> and pay nothing; a host sandboxing untrusted input
         /// generally cannot, and a couple of percent on deep recursion is the price of staying alive.
+        /// </para>
+        /// <para>
+        /// It also covers recursion nobody wrote: <c>InnerModuleLinking</c> and <c>InnerModuleEvaluation</c>
+        /// descend once per module, so how deep a graph an engine can link and evaluate is otherwise decided
+        /// by the calling thread's stack — and exceeding it ends the process (sebastienros/jint#3401). With
+        /// this on, a graph too deep to link raises a <c>RangeError</c> naming the module the walk gave up
+        /// on, and leaves the engine usable. That half of the guard is <em>not</em> displaced by
+        /// <see cref="MaxExecutionStackCount"/>: that limit's own probe sits at the call expression, which no
+        /// part of the module pipeline reaches, so there would be nothing in its place. It is a catchable
+        /// failure rather than a raised ceiling — the load phase recurses per module as well and is not
+        /// probed, so a host serving genuinely deep graphs should still import them on a thread sized for it.
         /// </para>
         /// <para>
         /// It is a backstop, not a policy. <see cref="MaxRecursionDepth"/> counts frames and is checked
