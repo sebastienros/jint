@@ -112,16 +112,32 @@ internal static class TemporalHelpers
         return new IsoDateTime(date, new IsoTime(hour, minute, second, millisecond, microsecond, nanosecond));
     }
 
-    // Regex patterns for ISO 8601 parsing
-    // Note: Adding timeout for safety against ReDoS attacks
+    // Regex patterns for ISO 8601 parsing.
+    //
+    // These patterns take no match timeout, and that is deliberate. Regex.MatchTimeout is a *wall-clock*
+    // deadline sampled while matching, so it cannot tell "this pattern is backtracking" apart from "this
+    // thread lost the CPU" — a descheduled thread trips it having burned almost no CPU at all. That is not
+    // hypothetical: with the 100 ms budget these patterns used to carry, a single match of the valid,
+    // 8-character string "10:30:00" was measured taking 440 ms of wall clock on an ordinary loaded
+    // developer machine, and the same thing turned up as a CI failure parsing a correct ISO string. Because
+    // RegexMatchTimeoutException is listed in Throw.MustPropagateHostException, that spurious failure did
+    // not surface as a JavaScript error a script could catch — it escaped Engine.Evaluate as a raw CLR
+    // exception, straight through the script's own try/catch.
+    //
+    // What a timeout was there to guard against is instead guarded by construction. These patterns are
+    // fixed and internal — only the *input* is script-supplied, never the pattern — and every one of them
+    // is linear in the length of that input, so their cost is bounded by bounding the input. The
+    // fixed-width patterns below therefore carry an exact maximum length and reject anything longer
+    // without matching at all (see MaxIsoDateLength and friends). The two whose grammar is genuinely
+    // unbounded — InstantPattern's annotation tail and DurationPattern's digit runs — can carry no such
+    // cap without rejecting valid input, and rest on that measured linearity instead.
 #pragma warning disable MA0023 // Use RegexOptions.ExplicitCapture - we need numbered capture groups
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(100);
 
     // ISO 8601 date pattern: supports both extended (YYYY-MM-DD) and basic (YYYYMMDD) formats
     private static readonly Regex DatePattern = new(
         @"^([+-]?\d{4,6})(?:-(\d{2})-(\d{2})|(\d{2})(\d{2}))$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 
     // Time pattern supporting multiple formats per spec TimeSpec grammar:
     // Hour | Hour TimeSeparator MinuteSecond | Hour TimeSeparator MinuteSecond TimeSeparator TimeSecond [.fraction]
@@ -131,30 +147,44 @@ internal static class TemporalHelpers
     private static readonly Regex TimePatternColon = new(
         @"^(\d{2})(?::(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 
     private static readonly Regex TimePatternHyphen = new(
         @"^(\d{2})(?:-(\d{2})(?:-(\d{2})(?:[.,](\d{1,9}))?)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 
     private static readonly Regex TimePatternCompact = new(
         @"^(\d{2})(?:(\d{2})(?:(\d{2})(?:[.,](\d{1,9}))?)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 
     // Duration pattern already supports comma via [.,]
     private static readonly Regex DurationPattern = new(
         @"^([+-])?P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)(?:[.,](\d{1,9}))?H)?(?:(\d+)(?:[.,](\d{1,9}))?M)?(?:(\d+)(?:[.,](\d{1,9}))?S)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 
     // Instant pattern already supports comma via [.,]
     private static readonly Regex InstantPattern = new(
         @"^([+-]\d{6}|\d{4})-?(\d{2})-?(\d{2})[Tt ](\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d{1,9}))?)?)?([Zz]|([+-])(\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d{1,9}))?)?)?)((?:\[!?[^\]]+\])*)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 #pragma warning restore MA0023
+
+    // Exact maximum lengths of the fixed-width patterns above: the longest string each one can match,
+    // which is what makes rejecting anything longer indistinguishable from letting the pattern reject it.
+    // Each was confirmed both by reading the grammar and by searching the pattern's own language for its
+    // longest member, and each is pinned by a test so a widened pattern cannot silently outgrow its bound.
+
+    /// <summary>Longest string <c>DatePattern</c> can match: <c>+123456-12-31</c>.</summary>
+    private const int MaxIsoDateLength = 13;
+
+    /// <summary>Longest string the time patterns can match: <c>12:34:56.123456789</c>.</summary>
+    private const int MaxIsoTimeLength = 18;
+
+    /// <summary>Longest string <c>TimeWithOffsetPattern</c> can match: <c>12:34:56.123456789+12:34:56.123456789</c>.</summary>
+    private const int MaxIsoTimeWithOffsetLength = 37;
 
     /// <summary>
     /// Parses an offset string like "+01:00" or "-05:30" to nanoseconds.
@@ -674,6 +704,10 @@ internal static class TemporalHelpers
         if (ContainsInvalidMinusSign(input))
             return null;
 
+        // Longer than the pattern could ever match, so the pattern is not asked.
+        if (input.Length > MaxIsoDateLength)
+            return null;
+
         var match = DatePattern.Match(input);
         if (!match.Success)
             return null;
@@ -733,6 +767,10 @@ internal static class TemporalHelpers
         if (ContainsInvalidMinusSign(input))
             return null;
 
+        // Longer than any of the three time patterns could ever match, so none of them is asked.
+        if (input.Length > MaxIsoTimeLength)
+            return null;
+
         // Try each format in order (prefer colon format as it's most common)
         Match? match = TimePatternColon.Match(input);
         if (!match.Success)
@@ -771,11 +809,6 @@ internal static class TemporalHelpers
     }
 
 #pragma warning disable MA0023
-    private static readonly Regex AnnotationPattern = new(
-        @"\[(!?)([^\]]+)\]",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
-
     // Pattern for validating time with optional offset (used for PlainDate date-time validation)
     // Supports both extended (HH:MM:SS) and compact (HHMMSS) ISO 8601 time formats
     // Extended: HH[:MM[:SS[.fff]]]  Compact: HH[MM[SS[.fff]]]
@@ -784,7 +817,7 @@ internal static class TemporalHelpers
     private static readonly Regex TimeWithOffsetPattern = new(
         @"^(\d{2})(?:(?::(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)|(?:(\d{2})(?:(\d{2})(?:[.,](\d{1,9}))?)?))??(?:([Zz])|([+-])(\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d{1,9}))?)?)?)?$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant,
-        RegexTimeout);
+        Regex.InfiniteMatchTimeout);
 #pragma warning restore MA0023
 
     /// <summary>
@@ -794,6 +827,10 @@ internal static class TemporalHelpers
     public static bool IsValidTimeWithOffset(string timeString)
     {
         if (string.IsNullOrEmpty(timeString))
+            return false;
+
+        // Longer than the pattern could ever match, so the pattern is not asked.
+        if (timeString.Length > MaxIsoTimeWithOffsetLength)
             return false;
 
         var match = TimeWithOffsetPattern.Match(timeString);
@@ -983,15 +1020,47 @@ internal static class TemporalHelpers
 
     private static bool ValidateAnnotations(string annotations)
     {
-        var matches = AnnotationPattern.Matches(annotations);
         var calendarCount = 0;
         var hasCalendarCritical = false;
         var timeZoneCount = 0;
 
-        foreach (Match m in matches)
+        // Walks the annotation list rather than scanning it with a regex. The pattern this replaces —
+        // \[(!?)([^\]]+)\] — is quadratic on an input holding no ']' at all: every one of the n start
+        // positions consumes the rest of the string and then backtracks over it looking for a ']' that is
+        // not there. Reaching it needed a string that InstantPattern would have rejected first, so it was
+        // unreachable by an argument about the caller rather than by construction, and it was the one
+        // pattern here whose 100 ms budget could be spent on real work instead of on being descheduled.
+        // This loop is linear on every input, which is what lets the budget go.
+        var index = 0;
+        while (index < annotations.Length)
         {
-            var critical = string.Equals(m.Groups[1].Value, "!", StringComparison.Ordinal);
-            var content = m.Groups[2].Value;
+            var open = annotations.IndexOf('[', index);
+            if (open < 0)
+            {
+                break;
+            }
+
+            var close = annotations.IndexOf(']', open + 1);
+            if (close < 0)
+            {
+                // No ']' remains anywhere, so no further annotation can match from any later position.
+                break;
+            }
+
+            if (close == open + 1)
+            {
+                // "[]" — the pattern required at least one content character, so this is not an
+                // annotation; resume from just after the '[', exactly as an unanchored scan would.
+                index = open + 1;
+                continue;
+            }
+
+            // "!" is the critical marker only when content remains after it. In "[!]" the pattern's
+            // optional "!?" gave the '!' back to the content rather than match an empty annotation.
+            var critical = annotations[open + 1] == '!' && close > open + 2;
+            var contentStart = critical ? open + 2 : open + 1;
+            var content = annotations.Substring(contentStart, close - contentStart);
+            index = close + 1;
 
             var eqIndex = content.IndexOf('=');
             if (eqIndex >= 0)
