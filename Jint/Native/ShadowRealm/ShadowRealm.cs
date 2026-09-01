@@ -58,6 +58,7 @@ public sealed class ShadowRealm : ObjectInstance
     [RequiresUnreferencedCode("User supplied delegate")]
     public ShadowRealm SetValue(string name, Delegate value)
     {
+        using var realmScope = EnterRealm();
         _shadowRealm.GlobalObject.FastSetProperty(name, new PropertyDescriptor(new DelegateWrapper(_engine, value), PropertyFlag.NonEnumerable));
         return this;
     }
@@ -84,17 +85,46 @@ public sealed class ShadowRealm : ObjectInstance
 
     public ShadowRealm SetValue(string name, JsValue value)
     {
+        using var realmScope = EnterRealm();
         _shadowRealm.GlobalObject.Set(name, value);
         return this;
     }
 
     public ShadowRealm SetValue(string name, object obj)
     {
+        using var realmScope = EnterRealm();
+
         var value = obj is Type t
             ? TypeReference.CreateTypeReference(_engine, t)
             : JsValue.FromObject(_engine, obj);
 
         return SetValue(name, value);
+    }
+
+    /// <summary>
+    /// Makes this shadow realm the engine's running realm for the duration of the scope, so a value built
+    /// inside it belongs to this realm rather than to whichever realm the host called from.
+    /// </summary>
+    /// <remarks>
+    /// It is the execution context <see cref="ShadowRealmImportValue"/> already enters, used for the same
+    /// reason: <c>Engine.Realm</c> is the running context's realm, and every interop construction reads it
+    /// to pick a prototype — <see cref="JsValue.FromObject"/> through the <c>ObjectInstance</c> base
+    /// constructor, <see cref="TypeReference.CreateTypeReference(Engine, Type)"/> through
+    /// <c>TypeReferencePrototype</c>, and <c>DelegateWrapper</c> directly. Without it a wrapper installed on
+    /// this realm's global object carried the principal realm's <c>Object.prototype</c>, and
+    /// <c>instanceof Object</c> inside the realm answered false for it (sebastienros/jint#3325).
+    /// The overloads taking a primitive reach it through the <see cref="JsValue"/> one, which takes the
+    /// scope as well: installation happening in the realm being written is one rule rather than two.
+    /// </remarks>
+    private RealmScope EnterRealm()
+    {
+        _engine.EnterExecutionContext(in _executionContext);
+        return new RealmScope(_engine);
+    }
+
+    private readonly struct RealmScope(Engine engine) : IDisposable
+    {
+        public void Dispose() => engine.LeaveExecutionContext();
     }
 
 
