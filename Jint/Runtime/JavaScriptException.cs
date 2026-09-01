@@ -26,7 +26,20 @@ public class JavaScriptException : JintException
     private readonly JavaScriptErrorWrapperException _jsErrorException;
 
     public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
-    public ref readonly SourceLocation Location => ref _jsErrorException.Location;
+
+    /// <summary>
+    /// Where in the JavaScript source the error was raised, or <c>default</c> when nothing located it.
+    /// </summary>
+    /// <remarks>
+    /// Returned by value, deliberately. A public property of an exception is read reflectively by everything
+    /// that renders a failure - test runners, structured loggers, error pages - and .NET Framework's
+    /// <see cref="System.Reflection.PropertyInfo.GetValue(object)"/> throws
+    /// <see cref="NotSupportedException"/> on a by-ref-returning property rather than dereferencing it, so the
+    /// reflection message replaces the failure the reader came for. See
+    /// <see href="https://github.com/sebastienros/jint/issues/3549">#3549</see>.
+    /// </remarks>
+    public SourceLocation Location => _jsErrorException.Location;
+
     public JsValue Error => _jsErrorException.Error;
 
     internal JavaScriptException(ErrorConstructor errorConstructor)
@@ -170,7 +183,12 @@ public class JavaScriptException : JintException
 
         public JsValue Error { get; }
 
-        public ref readonly SourceLocation Location => ref _location;
+        /// <summary>
+        /// Internal, and by design. This exception is the <see cref="Exception.InnerException"/> that a host's
+        /// exception renderer walks into, and a <em>public</em> by-ref-returning property here takes .NET
+        /// Framework reflection down exactly as one on the outer exception does.
+        /// </summary>
+        internal ref readonly SourceLocation Location => ref _location;
 
         internal void SetLocation(in SourceLocation location)
         {

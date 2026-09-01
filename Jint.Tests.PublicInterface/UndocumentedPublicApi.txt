@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 629
+undocumented: 628
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -505,7 +505,6 @@ P:Jint.Runtime.Intrinsics.Uint8Array
 P:Jint.Runtime.Intrinsics.Uint8ClampedArray
 P:Jint.Runtime.JavaScriptException.Error
 P:Jint.Runtime.JavaScriptException.JavaScriptStackTrace
-P:Jint.Runtime.JavaScriptException.Location
 P:Jint.Runtime.Modules.ModuleImportAttribute.Key
 P:Jint.Runtime.Modules.ModuleImportAttribute.Value
 P:Jint.Runtime.Modules.ModuleRecord.Location
