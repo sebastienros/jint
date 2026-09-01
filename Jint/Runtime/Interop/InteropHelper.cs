@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 
@@ -229,37 +230,43 @@ internal sealed class InteropHelper
 
             var isInteger = num.IsInteger() || TypeConverter.IsIntegralNumber(num._value);
 
-            // if value is integral number and within allowed range for the parameter type, we consider this perfect match
+            // if value is integral number and within allowed range for the parameter type, we consider this perfect match.
+            // Every one of these gates on the range, int and long included: a score says the parameter can hold the
+            // value, and saying so when the conversion cannot is worse than merely preferring the wrong candidate.
+            // A perfect score also ends the search, so the wider overload beside it is never scored at all and the
+            // OverflowException leaves through the host's Evaluate rather than through resolution.
             if (isInteger)
             {
-                if (paramType == typeof(int))
+                if (paramType == typeof(int) && FitsInt32(numValue))
                 {
                     return 0;
                 }
 
-                if (paramType == typeof(long))
+                if (paramType == typeof(long) && FitsInt64(numValue))
                 {
                     return ScoreForDifferentTypeButFittingNumberRange;
                 }
 
-                // check if we can narrow without exception throwing versions (CanChangeType)
-                var integerValue = (int) num._value;
-                if (paramType == typeof(short) && integerValue is <= short.MaxValue and >= short.MinValue)
+                // check if we can narrow without exception throwing versions (CanChangeType). The comparisons read
+                // the double itself rather than a (int) cast of it, which for an out-of-range value produces a
+                // framework-dependent number - .NET saturates the conversion, .NET Framework does not - and the
+                // comparisons would then be reading whatever that happened to be.
+                if (paramType == typeof(short) && numValue is <= short.MaxValue and >= short.MinValue)
                 {
                     return ScoreForDifferentTypeButFittingNumberRange;
                 }
 
-                if (paramType == typeof(ushort) && integerValue is <= ushort.MaxValue and >= ushort.MinValue)
+                if (paramType == typeof(ushort) && numValue is <= ushort.MaxValue and >= ushort.MinValue)
                 {
                     return ScoreForDifferentTypeButFittingNumberRange;
                 }
 
-                if (paramType == typeof(byte) && integerValue is <= byte.MaxValue and >= byte.MinValue)
+                if (paramType == typeof(byte) && numValue is <= byte.MaxValue and >= byte.MinValue)
                 {
                     return ScoreForDifferentTypeButFittingNumberRange;
                 }
 
-                if (paramType == typeof(sbyte) && integerValue is <= sbyte.MaxValue and >= sbyte.MinValue)
+                if (paramType == typeof(sbyte) && numValue is <= sbyte.MaxValue and >= sbyte.MinValue)
                 {
                     return ScoreForDifferentTypeButFittingNumberRange;
                 }
@@ -423,6 +430,20 @@ internal sealed class InteropHelper
     private const double LongMaxValueExclusiveUpperBound = 9223372036854775808d;
 
     /// <summary>
+    /// Whether an <see cref="int"/> can hold this value. Asked by overload scoring and by the conversion it
+    /// scores for, so the two cannot disagree about what fits.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool FitsInt32(double value) => value is >= int.MinValue and <= int.MaxValue;
+
+    /// <summary>
+    /// Whether a <see cref="long"/> can hold this value, asked by the same two callers as
+    /// <see cref="FitsInt32"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool FitsInt64(double value) => value is >= long.MinValue and < LongMaxValueExclusiveUpperBound;
+
+    /// <summary>
     /// Fast conversion for the dominant numeric argument shapes, avoiding the generic
     /// converter and Convert.ChangeType. Only converts when the result is bit-exact with
     /// the general conversion path; otherwise declines and the caller falls back.
@@ -439,7 +460,7 @@ internal sealed class InteropHelper
         {
             if (parameterType == typeof(int))
             {
-                if (value is >= int.MinValue and <= int.MaxValue)
+                if (FitsInt32(value))
                 {
                     converted = (int) value;
                     return true;
@@ -447,7 +468,7 @@ internal sealed class InteropHelper
             }
             else if (parameterType == typeof(long))
             {
-                if (value is >= long.MinValue and < LongMaxValueExclusiveUpperBound)
+                if (FitsInt64(value))
                 {
                     converted = (long) value;
                     return true;

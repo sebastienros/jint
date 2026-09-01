@@ -4484,7 +4484,6 @@ the option already disables six fast paths in `JintBinaryExpression`, and both o
 with `ToObject()` on every evaluation — and the reflection scan the table exists for still happens once per
 triple, now once per *process* rather than once per engine carrying a converter of its own. An engine that
 never turns the option on is not affected at all.
-
 ### 4.100 `AddExtensionMethods` from a `Configure` callback reaches the engine ([#3568](https://github.com/sebastienros/jint/issues/3568))
 
 A callback registered with `options.Configure(...)` runs from `Options.Apply`, which is also what attaches
@@ -4520,6 +4519,55 @@ whose callback clears the registry no longer has them. `engine.Diagnostics.Valid
 reports `JINTSEC057` accordingly in both directions — it still reads what the engine installed rather than
 what the options list says, the two simply no longer disagree. A host that did not want a registration to
 take effect should stop making it; it was never a no-op to rely on.
+
+### 4.101 A number outside a parameter's range no longer selects that parameter ([#3577](https://github.com/sebastienros/jint/issues/3577))
+
+Overload resolution scores a JavaScript number against a numeric parameter by magnitude, and every narrowing
+type it recognises gated on the value fitting — except the two widest. `int` scored an integral number a
+**perfect** match at any magnitude and `long` a good one at any magnitude, so `3000000000` was a perfect
+match for an `int` parameter and `1e300` a good match for a `long` one. A perfect score ends the search, so
+the wider overload sitting beside it was never scored, and the conversion that followed then overflowed.
+
+```csharp
+public sealed class Host
+{
+    public string Take(int value) => "int:" + value;
+    public string Take(object value) => "object:" + value;
+
+    public static string operator +(Host left, int right) => "int:" + right;
+    public static string operator +(Host left, object right) => "object:" + right;
+}
+```
+
+```js
+// 5.0                                                    5.x
+h.Take(5);           // "int:5"                           "int:5"
+h.Take(3000000000);  // TypeError: No public methods…     "object:3000000000"
+m + 5;               // "int:5"                           "int:5"
+m + 3000000000;      // System.OverflowException          "object:3000000000"
+```
+
+Both symptoms are the same missing range check. On the method lane the perfect score meant the `object`
+candidate was never added to the list, so `MethodInfoFunction`'s retry had nothing to fall back to and the
+call became a resolution failure. On the operator and constructor lanes there is no retry at all — the first
+match is called — so the failed conversion left through `Evaluate` as a CLR `OverflowException` that no
+script `catch` could see.
+
+`long`'s upper bound is exclusive: `(double) long.MaxValue` rounds up to 2<sup>63</sup>, which a `long`
+cannot hold, and the score now uses the same bound as the conversion it scores for.
+
+**What could break:** a host API overloaded on `int` or `long` **and something wider**, called with a number
+outside the narrow type's range, now selects the wider member where it previously selected the narrow one and
+threw. A value inside the range selects exactly what it selected before, and a non-integral number was never
+on this lane at all.
+
+Where the narrow member is the **only** candidate, the lane decides. A single-candidate *method* never
+reached scoring at all — `MethodInfoFunction` binds it directly — so a lone `Take(int)` answers exactly as it
+did. A single *constructor* and a single *operator* do run the scorer, and now find nothing: `new Boxed(3e9)`
+reports the ordinary catchable resolution failure instead of a CLR `OverflowException`, and `m + 3e9` falls
+back to ordinary JavaScript semantics — which is what a lone `byte` operator has always done with an
+out-of-range value. There is no switch that restores the old selection; a host that wants a large number to
+reach a member declares that member's parameter as `long`, `double` or `object`.
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
