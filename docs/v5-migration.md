@@ -4232,6 +4232,45 @@ U+0085 with `\n` — which is what the Unicode newline function actually calls f
 restore it: the two halves of the engine disagreed, and the parser's half is the one the specification
 writes down.
 
+### 4.95 A trailing U+0000 pads neither a number string nor an array index ([#3541](https://github.com/sebastienros/jint/issues/3541))
+
+`Number(...)` read whole numbers through `long.TryParse`, and array indices were read through
+`uint.TryParse`. The framework's integer parsers end a number at a U+0000 and accept however many follow it,
+the way a C string terminates — a tolerance no `NumberStyles` flag turns off, and one that reaches every
+lane handing raw script text to them. U+0000 is category `Cc` and in neither
+[WhiteSpace](https://tc39.es/ecma262/#sec-white-space) nor
+[LineTerminator](https://tc39.es/ecma262/#sec-line-terminators), so it pads a `StringNumericLiteral` under no
+reading of the grammar, and an array index is the canonical decimal spelling of its value and carries no
+padding at all. The index lane tolerated the framework's own white space and leading sign on top of that.
+
+```js
+var nul = String.fromCharCode(0);
+
+// 5.0                                    5.x
+Number('12' + nul);                    // 12                     NaN
+Number('-12' + nul);                   // -12                    NaN
+Number('1e3' + nul);                   // 1000                   NaN
+Number('1.5' + nul);                   // NaN - the fractional lane was always right
+
+[1, 2, 3]['1' + nul];                  // 2                      undefined
+[1, 2, 3]['1 '];                       // 2                      undefined
+(function () { var a = []; a['3' + nul] = 'z'; return a.length; })();
+                                       // 4                      0
+```
+
+Only the whole-number spellings moved: `Number('1.5' + nul)` and `Number(nul + '12')` were already `NaN`,
+because the fractional lane scans the characters itself and a leading NUL never survived the trim.
+`parseInt` and `parseFloat` read the longest prefix and discard the rest, so their answers are unchanged.
+A wrapped host list reads its positions through the same index parse, so `list['1' + nul]` and `list['1 ']`
+now resolve the way `list['+1']` already did, rather than addressing element 1.
+
+**What could break:** a script or host feeding the engine strings that carry a NUL terminator — text read
+straight out of a fixed-width record, a P/Invoke buffer, or a database column padded to its declared width.
+Such a string is now `NaN` rather than the number it looked like, and such a key names an ordinary property
+rather than an element. There is no option to restore the old behaviour: it was the C string rule, not the
+ECMAScript one. A host that wants it can trim on the CLR side — `value.TrimEnd('\0')` — before the value
+reaches the engine.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
