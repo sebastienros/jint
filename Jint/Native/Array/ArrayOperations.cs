@@ -68,7 +68,11 @@ internal abstract class ArrayOperations : IEnumerable<JsValue>
             return new ArrayLikeObjectOperations(arrayLikeObject);
         }
 
-        if (instance is ArrayLikeWrapper arrayWrapper)
+        // HasIndexedElements rather than the type alone: a view whose indexer the host's member filter
+        // rejects has no elements to offer this lane, and falls through to ObjectOperations for the same
+        // reason a Queue<T> does — the generics honour the wrapper's length, read undefined at each index
+        // and take the wrapper's own [[Set]] refusal for each write (#3558).
+        if (instance is ArrayLikeWrapper { HasIndexedElements: true } arrayWrapper)
         {
             return new ArrayLikeOperations(arrayWrapper);
         }

@@ -439,7 +439,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <see cref="HashSet{T}"/> are every one of them array-like with no element at index 0. An indexed lane
     /// must gate on this rather than on array-likeness (#3302).
     /// </remarks>
-    internal virtual bool HasIndexedElements => _typeDescriptor.IsIntegerIndexed || Target is IList;
+    internal virtual bool HasIndexedElements => (_typeDescriptor.IsIntegerIndexed || Target is IList) && IndexedElementsExposed;
+
+    /// <summary>
+    /// Whether the host's <see cref="TypeResolver.MemberFilter"/> admits the indexer an indexed lane would
+    /// reach <see cref="Target"/>'s elements through. A filter that hides a member hides it from every lane,
+    /// and an element lane that answers from a view rather than from a resolved accessor is the one place
+    /// that has to ask on its own behalf (#3558).
+    /// </summary>
+    private protected bool IndexedElementsExposed
+        => _engine.Options.Interop.TypeResolver.ExposesIndexedElements(_engine, ClrType, _typeDescriptor.IntegerIndexerProperty);
 
     // A wrapper's Symbol.iterator is never the array iterator — it enumerates the CLR target — so the
     // index-reading fast path this enables (array destructuring) is indistinguishable from running that
@@ -602,7 +611,7 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
     /// <see cref="string"/>, an enum, a host key type — names something that is not one, and is none of the
     /// bound check's business.
     /// </summary>
-    private static bool IsIntegerIndexParameter(Type parameterType)
+    internal static bool IsIntegerIndexParameter(Type parameterType)
         => parameterType == typeof(int)
            || parameterType == typeof(long)
            || parameterType == typeof(short)
@@ -1085,8 +1094,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // Object.keys / for-in / spread over a wrapped array or list must yield "0".."n-1"
             // (members like Length or Count stay accessible, they just don't enumerate). Dictionary-shaped
             // targets (e.g. Newtonsoft's JObject, which is both IDictionary<string,_> and IList<_>)
-            // are handled by the dictionary branches above.
-            var length = arrayLike.Length;
+            // are handled by the dictionary branches above. A view whose indexer the host's member filter
+            // rejects has no element properties to report, which is the answer Object.keys already gave -
+            // every key it yielded was dropped again by the enumerability probe (#3558).
+            var length = arrayLike.HasIndexedElements ? arrayLike.Length : 0;
             for (var i = 0; i < length; i++)
             {
                 yield return JsString.Create(i);

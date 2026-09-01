@@ -84,6 +84,14 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// </summary>
     private readonly bool _elementAccessMayRunHostCode;
 
+    /// <summary>
+    /// Whether this view has element properties at all: the host's <see cref="TypeResolver.MemberFilter"/>
+    /// must admit the indexer the lanes below stand for. Read once per wrapper rather than per element, so a
+    /// filtered engine pays one memoized decision per exposed type and an unfiltered one pays a field read
+    /// (#3558).
+    /// </summary>
+    private readonly bool _elementsExposed;
+
     protected ArrayLikeWrapper(
         Engine engine,
         object obj,
@@ -93,6 +101,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         ItemType = itemType;
         _elementAccessMayRunHostCode = elementAccessMayRunHostCode;
+        _elementsExposed = IndexedElementsExposed;
         if (engine.Options.Interop.AttachArrayPrototype)
         {
             Prototype = engine.Intrinsics.Array.PrototypeObject;
@@ -118,9 +127,11 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public abstract int Length { get; }
 
-    // every subclass is a view over something with an indexer, including the IReadOnlyList<T> one the
-    // type descriptor does not recognize as integer-indexed
-    internal sealed override bool HasIndexedElements => true;
+    // Every subclass is a view over something with an indexer, including the IReadOnlyList<T> one the type
+    // descriptor does not recognize as integer-indexed — so the only thing left to ask is whether the host's
+    // member filter lets script reach it. Answering false here is what routes every Array.prototype generic
+    // to ObjectOperations, exactly as a countable-but-not-indexable Queue<T> is routed (#3558).
+    internal sealed override bool HasIndexedElements => _elementsExposed;
 
     /// <summary>
     /// Whether <paramref name="property"/> spells a position this view does not have — index-shaped, and
@@ -141,6 +152,12 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// <c>IList&lt;_&gt;</c>) answers a string key from its own keys, exactly as <see cref="HasProperty"/>
     /// defers for it.
     /// </para>
+    /// <para>
+    /// When the host's member filter rejects the indexer, <em>every</em> index-shaped key names an absent
+    /// position: the view has no elements to have positions of. That is also the answer the reflected lane
+    /// underneath already gave — it resolves no accessor for the hidden member, so <c>hasOwnProperty</c> and
+    /// <c>Object.keys</c> said so while <c>in</c> and the element lanes did not (#3558).
+    /// </para>
     /// </remarks>
     private bool NamesAbsentPosition(JsValue property)
     {
@@ -150,6 +167,11 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
 
         var key = ClassifyElementKey(property, out var index);
+        if (!_elementsExposed)
+        {
+            return key != ElementKey.None;
+        }
+
         return key == ElementKey.OutOfBand
                || (key == ElementKey.Position && (uint) index >= (uint) Length);
     }
@@ -183,7 +205,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
         var key = ClassifyElementKey(property, out var index);
-        if (key == ElementKey.Position && (uint) index < (uint) Length)
+        if (key == ElementKey.Position && _elementsExposed && (uint) index < (uint) Length)
         {
             var result = GetJsValueAt(index);
             if (_elementAccessMayRunHostCode)
@@ -195,7 +217,9 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (key != ElementKey.None)
         {
-            // out-of-range, negative and non-canonical indices read like JS array holes
+            // out-of-range, negative and non-canonical indices read like JS array holes — and so does every
+            // index of a view whose indexer the host's member filter hides, which is the answer the
+            // reflected lane gives for a filtered-out member (#3558)
             return Undefined;
         }
 
@@ -217,7 +241,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         var key = ClassifyElementKey(property, out var index);
         if (key == ElementKey.Position)
         {
-            return (uint) index < (uint) Length;
+            return _elementsExposed && (uint) index < (uint) Length;
         }
 
         if (key == ElementKey.OutOfBand)
@@ -230,6 +254,15 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool Delete(JsValue property)
     {
+        if (!_elementsExposed && NamesAbsentPosition(property))
+        {
+            // The host's member filter hides this view's indexer, so there is no element property here to
+            // delete and OrdinaryDelete returns true for a property that is not there. Asked before the
+            // writability lanes below so the two refusals compose rather than mask each other: containment
+            // decides whether there is a property at all, writability only what may be done to one (#3558).
+            return true;
+        }
+
         if (!CanWrite || !Extensible)
         {
             if (property is JsString dictionaryKey
@@ -387,7 +420,12 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
         {
-            if (!CanWrite || !Extensible)
+            // A length write adds and removes elements — it is the element lane spelled by count rather than
+            // by position — so a view whose indexer the host's member filter hides has nothing to grow or
+            // truncate, and `list.length = 0` must not clear a collection whose elements script cannot see.
+            // The "length" forwarder itself keeps answering: it is produced from Count, a member the filter
+            // decides about separately (#3558).
+            if (!_elementsExposed || !CanWrite || !Extensible)
             {
                 return false;
             }
@@ -437,7 +475,12 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
                 // materializing a throwaway descriptor and returning true (#2541). Wrappers don't track
                 // per-element writability, so a non-extensible wrapper blocks existing-element writes too
                 // — a deliberate, contained interop divergence from the spec.
-                if (!CanWrite || !Extensible)
+                //
+                // Containment is asked first and gets the same ordinary refusal: a view whose indexer the
+                // host's member filter rejects has no element property here, so the fixed-size TypeError
+                // below must not fire for it — that message answers "you may not write *there*", which is
+                // a question about a lane script was never granted (#3558).
+                if (!_elementsExposed || !CanWrite || !Extensible)
                 {
                     return false;
                 }
@@ -531,9 +574,15 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
     }
 
+    /// <summary>
+    /// Writes one element, if this view may be written at all. The <see cref="_elementsExposed"/> half is the
+    /// backstop <see cref="ThrowReadOnly"/> is for its own fact: every lane already refuses before reaching
+    /// here, and a lane added later that does not must still not write through an indexer the host's member
+    /// filter hid.
+    /// </summary>
     public void SetAt(int index, JsValue value)
     {
-        if (CanWrite)
+        if (_elementsExposed && CanWrite)
         {
             EnsureCapacity(index + 1);
             DoSetAt(index, ConvertToItemType(value));

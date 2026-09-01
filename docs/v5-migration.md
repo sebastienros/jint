@@ -4304,6 +4304,77 @@ Nothing about which strings are rejected has otherwise moved.
 restore the old behaviour: the sign is part of the production `BigInt` says it parses, and every other
 engine reads it.
 
+### 4.97 A member filter that hides an indexer hides a wrapped collection's elements ([#3558](https://github.com/sebastienros/jint/issues/3558))
+
+`Options.Interop.TypeResolver.MemberFilter` is how a host says which CLR members script may reach, and a
+member it rejects reads as `undefined` and cannot be written. That held for the indexer of an ordinary
+wrapped object, which resolves a member per access. It did not hold for a wrapped **collection**: an
+array-like view answers every index-shaped key itself — the point of §4.33, without which an out-of-range
+`list[3] = 9` was the collection's own `ArgumentOutOfRangeException` out of `Evaluate` — and that view was
+never told what the filter had decided. So the same filter, asked the same question, gave two answers
+depending on whether Jint happened to build a view.
+
+```csharp
+var resolver = new TypeResolver
+{
+    // no indexer of any type is exposed
+    MemberFilter = static m => m is not PropertyInfo p || p.GetIndexParameters().Length == 0,
+};
+
+var engine = new Engine(o =>
+{
+    o.Interop.TypeResolver = resolver;
+    o.Interop.AllowWrite = true;
+});
+
+engine.SetValue("list", new List<long> { 1, 2, 3 });
+```
+
+```js
+// 5.0                                     5.x
+list[0];                               // 1                      undefined
+list['0'];                             // 1                      undefined
+0 in list;                             // true                   false
+list.hasOwnProperty(0);                // false - already right, and now agrees with `in`
+Object.keys(list);                     // [] - already right
+
+list[0] = 42;                          // writes                 refused
+list['0'] = 42;                        // writes                 refused
+list[3] = 42;                          // grows the list         refused
+list.length = 0;                       // clears the list        refused
+delete list[0];                        // zeroes the slot        true, and the slot is untouched
+Array.prototype.push.call(list, 9);    // appends                TypeError
+Array.prototype.sort.call(list);       // reorders               reads undefined per index
+```
+
+Every refusal is the ordinary `[[Set]]`/`[[Delete]]` answer — silent outside strict mode, a `TypeError`
+inside it — never a CLR exception, and it is given **before** the read-only and fixed-size refusals of
+§4.33 rather than after: containment decides whether there is an element property at all, writability only
+what may be done to one. A fixed-size `T[]` therefore reports "no such property" rather than the
+`TypeError` naming its bounds, which would have answered a question the host never granted.
+
+The member consulted is the one the reflected lane would have selected: the first integer-keyed indexer the
+exposed type declares (`List<T>.Item`, `IList<T>.Item`, `IReadOnlyList<T>.Item`), falling back to `IList.Item`
+for a `T[]`, which declares none of its own. The decision is memoized per resolver and per type, so an
+element access costs a field read and an engine with the default filter — which admits everything — pays
+nothing at all.
+
+Three things the filter still does not speak for, deliberately. `length` is produced from `Count`, a member
+the filter decides about separately, so it goes on answering. Iteration is `GetEnumerator`'s business, so
+`for (const x of list)` and `[...list]` still yield the elements — the same shape a `Queue<T>` has always
+had, where enumeration works and no index does. And `Options.Interop.ArrayConversion` in its default `Copy`
+mode turns a `T[]` into a JavaScript array before any member is accessed; that is a conversion of the value,
+not an access to a member, and a host that wants the filter to govern arrays must use
+`ArrayConversionMode.LiveView`.
+
+**What could break:** a host whose filter is an allow-list — `m => allowed.Contains(m.Name)` — has been
+rejecting `Item` all along without it costing script the elements of any wrapped `List<T>`, `T[]` or
+`IReadOnlyList<T>`. Those reads are now `undefined` and those writes are refused. If the elements were
+meant to be reachable, admit the indexer: `m => allowed.Contains(m.Name) || (m is PropertyInfo p && p.GetIndexParameters().Length == 1)`,
+or name it in the allow-list. There is no option to restore the old behaviour: a containment control that
+hides a member from reads and from enumeration while letting a write through is the failure mode such a
+control most needs not to have.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
