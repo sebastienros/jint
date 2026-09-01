@@ -1,8 +1,9 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Iterator;
@@ -208,26 +209,26 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
             else
             {
-                // check for generic interfaces
-                foreach (var i in t.GetInterfaces())
+                // The exposed type itself, ahead of its interfaces. An interface is not among its own
+                // GetInterfaces() - typeof(IList<int>) yields ICollection<int>, IEnumerable<int> and
+                // IEnumerable, and never IList<int> - so exposing a collection *as* one of the two
+                // contracts this scan is written to recognize found nothing at all, and the caller fell
+                // back to a wrapper the exposure had not named: a plain ObjectWrapper for a target that is
+                // not an IList, and a target-writable ListWrapper for one that is. Both are exposures a
+                // WrapObjectDelegate writes and the member lane produces for a declared IList<T> /
+                // IReadOnlyList<T> property (#3421).
+                factoryType = TypedFactoryTypeFor(t);
+
+                if (factoryType is null)
                 {
-                    if (!i.IsGenericType)
+                    // check for generic interfaces
+                    foreach (var i in t.GetInterfaces())
                     {
-                        continue;
-                    }
-
-                    var arrayItemType = i.GenericTypeArguments[0];
-
-                    if (i.GetGenericTypeDefinition() == typeof(IList<>))
-                    {
-                        factoryType = typeof(GenericListWrapperFactory<>).MakeGenericType(arrayItemType);
-                        break;
-                    }
-
-                    if (i.GetGenericTypeDefinition() == typeof(IReadOnlyList<>))
-                    {
-                        factoryType = typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(arrayItemType);
-                        break;
+                        factoryType = TypedFactoryTypeFor(i);
+                        if (factoryType is not null)
+                        {
+                            break;
+                        }
                     }
                 }
             }
@@ -252,7 +253,13 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             }
         });
 
-        if (factory is not null)
+        // IsInstanceOfType is what keeps the factory's cast honest. Every factory casts the target to the
+        // contract the exposed type named - (T[]), (IList<T>), (IReadOnlyList<T>) - and until the exposed
+        // type itself was considered (#3421) a factory could only be found by scanning the target's own
+        // interface set, so the cast could not fail. A host is free to hand Create a type its target does
+        // not implement, and that exposure keeps the answer it has always had rather than becoming an
+        // InvalidCastException out of a wrapper creation.
+        if (factory is not null && type.IsInstanceOfType(target))
         {
             result = factory.Create(engine, target, type);
         }
@@ -279,6 +286,39 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         }
 
         return result is not null;
+    }
+
+    /// <summary>
+    /// The closed factory type for one contract, or <see langword="null"/> when it names neither of the two
+    /// the typed wrappers are written for. Shared by the exposed type and its interfaces, which is what
+    /// makes the two answer identically.
+    /// </summary>
+    private static Type? TypedFactoryTypeFor(Type contract)
+    {
+#pragma warning disable IL2055
+#pragma warning disable IL3050
+
+        if (!contract.IsGenericType)
+        {
+            return null;
+        }
+
+        var definition = contract.GetGenericTypeDefinition();
+
+        if (definition == typeof(IList<>))
+        {
+            return typeof(GenericListWrapperFactory<>).MakeGenericType(contract.GenericTypeArguments[0]);
+        }
+
+        if (definition == typeof(IReadOnlyList<>))
+        {
+            return typeof(ReadOnlyListWrapperFactory<>).MakeGenericType(contract.GenericTypeArguments[0]);
+        }
+
+        return null;
+
+#pragma warning restore IL3050
+#pragma warning restore IL2055
     }
 
     private static readonly ConcurrentDictionary<Type, EnumerableSnapshotFactory> _enumerableSnapshotResolution = new();
@@ -322,9 +362,225 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
 
     internal override bool IsArrayLike => _typeDescriptor.IsArrayLike;
 
-    internal override bool HasOriginalIterator => IsArrayLike;
+    /// <summary>
+    /// Whether reading indices <c>0..length-1</c> off this wrapper produces the target's elements.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TypeDescriptor.IsArrayLike"/> answers the weaker question of whether the target has a
+    /// <c>Count</c>, and <see cref="ICollection"/>, <see cref="ICollection{T}"/> and
+    /// <see cref="IReadOnlyCollection{T}"/> are all count-and-enumerate contracts with no index in them:
+    /// <see cref="Queue{T}"/>, <see cref="Stack{T}"/>, <see cref="LinkedList{T}"/> and
+    /// <see cref="HashSet{T}"/> are every one of them array-like with no element at index 0. An indexed lane
+    /// must gate on this rather than on array-likeness (#3302).
+    /// </remarks>
+    internal virtual bool HasIndexedElements => (_typeDescriptor.IsIntegerIndexed || Target is IList) && IndexedElementsExposed;
+
+    /// <summary>
+    /// Whether the host's <see cref="TypeResolver.MemberFilter"/> admits the indexer an indexed lane would
+    /// reach <see cref="Target"/>'s elements through. A filter that hides a member hides it from every lane,
+    /// and an element lane that answers from a view rather than from a resolved accessor is the one place
+    /// that has to ask on its own behalf (#3558).
+    /// </summary>
+    private protected bool IndexedElementsExposed
+        => _engine.Options.Interop.TypeResolver.ExposesIndexedElements(_engine, ClrType, _typeDescriptor.IntegerIndexerProperty);
+
+    // A wrapper's Symbol.iterator is never the array iterator — it enumerates the CLR target — so the
+    // index-reading fast path this enables (array destructuring) is indistinguishable from running that
+    // iterator only where index reads reproduce what enumeration yields. For a countable but non-indexable
+    // collection they do not: [...queue] yields the elements while every index reads undefined.
+    internal override bool HasOriginalIterator => IsArrayLike && HasIndexedElements;
 
     internal override bool IsIntegerIndexedArray => _typeDescriptor.IsIntegerIndexed;
+
+    /// <summary>
+    /// What a property key names on a wrapped indexed collection. Every element lane is keyed on the
+    /// <em>index</em> rather than on how script spelled it: <c>x[3]</c> and <c>x["3"]</c> are one property
+    /// key, because <see href="https://tc39.es/ecma262/#sec-topropertykey">ToPropertyKey</see> turns both
+    /// into the String <c>"3"</c>. Answering the two spellings from different lanes is answering one
+    /// question twice, and the lane that used to serve the string spelling was the reflected indexer, which
+    /// reaches the collection with whatever index it parses out of the key (#3384).
+    /// </summary>
+    /// <remarks>
+    /// It lives on the base class rather than on <see cref="ArrayLikeWrapper"/> because a plain wrapper over
+    /// a bounded collection asks the same question of the same keys — it simply has no array-like view to
+    /// answer it (#3422). A second definition of "index-shaped key" is the thing that would drift.
+    /// </remarks>
+    private protected enum ElementKey
+    {
+        /// <summary>Not a position: a member name, a symbol, a fractional number, or any string key of a dictionary-shaped target.</summary>
+        None,
+
+        /// <summary>A position the target could address. May be at or past the collection's current count.</summary>
+        Position,
+
+        /// <summary>Index-shaped but never a position: negative, non-canonical (<c>"08"</c>, <c>"+3"</c>), or past what the target can address.</summary>
+        OutOfBand,
+    }
+
+    /// <summary>
+    /// The highest position an element lane will address, one below <see cref="int.MaxValue"/> so that
+    /// growing to <c>index + 1</c> cannot overflow.
+    /// </summary>
+    private protected const int MaxPosition = int.MaxValue - 1;
+
+    private protected ElementKey ClassifyElementKey(JsValue property, out int index)
+    {
+        index = 0;
+
+        if (property is JsNumber number)
+        {
+            var value = number._value;
+            if (!TypeConverter.IsIntegralNumber(value))
+            {
+                return ElementKey.None;
+            }
+
+            if (value < 0 || value > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) value;
+            return ElementKey.Position;
+        }
+
+        // a symbol names no position, and a dictionary-shaped target (e.g. Newtonsoft's JObject: both
+        // IDictionary<string,_> and IList<_>) answers a string key from its own keys rather than by index
+        if (property is not JsString jsString || _typeDescriptor.IsDictionary)
+        {
+            return ElementKey.None;
+        }
+
+        var member = jsString.ToString();
+        var parsed = ArrayInstance.ParseArrayIndex(member);
+        if (parsed != uint.MaxValue)
+        {
+            if (parsed > MaxPosition)
+            {
+                return ElementKey.OutOfBand;
+            }
+
+            index = (int) parsed;
+            return ElementKey.Position;
+        }
+
+        // One character rules out every ordinary member name that reaches a wrapper — "length", "Count",
+        // "push" — which would otherwise pay a whole long.TryParse only to be rejected by it.
+        if (member.Length == 0 || !IsIntegerShapedStart(member[0]))
+        {
+            return ElementKey.None;
+        }
+
+        // an integer-shaped but non-canonical key ("-1", "08") is not a position either, and must not fall
+        // through to the reflected indexer, which parses one out of it and reaches the collection with an
+        // index the collection rejects
+        return long.TryParse(member, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+            ? ElementKey.OutOfBand
+            : ElementKey.None;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="c"/> can begin something <see cref="NumberStyles.Integer"/> parses: a digit,
+    /// a sign, or the leading white space it tolerates.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsIntegerShapedStart(char c)
+        => (uint) (c - '0') <= 9 || c == '-' || c == '+' || char.IsWhiteSpace(c);
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position <see cref="Target"/> cannot address, resolving
+    /// the member lane itself. For callers that have already resolved it, see the overload below.
+    /// </summary>
+    private bool IsUnaddressablePosition(JsValue property)
+    {
+        if (!_typeDescriptor.IsArrayLike)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        return key != ElementKey.None
+               && IsUnaddressablePosition(key, index, ResolveMemberAccessor(property.ToString(), MemberResolutionRequirement.None));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position <see cref="Target"/> cannot address, on a
+    /// wrapper whose element lane is <paramref name="accessor"/>.
+    /// </summary>
+    /// <remarks>
+    /// Two facts have to hold at once and neither is enough alone. The target must be <em>bounded</em>:
+    /// <see cref="TypeDescriptor.IsArrayLike"/> means it has a <c>Count</c> and is not a dictionary, and a
+    /// dictionary is exactly where a key outside what it holds is a legitimate add — <c>d[99] = "x"</c> on a
+    /// <c>Dictionary&lt;int, string&gt;</c> must keep working. And the member being resolved must be an
+    /// indexer keyed by an integer, so that a string-keyed indexer on an array-like target — a
+    /// <c>NameValueCollection</c> asked for <c>x["3"]</c> — goes on answering for its own key.
+    /// </remarks>
+    private bool IsUnaddressablePosition(JsValue property, ReflectionAccessor accessor)
+    {
+        if (!_typeDescriptor.IsArrayLike)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        return key != ElementKey.None && IsUnaddressablePosition(key, index, accessor);
+    }
+
+    private bool IsUnaddressablePosition(ElementKey key, int index, ReflectionAccessor accessor)
+    {
+        if (accessor is not IndexerAccessor indexer
+            || !IsIntegerIndexParameter(indexer.FirstIndexParameter.ParameterType))
+        {
+            return false;
+        }
+
+        // a negative, non-canonical or unaddressable index is a position no collection can hold, so it
+        // needs no count read to be refused
+        return key == ElementKey.OutOfBand
+               || (TryGetTargetCount(out var count) && (uint) index >= (uint) count);
+    }
+
+    /// <summary>
+    /// Whether an indexer parameter of this type addresses a position. Anything else — a
+    /// <see cref="string"/>, an enum, a host key type — names something that is not one, and is none of the
+    /// bound check's business.
+    /// </summary>
+    internal static bool IsIntegerIndexParameter(Type parameterType)
+        => parameterType == typeof(int)
+           || parameterType == typeof(long)
+           || parameterType == typeof(short)
+           || parameterType == typeof(sbyte)
+           || parameterType == typeof(uint)
+           || parameterType == typeof(ulong)
+           || parameterType == typeof(ushort)
+           || parameterType == typeof(byte);
+
+    /// <summary>
+    /// The number of positions <see cref="Target"/> currently has. Only ever asked of an array-like target,
+    /// which is what says there is a count to read at all; <see langword="false"/> means it could not be
+    /// read, and the caller then refuses nothing.
+    /// </summary>
+    private bool TryGetTargetCount(out int count)
+    {
+        if (Target is ICollection collection)
+        {
+            count = collection.Count;
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            return true;
+        }
+
+        // ICollection<T> and IReadOnlyCollection<T> carry a Count with no non-generic ICollection behind it.
+        // LengthProperty is the same member the wrapper's own "length" forwarder reads.
+        if (_typeDescriptor.LengthProperty?.GetValue(Target) is int length)
+        {
+            _engine.CheckAmortizedConstraintsAtHostBoundary();
+            count = length;
+            return true;
+        }
+
+        count = 0;
+        return false;
+    }
 
     public override bool Set(JsValue property, JsValue value, JsValue receiver)
     {
@@ -349,6 +605,16 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             {
                 // can try utilize fast path
                 var accessor = ResolveMemberAccessor(member, MemberResolutionRequirement.Writable);
+
+                if (IsUnaddressablePosition(property, accessor))
+                {
+                    // The indexer below takes the index straight to the collection, which is where the
+                    // CLR's own ArgumentOutOfRangeException came from - invisible to a script try/catch and
+                    // to a host catch (JavaScriptException) alike. There is no position to write to, so the
+                    // answer owed is the ordinary [[Set]] refusal: silent outside strict mode, a TypeError
+                    // inside it (#3422).
+                    return false;
+                }
 
                 if (ReferenceEquals(accessor, ConstantValueAccessor.NullAccessor))
                 {
@@ -424,6 +690,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             var written = _typeDescriptor.TrySetDictionaryValue(Target, clrKey!, clrValue);
             _engine.CheckAmortizedConstraintsAtHostBoundary();
             return written;
+        }
+
+        // A number key and its string spelling are one property key, and the lane below resolves the same
+        // reflected indexer by member name - so the bound the string lane above just applied has to be
+        // applied here too, before SetSlow reaches it (#3422).
+        if (!property.IsSymbol() && IsUnaddressablePosition(property))
+        {
+            return false;
         }
 
         return SetSlow(property, value);
@@ -687,7 +961,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
         if (protoResult.IsUndefined()
             && property is JsString
             && !_typeDescriptor.IsDictionary
-            && _engine.Options.Interop.ThrowOnUnresolvedMember)
+            && _engine.Options.Interop.ThrowOnUnresolvedMember
+            // an index outside a bounded collection is a hole, not a member the host forgot to declare:
+            // GetOwnProperty refused it rather than failing to resolve it (#3422)
+            && !IsUnaddressablePosition(property))
         {
             throw new MissingMemberException($"Cannot access property '{property}' on type '{ClrType.FullName}");
         }
@@ -759,8 +1036,10 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
             // Object.keys / for-in / spread over a wrapped array or list must yield "0".."n-1"
             // (members like Length or Count stay accessible, they just don't enumerate). Dictionary-shaped
             // targets (e.g. Newtonsoft's JObject, which is both IDictionary<string,_> and IList<_>)
-            // are handled by the dictionary branches above.
-            var length = arrayLike.Length;
+            // are handled by the dictionary branches above. A view whose indexer the host's member filter
+            // rejects has no element properties to report, which is the answer Object.keys already gave -
+            // every key it yielded was dropped again by the enumerability probe (#3558).
+            var length = arrayLike.HasIndexedElements ? arrayLike.Length : 0;
             for (var i = 0; i < length; i++)
             {
                 yield return JsString.Create(i);
@@ -999,6 +1278,14 @@ public class ObjectWrapper : ObjectInstance, IObjectWrapper, IEquatable<ObjectWr
                     accessor = runtimeAccessor;
                 }
             }
+        }
+
+        if (IsUnaddressablePosition(property, accessor))
+        {
+            // Reading the indexer at this position is the collection's own ArgumentOutOfRangeException, and
+            // reporting a descriptor for it is what made `3 in x` and hasOwnProperty answer true for a
+            // position that cannot be read at all. There is no element here, so there is no property (#3422).
+            return PropertyDescriptor.Undefined;
         }
 
         // A member resolving purely to registered extension methods must not shadow a same-named

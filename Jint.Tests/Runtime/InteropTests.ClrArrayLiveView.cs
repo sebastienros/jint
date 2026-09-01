@@ -395,4 +395,42 @@ public partial class InteropTests
         list.Should().HaveCount(4);
         list[3].Should().Be(4);
     }
+
+    [Theory]
+    [InlineData("list.push(4)")]
+    [InlineData("list.pop()")]
+    [InlineData("list.splice(0, 1)")]
+    [InlineData("list.length = 1")]
+    [InlineData("list.length = 10")]
+    [InlineData("list[3] = 4")]
+    public void FixedSizeUntypedListRefusesResizeWithTypeError(string operation)
+    {
+        // ArrayList.FixedSize implements IList and no generic collection interface, so it resolves to the
+        // untyped ListWrapper - which is also what a T[] falls back to when its typed ArrayWrapper<T>
+        // cannot be instantiated (Native AOT over a value type, #3299). Until ListWrapper honoured
+        // IList.IsFixedSize, every length-changing operation reached IList.Add/RemoveAt and leaked the
+        // collection's own NotSupportedException past script instead of the TypeError the typed wrapper
+        // raises for the same operation.
+        var engine = CreateLiveViewEngine();
+        engine.SetValue("list", System.Collections.ArrayList.FixedSize(new System.Collections.ArrayList { 1, 2, 3 }));
+
+        var result = engine.Evaluate(
+            $"(function() {{ try {{ {operation}; return 'no-throw'; }} catch (e) {{ return e instanceof TypeError ? 'TypeError' : 'unexpected: ' + e; }} }})()");
+
+        result.AsString().Should().Be("TypeError");
+        engine.Evaluate("list.length").AsNumber().Should().Be(3);
+    }
+
+    [Fact]
+    public void GrowableUntypedListStillResizes()
+    {
+        var list = new System.Collections.ArrayList { 1, 2, 3 };
+        var engine = CreateLiveViewEngine();
+        engine.SetValue("list", list);
+
+        engine.Execute("list.push(4);");
+
+        list.Count.Should().Be(4);
+        list[3].Should().Be(4);
+    }
 }

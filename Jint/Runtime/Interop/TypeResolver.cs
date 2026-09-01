@@ -31,6 +31,12 @@ public sealed class TypeResolver
     private readonly ConcurrentDictionary<AccessorCacheKey, ReflectionAccessor> _reflectionAccessors = new();
 
     /// <summary>
+    /// Memo behind <see cref="ExposesIndexedElements"/>, populated only for resolvers carrying a
+    /// <see cref="MemberFilter"/> of the host's own and therefore having a decision to make at all.
+    /// </summary>
+    private readonly ConcurrentDictionary<Type, bool> _indexedElementExposure = new();
+
+    /// <summary>
     /// How many accessors this resolver currently holds. The cache never evicts, so this is the retention
     /// the resolver commits to: it must stay bounded by the distinct members the engines using it resolve,
     /// and must not grow with the number of engines constructed.
@@ -38,6 +44,7 @@ public sealed class TypeResolver
     internal int ResolvedAccessorCount => _reflectionAccessors.Count;
 
     private Predicate<MemberInfo> _memberFilter = static _ => true;
+    private bool _memberFilterIsDefault = true;
     private Func<MemberInfo, IEnumerable<string>> _memberNameCreator = NameCreator;
     private StringComparer _memberNameComparer = DefaultMemberNameComparer.Instance;
 
@@ -60,6 +67,7 @@ public sealed class TypeResolver
             if (!ReferenceEquals(_memberFilter, value))
             {
                 _memberFilter = value;
+                _memberFilterIsDefault = false;
                 InvalidateResolvedAccessors();
             }
         }
@@ -75,7 +83,83 @@ public sealed class TypeResolver
     /// have had to reason about anyway. Mutate the settings before handing the resolver to an engine when
     /// that matters.
     /// </remarks>
-    private void InvalidateResolvedAccessors() => _reflectionAccessors.Clear();
+    private void InvalidateResolvedAccessors()
+    {
+        _reflectionAccessors.Clear();
+        _indexedElementExposure.Clear();
+    }
+
+    /// <summary>
+    /// Whether <see cref="MemberFilter"/> admits the integer indexer an array-like view of
+    /// <paramref name="type"/> reaches its elements through, and therefore whether that view has element
+    /// properties at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A wrapped collection's element lanes do not resolve a member per access — that is the whole point of
+    /// <c>ArrayLikeWrapper</c>, which owns every index-shaped key so an out-of-range write cannot become the
+    /// collection's own <see cref="ArgumentOutOfRangeException"/> — so the filter has to be consulted about
+    /// the member those lanes stand for, once, rather than per element. The member is the one
+    /// <see cref="IndexerAccessor.TryFindIndexer"/> would have selected: the first integer-keyed indexer the
+    /// exposed type itself declares, falling back to <paramref name="descriptorIndexer"/> for a
+    /// <c>T[]</c>, which declares none of its own and reaches its elements through <c>IList.Item</c>. A type
+    /// offering no integer indexer at all leaves nothing to ask, and its view keeps its elements.
+    /// </para>
+    /// <para>
+    /// The answer is memoized per resolver and per type, and is engine-independent: the only part of
+    /// <see cref="Filter"/> an engine steers is <see cref="Options.InteropOptions.AllowGetType"/>, which
+    /// gates the name <c>GetType</c>, and the one shape that could carry it — an indexer renamed by
+    /// <c>[IndexerName("GetType")]</c> — is excluded from the memo rather than assumed away.
+    /// </para>
+    /// </remarks>
+    internal bool ExposesIndexedElements(
+        Engine engine,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type,
+        PropertyInfo? descriptorIndexer)
+    {
+        if (_memberFilterIsDefault)
+        {
+            // the default filter admits everything, so there is no decision to look up and none to cache
+            return true;
+        }
+
+        if (_indexedElementExposure.TryGetValue(type, out var exposed))
+        {
+            return exposed;
+        }
+
+        var indexer = DeclaredIntegerIndexer(type) ?? descriptorIndexer;
+        exposed = indexer is null || Filter(engine, type, indexer);
+
+        if (indexer is null || !string.Equals(indexer.Name, nameof(GetType), StringComparison.Ordinal))
+        {
+            // GetOrAdd's value overload rather than TryAdd, so a race still hands every caller the same
+            // answer the dictionary holds
+            return _indexedElementExposure.GetOrAdd(type, exposed);
+        }
+
+        return exposed;
+    }
+
+    /// <summary>
+    /// The first integer-keyed single-parameter indexer <paramref name="type"/> declares itself, scanned the
+    /// way <see cref="IndexerAccessor.TryFindIndexer"/> scans — an explicitly implemented one is reported by
+    /// its interface alone and is deliberately not found here, exactly as it is not found there.
+    /// </summary>
+    private static PropertyInfo? DeclaredIntegerIndexer(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type)
+    {
+        foreach (var candidate in type.GetProperties())
+        {
+            var indexParameters = candidate.GetIndexParameters();
+            if (indexParameters.Length == 1 && ObjectWrapper.IsIntegerIndexParameter(indexParameters[0].ParameterType))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
 
     internal bool Filter(Engine engine, Type targetType, MemberInfo m)
     {
