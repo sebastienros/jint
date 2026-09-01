@@ -261,7 +261,14 @@ public static class TypeConverter
         const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
                                           NumberStyles.AllowExponent;
 
-        if (long.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var longValue))
+        // The last character has to be a decimal digit before long.TryParse sees the string. The framework's
+        // integer parser ends a number at a U+0000 and accepts however many follow it, the way a C string
+        // terminates, and no NumberStyles flag turns that off - while U+0000 is category Cc and in neither
+        // WhiteSpace nor LineTerminator, so it pads a StringNumericLiteral under no reading of the grammar.
+        // Everything this fast path may legally read ends in a digit bar the "12." spelling with an empty
+        // fraction, which the general lane below reads to the same value.
+        if (input[input.Length - 1] is >= '0' and <= '9'
+            && long.TryParse(input, NumberStyles, CultureInfo.InvariantCulture, out var longValue))
         {
             return longValue == 0 && firstChar == '-' ? -0.0 : longValue;
         }

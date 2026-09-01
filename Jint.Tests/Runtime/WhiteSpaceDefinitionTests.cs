@@ -177,10 +177,10 @@ public class WhiteSpaceDefinitionTests
     [TestCase("parseInt(c + '12') === 12", "002B,0030", TestName = "parseInt")]
     [TestCase("parseFloat(c + '1.5') === 1.5", "002B,0030", TestName = "parseFloat")]
     [TestCase("Number(c + '12') === 12", "002B,0030", TestName = "Number with a leading pad")]
-    // "12." is a StrUnsignedDecimalLiteral with an empty fraction. U+0000 is not anything: the framework's
-    // long.TryParse reads a trailing NUL as a C string terminator (sebastienros/jint#3541), which is a
-    // defect of its own and not a white-space question. It sits here only so the sweep states the whole truth.
-    [TestCase("Number('12' + c) === 12", "002E,0000", TestName = "Number with a trailing pad")]
+    // "12." is a StrUnsignedDecimalLiteral with an empty fraction, and it is the only extra left: U+0000 was
+    // here too until sebastienros/jint#3541 took the trailing NUL that long.TryParse read as a C string
+    // terminator off this lane.
+    [TestCase("Number('12' + c) === 12", "002E", TestName = "Number with a trailing pad")]
     // "012" is a StringIntegerLiteral with a leading zero. BigInt also rejects a leading "+" that the
     // grammar allows (sebastienros/jint#3540), which is likewise a defect of its own and not about white
     // space, so it is absent from this list rather than present in it.
