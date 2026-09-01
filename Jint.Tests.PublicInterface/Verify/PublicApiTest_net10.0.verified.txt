@@ -1925,7 +1925,7 @@ namespace Jint.Runtime
         public JavaScriptException(Jint.Native.Error.ErrorConstructor errorConstructor, string? message, System.Exception clrException) { }
         public Jint.Native.JsValue Error { get; }
         public string? JavaScriptStackTrace { get; }
-        public Acornima.SourceLocation& Location { get; }
+        public Acornima.SourceLocation Location { get; }
         public override System.Exception GetBaseException() { }
         public string GetJavaScriptErrorString() { }
         public string GetJavaScriptErrorString(Jint.ResultLimits limits) { }

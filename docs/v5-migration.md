@@ -1084,6 +1084,34 @@ are the fast ones, and they were already what the doc comment pointed at.
 
 Use these for setup-time writes on an object you fully control; use `Set` for steady-state mutation.
 
+### 3.18 `JavaScriptException.Location` returns the location by value ([#3549](https://github.com/sebastienros/jint/issues/3549))
+
+```c#
+// 4.16.x
+public ref readonly SourceLocation Location { get; }
+
+// 5.x
+public SourceLocation Location { get; }
+```
+
+Reading the location is unchanged, so `ex.Location`, `ex.Location.Start.Line` and `ex.Location != default`
+all keep compiling. The one spelling that does not is binding the reference:
+
+```c#
+// 4.16.x
+ref readonly var location = ref ex.Location;
+
+// 5.x
+var location = ex.Location;
+```
+
+A public property of an exception is not only called by name: every renderer of a failed run reads it
+reflectively — a test runner, a structured logger, an error page. .NET Framework answers
+`PropertyInfo.GetValue` on a by-ref-returning property with
+`NotSupportedException: ByRef return value not supported in reflection invocation` rather than dereferencing
+it the way .NET Core does, so on `net472` the reflection message replaced the failure the reader came for —
+and under NUnit it took the test host down with every test still queued behind it.
+
 ## 4. Breaking without a signature change
 
 This is the section that matters most, because a compiler cannot find any of it. Every row below
