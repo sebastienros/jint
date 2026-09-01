@@ -44,7 +44,6 @@
     "staging/sm/Date/dst-offset-caching-6-of-8.js",
     "staging/sm/Date/dst-offset-caching-7-of-8.js",
     "staging/sm/Date/dst-offset-caching-8-of-8.js",
-    "staging/sm/generators/delegating-yield-9.js",
     "staging/sm/regress/regress-610026.js",
     "staging/sm/regress/regress-619003-1.js",
     // Same shape, found by running the suite: each of these burns the whole 30-second budget and
