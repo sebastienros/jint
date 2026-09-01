@@ -64,7 +64,26 @@ internal static class IntlUtilities
     // Cache for CultureInfo instances to avoid repeated allocations. The entries are shared by every engine
     // in the process, so CreateCultureInfo hands them out read-only rather than trusting every call site not
     // to write to one.
+    //
+    // The key is a locale tag a script chose. ECMA-402 requires CanonicalizeLocaleList to accept any
+    // structurally valid tag rather than reject an unknown one, so 'x'.toLocaleLowerCase('en-abcd' + i) --
+    // core String.prototype, on an engine that opted into nothing -- invents a distinct key on every
+    // iteration, and BestAvailableLocale asks again for every truncated prefix. The cache is therefore
+    // bounded the same way RegExpParseCache is: once it holds Capacity distinct tags it is cleared and
+    // refilled. Real scripts use a handful of locales and fill it once.
     private static readonly ConcurrentDictionary<string, CultureInfo?> _cultureCache = new(StringComparer.OrdinalIgnoreCase);
+
+    // Cleared (not LRU-evicted) on overflow: cheap, thread-safe, allocates nothing on the hit path and is
+    // self-healing when the working set shifts. Dropping an entry can only cost one re-resolution and never
+    // a different answer -- the value is a total function of the tag, and the instance handed out is
+    // read-only, so an engine still holding one keeps a culture equal to whatever the next lookup produces.
+    private const int CultureCacheCapacity = 256;
+
+    /// <summary>Number of cached locale tags. Exists so the growth test can assert on the bound.</summary>
+    internal static int CultureCacheCount => _cultureCache.Count;
+
+    /// <summary>The bound <see cref="CultureCacheCount"/> can never exceed for long.</summary>
+    internal static int CultureCacheBound => CultureCacheCapacity;
     // BCP 47 language tag pattern (permissive to accept Unicode extensions)
     // Accepts: language[-script][-region][-variant]*[-extension]*[-privateuse]
     // Extensions use single-character singletons like -u- for Unicode extensions
@@ -1764,7 +1783,21 @@ internal static class IntlUtilities
             return null;
         }
 
-        return _cultureCache.GetOrAdd(locale, static key => CreateCultureInfo(key));
+        if (_cultureCache.TryGetValue(locale, out var cached))
+        {
+            return cached;
+        }
+
+        var culture = CreateCultureInfo(locale);
+
+        if (_cultureCache.Count >= CultureCacheCapacity)
+        {
+            _cultureCache.Clear();
+        }
+
+        // GetOrAdd rather than the indexer: another thread may already have published an instance for this
+        // tag, and a caller holding that one has to keep matching what the next lookup returns.
+        return _cultureCache.GetOrAdd(locale, culture);
     }
 
     private static CultureInfo? CreateCultureInfo(string locale)
