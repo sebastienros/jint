@@ -70,7 +70,13 @@ internal sealed class AsyncGeneratorInstance : ObjectInstance, ISuspendable
 
     JsValue? ISuspendable.SuspendedValue => _suspendedValue;
 
-    object? ISuspendable.LastSuspensionNode => _lastYieldNode;
+    // The same reason as GeneratorInstance's identically shaped property, plus one an async
+    // generator has on its own: a delegation that COMPLETES also resumes through a full replay of
+    // the body (ResumeAfterDelegation), because the inner iterator's step settles on a later
+    // microtask and the stack that started the delegation is long gone. ClearDelegationIterator
+    // deliberately keeps _delegatingYieldNode across that hop so the replay re-enters at the yield*,
+    // which is exactly the node the enclosing statements need to be told about as well.
+    object? ISuspendable.LastSuspensionNode => _lastYieldNode ?? _delegatingYieldNode;
 
     bool ISuspendable.ReturnRequested => _returnRequested;
 

@@ -871,6 +871,261 @@ public class GeneratorTests
         _engine.Evaluate(Script).AsString().Should().Be("[0,0]");
     }
 
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldInsideAYieldStartsOverOnEveryLoopIteration()
+    {
+        // https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation:
+        // every evaluation of `yield * AssignmentExpression` evaluates its operand and drives the
+        // resulting iterator to completion, so a loop that comes back round to the same yield* node
+        // starts a fresh delegation. Jint replays a generator body from the top on each resume and
+        // memoized what each yield node had already returned; the memo was never invalidated, so the
+        // second iteration answered the outer yield from the first iteration's value without ever
+        // evaluating the operand -- which abandoned the delegation and, because the operand carries
+        // the loop's own decrement here, left n unchanged and the loop running forever.
+        // staging/sm/generators/delegating-yield-9.js is this shape; SpiderMonkey and V8 both
+        // report eight results for countdown(3).
+        const string Script = """
+            function* countdown(n) {
+                while (n > 0) {
+                    yield (yield* countdown(--n));
+                }
+                return 34;
+            }
+
+            var results = [];
+            var it = countdown(3);
+            var result;
+            do {
+                result = it.next();
+                results.push(result.value + ':' + result.done);
+            } while (!result.done && results.length < 100);
+            return results.join(' ');
+        """;
+
+        // A regression here spins forever, and xUnit's Timeout cannot abort a synchronous test method
+        // on its own; the engine has to observe the test's token for the timeout to bite.
+        var engine = new Engine(options => options.CancellationToken(TestContext.Current.CancellationToken));
+
+        engine.Evaluate(Script).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldInsideAYieldKeepsItsPlaceWhenTheDecrementIsElsewhere()
+    {
+        // The same defect without the runaway loop: with the decrement in its own statement the loop
+        // still terminates, but the outer yield answered from the memo instead of yielding, so two of
+        // the eight results went missing. Kept separate because a fix that only stopped the hang
+        // would leave this one silently wrong.
+        const string Script = """
+            function* countdown(n) {
+                while (n > 0) {
+                    n = n - 1;
+                    yield (yield* countdown(n));
+                }
+                return 34;
+            }
+
+            var results = [];
+            var it = countdown(3);
+            var result;
+            do {
+                result = it.next();
+                results.push(result.value + ':' + result.done);
+            } while (!result.done && results.length < 100);
+            return results.join(' ');
+        """;
+
+        var engine = new Engine(options => options.CancellationToken(TestContext.Current.CancellationToken));
+
+        engine.Evaluate(Script).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldInsideAYieldStartsOverOnEveryLoopIteration()
+    {
+        // The async twin of the two tests above, and a second defect underneath the memo one they
+        // pin. Nothing recorded WHERE an async generator stood while a yield* delegation was in
+        // flight: a delegation's suspension point is tracked in its own field and only an ordinary
+        // yield's was published as the resume position, so every resume-aware statement re-ran its
+        // own test on the way back in. Here `countdown(--n)` had already moved n, so the `while`
+        // that was true when the iteration began answered false on resume: the loop was abandoned
+        // mid-iteration and the outer yield it still owed was never reached -- one result lost per
+        // nesting level, half the sequence for countdown(3).
+        // https://tc39.es/ecma262/#sec-asyncgeneratoryield suspends the generator AT the yield, and
+        // https://tc39.es/ecma262/#sec-generator-function-definitions-runtime-semantics-evaluation
+        // resumes a yield* delegation with the completion its caller sent; neither re-evaluates the
+        // iteration statement the yield* sits in. V8 and SpiderMonkey both report eight results for
+        // countdown(3), as they do for the synchronous countdown above.
+        const string Script = """
+            async function* countdown(n) {
+                while (n > 0) {
+                    yield (yield* countdown(--n));
+                }
+                return 34;
+            }
+
+            function makeIterator() { return countdown(3); }
+            """;
+
+        Drain(Script, Async, TestContext.Current.CancellationToken).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldInsideAYieldKeepsItsPlaceWhenTheDecrementIsElsewhere()
+    {
+        // The async twin of ADelegatingYieldInsideAYieldKeepsItsPlaceWhenTheDecrementIsElsewhere.
+        // Moving the decrement out of the operand changes nothing here, because what the resume lost
+        // was its place in the loop, not the operand.
+        const string Script = """
+            async function* countdown(n) {
+                while (n > 0) {
+                    n = n - 1;
+                    yield (yield* countdown(n));
+                }
+                return 34;
+            }
+
+            function makeIterator() { return countdown(3); }
+            """;
+
+        Drain(Script, Async, TestContext.Current.CancellationToken).Should().Be("34:false 34:false 34:false 34:false 34:false 34:false 34:false 34:true");
+    }
+
+    // The three pairs below are that same missing resume position reached without any recursion, one
+    // pair per resume-aware statement. Each is written so the statement's own test is already FALSE
+    // by the time the delegation suspends, which is what makes a re-evaluated test observable: the
+    // engine dropped the rest of the iteration the generator was in the middle of. The synchronous
+    // half is pinned beside the asynchronous one because the bookkeeping is per instance type, and
+    // the two have drifted apart once already.
+
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldSuspensionKeepsTheEnclosingWhileLoopFromRestarting()
+    {
+        Drain(WhileWithFalsifiedTest("function*"), Sync, TestContext.Current.CancellationToken).Should().Be("1:false after:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldSuspensionKeepsTheEnclosingWhileLoopFromRestarting()
+    {
+        Drain(WhileWithFalsifiedTest("async function*"), Async, TestContext.Current.CancellationToken).Should().Be("1:false after:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldSuspensionKeepsTheEnclosingForLoopFromRestarting()
+    {
+        Drain(ForWithFalsifiedTest("function*"), Sync, TestContext.Current.CancellationToken).Should().Be("1:false body:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldSuspensionKeepsTheEnclosingForLoopFromRestarting()
+    {
+        Drain(ForWithFalsifiedTest("async function*"), Async, TestContext.Current.CancellationToken).Should().Be("1:false body:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void ADelegatingYieldSuspensionKeepsTheEnclosingIfFromTakingTheOtherBranch()
+    {
+        Drain(IfWithFlippedTest("function*"), Sync, TestContext.Current.CancellationToken).Should().Be("1:false then:true");
+    }
+
+    [Fact(Timeout = 10000)]
+    public void AnAsyncDelegatingYieldSuspensionKeepsTheEnclosingIfFromTakingTheOtherBranch()
+    {
+        Drain(IfWithFlippedTest("async function*"), Async, TestContext.Current.CancellationToken).Should().Be("1:false then:true");
+    }
+
+    private static string WhileWithFalsifiedTest(string kind) => $$"""
+        {{kind}} leaf() { yield 1; }
+        {{kind}} outer() {
+            var log = [];
+            var n = 2;
+            while (n > 0) {
+                n = 0;
+                yield* leaf();
+                log.push('after');
+            }
+            return log.join(',');
+        }
+
+        function makeIterator() { return outer(); }
+        """;
+
+    private static string ForWithFalsifiedTest(string kind) => $$"""
+        {{kind}} leaf() { yield 1; }
+        {{kind}} outer() {
+            var log = [];
+            for (var i = 0; i < 2; i++) {
+                i = 5;
+                yield* leaf();
+                log.push('body');
+            }
+            return log.join(',');
+        }
+
+        function makeIterator() { return outer(); }
+        """;
+
+    private static string IfWithFlippedTest(string kind) => $$"""
+        {{kind}} leaf() { yield 1; }
+        {{kind}} outer() {
+            var log = [];
+            var taken = true;
+            if (taken) {
+                taken = false;
+                yield* leaf();
+                log.push('then');
+            } else {
+                log.push('else');
+            }
+            return log.join(',');
+        }
+
+        function makeIterator() { return outer(); }
+        """;
+
+    private const bool Sync = false;
+    private const bool Async = true;
+
+    /// <summary>
+    /// Drives whatever the script's <c>makeIterator()</c> returns to completion, as
+    /// <c>"value:done value:done ..."</c>.
+    /// </summary>
+    /// <remarks>
+    /// The twenty-result cap is a guard rather than a limit: every sequence these tests assert is far
+    /// shorter, so a regression that never terminates comes back as a wrong string instead of as a
+    /// test run that hangs. xUnit's <c>Timeout</c> cannot abort a synchronous test method on its own,
+    /// so the engine is handed the test's token as well.
+    /// </remarks>
+    private static string Drain(string generatorSource, bool async, CancellationToken cancellationToken)
+    {
+        var driver = async
+            ? """
+              (async function () {
+                  var results = [];
+                  var it = makeIterator();
+                  var result;
+                  do {
+                      result = await it.next();
+                      results.push(result.value + ':' + result.done);
+                  } while (!result.done && results.length < 20);
+                  return results.join(' ');
+              })()
+              """
+            : """
+              var results = [];
+              var it = makeIterator();
+              var result;
+              do {
+                  result = it.next();
+                  results.push(result.value + ':' + result.done);
+              } while (!result.done && results.length < 20);
+              results.join(' ');
+              """;
+
+        var engine = new Engine(options => options.CancellationToken(cancellationToken));
+        return engine.Evaluate(generatorSource + Environment.NewLine + driver).UnwrapIfPromise().AsString();
+    }
+
     [Fact]
     public void GeneratorFunctionConstructorsInheritFromTheFunctionConstructor()
     {
