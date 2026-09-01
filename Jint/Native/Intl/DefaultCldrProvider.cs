@@ -424,13 +424,25 @@ public class DefaultCldrProvider : ICldrProvider
 
     /// <inheritdoc />
     /// <remarks>
-    /// The answer is cached per locale, style and calendar. This body reads
-    /// <see cref="DateTimeFormatInfo.MonthNames"/>, which answers for whatever calendar the culture carries,
-    /// so it returns equal names for every calendar it is asked about; an override that answers per calendar
-    /// is what the key is for, and gets one entry per calendar rather than the first one it was asked for.
+    /// <para>
+    /// The answer is cached per locale, style and calendar. The names come from
+    /// <see cref="DateTimeFormatInfo.MonthNames"/>, and those are the twelve Gregorian months, so this
+    /// provider answers for the calendars that count them — <c>gregory</c>, <c>iso8601</c>, <c>buddhist</c>,
+    /// <c>japanese</c> and <c>roc</c>, which differ in era and year only — and answers null for a calendar
+    /// counting months of its own. Writing "May" for Shevat would be a wrong name rather than no name, and a
+    /// derived provider delegating the calendars it does not handle would inherit it.
+    /// </para>
+    /// <para>
+    /// A null calendar is the caller with nothing resolved, and reads the culture's names as before.
+    /// </para>
     /// </remarks>
     public virtual string[]? GetMonthNames(string locale, string style, string? calendar)
     {
+        if (!AvailableCalendars.UsesGregorianMonths(calendar))
+        {
+            return null;
+        }
+
         var cacheKey = NameCacheKey(locale, style, calendar);
         return _monthNameCache.GetOrAdd(cacheKey, _ =>
         {

@@ -96,6 +96,62 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     private ICldrProvider CldrProvider => _engine.Options.Intl.CldrProvider;
 
     /// <summary>
+    /// The resolved calendar's own month names, one array per textual style, asked for once each and only by
+    /// a formatter that writes one. An empty array is "asked, and there are none".
+    /// </summary>
+    private string[][]? _calendarMonthNames;
+
+    /// <summary>
+    /// The name this formatter writes for month <paramref name="month"/> of the calendar it resolved, or null
+    /// when there is none and the month number stands.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma402/#table-datetimeformat-components makes <c>"long"</c>, <c>"short"</c> and
+    /// <c>"narrow"</c> textual, and a formatter is not free to answer one of them with a number. For a
+    /// calendar counting the Gregorian months the name is the locale's own and no lookup happens here — the
+    /// Gregorian lane writes it, host-seeded names and all. For a calendar counting months of its own the name
+    /// has to come from data that knows that calendar, which is what
+    /// <see cref="ICldrProvider.GetMonthNames"/> takes its <c>calendar</c> argument for.
+    /// </para>
+    /// <para>
+    /// The array is indexed by the calendar's month number, so it is as long as that calendar's year: thirteen
+    /// for Coptic, Ethiopic and a Hebrew or Chinese leap year. That is why the answer is read from the provider
+    /// rather than out of <see cref="DateTimeFormatInfo"/>, whose month arrays hold twelve names and a trailing
+    /// empty one. A month the array is too short for keeps its number, and so does an empty name.
+    /// </para>
+    /// <para>
+    /// With no answer the number stands, which is what every release before this one wrote for all three
+    /// styles, and what ICU itself writes for <c>"narrow"</c> on every one of these calendars.
+    /// </para>
+    /// </remarks>
+    private string? CalendarMonthName(int month, string? style)
+    {
+        var index = style switch
+        {
+            "long" => 0,
+            "short" => 1,
+            "narrow" => 2,
+            _ => -1
+        };
+
+        if (index < 0 || month < 1 || AvailableCalendars.UsesGregorianMonths(Calendar))
+        {
+            return null;
+        }
+
+        var cache = _calendarMonthNames ??= new string[3][];
+        var names = cache[index];
+        if (names is null)
+        {
+            names = CldrProvider.GetMonthNames(Locale, style!, Calendar) ?? [];
+            cache[index] = names;
+        }
+
+        return month <= names.Length && names[month - 1].Length > 0 ? names[month - 1] : null;
+    }
+
+    /// <summary>
     /// Formats a date according to the formatter's locale and options.
     /// </summary>
     /// <param name="dateTime">The .NET DateTime to format</param>
@@ -611,20 +667,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             return;
         }
 
-        // Simple offset calendars: cheap arithmetic without going through NonIsoCalendars.
+        // Simple offset calendars: cheap arithmetic without going through NonIsoCalendars. Only the year is
+        // overridden, because only the year differs — https://tc39.es/ecma402/#table-datetimeformat-components
+        // makes "long", "short" and "narrow" textual month formats, and a month override is what forced them
+        // to a number. Leaving month and day to the Gregorian lane is what makes these calendars write the
+        // very name gregory writes, in every style and through both the component and the pattern lane, which
+        // is also what ICU does: buddhist, japanese and roc are the Gregorian months under another era.
         var sourceYear = originalYear ?? dateTime.Year;
         if (string.Equals(Calendar, "buddhist", StringComparison.OrdinalIgnoreCase))
         {
             year = sourceYear + 543;
-            month = dateTime.Month;
-            day = dateTime.Day;
             return;
         }
         if (string.Equals(Calendar, "roc", StringComparison.OrdinalIgnoreCase))
         {
             year = sourceYear - 1911;
-            month = dateTime.Month;
-            day = dateTime.Day;
             return;
         }
         if (string.Equals(Calendar, "japanese", StringComparison.OrdinalIgnoreCase))
@@ -649,8 +706,6 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             if (eraYear.HasValue)
             {
                 year = eraYear;
-                month = dt.Month;
-                day = dt.Day;
             }
             return;
         }
@@ -688,22 +743,21 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             {
                 "numeric" => chineseMonth.ToString(CultureInfo),
                 "2-digit" => chineseMonth.ToString("D2", CultureInfo),
-                // For textual months in lunisolar calendars, we still use numeric
-                // as Chinese month names are not typically used in Intl formatting
-                "long" or "short" or "narrow" => chineseMonth.ToString(CultureInfo),
+                // A lunisolar month has a name — ICU writes "Twelfth Month" — and Jint ships none, so the
+                // number stands unless a host answers for the calendar.
+                "long" or "short" or "narrow" => CalendarMonthName(chineseMonth, Month) ?? chineseMonth.ToString(CultureInfo),
                 _ => chineseMonth.ToString("D2", CultureInfo)
             };
         }
         else if (overrideMonth.HasValue)
         {
-            // Calendar-aware override (e.g. coptic month for the underlying ISO date).
-            // Textual month styles fall back to numeric since we don't have month-name data
-            // for arbitrary non-ISO calendars.
+            // Calendar-aware override (e.g. coptic month for the underlying ISO date). A textual style writes
+            // the calendar's own name for that month where there is one, and the number where there is not.
             monthValue = Month switch
             {
                 "numeric" => overrideMonth.Value.ToString(CultureInfo),
                 "2-digit" => overrideMonth.Value.ToString("D2", CultureInfo),
-                _ => overrideMonth.Value.ToString(CultureInfo)
+                _ => CalendarMonthName(overrideMonth.Value, Month) ?? overrideMonth.Value.ToString(CultureInfo)
             };
         }
         else
@@ -1153,7 +1207,14 @@ internal sealed class JsDateTimeFormat : ObjectInstance
             }
             else if (run.Field == 'M' && calendarMonth.HasValue)
             {
-                value = FormatOverride(calendarMonth.Value, run.Length);
+                // A three- or four-letter run is the pattern's textual month, and the calendar's own name is
+                // what belongs in it — the same name the month option's "short" and "long" write, so the two
+                // lanes agree. https://tc39.es/ecma402/#sec-formatdatetime is the concatenation of the parts
+                // https://tc39.es/ecma402/#sec-formatdatetimetoparts walks, and both go through here.
+                value = run.Length >= 3
+                    ? CalendarMonthName(calendarMonth.Value, run.Length >= 4 ? "long" : "short")
+                    : null;
+                value ??= FormatOverride(calendarMonth.Value, run.Length);
             }
             else if (run.Field == 'd' && run.Length <= 2 && calendarDay.HasValue)
             {
@@ -1209,8 +1270,8 @@ internal sealed class JsDateTimeFormat : ObjectInstance
     }
 
     /// <summary>
-    /// Writes an overridden field value. Only a two-letter run pads, because a calendar year is written as it
-    /// is counted - Reiwa 8 is "8", not "0008" - and a textual month run has no name left to write.
+    /// Writes an overridden field value as a number. Only a two-letter run pads, because a calendar year is
+    /// written as it is counted - Reiwa 8 is "8", not "0008".
     /// </summary>
     private string FormatOverride(int value, int length)
         => length == 2 ? value.ToString("D2", CultureInfo) : value.ToString(CultureInfo);

@@ -1,4 +1,4 @@
-﻿# Migrating from Jint 4.16 to Jint 5
+# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -4568,6 +4568,53 @@ reports the ordinary catchable resolution failure instead of a CLR `OverflowExce
 back to ordinary JavaScript semantics — which is what a lone `byte` operator has always done with an
 out-of-range value. There is no switch that restores the old selection; a host that wants a large number to
 reach a member declares that member's parameter as `long`, `double` or `object`.
+
+### 4.102 A calendar counting Gregorian months writes their names ([#3574](https://github.com/sebastienros/jint/issues/3574))
+
+`Intl.DateTimeFormat` wrote a bare number for `month: 'long'`, `'short'` and `'narrow'` alike on every
+calendar but `gregory`, and for the textual month of every `dateStyle` pattern. `buddhist`, `japanese` and
+`roc` differ from `gregory` in era and year only, so their months now carry the locale's own names — which is
+what ICU, and therefore V8 and SpiderMonkey, write for all four:
+
+```js
+var f = new Intl.DateTimeFormat('en-US-u-ca-buddhist', { month: 'long', timeZone: 'UTC' });
+f.format(Date.UTC(2024, 0, 15));      // 5.0: "1"                  5.x: "January"
+
+new Intl.DateTimeFormat('en-US-u-ca-buddhist', { dateStyle: 'long', timeZone: 'UTC' })
+    .format(Date.UTC(2024, 0, 15));   // 5.0: "1 15, 2567"         5.x: "January 15, 2567"
+```
+
+A calendar counting months of its own — `hebrew`, `persian`, `coptic`, `ethiopic`, `ethioaa`, `indian`,
+`chinese`, `dangi` and the three tabular Islamic ones — keeps the number, because Jint ships no month-name
+data for one and a number is never a wrong name. It is also what ICU writes for `narrow` on every one of
+them. Supplying those names is `ICldrProvider.GetMonthNames`, whose `calendar` argument now reaches the
+formatter:
+
+```csharp
+sealed class HebrewMonths : DefaultCldrProvider
+{
+    public override string[]? GetMonthNames(string locale, string style, string? calendar)
+        => calendar == "hebrew" ? MyHebrewNames(style) : base.GetMonthNames(locale, style, calendar);
+}
+
+var engine = new Engine(options => options.Intl.CldrProvider = new HebrewMonths());
+engine.Evaluate("new Intl.DateTimeFormat('en-US-u-ca-hebrew', { month: 'long', timeZone: 'UTC' })" +
+                ".format(Date.UTC(2024, 0, 15))");   // 5.0: "5"   5.x: "Shevat"
+```
+
+The array is indexed by the calendar's month number, so a thirteen-month calendar answers with thirteen
+names — one more than `DateTimeFormatInfo` holds, which is why this lane reads the provider directly rather
+than the names `Intl.DateTimeFormat` seeds into its own `DateTimeFormatInfo`.
+
+`DefaultCldrProvider.GetMonthNames` changed with it: its names come from `CultureInfo.DateTimeFormat` and
+those are the twelve Gregorian months, so it now answers `null` for a calendar counting its own instead of
+handing back Gregorian names under that calendar's name. A derived provider that delegates the calendars it
+does not handle gets "no data" where it used to get a wrong answer.
+
+**What could break:** a script comparing formatted output against a hard-coded numeric month for `buddhist`,
+`japanese` or `roc`. There is no option to restore the number; format with `month: 'numeric'`, which was
+always the numeric format and is unchanged.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

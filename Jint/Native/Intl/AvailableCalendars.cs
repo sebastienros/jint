@@ -51,6 +51,47 @@ internal static class AvailableCalendars
     private static readonly StringSearchValues BuiltinLookup = new(Builtin, StringComparison.Ordinal);
 
     /// <summary>
+    /// The calendars that count the very months <c>gregory</c> counts, so that a month number of one names
+    /// the same month and the locale's own month names are the ones to write for it.
+    /// </summary>
+    /// <remarks>
+    /// <c>buddhist</c>, <c>japanese</c> and <c>roc</c> differ from <c>gregory</c> in era and year only — ICU
+    /// writes "January" for all four and a number for none of them. Every other calendar, this engine's or a
+    /// host's, counts months of its own, and a name for one has to come from data that knows that calendar:
+    /// <see cref="ICldrProvider.GetMonthNames"/>, which takes the calendar for exactly this.
+    /// </remarks>
+    private static readonly string[] GregorianMonthed = ["gregory", "iso8601", "buddhist", "japanese", "roc"];
+
+    /// <summary>
+    /// Whether <paramref name="calendar"/> counts the Gregorian months. A formatter that resolved one writes
+    /// its months exactly as <c>gregory</c> does, names included; every other calendar needs its own names, or
+    /// keeps the month number.
+    /// </summary>
+    /// <remarks>
+    /// A null calendar is the unresolved case and answers as <c>gregory</c>, so a caller with nothing resolved
+    /// reads the locale's own names rather than none. The comparison is case-insensitive because
+    /// <see cref="ICldrProvider.GetMonthNames"/> is public and its argument has been through no
+    /// canonicalization this class can see.
+    /// </remarks>
+    internal static bool UsesGregorianMonths(string? calendar)
+    {
+        if (calendar is null)
+        {
+            return true;
+        }
+
+        foreach (var candidate in GregorianMonthed)
+        {
+            if (string.Equals(calendar, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// A legacy spelling of <c>gregory</c> that predates the Unicode <c>type</c> grammar and cannot appear in
     /// a <c>-u-ca-</c> extension, being nine characters where the grammar allows eight. It is here because
     /// <c>Temporal</c> has always accepted it as a <c>calendar</c> field value.
