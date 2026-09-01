@@ -358,6 +358,15 @@ public class OperatorOverloadingTests
             ");
     }
 
+    /// <remarks>
+    /// Green from #1011 in 2021 until sebastienros/jint#3407, without either assertion ever being reached.
+    /// <c>'### ' + v1</c> resolved to <c>op_Addition(Vector2D, Vector2D)</c>, whose first parameter cannot
+    /// take a string, and converting the argument threw; the failure left the engine as a
+    /// <see cref="System.Reflection.TargetInvocationException"/> whose <c>InnerException</c> was
+    /// <see langword="null" /> (sebastienros/jint#3408), and xUnit unwraps such an exception to its inner -
+    /// that is, to <see langword="null" /> - and records no failure at all. The operator path no longer
+    /// produces a contentless exception, so what this asserts is now actually asserted.
+    /// </remarks>
     [Fact]
     public void ShouldAllowStringConcatenateForOverloaded()
     {
