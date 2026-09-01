@@ -3860,22 +3860,17 @@ Run the blocks the other way round and they swapped: the stock engine's `null` r
 engine concatenate where its own converter had asked for the operator. The `ValueCoercion` half behaves the
 same way, and predates the converter half.
 
-The two inputs are now handled differently, because of what they are. **`ValueCoercion` is a value**, so it
-joins the key: engines that coerce alike go on sharing their entries. **The converter is an object the host
-built** — `SetTypeConverter` hands its factory the `Engine` — so keying a process-lived static dictionary on
-it would pin that converter, and any engine it captured, for the life of the process. It selects the table
-instead: an engine running the stock `DefaultTypeConverter` resolves what every other stock engine would and
-uses the process-wide one, while an engine with a converter of its own keeps its resolutions on itself, where
-they are dropped if its converter is replaced and collected when it is.
+Neither input is in a cache key any more, because no selected overload is cached at all: the process-wide
+table holds the *candidate set* a pair of types offers, and which candidate applies is scored on every
+evaluation. [§4.99](#499-an-operator-overload-is-chosen-by-the-arguments-in-hand-3567) is what settled that,
+and it covers a third input this section did not — the argument values.
 
-`JintUnaryExpression`'s table is untouched and stays process-wide: a unary operator is the operand type's
-first one-parameter method of that name, no score is computed, and neither input is consulted.
+`JintUnaryExpression`'s table is untouched and still caches a resolved method: a unary operator is the operand
+type's first one-parameter method of that name, no score is computed, and none of the three inputs is
+consulted.
 
 **What could break:** nothing an engine reads on its own changes — both answers above are what that engine
-gives when it is the only one in the process. An engine that has installed its own `ClrTypeConverter` no
-longer shares operator resolutions with any other engine, so it resolves each `(operator, left, right)` triple
-once for itself rather than once for the process; an engine on the stock converter is unaffected, and shares
-with every stock engine that coerces the way it does.
+gives when it is the only one in the process.
 
 ### 4.87 A `persian` year the .NET table stops inside is measured by the calendar ([#3523](https://github.com/sebastienros/jint/issues/3523))
 
@@ -4447,6 +4442,48 @@ now returns the whole result instead of part of it, and a nested split allocates
 than borrowing one. A host with no constraints, or with only the in-box ones — none of which run script —
 was never on the affected path and pays exactly what it paid before: one shared list per thread, one
 `Clear()` per call.
+
+### 4.99 An operator overload is chosen by the arguments in hand ([#3567](https://github.com/sebastienros/jint/issues/3567))
+
+With `Options.Interop.AllowOperatorOverloading` on, which CLR operator a `+` over host types selects was
+resolved once per `(operator name, left CLR type, right CLR type)` and remembered. Overload scoring reads the
+argument **values**, not only their types — a number is a perfect fit for a `byte` parameter when it lands
+inside that range and no match at all when it does not — and every JavaScript number reaches such a key as
+`System.Double`. So `5` and `300` shared one entry, and whichever arrived first decided for the other.
+
+```csharp
+public sealed class Money
+{
+    public static string operator +(Money left, byte right)   => "byte:" + right;
+    public static string operator +(Money left, object right) => "object:" + right;
+}
+
+var engine = new Engine(o => o.Interop.AllowOperatorOverloading = true);
+engine.SetValue("m", new Money());
+
+engine.Evaluate("m + 5");     // "byte:5" - correct, and it is now the remembered answer
+engine.Evaluate("m + 300");   // 5.0:  OverflowException out of Evaluate, converting 300 to a byte
+                              // 5.x:  "object:300"
+```
+
+Run the two the other way round and the failure was silent instead: `m + 300` resolved to the `object`
+overload, and `m + 5` then took it too — `"object:5"` where the type declares an overload that fits. The table
+was process-wide, so a *fresh* engine got the previous engine's answer, and
+[§4.86](#486-two-engines-configured-differently-no-longer-decide-each-others-operator-overloads-3424)'s per-engine
+table did not close it: inside one engine the two values collide just the same.
+
+What is cached now is the **candidate set** — the operator methods the two types declare under that name,
+which is a reflection scan and nothing else — and choosing between them runs on every evaluation. That also
+retires the two inputs §4.86 keyed on, `Options.Interop.ValueCoercion` and the installed `ClrTypeConverter`:
+both are read while scoring, so neither is in a shared table any more, and an engine with a converter of its
+own no longer needs a table of its own.
+
+**What could break:** an engine with `AllowOperatorOverloading` on scores one or two candidates per operator
+evaluation instead of reading a resolved method out of a dictionary. Nothing else is on that path — arming
+the option already disables six fast paths in `JintBinaryExpression`, and both operands are already converted
+with `ToObject()` on every evaluation — and the reflection scan the table exists for still happens once per
+triple, now once per *process* rather than once per engine carrying a converter of its own. An engine that
+never turns the option on is not affected at all.
 
 ## 5. New in v5
 
