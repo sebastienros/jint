@@ -76,11 +76,40 @@ internal sealed partial class EventTargetPrototype : Prototype
         return JsBoolean.Create(EventTargetArguments.DispatchEvent(_engine, _realm, target, eventArgument));
     }
 
+    /// <summary>
+    /// The WebIDL brand check the three operations perform: a receiver that is not a platform object
+    /// implementing the interface raises a <c>TypeError</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The global object passes it</b> when <see cref="WebApiFeatures.GlobalEvents"/> is on, and is mapped
+    /// to the engine's synthetic global target. A browser's <c>Window</c> <i>implements</i>
+    /// <c>EventTarget</c>, so <c>EventTarget.prototype.addEventListener.call(window, …)</c> is simply the
+    /// method it inherits; Jint's global object deliberately is not one — <c>GlobalEventTarget</c> says why —
+    /// and without this the two ways of reaching the same listener list would disagree, with the free
+    /// <c>addEventListener</c> working and the borrowed one refusing the very receiver a browser hands it.
+    /// </para>
+    /// <para>
+    /// The principal realm's global object and no other: the synthetic target belongs to that realm, and web
+    /// APIs are installed nowhere else, so a <c>ShadowRealm</c>'s global is not an <c>EventTarget</c> by any
+    /// route. Gated on the feature because the target exists to back globals the feature installs — an
+    /// engine that enabled <see cref="WebApiFeatures.Events"/> alone has no <c>addEventListener</c> on its
+    /// global and nothing that fires an event at it, so a listener list reached this way would be one nothing
+    /// could ever invoke.
+    /// </para>
+    /// </remarks>
     private JsEventTarget Brand(JsValue thisObject)
     {
         if (thisObject is JsEventTarget target)
         {
             return target;
+        }
+
+        if (_engine._webApi is { } webApi
+            && (_engine._webApiFeatures & WebApiFeatures.GlobalEvents) != WebApiFeatures.None
+            && ReferenceEquals(thisObject, _engine._mainRealm.GlobalObject))
+        {
+            return webApi.GlobalEventTarget;
         }
 
         Throw.TypeError(_realm, "Illegal invocation: receiver is not an EventTarget");

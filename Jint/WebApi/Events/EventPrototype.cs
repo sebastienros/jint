@@ -211,20 +211,65 @@ internal sealed partial class EventPrototype : Prototype
     private JsNumber TimeStampGet(JsValue thisObject) => JsNumber.Create(Brand(thisObject).TimeStamp);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-event-composedpath. The path is the single-item «target» while a
-    /// dispatch is running and empty otherwise, so this answers <c>[target]</c> or <c>[]</c> — which is what a
-    /// browser answers for a target that is not in a tree.
+    /// https://dom.spec.whatwg.org/#dom-event-composedpath — the invocation targets the listener now running
+    /// is allowed to see, which for a tree-less dispatch is the single item <c>[target]</c>.
     /// </summary>
+    /// <remarks>
+    /// A tree-less dispatch keeps no path at all, so the reduction is answered directly rather than by
+    /// running the algorithm over a one-item list somebody had to allocate. Over a real path the algorithm is
+    /// <see cref="EventDispatch.ComposedPath"/>, closed-tree bookkeeping and all.
+    /// </remarks>
     [JsFunction(Name = "composedPath", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsArray ComposedPath(JsValue thisObject)
     {
         var ev = Brand(thisObject);
+
+        // The algorithm asserts that the current target is an EventTarget, which holds for every listener it
+        // can be called from. The path is nevertheless populated for the whole of the walk that builds it, so
+        // a host whose `get the parent` runs script could reach here before the first item is invoked; that
+        // gets the empty answer rather than a path with a null in it.
+        if (ev.Path is { Count: > 0 } path && !ev.CurrentTarget.IsNull())
+        {
+            return _realm.Intrinsics.Array.CreateArrayFromList(EventDispatch.ComposedPath(ev, path));
+        }
+
         if (!ev.DispatchFlag || ev.CurrentTarget.IsNull())
         {
             return _realm.Intrinsics.Array.ArrayCreate(0);
         }
 
         return _realm.Intrinsics.Array.CreateArrayFromList(new[] { ev.CurrentTarget });
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-event-cancelbubble — "The <c>cancelBubble</c> getter steps are to
+    /// return true if this's stop propagation flag is set; otherwise false."
+    /// </summary>
+    /// <remarks>
+    /// Marked <c>// legacy</c> in the IDL and normative all the same. It is worth having once dispatch walks
+    /// a tree, because it is the only way a script can ask whether propagation has already been stopped.
+    /// </remarks>
+    [JsAccessor("cancelBubble", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsBoolean CancelBubbleGet(JsValue thisObject) => JsBoolean.Create(Brand(thisObject).StopPropagationFlag);
+
+    /// <summary>
+    /// The setter half: "set this's stop propagation flag if the given value is true; otherwise do nothing".
+    /// </summary>
+    /// <remarks>
+    /// So it is <c>stopPropagation()</c> under another name and, like <c>returnValue</c>, a one-way switch:
+    /// <c>e.cancelBubble = false</c> can never restart a propagation a listener stopped. The IDL type is
+    /// <c>boolean</c>, so the assigned value goes through https://webidl.spec.whatwg.org/#es-boolean.
+    /// </remarks>
+    [JsAccessor("cancelBubble", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsValue CancelBubbleSet(JsValue thisObject, JsValue value)
+    {
+        var ev = Brand(thisObject);
+        if (TypeConverter.ToBoolean(value))
+        {
+            ev.StopPropagationFlag = true;
+        }
+
+        return Undefined;
     }
 
     /// <summary>

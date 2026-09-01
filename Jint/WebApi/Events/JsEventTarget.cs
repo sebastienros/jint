@@ -15,11 +15,12 @@ namespace Jint.WebApi.Events;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Dispatch is flat.</b> The specification's dispatch algorithm walks an <i>event path</i> built from the
-/// target's ancestors in a node tree; Jint has no node tree and the specification itself says so — "all
-/// author-created EventTargets do not participate in a tree structure". The path is therefore always the
-/// single item «target», which is exactly what the algorithm produces for a tree-less target, and every step
-/// that survives that reduction is implemented here rather than approximated:
+/// <b>Dispatch is flat unless a host supplies a tree.</b> The specification's dispatch algorithm walks an
+/// <i>event path</i> built from the target's ancestors in a node tree; every target this engine ships is
+/// tree-less, and the specification itself says that is the normal case — "all author-created EventTargets do
+/// not participate in a tree structure". For those the path is the single item «target», which is exactly
+/// what the algorithm produces for a tree-less target, and every step that survives that reduction is
+/// implemented here rather than approximated:
 /// </para>
 /// <list type="bullet">
 /// <item><description>
@@ -41,6 +42,14 @@ namespace Jint.WebApi.Events;
 /// twice.
 /// </description></item>
 /// </list>
+/// <para>
+/// <b>A host that has a tree gets the whole algorithm instead.</b> A wrapper that reports
+/// <see cref="IsNode"/> dispatches through <see cref="EventDispatch"/>, which builds the path from
+/// <see cref="GetParent"/> and runs the capture, target and bubble phases over it with retargeting,
+/// <c>composedPath()</c> and activation behaviour. The seams a DOM overrides are listed on that class; every
+/// one of them has a default that keeps a tree-less target on the reduction above, so nothing here changes
+/// for a target that overrides none.
+/// </para>
 /// <para>
 /// <b>What a throwing listener does depends on whether the host set a
 /// <see cref="DiagnosticsSink"/>.</b> The specification says to <i>report</i> the exception and carry on to
@@ -97,12 +106,134 @@ internal class JsEventTarget : ObjectInstance
     /// Jint is the synthetic global target and nothing else.
     /// </summary>
     /// <remarks>
-    /// Read by exactly one rule: HTML's <i>special error event handling</i>, which is what makes a global
+    /// Read by two rules. HTML's <i>special error event handling</i>, which is what makes a global
     /// <c>onerror</c> take five arguments and cancel by returning <see langword="true"/> where every other
-    /// event handler takes the event and cancels by returning <see langword="false"/>. See
-    /// <see cref="InvokeCallback"/>.
+    /// event handler takes the event and cancels by returning <see langword="false"/> — see
+    /// <see cref="InvokeCallback"/>. And dispatch's "parent is a <c>Window</c> object" branch
+    /// (https://dom.spec.whatwg.org/#concept-event-dispatch step 6.9.5), which is what puts the global scope
+    /// on the path of an event travelling up from a document without asking whether it is a node: this
+    /// engine's global target is the only <c>Window</c> a tree can reach, and a worker's global is never a
+    /// node's ancestor because a worker has no node tree.
     /// </remarks>
     internal virtual bool IsGlobalScope => false;
+
+    /// <summary>
+    /// Whether this target is a <i>node</i> — the thing https://dom.spec.whatwg.org/#concept-event-dispatch
+    /// builds an event path over.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// False for every target this engine ships, and that is what makes the tree-less dispatch the default:
+    /// <see cref="DispatchEvent"/> reads this one virtual and, when it is false, runs the reduction of the
+    /// algorithm to the single-item path «target», which allocates no path list and behaves exactly as it did
+    /// before the tree existed. An <c>AbortSignal</c>, a <c>MessagePort</c>, an <c>EventSource</c>, a
+    /// <c>WebSocket</c>, a <c>Worker</c>, a <c>BroadcastChannel</c> and the synthetic global target are all
+    /// tree-less and stay on that path.
+    /// </para>
+    /// <para>
+    /// <b>A host that overrides any other seam on this class must override this too.</b> The tree walk, the
+    /// shadow queries and the activation hooks below are consulted only on the path dispatch, and this is the
+    /// single read that chooses it — a wrapper that answered <see langword="false"/> while overriding
+    /// <see cref="GetParent"/> would silently dispatch to itself alone.
+    /// </para>
+    /// </remarks>
+    internal virtual bool IsNode => false;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#get-the-parent — the target the event travels to next, or
+    /// <see langword="null"/> to end the path.
+    /// </summary>
+    /// <remarks>
+    /// "Unless specified otherwise it returns null", which is the whole of the base implementation. A DOM
+    /// overrides it three times: a node answers its parent or, when it is assigned, its assigned slot; a
+    /// shadow root answers its host unless the event's composed flag is unset and the shadow root is the
+    /// event's target's root; a document answers the global scope for every event except <c>load</c>.
+    /// </remarks>
+    internal virtual JsEventTarget? GetParent(JsEvent ev) => null;
+
+    /// <summary>
+    /// This target's parent in the node tree, ignoring the event — what
+    /// https://dom.spec.whatwg.org/#concept-tree-parent means, and what the ancestor walks behind retargeting
+    /// and <see cref="GetRoot"/> are written in terms of.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="GetParent"/> because the two answer different questions: the event path
+    /// crosses a slot and a shadow boundary, the tree does not, and retargeting has to be able to ask where a
+    /// node <i>is</i> rather than where an event would go next.
+    /// </remarks>
+    internal virtual JsEventTarget? TreeParent => null;
+
+    /// <summary>Whether this target is a shadow root — https://dom.spec.whatwg.org/#interface-shadowroot.</summary>
+    internal virtual bool IsShadowRoot => false;
+
+    /// <summary>
+    /// Whether this target is a shadow root whose <c>mode</c> is <c>"closed"</c>, which is what
+    /// <c>composedPath()</c> hides an inside from an outside listener by.
+    /// </summary>
+    internal virtual bool IsClosedShadowRoot => false;
+
+    /// <summary>
+    /// The host of this shadow root — https://dom.spec.whatwg.org/#concept-documentfragment-host — or
+    /// <see langword="null"/> for anything that is not one.
+    /// </summary>
+    internal virtual JsEventTarget? ShadowHost => null;
+
+    /// <summary>
+    /// Whether this target is a <c>slot</c> element, which is the assertion dispatch makes when a slottable's
+    /// path reaches its assigned slot.
+    /// </summary>
+    internal virtual bool IsSlot => false;
+
+    /// <summary>
+    /// This slottable's assigned slot — https://dom.spec.whatwg.org/#slotable-assigned-slot — or
+    /// <see langword="null"/> when it has none, which is also the answer for anything that is not a slottable.
+    /// </summary>
+    internal virtual JsEventTarget? AssignedSlot => null;
+
+    /// <summary>
+    /// Whether this target has an https://dom.spec.whatwg.org/#eventtarget-activation-behavior, so a dispatch
+    /// of an activation event may pick it as the activation target.
+    /// </summary>
+    internal virtual bool HasActivationBehavior => false;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#eventtarget-activation-behavior, run after the listeners when the event
+    /// was not canceled.
+    /// </summary>
+    internal virtual void ActivationBehavior(JsEvent ev)
+    {
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#eventtarget-legacy-pre-activation-behavior, run <i>before</i> any listener
+    /// so that a listener sees the checkbox already toggled.
+    /// </summary>
+    internal virtual void LegacyPreActivationBehavior()
+    {
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#eventtarget-legacy-canceled-activation-behavior, which undoes what
+    /// <see cref="LegacyPreActivationBehavior"/> did when the event turns out to have been canceled.
+    /// </summary>
+    internal virtual void LegacyCanceledActivationBehavior()
+    {
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-tree-root — the topmost <see cref="TreeParent"/>, which is this
+    /// target itself when it has none.
+    /// </summary>
+    internal JsEventTarget GetRoot()
+    {
+        var root = this;
+        while (root.TreeParent is { } parent)
+        {
+            root = parent;
+        }
+
+        return root;
+    }
 
     /// <summary>
     /// Whether one dispatch of <paramref name="type"/> could invoke anything at all. The engine asks before
@@ -229,11 +360,22 @@ internal class JsEventTarget : ObjectInstance
     }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-event-dispatch. A target that is not in a tree takes the
+    /// reduction of the algorithm to the single-item path «target»; a node takes the whole of it, over the
+    /// path its <see cref="GetParent"/> builds.
+    /// </summary>
+    /// <returns>False when the event was canceled, which is what <c>dispatchEvent</c> returns.</returns>
+    internal bool DispatchEvent(JsEvent ev)
+    {
+        return IsNode ? EventDispatch.Dispatch(this, ev) : DispatchFlat(ev);
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-dispatch, reduced to the single-item path a tree-less
     /// target produces. See the class remarks for what that reduction does and does not change.
     /// </summary>
     /// <returns>False when the event was canceled, which is what <c>dispatchEvent</c> returns.</returns>
-    internal bool DispatchEvent(JsEvent ev)
+    private bool DispatchFlat(JsEvent ev)
     {
         var targetValue = EventTargetValue;
 
@@ -286,6 +428,21 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
+        InvokeListeners(ev, capturePass);
+    }
+
+    /// <summary>
+    /// Steps 7 to 9 of https://dom.spec.whatwg.org/#concept-event-listener-invoke: clone this target's
+    /// listener list and run https://dom.spec.whatwg.org/#concept-event-listener-inner-invoke over the clone.
+    /// </summary>
+    /// <remarks>
+    /// Called with <c>currentTarget</c> already set to this target, by the flat dispatch above and by
+    /// <see cref="EventDispatch"/> for one item of a path. The <i>found</i> return value is not modelled: it
+    /// exists only to drive the second pass over the four <c>webkit</c>-prefixed animation and transition
+    /// event types, and no algorithm in this engine can produce one.
+    /// </remarks>
+    internal void InvokeListeners(JsEvent ev, bool capturePass)
+    {
         var listeners = _listeners;
         if (listeners is null || !HasListenerFor(listeners, ev.TypeName, capturePass))
         {
@@ -305,8 +462,9 @@ internal class JsEventTarget : ObjectInstance
                 continue;
             }
 
-            // Inner invoke steps 2.3 and 2.4. On a single-item path both passes reach AT_TARGET, so each
-            // listener runs in exactly one of them, chosen by its capture flag.
+            // Inner invoke steps 2.3 and 2.4: the capture flag decides which of the two passes a listener
+            // runs in, whatever phase the item is at. At an AT_TARGET item both passes run over it, so a
+            // capturing listener on the target runs before a non-capturing one however they were registered.
             if (listener.Capture != capturePass)
             {
                 continue;

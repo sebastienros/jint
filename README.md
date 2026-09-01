@@ -1025,6 +1025,10 @@ synthetic target the engine keeps beside its timers; the three operations are or
 to it, and `event.target`, `event.currentTarget` and a listener's `this` are the global object, which is what
 a browser reports. The one thing a script could notice is that they ignore their `this`, so
 `const f = addEventListener; f('error', h)` works where a browser raises *Illegal invocation*.
+`EventTarget.prototype`'s own three operations nevertheless accept the global object as their receiver and
+reach that same listener list, because a browser's `Window` inherits exactly those functions and script
+written for one borrows them; what stays false is `globalThis instanceof EventTarget`, since the object still
+gains no prototype and no brand.
 
 Four rules are worth knowing before you rely on it:
 
