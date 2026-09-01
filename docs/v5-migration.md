@@ -4403,6 +4403,51 @@ or name it in the allow-list. There is no option to restore the old behaviour: a
 hides a member from reads and from enumeration while letting a write through is the failure mode such a
 control most needs not to have.
 
+### 4.98 A split survives a constraint that runs script ([#3565](https://github.com/sebastienros/jint/pull/3565))
+
+`String.prototype.split` with a string separator collects its segments into a scratch `List<JsString>` held
+on `StringExecutionContext`, reused between calls so the common case allocates nothing. That buffer is
+**thread**-affine, not engine-affine, and the loop that fills it is not a leaf: it calls
+`Engine.Constraints.Check()` every 10,000 segments, and a host-supplied `Constraint` is host code that may
+run script — on this engine, or on another one sharing the thread. A split reached that way cleared the very
+list the outer split was still filling, and the outer call then returned only the segments it had managed to
+add since.
+
+```csharp
+sealed class LoggingConstraint : Constraint
+{
+    private readonly Engine _reporter = new();
+
+    public override void Check() => _reporter.Evaluate("'x,y,z'.split(',').length");
+
+    public override void Reset() { }
+}
+
+var engine = new Engine(options => options.AddConstraint(new LoggingConstraint()));
+```
+
+```js
+// 5.0                                             5.x
+'a,'.repeat(30000).split(',').length;  // 20004                  30001
+```
+
+The wrong answer is silent: a shorter array, no exception, and nothing in it wrong except that most of it is
+missing. It needs a split long enough to reach a constraint check — 10,000 segments — so a host that hit it
+hit it only on its largest inputs.
+
+The buffer is now rented and returned rather than taken. The owner gets the shared list, a re-entrant caller
+gets a private one, and the release runs in a `finally`, so a constraint that throws mid-split leaves the
+buffer usable rather than permanently marked in use. Returning also clears it, which is worth knowing for a
+second reason: the segments are `JsString.CreateSliced` views that may reference the script source they were
+cut from, and the shared buffer used to hold the last split's segments — and therefore that source — until
+the next split on the thread.
+
+**What could break:** nothing a correct host observes. The only behaviour change is that a re-entrant split
+now returns the whole result instead of part of it, and a nested split allocates a list of its own rather
+than borrowing one. A host with no constraints, or with only the in-box ones — none of which run script —
+was never on the affected path and pays exactly what it paid before: one shared list per thread, one
+`Clear()` per call.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
