@@ -11,13 +11,19 @@ namespace Jint.Benchmark;
 /// creation. The tombstones are reclaimed by compaction inside the resize an add would have needed
 /// anyway, so what is measured here is how much that reclamation costs on the shapes that provoke it.
 /// <para>
-/// The four collection rows are the distinguishable cases. <c>AddOnly</c> is the control: no removals, so
-/// nothing about its path changed. <c>AddThenRemoveNewest</c> removes the entry that was just added, which
-/// walks the high-water mark back and never compacts. <c>RotateOldest</c> is the one shape that keeps
-/// compacting — it adds a name never seen before and drops the oldest live one, so every step leaves a
-/// hole below the mark. <c>ReAddMiddle</c> looks like it should compact too and does not: after the first
-/// step the re-added name <em>is</em> the newest entry, so it takes the same shortcut
-/// <c>AddThenRemoveNewest</c> does. That asymmetry is the point of having both.
+/// The five collection rows are the distinguishable cases. <c>AddOnly</c> is the control: it never deletes,
+/// so what it prices is what the delete side costs a workload that has none, which is what the engine does
+/// far more of. <c>AddThenRemoveNewest</c> removes the entry that was just added, which
+/// walks the window's top back and never compacts. <c>RotateOldest</c> adds a name never seen before and
+/// drops the oldest live one; that shape used to leave a hole below the high-water mark on every step and
+/// so compacted every <c>capacity - live</c> adds forever, and it is what the circular window of #3315
+/// makes free — its removal advances the window's base instead. <c>RotateBehindPinnedKey</c> is the same
+/// rotation with one key that is never deleted sitting underneath it, which is what the window cannot
+/// help: the base is stuck on the pinned key, every removal is from the middle, and the compaction is
+/// still there. It is the degradation control, and what it prices is that the shape got no worse.
+/// <c>ReAddMiddle</c> looks like it should compact too and does not: after the first step the re-added
+/// name <em>is</em> the newest entry, so it takes the same shortcut <c>AddThenRemoveNewest</c> does. That
+/// asymmetry is the point of having both.
 /// </para>
 /// <para>
 /// They measure the collection rather than a script on purpose: an engine-level delete costs a property
@@ -149,7 +155,10 @@ public class PropertyDeleteChurnBenchmark
         return dictionary.Count;
     }
 
-    /// <summary>Steady-state rotation: every step adds a name never seen before and drops the oldest live one.</summary>
+    /// <summary>
+    /// Steady-state rotation: every step adds a name never seen before and drops the oldest live one, which
+    /// is what a bounded cache built out of an object does, and the shape the circular window makes free.
+    /// </summary>
     [Benchmark]
     public int RotateOldest()
     {
@@ -158,6 +167,26 @@ public class PropertyDeleteChurnBenchmark
         {
             dictionary[_fresh[step]] = _fresh;
             dictionary.Remove(step < _keys.Length ? _keys[step] : _fresh[step - _keys.Length]);
+        }
+
+        return dictionary.Count;
+    }
+
+    /// <summary>
+    /// The same rotation with an entry pinned underneath it — a name set once and never deleted, which any
+    /// object used as a cache with a field on it has. The window's base cannot advance past a live key, so
+    /// every removal is from the middle and leaves a tombstone only a compaction reclaims: this is the
+    /// shape <see cref="RotateOldest"/> was before the window, and it is here to show it did not get worse.
+    /// </summary>
+    [Benchmark]
+    public int RotateBehindPinnedKey()
+    {
+        var dictionary = Filled();
+        var rotating = _keys.Length - 1;
+        for (var step = 0; step < Steps; step++)
+        {
+            dictionary[_fresh[step]] = _fresh;
+            dictionary.Remove(step < rotating ? _keys[step + 1] : _fresh[step - rotating]);
         }
 
         return dictionary.Count;
