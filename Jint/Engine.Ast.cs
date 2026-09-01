@@ -118,27 +118,31 @@ public partial class Engine
         ParserOptions parserOptions,
         in ParsingConstraints constraints)
     {
+        // Stated rather than derived from the composed visitor below, which no longer is the retention
+        // handler even when it retains: this is where the preparation's own switch is read.
+        var retainSourceText = options.ParsingOptions.RetainFunctionSourceText;
+
         if (staticAnalysis)
         {
             parserOptions = parserOptions with { OnNode = new AstAnalyzer(options, referencedGlobals).GetNodeVisitor() };
-            return JintParser.Create(parserOptions, in constraints);
+            return JintParser.Create(parserOptions, in constraints, retainSourceText);
         }
 
         if (referencedGlobals is null)
         {
-            return JintParser.Create(parserOptions, in constraints);
+            return JintParser.Create(parserOptions, in constraints, retainSourceText);
         }
 
         // Collecting without analyzing. The collector never writes UserData, so ordering against the retention
         // handler is free, but displacing it is not: retained source text is the retention handler's only chance
         // to be recorded, and Function.prototype.toString() reads what it left behind.
-        var retainSourceText = parserOptions.OnNode;
-        OnNodeHandler onNode = retainSourceText is null
+        var retentionHandler = parserOptions.OnNode;
+        OnNodeHandler onNode = retentionHandler is null
             ? referencedGlobals.OnNode
-            : new CompositeNodeVisitor(retainSourceText, referencedGlobals.OnNode).Visit;
+            : new CompositeNodeVisitor(retentionHandler, referencedGlobals.OnNode).Visit;
 
         parserOptions = parserOptions with { OnNode = onNode };
-        return JintParser.Create(parserOptions, in constraints);
+        return JintParser.Create(parserOptions, in constraints, retainSourceText);
     }
 
     /// <summary>

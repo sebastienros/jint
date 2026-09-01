@@ -1135,6 +1135,21 @@ by another thread"*, which is what makes one drainer per engine self-enforcing. 
 the same contract without holding a thread. Both are available on **every** target framework and are unaffected
 by which web APIs are enabled.
 
+**`engine.Tasks.Post(action)` is how the rest of your process hands that loop work.** It is the one entry a
+thread that does *not* own the engine may call: it queues the callback as an ordinary event-loop job — never
+running it on the caller's thread — and wakes the wait above, so the action runs on the engine's own thread in
+the next `ProcessTasks()`.
+
+```csharp
+engine.Tasks.Post(() => engine.Invoke("onMessage", payload));   // any thread
+```
+
+A posted job is a job like every other. It runs behind whatever is already queued, so one posted from inside a
+job runs after that job rather than nesting inside it; an exception it throws erupts out of the pump that ran
+it and leaves the rest of the queue for the next turn; and it belongs to the evaluation cycle it was posted in,
+so a `RestoreGlobalSnapshot` in between drops it. A turn is not a run, so execution constraints are not
+re-armed for it.
+
 **`engine.WebApi.CreateAbortSignal(cancellationToken)`** bridges your cancellation into script: hand the
 returned `AbortSignal` to `fetch`, to `scheduler.postTask`, or to a listener the script adds itself. Requires
 the `Events` feature. Cancelling the token **never runs script on the cancelling thread** — it enqueues, and
@@ -2517,8 +2532,10 @@ https://docs.microsoft.com/shows/code-conversations/sebastien-ros-on-jint-javasc
 
 An `Engine` is single-operation, not thread-safe. Public host entries fail fast with
 `InvalidOperationException` when another thread is using the same engine or while one of its async APIs
-is still outstanding; callers are never silently serialized. Same-thread re-entry from a host callback is
-supported for synchronous APIs. A JavaScript callback converted to a CLR delegate may also be dispatched
+is still outstanding; callers are never silently serialized. One entry is deliberately outside that rule:
+`engine.Tasks.Post(action)` claims nothing and is never refused, because it only *enqueues* — the action
+itself runs on whichever thread pumps the engine (see **Driving the engine from your own loop**). Same-thread
+re-entry from a host callback is supported for synchronous APIs. A JavaScript callback converted to a CLR delegate may also be dispatched
 to another thread by the host, and Jint admits such a transfer whenever it holds an open callback-admission
 window. There are four: from the moment a host call is handed the callback until the engine operation that
 made that call — the `Evaluate`, `Execute`, `Invoke` or callback turn on the stack — returns; while one of

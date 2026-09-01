@@ -84,6 +84,7 @@ namespace Jint
             public bool HasSharedShape(Jint.Native.Object.ObjectInstance value) { }
             public void ResetCallStack() { }
             public void RestoreGlobalSnapshot(Jint.GlobalSnapshot snapshot) { }
+            public bool TryGetSourceText(Acornima.Ast.Program program, out string? sourceText) { }
             public void WithRestoredGlobals(Jint.GlobalSnapshot snapshot, System.Action action) { }
         }
         public sealed class ConstraintOperations
@@ -124,6 +125,7 @@ namespace Jint
         {
             public System.TimeSpan? TimeUntilNextScheduledWork { get; }
             public event System.EventHandler<Jint.PromiseRejectionTrackerEventArgs>? PromiseRejectionTracker;
+            public void Post(System.Action action) { }
             public void ProcessTasks() { }
             public Jint.Native.Promise.ManualPromise RegisterPromise() { }
             public bool WaitForScheduledWork(System.TimeSpan timeout, System.Threading.CancellationToken cancellationToken = default) { }

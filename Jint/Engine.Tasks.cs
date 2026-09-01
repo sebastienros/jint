@@ -64,6 +64,66 @@ public partial class Engine
         }
 
         /// <summary>
+        /// Enqueues <paramref name="action"/> as an event-loop job, from any thread, waking a parked pump.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The action runs on whichever thread pumps the engine, never on the caller's.</b> It queues
+        /// behind everything already queued and runs in the next <see cref="ProcessTasks"/> — or in a drain a
+        /// running evaluation performs — so one posted from inside a job runs after that job, in order with
+        /// the jobs already queued.
+        /// </para>
+        /// <para>
+        /// <b>It is the one entry a thread that does not own the engine may call.</b> It claims nothing and is
+        /// never refused as concurrent use, and it ends a
+        /// <see cref="WaitForScheduledWork(TimeSpan, System.Threading.CancellationToken)"/> the way any other
+        /// cross-thread arrival does.
+        /// </para>
+        /// <para>
+        /// <b>A turn is not a run.</b> Execution constraints are not re-armed for it — see
+        /// <see cref="Constraint.Reset"/> — so it inherits the counters the engine has, while its allocation
+        /// budget begins afresh like every other external event's. An exception it throws erupts out of the
+        /// pump that ran it, leaving everything queued behind it to run on the next turn.
+        /// </para>
+        /// <para>
+        /// The job belongs to the evaluation cycle current when it was posted, so an
+        /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/> in between drops it; post again afterwards.
+        /// <see cref="Engine.Dispose"/> is not a barrier — an engine has no disposed state, and a job posted
+        /// to a disposed engine still runs if it is pumped again.
+        /// </para>
+        /// </remarks>
+        /// <param name="action">The callback to run on the engine's own thread.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="action"/> is <c>null</c>.</exception>
+        /// <example>
+        /// One thread per engine, with the rest of the process handing it work:
+        /// <code>
+        /// // any thread
+        /// engine.Tasks.Post(() => engine.Invoke("onMessage", payload));
+        ///
+        /// // the engine's own thread
+        /// engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+        /// engine.Tasks.ProcessTasks();
+        /// </code>
+        /// </example>
+        public void Post(Action action)
+        {
+            if (action is null)
+            {
+                Throw.ArgumentNullException(nameof(action));
+            }
+
+            // Deliberately unguarded — no EnterHostCall — because the caller is the thread that does not own
+            // the engine; the queue is concurrent and the enqueue is what wakes a park.
+            //
+            // The generation is read here rather than at dequeue so that a post belongs to the cycle the host
+            // made it in, exactly as a registered promise belongs to the cycle it was registered in. The
+            // overload carrying no memory state is the one for work that is not part of any single engine
+            // operation: a host thread's post has no originating operation whose budget its turn belongs to,
+            // and capturing one would mean writing to the running operation's state from this thread.
+            _engine.AddToEventLoop(action, _engine.EventLoopGeneration);
+        }
+
+        /// <summary>
         /// Hands script a promise this host settles itself, returning the promise together with its resolve
         /// and reject functions.
         /// </summary>

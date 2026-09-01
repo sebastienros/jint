@@ -62,20 +62,31 @@ internal sealed class JintParser
     private readonly ParserOptions _options;
     private readonly ParsingConstraints _constraints;
     private readonly NodeCounter? _nodeCounter;
+    private readonly bool _retainsSourceText;
 
     private JintParser(
         ParserOptions options,
         ParserOptions effectiveParserOptions,
         in ParsingConstraints constraints,
-        NodeCounter? nodeCounter)
+        NodeCounter? nodeCounter,
+        bool retainsSourceText)
     {
         _parser = new Parser(effectiveParserOptions);
         _options = options;
         _constraints = constraints;
         _nodeCounter = nodeCounter;
+        _retainsSourceText = retainsSourceText;
     }
 
     public static JintParser Create(ParserOptions options, in ParsingConstraints constraints)
+        => Create(options, in constraints, RetainsSourceText(options));
+
+    /// <summary>
+    /// Creates a parser whose retention is stated rather than derived, for the one caller that composes its
+    /// own node visitor: a preparation's static-analysis pass reads the retained text out of the parse context
+    /// itself, so <see cref="RetainsSourceText"/> cannot see it in <see cref="ParserOptions.OnNode"/>.
+    /// </summary>
+    public static JintParser Create(ParserOptions options, in ParsingConstraints constraints, bool retainsSourceText)
     {
         NodeCounter? counter = null;
         var effectiveOptions = options;
@@ -85,15 +96,27 @@ internal sealed class JintParser
             effectiveOptions = options with { OnNode = counter.Visit };
         }
 
-        return new JintParser(options, effectiveOptions, in constraints, counter);
+        return new JintParser(options, effectiveOptions, in constraints, counter, retainsSourceText);
     }
+
+    /// <summary>
+    /// Whether a parse under <paramref name="options"/> keeps the source text it is handed. Reading the
+    /// installed handler is what keeps the two retentions one decision: the same
+    /// <see cref="Engine.DefaultNodeHandler"/> that stamps the input onto every function node is what
+    /// <c>IParsingOptions.RetainFunctionSourceText</c> installs, so a program's text is remembered exactly
+    /// when its functions' text is.
+    /// </summary>
+    private static bool RetainsSourceText(ParserOptions options)
+        => ReferenceEquals(options.OnNode, Engine.DefaultNodeHandler);
 
     internal ParserOptions Options => _options;
 
     public Script ParseScript(string input, int start, int length, string? sourceFile = null, bool strict = false)
     {
         BeginParse(length);
-        return _parser.ParseScript(input, start, length, sourceFile, strict);
+        var script = _parser.ParseScript(input, start, length, sourceFile, strict);
+        RecordSourceText(script, input);
+        return script;
     }
 
     public Script ParseScript(string input, string? sourceFile = null, bool strict = false)
@@ -102,7 +125,9 @@ internal sealed class JintParser
     public Module ParseModule(string input, int start, int length, string? sourceFile = null)
     {
         BeginParse(length);
-        return _parser.ParseModule(input, start, length, sourceFile);
+        var module = _parser.ParseModule(input, start, length, sourceFile);
+        RecordSourceText(module, input);
+        return module;
     }
 
     public Module ParseModule(string input, string? sourceFile = null)
@@ -121,6 +146,20 @@ internal sealed class JintParser
     {
         _constraints.CheckSourceLength(length);
         _nodeCounter?.Reset();
+    }
+
+    /// <summary>
+    /// Publishes the whole input beside the program it produced, for
+    /// <see cref="Engine.AdvancedOperations.TryGetSourceText"/>. The string is the one the caller handed in
+    /// — <see cref="ScriptParsingOptions.SourceOffset"/> padding included, since that is what every location
+    /// in the parsed tree indexes into.
+    /// </summary>
+    private void RecordSourceText(Program program, string input)
+    {
+        if (_retainsSourceText)
+        {
+            Engine.RecordSourceText(program, input);
+        }
     }
 
     internal void CheckSourceLength(long length) => _constraints.CheckSourceLength(length);
