@@ -416,16 +416,41 @@ public class SecurityConfigurationTests
         codes.Should().Contain(SecurityDiagnosticCodes.StackOverflowGuardDisabled);
     }
 
+    /// <summary>
+    /// The registry as it stands when the configuration callbacks have finished is what an engine installs -
+    /// for the prototypes and for the resolver alike - so a callback that empties it uninstalls both, and the
+    /// report taken from the engine says so. https://github.com/sebastienros/jint/issues/3568
+    /// </summary>
     [Test]
-    public void EffectiveEngineReportUsesInstalledExtensionMethodCache()
+    public void AConfigureCallbackThatEmptiesTheRegistryUninstallsTheExtensionMethods()
     {
         var options = CreateSafeOptions().AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions));
         options.Configure(_ => options.Interop.ExtensionMethodTypes.Clear());
 
-        var report = new Engine(options).Diagnostics.ValidateSecurityConfiguration();
+        var engine = new Engine(options);
 
-        report.Diagnostics.Should().ContainSingle(
-            diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrExtensionMethodsConfigured);
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics
+            .Should().NotContain(
+                diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrExtensionMethodsConfigured);
+        Invoking(() => engine.Evaluate("'x'.ReadSecret()")).Should().Throw<JavaScriptException>();
+    }
+
+    /// <summary>
+    /// And the same registry read the other way: a container type registered from a callback is installed, so
+    /// the report taken from the engine reports it exactly as it does one registered on the options directly.
+    /// </summary>
+    [Test]
+    public void AConfigureCallbackThatFillsTheRegistryInstallsTheExtensionMethods()
+    {
+        var options = CreateSafeOptions();
+        options.Configure(_ => options.AddExtensionMethods(typeof(SecurityConfigurationUnsafeExtensions)));
+
+        var engine = new Engine(options);
+
+        engine.Diagnostics.ValidateSecurityConfiguration().Diagnostics
+            .Should().ContainSingle(
+                diagnostic => diagnostic.Code == SecurityDiagnosticCodes.ClrExtensionMethodsConfigured);
+        engine.Evaluate("'x'.ReadSecret()").AsString().Should().Be("x");
     }
 
     [Test]

@@ -675,6 +675,13 @@ public sealed partial class Options
         }
 #endif
 
+        // Both halves of the extension-method feature read the registration list here, after every
+        // configuration callback above has run and after the untrusted profile's re-expansion has had its
+        // say: the lookup TypeResolver consults is re-derived, and then the prototypes are attached. The
+        // engine's first reading was taken before the callbacks, and a container type registered from one
+        // used to reach neither (sebastienros/jint#3568).
+        engine.RefreshExtensionMethods();
+
         if (Interop.ExtensionMethodTypes.Count > 0)
         {
             AttachExtensionMethodsToPrototypes(engine);
@@ -933,6 +940,10 @@ public sealed partial class Options
         /// <summary>
         /// Types holding extension methods that should be considered when resolving methods.
         /// </summary>
+        /// <remarks>
+        /// Read once per engine, when the options are applied and so after any callback registered with
+        /// <c>Options.Configure</c> has run.
+        /// </remarks>
         public OptionsList<Type> ExtensionMethodTypes { get; private set; } = new("Options.Interop.ExtensionMethodTypes");
 
         /// <summary>

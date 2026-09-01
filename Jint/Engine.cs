@@ -1479,7 +1479,17 @@ public sealed partial class Engine : IDisposable
     internal readonly JsValueArrayPool _jsValueArrayPool;
     internal readonly ObjectTraverseStackPool _objectTraverseStackPool;
     internal TailCallRequest? _tailCallRequest;
-    internal readonly ExtensionMethodCache _extensionMethods;
+    /// <summary>
+    /// The registered extension methods, keyed by the type they extend. Consulted by
+    /// <see cref="Runtime.Interop.TypeResolver"/> and by the prototype attach in <see cref="Options.Apply"/>.
+    /// </summary>
+    /// <remarks>
+    /// Not <c>readonly</c>: it is built at the top of construction, because a configuration callback can
+    /// reach interop, and re-derived once from <see cref="Options.Apply"/> after every callback has run —
+    /// registering a container type from <c>Options.Configure</c> has to reach both consumers, and the attach
+    /// beside that refresh already reads the registration list live.
+    /// </remarks>
+    internal ExtensionMethodCache _extensionMethods;
 
     /// <summary>
     /// The converter every interop conversion actually goes through, which is what engine-internal call sites
@@ -1604,6 +1614,8 @@ public sealed partial class Engine : IDisposable
         Options = sourceOptions.CreateEngineOptions();
         _untrustedCodeLimits = Options.UntrustedCodeLimits;
 
+        // A first reading, so that interop reached from a configuration callback has a lookup to consult.
+        // Options.Apply takes it again once those callbacks have run - see RefreshExtensionMethods.
         _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
 
         Reset();
@@ -1742,6 +1754,29 @@ public sealed partial class Engine : IDisposable
         // rule can be stated without an exception.
         Options.MakeReadOnly();
         sourceOptions.MakeReadOnly();
+    }
+
+    /// <summary>
+    /// Re-derives <see cref="_extensionMethods"/> from the registration list as it stands once every
+    /// configuration callback has run. Called by <see cref="Options.Apply"/>, immediately before the attach
+    /// that reads that list.
+    /// </summary>
+    /// <remarks>
+    /// A callback registered with <c>Options.Configure</c> is a documented place to finish configuring an
+    /// engine, and a container type registered from one used to reach neither the prototypes nor
+    /// <see cref="Runtime.Interop.TypeResolver"/> (sebastienros/jint#3568) — while the attach beside this call
+    /// read the grown list and ran anyway, so one half of the feature already behaved as if it were supported.
+    /// <para>
+    /// Unconditional, so that a callback which <em>clears</em> the registry — which is what an untrusted-code
+    /// profile does on its way through <c>Apply</c> — drops the lookup as well as the attach.
+    /// <see cref="Runtime.Interop.Reflection.ExtensionMethodCache.Build"/> answers an empty registry from a
+    /// count check and an unchanged one from its intern table, so the common engine pays nothing and an
+    /// extension-method host pays one lookup against the prototype sweep that follows.
+    /// </para>
+    /// </remarks>
+    internal void RefreshExtensionMethods()
+    {
+        _extensionMethods = ExtensionMethodCache.Build(Options.Interop.ExtensionMethodTypes);
     }
 
     private static void ValidateModuleOptions(Options.ModuleOptions modules)
