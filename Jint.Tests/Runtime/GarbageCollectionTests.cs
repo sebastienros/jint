@@ -201,6 +201,47 @@ public class GarbageCollectionTests
         }
     }
 
+    [Fact]
+    public void SharedPreparedScriptConvertingFunctionsToDelegatesDoesNotRetainEngines()
+    {
+        // The delegate a JavaScript function converts to is memoized in two process-wide tables, the lower of
+        // which is keyed on the function's AST node — shared, and outliving every engine that runs a prepared
+        // script. Both are keyed by the target delegate type as well since #3434, so the AST node now holds one
+        // compiled binder per delegate type rather than one in total; this is the pin that those binders stayed
+        // engine-neutral, taking their target as a parameter rather than closing over the engine that built them.
+
+        var prepared = Engine.PrepareScript("""
+            host.a(function (x) { { let y = x; return String(y); } });
+            host.b(function (x) { { let y = x; return String(y); } });
+            """);
+
+        const int count = 20;
+        var references = new List<WeakReference>(count);
+        for (var i = 0; i < count; i++)
+        {
+            references.Add(ConvertOnceAndForget(prepared));
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+
+        var aliveCount = references.Count(static r => r.IsAlive);
+        prepared.Program.ShouldCarryPublishedInterpreterState();
+
+        aliveCount.Should().Be(0, $"{aliveCount} of {count} engines were not collected — the shared delegate binder cache still pins engines.");
+
+        // NoInlining so the engine reference cannot be stack-rooted in this frame across the GC.Collect calls.
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static WeakReference ConvertOnceAndForget(Prepared<Script> prepared)
+        {
+            var engine = new Engine();
+            engine.SetValue("host", new DelegateConversionTargetTypeTests.BothHost());
+            engine.Execute(prepared);
+            return new WeakReference(engine);
+        }
+    }
+
     private static void AssertNoEngineRetained(Prepared<Script> prepared)
     {
         const int count = 20;
