@@ -679,9 +679,12 @@ public static class TypeConverter
             var c = str[i];
             if (!char.IsDigit(c))
             {
-                if (i == 0 && (c == '-' || Character.IsDecimalDigit(c)))
+                // StrIntegerLiteral ::: SignedInteger | NonDecimalIntegerLiteral, and SignedInteger takes
+                // either sign: "+12" is as much a literal as "-12". The sign belongs to the decimal
+                // spelling alone, and a signed non-decimal one needs no rule of its own: the 0x, 0o and
+                // 0b lanes below all match at index 0, which the sign occupies.
+                if (i == 0 && c is '-' or '+')
                 {
-                    // ok
                     continue;
                 }
 
