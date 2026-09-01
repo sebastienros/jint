@@ -4586,6 +4586,7 @@ none of it changes an engine that does not.
 | Writable named projections, and named members on an `ArrayLikeObject` | `IsNameWritable` / `TrySetNamedValue` / `TryDeleteName`, and the same `NameCount` / `NameAt` / `TryGetNamedValue` triple on both classes | [§5.3](#53-host-objects-one-hook-set-for-named-properties-3338) |
 | `HostFunction` — one base class for a host-defined callable, the function sibling of `ArrayLikeObject` and `NamedPropertyObject` | derive from it and override `Invoke` | [§5.5](#55-a-host-function-is-a-class-you-can-derive-3345) |
 | Host-contract verification catches a value built for an engine another thread is using | `AppContext.SetSwitch("Jint.EnableHostContractVerification", true)` | [§5.6](#56-host-contract-verification-also-checks-thread-affinity-3332) |
+| The source text a script or module was parsed from, read back through `engine.Advanced.TryGetSourceText(program, out var text)` | `options.RetainFunctionSourceText = true`, or the same setting on a preparation's parsing options | [§5.8](#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -4917,6 +4918,39 @@ and every registry reached through this property throws — including the two th
 ([§4.41](#441-two-holes-in-the-freeze-closed-3360)). What the freeze covers is the settings, not the objects
 they name: a `TypeResolver`, a `CultureInfo`, a module loader, a provider or an `HttpClient` read back here is
 still the host's own mutable object, exactly as it was before it was handed to Jint.
+
+### 5.8 A host thread can hand the engine work, and read back the source a program was parsed from ([#3587](https://github.com/sebastienros/jint/pull/3587))
+
+Two additions, both for a host driving one engine from a thread of its own.
+
+`engine.Tasks.Post(action)` is the one entry a thread that does **not** own the engine may call. It queues the
+callback as an ordinary event-loop job and wakes a pump parked in `WaitForScheduledWork`, so the action runs on
+the engine's own thread:
+
+```csharp
+// any thread: accepted rather than refused as concurrent use
+engine.Tasks.Post(() => engine.Invoke("onMessage", payload));
+
+// the engine's thread
+while (!token.IsCancellationRequested)
+{
+    engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50), token);
+    engine.Tasks.ProcessTasks();
+}
+```
+
+A posted job is a job like any other: it runs behind what is already queued, an exception it throws erupts out
+of the pump, and it belongs to the evaluation cycle it was posted in — so a `RestoreGlobalSnapshot` in between
+drops it. A turn is not a run, so execution constraints are not re-armed for it
+([§4.7](#47-concurrent-engine-use-is-rejected-3035) describes the ownership rule it is the exception to).
+
+`engine.Advanced.TryGetSourceText(program, out var text)` answers with the string a script or module was parsed
+from, keyed by the `Program` node `DebugHandler.BeforeEvaluate` hands over. It is opt-in through the switch
+`Function.prototype.toString` already uses — `Options.RetainFunctionSourceText`, or the
+`RetainFunctionSourceText` of the parsing options a prepared program was prepared with — and answers `false`
+when that parse did not retain. The text is the host's own string, not a copy, so a node's location indexes
+into it directly, and the answer does not depend on the engine asked: one `Prepared<Script>` shared by many
+engines reads back the same text on all of them.
 
 ## 6. AOT and trimming
 
