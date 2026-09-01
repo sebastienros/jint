@@ -243,6 +243,19 @@ public static class TypeConverter
             // that Jint's TrimEx considers whitespace per the ECMAScript spec.
             return 0;
         }
+
+        // A trailing U+0000 run pads nothing, and neither parser below rejects it: the framework's number
+        // parsers end a number at a U+0000 and accept however many follow it, the way a C string terminates,
+        // and no NumberStyles flag turns that off. U+0000 is category Cc and in neither WhiteSpace nor
+        // LineTerminator, so it pads a StringNumericLiteral under no reading of the grammar, and V8,
+        // SpiderMonkey and JavaScriptCore all answer NaN (sebastienros/jint#3541). The tolerance only fires
+        // when the run reaches the end of the string, and the trim above has already taken any white space
+        // off that end, so testing the last character catches every spelling it could read.
+        if (input[input.Length - 1] == '\0')
+        {
+            return double.NaN;
+        }
+
         firstChar = input[0];
 
         const NumberStyles NumberStyles = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
