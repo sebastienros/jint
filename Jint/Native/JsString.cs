@@ -364,11 +364,24 @@ public class JsString : JsValue, IEquatable<JsString>, IEquatable<string>
     /// allocation, and every consumer of the result would pay the flattening indirection for nothing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Only the asymptotic behaviour above this line matters, and the exact value does not change it: a
     /// loop that accumulates in <c>n</c>-character pieces copies for the first
     /// <c>MinDeferredConcatenationLength / n</c> iterations and defers from then on, so the whole
     /// quadratic term is bounded by <c>MinDeferredConcatenationLength²</c> characters however long the
     /// loop runs. It is a knob for the small-string case, not for the fix.
+    /// </para>
+    /// <para>
+    /// The arithmetic under the value: a <see cref="RopeString"/> is 56 bytes on 64-bit — header, the
+    /// inherited type and memo fields, two operand references and the length — and it does not remove
+    /// the flat allocation, it postpones it. A result that is read once therefore costs those 56 bytes
+    /// and one indirection <em>more</em> than copying it would have; the node earns them back only
+    /// across iterations, where the operand it holds would otherwise be copied again. So the line sits
+    /// far above the point where a node is merely affordable — and what the path <em>below</em> the line
+    /// allocates matters more than where the line is. A chain that stays below it has to cost what it
+    /// cost before this representation existed; when it did not, SunSpider's date-format rows paid for a
+    /// deferral they never took (#3527).
+    /// </para>
     /// </remarks>
     internal const int MinDeferredConcatenationLength = 512;
 

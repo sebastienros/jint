@@ -1004,7 +1004,13 @@ public static class TypeConverter
         return JsString.Create(ToStringNonString(o));
     }
 
-    private static string ToStringNonString(JsValue o)
+    /// <summary>
+    /// The text half of <see cref="ToJsString"/>, for a value that is not already a <see cref="JsString"/>.
+    /// A caller that only needs characters — a concatenation that is about to copy them — calls this so it
+    /// does not allocate the <see cref="JsString"/> wrapper <see cref="ToJsString"/> would put around them
+    /// and immediately unwrap.
+    /// </summary>
+    internal static string ToStringNonString(JsValue o)
     {
         var type = o._type & ~InternalTypes.InternalFlags;
         switch (type)

@@ -61,7 +61,87 @@ public class StringConcatenationTests
 
         engine.Evaluate("'a' + 'b'").Should().BeOfType<JsString>();
         engine.Evaluate("'a' + 'b' + 'c'").Should().BeOfType<JsString>();
+        engine.Evaluate("'a' + 'b' + 'c' + 'd'").Should().BeOfType<JsString>();
+        engine.Evaluate("'a' + 'b' + 'c' + 'd' + 'e' + 'f'").Should().BeOfType<JsString>();
         engine.Evaluate($"'x'.repeat({JsString.MinDeferredConcatenationLength - 2}) + 'y'").Should().BeOfType<JsString>();
+    }
+
+    /// <summary>
+    /// A chain mixes operands that are already strings with operands that are not, and the two are
+    /// carried in different forms up to the point where the cutoff is read — so this is where a chain
+    /// would put an operand's characters in the wrong place, or read the wrong length and take the
+    /// wrong side of the cutoff. Every arity has its own join, so every arity is spelled out.
+    /// </summary>
+    [TestCase("y + '-' + m", "2007-11")]
+    [TestCase("'[' + y + ']' + m", "[2007]11")]
+    [TestCase("y + '-' + m + '-' + d", "2007-11-29")]
+    [TestCase("y + '-' + m + '-' + d + ' ' + y + ':' + m + ':' + d", "2007-11-29 2007:11:29")]
+    [TestCase("'' + y + m + d", "20071129")]
+    [TestCase("'' + y + m + d + '.'", "20071129.")]
+    [TestCase("y + '-' + m + '-' + d + '!'", "2007-11-29!")]
+    public void AChainMixingCoercedAndStringOperandsProducesTheSameCharacters(string expression, string expected)
+    {
+        var engine = new Engine();
+        engine.Execute("var y = 2007, m = 11, d = 29;");
+
+        var value = engine.Evaluate(expression);
+
+        value.Should().BeOfType<JsString>();
+        value.AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The two-operand form of the same mix: one side is already a string and the other coerces, which
+    /// is what <c>n + "x"</c> is. Below the cutoff the result is flat and above it the deferred node is
+    /// still built — the operand that had to be coerced is not what decides that, the length is.
+    /// </summary>
+    [Test]
+    public void APairWithOneCoercedOperandTakesBothSidesOfTheCutoff()
+    {
+        // through variables, so nothing here is folded away before the lane under test sees it
+        var engine = new Engine();
+        var pad = JsString.MinDeferredConcatenationLength;
+        engine.Execute($"var n = 12345, letter = 'a', wide = 'x'.repeat({pad});");
+
+        engine.Evaluate("n + letter").AsString().Should().Be("12345a");
+        engine.Evaluate("letter + n").AsString().Should().Be("a12345");
+        engine.Evaluate("n + letter").Should().BeOfType<JsString>();
+
+        var deferred = engine.Evaluate("n + wide");
+        deferred.Should().BeOfType<JsString.RopeString>();
+        deferred.AsString().Should().Be("12345" + new string('x', pad));
+
+        var deferredPrepend = engine.Evaluate("wide + n");
+        deferredPrepend.Should().BeOfType<JsString.RopeString>();
+        deferredPrepend.AsString().Should().Be(new string('x', pad) + "12345");
+    }
+
+    /// <summary>
+    /// What the deferred representation must not cost the chains that never reach it. A chain of short
+    /// pieces — a formatted date, which is what SunSpider's date-format rows build — lands far below the
+    /// cutoff and is copied eagerly, so it has to allocate what it allocated before the representation
+    /// existed: its result, the characters its non-string operands coerce to, and the one array its
+    /// operands live in.
+    /// <para>
+    /// Coercing every operand to a <see cref="JsString"/> before the cutoff had been read cost a second
+    /// array per chain and a wrapper object per non-string operand, every byte of it dead by the time the
+    /// result was copied out. Bytes per evaluation of the eleven-operand chain below, taken as a delta of
+    /// a thread-local allocation counter so the figure does not depend on what else the machine is doing:
+    /// 576 to 272 on net10.0 and net8.0, 712 to 296 on net472.
+    /// </para>
+    /// </summary>
+    [Test]
+    public void AShortChainDoesNotPayForTheDeferredRepresentation()
+    {
+        if (!GCPolyfills.AllocatedBytesForCurrentThreadIsSupported)
+        {
+            // see AccumulatingWithPlusIsNoLongerQuadratic for why this reports rather than fails
+            return;
+        }
+
+        var perEvaluation = AllocatedBytesPerChainEvaluation("y + '-' + m + '-' + d + ' ' + y + ':' + m + ':' + d", 20_000);
+
+        perEvaluation.Should().BeLessThan(ShortChainAllocationCeiling);
     }
 
     /// <summary>
@@ -264,6 +344,8 @@ public class StringConcatenationTests
     [TestCase("s = s + chunk")]
     [TestCase("s = chunk + s")]
     [TestCase("s = s + chunk + chunk")]
+    [TestCase("s = s + chunk + chunk + chunk + chunk")]
+    [TestCase("s = chunk + chunk + chunk + chunk + s")]
     public void AccumulatingWithPlusIsNoLongerQuadratic(string body)
     {
         if (!GCPolyfills.AllocatedBytesForCurrentThreadIsSupported)
@@ -299,5 +381,33 @@ public class StringConcatenationTests
         GCPolyfills.TryGetAllocatedBytesForCurrentThread(out var after);
 
         return after - before;
+    }
+
+    /// <summary>
+    /// The bytes one evaluation of a below-cutoff chain may allocate, loop included. It sits between the
+    /// two measurements in <see cref="AShortChainDoesNotPayForTheDeferredRepresentation"/>: 35% above the
+    /// largest of the three after-figures and 30% below the smallest before-figure, so neither the fix it
+    /// pins nor the regression it would catch is close enough to the line to be fragile.
+    /// </summary>
+    private const long ShortChainAllocationCeiling = 400;
+
+    private static long AllocatedBytesPerChainEvaluation(string expression, int iterations)
+    {
+        var engine = new Engine();
+        var script = Engine.PrepareScript(
+            $"(function (n) {{ var y = 2007, m = 11, d = 29, r = ''; for (var i = 0; i < n; i++) {{ r = {expression}; }} return r.length; }})(n)");
+
+        // warm the handler tree and the call-site caches, so what is measured is the loop and not the
+        // one-off cost of reaching it
+        engine.SetValue("n", 64);
+        engine.Evaluate(script);
+
+        engine.SetValue("n", iterations);
+        GC.Collect();
+        GCPolyfills.TryGetAllocatedBytesForCurrentThread(out var before);
+        engine.Evaluate(script);
+        GCPolyfills.TryGetAllocatedBytesForCurrentThread(out var after);
+
+        return (after - before) / iterations;
     }
 }
