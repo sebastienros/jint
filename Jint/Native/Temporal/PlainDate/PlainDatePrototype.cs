@@ -526,7 +526,7 @@ internal sealed partial class PlainDatePrototype : Prototype
         }
 
         // Step 6: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(temporalDate.Calendar, temporalDate.IsoDate, other.IsoDate, largestUnit, _realm);
 
         // Step 7-10: If rounding needed, use RoundRelativeDuration
         DurationRecord result;

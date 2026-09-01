@@ -99,13 +99,8 @@ internal static class DedicatedThread
             },
             maxStackSize)
         {
-            // A thread that outlives its join must not keep the process alive...
+            // A thread that outlives its join must not keep the process alive.
             IsBackground = true,
-
-            // ...and must not compete with the rest of the run for a core while it does. Background
-            // only governs process exit; a spinning thread goes on burning CPU until then, which is
-            // exactly the condition the suite's known wall-clock flakes fail under.
-            Priority = ThreadPriority.Lowest,
         };
 
         thread.Start();
@@ -114,6 +109,12 @@ internal static class DedicatedThread
         {
             if (!thread.Join(timeout))
             {
+                // Only now is the body known to be a runaway, and only a runaway must be kept off the
+                // cores the rest of the run needs. Background governs process exit and nothing else; a
+                // spinning thread goes on burning CPU until then, which is exactly the condition the
+                // suite's known wall-clock flakes fail under.
+                Demote(thread);
+
                 throw new XunitException(timeoutMessage ?? $"the test body did not complete within {timeout}");
             }
         }
@@ -123,5 +124,32 @@ internal static class DedicatedThread
         }
 
         exception?.Throw();
+    }
+
+    /// <summary>
+    /// Drops a runaway body to the lowest priority, once its join has timed out and not before.
+    /// </summary>
+    /// <remarks>
+    /// The priority a runaway deserves is not the priority a body that is going to finish deserves, and
+    /// this used to be set at construction so that every body got the runaway's. A thread at
+    /// <see cref="ThreadPriority.Lowest"/> is the last thing a saturated runner schedules, behind every
+    /// normal-priority xUnit worker beside it — measured on a two-core affinity mask with two busy
+    /// threads, a 0.1 ms body took 2.5 s at <c>Lowest</c> against 0.14 s at <c>Normal</c>. On a
+    /// four-core CI runner the first body in a fixture, which pays that fixture's cold JIT on top,
+    /// missed a 15-second budget doing ten microseconds of work.
+    /// <para>
+    /// The thread may have finished between the join timing out and this call, which the setter reports
+    /// as a <see cref="ThreadStateException"/>. Nothing is owed for a thread that is no longer running.
+    /// </para>
+    /// </remarks>
+    private static void Demote(Thread thread)
+    {
+        try
+        {
+            thread.Priority = ThreadPriority.Lowest;
+        }
+        catch (ThreadStateException)
+        {
+        }
     }
 }
