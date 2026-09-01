@@ -42,6 +42,40 @@ public class HostDelegateConversionTests
         public string Call(Transform f) => "transform:" + f("x");
     }
 
+    public sealed class BothHost
+    {
+        public string Call(Notify f)
+        {
+            f(1);
+            return "notify";
+        }
+
+        public string CallTransform(Transform f) => "transform:" + f("x");
+    }
+
+    /// <summary>
+    /// One engine, one function <em>instance</em>, two delegate types. The shared-preparation tests below give
+    /// each engine a function of its own, so they exercise only the AST-keyed lane; this is the
+    /// instance-keyed one, where the same function object is asked for two different targets and the memo has
+    /// to answer with two different delegates rather than with the first one twice.
+    /// </summary>
+    [Test]
+    public void OneEngineConvertingOneFunctionToTwoDelegateTypes()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new BothHost());
+
+        engine.Evaluate("var f = function (x) { return String(x); }; host.call(f);")
+            .AsString().Should().Be("notify");
+
+        // the same f, now wanted as a Transform: served the Notify, this was
+        // ArgumentException: Object of type 'Notify' cannot be converted to type 'Transform'
+        engine.Evaluate("host.callTransform(f);").AsString().Should().Be("transform:x");
+
+        // and back again, so neither conversion evicted the other
+        engine.Evaluate("host.call(f);").AsString().Should().Be("notify");
+    }
+
     private const string Source = "host.call(function (x) { return String(x); });";
 
     [Test]
