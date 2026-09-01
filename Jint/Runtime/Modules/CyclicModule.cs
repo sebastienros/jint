@@ -308,6 +308,17 @@ public abstract class CyclicModule : Module
     /// </summary>
     protected internal override int InnerModuleLinking(Stack<CyclicModule> stack, int index)
     {
+        // The spec writes this recursively and so does Jint, which makes the deepest graph an engine can
+        // link a property of the calling thread's stack rather than of anything the host configured — and
+        // exceeding it is a native stack overflow, which no host can catch. Probing here turns that into
+        // the same catchable RangeError deep script recursion gets (see StackGuard). The throw is safe to
+        // do from anywhere in this walk: Link's catch returns every module still on the Tarjan stack to
+        // unlinked, so the engine is usable afterwards.
+        if (!_engine._stackGuard.HasGraphRecursionHeadroom())
+        {
+            Throw.RangeError(_realm, $"Maximum call stack size exceeded while linking module '{Location ?? "(null)"}'");
+        }
+
         if (Status is
             ModuleStatus.Linking or
             ModuleStatus.Linked or
@@ -401,6 +412,17 @@ public abstract class CyclicModule : Module
     /// </summary>
     protected internal override Completion InnerModuleEvaluation(Stack<CyclicModule> stack, int index, ref int asyncEvalOrder)
     {
+        // The linking half's probe, in the shape this half needs. A throw completion rather than a throw:
+        // returning one lets Evaluate step 9.a mark every module still on the Tarjan stack evaluated with
+        // this error, which is the state the spec leaves an aborted evaluation in. Throwing instead leaves
+        // them in `evaluating` forever, and — measured, not reasoned — the *next* import of that root then
+        // succeeds, handing the host a namespace for a graph not one body of which ever ran.
+        if (!_engine._stackGuard.HasGraphRecursionHeadroom())
+        {
+            var tooDeep = _realm.Intrinsics.RangeError.Construct($"Maximum call stack size exceeded while evaluating module '{Location ?? "(null)"}'");
+            return new Completion(CompletionType.Throw, tooDeep, null!);
+        }
+
         if (Status is ModuleStatus.EvaluatingAsync or ModuleStatus.Evaluated)
         {
             if (_evalError is null)
