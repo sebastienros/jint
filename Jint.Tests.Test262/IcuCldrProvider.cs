@@ -284,8 +284,93 @@ public sealed class IcuCldrProvider : ICldrProvider
     public string? GetDefaultCalendar(string locale)
         => _fallback.GetDefaultCalendar(locale);
 
+    /// <summary>
+    /// The month names of the calendar asked about. The fallback provider reads
+    /// <c>CultureInfo.DateTimeFormat</c>, whose names are the twelve Gregorian months, and answers nothing
+    /// for a calendar counting months of its own; CLDR is where those names live, and ICU4N ships the data
+    /// even though it has no <c>DateFormatSymbols</c> to read it with.
+    /// </summary>
+    /// <remarks>
+    /// The fallback goes first, so nothing a .NET culture already answers for changes hands.
+    /// </remarks>
     public string[]? GetMonthNames(string locale, string style, string? calendar)
-        => _fallback.GetMonthNames(locale, style, calendar);
+        => _fallback.GetMonthNames(locale, style, calendar) ?? CldrMonthNames(locale, style, calendar);
+
+    /// <summary>
+    /// The CLDR calendars to look one identifier's months up under, most specific first: several calendars
+    /// share one table — the three tabular Islamic ones are all <c>islamic</c>, and <c>dangi</c> takes
+    /// <c>chinese</c>'s names in every locale that has them.
+    /// </summary>
+    private static string[]? CldrCalendarKeys(string? calendar) => calendar switch
+    {
+        null or "gregory" or "iso8601" => ["gregorian"],
+        "ethioaa" => ["ethiopic-amete-alem", "ethiopic"],
+        "islamic-civil" or "islamic-tbla" or "islamic-umalqura" or "islamic-rgsa" or "islamic" => [calendar, "islamic"],
+        "dangi" => ["dangi", "chinese"],
+        "buddhist" or "japanese" or "roc" or "persian" or "hebrew" or "coptic" or "ethiopic"
+            or "indian" or "chinese" => [calendar],
+        _ => null
+    };
+
+    /// <summary>
+    /// Reads <c>calendar/&lt;key&gt;/monthNames/format/&lt;width&gt;</c>, from the locale where it has one and
+    /// from <c>root</c> otherwise — which is where CLDR keeps the English names of the calendars an <c>en</c>
+    /// bundle carries no month table for, and what ICU itself resolves to for them.
+    /// </summary>
+    /// <remarks>
+    /// The array is indexed by month number, so a thirteen-month calendar answers thirteen names. The Hebrew
+    /// array holds fourteen, the last being the leap year's Adar II, which no caller here can pick out: a
+    /// leap Adar II is month 7 and reads "Adar".
+    /// </remarks>
+    private static string[]? CldrMonthNames(string locale, string style, string? calendar)
+    {
+        var keys = CldrCalendarKeys(calendar);
+        var width = style switch
+        {
+            "long" => "wide",
+            "short" => "abbreviated",
+            "narrow" => "narrow",
+            _ => null
+        };
+
+        if (keys is null || width is null)
+        {
+            return null;
+        }
+
+        // "format" is the name a pattern writes, against "stand-alone" for a month named on its own.
+        foreach (var source in new[] { locale, "root" })
+        {
+            var bundle = GetBundle(source);
+            if (bundle is null)
+            {
+                continue;
+            }
+
+            foreach (var key in keys)
+            {
+                var months = GetBundleAt(bundle, $"calendar/{key}/monthNames/format/{width}");
+                if (months is null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (months.GetStringArray() is { Length: > 0 } values)
+                    {
+                        return values;
+                    }
+                }
+                catch
+                {
+                    // A resource that is not an array of strings is not month names.
+                }
+            }
+        }
+
+        return null;
+    }
 
     public string[]? GetWeekdayNames(string locale, string style)
         => _fallback.GetWeekdayNames(locale, style);
