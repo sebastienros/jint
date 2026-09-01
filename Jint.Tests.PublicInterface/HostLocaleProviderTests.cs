@@ -264,6 +264,76 @@ public class HostLocaleProviderTests
             .AsString().Should().Be("Monday");
     }
 
+    /// <summary>
+    /// <c>GetMonthNames</c> and <c>GetDayPeriods</c> take a calendar, so a provider that answers for one of
+    /// them itself and delegates the rest asks the base for more than one — and each calendar has to get its
+    /// own answer, whichever order they were asked in.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the provider rather than through <c>Intl.DateTimeFormat</c>, because a formatter on a non-ISO
+    /// calendar writes a numeric month whatever names it holds: <c>AddMonthPart</c> has no month-name data for
+    /// one and falls back to the number. The provider is the extension point either way, and this is the shape
+    /// a host reaches it in.
+    /// </remarks>
+    [Test]
+    public void ADerivedProviderDelegatingTwoCalendarsToTheBaseGetsOneAnswerPerCalendar()
+    {
+        var provider = new SolarMonthsForBuddhist();
+
+        // the calendar the subclass answers for is its own data
+        provider.GetMonthNames("en-GB", "long", "buddhist").Should().StartWith("Makara");
+
+        // …and the ones it delegates are the base's: one answer per calendar, not the first one asked for
+        var gregory = provider.GetMonthNames("en-GB", "long", "gregory");
+        var japanese = provider.GetMonthNames("en-GB", "long", "japanese");
+
+        gregory.Should().StartWith("January");
+        japanese.Should().StartWith("January");
+        japanese.Should().NotBeSameAs(gregory);
+
+        // …and asking for one does not displace the other, in either direction
+        provider.GetMonthNames("en-GB", "long", "gregory").Should().BeSameAs(gregory);
+        provider.GetMonthNames("en-GB", "long", "buddhist").Should().StartWith("Makara");
+        provider.GetMonthNames("en-GB", "long", "japanese").Should().BeSameAs(japanese);
+
+        // the style the subclass does not answer for is the inherited data, for its own calendar too
+        provider.GetMonthNames("en-GB", "short", "buddhist").Should().StartWith("Jan");
+    }
+
+    /// <summary>
+    /// The same promise seen from the base itself: the two members that take a calendar cache their answer
+    /// process-wide, and one entry per calendar is what lets a delegating override be answered correctly.
+    /// </summary>
+    /// <remarks>
+    /// The shipped bodies read the culture's own names, so the two calendars come back equal — the assertions
+    /// are that they are two answers rather than one, which is a property of the key rather than of the data.
+    /// </remarks>
+    [Test]
+    public void TheDefaultProviderCachesOneNameArrayPerCalendarItWasAskedAbout()
+    {
+        var provider = DefaultCldrProvider.Instance;
+
+        var gregoryMonths = provider.GetMonthNames("en-US", "long", "gregory");
+        var buddhistMonths = provider.GetMonthNames("en-US", "long", "buddhist");
+
+        gregoryMonths.Should().NotBeNull();
+        buddhistMonths.Should().NotBeSameAs(gregoryMonths);
+        buddhistMonths.Should().Equal(gregoryMonths);
+        provider.GetMonthNames("en-US", "long", "buddhist").Should().BeSameAs(buddhistMonths);
+        provider.GetMonthNames("en-US", "long", "gregory").Should().BeSameAs(gregoryMonths);
+
+        var gregoryPeriods = provider.GetDayPeriods("en-US", "short", "gregory");
+        var buddhistPeriods = provider.GetDayPeriods("en-US", "short", "buddhist");
+
+        gregoryPeriods.Should().NotBeNull();
+        buddhistPeriods.Should().NotBeSameAs(gregoryPeriods);
+        buddhistPeriods.Should().Equal(gregoryPeriods);
+        provider.GetDayPeriods("en-US", "short", "buddhist").Should().BeSameAs(buddhistPeriods);
+
+        // …and the member that takes no calendar keeps its one answer per locale and style
+        provider.GetWeekdayNames("en-US", "long").Should().BeSameAs(provider.GetWeekdayNames("en-US", "long"));
+    }
+
     [Test]
     public void AddingACalendarTheEngineHasNeverSeenIsThreeOverrides()
     {
@@ -425,6 +495,15 @@ file sealed class RevolutionaryMonths : DefaultCldrProvider
     public override string[]? GetMonthNames(string locale, string style, string? calendar)
         => string.Equals(style, "long", StringComparison.Ordinal)
             ? ["Nivose", "Pluviose", "Ventose", "Germinal", "Floreal", "Prairial", "Messidor", "Thermidor", "Fructidor", "Vendemiaire", "Brumaire", "Frimaire"]
+            : base.GetMonthNames(locale, style, calendar);
+}
+
+/// <summary>One calendar's long month names; every other calendar, style and member is inherited.</summary>
+file sealed class SolarMonthsForBuddhist : DefaultCldrProvider
+{
+    public override string[]? GetMonthNames(string locale, string style, string? calendar)
+        => string.Equals(calendar, "buddhist", StringComparison.Ordinal) && string.Equals(style, "long", StringComparison.Ordinal)
+            ? ["Makara", "Kumbha", "Mina", "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrischika", "Dhanus"]
             : base.GetMonthNames(locale, style, calendar);
 }
 
