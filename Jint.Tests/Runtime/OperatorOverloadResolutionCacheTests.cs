@@ -1,19 +1,33 @@
 #nullable enable
 
 using Jint.Runtime.Interop;
+using Jint.Runtime.Interpreter.Expressions;
 
 namespace Jint.Tests.Runtime;
 
 /// <summary>
-/// Which table an engine remembers its operator-overload resolutions in. The public-interface suite pins the
-/// answers two engines must not take from each other; this pins the mechanism that keeps them apart, since
-/// "both engines were right" is also what a cache that was never consulted looks like.
+/// What an engine is allowed to remember about an operator overload. The public-interface suite pins the
+/// answers two engines, and two argument values, must not take from each other; this pins the mechanism that
+/// keeps them apart, since "every answer was right" is also what a cache that was never consulted looks like.
 /// </summary>
 public class OperatorOverloadResolutionCacheTests
 {
     public sealed class Amount
     {
         public static string operator +(Amount left, Amount right) => "operator";
+    }
+
+    /// <summary>Declares no operator at all, so every pair it takes part in has an empty candidate set.</summary>
+    public sealed class Plain
+    {
+        public override string ToString() => "plain";
+    }
+
+    /// <summary>Carries two <c>+</c> overloads only an argument's value can choose between.</summary>
+    public sealed class Ranged
+    {
+        public static string operator +(Ranged left, byte right) => "byte:" + right;
+        public static string operator +(Ranged left, object right) => "object:" + right;
     }
 
     /// <summary>Behaves exactly like the stock converter but is not it, which is what installs a filter.</summary>
@@ -24,51 +38,72 @@ public class OperatorOverloadResolutionCacheTests
         }
     }
 
-    private static Engine Evaluate(Action<Options>? configure = null)
+    private static Engine NewEngine(Action<Options>? configure = null) => new(options =>
     {
-        var engine = new Engine(options =>
-        {
-            options.Interop.AllowOperatorOverloading = true;
-            configure?.Invoke(options);
-        });
+        options.Interop.AllowOperatorOverloading = true;
+        configure?.Invoke(options);
+    });
 
+    private static MethodDescriptor[]? CandidatesFor(Type left, Type right)
+    {
+        var key = new JintBinaryExpression.OperatorKey("op_Addition", left, right);
+        return JintBinaryExpression._operatorCandidates.TryGetValue(key, out var candidates) ? candidates : null;
+    }
+
+    [Test]
+    public void WhatIsRememberedIsTheCandidateSetAndNotTheSelection()
+    {
+        var engine = NewEngine();
+        engine.SetValue("m", new Ranged());
+
+        engine.Evaluate("m + 5").AsString().Should().Be("byte:5");
+
+        CandidatesFor(typeof(Ranged), typeof(double)).Should().NotBeNull().And.HaveCount(2,
+            "the overload this value did not select has to stay available to the next evaluation");
+    }
+
+    [Test]
+    public void TheSetIsScannedOnceAndSharedByEveryEngine()
+    {
+        var stock = NewEngine();
+        stock.SetValue("a", new Amount());
+        stock.SetValue("b", new Amount());
+        stock.Evaluate("a + b");
+
+        var first = CandidatesFor(typeof(Amount), typeof(Amount));
+
+        // A converter of its own used to give an engine a resolution table of its own, because a resolution
+        // was scored against that converter. A candidate set is not, so there is one table again.
+        var withConverter = NewEngine(options => options.SetTypeConverter(e => new WrappingTypeConverter(e)));
+        withConverter.SetValue("a", new Amount());
+        withConverter.SetValue("b", new Amount());
+        withConverter.Evaluate("a + b");
+
+        CandidatesFor(typeof(Amount), typeof(Amount)).Should().BeSameAs(first,
+            "a reflection scan of two types is the same answer for every engine in the process");
+    }
+
+    [Test]
+    public void APairWithNoOperatorIsRememberedAsHavingNone()
+    {
+        var engine = NewEngine();
+        engine.SetValue("p", new Plain());
+
+        engine.Evaluate("p + 'x'").AsString().Should().Be("plainx");
+
+        CandidatesFor(typeof(Plain), typeof(string)).Should().NotBeNull().And.BeEmpty(
+            "an empty set is what lets the next evaluation of the same pair leave without allocating anything");
+    }
+
+    [Test]
+    public void ACandidateIsListedOnceEvenWhenBothOperandsDeclareIt()
+    {
+        var engine = NewEngine();
         engine.SetValue("a", new Amount());
         engine.SetValue("b", new Amount());
-        engine.Evaluate("a + b").AsString().Should().Be("operator");
-        return engine;
-    }
+        engine.Evaluate("a + b");
 
-    [Test]
-    public void AStockEngineRemembersInTheProcessWideTable()
-    {
-        var engine = Evaluate();
-
-        engine._engineOperatorOverloads.Should().BeNull(
-            "the stock converter resolves what every other stock engine would, so the answer is shareable");
-    }
-
-    [Test]
-    public void AnEngineWithItsOwnConverterRemembersOnItself()
-    {
-        var engine = Evaluate(options => options.SetTypeConverter(e => new WrappingTypeConverter(e)));
-
-        engine._engineOperatorOverloads.Should().NotBeNull().And.HaveCount(1,
-            "this engine's converter answers overload scoring's last rule, so its resolution is its own");
-
-        // and it really is a cache: a second evaluation of the same pair adds nothing
-        engine.Evaluate("a + b").AsString().Should().Be("operator");
-        engine._engineOperatorOverloads.Should().HaveCount(1);
-    }
-
-    [Test]
-    public void SwappingTheConverterDropsWhatTheOldOneDecided()
-    {
-        var engine = Evaluate(options => options.SetTypeConverter(e => new WrappingTypeConverter(e)));
-        engine._engineOperatorOverloads.Should().HaveCount(1);
-
-        engine.TypeConverter = new WrappingTypeConverter(engine);
-
-        engine._engineOperatorOverloads.Should().BeEmpty(
-            "every entry was scored against the converter that has just been replaced");
+        CandidatesFor(typeof(Amount), typeof(Amount)).Should().NotBeNull().And.HaveCount(1,
+            "both operand types are scanned, and `T + T` finds the same operator on each");
     }
 }

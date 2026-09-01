@@ -46,7 +46,7 @@ namespace Jint.Runtime.Interop.Reflection;
 /// cache lives on <see cref="TypeResolver"/>, so engines configured with resolvers of their own
 /// would otherwise recompile every member each time. The trade-off is the same one the other
 /// process-wide reflection caches in this assembly make (<see cref="TypeDescriptor"/>,
-/// <see cref="TypeReference"/>, <c>JintBinaryExpression._knownOperators</c>): the cached
+/// <see cref="TypeReference"/>, <c>JintBinaryExpression._operatorCandidates</c>): the cached
 /// <see cref="MemberInfo"/> keeps its declaring assembly alive for the process lifetime.
 /// </para>
 /// </summary>
