@@ -489,7 +489,7 @@ internal sealed partial class PlainYearMonthPrototype : Prototype
         TemporalHelpers.CheckISODaysRange(_realm, otherDate);
 
         // Step 11: Get date difference using calendar
-        var dateDifference = TemporalHelpers.CalendarDateUntil(ym1.Calendar, thisDate, otherDate, largestUnit);
+        var dateDifference = TemporalHelpers.CalendarDateUntil(ym1.Calendar, thisDate, otherDate, largestUnit, _realm);
 
         // Step 12: AdjustDateDurationRecord - zero out weeks and days (PlainYearMonth only has years/months)
         var yearsMonthsDifference = new DurationRecord(

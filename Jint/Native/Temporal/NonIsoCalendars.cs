@@ -282,13 +282,20 @@ internal static class NonIsoCalendars
         }
         catch (ArgumentOutOfRangeException)
         {
-            if (string.Equals(overflow, "reject", StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("reject");
-            }
-
-            // Fallback: clamp to calendar's valid range
-            return ClampToCalendarRange(cal, newYear, newOrdinalMonth, newDay);
+            // The result lies outside the range the backing System.Globalization.Calendar represents.
+            // That is not the month-or-day overflow "constrain" is allowed to clamp -- there is no
+            // nearby valid date to clamp to, only the calendar's own boundary -- so both overflow modes
+            // report it. NonISODateAdd is implementation-defined and may throw
+            // (https://tc39.es/proposal-temporal/#sec-temporal-nonisodateadd), and CalendarDateAdd
+            // raises a RangeError for a result it cannot represent
+            // (https://tc39.es/proposal-temporal/#sec-temporal-calendardateadd).
+            //
+            // The clamp this replaced answered with the calendar's MaxSupportedDateTime for an
+            // underflow as well as an overflow, so subtracting a century from a chinese date moved it
+            // forward to 2101-01-28 -- and, since every further step landed on that same date,
+            // CalendarDateUntil's month walk below never passed its target and never returned
+            // (https://github.com/sebastienros/jint/issues/3428).
+            throw new CalendarRangeException(calendar);
         }
     }
 
@@ -386,6 +393,19 @@ internal static class NonIsoCalendars
             var prevMonths = months;
             months += sign;
             var nextIso = CalendarDateAdd(calendar, in one, years, months, "constrain");
+
+            // The loop's only exit is "this step passed two", so a step that does not move the date
+            // never takes it: one more month of a walk that stands still is still standing still,
+            // however many are taken. Every conversion that used to saturate now raises
+            // CalendarRangeException rather than answering with a boundary date, which is what makes
+            // this a structural guarantee rather than a live path -- and it stays here so that a future
+            // calendar, or a host-supplied one, cannot reintroduce the hang of issue #3428 by adding a
+            // clamp somewhere below.
+            if (nextIso == currentIso)
+            {
+                throw new CalendarRangeException(calendar);
+            }
+
             var nextCal = IsoToCalendarDate(calendar, in nextIso);
             // Un-constrain the day in calendar-field space: if AddCalendar forced day down
             // to fit the target month, we still want to consider "next" as standing at the
@@ -1313,15 +1333,6 @@ internal static class NonIsoCalendars
         {
             return 30; // fallback
         }
-    }
-
-    /// <summary>
-    /// Clamps a date to the calendar's supported range.
-    /// </summary>
-    private static IsoDate ClampToCalendarRange(Calendar cal, int year, int month, int day)
-    {
-        var dt = cal.MaxSupportedDateTime;
-        return new IsoDate(dt.Year, dt.Month, dt.Day);
     }
 
     #endregion
@@ -2491,7 +2502,11 @@ internal static class NonIsoCalendars
         }
 
         var result = IndianDateToIso(newYear, null, newMonth, newDay, overflow);
-        return result ?? isoDate; // fallback to input if conversion fails
+
+        // Answering with the input date when the conversion cannot be made -- which is what this did --
+        // is a no-progress answer: `add` reports that adding a year changed nothing, and the month walk
+        // in CalendarDateUntil takes the same step forever. See CalendarRangeException.
+        return result ?? throw new CalendarRangeException("indian");
     }
 
     /// <summary>
@@ -2970,7 +2985,10 @@ internal static class NonIsoCalendars
 
         // Convert back to ISO using the appropriate calendar
         var result = CalendarDateToIso(calendar, newYear, null, newMonth, newDay, overflow);
-        return result ?? isoDate;
+
+        // Same no-progress hazard as the Indian arm above: the input date is not an answer to
+        // "add a year to this", and a step that stands still is one CalendarDateUntil never gets past.
+        return result ?? throw new CalendarRangeException(calendar);
     }
 
     /// <summary>
