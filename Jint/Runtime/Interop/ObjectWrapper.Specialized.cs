@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Array;
+using Jint.Native.Object;
+using Jint.Runtime.Descriptors;
 
 namespace Jint.Runtime.Interop;
 
@@ -82,6 +84,14 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// </summary>
     private readonly bool _elementAccessMayRunHostCode;
 
+    /// <summary>
+    /// Whether this view has element properties at all: the host's <see cref="TypeResolver.MemberFilter"/>
+    /// must admit the indexer the lanes below stand for. Read once per wrapper rather than per element, so a
+    /// filtered engine pays one memoized decision per exposed type and an unfiltered one pays a field read
+    /// (#3558).
+    /// </summary>
+    private readonly bool _elementsExposed;
+
     protected ArrayLikeWrapper(
         Engine engine,
         object obj,
@@ -91,6 +101,7 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     {
         ItemType = itemType;
         _elementAccessMayRunHostCode = elementAccessMayRunHostCode;
+        _elementsExposed = IndexedElementsExposed;
         if (engine.Options.Interop.AttachArrayPrototype)
         {
             Prototype = engine.Intrinsics.Array.PrototypeObject;
@@ -102,22 +113,99 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public abstract int Length { get; }
 
+    // Every subclass is a view over something with an indexer, including the IReadOnlyList<T> one the type
+    // descriptor does not recognize as integer-indexed — so the only thing left to ask is whether the host's
+    // member filter lets script reach it. Answering false here is what routes every Array.prototype generic
+    // to ObjectOperations, exactly as a countable-but-not-indexable Queue<T> is routed (#3558).
+    internal sealed override bool HasIndexedElements => _elementsExposed;
+
+    /// <summary>
+    /// Whether <paramref name="property"/> spells a position this view does not have — index-shaped, and
+    /// either outside <c>[0, Length)</c> or never addressable at all (negative, non-canonical, past what the
+    /// target can hold).
+    /// </summary>
+    /// <remarks>
+    /// This is the single question every lane that answers <em>whether an index exists</em> has to answer the
+    /// same way. <see cref="Get"/>, <see cref="HasProperty"/> and <c>GetOwnPropertyKeys</c> already did;
+    /// <c>[[GetOwnProperty]]</c> did not, because it was left to <see cref="ObjectWrapper"/>, which resolves the
+    /// reflected indexer and reports a descriptor for <em>any</em> parseable index. So <c>3 in list</c> was
+    /// <see langword="false"/> while <c>list.hasOwnProperty(3)</c> was <see langword="true"/> on the same object,
+    /// which is not a divergence an implementation may choose:
+    /// <see href="https://tc39.es/ecma262/#sec-ordinaryhasproperty">OrdinaryHasProperty</see> is defined in terms
+    /// of <c>[[GetOwnProperty]]</c> (#3423).
+    /// <para>
+    /// A dictionary-shaped target (Newtonsoft's <c>JObject</c> is both <c>IDictionary&lt;string,_&gt;</c> and
+    /// <c>IList&lt;_&gt;</c>) answers a string key from its own keys, exactly as <see cref="HasProperty"/>
+    /// defers for it.
+    /// </para>
+    /// <para>
+    /// When the host's member filter rejects the indexer, <em>every</em> index-shaped key names an absent
+    /// position: the view has no elements to have positions of. That is also the answer the reflected lane
+    /// underneath already gave — it resolves no accessor for the hidden member, so <c>hasOwnProperty</c> and
+    /// <c>Object.keys</c> said so while <c>in</c> and the element lanes did not (#3558).
+    /// </para>
+    /// </remarks>
+    private bool NamesAbsentPosition(JsValue property)
+    {
+        if (_typeDescriptor.IsDictionary)
+        {
+            return false;
+        }
+
+        var key = ClassifyElementKey(property, out var index);
+        if (!_elementsExposed)
+        {
+            return key != ElementKey.None;
+        }
+
+        return key == ElementKey.OutOfBand
+               || (key == ElementKey.Position && (uint) index >= (uint) Length);
+    }
+
+    /// <summary>
+    /// The descriptor lane, answered from the view's index range before the reflected indexer is consulted.
+    /// Reached by <c>Object.getOwnPropertyDescriptor</c>, <c>Reflect.getOwnPropertyDescriptor</c>,
+    /// <c>hasOwnProperty</c>, <c>propertyIsEnumerable</c> and — through the default
+    /// <see cref="ObjectInstance.ProbeOwnProperty"/> — everything that asks whether a key exists.
+    /// </summary>
+    public sealed override PropertyDescriptor GetOwnProperty(JsValue property)
+        => NamesAbsentPosition(property) ? PropertyDescriptor.Undefined : base.GetOwnProperty(property);
+
+    /// <summary>
+    /// The existence probe, kept in step with <see cref="GetOwnProperty"/> by construction rather than by
+    /// deriving it: an absent position is answered without resolving an accessor or building a descriptor.
+    /// </summary>
+    protected internal sealed override OwnPropertyProbe ProbeOwnProperty(JsValue property)
+        => NamesAbsentPosition(property) ? OwnPropertyProbe.Missing : base.ProbeOwnProperty(property);
+
+    /// <summary>
+    /// A position this view does not have cannot be defined into existence either. Without this,
+    /// <c>Object.defineProperty(view, 5, …)</c> would store a descriptor in the wrapper's own property bag for
+    /// a key <see cref="GetOwnProperty"/> then denies — a property that both exists and does not. The refusal
+    /// is what script already saw (the reflected indexer's descriptor is non-configurable, so the redefinition
+    /// was rejected); it is now a property of the view rather than an accident of reflection.
+    /// </summary>
+    public sealed override bool DefineOwnProperty(JsValue property, PropertyDescriptor desc)
+        => !NamesAbsentPosition(property) && base.DefineOwnProperty(property, desc);
+
     public sealed override JsValue Get(JsValue property, JsValue receiver)
     {
-        if (property.IsInteger())
+        var key = ClassifyElementKey(property, out var index);
+        if (key == ElementKey.Position && _elementsExposed && (uint) index < (uint) Length)
         {
-            var index = property.AsInteger();
-            if ((uint) index < (uint) Length)
+            var result = GetJsValueAt(index);
+            if (_elementAccessMayRunHostCode)
             {
-                var result = GetJsValueAt(index);
-                if (_elementAccessMayRunHostCode)
-                {
-                    _engine.CheckAmortizedConstraintsAtHostBoundary();
-                }
-                return result;
+                _engine.CheckAmortizedConstraintsAtHostBoundary();
             }
+            return result;
+        }
 
-            // out-of-range and negative indices read like JS array holes
+        if (key != ElementKey.None)
+        {
+            // out-of-range, negative and non-canonical indices read like JS array holes — and so does every
+            // index of a view whose indexer the host's member filter hides, which is the answer the
+            // reflected lane gives for a filtered-out member (#3558)
             return Undefined;
         }
 
@@ -133,32 +221,18 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             return base.HasProperty(property);
         }
 
-        if (property.IsNumber())
+        // membership of an array-like view is exactly the index range [0, Length); falling through would
+        // consult the reflected indexer, which reports presence for any parseable index (so e.g.
+        // "-1 in view" would be true)
+        var key = ClassifyElementKey(property, out var index);
+        if (key == ElementKey.Position)
         {
-            var value = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(value))
-            {
-                // numeric membership of an array-like view is exactly the index range [0, Length);
-                // falling through would consult the reflected indexer, which reports presence for
-                // any parseable index (so e.g. "-1 in view" would be true). Compare as double so a
-                // negative or out-of-int-range index can never alias into range.
-                return value >= 0 && value < Length;
-            }
+            return _elementsExposed && (uint) index < (uint) Length;
         }
-        else if (property is JsString jsString)
+
+        if (key == ElementKey.OutOfBand)
         {
-            var str = jsString.ToString();
-            var index = ArrayInstance.ParseArrayIndex(str);
-            if (index != uint.MaxValue)
-            {
-                return index < (uint) Length;
-            }
-            // an integer-shaped but non-canonical key ("-1", "08") is not a member of the view
-            // either, and must not fall through to the reflected indexer's presence-only answer
-            if (long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
-            {
-                return false;
-            }
+            return false;
         }
 
         return base.HasProperty(property);
@@ -166,38 +240,52 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
     public sealed override bool Delete(JsValue property)
     {
+        if (!_elementsExposed && NamesAbsentPosition(property))
+        {
+            // The host's member filter hides this view's indexer, so there is no element property here to
+            // delete and OrdinaryDelete returns true for a property that is not there. Asked before the
+            // writability lanes below so the two refusals compose rather than mask each other: containment
+            // decides whether there is a property at all, writability only what may be done to one (#3558).
+            return true;
+        }
+
         if (!CanWrite)
         {
             return false;
         }
 
-        if (property.IsNumber())
+        var key = ClassifyElementKey(property, out var index);
+        if (key != ElementKey.None)
         {
-            var value = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(value))
+            if (key == ElementKey.OutOfBand || (uint) index >= (uint) Length)
             {
-                if (IsFixedSize)
-                {
-                    // elements of a fixed-size CLR array view cannot be removed (and resetting them to a
-                    // default value on delete would let Array.prototype.pop/shift/splice silently zero
-                    // slots before their length write throws). Mirror integer-indexed exotic object
-                    // semantics instead: false for an in-range index, true for anything out of range.
-                    return value < 0 || value >= Length;
-                }
-
-                var defaultValue = default(object);
-                if (typeof(JsValue).IsAssignableFrom(ItemType))
-                {
-                    defaultValue = JsValue.Undefined;
-                }
-                else if (ItemType.IsValueType)
-                {
-                    defaultValue = Activator.CreateInstance(ItemType);
-                }
-
-                DoSetAt((int) value, defaultValue);
+                // there is no such position, so there is nothing to delete: OrdinaryDelete returns true
+                // for a property that is not there. Reaching the collection with the index instead is
+                // what raised the CLR's own ArgumentOutOfRangeException out of Evaluate (#3384).
                 return true;
             }
+
+            if (IsFixedSize)
+            {
+                // elements of a fixed-size CLR array view cannot be removed (and resetting them to a
+                // default value on delete would let Array.prototype.pop/shift/splice silently zero
+                // slots before their length write throws). Mirror integer-indexed exotic object
+                // semantics instead: false for an in-range index, true for anything out of range.
+                return false;
+            }
+
+            var defaultValue = default(object);
+            if (typeof(JsValue).IsAssignableFrom(ItemType))
+            {
+                defaultValue = JsValue.Undefined;
+            }
+            else if (ItemType.IsValueType)
+            {
+                defaultValue = Activator.CreateInstance(ItemType);
+            }
+
+            DoSetAt(index, defaultValue);
+            return true;
         }
 
         return base.Delete(property);
@@ -287,7 +375,12 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
 
         if (ReferenceEquals(receiver, this) && CommonProperties.Length.Equals(property))
         {
-            if (!CanWrite)
+            // A length write adds and removes elements — it is the element lane spelled by count rather than
+            // by position — so a view whose indexer the host's member filter hides has nothing to grow or
+            // truncate, and `list.length = 0` must not clear a collection whose elements script cannot see.
+            // The "length" forwarder itself keeps answering: it is produced from Count, a member the filter
+            // decides about separately (#3558).
+            if (!_elementsExposed || !CanWrite)
             {
                 return false;
             }
@@ -323,42 +416,54 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
             Throw.TypeError(_engine.Realm, "Invalid array length");
         }
 
-        if (ReferenceEquals(receiver, this) && property.IsNumber())
+        if (ReferenceEquals(receiver, this))
         {
-            // An element write to a read-only or non-extensible (frozen) wrapper must be refused:
-            // base.SetSlow would otherwise materialize a throwaway descriptor and return true, silently
-            // "succeeding" (#2541), or reach the reflected indexer with an out-of-range growth write and
-            // let the collection's own NotSupportedException past script (#3382). Everything else —
-            // writable in-range writes, growth, negative and non-integral indices — defers to base.Set,
-            // which writes through and already rejects a get-only indexer (e.g. ReadOnlyCollection<T>)
-            // cleanly. Wrappers don't track per-element writability, so a non-extensible wrapper blocks
-            // existing-element writes too — a deliberate, contained interop divergence from the spec.
-            var numValue = ((JsNumber) property)._value;
-            if (TypeConverter.IsIntegralNumber(numValue) && numValue >= 0
-                && (!CanWrite || !Extensible))
+            // Every index write is answered here rather than through the reflection indexer base.Set would
+            // resolve. That indexer takes the index straight to the collection, so it leaked the CLR's own
+            // ArgumentOutOfRangeException for anything outside [0, Count) and, for a T[], found the
+            // non-generic IList.Item (object-typed) overload, whose writes bypass item-type coercion (#3384).
+            var key = ClassifyElementKey(property, out var index);
+            if (key != ElementKey.None)
             {
-                return false;
-            }
-
-            // Fixed-size targets (CLR arrays) handle integral index writes here: in-range writes go
-            // straight to the backing store and anything else is a TypeError. The base.Set slow path
-            // below resolves the element writer through the reflection indexer, which for T[] finds
-            // the non-generic IList.Item (object-typed) indexer — element values would bypass item
-            // type coercion and out-of-range writes would leak CLR exceptions.
-            if (IsFixedSize && TypeConverter.IsIntegralNumber(numValue))
-            {
-                if (!CanWrite || !Extensible)
+                // An element write to a read-only or non-extensible (frozen) wrapper is refused as an
+                // ordinary [[Set]] false — silent in sloppy mode, a TypeError in strict — rather than by
+                // materializing a throwaway descriptor and returning true (#2541). Wrappers don't track
+                // per-element writability, so a non-extensible wrapper blocks existing-element writes too
+                // — a deliberate, contained interop divergence from the spec.
+                //
+                // Containment is asked first and gets the same ordinary refusal: a view whose indexer the
+                // host's member filter rejects has no element property here, so the fixed-size TypeError
+                // below must not fire for it — that message answers "you may not write *there*", which is
+                // a question about a lane script was never granted (#3558).
+                if (!_elementsExposed || !CanWrite || !Extensible)
                 {
                     return false;
                 }
 
-                if (numValue >= 0 && numValue < Length)
+                if (key == ElementKey.Position && (uint) index < (uint) Length)
                 {
-                    SetAt((int) numValue, value);
+                    SetAt(index, value);
                     return true;
                 }
 
-                Throw.TypeError(_engine.Realm, "Cannot write outside the bounds of a fixed-size CLR array");
+                if (IsFixedSize)
+                {
+                    Throw.TypeError(_engine.Realm, "Cannot write outside the bounds of a fixed-size CLR array");
+                }
+
+                if (key == ElementKey.OutOfBand)
+                {
+                    // a negative, non-canonical or unaddressable index is a position this view can never
+                    // have — Get answers undefined for it and HasProperty answers false — so the write is
+                    // the ordinary [[Set]] refusal rather than something the collection has to reject
+                    return false;
+                }
+
+                // At or past the end of a growable target. The view is an extensible ordinary object and
+                // the position can exist, so CreateDataProperty succeeds: make room and write, which is
+                // exactly what a "length" write of index + 1 does through the lane above.
+                SetAt(index, value);
+                return true;
             }
         }
 
@@ -390,7 +495,8 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     /// <summary>
     /// The refusal every length-changing operation on a fixed-size target owes script: a
     /// <c>TypeError</c> it can catch, never the CLR <see cref="NotSupportedException"/> the underlying
-    /// collection would raise.
+    /// collection would raise. Shared by <see cref="ArrayWrapper{T}"/> and by <see cref="ListWrapper"/>,
+    /// which is what a <c>T[]</c> falls back to when the typed wrapper cannot be built (#3299).
     /// </summary>
     [DoesNotReturn]
     protected void ThrowFixedSize() => Throw.TypeError(_engine.Realm, "Cannot resize a fixed-size CLR array");
@@ -423,9 +529,15 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
         }
     }
 
+    /// <summary>
+    /// Writes one element, if this view may be written at all. The <see cref="_elementsExposed"/> half is the
+    /// backstop <see cref="ThrowReadOnly"/> is for its own fact: every lane already refuses before reaching
+    /// here, and a lane added later that does not must still not write through an indexer the host's member
+    /// filter hid.
+    /// </summary>
     public void SetAt(int index, JsValue value)
     {
-        if (CanWrite)
+        if (_elementsExposed && CanWrite)
         {
             EnsureCapacity(index + 1);
             DoSetAt(index, ConvertToItemType(value));
@@ -469,23 +581,60 @@ internal abstract class ArrayLikeWrapper : ObjectWrapper
     }
 }
 
+/// <summary>
+/// The untyped view over anything that is an <see cref="IList"/>. It is the least specific of the
+/// array-like wrappers and also the one a <c>T[]</c> or an <c>IList&lt;T&gt;</c> degrades to when its typed
+/// factory cannot be instantiated — Native AOT has no code for
+/// <c>ArrayWrapperFactory&lt;int&gt;</c> and friends (#3299) — so it takes the two facts the typed wrapper
+/// carried in its type argument from the target instead: the element type, and whether the length can
+/// change.
+/// </summary>
 internal sealed class ListWrapper : ArrayLikeWrapper
 {
     private readonly IList? _list;
+    private readonly bool _fixedSize;
     private readonly bool _readOnly;
 
     internal ListWrapper(Engine engine, IList target, Type type)
-        : base(engine, target, typeof(object), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
+        : base(engine, target, ElementTypeOf(target), type, elementAccessMayRunHostCode: target is not (Array or ArrayList))
     {
         _list = target;
-        _readOnly = target.IsReadOnly;
+        _fixedSize = target.IsFixedSize;
+
+        // Two ways this view is read-only: the target says so, or the exposed contract offers no writable
+        // indexer. The second half is what a T[] or a List<T> reaching the engine as IReadOnlyList<T>
+        // needs. ReadOnlyListWrapper<T> says read-only from its type argument, but an interface is not
+        // among its own GetInterfaces(), so ResolveArrayLikeWrapperFactoryType finds no typed factory for
+        // that exposure and it degrades to here. Until #3384 the element lane read the target's writability
+        // and wrote straight through a contract that had promised script it could only read; the refusal
+        // came from the reflected indexer instead, and therefore only for a string-spelled index.
+        _readOnly = target.IsReadOnly || !_typeDescriptor.IsIntegerIndexed;
     }
 
     /// <summary>
-    /// Read from the target, because the non-generic <see cref="IList"/> is the only place that says so:
-    /// <c>ArrayList.ReadOnly</c> and an embedder's own read-only <see cref="IList"/> raise
-    /// <see cref="NotSupportedException"/> from <c>Add</c>/<c>RemoveAt</c> and from the indexer setter,
-    /// which script cannot catch (#3382).
+    /// A <see cref="ListWrapper"/> over an array must coerce element writes to the array's element type,
+    /// exactly as <see cref="ArrayWrapper{T}"/> does from its type argument: <c>object</c> would hand
+    /// <c>IList.this[int]</c> the boxed <c>double</c> a JS number converts to and raise
+    /// <see cref="InvalidCastException"/> out of the assignment. Everything else keeps <c>object</c>,
+    /// which is all a non-generic <see cref="IList"/> promises.
+    /// </summary>
+    private static Type ElementTypeOf(IList target)
+        => target is Array array ? array.GetType().GetElementType() ?? typeof(object) : typeof(object);
+
+    /// <summary>
+    /// Read from the target rather than declared, because this wrapper serves both the growable case and
+    /// the fixed-size one: <c>System.Array</c> reaches it through <see cref="IList"/> whenever
+    /// <see cref="ArrayWrapper{T}"/> could not be built, and <c>ArrayList.FixedSize</c> reaches it always.
+    /// Without this every length-changing operation reached <c>IList.Add</c> and leaked that collection's
+    /// <see cref="NotSupportedException"/> past script instead of raising a catchable <c>TypeError</c>.
+    /// </summary>
+    protected override bool IsFixedSize => _fixedSize;
+
+    /// <summary>
+    /// Read from the target for the same reason as <see cref="IsFixedSize"/>, and separately from it
+    /// because the non-generic <see cref="IList"/> asks the two questions separately:
+    /// <c>ArrayList.FixedSize</c> is fixed-size and writable, <c>ArrayList.ReadOnly</c> is both, and an
+    /// embedder's own read-only <see cref="IList"/> may be neither fixed-size nor writable.
     /// </summary>
     protected override bool IsReadOnly => _readOnly;
 
@@ -525,6 +674,21 @@ internal sealed class ListWrapper : ArrayLikeWrapper
     {
         ThrowIfLengthCannotChange();
         _list?.RemoveAt(index);
+    }
+
+    public override void EnsureCapacity(int capacity)
+    {
+        if (_fixedSize || _readOnly)
+        {
+            if (capacity > Length)
+            {
+                ThrowIfLengthCannotChange();
+            }
+
+            return;
+        }
+
+        base.EnsureCapacity(capacity);
     }
 }
 
