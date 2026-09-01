@@ -6,9 +6,11 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Jint.Extensions;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Native.Object;
 using Expression = System.Linq.Expressions.Expression;
 
 #pragma warning disable IL2026
@@ -46,6 +48,7 @@ public class DefaultTypeConverter : ITypeConverter
     private static readonly MethodInfo changeTypeIfConvertible = typeof(DefaultTypeConverter).GetMethod(
         nameof(ChangeTypeOnlyIfConvertible), BindingFlags.NonPublic | BindingFlags.Static)!;
     private static readonly MethodInfo jsValueFromObject = jsValueType.GetMethod(nameof(JsValue.FromObject))!;
+    private static readonly PropertyInfo objectInstanceEngine = typeof(ObjectInstance).GetProperty(nameof(ObjectInstance.Engine))!;
     private static readonly MethodInfo jsValueToObject = jsValueType.GetMethod(nameof(JsValue.ToObject))!;
 
 
@@ -92,8 +95,80 @@ public class DefaultTypeConverter : ITypeConverter
         return TryConvertInternal(value, type, formatProvider, propagateException: false, out converted, out _);
     }
 
-    private static readonly ConditionalWeakTable<IFunction, Func<object, Delegate>> _targetBinderDelegateCache = new();
-    private static readonly ConditionalWeakTable<object, Delegate> _boundTargetDelegateCache = new();
+    private static readonly ConditionalWeakTable<IFunction, TypeKeyedCache<Func<object, Delegate>>> _targetBinderDelegateCache = new();
+    private static readonly ConditionalWeakTable<object, TypeKeyedCache<Delegate>> _boundTargetDelegateCache = new();
+
+    private static readonly ConditionalWeakTable<IFunction, TypeKeyedCache<Func<object, Delegate>>>.CreateValueCallback _createBinderCache =
+        static _ => new TypeKeyedCache<Func<object, Delegate>>();
+
+    private static readonly ConditionalWeakTable<object, TypeKeyedCache<Delegate>>.CreateValueCallback _createBoundDelegateCache =
+        static _ => new TypeKeyedCache<Delegate>();
+
+    /// <summary>
+    /// An append-only map from a target delegate <see cref="Type"/> to the artefact that was built for it.
+    /// </summary>
+    /// <remarks>
+    /// The two delegate caches above are process-wide and keyed on something that does not carry the target
+    /// type: a function instance, and one level below it that function's AST node, which a shared
+    /// <c>Prepared&lt;Script&gt;</c> makes process-wide state outliving every engine that runs it. Entries are
+    /// added and never replaced, so the delegate identity an event unregistration needs holds per target type;
+    /// the list is one node long for the overwhelming majority of functions, which are converted to exactly
+    /// one delegate type. Nothing stored here is engine-affine - a <see cref="Type"/>, and a binder that takes
+    /// its target as a parameter and reads the engine off it - so the AST node stays shareable across engines.
+    /// </remarks>
+    private sealed class TypeKeyedCache<T> where T : class
+    {
+        private Node? _head;
+
+        internal bool TryGetValue(Type type, [NotNullWhen(true)] out T? value)
+        {
+            var node = Volatile.Read(ref _head);
+            while (node is not null)
+            {
+                if (ReferenceEquals(node._type, type))
+                {
+                    value = node._value;
+                    return true;
+                }
+
+                node = node._next;
+            }
+
+            value = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Publishes <paramref name="value"/> for <paramref name="type"/>, or returns what a concurrent
+        /// caller published for it first - the winner is the one instance every caller then sees.
+        /// </summary>
+        internal T GetOrAdd(Type type, T value)
+        {
+            while (true)
+            {
+                var head = Volatile.Read(ref _head);
+                for (var node = head; node is not null; node = node._next)
+                {
+                    if (ReferenceEquals(node._type, type))
+                    {
+                        return node._value;
+                    }
+                }
+
+                if (ReferenceEquals(Interlocked.CompareExchange(ref _head, new Node(type, value, head), head), head))
+                {
+                    return value;
+                }
+            }
+        }
+
+        private sealed class Node(Type type, T value, Node? next)
+        {
+            internal readonly Type _type = type;
+            internal readonly T _value = value;
+            internal readonly Node? _next = next;
+        }
+    }
 
     private bool TryConvertInternal(
         object? value,
@@ -206,20 +281,33 @@ public class DefaultTypeConverter : ITypeConverter
                 var functionInstance = func.Target;
 
                 // caching of .NET delegates per function instance is required to be able to support
-                // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged)
-                var d = functionInstance is not null ?
-                    _boundTargetDelegateCache.GetValue(functionInstance!, target =>
+                // unregistering event handlers (see ShouldExecuteActionCallbackOnEventChanged). Both caches
+                // are keyed by the target delegate type as well, because that type is what the compiled
+                // binder bakes in and neither a function instance nor its AST node carries it - and the AST
+                // node is process-wide state, so a shared Prepared<Script> otherwise lets whichever engine
+                // converted first decide the delegate type for every engine after it (#3434).
+                Delegate d;
+                if (functionInstance is not null)
+                {
+                    var boundDelegates = _boundTargetDelegateCache.GetValue(functionInstance, _createBoundDelegateCache);
+                    if (!boundDelegates.TryGetValue(type, out var bound))
                     {
                         var astFunction = (functionInstance as Function)?._functionDefinition?.Function;
 
-                        // use a single builder per unique function AST
+                        // use a single builder per unique function AST and target delegate type
                         var targetBinder = astFunction is not null
-                            ? _targetBinderDelegateCache.GetValue(astFunction, _ => BuildTargetBinderDelegate(type, func))
+                            ? GetOrBuildTargetBinderDelegate(astFunction, type, func)
                             : BuildTargetBinderDelegate(type, func);
 
-                        return targetBinder(target)!;
-                    }) :
-                    BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+                        bound = boundDelegates.GetOrAdd(type, targetBinder(functionInstance)!);
+                    }
+
+                    d = bound;
+                }
+                else
+                {
+                    d = BuildDelegate(type, func, Expression.Constant(functionInstance, functionInstance!.GetType())).Compile();
+                }
 
                 converted = d;
                 return true;
@@ -395,6 +483,17 @@ public class DefaultTypeConverter : ITypeConverter
 #endif
     }
 
+    private Func<object, Delegate> GetOrBuildTargetBinderDelegate(
+        IFunction astFunction,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
+        JsCallDelegate function)
+    {
+        var binders = _targetBinderDelegateCache.GetValue(astFunction, _createBinderCache);
+        return binders.TryGetValue(delegateType, out var binder)
+            ? binder
+            : binders.GetOrAdd(delegateType, BuildTargetBinderDelegate(delegateType, function));
+    }
+
     private Func<object, Delegate> BuildTargetBinderDelegate(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type delegateType,
         JsCallDelegate function)
@@ -432,13 +531,23 @@ public class DefaultTypeConverter : ITypeConverter
 
         var initializers = new List<MethodCallExpression>(parameters.Length);
 
+        // The engine whose realm the arguments are marshalled into is read off the target function rather
+        // than baked in as a constant, because this expression tree is compiled once per (AST node, target
+        // delegate type) into a process-wide cache that a shared Prepared<Script> keeps alive past every
+        // engine that ran it. A constant would hand every later engine the first one's realm - a JsValue
+        // belonging to an engine that is not running - and pin that engine for the life of the AST (#3434).
+        // A target that is not an ObjectInstance cannot reach the shared cache, so it keeps the constant.
+        var targetEngine = typeof(ObjectInstance).IsAssignableFrom(targetExpression.Type)
+            ? (Expression) Expression.Property(Expression.Convert(targetExpression, typeof(ObjectInstance)), objectInstanceEngine)
+            : Expression.Constant(_engine, engineType);
+
         for (var i = 0; i < parameters.Length; i++)
         {
             var param = parameters[i];
             if (param.Type.IsValueType)
             {
                 var boxing = Expression.Convert(param, objectType);
-                initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), boxing));
+                initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, boxing));
             }
             else if (param.Type.IsArray &&
                      arguments[i].GetCustomAttribute<ParamArrayAttribute>() is not null &&
@@ -451,12 +560,12 @@ public class DefaultTypeConverter : ITypeConverter
                     var condition = Expression.IfThen(checkIndex, Expression.Return(returnLabel, Expression.ArrayAccess(param, Expression.Constant(j))));
                     var block = Expression.Block(condition, Expression.Label(returnLabel, Expression.Constant(JsValue.Undefined)));
 
-                    initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), block));
+                    initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, block));
                 }
             }
             else
             {
-                initializers.Add(Expression.Call(null, jsValueFromObject, Expression.Constant(_engine, engineType), param));
+                initializers.Add(Expression.Call(null, jsValueFromObject, targetEngine, param));
             }
         }
 

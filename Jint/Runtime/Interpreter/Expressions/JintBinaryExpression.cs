@@ -15,8 +15,21 @@ namespace Jint.Runtime.Interpreter.Expressions;
 
 internal abstract class JintBinaryExpression : JintExpression
 {
-    private readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
-    private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor> _knownOperators = new();
+    /// <summary>
+    /// Identifies one operator-overload resolution. <see cref="Coercion"/> is part of it because
+    /// <c>InteropHelper.CalculateMethodParameterScore</c>'s gray-zone rule reads it, so two engines
+    /// configured differently can rank the same candidates differently - and, with a single candidate, can
+    /// disagree about whether it survives scoring at all.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right, ValueCoercionType Coercion);
+
+    /// <summary>
+    /// Resolutions every engine agrees on, and therefore the ones that may be remembered for the process.
+    /// Only an engine running the stock <see cref="DefaultTypeConverter"/> reads or writes this; see
+    /// <see cref="TryOperatorOverloading"/> for why, and for where the others keep theirs.
+    /// </summary>
+    private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
 
     private protected readonly JintExpression _left;
     private protected readonly JintExpression _right;
@@ -749,6 +762,27 @@ internal abstract class JintBinaryExpression : JintExpression
 
     private readonly record struct MethodResolverState(JsCallArguments Arguments);
 
+    /// <summary>
+    /// The operator this pair of CLR operand types selects, resolved once and remembered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The resolution runs <see cref="InteropHelper.FindBestMatch"/>, which reads two things the embedder
+    /// configures: <c>Options.Interop.ValueCoercion</c>, which the gray-zone scoring rule consults, and the
+    /// installed <see cref="ITypeConverter"/>, whose answer is the last rule outright - a conversion it
+    /// confirms keeps the candidate, one it refuses scores -1 and discards it. So the answer is not a
+    /// property of the operator name and the two types alone, and a process-wide cache keyed on those let
+    /// whichever engine evaluated first decide for every engine after it (#3424).
+    /// </para>
+    /// <para>
+    /// The coercion setting is a value, so it goes in the key and engines that share it share their entries.
+    /// The converter is an object a host builds - <c>Options.SetTypeConverter</c> hands its factory the
+    /// <see cref="Engine"/> - so keying a process-lived static on it would pin every such converter, and any
+    /// engine it captured, for the life of the process. It gates the choice of cache instead: an engine
+    /// running the stock converter resolves what every other stock engine would and shares the static one,
+    /// and an engine with a converter of its own keeps its resolutions on itself, where they die with it.
+    /// </para>
+    /// </remarks>
     internal static bool TryOperatorOverloading(
         EvaluationContext context,
         JsValue leftValue,
@@ -765,17 +799,19 @@ internal abstract class JintBinaryExpression : JintExpression
             var rightType = right.GetType();
             var arguments = new[] { leftValue, rightValue };
 
-            var key = new OperatorKey(clrName, leftType, rightType);
-            var method = _knownOperators.GetOrAdd(key, _ =>
+            var engine = context.Engine;
+            var key = new OperatorKey(clrName, leftType, rightType, engine._valueCoercion);
+            var cache = engine._typeConverterIsDefault
+                ? _knownOperators
+                : engine._engineOperatorOverloads ??= new ConcurrentDictionary<OperatorKey, MethodDescriptor?>();
+
+            if (!cache.TryGetValue(key, out var method))
             {
-                var leftMethods = leftType.GetOperatorOverloadMethods();
-                var rightMethods = rightType.GetOperatorOverloadMethods();
+                method = ResolveOperatorOverload(engine, clrName, leftType, rightType, arguments);
 
-                var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
-                var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
-
-                return InteropHelper.FindBestMatch(context.Engine, methodDescriptors, static (_, state) => state.Arguments, new MethodResolverState(arguments)).FirstOrDefault().Method;
-            });
+                // racy, we don't care: both racers resolved the same operator the same way
+                cache.TryAdd(key, method);
+            }
 
             if (method != null)
             {
@@ -804,6 +840,22 @@ internal abstract class JintBinaryExpression : JintExpression
 
         result = null;
         return false;
+    }
+
+    private static MethodDescriptor? ResolveOperatorOverload(
+        Engine engine,
+        string? clrName,
+        Type leftType,
+        Type rightType,
+        JsCallArguments arguments)
+    {
+        var leftMethods = leftType.GetOperatorOverloadMethods();
+        var rightMethods = rightType.GetOperatorOverloadMethods();
+
+        var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
+        var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
+
+        return InteropHelper.FindBestMatch(engine, methodDescriptors, static (_, state) => state.Arguments, new MethodResolverState(arguments)).FirstOrDefault().Method;
     }
 
     internal static JintExpression Build(NonLogicalBinaryExpression expression)
