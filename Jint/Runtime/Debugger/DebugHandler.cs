@@ -72,7 +72,9 @@ public class DebugHandler
     /// This is analogous to a first-chance exception notification.
     /// </summary>
     /// <remarks>
-    /// If a catch block re-throws the exception (e.g. <c>throw e;</c>), the event will fire again for the new throw.
+    /// Fired once per throw, in the frame the throw was raised in, and not again for the frames the unwind
+    /// passes through on its way out. A catch block that re-throws (<c>throw e;</c>) is a new throw and
+    /// fires it again, even for the very same value.
     /// </remarks>
     public event ExceptionThrownEventHandler? ExceptionThrown;
 
@@ -491,15 +493,26 @@ public class DebugHandler
     /// Reports a thrown JavaScript exception to <see cref="ExceptionThrown"/>, and stops the engine when
     /// <see cref="PauseOnExceptions"/> asks for it.
     /// </summary>
+    /// <remarks>
+    /// Called once per throw, not once per frame the throw unwinds through — see
+    /// <paramref name="reRaisedAtBodyBoundary"/>.
+    /// </remarks>
     /// <param name="thrownValue">The value that was thrown.</param>
     /// <param name="location">Where in the source it was thrown.</param>
     /// <param name="reRaisedAtBodyBoundary">
     /// Whether this is the same throw leaving a function, generator or <c>eval</c> body rather than a new
-    /// one. The event fires either way — it always has — but the pause happens only for the throw itself.
+    /// one. Neither the event nor the pause happens for it: the throw was already reported, in the frame it
+    /// was raised in, and every frame the unwind passes through re-raises it as a new exception object that
+    /// nothing further up can tell from a fresh <c>throw</c> of the same value.
     /// </param>
     internal void OnExceptionThrown(JsValue thrownValue, in SourceLocation location, bool reRaisedAtBodyBoundary = false)
     {
-        var pauseMode = reRaisedAtBodyBoundary ? ExceptionPauseMode.None : PauseOnExceptions;
+        if (reRaisedAtBodyBoundary)
+        {
+            return;
+        }
+
+        var pauseMode = PauseOnExceptions;
         if (ExceptionThrown is null && pauseMode == ExceptionPauseMode.None)
         {
             return;

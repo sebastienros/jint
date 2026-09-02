@@ -136,6 +136,94 @@ public class ExceptionThrownTests
     }
 
     [Test]
+    public void AThrowUnwindingSeveralFramesFiresTheEventOnce()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var frames = new List<string>();
+        engine.Debugger.ExceptionThrown += (sender, args) => frames.Add(args.CallStack[0].FunctionName);
+
+        engine.Execute("""
+            function inner() { throw new Error('boom'); }
+            function middle() { inner(); }
+            function outer() { middle(); }
+            try { outer(); } catch (e) {}
+            """);
+
+        // One throw, one event, reported where the throw happened. Every frame the unwind passes through
+        // re-raises the same throw as a new JavaScriptException, and none of those is a throw.
+        frames.Should().Equal("inner");
+    }
+
+    [Test]
+    public void AnImplicitErrorUnwindingSeveralFramesFiresTheEventOnce()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var count = 0;
+        engine.Debugger.ExceptionThrown += (sender, args) => count++;
+
+        engine.Execute("""
+            function inner() { return undefined.foo; }
+            function outer() { return inner(); }
+            try { outer(); } catch (e) {}
+            """);
+
+        count.Should().Be(1);
+    }
+
+    [Test]
+    public void AThrowLeavingAGeneratorBodyFiresTheEventOnce()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var count = 0;
+        engine.Debugger.ExceptionThrown += (sender, args) => count++;
+
+        engine.Execute("""
+            function* g() { yield 1; throw new Error('boom'); }
+            var it = g();
+            it.next();
+            try { it.next(); } catch (e) {}
+            """);
+
+        count.Should().Be(1);
+    }
+
+    [Test]
+    public void AThrowLeavingAnEvalBodyFiresTheEventOnce()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var count = 0;
+        engine.Debugger.ExceptionThrown += (sender, args) => count++;
+
+        engine.Execute("try { eval(\"throw new Error('boom')\"); } catch (e) {}");
+
+        count.Should().Be(1);
+    }
+
+    [Test]
+    public void AFreshThrowOfTheSameValueFiresAgain()
+    {
+        var engine = new Engine(options => options.Debugger.Enabled = true);
+
+        var thrown = new List<JsValue>();
+        engine.Debugger.ExceptionThrown += (sender, args) => thrown.Add(args.ThrownValue);
+
+        engine.Execute("""
+            function inner() { throw new Error('boom'); }
+            try {
+                try { inner(); } catch (e) { throw e; }
+            } catch (e) {}
+            """);
+
+        // The re-raise a body boundary performs is not a throw; `throw e` is, even of the very same value.
+        thrown.Should().HaveCount(2);
+        thrown[0].Should().BeSameAs(thrown[1]);
+    }
+
+    [Test]
     public void ThrowPrimitiveValueFiresEvent()
     {
         var engine = new Engine(options => options.Debugger.Enabled = true);
