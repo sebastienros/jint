@@ -219,22 +219,24 @@ public class WebApiXmlHttpRequestTests
             xhr.addEventListener('load', () => log.push(xhr.status + ':' + xhr.responseText));
             xhr.open('GET', '/async');
             xhr.send();
+            log.push('sent');
             """);
 
-        // Before the pump, nothing at all has happened beyond open()'s own state change. Read the array
-        // through GetValue rather than Evaluate: an evaluation drains the event loop when it finishes, so on
-        // a fast loopback the response that has already been posted would be delivered by the very read
-        // that is meant to prove nothing was delivered yet.
-        engine.GetValue("log").AsArray().Length.Should().Be(0u);
+        // "Delivered on the pump" cannot be observed as "nothing before the pump": Execute itself drains the
+        // event loop when the script finishes, so on a fast loopback the response that has already been
+        // posted arrives inside that very call. What the contract promises is that send() returns before the
+        // response is delivered - the load event is a task, never a synchronous callback - and the script
+        // pins that ordering itself by logging after send().
 
         var deadline = DateTime.UtcNow + TransportSignalCeiling;
-        while (engine.Evaluate("log.length").AsNumber() == 0 && DateTime.UtcNow < deadline)
+        while (engine.Evaluate("log.length").AsNumber() < 2 && DateTime.UtcNow < deadline)
         {
             engine.Tasks.ProcessTasks();
             Thread.Sleep(2);
         }
 
-        engine.Evaluate("log[0]").AsString().Should().Be("200:hello async");
+        engine.Evaluate("log[0]").AsString().Should().Be("sent");
+        engine.Evaluate("log[1]").AsString().Should().Be("200:hello async");
     });
 
     /// <summary>
