@@ -31,10 +31,11 @@ public class JavaScriptException : JintException
     /// </summary>
     /// <remarks>
     /// Set only by <see cref="Throw.JavaScriptException(Engine, JsValue, in Completion)"/>, whose every
-    /// caller is such a boundary. It exists so that the debugger stops once, where the throw happened, and
-    /// not again in every frame the unwind passes through — each of which re-raises the same throw as a new
-    /// instance of this class, so nothing else on the way up can tell the difference.
-    /// <see cref="Debugger.DebugHandler.ExceptionThrown"/> is deliberately not filtered by it.
+    /// caller is such a boundary. It exists so that the debugger reports and stops once, where the throw
+    /// happened, and not again in every frame the unwind passes through — each of which re-raises the same
+    /// throw as a new instance of this class, so nothing else on the way up can tell the difference. Both
+    /// <see cref="Debugger.DebugHandler.ExceptionThrown"/> and the pause are filtered by it; a fresh
+    /// <c>throw e</c> of the very same value is a new throw and is reported as one.
     /// </remarks>
     internal bool _reRaisedAtBodyBoundary;
 

@@ -4895,6 +4895,32 @@ A host that caches a `Prepared<Script>` — which it should — never had severa
 reads exactly what it read before. Entries of a program the engine cannot name (`eval`, the `Function`
 constructor) are still folded together by name and position.
 
+### 4.112 `ExceptionThrown` fires once per throw, not once per frame it unwinds through ([#3624](https://github.com/sebastienros/jint/issues/3624))
+
+A Throw completion leaving a function, generator, `eval` or disposal body is re-raised as a *new*
+`JavaScriptException` so that it can cross the boundary, and the calling frame caught it and reported it
+again. One `throw` therefore raised `DebugHandler.ExceptionThrown` once for every frame the unwind passed
+through, each time with a shorter call stack, and a subscriber counting throws counted frames instead:
+
+```js
+function inner() { throw new Error('boom'); }
+function middle() { inner(); }
+function outer() { middle(); }
+try { outer(); } catch (e) {}
+// 5.0:  ExceptionThrown fired four times, for inner, middle, outer and the program
+// 5.x:  once, in inner, where the throw happened
+```
+
+The re-raise is already marked (`JavaScriptException._reRaisedAtBodyBoundary`, added in
+[#3623](https://github.com/sebastienros/jint/pull/3623) so that `PauseOnExceptions` stopped once rather than
+once per frame); the event is now filtered by the same mark. A rethrow that is a real throw is unaffected:
+`catch (e) { throw e; }` fires the event again, even for the very same value, because it is a new throw.
+
+**What could break:** a subscriber that counted events, or one that relied on seeing the same throw again
+with a shallower call stack. The one event it now gets is the deepest of the ones it used to get — same
+value, same location, and the call stack it was thrown on — so a subscriber that only read the first event
+of a run sees no change at all.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
