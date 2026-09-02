@@ -4945,6 +4945,51 @@ enough that one extra frame per listener matters. Nothing about what a listener 
 is, what a throwing listener does (report and continue with a `DiagnosticsSink`, erupt without one), or
 whether a handler's return value cancels the event has changed.
 
+### 4.114 `BindFunction` is a `Function` ([#3645](https://github.com/sebastienros/jint/issues/3645))
+
+A bound function exotic object has `[[Call]]`, `[[Construct]]`, a `name` and a `length`, and script always
+saw one as a function — `typeof` answered `"function"` and `Object.prototype.toString` answered
+`[object Function]`. The CLR type did not: `BindFunction` derived from `ObjectInstance`, so everything in
+and around the engine that asks "is this a function?" by type answered no. `Jint.Diagnostics.ValueInspector`
+described `f.bind(null)` as `{}` with `ValueKind.Object`, the console printed it as an empty object, and a
+Chrome DevTools client was sent `type: "object"` for it. It now derives from `Jint.Native.Function.Function`:
+
+```csharp
+// 5.0:  BindFunction : ObjectInstance
+// 5.x:  BindFunction : Function
+var bound = engine.Evaluate("(function f() {}).bind(null)");
+bound.Should().BeAssignableTo<Function>();
+ValueInspector.Describe(bound).Kind;   // was ValueKind.Object, now ValueKind.Function
+```
+
+Three consequences beyond the description.
+
+- **A bound call has a call-stack frame.** The frame is pushed for a `Function` and nothing else, so calling
+  a bound function used to push none — the throw site inside the target was attributed to the *caller's*
+  frame. It is now a frame of its own, named by the bound function's own `name`:
+
+  ```js
+  function inner() { throw new Error('boom'); }
+  function outer() { inner.bind(null)(); }
+  outer();
+  // 5.0:  "at outer (<the throw's location>)"      — one frame, carrying the caller's name
+  // 5.x:  "at bound inner (<the throw's location>)" and "at outer (<the call's location>)"
+  ```
+
+  V8 elides the wrapper and names the frame `inner`; Jint names it after the function that owns it. Either
+  way there is a frame where there was none. It counts against `Options.Constraints.MaxRecursionDepth`, so a
+  host that bounded a deeply recursive bound-function chain to the exact limit has one level less headroom.
+- **`ToObject()` returns a delegate.** Converting a bound function to a CLR value produced a property bag;
+  it now produces the `JsCallDelegate` every other function produces, which is what a host asking for one
+  wanted.
+- **`Function.prototype.toString` is unchanged**, and so is the source text the inspector reports for a
+  bound function: `function () { [native code] }`, with no name in it, exactly as before and as V8 writes
+  it — even though the function's own `name` is `"bound f"`.
+
+**What could break:** a host switching on `is ObjectInstance` before `is Function` (the bound function now
+matches the second), a test comparing a stack trace that crosses a bound call, and a host converting a bound
+function with `ToObject()` and expecting a property bag.
+
 ### 4.115 `performance` is an `EventTarget`, and asking for it brings the events ([#3660](https://github.com/sebastienros/jint/pull/3660))
 
 [HR-Time](https://w3c.github.io/hr-time/#sec-performance) declares `interface Performance : EventTarget`, and

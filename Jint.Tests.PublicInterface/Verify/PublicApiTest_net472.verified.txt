@@ -1211,11 +1211,12 @@ namespace Jint.Native.Error
 }
 namespace Jint.Native.Function
 {
-    public sealed class BindFunction : Jint.Native.Object.ObjectInstance
+    public sealed class BindFunction : Jint.Native.Function.Function
     {
         public Jint.Native.JsValue[] BoundArguments { get; }
         public Jint.Native.JsValue BoundTargetFunction { get; }
         public Jint.Native.JsValue BoundThis { get; }
+        protected override Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments) { }
         public override string ToString() { }
     }
     public sealed class EvalFunction : Jint.Native.Function.Function

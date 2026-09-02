@@ -438,14 +438,16 @@ public abstract partial class Function : ObjectInstance, ICallable
     /// </summary>
     internal Realm GetFunctionRealm(JsValue obj)
     {
-        if (obj is Function functionInstance && functionInstance._realm is not null)
-        {
-            return functionInstance._realm;
-        }
-
+        // Step 2 before step 3: a bound function is a Function too, and its own realm is not the answer —
+        // the specification asks its [[BoundTargetFunction]], which is what a cross-realm bind depends on.
         if (obj is BindFunction bindFunctionInstance)
         {
             return GetFunctionRealm(bindFunctionInstance.BoundTargetFunction);
+        }
+
+        if (obj is Function functionInstance && functionInstance._realm is not null)
+        {
+            return functionInstance._realm;
         }
 
         if (obj is JsProxy proxyInstance)

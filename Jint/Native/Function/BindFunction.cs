@@ -6,10 +6,15 @@ namespace Jint.Native.Function;
 /// <summary>
 /// https://tc39.es/ecma262/#sec-bound-function-exotic-objects
 /// </summary>
-public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
+/// <remarks>
+/// A <see cref="Function"/> because that is what it is: a bound function exotic object has
+/// <c>[[Call]]</c>, <c>[[Construct]]</c>, a <c>name</c> and a <c>length</c>, and every describer, console
+/// and debugger protocol that asks "is this a function?" asks it by type. It carries no
+/// <c>[[ECMAScriptCode]]</c>, so it has no source text, no <c>prototype</c> property and no environment;
+/// everything it does it delegates to <see cref="BoundTargetFunction"/>.
+/// </remarks>
+public sealed class BindFunction : Function, IConstructor
 {
-    private readonly Realm _realm;
-
     /// <summary>
     /// Internal because a <see cref="Realm"/> is not something a host can obtain, so nothing outside this
     /// assembly could ever have called it. The way to bind a function is <c>Function.prototype.bind</c>; the
@@ -21,10 +26,8 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         ObjectInstance targetFunction,
         JsValue boundThis,
         JsValue[] boundArgs)
-        : base(engine, ObjectClass.Function)
+        : base(engine, realm, name: null)
     {
-        _type |= InternalTypes.Callable;
-        _realm = realm;
         _prototype = proto;
         BoundTargetFunction = targetFunction;
         BoundThis = boundThis;
@@ -46,7 +49,10 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
     /// </summary>
     public JsValue[] BoundArguments { get; }
 
-    JsValue ICallable.Call(JsValue thisObject, params JsCallArguments arguments)
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
+    /// </summary>
+    protected internal override JsValue Call(JsValue thisObject, JsCallArguments arguments)
     {
         // Per https://tc39.es/ecma262/#sec-bound-function-exotic-objects-call-thisargument-argumentslist
         // the [[BoundTargetFunction]] only needs to be callable — it is not necessarily a
@@ -67,6 +73,9 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
         return value;
     }
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-bound-function-exotic-objects-construct-argumentslist-newtarget
+    /// </summary>
     ObjectInstance IConstructor.Construct(JsCallArguments arguments, JsValue newTarget)
     {
         var target = BoundTargetFunction as IConstructor;
@@ -118,5 +127,9 @@ public sealed class BindFunction : ObjectInstance, IConstructor, ICallable
 
     internal override bool IsConstructor => BoundTargetFunction.IsConstructor;
 
+    /// <summary>
+    /// https://tc39.es/ecma262/#sec-function.prototype.tostring — a bound function is not the function it
+    /// wraps, so the representation names nothing, which is what every engine writes for one.
+    /// </summary>
     public override string ToString() => "function () { [native code] }";
 }

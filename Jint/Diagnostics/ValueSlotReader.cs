@@ -109,6 +109,14 @@ internal static class ValueSlotReader
             return sourceText;
         }
 
+        // A bound function's own name is "bound f", and Function.prototype.toString does not write it: the
+        // representation names nothing, here and in every engine. Reading the name would put a name in this
+        // field that the front end would then parse back out as the function's own.
+        if (function is BindFunction)
+        {
+            return "function () { [native code] }";
+        }
+
         var name = function.GetOwnFunctionNameForDisplay()?.TrimStart('#') ?? "";
         return "function " + name + "() { [native code] }";
     }
