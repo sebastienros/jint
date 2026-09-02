@@ -198,7 +198,7 @@ internal sealed class MethodDescriptor
     // Trade-off: a static cache keyed by MethodBase pins that MethodBase - and therefore its
     // declaring assembly - for the lifetime of the process. That matches the precedent already set
     // by this codebase's other process-wide reflection caches (TypeDescriptor._cache,
-    // TypeReference._memberAccessors, JintBinaryExpression._knownOperators,
+    // TypeReference._memberAccessors, JintBinaryExpression._operatorCandidates,
     // DefaultTypeConverter._knownCastOperators).
     //
     // A concurrent duplicate build for the same key is benign (both produce equivalent invokers and

@@ -181,4 +181,87 @@ public class OperatorOverloadResolutionCacheTests
     }
 
     #endregion
+
+    #region value-decided resolution
+
+    /// <summary>
+    /// A host type carrying a narrow overload beside a catch-all one. Which of the two applies is decided by
+    /// the <em>value</em> on the right - <c>5</c> fits a <see cref="byte"/> and <c>300</c> does not - so the
+    /// pair of CLR types the two arguments have does not determine the answer, both numbers arriving as
+    /// <see cref="double"/>.
+    /// </summary>
+    public sealed class RangedA
+    {
+        public static string operator +(RangedA left, byte right) => "byte:" + right;
+        public static string operator +(RangedA left, object right) => "object:" + right;
+    }
+
+    public sealed class RangedB
+    {
+        public static string operator +(RangedB left, byte right) => "byte:" + right;
+        public static string operator +(RangedB left, object right) => "object:" + right;
+    }
+
+    public sealed class RangedC
+    {
+        public static string operator +(RangedC left, byte right) => "byte:" + right;
+        public static string operator +(RangedC left, object right) => "object:" + right;
+    }
+
+    public sealed class RangedD
+    {
+        public static string operator +(RangedD left, byte right) => "byte:" + right;
+        public static string operator +(RangedD left, object right) => "object:" + right;
+    }
+
+    public sealed class RangedE
+    {
+        public static string operator +(RangedE left, byte right) => "byte:" + right;
+        public static string operator +(RangedE left, object right) => "object:" + right;
+    }
+
+    private static string AddNumber(Engine engine, object host, string expression)
+    {
+        engine.SetValue("m", host);
+        return engine.Evaluate(expression).AsString();
+    }
+
+    [Fact]
+    public void ASmallNumberAloneTakesTheNarrowOverload()
+    {
+        AddNumber(StockEngine(), new RangedA(), "m + 5").Should().Be("byte:5");
+    }
+
+    [Fact]
+    public void ALargeNumberAloneTakesTheCatchAllOverload()
+    {
+        AddNumber(StockEngine(), new RangedB(), "m + 300").Should().Be("object:300");
+    }
+
+    [Fact]
+    public void ASmallNumberDoesNotDecideForALargeOne()
+    {
+        AddNumber(StockEngine(), new RangedC(), "m + 5").Should().Be("byte:5");
+        AddNumber(StockEngine(), new RangedC(), "m + 300").Should().Be("object:300");
+    }
+
+    [Fact]
+    public void ALargeNumberDoesNotDecideForASmallOne()
+    {
+        AddNumber(StockEngine(), new RangedD(), "m + 300").Should().Be("object:300");
+        AddNumber(StockEngine(), new RangedD(), "m + 5").Should().Be("byte:5");
+    }
+
+    [Fact]
+    public void OneEngineSelectsPerEvaluationToo()
+    {
+        var engine = StockEngine();
+        engine.SetValue("m", new RangedE());
+
+        engine.Evaluate("m + 5").AsString().Should().Be("byte:5");
+        engine.Evaluate("m + 300").AsString().Should().Be("object:300");
+        engine.Evaluate("m + 5").AsString().Should().Be("byte:5");
+    }
+
+    #endregion
 }
