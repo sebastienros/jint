@@ -61,6 +61,13 @@ public enum FetchInitiator
 [Experimental(JintDiagnosticIds.PreviewDiagnostic)]
 public sealed record ObservedFetchRequest
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ObservedFetchRequest"/> record.
+    /// </summary>
+    public ObservedFetchRequest()
+    {
+    }
+
     /// <summary>Gets the identifier shared by every hop of this request.</summary>
     public required FetchRequestId Id { get; init; }
 
@@ -108,6 +115,13 @@ public sealed record ObservedFetchRequest
 [Experimental(JintDiagnosticIds.PreviewDiagnostic)]
 public sealed record ObservedFetchResponse
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ObservedFetchResponse"/> record.
+    /// </summary>
+    public ObservedFetchResponse()
+    {
+    }
+
     /// <summary>Gets the identifier shared by every hop of the request this answers.</summary>
     public required FetchRequestId Id { get; init; }
 

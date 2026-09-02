@@ -891,8 +891,10 @@ code between the script and the socket.
   token, so it fires even for an engine nobody is pumping.
 - `Options.WebApi.Fetch.MaxConcurrentRequests` (10) bounds in-flight requests per engine, and
   the excess is refused rather than queued.
-- `Authorization`, `Cookie`, and `Proxy-Authorization` are stripped when a redirect crosses
-  origin; a `303`, and a `301`/`302` on a `POST`, drop the body and its content headers.
+- `Authorization`, `Cookie`, and `Proxy-Authorization` that the *script* set are stripped when
+  a redirect crosses origin; a `303`, and a `301`/`302` on a `POST`, drop the body and its
+  content headers. A `Cookie` the host's own jar supplies is not carried across a hop at all:
+  it is recomputed for each hop's URL, which is the stronger form of the same rule.
 - A URL carrying credentials (`https://user:pass@host/`) is refused by the `Request`
   constructor.
 - Header names must be RFC 9110 tokens and header values may not contain NUL, CR, or LF, so
@@ -900,8 +902,26 @@ code between the script and the socket.
 - Every network-class failure is one `TypeError` whose message is only `Failed to fetch`; the
   originating CLR exception rides the error *value* and is readable by the host through
   `JintException.TryGetClrException`, never by script.
-- The default client has `UseCookies = false`, so no cookie jar is shared between engines or
-  tenants.
+- The `HttpClientHandler` still has `UseCookies = false`, so no cookie jar is shared between
+  engines or tenants by default, and none is created by anything Jint does. Cookies exist only
+  where the host set `Options.WebApi.Fetch.CookieJar`, which is an explicit per-engine grant:
+  one jar is one cookie partition, and giving two engines the same instance is what makes it a
+  channel between them.
+- A jar is consulted only as far as the request's `credentials` mode allows — `omit` never
+  sends or stores, `same-origin` only while the hop is same origin with
+  `Options.WebApi.Fetch.Origin` (or `BaseUrl`'s origin), `include` always — so a script cannot
+  reach the jar for a destination the host's own origin does not cover unless it says
+  `credentials: "include"`.
+- `Set-Cookie` parsing is Jint's own (RFC 6265bis §5.2), so `__Secure-` and `__Host-` are
+  enforced rather than ignored, and no cookie is stored for a `Domain` the request host does
+  not match. `System.Net.CookieContainer` supplies the store, its 300/20/4096 caps, and its
+  refusal of a public-suffix `Domain`.
+- `Options.WebApi.Fetch.BaseUrl`, `Referrer` and `Origin` widen what a request *says*, never
+  where it may go: `AllowedSchemes` and `UrlFilter` are applied to the resolved absolute URL
+  exactly as before.
+- `Options.WebApi.Fetch.Observer` may rewrite a request's URL, and a rewritten one is re-checked
+  against `AllowedSchemes` and `UrlFilter` before it reaches a socket, exactly as a redirect
+  target is. Its callbacks run on transport threads and are handed no engine value.
 - A request in flight is cancelled by `Engine.Advanced.RestoreGlobalSnapshot`, and its promise
   never settles into the restored engine.
 - Timer flooding is covered separately by `Options.WebApi.Timers.MaxActiveTimers` (1000), and
@@ -914,8 +934,17 @@ code between the script and the socket.
 - There is no per-request or per-engine byte, connection, or bandwidth budget beyond the
   per-response cap and the concurrency cap; a script may still issue many bounded requests in
   sequence.
-- `credentials`, `cache`, `mode`, `referrer`, and `integrity` are accepted and ignored, so a
-  script cannot rely on them for protection and neither can a host reading the request.
+- `cache`, `mode`, `integrity` and `keepalive` are accepted and ignored, so a script cannot
+  rely on them for protection and neither can a host reading the request. `credentials`,
+  `referrer` and `referrerPolicy` are honoured, but only against what the host configured:
+  with no jar there are no cookies whatever the mode says, and with no `Referrer` there is no
+  `Referer` header whatever the policy says.
+- There is no public suffix list, so a jar cannot tell a registrable domain from a host, and
+  `SameSite` is therefore not enforced at all. A deployment that needs it supplies a
+  `CookieJar` of its own that knows its browsing context.
+- A `CookieJar`, a `UrlFilter` and a `FetchObserver` are host code called from transport
+  threads. One that throws fails the fetch rather than being ignored, but one that blocks
+  holds a request open for as long as it blocks.
 - The default shared `HttpClient` is process-wide and never disposed; its connection pool is
   shared by every engine that did not supply a client.
 - Response bodies are buffered in memory, so `MaxResponseBytes` is also the per-request heap
@@ -926,7 +955,9 @@ needs it. When it is needed, set a `UrlFilter` that allow-lists destinations rat
 denying known-bad ones, drop `http` from `AllowedSchemes`, lower `MaxResponseBytes`,
 `MaxRedirects`, `Timeout`, and `MaxConcurrentRequests` to what the workload actually needs,
 and supply an `HttpClient` (or `HttpClientFactory`) whose handler applies the deployment's
-proxy, DNS, and TLS policy. Resolve-and-check the destination address in the handler if
+proxy, DNS, and TLS policy. Give each tenant, session or page its **own** `CookieJar` instance
+if cookies are needed at all, and set `Options.WebApi.Fetch.Origin` so that the default
+`same-origin` credentials mode means something rather than nothing. Resolve-and-check the destination address in the handler if
 rebinding is in scope. Keep the worker's egress restricted at the network layer as well:
 `UrlFilter` is a policy inside the process, not a firewall.
 

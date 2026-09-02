@@ -313,11 +313,18 @@ namespace Jint
         {
             public FetchOptions() { }
             public Jint.OptionsList<string> AllowedSchemes { get; }
+            public System.Uri? BaseUrl { get; set; }
+            public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
             public System.Net.Http.HttpClient? HttpClient { get; set; }
             public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
             public int MaxConcurrentRequests { get; set; }
             public int MaxRedirects { get; set; }
             public long MaxResponseBytes { get; set; }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+            public Jint.WebApi.Fetch.FetchObserver? Observer { get; set; }
+            public string? Origin { get; set; }
+            public System.Uri? Referrer { get; set; }
+            public Jint.WebApi.Fetch.ReferrerPolicy ReferrerPolicy { get; set; }
             public System.TimeSpan Timeout { get; set; }
             public System.Func<System.Uri, bool> UrlFilter { get; set; }
         }
@@ -2958,6 +2965,20 @@ namespace Jint.WebApi
 }
 namespace Jint.WebApi.Fetch
 {
+    public sealed class CookieContainerCookieJar : Jint.WebApi.Fetch.CookieJar
+    {
+        public CookieContainerCookieJar() { }
+        public CookieContainerCookieJar(System.Net.CookieContainer container) { }
+        public System.Net.CookieContainer Container { get; }
+        public override string? GetCookieHeader(System.Uri url) { }
+        public override void StoreResponseCookies(System.Uri url, System.Collections.Generic.IReadOnlyList<string> setCookieHeaders) { }
+    }
+    public abstract class CookieJar
+    {
+        protected CookieJar() { }
+        public abstract string? GetCookieHeader(System.Uri url);
+        public abstract void StoreResponseCookies(System.Uri url, System.Collections.Generic.IReadOnlyList<string> setCookieHeaders);
+    }
     public sealed class FetchHandlerOperation
     {
         public System.Exception? Error { get; }
@@ -2965,5 +2986,77 @@ namespace Jint.WebApi.Fetch
         public bool IsFaulted { get; }
         public System.Net.Http.HttpResponseMessage? Response { get; }
         public System.Net.Http.HttpResponseMessage GetResult() { }
+    }
+    public readonly struct FetchHeader : System.IEquatable<Jint.WebApi.Fetch.FetchHeader>
+    {
+        public FetchHeader(string Name, string Value) { }
+        public string Name { get; init; }
+        public string Value { get; init; }
+    }
+    public enum FetchInitiator
+    {
+        Script = 0,
+        Host = 1,
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class FetchInterception
+    {
+        public static Jint.WebApi.Fetch.FetchInterception Continue(System.Uri? url = null, string? method = null, System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader>? headers = null, System.ReadOnlyMemory<byte>? body = default) { }
+        public static Jint.WebApi.Fetch.FetchInterception Fail(string reason) { }
+        public static Jint.WebApi.Fetch.FetchInterception Fulfill(int status, System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader>? headers = null, System.ReadOnlyMemory<byte> body = default, string? statusText = null) { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public abstract class FetchObserver
+    {
+        protected FetchObserver() { }
+        public virtual int RequestBodyPreviewBytes { get; }
+        public virtual void OnCompleted(Jint.WebApi.Fetch.FetchRequestId id, long bodyLength) { }
+        public virtual void OnData(Jint.WebApi.Fetch.FetchRequestId id, System.ReadOnlySpan<byte> chunk) { }
+        public virtual void OnFailed(Jint.WebApi.Fetch.FetchRequestId id, string reason, System.Exception? exception) { }
+        public virtual System.Threading.Tasks.ValueTask<Jint.WebApi.Fetch.FetchInterception?> OnRequestAsync(Jint.WebApi.Fetch.ObservedFetchRequest request, System.Threading.CancellationToken cancellationToken) { }
+        public virtual void OnResponse(Jint.WebApi.Fetch.ObservedFetchResponse response) { }
+    }
+    public readonly struct FetchRequestId : System.IEquatable<Jint.WebApi.Fetch.FetchRequestId>
+    {
+        public FetchRequestId(long Value) { }
+        public long Value { get; init; }
+        public override string ToString() { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ObservedFetchRequest : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchRequest>
+    {
+        public ObservedFetchRequest() { }
+        public System.ReadOnlyMemory<byte> BodyPreview { get; init; }
+        public bool HasBody { get; init; }
+        public required System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> Headers { get; init; }
+        public required Jint.WebApi.Fetch.FetchRequestId Id { get; init; }
+        public required Jint.WebApi.Fetch.FetchInitiator Initiator { get; init; }
+        public required string Method { get; init; }
+        public int RedirectCount { get; init; }
+        public Jint.WebApi.Fetch.ObservedFetchResponse? RedirectResponse { get; init; }
+        public required System.Uri Url { get; init; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ObservedFetchResponse : System.IEquatable<Jint.WebApi.Fetch.ObservedFetchResponse>
+    {
+        public ObservedFetchResponse() { }
+        public bool FromInterception { get; init; }
+        public required System.Collections.Generic.IReadOnlyList<Jint.WebApi.Fetch.FetchHeader> Headers { get; init; }
+        public required Jint.WebApi.Fetch.FetchRequestId Id { get; init; }
+        public bool IsRedirect { get; init; }
+        public required int Status { get; init; }
+        public required string StatusText { get; init; }
+        public required System.Uri Url { get; init; }
+    }
+    public enum ReferrerPolicy
+    {
+        NoReferrer = 0,
+        NoReferrerWhenDowngrade = 1,
+        Origin = 2,
+        OriginWhenCrossOrigin = 3,
+        SameOrigin = 4,
+        StrictOrigin = 5,
+        StrictOriginWhenCrossOrigin = 6,
+        UnsafeUrl = 7,
     }
 }
