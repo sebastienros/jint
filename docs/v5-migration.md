@@ -5537,6 +5537,29 @@ foreach (var sample in profile.Samples)          // when it was taken, and which
 `JINT0002`; a table is a view over what the session recorded rather than a copy, so reading one costs nothing
 until a row is asked for. Nothing that existed changed.
 
+### 5.19 A debugger can stop on caught exceptions, and decline a pause without cancelling a step ([#3631](https://github.com/sebastienros/jint/issues/3631))
+
+A tool's "pause on exceptions" control has four states and `ExceptionPauseMode` had three, so a host wanting
+the fourth asked for `All` and dropped the uncaught half in its own handler — and the only way a handler can
+decline a pause is to return a `StepMode`, whose value *is* the next step mode. Declining therefore cancelled
+a step the host had armed. Both halves are closed:
+
+```csharp
+engine.Debugger.PauseOnExceptions = ExceptionPauseMode.Caught;   // the complement of Uncaught
+
+engine.Debugger.Break += (sender, info) => info.PauseType == PauseType.Exception
+    ? StepMode.Unchanged                                          // not this one; leave the mode alone
+    : StepMode.Into;
+```
+
+`ExceptionPauseMode.Caught` stops only where a `catch` clause on the stack will land, decided at the throw —
+so the engine never raises a pause the handler would have to skip. `StepMode.Unchanged` is the general form:
+every other member sets the mode, and this one keeps it. As an engine's initial mode
+(`Options.Debugger.InitialStepMode`) it means `None`, there being no mode yet to keep.
+
+Both are new members of existing enums, so nothing that compiled stops compiling — but a `switch` *expression*
+over either that listed every member and had no discard arm will now warn that it is not exhaustive.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In
