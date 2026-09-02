@@ -20,10 +20,13 @@ internal sealed class JintUnaryExpression : JintExpression
     /// <see cref="Jint.Runtime.Interop.ClrTypeConverter"/> is consulted.
     /// </summary>
     /// <remarks>
-    /// That is what makes it different from <see cref="JintBinaryExpression"/>'s table, whose key carries the
-    /// coercion setting and whose choice of table carries the converter (#3424). Anything that gives this one
-    /// a scoring step — a second candidate to choose between, <see cref="Jint.Runtime.Interop.InteropHelper.FindBestMatch"/>
-    /// — inherits those rules with it.
+    /// That is what makes it different from <see cref="JintBinaryExpression"/>'s table, which since #3578
+    /// caches only the <em>candidate set</em> for its name and operand types and re-runs selection on every
+    /// evaluation, because a two-operand score can depend on the argument values in hand (#3424, #3567). A
+    /// unary operator has no second candidate to choose between, so the chosen descriptor itself is safe to
+    /// remember — and the moment anything gives this table a scoring step,
+    /// <see cref="Jint.Runtime.Interop.InteropHelper.FindBestMatch"/>, it must follow the binary lane's
+    /// design rather than inherit this one's.
     /// </remarks>
     private readonly record struct OperatorKey(string OperatorName, Type Operand);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
