@@ -93,6 +93,83 @@ neither, which is the pair the revocation exists for. The identifier is remember
 script that escaped `ProcessTasks` and by a `HostOwned` host from its own `catch`. Reporting is not
 handling: it writes to whoever is attached and returns.
 
+### Scripts, breakpoints, and why one pause happened
+
+`Domains/ScriptRegistry.cs` is every program one engine has parsed, and three of its properties are load
+bearing rather than incidental:
+
+- **Keyed on the `Program` by reference**, so a cached `Prepared<Script>` run a thousand times is one script
+  and one `scriptParsed`. It fills from `DebugHandler.BeforeEvaluate`, which the *target* subscribes when it
+  is made rather than when a client enables the domain, so an attachment is replayed what the engine already
+  ran.
+- **Bounded at `MaxScripts`**, oldest first, because a registry that never forgets holds every abstract
+  syntax tree a host ever evaluated. A dropped script's identifier stops resolving and its source stops being
+  fetchable; run again, it is announced under a new one.
+- **A location is matched back to a script by *name*, not by identity.** A call frame carries a
+  `SourceLocation` and not the program it came from, so `ScriptRegistry.At` takes the scripts under that
+  source name and picks the one whose range contains the position, newest first. Several programs parsed
+  under one name — every `engine.Execute(code)` with no source argument is `<anonymous>` — therefore share
+  one answer, and a location nothing claims is reported against the identifier `0`, which is Chrome's own
+  sentinel for a location it cannot attribute. This is the one place a frame can name the wrong script, and
+  closing it needs an engine seam that puts the program on the frame.
+
+A breakpoint is a `DevToolsBreakPoint : BreakPoint` — the engine's class is unsealed exactly so that
+`DebugInformation.BreakPoint` hands the instance straight back and `hitBreakpoints` can name it. Two
+consequences: the engine keeps **one breakpoint per position**, so two protocol breakpoints that resolve to
+the same line collapse onto the last one set; and a `continueToLocation` breakpoint is one-shot, taken away
+inside the pause it caused so that a client stepping on does not meet it again.
+
+**`Debugger.paused` reports a reason, and there are two.** A breakpoint, a `debugger` statement and a step
+are all `other` — the protocol's enum has no member for a `debugger` statement, V8 answers `other` for one
+too, and `hitBreakpoints` is what tells a breakpoint apart. The other is `exception`.
+
+### Pausing on exceptions
+
+`DebugHandler.PauseOnExceptions` stops the engine **at the throw**, before anything unwinds, and raises it
+through `Break` with `PauseType.Exception`. The domain reads `DebugInformation.ThrownValue` and
+`IsUncaught` there. Four things about the mapping are decisions:
+
+- **`caught` is not an engine mode.** `ExceptionPauseMode` is `None`, `Uncaught` or `All`, so the client's
+  `caught` asks the engine for `All` and the pause decision drops the uncaught half. Inverting it — asking
+  for `Uncaught` and keeping what it did not raise — cannot work, because the engine does not raise a pause
+  at all for a throw it was not asked about.
+- **Filtering one out cancels a step in flight**, because the delegate's return value *is* the next step mode
+  and there is no way to say "unchanged". It is tolerable in this one case and nowhere else: the throw being
+  filtered is an uncaught one, and the frames a step was walking are about to be unwound by it anyway.
+- **`data` is the thrown value's `RemoteObject` with `uncaught` written onto it**, which is V8's shape
+  exactly. The front end reads both halves — the object to render, and the flag to choose its wording — and
+  the handle is billed to the backtrace group, so it dies with the frames. `hitBreakpoints` is an empty
+  array rather than absent: a client reading it unconditionally is reading the truth, which is that a throw
+  stopped the engine and no breakpoint did.
+- **The mode is the attachment's.** It reaches the engine on `enable` and on the command, and goes back to
+  `None` on disable or detach — otherwise a client that walked away leaves a host's engine stopping on every
+  throw with nobody to answer the pause.
+
+Two divergences from Chrome come from the engine and are not this package's to fix:
+
+- **A throw crossing an async function's body boundary is *uncaught*, whatever the caller wrapped it in.**
+  The throw becomes a rejection of that function's promise, which is a different thing from an exception, so
+  the count of executing `catch` clauses resets there. A user asking to stop on uncaught exceptions means
+  this; a client comparing against Chrome will see it as a divergence.
+- **`Promise.reject(value)` never stops the engine**, because nothing was thrown. `Runtime.exceptionThrown`
+  still reports it, from the rejection tracker, and is unaffected by any of this.
+
+### Evaluating in a frame
+
+`Debugger.evaluateOnCallFrame` runs in **any** frame of the current pause, through
+`DebugHandler.Evaluate(text, frame)`: the frame's own scope chain is what the expression resolves against, so
+a binding the innermost frame shadows is read — and written — as that frame sees it.
+
+A `callFrameId` is `"<pauseSerial>.<frameIndex>"`, minted while the `paused` event is built and parsed back
+against the serial of the pause that is running. **That check is the whole of the identifier's meaning**: the
+engine stamps its own generation on a frame and refuses one from an execution point it has left, so a client
+acting on a `paused` event it has already resumed from is told `Invalid call frame id` — Chrome's wording —
+rather than answered about a different frame that happens to sit at the same index.
+
+`Debugger.setVariableValue` writes a binding of any frame too, and is the only way to change a paused
+engine's state other than an assignment in an evaluation: the scope objects a client expands are read-only
+snapshots, so a value changed after one was handed out is not reflected in it.
+
 ### The `Absent` table, and how a command leaves it
 
 `Jint.Tests.DevTools/Protocol/HandshakeReplayTests.cs` replays the recordings in

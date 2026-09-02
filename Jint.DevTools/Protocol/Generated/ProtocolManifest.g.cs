@@ -56,6 +56,7 @@ namespace Jint.DevTools.Protocol
             "Debugger.pause",
             "Debugger.removeBreakpoint",
             "Debugger.resume",
+            "Debugger.searchInContent",
             "Debugger.setAsyncCallStackDepth",
             "Debugger.setBlackboxPatterns",
             "Debugger.setBlackboxedRanges",

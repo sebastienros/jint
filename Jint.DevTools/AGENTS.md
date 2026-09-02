@@ -288,9 +288,13 @@ Not oversights, and not to be added without a decision:
   `setBlackboxedRanges` are answered as no-ops — every recorded client sends one while connecting, so
   refusing would fail an ordinary connection. The engine retains no stack across a promise reaction, and a
   filter that silently skipped frames would make a step mean something other than what `DebugHandler` did.
-- **Pausing on exceptions.** `setPauseOnExceptions` stores the state a client set and stops on nothing: the
-  engine reports every throw and says nothing about whether a `catch` is waiting, so `uncaught` cannot be
-  honoured and `all` would stop inside every library that throws internally.
+- **Editing a paused program.** `setScriptSource` and `restartFrame` both re-enter a frame the engine is
+  standing in; the interpreter runs an abstract syntax tree it has already walked into, and there is no way
+  to swap one out under a live call stack. `setReturnValue` is refused for the same shape of reason and a
+  smaller one: `CallFrame.ReturnValue` is read-only, so there is nothing to write through.
+- **`getStackTrace`.** It resolves a `StackTraceId`, which only exists where asynchronous stacks do.
+- **`setBreakpointOnFunctionCall`.** A breakpoint here is a position, matched at an execution point the
+  engine reaches; a function object is not one, and the engine has no per-call hook to hang it off.
 - **Source maps.** The protocol carries `sourceMapURL` and the front end resolves it; nothing here reads
   one.
 - **`HeapProfiler`.** There is no object graph to walk that would mean anything to a .NET host; memory is

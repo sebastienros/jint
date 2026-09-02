@@ -162,11 +162,10 @@ public class DebuggerPauseLoopTests
     }
 
     /// <summary>
-    /// Evaluating in an outer frame would silently read the wrong variables, so it is refused rather than
-    /// answered against the top one.
+    /// The outermost frame is a frame like any other: it is evaluated in, and it is written to.
     /// </summary>
     [Test]
-    public async Task OnlyTheTopFrameCanBeEvaluated()
+    public async Task TheGlobalFrameIsEvaluatedInAndWrittenTo()
     {
         await using var session = await AttachedSession.CreateAsync();
         await session.EnableDebuggerAsync();
@@ -178,13 +177,15 @@ public class DebuggerPauseLoopTests
         var outerFrame = paused.GetProperty("callFrames").EnumerateArray().Last();
         var outer = outerFrame.GetProperty("callFrameId").GetString();
 
-        var error = await session.ErrorAsync(
+        var evaluated = await session.ResultAsync(
             "Debugger.evaluateOnCallFrame",
-            $$"""{"callFrameId":"{{outer}}","expression":"1"}""");
+            $$"""{"callFrameId":"{{outer}}","expression":"typeof sum","returnByValue":true}""");
 
-        error.GetProperty("message").GetString().Should().Be("Only the top call frame can be evaluated");
+        // `sum` is the inner frame's local. The global frame does not see it, which is what makes this an
+        // evaluation in that frame rather than in the one the engine is stopped in.
+        evaluated.GetProperty("result").GetProperty("value").GetString().Should().Be("undefined");
 
-        // The outer frame can still be written to, because a scope's environment record is what is written.
+        // The outer frame can also be written to, because a scope's environment record is what is written.
         var scopes = outerFrame.GetProperty("scopeChain").EnumerateArray().ToArray();
         var globalScope = Array.FindIndex(scopes, scope => scope.GetProperty("type").GetString() == "global");
         globalScope.Should().BeGreaterThanOrEqualTo(0);
