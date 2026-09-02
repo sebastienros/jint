@@ -81,7 +81,7 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
   AngleSharp's: `DocumentExtensions.QueueMutation` already walks a mutated node's inclusive ancestors, matches
   each against the registered observer list, honours `subtree` and `attributeFilter`, and clears `oldValue`
   for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the
-  [parser driver](Runtime/AGENTS.md#the-parser-driver-and-the-baton): its `MutationHost` schedules through an
+  [parser driver](Runtime/Parsing/AGENTS.md#the-parser-driver-and-the-baton): its `MutationHost` schedules through an
   `IEventLoop` service, **nothing in AngleSharp implements one**, and `EventLoopExtensions.Enqueue` on a null
   loop runs the action *inline* — so out of the box the callback fires synchronously inside `appendChild`.
   Registering an event loop to fix that would put a second scheduler under a parse whose hand-offs the baton
