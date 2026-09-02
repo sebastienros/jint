@@ -85,7 +85,7 @@ public class WebSocketServerTests
         document.RootElement.GetProperty("version").GetProperty("minor").GetString().Should().Be("3");
 
         var domains = document.RootElement.GetProperty("domains").EnumerateArray().ToArray();
-        domains.Select(domain => domain.GetProperty("domain").GetString()).Should().BeEquivalentTo(["Browser", "Runtime", "Schema", "Target"]);
+        domains.Select(domain => domain.GetProperty("domain").GetString()).Should().BeEquivalentTo(["Browser", "Console", "Log", "Runtime", "Schema", "Target"]);
 
         var runtime = domains.Single(domain => domain.GetProperty("domain").GetString() == "Runtime");
         runtime.GetProperty("commands").EnumerateArray().Select(command => command.GetProperty("name").GetString())
@@ -270,9 +270,16 @@ public class WebSocketServerTests
     }
 
     /// <summary>
-    /// A client that disappears mid-command must not take the engine thread with it: the command was already
-    /// on the mailbox, so it runs, and the reply goes nowhere.
+    /// A client that goes away mid-command must not take the engine thread with it: the command was already
+    /// on the mailbox, so it runs, and the connection ends around it.
     /// </summary>
+    /// <remarks>
+    /// The client closes its half of the stream rather than aborting it, which is what makes this a test
+    /// rather than a race. An abort resets the connection, and a reset lets the peer's kernel discard
+    /// whatever it had not read yet — including the very command whose effect is asserted below, which is
+    /// how this failed on the ARM leg with <c>Expected number but got Undefined</c>. Closing sends the frame
+    /// in order behind the command, so the server reads the command first, every time.
+    /// </remarks>
     [Test]
     public async Task AClientClosingMidCommandLeavesTheEngineRunning()
     {

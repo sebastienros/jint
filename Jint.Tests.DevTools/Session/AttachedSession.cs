@@ -32,12 +32,24 @@ internal sealed class AttachedSession : IAsyncDisposable
     internal ProtocolSession Protocol => _session;
 
     /// <summary>Attaches to a target over one engine, built the way a host that means to attach builds one.</summary>
+    /// <param name="configure">What to do to the engine once it is built.</param>
+    /// <param name="options">How the target presents itself, or the defaults.</param>
+    /// <param name="configureOptions">
+    /// What the host asked for before <c>UseDevTools</c> ran, which is the order a host writes: its own
+    /// console sink, its own web-API features, and then the call that makes the engine attachable.
+    /// </param>
     internal static async Task<AttachedSession> CreateAsync(
         Action<Engine>? configure = null,
-        EngineTargetOptions? options = null)
+        EngineTargetOptions? options = null,
+        Action<Options>? configureOptions = null)
     {
         var session = ProtocolSession.Create();
-        var engine = new Engine(o => o.UseDevTools());
+        var engine = new Engine(o =>
+        {
+            configureOptions?.Invoke(o);
+            o.UseDevTools();
+        });
+
         configure?.Invoke(engine);
 
         options ??= new EngineTargetOptions();

@@ -221,13 +221,20 @@ internal sealed class RemoteObjectMapper
     /// <summary>Releases every handle this mapper minted under <paramref name="objectGroup"/>.</summary>
     internal void ReleaseGroup(string objectGroup) => Table.ReleaseGroup(_owner, objectGroup);
 
+    /// <summary>
+    /// The thrown value, described with the message-and-stack text a front end prints in its console.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the one place besides <c>returnByValue</c> where script may run.</b> Rendering an error's
+    /// text reads its <c>stack</c>, which a script may have defined as an accessor — so the render is asked
+    /// for under the engine's own <see cref="ResultLimits"/>, which bounds both what it may execute and how
+    /// much it may produce. It is asked for at all because the stack is the whole reason a client is looking
+    /// at the value; the inspector's getter-free one-liner is the class name alone.
+    /// </remarks>
     private RemoteObject ThrownValue(JavaScriptException exception)
     {
         var described = Describe(exception.Error, RemoteObjectRequest.Description);
-
-        // The description a client renders for an error is the message plus the stack, which is what the
-        // engine already renders for its own exception text; the inspector's one-liner is the class name.
-        return described with { Description = exception.GetJavaScriptErrorString() };
+        return described with { Description = exception.GetJavaScriptErrorString(_target.Engine.Options.ResultLimits) };
     }
 
     private static RemoteObject Number(JsValue value)

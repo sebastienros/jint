@@ -117,36 +117,72 @@ internal sealed class DevToolsClient : IAsyncDisposable
         throw new TimeoutException("the server did not close the connection");
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Ends the conversation by closing the stream, not by pulling it out from under itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The close goes first, and the order is the whole of it.</b> Cancelling a
+    /// <see cref="ClientWebSocket.ReceiveAsync(ArraySegment{byte}, CancellationToken)"/> does not cancel a
+    /// receive — the class has no way to — it <i>aborts</i> the socket, which resets the connection and lets
+    /// the peer's kernel discard whatever it had not read yet. On a fast machine there is nothing left to
+    /// discard; on a loaded one the last command this client sent is still in the server's receive buffer,
+    /// and it vanishes. That is what made
+    /// <c>WebSocketServerTests.AClientClosingMidCommandLeavesTheEngineRunning</c> fail on the ARM leg with
+    /// <c>Expected number but got Undefined</c>: the command it had just sent was never read, so the marker
+    /// it sets was never set.
+    /// </para>
+    /// <para>
+    /// <see cref="WebSocket.CloseOutputAsync"/> rather than <see cref="WebSocket.CloseAsync"/> because the
+    /// reader task is inside a receive: <c>CloseAsync</c> waits for the reply by receiving, and two
+    /// concurrent receives on one <see cref="ClientWebSocket"/> are not allowed. Sending the close frame and
+    /// letting the reader see the server's answer ends the stream in order.
+    /// </para>
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        await _stopping.CancelAsync().ConfigureAwait(false);
-
         try
         {
             if (_socket.State == WebSocketState.Open)
             {
-                using var closing = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription: null, closing.Token).ConfigureAwait(false);
+                using var closing = new CancellationTokenSource(Bound);
+                await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, statusDescription: null, closing.Token).ConfigureAwait(false);
             }
         }
-        catch (Exception exception) when (exception is WebSocketException or OperationCanceledException)
+        catch (Exception exception) when (exception is WebSocketException or OperationCanceledException or ObjectDisposedException)
         {
         }
 
-        if (_reader is { } reader)
-        {
-            try
-            {
-                await reader.ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is WebSocketException or OperationCanceledException)
-            {
-            }
-        }
+        // Bounded, like every other wait here: a server that never answers the close must end this test
+        // rather than hang it, and the cancellation below is what unblocks the receive when it does not.
+        await SettledAsync(Bound).ConfigureAwait(false);
+
+        await _stopping.CancelAsync().ConfigureAwait(false);
+
+        // And again, briefly, so that the socket is never disposed under a live receive.
+        await SettledAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
         _socket.Dispose();
         _stopping.Dispose();
+    }
+
+    /// <summary>Waits for the reader to finish, swallowing every way it can end.</summary>
+    private async Task SettledAsync(TimeSpan bound)
+    {
+        if (_reader is not { } reader)
+        {
+            return;
+        }
+
+        try
+        {
+            await reader.WaitAsync(bound).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // a disposing client has nothing left to report a reader's failure to
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
     }
 
     private async Task<JsonElement> WaitAsync(Func<JsonElement, bool> matches)

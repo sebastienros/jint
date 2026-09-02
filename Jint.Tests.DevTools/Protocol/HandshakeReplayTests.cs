@@ -81,7 +81,6 @@ public class HandshakeReplayTests
         ["IO.close"] = "page",
         ["Audits.enable"] = "page",
         ["Performance.enable"] = "page",
-        ["Log.enable"] = "page",
 
         // Engine-level and not written yet. Each needs the debugger seam or the profiler seam, and half of
         // either of those is worse than none.

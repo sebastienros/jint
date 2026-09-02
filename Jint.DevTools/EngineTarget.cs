@@ -1,5 +1,8 @@
 using Jint.DevTools.Domains;
 using Jint.DevTools.Session;
+using Jint.Native.Promise;
+using Jint.Runtime;
+using Jint.WebApi;
 
 namespace Jint.DevTools;
 
@@ -43,7 +46,10 @@ public sealed class EngineTarget : IAsyncDisposable
     private readonly CancellationTokenSource? _stopping;
     private readonly Thread? _thread;
     private readonly ManualResetEventSlim? _debuggerWaitEnded;
+    private readonly DevToolsConsoleSink? _console;
+    private readonly object _observerLock = new();
 
+    private ITargetObserver[] _observers = [];
     private int _disposed;
 
     /// <summary>Creates a target over <paramref name="engine"/>.</summary>
@@ -68,6 +74,21 @@ public sealed class EngineTarget : IAsyncDisposable
         RemoteObjects = new RemoteObjectTable(Interlocked.Increment(ref _serial));
 
         _dispatcher = new EngineDispatcher(engine, DevToolsServerOptions.DefaultCommandTimeout, options.WaitForDebuggerOnStart);
+
+        // Console records reach a client only if the engine was built with UseDevTools, which is what
+        // installed the sink this binds to. An engine built without it is attachable and evaluable and says
+        // nothing about what its scripts logged, which is stated rather than silently half-true.
+        _console = engine.Options.WebApi.Console.Sink as DevToolsConsoleSink;
+        if (_console?.TryBind(this) == false)
+        {
+            // A second engine built from one Options instance. The first target speaks for that sink; this
+            // one keeps everything else and reports no console traffic.
+            _console = null;
+        }
+
+        // An unhandled rejection is an event rather than a command, so the subscription is the target's and
+        // outlives every attachment. It is taken before the loop thread starts, so nothing is missed.
+        engine.Tasks.PromiseRejectionTracker += OnPromiseRejection;
 
         if (options.WaitForDebuggerOnStart)
         {
@@ -139,6 +160,77 @@ public sealed class EngineTarget : IAsyncDisposable
 
     /// <summary>Gets the global functions <c>Runtime.addBinding</c> installed, and who hears them.</summary>
     internal BindingRegistry Bindings { get; } = new();
+
+    /// <summary>Gets the last few <c>console</c> calls, which a client enabling after the fact is replayed.</summary>
+    internal ConsoleJournal Console { get; } = new();
+
+    /// <summary>
+    /// Reports one exception that escaped the engine, so that every attached client hears about it.
+    /// </summary>
+    /// <param name="exception">What escaped.</param>
+    /// <remarks>
+    /// <para>
+    /// A <see cref="ThreadMode.LibraryOwned"/> target calls this itself, for anything a timer callback, a
+    /// promise reaction or a host job let out of <see cref="Engine.TaskOperations.ProcessTasks"/>. A
+    /// <see cref="ThreadMode.HostOwned"/> host owns its own loop, so it is the one that catches — and this
+    /// is how it tells a client, in the shape a client already understands: <c>Runtime.exceptionThrown</c>
+    /// and <c>Log.entryAdded</c>.
+    /// </para>
+    /// <para>
+    /// <b>Reporting is not handling.</b> It writes to whoever is attached and returns; whether the host
+    /// swallows the exception, rethrows it or ends the run is the host's decision and this changes none of
+    /// it. With no client attached it does nothing at all.
+    /// </para>
+    /// <para>
+    /// Call it on the engine's own thread, like everything else that carries a <see cref="Native.JsValue"/>
+    /// — the exception's error value is one.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="exception"/> is <see langword="null"/>.</exception>
+    public void ReportUncaughtException(JavaScriptException exception)
+    {
+        if (exception is null)
+        {
+            Throw.ArgumentNull(nameof(exception));
+        }
+
+        foreach (var observer in Volatile.Read(ref _observers))
+        {
+            observer.ExceptionThrown(exception);
+        }
+    }
+
+    /// <summary>Registers what hears the engine's own events, from the attachment that owns them.</summary>
+    internal void Observe(ITargetObserver observer)
+    {
+        lock (_observerLock)
+        {
+            _observers = [.. _observers, observer];
+        }
+    }
+
+    /// <summary>Stops telling <paramref name="observer"/> anything, which is what detaching means.</summary>
+    internal void Unobserve(ITargetObserver observer)
+    {
+        lock (_observerLock)
+        {
+            _observers = [.. _observers.Where(candidate => !ReferenceEquals(candidate, observer))];
+        }
+    }
+
+    /// <summary>Journals one <c>console</c> call and tells everyone attached, on the engine thread.</summary>
+    internal void Record(in ConsoleRecord record)
+    {
+        var entry = Console.Add(in record, UnixMilliseconds(), RemoteObjects);
+
+        foreach (var observer in Volatile.Read(ref _observers))
+        {
+            observer.ConsoleRecorded(entry);
+        }
+    }
+
+    /// <summary>The protocol's timestamp: milliseconds since the Unix epoch, as a double.</summary>
+    internal static double UnixMilliseconds() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     /// <summary>
     /// Gives the engine one turn: answers the protocol commands waiting for it, then runs the event loop.
@@ -300,8 +392,15 @@ public sealed class EngineTarget : IAsyncDisposable
             return;
         }
 
+        // The engine is the host's, before and after: a disposed target stops reaching into it first, so
+        // that nothing arrives after the release below.
+        Engine.Tasks.PromiseRejectionTracker -= OnPromiseRejection;
+        _console?.Unbind(this);
+
         // A handle is a promise to keep a value alive until the client releases it, and there is no client
-        // left to release one. Dropping the references runs no engine code, so it is safe from here.
+        // left to release one. Dropping the references runs no engine code, so it is safe from here, and so
+        // is letting go of the journal that was holding the arguments of the last hundred console calls.
+        Console.Clear(RemoteObjects);
         RemoteObjects.Clear();
 
         if (_stopping is not null)
@@ -334,13 +433,65 @@ public sealed class EngineTarget : IAsyncDisposable
             {
                 return;
             }
+            catch (JavaScriptException exception)
+            {
+                // Script that escaped the pump — a timer callback, a promise reaction, an event listener.
+                // The loop swallows it either way, because the next turn is still owed to every other
+                // client; what changed is that a client now hears about it instead of it vanishing.
+                Report(exception);
+            }
 #pragma warning disable CA1031 // the loop is the last thing between one bad command and a dead target
             catch (Exception)
 #pragma warning restore CA1031
             {
-                // A host callback or a script that threw out of the pump must not end the thread: every
-                // protocol command already answers its own failure, so what reaches here is host work, and
-                // the next turn is still owed to every other client.
+                // Host work that threw. There is no protocol shape for a CLR exception — Runtime.exceptionThrown
+                // carries a JavaScript error — so it is the host's own business, as it was before.
+            }
+        }
+    }
+
+    /// <summary>Reports without letting the report itself end the loop.</summary>
+    private void Report(JavaScriptException exception)
+    {
+        try
+        {
+            ReportUncaughtException(exception);
+        }
+#pragma warning disable CA1031 // a failure to tell a client is not a reason to stop running the engine
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
+    }
+
+    /// <summary>
+    /// The engine's own unhandled-rejection channel, which is where <c>Runtime.exceptionThrown</c> and
+    /// <c>Runtime.exceptionRevoked</c> come from.
+    /// </summary>
+    /// <remarks>
+    /// The engine raises <c>Reject</c> the moment a promise is rejected with nothing to handle it, and
+    /// <c>Handle</c> if something handles it afterwards. V8 waits for the end of the microtask checkpoint
+    /// before deciding, so a rejection handled on the very next line produces a throw and a revoke here
+    /// where Chrome produces neither — which is exactly the pair <c>exceptionRevoked</c> exists for, and is
+    /// why the identifier is remembered rather than the event delayed.
+    /// </remarks>
+    private void OnPromiseRejection(object? sender, PromiseRejectionTrackerEventArgs arguments)
+    {
+        var observers = Volatile.Read(ref _observers);
+        if (observers.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var observer in observers)
+        {
+            if (arguments.Operation == PromiseRejectionOperation.Reject)
+            {
+                observer.RejectionThrown(arguments.Promise, arguments.Value ?? Native.JsValue.Undefined);
+            }
+            else
+            {
+                observer.RejectionHandled(arguments.Promise);
             }
         }
     }

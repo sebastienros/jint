@@ -226,6 +226,55 @@ public class PuppeteerSharpTests
         await session.DetachAsync().WaitAsync(Bound);
     }
 
+    /// <summary>
+    /// What a script logged, arriving at a real client as the event it listens for.
+    /// </summary>
+    /// <remarks>
+    /// The console is opt-in, so the engine is built with <see cref="WebApiFeatures.Console"/> as a host
+    /// that wants one builds it; an engine without it has no <c>console</c> object and nothing to report.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerHearsWhatTheScriptLogged()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options =>
+            {
+                options.WebApi.Features |= WebApiFeatures.Console;
+                options.UseDevTools();
+            }),
+            new EngineTargetOptions { Url = "jint://console", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://console", target.TargetId);
+
+        var logged = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.MessageReceived += (_, message) =>
+        {
+            if (message.MessageID == "Runtime.consoleAPICalled")
+            {
+                logged.TrySetResult(message.MessageData.Clone());
+            }
+        };
+
+        await session.SendAsync("Runtime.enable").WaitAsync(Bound);
+        await session.SendAsync("Runtime.evaluate", new { expression = "console.warn('from the script', { a: 1 })" }).WaitAsync(Bound);
+
+        var call = await logged.Task.WaitAsync(Bound);
+        call.GetProperty("type").GetString().Should().Be("warning");
+
+        var args = call.GetProperty("args").EnumerateArray().ToArray();
+        args[0].GetProperty("value").GetString().Should().Be("from the script");
+        args[1].GetProperty("preview").GetProperty("properties").EnumerateArray().Single()
+            .GetProperty("name").GetString().Should().Be("a");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
     /// <summary>The <c>result.value</c> of a <c>Runtime.evaluate</c> reply the client handed back.</summary>
     private static JsonElement Value(JsonElement? reply) => reply!.Value.GetProperty("result").GetProperty("value");
 

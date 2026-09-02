@@ -138,7 +138,9 @@ descriptor and is listed rather than read.
 — `JSON.stringify`'s own contract, `toJSON` hooks and getters both — because a client that asked for the
 value itself asked for exactly that, and V8 does the same. A cycle, a `toJSON` that threw, and a value with
 no JSON form are all `-32000 "Object couldn't be returned by value"` with the engine's own message as the
-data. Everything else on the path is getter-free; this one call is not.
+data. There is exactly one other place: rendering a *thrown* error's message and stack reads a `stack` a
+script may have defined as an accessor, which is why that render is asked for under the engine's own
+`ResultLimits`. Everything else on the path is getter-free.
 
 **`Domains/RemoteObjectDescriber.cs` is the seam `Jint.Browser` fills in.** It is consulted first for every
 non-primitive value and may answer a subtype, a class name and a description — `subtype: "node"`,
@@ -151,6 +153,48 @@ Two gaps are real rather than pending. `[[PromiseResult]]` is answered as a *des
 because the engine publishes a settled promise's value to nothing outside its own assembly —
 `Runtime.awaitPromise` is what hands the value over, and it does so by attaching reactions. And a host
 object's members are listed without their values, for the reason above.
+
+### What a client hears without asking
+
+Three things reach a domain from *inside* the engine, on the engine thread, with no command to answer:
+a `console` call, an exception that escaped the pump, and a promise rejected with nothing to handle it.
+`ITargetObserver` is the one interface for all three, an attachment's three domains implement the parts
+they care about, and `EngineTarget` fans out to whoever is attached. They go out through
+`DevToolsDomain.EmitDetached`, which queues rather than writes: both connections make a send a channel
+insertion, so nothing blocks the engine and no transport failure erupts out of the host's own pump.
+
+**The console arrives through the sink, and the sink wraps rather than replaces.** `UseDevTools` installs a
+`DevToolsConsoleSink` around whatever `Options.WebApi.Console.Sink` the host had and forwards both overloads
+first, so a host keeps every line it was getting. **One sink speaks for one engine**: the engine reads its
+sink out of `Options` on every emit and `ConsoleRecord` carries no engine, so a sink shared by two could not
+tell which was talking. It binds to the first target over an engine and refuses a second engine's, and
+`UseDevTools` installs a fresh one per call — so a host building two engines from one `Options` and
+attaching to both hears the first. An engine without `WebApiFeatures.Console` reports nothing, having no
+`console` to log through.
+
+**`ConsoleJournal` is the last hundred calls**, replayed on `Runtime.enable` and `Console.enable` as V8
+replays its own store. The bound is a memory bound first: an entry holds its arguments strongly, exactly as
+a handle does, so evicting one releases every handle any attachment minted for it. Console arguments are
+billed to the group `"console"`, which is what a client's "clear console" releases;
+`Runtime.discardConsoleEntries` and `Console.clearMessages` empty the journal, which is the target's rather
+than the session's because the history is the engine's.
+
+**`Console` is the flat half, `Log` the failure half.** `Console.messageAdded` carries the finished line the
+engine's printer produced and no handles, so a call that printed nothing — `groupEnd`, a `time` that started
+a timer — is absent there and present in `Runtime.consoleAPICalled`, which a front end draws a group from.
+`Log.entryAdded` carries the two failures an engine target can have, and **`Log.enable` replays nothing**:
+the journal is the console's and no log store exists.
+
+**A rejection is reported earlier than V8 reports it.** `Tasks.PromiseRejectionTracker` raises `Reject` the
+moment a promise is rejected unhandled, where V8 waits for the end of the microtask checkpoint — so a
+rejection handled on the next line produces `exceptionThrown` then `exceptionRevoked` where Chrome produces
+neither, which is the pair the revocation exists for. The identifier is remembered per attachment (the last
+64) rather than the event delayed, because delaying it would mean this package deciding when a checkpoint
+ended.
+
+**`EngineTarget.ReportUncaughtException` is the host's own door**, called by the `LibraryOwned` loop for
+script that escaped `ProcessTasks` and by a `HostOwned` host from its own `catch`. Reporting is not
+handling: it writes to whoever is attached and returns.
 
 ### The pause loop
 
