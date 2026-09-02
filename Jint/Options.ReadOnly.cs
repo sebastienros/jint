@@ -357,6 +357,7 @@ public sealed partial class Options
             Options.SetReadOnly(_console, value);
             Options.SetReadOnly(_timers, value);
             Options.SetReadOnly(_fetch, value);
+            Options.SetReadOnly(_xhr, value);
             Options.SetReadOnly(_diagnostics, value);
             Options.SetReadOnly(_storage, value);
             Options.SetReadOnly(_cache, value);
@@ -372,6 +373,7 @@ public sealed partial class Options
                 || ReferenceEquals(group, _console)
                 || ReferenceEquals(group, _timers)
                 || ReferenceEquals(group, _fetch)
+                || ReferenceEquals(group, _xhr)
                 || ReferenceEquals(group, _diagnostics)
                 || ReferenceEquals(group, _storage)
                 || ReferenceEquals(group, _cache)
@@ -462,6 +464,21 @@ public sealed partial class Options
             if (_readOnly && !IsConfiguringWebApisLive(this))
             {
                 Throw.OptionsReadOnly("Options.WebApi.Fetch." + setting);
+            }
+        }
+    }
+
+    public sealed partial class XhrOptions : IOptionsGroup
+    {
+        private bool _readOnly;
+
+        void IOptionsGroup.SetReadOnly(bool value) => _readOnly = value;
+
+        private void ThrowIfReadOnly([CallerMemberName] string? setting = null)
+        {
+            if (_readOnly && !IsConfiguringWebApisLive(this))
+            {
+                Throw.OptionsReadOnly("Options.WebApi.Xhr." + setting);
             }
         }
     }

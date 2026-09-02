@@ -133,6 +133,64 @@ public static class WebApiOptionsExtensions
     }
 
     /// <summary>
+    /// Enables <c>XMLHttpRequest</c>, <c>XMLHttpRequestUpload</c>, <c>XMLHttpRequestEventTarget</c> and
+    /// <c>ProgressEvent</c>, together with the fetch object model their bodies and responses are built out
+    /// of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is not a grant of outbound network access.</b> It installs the interface; sending anything
+    /// still needs <see cref="UseFetch"/> or an <see cref="Options.FetchOptions.HttpClient"/> of the
+    /// host's own. Without one, <c>send()</c> fails exactly as a <c>fetch</c> the policy refused does — an
+    /// <c>error</c> event for an asynchronous request, a <c>NetworkError</c> <c>DOMException</c> for a
+    /// synchronous one.
+    /// </para>
+    /// <para>
+    /// The destination policy and every resource bound are <see cref="Options.FetchOptions"/>'s, which
+    /// <paramref name="configure"/> hands over: a host that has already written a
+    /// <see cref="Options.FetchOptions.UrlFilter"/> has written this one too. A relative URL passed to
+    /// <c>open()</c> needs <see cref="Options.FetchOptions.BaseUrl"/>, which is what a document's URL is to
+    /// a browser.
+    /// </para>
+    /// <para>
+    /// <b><c>open(…, false)</c> blocks the calling thread</b> until the response is whole, which is what
+    /// makes a library written for a browser — jQuery's <c>async: false</c> among them — work at all. The
+    /// wait is on the HTTP transport, which never touches the engine, so it needs no pump and cannot
+    /// deadlock with the host's own loop; what it costs is the thread, for as long as
+    /// <see cref="Options.FetchOptions.Timeout"/> allows.
+    /// </para>
+    /// <para>
+    /// <c>responseXML</c> and <c>responseType = "document"</c> answer <c>null</c> unless the host sets
+    /// <see cref="Options.XhrOptions.DocumentParser"/>: Jint parses no markup.
+    /// </para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var engine = new Engine(options => options.UseWebApis().UseFetch().UseXmlHttpRequest(net =>
+    /// {
+    ///     net.BaseUrl = new Uri("https://api.example.org/");
+    ///     net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    /// }));
+    /// </code>
+    /// </example>
+    /// <param name="options">Options to modify.</param>
+    /// <param name="configure">
+    /// Optional configuration of the shared network settings, run after the feature is enabled.
+    /// </param>
+    /// <returns>Options instance for fluent syntax.</returns>
+    public static Options UseXmlHttpRequest(this Options options, Action<Options.FetchOptions>? configure = null)
+    {
+        if (options is null)
+        {
+            Throw.ArgumentNullException(nameof(options));
+        }
+
+        options.WebApi.Features |= WebApiFeatures.XmlHttpRequest;
+        configure?.Invoke(options.WebApi.Fetch);
+        return options;
+    }
+
+    /// <summary>
     /// Enables <c>EventSource</c> and <c>MessageEvent</c> — server-sent events — and with them
     /// <see cref="WebApiFeatures.Events"/>, whose <c>EventTarget</c> an <c>EventSource</c> is.
     /// </summary>

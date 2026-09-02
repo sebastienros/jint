@@ -251,6 +251,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `EventSource` / `MessageEvent` (server-sent events) | `EventSource` — **opt-in on its own, see below** | ✔ shipped |
 | `WebSocket` / `CloseEvent` (and the `MessageEvent` its messages arrive as) | `WebSocket` — **opt-in on its own, see below** | ✔ shipped |
 | `caches` / `Cache` / `CacheStorage` | `CacheApi` — **opt-in on its own, see below** | ✔ shipped |
+| `XMLHttpRequest` / `XMLHttpRequestUpload` / `XMLHttpRequestEventTarget` / `ProgressEvent` (incl. synchronous requests) | `XmlHttpRequest` — **opt-in on its own, and grants no network by itself; see below** | ✔ shipped |
 | `FetchEvent` and `addEventListener('fetch', e => e.respondWith(…))` — script-facing request handling | `FetchEvents` — **opt-in on its own, see below** | ✔ shipped |
 
 `WebApiFeatures.Default` — what `UseWebApis()` enables — is every non-network feature that has landed. It
@@ -1534,6 +1535,71 @@ reconnection with it, and nothing from the ended cycle is ever dispatched into t
 long-lived and reconnects *on a delay the server chooses*, with no deadline to end it. See
 [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-22 — the short version is to bound the engine's own lifetime
 for untrusted script rather than pooling an engine a script may leave streaming.
+
+### `XMLHttpRequest`, for the libraries that still use it
+
+jQuery, older SDKs and a great deal of shipped page script talk to the network through
+`XMLHttpRequest` rather than `fetch`. `UseXmlHttpRequest()` installs it — with
+`XMLHttpRequestUpload`, `XMLHttpRequestEventTarget` and `ProgressEvent` — on top of the same request
+pipeline `fetch` uses.
+
+```csharp
+var engine = new Engine(options => options
+    .UseFetch()                         // the network grant
+    .UseXmlHttpRequest(net =>           // the interface, and the shared settings
+    {
+        net.BaseUrl = new Uri("https://api.example.org/");
+        net.UrlFilter = uri => uri.Host.EndsWith(".example.org", StringComparison.OrdinalIgnoreCase);
+    }));
+
+engine.Execute("""
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => console.log(xhr.status, xhr.responseText);
+    xhr.open('GET', '/items');
+    xhr.send();
+    """);
+
+while (running) { engine.Tasks.ProcessTasks(); Thread.Sleep(5); }   // your loop, your thread
+```
+
+**The flag is the interface, not the grant.** `UseXmlHttpRequest()` on its own installs the object and
+the fetch object model it is built out of (`Headers`, `Request`, `Response`, `Blob`) — and *not*
+`fetch`, and not the ability to reach the network. `send()` then fails exactly as a `fetch` your policy
+refused does: an `error` event for an asynchronous request, a `NetworkError` `DOMException` for a
+synchronous one. The grant is `UseFetch()`, or an `Options.WebApi.Fetch.HttpClient` /
+`HttpClientFactory` of your own — which is the same decision said a different way, since supplying the
+transport is choosing to have one.
+
+**It reads `Options.WebApi.Fetch`**, so the destination policy and the resource bounds you already
+wrote cover it: `AllowedSchemes`, `UrlFilter` (re-run on every redirect hop), `MaxRedirects`,
+`MaxResponseBytes`, `Timeout` and `MaxConcurrentRequests` — the last counted separately from the
+fetches in flight. `BaseUrl` is what a relative URL in `open()` resolves against; without one a
+relative URL is a `SyntaxError`, exactly as it is for `new Request()`. `withCredentials = true` sends
+the request with the `include` credentials mode, so an `Options.WebApi.Fetch.CookieJar` travels with
+it; with no jar configured the member is remembered and changes nothing.
+
+**Synchronous requests are supported**, because `async: false` is what a good deal of that shipped
+script actually does. `open(url, method, false)` blocks the calling thread until the response is whole
+and then fires `readystatechange`, `load` and `loadend` on that same stack, so `xhr.responseText` is
+readable the instant `send()` returns and nothing has to be pumped. The wait is on the HTTP transport,
+which never touches the engine, so it needs no event-loop turn and **cannot deadlock with your own**
+**loop** — but it does hold the thread, bounded by `Options.WebApi.Fetch.Timeout` (30 seconds by
+default) and by the request's own `timeout`. Both deadlines are enforced CLR-side, so an abandoned
+request lets go of its socket even in an engine nobody is pumping. Prefer the asynchronous form where
+you control the script; support the synchronous one where you do not.
+
+**`responseType = "document"` and `responseXML` answer `null`** unless you supply a parser: Jint parses
+no markup. `Options.WebApi.Xhr.DocumentParser` is handed the engine, the response body decoded as text
+and the essence of the final MIME type, and returns whatever object your host wants `responseXML` to
+be — an AngleSharp document, say. Every other `responseType` is in the box: `""`, `"text"`,
+`"json"`, `"arraybuffer"` and `"blob"`.
+
+**Two divergences worth knowing.** The *forbidden request-header* list is not enforced, which is the
+choice `fetch` already makes here and for the same reason: those names protect headers a browser alone
+controls, and server-side they are exactly what a script legitimately sets. And the two
+`InvalidAccessError` rules that hold only "if the current global object is a `Window`" — no `timeout`
+and no `responseType` on a synchronous request — do not apply, because this global is not a `Window`;
+the engine is in the position a worker is in, where the standard allows both.
 
 ### `WebSocket` is the third separate grant
 

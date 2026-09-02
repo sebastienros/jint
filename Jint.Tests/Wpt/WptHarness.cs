@@ -308,11 +308,20 @@ internal static class WptHarness
         "fetch/api/request/request-structure.any.js",
     };
 
+    /// <summary>
+    /// The xhr corpus, which is the whole of the vendored <c>xhr/</c> directory: every file in it opens a
+    /// URL, so a lane without a server could not run one of them. Added to the set above at first use rather
+    /// than listed by hand, because the list would be the directory written out twice.
+    /// </summary>
+    private static readonly HashSet<string> _xhrFiles = new(WptCorpus.TestFiles("xhr"), StringComparer.Ordinal);
+
     /// <summary>Whether a file runs in the server lane. Read by the runner's inventory checks as well.</summary>
-    internal static bool IsServerBacked(string testFilePath) => _serverBackedFiles.Contains(testFilePath);
+    internal static bool IsServerBacked(string testFilePath)
+        => _serverBackedFiles.Contains(testFilePath) || _xhrFiles.Contains(testFilePath);
 
     /// <summary>Every file the server lane claims, so the inventory can hold the list to the corpus.</summary>
-    internal static IEnumerable<string> ServerBackedFiles => _serverBackedFiles;
+    internal static IEnumerable<string> ServerBackedFiles => _serverBackedFiles.Concat(_xhrFiles);
+
 
     internal static WptRunOutcome Run(string testFilePath)
     {
@@ -391,6 +400,20 @@ internal static class WptHarness
     /// would drop a <c>script=</c> line silently, which presents as a suite failing on a missing helper rather
     /// than as a parsing bug.
     /// </remarks>
+    /// <summary>
+    /// The file's <c>// META: title=</c> line, which upstream's reporter substitutes for the name of a
+    /// test registered without one.
+    /// </summary>
+    private static string? Title(string source)
+    {
+        foreach (var value in MetaValues(source, "title="))
+        {
+            return value;
+        }
+
+        return null;
+    }
+
     private static IEnumerable<string> MetaValues(string source, string key)
     {
         foreach (var rawLine in source.Split('\n'))
@@ -623,6 +646,14 @@ internal static class WptHarness
                 engine.SetValue("__wptLocationHref", WptServer.Instance.UrlFor(sourceName));
             }
 
+            // And the document title, which upstream's reporter substitutes for the name of a test
+            // registered without one; the shim does the same. A file with no `// META: title=` line
+            // keeps the file path, which is what the shim falls back to anyway.
+            if (Title(source) is { } title)
+            {
+                engine.SetValue("__wptTestTitle", title);
+            }
+
             engine.Execute(WptCorpus.Prelude, source: "wpt-prelude/testharness-shim.js");
 
             foreach (var script in metaScripts)
@@ -721,7 +752,14 @@ internal static class WptHarness
             // Everything except outbound network access, which is what a suite under test is allowed to see —
             // unless the file is in the server lane, where the point is the shipped `fetch` and the reach is
             // bounded by the filter below rather than by the feature being absent.
-            options.UseWebApis(serverBacked ? WebApiFeatures.Default | WebApiFeatures.Fetch : WebApiFeatures.Default);
+            //
+            // The server lane also gets the shipped `XMLHttpRequest`, which is the whole of what the xhr
+            // corpus is about and is also what retired the two fetch/api/headers rows that used to read the
+            // shim's corpus reader instead. Every other engine still gets that reader, because a file with no
+            // server has nothing for a real one to talk to — see the shim's own header.
+            options.UseWebApis(serverBacked
+                ? WebApiFeatures.Default | WebApiFeatures.Fetch | WebApiFeatures.XmlHttpRequest
+                : WebApiFeatures.Default);
 
             if (serverBacked)
             {
@@ -733,6 +771,13 @@ internal static class WptHarness
                 // Well inside the drive loop's own grace period, so a request the server never answers is
                 // reported as a failing test rather than as a stalled file. See _fetchTimeout.
                 options.WebApi.Fetch.Timeout = _fetchTimeout;
+
+                // The engine's default is ten requests in flight, which is a host's bound on a script it does
+                // not trust; a browser has no such cap, and xhr/responsetype.any.js opens twenty-eight at
+                // once. Refusing the eleventh is correct behaviour and the wrong thing to measure a suite
+                // against, so the driver lifts it — the reach is still bounded to this one port by the
+                // filter above.
+                options.WebApi.Fetch.MaxConcurrentRequests = int.MaxValue;
 
                 // Everything a browsing environment supplies that the engine cannot invent for itself, all
                 // taken from the URL the driver's own server really serves this file at. It is the harness

@@ -351,6 +351,24 @@ internal static class WebApiRegistration
             Install(global, engine, "fetch", static e => e.Realm.Intrinsics.Fetch, PropertyFlag.ConfigurableEnumerableWritable);
         }
 
+        if ((features & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
+        {
+            // The object model and pointedly not `fetch`: an XMLHttpRequest extracts a FormData or
+            // URLSearchParams body with the fetch algorithm and hands a Blob back, but installing the model is
+            // not granting the network — see WebApiFeatures.XmlHttpRequest for what does.
+            InstallFetchModel(engine);
+
+            Install(global, engine, "XMLHttpRequest", static e => e.Realm.Intrinsics.XmlHttpRequest, PropertyFlag.NonEnumerable);
+            Install(global, engine, "XMLHttpRequestUpload", static e => e.Realm.Intrinsics.XmlHttpRequestUpload, PropertyFlag.NonEnumerable);
+            Install(global, engine, "XMLHttpRequestEventTarget", static e => e.Realm.Intrinsics.XmlHttpRequestEventTarget, PropertyFlag.NonEnumerable);
+
+            // ProgressEvent is declared by the XHR standard rather than by DOM, so it arrives with this flag
+            // and not with WebApiFeatures.Events — its file sits under Events/ because the interface is shared
+            // (a browser fires one at an image element and at a Worker too) and the next API to need it should
+            // find it there rather than reach into Xhr/.
+            Install(global, engine, "ProgressEvent", static e => e.Realm.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
+        }
+
         if ((features & WebApiFeatures.Streams) != WebApiFeatures.None)
         {
             // Every interface the Streams Standard declares [Exposed=*], which is all thirteen of them. The
@@ -560,6 +578,15 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams;
         }
 
+        // An XMLHttpRequest is an EventTarget, its url is a WHATWG URL record, `responseType = "blob"`
+        // answers with a Blob, and a FormData or URLSearchParams body goes through the fetch object model's
+        // own extract-a-body — which is also why the install block adds Headers, Request and Response. It
+        // deliberately does not bring WebApiFeatures.Fetch: the interface is not the network grant.
+        if ((features & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files | WebApiFeatures.Streams;
+        }
+
         // Deliberately BEFORE the GlobalEvents rule below, which is what turns the flag added here into
         // WebApiFeatures.Events as well. What a fetch listener is registered with is the global
         // addEventListener, and what it answers with is a Response — so the closure is exactly the set
@@ -628,7 +655,7 @@ internal static class WebApiRegistration
     /// both of which live here, and a closure is not a reason to depend on one.
     /// </summary>
     private const WebApiFeatures NeedsEngineState =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers | WebApiFeatures.XmlHttpRequest;
 
     /// <summary>
     /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
@@ -642,8 +669,11 @@ internal static class WebApiRegistration
     /// The features that take their transport and their policy from <c>Options.WebApi.Fetch</c>. EventSource
     /// and WebSocket read the same group as fetch: they are further grants of network access over the same
     /// transport and the same policy, so any of the three is reason enough to keep the settings.
+    /// XMLHttpRequest reads it whether or not it may ever open a socket: the destination policy and the
+    /// resource bounds are the same ones, and the two members that <i>are</i> a network grant on their own —
+    /// the client and its factory — are read from here as well.
     /// </summary>
-    private const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket;
+    private const WebApiFeatures NeedsFetchOptions = WebApiFeatures.Fetch | WebApiFeatures.EventSource | WebApiFeatures.WebSocket | WebApiFeatures.XmlHttpRequest;
 
     /// <summary>
     /// Creates <c>Engine._webApi</c> — once, and before any feature block, because more than one feature keeps
@@ -704,6 +734,11 @@ internal static class WebApiRegistration
         var messaging = (features & WebApiFeatures.Messaging) != WebApiFeatures.None ? options.WebApi.Messaging : null;
 
         engine._webApi = new WebApiEngineState(engine, timeProvider, timers, fetch, scheduler, diagnostics, storage, cache, idleCallbacks, messaging);
+
+        if ((features & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
+        {
+            engine._webApi.AttachXhrOptions(options.WebApi.Xhr);
+        }
 
         AttachWorkers(options, engine._webApi, features);
     }
@@ -767,6 +802,11 @@ internal static class WebApiRegistration
         if ((added & NeedsFetchOptions) != WebApiFeatures.None && state.FetchOptions is null)
         {
             state.AttachFetchOptions(options.WebApi.Fetch);
+        }
+
+        if ((added & WebApiFeatures.XmlHttpRequest) != WebApiFeatures.None)
+        {
+            state.AttachXhrOptions(options.WebApi.Xhr);
         }
 
         if ((added & WebApiFeatures.Scheduler) != WebApiFeatures.None && state.Scheduler is null)

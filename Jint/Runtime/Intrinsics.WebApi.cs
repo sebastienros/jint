@@ -26,6 +26,7 @@ using Jint.WebApi.Timers;
 using Jint.WebApi.Url;
 using Jint.WebApi.Url.Pattern;
 using Jint.WebApi.WebSockets;
+using Jint.WebApi.Xhr;
 using Jint.WebApi.Workers;
 
 namespace Jint.Runtime;
@@ -154,6 +155,27 @@ public sealed partial class Intrinsics
 
     internal AbortControllerConstructor AbortController =>
         _abortController ??= new AbortControllerConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject, AbortSignal);
+
+    private ProgressEventConstructor? _progressEvent;
+    private XmlHttpRequestEventTargetConstructor? _xmlHttpRequestEventTarget;
+    private XmlHttpRequestUploadConstructor? _xmlHttpRequestUpload;
+    private XmlHttpRequestConstructor? _xmlHttpRequest;
+
+    /// <summary><c>ProgressEvent</c> inherits from <c>Event</c>.</summary>
+    internal ProgressEventConstructor ProgressEvent =>
+        _progressEvent ??= new ProgressEventConstructor(_engine, _realm, Event);
+
+    /// <summary><c>XMLHttpRequestEventTarget</c> inherits from <c>EventTarget</c>.</summary>
+    internal XmlHttpRequestEventTargetConstructor XmlHttpRequestEventTarget =>
+        _xmlHttpRequestEventTarget ??= new XmlHttpRequestEventTargetConstructor(_engine, _realm, EventTarget);
+
+    /// <summary><c>XMLHttpRequestUpload</c> inherits from <c>XMLHttpRequestEventTarget</c>.</summary>
+    internal XmlHttpRequestUploadConstructor XmlHttpRequestUpload =>
+        _xmlHttpRequestUpload ??= new XmlHttpRequestUploadConstructor(_engine, _realm, XmlHttpRequestEventTarget);
+
+    /// <summary><c>XMLHttpRequest</c> inherits from <c>XMLHttpRequestEventTarget</c>.</summary>
+    internal XmlHttpRequestConstructor XmlHttpRequest =>
+        _xmlHttpRequest ??= new XmlHttpRequestConstructor(_engine, _realm, XmlHttpRequestEventTarget);
 
     private EventSourceConstructor? _eventSource;
 

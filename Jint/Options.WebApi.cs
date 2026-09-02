@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi;
 using Jint.WebApi.Fetch;
@@ -115,6 +116,14 @@ public sealed partial class Options
         private FetchOptions? _fetch;
 
         /// <summary>
+        /// Settings for <c>XMLHttpRequest</c>, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.XmlHttpRequest"/> — which <see cref="WebApiFeatures.Default"/> never does.
+        /// </summary>
+        public XhrOptions Xhr => Materialize(ref _xhr, ref _readOnly);
+
+        private XhrOptions? _xhr;
+
+        /// <summary>
         /// Where the engine reports script errors nobody caught. Unlike everything else in this group it is
         /// not tied to a feature flag: setting <see cref="DiagnosticsOptions.Sink"/> arms the channel by
         /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
@@ -166,6 +175,7 @@ public sealed partial class Options
             clone._console = _console?.Clone();
             clone._timers = _timers?.Clone();
             clone._fetch = _fetch?.Clone();
+            clone._xhr = _xhr?.Clone();
             clone._diagnostics = _diagnostics?.Clone();
             clone._storage = _storage?.Clone();
             clone._cache = _cache?.Clone();
@@ -716,6 +726,58 @@ public sealed partial class Options
             clone.AllowedSchemes = AllowedSchemes.Clone();
             return clone;
         }
+    }
+
+    /// <summary>
+    /// Settings for <c>XMLHttpRequest</c>. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The transport, the destination policy and every resource bound an <c>XMLHttpRequest</c> answers to are
+    /// <see cref="FetchOptions"/>'s, because a request is a request whichever interface started it. This
+    /// group holds only what has no counterpart in <c>fetch</c>.
+    /// </para>
+    /// <para>
+    /// Like every other option group it may be shared by any number of engines, including concurrent ones.
+    /// <see cref="DocumentParser"/> carries the one obligation that follows from that — see its own
+    /// documentation.
+    /// </para>
+    /// </remarks>
+    public sealed partial class XhrOptions
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="XhrOptions"/> class with every setting at its default.
+        /// </summary>
+        public XhrOptions()
+        {
+        }
+
+        /// <summary>
+        /// Builds the value <c>responseXML</c> and <c>responseType = "document"</c> answer with. Defaults to
+        /// <see langword="null"/>, which makes both answer <c>null</c>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Jint parses no markup, so a host that wants a document supplies one. The delegate receives the
+        /// engine the request belongs to, the response body decoded as text, and the essence of the final MIME
+        /// type (<c>text/html</c>, <c>application/xml</c>, …) — never the parameters. Returning
+        /// <see langword="null"/> is the specification's <i>document response</i> failure and answers
+        /// <c>null</c>, which is also what an unsupported media type should do.
+        /// </para>
+        /// <para>
+        /// Called on the engine's thread, once per response, and only when script actually reads
+        /// <c>responseXML</c> or a <c>document</c> <c>response</c>. It may build JavaScript values against the
+        /// engine it is handed and must not touch any other; a delegate on an <see cref="Options"/> instance
+        /// shared by concurrently running engines is called from each of their threads.
+        /// </para>
+        /// <para>
+        /// A delegate that throws fails the read rather than the request: the exception propagates out of the
+        /// property access the script made. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public Func<Engine, string, string, JsValue?>? DocumentParser { get; set { ThrowIfReadOnly(); field = value; } }
+
+        internal XhrOptions Clone() => (XhrOptions) MemberwiseClone();
     }
 
     /// <summary>
@@ -1274,6 +1336,40 @@ public enum WebApiFeatures
     Workers = 1 << 24,
 
     /// <summary>
+    /// <c>XMLHttpRequest</c>, together with <c>XMLHttpRequestUpload</c>,
+    /// <c>XMLHttpRequestEventTarget</c> and <c>ProgressEvent</c> — https://xhr.spec.whatwg.org/.
+    /// <b>The flag on its own sends nothing:</b> it is the interface, and the network grant is still
+    /// <see cref="Fetch"/>'s or an <see cref="Options.FetchOptions.HttpClient"/> the host named.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Implies <see cref="Events"/>, <see cref="Url"/>, <see cref="Files"/> and <see cref="Streams"/>, and
+    /// installs <c>Headers</c>, <c>Request</c> and <c>Response</c> beside them: an <c>XMLHttpRequest</c> is an
+    /// <c>EventTarget</c>, its URL is a WHATWG URL, <c>responseType = "blob"</c> answers with a <c>Blob</c>,
+    /// and a <c>FormData</c> or <c>URLSearchParams</c> body is extracted by the fetch object model's own
+    /// algorithm. Pointedly <b>not</b> <see cref="Fetch"/> — installing the model is not granting the network,
+    /// the same split <c>Engine.WebApi.SetFetchHandler</c> and <see cref="CacheApi"/> already make.
+    /// </para>
+    /// <para>
+    /// <b>Without a network grant <c>send()</c> fails the way a blocked <c>fetch</c> does</b> — a network
+    /// error, which for an asynchronous request is an <c>error</c> event and for a synchronous one is a
+    /// <c>NetworkError</c> <c>DOMException</c>. The grant is <see cref="Fetch"/>, or an
+    /// <see cref="Options.FetchOptions.HttpClient"/> or <see cref="Options.FetchOptions.HttpClientFactory"/>
+    /// the host supplied, which is the same decision said a different way.
+    /// </para>
+    /// <para>
+    /// <b>A synchronous request blocks the calling thread</b>, which is what <c>open(…, false)</c> means and
+    /// what a library like jQuery's <c>async: false</c> needs. It never requires the engine to be pumped, so it
+    /// cannot deadlock with a host's own loop; see <see cref="WebApiOptionsExtensions.UseXmlHttpRequest"/>.
+    /// </para>
+    /// <para>
+    /// <c>responseXML</c> and <c>responseType = "document"</c> answer <c>null</c> unless the host set
+    /// <see cref="Options.XhrOptions.DocumentParser"/>: Jint parses no markup.
+    /// </para>
+    /// </remarks>
+    XmlHttpRequest = 1 << 25,
+
+    /// <summary>
     /// The web APIs a host normally wants: everything except outbound network access and persistent state.
     /// Today that is
     /// <see cref="Console"/>, <see cref="Timers"/>, <see cref="Encoding"/>, <see cref="Base64"/>,
@@ -1281,7 +1377,8 @@ public enum WebApiFeatures
     /// <see cref="Url"/>, <see cref="Files"/>, <see cref="Navigator"/>, <see cref="Streams"/>,
     /// <see cref="Scheduler"/>, <see cref="Messaging"/>, <see cref="Reporting"/>, <see cref="Compression"/>,
     /// <see cref="IdleCallback"/> and <see cref="GlobalEvents"/>; it grows as further features land, and never
-    /// comes to include fetch, <see cref="Storage"/>, <see cref="FetchEvents"/> or <see cref="Workers"/>.
+    /// comes to include fetch, <see cref="Storage"/>, <see cref="FetchEvents"/>, <see cref="Workers"/> or
+    /// <see cref="XmlHttpRequest"/>.
     /// </summary>
     Default = Console | Timers | Encoding | Base64 | StructuredClone | Crypto | Performance | Events | Url | Files | Navigator | Streams | Scheduler | Messaging | Reporting | Compression | IdleCallback | GlobalEvents,
 }

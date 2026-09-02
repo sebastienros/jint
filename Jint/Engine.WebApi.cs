@@ -15,6 +15,7 @@ using Jint.WebApi.ServerSentEvents;
 using Jint.WebApi.Streams;
 using Jint.WebApi.Timers;
 using Jint.WebApi.WebSockets;
+using Jint.WebApi.Xhr;
 using Jint.WebApi.Workers;
 
 namespace Jint;
@@ -205,6 +206,12 @@ internal sealed class WebApiEngineState
     /// separately, because a stream holds its socket for as long as it lives rather than for one exchange.
     /// </summary>
     private List<EventSourceConnection>? _eventSources;
+
+    /// <summary>
+    /// The <c>XMLHttpRequest</c> operations in flight. Null until the first <c>send()</c>, which is what
+    /// keeps an engine that merely has the interface installed paying nothing for it.
+    /// </summary>
+    private List<XhrOperation>? _xhrOperations;
 
     /// <summary>
     /// The response bodies still arriving over the wire. Engine-thread-only for the same reason
@@ -433,6 +440,27 @@ internal sealed class WebApiEngineState
         => (_eventSources ??= new List<EventSourceConnection>()).Add(connection);
 
     internal void UnregisterEventSource(EventSourceConnection connection) => _eventSources?.Remove(connection);
+
+    /// <summary>
+    /// How many <c>XMLHttpRequest</c> requests are in flight, which is what
+    /// <c>Options.FetchOptions.MaxConcurrentRequests</c> bounds for that interface. Counted separately from
+    /// the <c>fetch</c> calls, the event streams and the sockets, for the reason each of those is: one kind
+    /// must not exhaust another's budget.
+    /// </summary>
+    internal int ActiveXhrCount => _xhrOperations?.Count ?? 0;
+
+    internal void RegisterXhr(XhrOperation operation) => (_xhrOperations ??= new List<XhrOperation>()).Add(operation);
+
+    internal void UnregisterXhr(XhrOperation operation) => _xhrOperations?.Remove(operation);
+
+    /// <summary>
+    /// <c>Options.WebApi.Xhr.DocumentParser</c>, read when the engine was built. Null on every engine whose
+    /// host named none, which is what makes <c>responseXML</c> answer <c>null</c>.
+    /// </summary>
+    internal Func<Engine, string, string, JsValue?>? XhrDocumentParser { get; private set; }
+
+    /// <summary>Attaches the XHR settings, once, when the feature is first enabled.</summary>
+    internal void AttachXhrOptions(Options.XhrOptions options) => XhrDocumentParser ??= options.DocumentParser;
 
     /// <summary>
     /// How many sockets are open, which is what <c>Options.FetchOptions.MaxConcurrentRequests</c> bounds for
@@ -936,6 +964,7 @@ internal sealed class WebApiEngineState
         AbandonFetches();
         AbandonFetchBodies();
         AbandonEventSources();
+        AbandonXhrOperations();
         AbandonWebSockets();
         CloseBroadcastChannels();
         CloseMessagePorts();
@@ -1089,6 +1118,26 @@ internal sealed class WebApiEngineState
         foreach (var source in pending)
         {
             source.Abandon();
+        }
+    }
+
+    /// <summary>
+    /// Abandons every <c>XMLHttpRequest</c> in flight: the socket goes at once, and the object is left
+    /// <c>DONE</c> with no event, because the evaluation cycle its listeners belonged to has ended.
+    /// </summary>
+    private void AbandonXhrOperations()
+    {
+        if (_xhrOperations is not { Count: > 0 } operations)
+        {
+            return;
+        }
+
+        var pending = operations.ToArray();
+        operations.Clear();
+
+        foreach (var operation in pending)
+        {
+            operation.AbandonForRestore();
         }
     }
 

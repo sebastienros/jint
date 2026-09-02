@@ -133,6 +133,19 @@ internal sealed class WptServer : IDisposable
                 if (request is not null)
                 {
                     await RespondAsync(stream, request, _stopping.Token).ConfigureAwait(false);
+
+                    // A graceful close, in two steps, because a response whose length is delimited by the
+                    // close itself — which every .asis file is, having neither Content-Length nor a chunked
+                    // encoding — is the one shape an abrupt one corrupts. Disposing the socket while bytes
+                    // are still unacknowledged can end the connection with a reset rather than a FIN, and
+                    // the client then reports a failed read where the body should have ended. It showed up
+                    // as one row of xhr/getresponseheader.any.js failing about one run in three, a different
+                    // row each time.
+                    //
+                    // So: FIN first, then wait for the peer to close its own half, bounded so that a client
+                    // which never does costs one connection and not the run.
+                    client.Client.Shutdown(SocketShutdown.Send);
+                    await DrainUntilPeerClosesAsync(stream).ConfigureAwait(false);
                 }
             }
             catch (Exception)
@@ -143,9 +156,39 @@ internal sealed class WptServer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads until the peer closes its half of the connection, or until a short grace period elapses.
+    /// </summary>
+    /// <remarks>
+    /// The wait is what makes the close graceful; the bound is what keeps a client that never closes from
+    /// holding a task. Whatever arrives is discarded — the request has been answered, and a pipelined
+    /// second request on a connection this server has already said it is closing is not one it owes a
+    /// reply to.
+    /// </remarks>
+    private static async Task DrainUntilPeerClosesAsync(Stream stream)
+    {
+        using var grace = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var buffer = new byte[256];
+
+        try
+        {
+            while (await stream.ReadAsync(buffer, grace.Token).ConfigureAwait(false) > 0)
+            {
+            }
+        }
+        catch (Exception)
+        {
+            // The grace period, or a reset from the other side. Either way the response is out.
+        }
+    }
+
     private Task RespondAsync(Stream stream, WptServerRequest request, CancellationToken token) => request.Path switch
     {
-        "" => WriteAsync(stream, new WptServerResponse(200, "OK", [("content-type", "text/plain")], []), request, token),
+        // wptserve answers the root with a directory listing. Nothing reads what is in it; what
+        // xhr/responsetype.any.js reads is that a GET of "/" has a body at all, which is what its
+        // `assert_not_equals(xhr.responseText, "")` checks before it gets to the responseType rules it is
+        // really about.
+        "" => WriteAsync(stream, new WptServerResponse(200, "OK", [("content-type", "text/plain")], Bytes("wpt")), request, token),
         "fetch/api/resources/inspect-headers.py" => WriteAsync(stream, InspectHeaders(request), request, token),
         "fetch/api/resources/status.py" => WriteAsync(stream, Status(request), request, token),
         "fetch/api/resources/method.py" => WriteAsync(stream, Method(request), request, token),
@@ -153,7 +196,23 @@ internal sealed class WptServer : IDisposable
         "fetch/api/resources/redirect-empty-location.py" => WriteAsync(stream, RedirectEmptyLocation(), request, token),
         "fetch/api/resources/clean-stash.py" => WriteAsync(stream, CleanStash(request), request, token),
         "fetch/api/resources/trickle.py" => Trickle(stream, request, token),
-        _ => WriteAsync(stream, StaticFile(request), request, token),
+
+        // The xhr corpus. Six of these are the same handler under a second path — upstream keeps a copy
+        // of status.py and trickle.py in each suite's own resources/ directory — and the rest are its
+        // own. Every one of them is documented against its source below.
+        "xhr/resources/content.py" => WriteAsync(stream, Content(request), request, token),
+        "xhr/resources/delay.py" => DelayAsync(stream, request, token),
+        "xhr/resources/echo-content-type.py" => WriteAsync(stream, EchoContentType(request), request, token),
+        "xhr/resources/echo-headers.py" => WriteAsync(stream, EchoHeaders(request), request, token),
+        "xhr/resources/form.py" => WriteAsync(stream, Form(request), request, token),
+        "xhr/resources/status.py" => WriteAsync(stream, Status(request), request, token),
+        "xhr/resources/trickle.py" => Trickle(stream, request, token),
+
+        // Under fetch/, not xhr/: the one file that asks for it names the fetch suite's copy by an
+        // absolute path, and upstream keeps the same handler in both places.
+        "fetch/api/resources/bad-chunk-encoding.py" => BadChunkEncoding(stream, request, token),
+
+        _ => StaticAsync(stream, request, token),
     };
 
     // ------------------------------------------------------------------ handlers
@@ -348,6 +407,160 @@ internal sealed class WptServer : IDisposable
     /// CLR exception, because unlike the shim's resource reader this one is answering a request the corpus
     /// itself composed, and several suites fetch a URL precisely to see it fail.
     /// </summary>
+    /// <summary>
+    /// <c>xhr/resources/content.py</c>: answers with the request body — or with the <c>content</c> query
+    /// parameter when there is one — and echoes four facts about the request as headers.
+    /// </summary>
+    /// <remarks>
+    /// The three <c>X-Request-*</c> headers fall back to the literal string <c>NO</c> rather than being
+    /// omitted, which is what the suites assert against: <c>send()</c> with no body has to answer
+    /// <c>NO</c> for the content type, not an absent header.
+    /// </remarks>
+    private static WptServerResponse Content(WptServerRequest request)
+    {
+        var type = request.Query.TryGetValue("response_charset_label", out var charset)
+            ? "text/plain;charset=" + charset
+            : "text/plain";
+
+        var headers = new List<(string, string)>
+        {
+            ("content-type", type),
+            ("x-request-method", request.Method),
+            ("x-request-query", request.RawQuery.Length == 0 ? "NO" : request.RawQuery),
+            ("x-request-content-length", request.HeaderOr("content-length", "NO")),
+            ("x-request-content-type", request.HeaderOr("content-type", "NO")),
+        };
+
+        var body = request.Query.TryGetValue("content", out var content) ? content : request.Body;
+        return new WptServerResponse(200, "OK", headers, Bytes(body));
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/delay.py</c>: sleeps for <c>ms</c> milliseconds (500 by default) and then answers
+    /// <c>TEST_DELAY</c>. Method-agnostic, which is what the upload suites need of it.
+    /// </summary>
+    /// <remarks>
+    /// The two <c>Access-Control-*</c> headers upstream sets are not written: nothing here has a CORS
+    /// model, and a half-implemented one would make a cross-origin file look runnable.
+    /// </remarks>
+    private static async Task DelayAsync(Stream stream, WptServerRequest request, CancellationToken token)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(request.QueryInt("ms", 500)), token).ConfigureAwait(false);
+        await WriteAsync(
+            stream,
+            new WptServerResponse(200, "OK", [("content-type", "text/plain")], Bytes("TEST_DELAY")),
+            request,
+            token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/echo-content-type.py</c>: the request's own <c>Content-Type</c> as the body.
+    /// </summary>
+    private static WptServerResponse EchoContentType(WptServerRequest request)
+        => new(200, "OK", [("content-type", "text/plain")], Bytes(request.HeaderOr("content-type", "")));
+
+    /// <summary>
+    /// <c>xhr/resources/echo-headers.py</c>: the request's raw header block as the body.
+    /// </summary>
+    /// <remarks>
+    /// Upstream writes <c>str(request.raw_headers)</c>, which is Python's rendering of the block it read:
+    /// one <c>Name: value</c> per line. The one file that reads it asks whether
+    /// <c>Content-Length: 22</c> is in there, so what matters is the shape of a line and the casing the
+    /// header arrived with.
+    /// </remarks>
+    private static WptServerResponse EchoHeaders(WptServerRequest request)
+    {
+        var builder = new StringBuilder();
+        foreach (var (name, value) in request.RawHeaders)
+        {
+            builder.Append(name).Append(':').Append(' ').Append(value).Append('\n');
+        }
+
+        return new WptServerResponse(200, "OK", [("content-type", "text/plain")], Bytes(builder.ToString()));
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/form.py</c>: <c>id:&lt;id&gt;;value:&lt;value&gt;;</c> from the posted form.
+    /// </summary>
+    /// <remarks>
+    /// wptserve's <c>request.POST</c> parses both <c>application/x-www-form-urlencoded</c> and
+    /// <c>multipart/form-data</c>; the one file that reads this posts a <c>FormData</c>, so it is the
+    /// multipart form that has to work.
+    /// </remarks>
+    private static WptServerResponse Form(WptServerRequest request)
+    {
+        var fields = request.PostFields();
+        var id = fields.TryGetValue("id", out var idValue) ? idValue : "";
+        var value = fields.TryGetValue("value", out var v) ? v : "";
+
+        return new WptServerResponse(200, "OK", [("content-type", "text/plain")],
+            Bytes("id:" + id + ";value:" + value + ";"));
+    }
+
+    /// <summary>
+    /// <c>fetch/api/resources/bad-chunk-encoding.py</c>: <c>count</c> well-formed chunks and then the
+    /// literal bytes <c>garbage</c> where a chunk header should be, with no terminating chunk.
+    /// </summary>
+    /// <remarks>
+    /// The framing is written by hand, because the point is a chunked body that is <i>not</i> valid: a
+    /// client has to report the stream as failed part-way through rather than as a short read. The delay
+    /// between chunks is upstream's, so the failure arrives after the response has been handed to script
+    /// rather than with its headers.
+    /// </remarks>
+    private static async Task BadChunkEncoding(Stream stream, WptServerRequest request, CancellationToken token)
+    {
+        var delay = TimeSpan.FromMilliseconds(request.QueryInt("ms", 1000));
+        var count = request.QueryInt("count", 50);
+
+        await Task.Delay(delay, token).ConfigureAwait(false);
+        await WriteRawAsync(stream, "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n", token).ConfigureAwait(false);
+        await Task.Delay(delay, token).ConfigureAwait(false);
+
+        for (var i = 0; i < count; i++)
+        {
+            await WriteRawAsync(stream, "a\r\nTEST_CHUNK\r\n", token).ConfigureAwait(false);
+            await Task.Delay(delay, token).ConfigureAwait(false);
+        }
+
+        await WriteRawAsync(stream, "garbage", token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A file out of the vendored tree — or, for an <c>.asis</c> file, the whole response verbatim.
+    /// </summary>
+    /// <remarks>
+    /// wptserve writes an <c>.asis</c> file to the socket as it stands, status line and all, which is the
+    /// point of the six the xhr corpus has: a 280 with a made-up reason phrase, an <c>HTTP/1.0</c>
+    /// response, a repeated <c>Content-Length</c>, header values that are empty or hold a vertical tab.
+    /// Nothing here may reconstruct one from a parsed form, so it does not go through
+    /// <see cref="WriteAsync"/> at all — that method frames a response, and this one <i>is</i> the
+    /// framing.
+    /// </remarks>
+    private static Task StaticAsync(Stream stream, WptServerRequest request, CancellationToken token)
+    {
+        if (request.Path.EndsWith(".asis", StringComparison.Ordinal) && WptCorpus.Contains(request.Path))
+        {
+            // Upstream stores these with LF line endings and wptserve writes them as they are; a browser
+            // accepts that framing and System.Net.Http does not, so the terminators — and only those — are
+            // normalized on the way out. Everything a test reads is in a header value or the body, neither
+            // of which this touches: the vertical tab and form feed headers-some-are-empty.asis carries
+            // survive it.
+            var raw = WptCorpus.Read(request.Path).Replace("\r\n", "\n", StringComparison.Ordinal);
+
+            // None of the six ends in a blank line: upstream lets the connection close stand for the end of
+            // the header block, which a browser accepts and System.Net.Http does not. The terminator is
+            // added rather than assumed, so a file that ever grows a body keeps it.
+            if (!raw.EndsWith("\n\n", StringComparison.Ordinal))
+            {
+                raw += raw.EndsWith("\n", StringComparison.Ordinal) ? "\n" : "\n\n";
+            }
+
+            return WriteRawAsync(stream, raw.Replace("\n", "\r\n", StringComparison.Ordinal), token);
+        }
+
+        return WriteAsync(stream, StaticFile(request), request, token);
+    }
+
     private static WptServerResponse StaticFile(WptServerRequest request)
     {
         if (!WptCorpus.Contains(request.Path))
@@ -512,6 +725,111 @@ internal sealed class WptServerRequest
 
     internal string HeaderOr(string name, string fallback) => TryGetHeader(name, out var value) ? value : fallback;
 
+    /// <summary>
+    /// The request's header lines as they arrived, in order and with their original casing — what
+    /// <c>echo-headers.py</c> writes back out.
+    /// </summary>
+    internal IReadOnlyList<(string Name, string Value)> RawHeaders => _headers;
+
+    /// <summary>
+    /// The query string exactly as it arrived, without its <c>?</c>, or the empty string when there was
+    /// none — wptserve's <c>request.url_parts.query</c>.
+    /// </summary>
+    internal string RawQuery { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// wptserve's <c>request.POST</c>, reduced to the two forms the corpus posts: an urlencoded body and
+    /// a <c>multipart/form-data</c> one. Only the field name and its value are read; a file part's
+    /// filename and type are not, because no vendored file asks for them.
+    /// </summary>
+    internal Dictionary<string, string> PostFields()
+    {
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+        var contentType = HeaderOr("content-type", "");
+
+        if (contentType.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase))
+        {
+            var marker = "boundary=";
+            var at = contentType.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (at < 0)
+            {
+                return fields;
+            }
+
+            var boundary = contentType.Substring(at + marker.Length).Trim().Trim('"');
+            foreach (var part in Body.Split("--" + boundary))
+            {
+                var separator = part.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+                if (separator < 0)
+                {
+                    continue;
+                }
+
+                var name = FieldName(part.Substring(0, separator));
+                if (name is null)
+                {
+                    continue;
+                }
+
+                // The part ends with the CRLF that belongs to the boundary line after it.
+                var value = part.Substring(separator + 4).TrimEnd('\r', '\n');
+                fields.TryAdd(name, value);
+            }
+
+            return fields;
+        }
+
+        foreach (var pair in Body.Split('&'))
+        {
+            if (pair.Length == 0)
+            {
+                continue;
+            }
+
+            var equals = pair.IndexOf('=');
+            var name = equals < 0 ? pair : pair.Substring(0, equals);
+            var value = equals < 0 ? string.Empty : pair.Substring(equals + 1);
+            fields.TryAdd(Decode(name.Replace('+', ' ')), Decode(value.Replace('+', ' ')));
+        }
+
+        return fields;
+    }
+
+    /// <summary>
+    /// The <c>name</c> parameter of a part's <c>Content-Disposition</c>, or <see langword="null"/> when the
+    /// part has none.
+    /// </summary>
+    /// <remarks>
+    /// Quoted or bare. The Fetch Standard's own serializer always quotes, which is what a <c>FormData</c>
+    /// sent by the engine looks like; System.Net.Http's does not for a simple name, and the server tests post
+    /// one of those.
+    /// </remarks>
+    private static string? FieldName(string partHeaders)
+    {
+        const string Marker = "name=";
+        var at = partHeaders.IndexOf(Marker, StringComparison.OrdinalIgnoreCase);
+        if (at < 0)
+        {
+            return null;
+        }
+
+        var start = at + Marker.Length;
+        if (start < partHeaders.Length && partHeaders[start] == '"')
+        {
+            start++;
+            var quoted = partHeaders.IndexOf('"', start);
+            return quoted < 0 ? null : partHeaders.Substring(start, quoted - start);
+        }
+
+        var end = start;
+        while (end < partHeaders.Length && partHeaders[end] is not (';' or '\r' or '\n'))
+        {
+            end++;
+        }
+
+        return partHeaders.Substring(start, end - start).Trim();
+    }
+
     internal int QueryInt(string name, int fallback)
         => Query.TryGetValue(name, out var raw)
             && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
@@ -621,7 +939,10 @@ internal sealed class WptServerRequest
         var path = (question < 0 ? target : target.Substring(0, question)).TrimStart('/');
         var queryPairs = ParseQuery(question < 0 ? "" : target.Substring(question + 1));
 
-        return new WptServerRequest(method, path, queryPairs, headers, body);
+        return new WptServerRequest(method, path, queryPairs, headers, body)
+        {
+            RawQuery = question < 0 ? string.Empty : target.Substring(question + 1),
+        };
     }
 
     private static async Task<string> ReadBodyAsync(Stream stream, List<(string Name, string Value)> headers, CancellationToken token)

@@ -447,6 +447,7 @@ namespace Jint
             public Jint.Options.StorageOptions Storage { get; }
             public Jint.Options.TimerOptions Timers { get; }
             public Jint.Options.WorkerOptions Workers { get; }
+            public Jint.Options.XhrOptions Xhr { get; }
         }
         public sealed class WorkerOptions
         {
@@ -454,6 +455,11 @@ namespace Jint
             public int MaxQueuedMessages { get; set; }
             public int MaxWorkers { get; set; }
             public Jint.WebApi.WorkerProvider? Provider { get; set; }
+        }
+        public sealed class XhrOptions
+        {
+            public XhrOptions() { }
+            public System.Func<Jint.Engine, string, string, Jint.Native.JsValue?>? DocumentParser { get; set; }
         }
         public delegate string? BuildCallStackDelegate(string shortDescription, Acornima.SourceLocation location, string[]? arguments);
         public delegate void ClrExceptionErrorDecoratorDelegate(Jint.Engine engine, Jint.Native.Object.ObjectInstance error, System.Exception exception);
@@ -753,6 +759,7 @@ namespace Jint
         GlobalEvents = 4194304,
         FetchEvents = 8388608,
         Workers = 16777216,
+        XmlHttpRequest = 33554432,
         Default = 7404543,
     }
     public static class WebApiOptionsExtensions
@@ -770,6 +777,7 @@ namespace Jint
         public static Jint.Options UseWebApis(this Jint.Options options, System.Action<Jint.Options.WebApiOptions> configure) { }
         public static Jint.Options UseWebSocket(this Jint.Options options, System.Action<Jint.Options.FetchOptions>? configure = null) { }
         public static Jint.Options UseWorkers(this Jint.Options options, Jint.WebApi.WorkerProvider provider) { }
+        public static Jint.Options UseXmlHttpRequest(this Jint.Options options, System.Action<Jint.Options.FetchOptions>? configure = null) { }
     }
 }
 namespace Jint.Constraints
