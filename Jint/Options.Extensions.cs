@@ -95,6 +95,15 @@ public static class OptionsExtensions
     internal static void ApplyUntrustedCodeOptions(Options options, UntrustedCodeLimits limits)
     {
         options.UntrustedCodeLimits = limits;
+
+        // Every constraint the host registered is cleared below, because the profile is the whole budget and
+        // a looser one declared before it must not survive. A cancellation token is the one registration that
+        // is not a budget at all: it is how a host stops an engine it is still holding, and how every
+        // engine-owned wait, fetch, XMLHttpRequest, EventSource and module load learns that its work has been
+        // abandoned. Clearing it silently left a hardened engine deaf to a token the host had already handed
+        // over, so it is captured here and re-registered at the end.
+        var observedCancellation = options.Constraints.RequestedCancellationToken;
+
         options.Constraints.Constraints.Clear();
         options.Constraints.ConstraintFactories.Clear();
         options.Constraints.RequestedMaxStatements = null;
@@ -167,6 +176,11 @@ public static class OptionsExtensions
         options.LimitStatements(limits.MaxStatements);
         options.LimitMemory(limits.MemoryLimit);
         options.AddConstraint(static () => new OperationDeadlineConstraint());
+
+        if (observedCancellation is { } cancellationToken)
+        {
+            options.ObserveCancellation(cancellationToken);
+        }
     }
 
     /// <summary>
@@ -649,6 +663,7 @@ public static class OptionsExtensions
         if (removedCancellation)
         {
             options.Constraints.CancellationConstraintRequested = false;
+            options.Constraints.RequestedCancellationToken = null;
         }
 
         if (removedOperationDeadline)

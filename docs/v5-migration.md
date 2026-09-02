@@ -5035,6 +5035,32 @@ interface object.
 **What could break:** feature detection that reads `typeof EventTarget` or `typeof ProgressEvent` to decide
 whether some other feature is on.
 
+### 4.117 `ForUntrustedCode` keeps the cancellation token the host registered ([#3575](https://github.com/sebastienros/jint/issues/3575))
+
+`Options.ForUntrustedCode` clears every constraint the host registered, because the profile *is* the budget
+and a looser one declared beside it must not survive. `ObserveCancellation` was cleared with them, and that
+one is not a budget: it is how a host stops an engine it is still holding, and it is what `fetch`,
+`XMLHttpRequest`, `EventSource`, a WebSocket, the module loader and the engine's own blocking waits read to
+learn that their work has been abandoned. So an engine built from both was deaf to the token, silently —
+`engine.Constraints.Find<CancellationConstraint>()` answered `null` and every one of those operations ran on
+with `CancellationToken.None`.
+
+```c#
+var options = new Options();
+options.ObserveCancellation(token);
+options.ForUntrustedCode(UntrustedCodeLimits.Default);
+var engine = new Engine(options);
+// 5.0:  Constraints.Find<CancellationConstraint>() is null; cancelling the token stops nothing
+// 5.x:  the constraint is there; cancelling it throws ExecutionCanceledException as it does without the profile
+```
+
+The order of the two calls never mattered and still does not: the profile is expanded when the engine is
+built, not when it is declared, so a token registered after it was already lost the same way.
+
+**What could break:** an engine that combined the two and *relied* on the token being ignored — running past
+a cancellation the host had requested. Withdrawing the token still withdraws it (`ObserveCancellation(default)`
+before the profile leaves the engine unobserved), and the profile still clears every other constraint.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

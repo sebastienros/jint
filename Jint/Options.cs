@@ -1327,6 +1327,19 @@ public sealed partial class Options
 
         internal bool CancellationConstraintRequested { get; set { ThrowIfReadOnly(); field = value; } }
 
+        /// <summary>
+        /// The token the host handed to <see cref="ConstraintsOptionsExtensions.ObserveCancellation"/>, or
+        /// <see langword="null"/> when it named none.
+        /// </summary>
+        /// <remarks>
+        /// A registration is a factory, and a factory cannot be told apart from another without invoking it,
+        /// so the token is recorded beside the registration for the one caller that has to rebuild it:
+        /// <c>OptionsExtensions.ApplyUntrustedCodeOptions</c> clears every constraint the host registered and
+        /// would otherwise drop a cancellation token declared before the profile, silently — see
+        /// <c>docs/v5-migration.md</c>.
+        /// </remarks>
+        internal CancellationToken? RequestedCancellationToken { get; set { ThrowIfReadOnly(); field = value; } }
+
         internal bool OperationDeadlineConstraintRequested { get; set { ThrowIfReadOnly(); field = value; } }
 
         /// <summary>
