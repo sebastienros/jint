@@ -57,6 +57,15 @@ no JSON form are all `-32000 "Object couldn't be returned by value"`. There is o
 *thrown* error reads a `stack` a script may have defined as an accessor, which is why that render is asked
 for under the engine's own `ResultLimits`. Everything else on the path is getter-free.
 
+**A node's `RemoteObject` is what that seam was opened for, and `Jint.Browser` fills it.**
+`DomRemoteObjectDescriber` answers `subtype: "node"`, the DOM interface as the class name
+(`HTMLDivElement`, `Text`, `HTMLDocument` — the same string `Object.prototype.toString` reports) and Chrome's
+one-line description: `div#id.one.two` for an element, and the node name for everything else (`#text`,
+`#comment`, `#document`). It reads the node's own name and its `id` and `class` content attributes off
+AngleSharp's tree and nothing else, so it keeps the promise below. **The subtype is not decoration**: a
+client library builds an element handle out of it and a plain object handle without it, so `$('button')`
+returns something that cannot be clicked long before the click reaches `Input.dispatchMouseEvent`.
+
 **`Domains/RemoteObjectDescriber.cs` is the seam `Jint.Browser` fills in.** It is consulted first for every
 non-primitive value and may answer a subtype, a class name and a description — `subtype: "node"`,
 `description: "div#id.cls"` — and it is held to the same promise: a describer that reads a script-visible

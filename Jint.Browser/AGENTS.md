@@ -97,13 +97,14 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
   (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
   of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.
 - **Both are stubs, and the shape of the lie is the point.** Each observed target is reported exactly once,
-  fully intersecting or at zero size, and never again, because with no layout nothing can change. "Never
-  intersecting" would stop every lazy list and reveal-on-scroll animation dead, and the initial resize
+  fully intersecting or at its own size, and never again, because nothing here can change what a box is.
+  "Never intersecting" would stop every lazy list and reveal-on-scroll animation dead, and the initial resize
   notification is the one a component uses to measure itself when it mounts. `root`, `rootMargin` and
   `thresholds` are parsed, validated and reflected exactly as the specification says and change nothing.
-  Rectangles are `ObserverGeometry` zeros and are **plain objects, not `DOMRectReadOnly`**: there is no
-  rectangle interface in this package yet, and one whose every instance is zeros would be worse than none.
-  The flat-box model (campaign item C4) turns all of it into real numbers.
+  **The rectangles are real numbers now** — the flat box model gives every element a row, and an entry
+  reports the target's own box through the same `Layout/DomRects` factory `getBoundingClientRect` answers
+  from, so the two agree. They are still **plain objects, not `DOMRectReadOnly` instances**: the eight
+  members are there and the interface object is not, and `Layout/DomRects` says what adding one would cost.
 
 None of the five interface objects is generated, so they are hand-written `JsObjectShape`s behind
 `HostInterfaceObject`, and `Views/HostInterfaceDisciplineTests` holds them to the same two rules
@@ -146,6 +147,23 @@ target/runtime split and the manifest are there and none of it is repeated here.
   document's first inline script.
 - **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
   (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
+- **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
+  `RemoteObject` the `DomRemoteObjectDescriber` named — `subtype: "node"`, the interface, `div#id.cls` — and
+  that subtype is what makes a client library build an *element* handle out of it. `DomNodeTracker` holds the
+  two identifiers: a `nodeId` per document, thrown away and announced with `documentUpdated` on every commit,
+  and a `backendNodeId` per node for the page's life, keyed in a `ConditionalWeakTable`. Both are shared by
+  every attachment, the way the remote-object table is; what is **not** shared is which nodes an attachment
+  has been *sent*, and that is what decides which mutation events reach it — Chrome's own rule, and the
+  reason a client that never called `getDocument` hears nothing. The records are AngleSharp's, delivered on
+  the engine's queue at the same checkpoint a page's own `MutationObserver` fires. Every box is the flat
+  model's ([`Runtime/AGENTS.md`](Runtime/AGENTS.md)), and a node with no box is refused in Chrome's wording
+  rather than answered with zeros. `Input` is `dispatchMouseEvent` and nothing else: the keyboard half is a
+  later item, and every other command of the domain is honestly `-32601`.
+- **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
+  Playwright each create one utility world when they attach and then use it for the life of the page — so a
+  world that ended with the first document leaves `$`, `$$` and `waitForSelector` waiting for a context that
+  never arrives. `DevToolsTarget.Replace` re-mints it under the same name with a fresh identifier, after the
+  default context is announced.
 - **Tab targets exist because Puppeteer requires them.** Its browser-level `setAutoAttach` filter excludes
   `page`; it reaches a page by sending `setAutoAttach` again on the tab's session. `TabTarget` answers about
   the page's engine rather than one of its own. Found by driving the client, not by reading the protocol.
@@ -163,10 +181,11 @@ target/runtime split and the manifest are there and none of it is repeated here.
   `Performance.enable` and `Audits.enable` are answered because a refusal fails an ordinary connection, and
   each names the campaign item that makes it real. `Fetch.enable` must never stall a navigation.
 
-`Jint.Tests.Browser/DevTools/` holds three checks: the handshake replay of what four recorded clients send
-before their first script result, `PageProtocolManifestTests` (the page half of the property
-`Jint.Tests.DevTools` holds for the engine half), and the PuppeteerSharp suite, the only test here that can
-claim client compatibility.
+`Jint.Tests.Browser/DevTools/` holds four checks: the handshake replay of what four recorded clients send up
+to and including their first click, `PageProtocolManifestTests` (the page half of the property
+`Jint.Tests.DevTools` holds for the engine half), `DomDomainTests`, and the PuppeteerSharp suite, the only
+test here that can claim client compatibility — it is what says `$`, `$$`, `click`, `waitForSelector`,
+`hover` and a bounding box work through a library nobody here wrote.
 
 ### The seams promoted later
 

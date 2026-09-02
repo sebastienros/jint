@@ -185,14 +185,34 @@ context that did not assign it.
 
 ## 8. Input without layout
 
-Every element gets a deterministic synthetic box (document order, no overlap) — the "flat renderer" — so that
-`elementFromPoint`, `getBoundingClientRect`, `DOM.getBoxModel`, `DOM.getNodeForLocation` and
-`Input.dispatchMouseEvent(x, y)` resolve without a layout engine. `dispatchMouseEvent` becomes the
-pointer/mouse event sequence with focus and click activation (`<a>` navigates, submit buttons submit,
-checkbox/radio toggle with legacy pre-activation rollback, `<label>` forwards, `<summary>` toggles, `<option>`
-selects); `dispatchKeyEvent` becomes `keydown`/`keypress`/`keyup` with editing on `<input>` and `<textarea>`
-(characters, Backspace/Delete, Home/End/arrows, selection, Enter implicit submission, Tab traversal,
-`beforeinput`/`input`/`change`); `insertText` and a `contenteditable`-lite complete it. WPT's `testdriver.js` is
+Every element gets a deterministic synthetic box — the "flat renderer" — so that `elementFromPoint`,
+`getBoundingClientRect`, `DOM.getBoxModel`, `DOM.getContentQuads`, `DOM.getNodeForLocation` and
+`Input.dispatchMouseEvent(x, y)` resolve without a layout engine.
+
+**What shipped, in one sentence.** `Jint.Browser/Layout/FlatLayout` gives every *rendered* element an ordinal
+in tree order and the row `[i·R, (i+1)·R)` with `R = 16`; its box starts at that row, is
+`R × (1 + rendered descendants)` tall and the viewport wide. Boxes therefore nest exactly as the tree does and
+never straddle, and the deepest box containing a point is always the owner of the row the point falls in — so
+a hit test is a division, the centre of a leaf hits the leaf, the centre of a container hits a descendant as a
+browser does, and the click bubbles back up. Rendered is HTML's set minus what a rendering would have needed:
+`<head>` and its subtree, `<script>`/`<style>`/`<template>`/`<noscript>` wherever they sit, and whatever the
+accessibility layer's `ElementVisibility` calls not rendered (`hidden`, `display: none`,
+`visibility: hidden|collapse`); `aria-hidden` does not remove a box. An element with no box answers zeros in
+script and `-32000` over the protocol, because a client reads zeros as a real box at the origin.
+
+**Scrolling is virtual and is the only state the model keeps.** A page holds a `scrollY` clamped to its
+document; `window.scrollTo`/`scrollBy`/`scroll`, `element.scrollIntoView`, `DOM.scrollIntoViewIfNeeded` and a
+wheel event set it, `window.scrollY`/`pageYOffset` and `document.scrollingElement.scrollTop` read it, and
+every client rectangle subtracts it. `scrollX` is always zero, because every box is exactly as wide as the
+viewport. That is what lets a client whose click path insists on "scroll it into view, then check the box is
+inside the viewport" — Playwright's does — succeed on a document taller than its window.
+
+`dispatchMouseEvent` is the pointer/mouse event sequence with focus and click activation (`<a>` navigates,
+submit buttons submit, checkbox/radio toggle with legacy pre-activation rollback, `<label>` forwards,
+`<summary>` toggles, `<option>` selects), and `mouseWheel` is a scroll of `deltaY`. Still to come:
+`dispatchKeyEvent` as `keydown`/`keypress`/`keyup` with editing on `<input>` and `<textarea>` (characters,
+Backspace/Delete, Home/End/arrows, selection, Enter implicit submission, Tab traversal,
+`beforeinput`/`input`/`change`), then `insertText` and a `contenteditable`-lite. WPT's `testdriver.js` is
 mapped onto the same dispatcher.
 
 ## 8a. The page-level protocol

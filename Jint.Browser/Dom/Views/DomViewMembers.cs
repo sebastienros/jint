@@ -79,10 +79,42 @@ internal static class DomViewMembers
     internal static JsValue RangeToString(IRange range) => JsString.Create(range.ToString() ?? "");
 
     /// <summary>
-    /// https://drafts.csswg.org/cssom-view/#dom-range-getboundingclientrect, at the only size a page with no
-    /// layout can be told.
+    /// https://dom.spec.whatwg.org/#dom-node-isconnected — whether the node's shadow-including root is a
+    /// document.
     /// </summary>
-    internal static JsValue RangeRect(DomRealm realm) => ObserverGeometry.ZeroRect(realm.Engine);
+    /// <remarks>
+    /// <b>AngleSharp's <c>INode</c> has no member for it at all</b>, so there is nothing to project and the
+    /// walk is here. It is not a curiosity: every client library asks a node it holds whether it is still in
+    /// the document before it clicks it — PuppeteerSharp's own message for a falsy answer is "Node is
+    /// detached from document" — so an absent member makes every element handle look detached.
+    /// </remarks>
+    internal static JsValue IsConnected(INode node)
+    {
+        for (INode? current = node; current is not null;)
+        {
+            if (current is IDocument)
+            {
+                return JsBoolean.True;
+            }
+
+            // The shadow-including part: a node inside a shadow tree is connected when its host is, which is
+            // what makes a component's own markup reachable to a client driving the page.
+            current = current is IShadowRoot shadow ? shadow.Host : current.Parent;
+        }
+
+        return JsBoolean.False;
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-range-getboundingclientrect, at the only size a range can be
+    /// told.
+    /// </summary>
+    /// <remarks>
+    /// <b>Zeros, and still zeros with the flat box model in place.</b> That model gives every <i>element</i>
+    /// a row; a range is a pair of positions inside the text of one, and nothing here measures text. A range
+    /// covering half a paragraph has no honest rectangle, so it keeps the empty one.
+    /// </remarks>
+    internal static JsValue RangeRect(DomRealm realm) => Layout.DomRects.Zero(realm.Engine);
 
     /// <summary>
     /// https://drafts.csswg.org/cssom-view/#dom-range-getclientrects — empty, because a range with no layout

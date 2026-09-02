@@ -42,8 +42,13 @@ public sealed class ViewportObserverTests
         page.Errors.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// The rectangles are the flat box model's, which is what C4 promised the observers when it had none:
+    /// the target is the third rendered element (<c>html</c>, <c>body</c>, then the <c>div</c>), so its box
+    /// starts at the third row and is one row tall and the viewport wide.
+    /// </summary>
     [Test]
-    public async Task AnEntryCarriesZeroRectanglesAndATimestamp()
+    public async Task AnEntryCarriesTheTargetsFlatBoxAndATimestamp()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
@@ -66,7 +71,7 @@ public sealed class ViewportObserverTests
             """);
 
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
-        (await page.EvaluateAsync<string>("window.seen")).Should().Be("true|0|0|0|0|number");
+        (await page.EvaluateAsync<string>("window.seen")).Should().Be("true|1280|16|32|0|number");
     }
 
     [Test]
@@ -189,7 +194,10 @@ public sealed class ViewportObserverTests
 
         (await page.EvaluateAsync<int>("window.duringScript")).Should().Be(0);
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
-        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("a:true:0:1:0:0|b:true:0:1:0:0");
+        // Both boxes are one row tall and the viewport wide, and a content rectangle is measured from its own
+        // origin — so the two targets report the same size even though they sit on different rows.
+        (await page.EvaluateAsync<string>("window.log.join('|')"))
+            .Should().Be("a:true:1280:1:1280:16|b:true:1280:1:1280:16");
     }
 
     [Test]

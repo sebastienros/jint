@@ -308,9 +308,9 @@ internal static class WindowInstaller
             .Accessor("outerHeight", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "outerHeight").Viewport.Height))
             .Accessor("devicePixelRatio", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "devicePixelRatio").Viewport.DeviceScaleFactor))
             .Accessor("scrollX", static (_, _) => JsNumber.PositiveZero)
-            .Accessor("scrollY", static (_, _) => JsNumber.PositiveZero)
+            .Accessor("scrollY", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "scrollY").Layout.ScrollY))
             .Accessor("pageXOffset", static (_, _) => JsNumber.PositiveZero)
-            .Accessor("pageYOffset", static (_, _) => JsNumber.PositiveZero)
+            .Accessor("pageYOffset", static (t, _) => JsNumber.Create(PageRuntime.Of(t, "pageYOffset").Layout.ScrollY))
             .Accessor("screenX", static (_, _) => JsNumber.PositiveZero)
             .Accessor("screenY", static (_, _) => JsNumber.PositiveZero)
             .Accessor("screenLeft", static (_, _) => JsNumber.PositiveZero)
@@ -325,14 +325,26 @@ internal static class WindowInstaller
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
             .Accessor("event", static (_, _) => JsValue.Undefined)
-            .Method("scrollTo", static (_, _) => JsValue.Undefined)
-            .Method("scrollBy", static (_, _) => JsValue.Undefined)
-            .Method("scroll", static (_, _) => JsValue.Undefined)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
             .Method("close", static (_, _) => JsValue.Undefined)
             .Method("open", static (_, _) => JsValue.Null, length: 3)
+            .PerRealmSlot("scrollTo", Operation("scrollTo", 0, static (runtime, args) =>
+            {
+                runtime.Layout.ScrollTo(ScrollTarget(args, runtime.Layout.ScrollY, absolute: true));
+                return JsValue.Undefined;
+            }), enumerable: true)
+            .PerRealmSlot("scroll", Operation("scroll", 0, static (runtime, args) =>
+            {
+                runtime.Layout.ScrollTo(ScrollTarget(args, runtime.Layout.ScrollY, absolute: true));
+                return JsValue.Undefined;
+            }), enumerable: true)
+            .PerRealmSlot("scrollBy", Operation("scrollBy", 0, static (runtime, args) =>
+            {
+                runtime.Layout.ScrollBy(ScrollTarget(args, 0, absolute: false));
+                return JsValue.Undefined;
+            }), enumerable: true)
             .PerRealmSlot("getSelection", Operation("getSelection", 0, static (runtime, _) => runtime.Views.Selection), enumerable: true)
             .PerRealmSlot("alert", Operation("alert", 1, static (runtime, args) =>
             {
@@ -453,6 +465,36 @@ internal static class WindowInstaller
 
     private static int FrameCount(PageRuntime runtime)
         => runtime.Document is { } document ? document.QuerySelectorAll("iframe, frame").Length : 0;
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-window-scroll — the vertical coordinate the two argument
+    /// forms mean, which is <c>(x, y)</c> or a <c>ScrollToOptions</c> dictionary's <c>top</c>.
+    /// </summary>
+    /// <param name="arguments">What the page passed.</param>
+    /// <param name="fallback">What an omitted <c>top</c> means: where the page already is, or no movement.</param>
+    /// <param name="absolute">
+    /// Whether the answer is a position (<c>scrollTo</c>, <c>scroll</c>) or a delta (<c>scrollBy</c>). It
+    /// decides only what an absent <c>top</c> falls back to; both forms read the same member.
+    /// </param>
+    /// <remarks>
+    /// The horizontal half is read and discarded: every box is exactly as wide as the viewport, so there is
+    /// never anything to scroll to the side. <c>behavior</c> is likewise accepted and ignored — a page that
+    /// asks for a smooth scroll gets the destination immediately, which is the only honest answer with
+    /// nothing to animate.
+    /// </remarks>
+    private static double ScrollTarget(JsValue[] arguments, double fallback, bool absolute)
+    {
+        var first = arguments.At(0);
+
+        if (first is ObjectInstance options)
+        {
+            var top = options.Get("top");
+            return top.IsUndefined() ? (absolute ? fallback : 0) : TypeConverter.ToNumber(top);
+        }
+
+        var y = arguments.At(1);
+        return y.IsUndefined() ? (absolute ? fallback : 0) : TypeConverter.ToNumber(y);
+    }
 
     private static JsValue GetComputedStyle(PageRuntime runtime, JsValue[] arguments)
     {

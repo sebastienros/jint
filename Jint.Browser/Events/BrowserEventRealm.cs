@@ -72,6 +72,17 @@ internal sealed class BrowserEventRealm
     internal bool DocumentHasFocus { get; set; } = true;
 
     /// <summary>
+    /// The element the last <c>mousedown</c> was dispatched at, which is half of where a <c>click</c> goes.
+    /// </summary>
+    /// <remarks>
+    /// https://w3c.github.io/uievents/#event-type-click — a click is dispatched at the nearest common
+    /// inclusive ancestor of the press and the release, so a drag that starts on one element and ends on
+    /// another activates the container they share rather than either of them. It is per engine, so a
+    /// navigation between a press and a release leaves the new document with no press outstanding.
+    /// </remarks>
+    internal IElement? MousePressTarget { get; set; }
+
+    /// <summary>
     /// Where an activation behaviour's default action goes — a hyperlink to follow, a form to submit, a file
     /// chooser to open. Replaced by the navigation layer (campaign item R5); until then the default records.
     /// </summary>

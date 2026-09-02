@@ -21,6 +21,7 @@
     "Performance",
     "Audits",
     "DOM",
+    "Input",
     "Jint"
   ],
 
@@ -45,6 +46,20 @@
   // The page-level domains are a *page* target's, and Jint.Browser is what answers them: an engine target
   // has no document, so every one of them is -32601 there. That is why they are absent from reportedDomains
   // below, and why Jint.Tests.DevTools checks them through the page-level suite rather than its own.
+  //
+  // DOM and Input are the page half of driving a page: a client finds an element, measures it and clicks
+  // where it was told the element is. Both are Jint.Browser's, over the flat box model in
+  // Jint.Browser/Layout. Four are answered without being effective and each says why:
+  // DOM.markUndoableState is a boundary in an undo stack that does not exist - undo and redo are
+  // unimplemented - and the front end sends it around every attribute edit; DOM.getFrameOwner can only
+  // ever be asked about the one frame there is, which owns nothing, so it always refuses;
+  // DOM.performSearch drops Chrome's XPath arm, because AngleSharp's XPath support is a package this
+  // project does not reference and no recorded client sends the command; and DOM.enable's
+  // includeWhitespace is ignored, because every child node is reported either way.
+  //
+  // Input is dispatchMouseEvent alone. The keyboard half - dispatchKeyEvent, insertText,
+  // imeSetComposition - is the next campaign item, and answering one of them now would be a silent
+  // success where a client feature-detecting it wants the truth.
   //
   // Jint is not Chrome's. It is described in tools/devtools-protocol/jint_protocol.json, in the protocol's
   // own format and beside the two vendored files, the way Lightpanda adds its LP domain: this browser
@@ -84,6 +99,33 @@
     "Debugger.stepInto",
     "Debugger.stepOut",
     "Debugger.stepOver",
+    "DOM.describeNode",
+    "DOM.disable",
+    "DOM.discardSearchResults",
+    "DOM.enable",
+    "DOM.focus",
+    "DOM.getAttributes",
+    "DOM.getBoxModel",
+    "DOM.getContentQuads",
+    "DOM.getDocument",
+    "DOM.getFrameOwner",
+    "DOM.getNodeForLocation",
+    "DOM.getOuterHTML",
+    "DOM.getSearchResults",
+    "DOM.markUndoableState",
+    "DOM.performSearch",
+    "DOM.querySelector",
+    "DOM.querySelectorAll",
+    "DOM.removeAttribute",
+    "DOM.removeNode",
+    "DOM.requestChildNodes",
+    "DOM.requestNode",
+    "DOM.resolveNode",
+    "DOM.scrollIntoViewIfNeeded",
+    "DOM.setAttributeValue",
+    "DOM.setAttributesAsText",
+    "DOM.setNodeValue",
+    "DOM.setOuterHTML",
     "Emulation.clearDeviceMetricsOverride",
     "Emulation.setDeviceMetricsOverride",
     "Emulation.setEmulatedMedia",
@@ -92,6 +134,7 @@
     "Emulation.setUserAgentOverride",
     "Fetch.disable",
     "Fetch.enable",
+    "Input.dispatchMouseEvent",
     "Jint.getAccessibilitySnapshot",
     "Jint.getMarkdown",
     "Jint.getText",
@@ -177,6 +220,14 @@
   // BeforeEvaluate only for a program it did parse; a parse failure never reaches this package.
   "implementedEvents": [
     "Console.messageAdded",
+    "DOM.attributeModified",
+    "DOM.attributeRemoved",
+    "DOM.characterDataModified",
+    "DOM.childNodeCountUpdated",
+    "DOM.childNodeInserted",
+    "DOM.childNodeRemoved",
+    "DOM.documentUpdated",
+    "DOM.setChildNodes",
     "Debugger.breakpointResolved",
     "Debugger.paused",
     "Debugger.resumed",

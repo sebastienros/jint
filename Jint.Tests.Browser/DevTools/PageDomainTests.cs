@@ -283,6 +283,68 @@ public class PageDomainTests
             "a world here is a second name for the document's own realm, which is the documented divergence");
     }
 
+    /// <summary>
+    /// A named world is made again over every document, which is what Chrome does and what every client
+    /// relies on: Puppeteer and Playwright each create one utility world when they attach and then use it for
+    /// the life of the page, so a world that ended with the first document leaves <c>$</c> and
+    /// <c>waitForSelector</c> waiting for a context that never arrives.
+    /// </summary>
+    [Test]
+    public async Task ANamedIsolatedWorldIsMadeAgainOverTheNextDocument()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/one", "<html><body>one</body></html>");
+        server.MapHtml("/two", "<html><body>two</body></html>");
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+        var page = await session.NewPageAsync();
+        var target = await session.TargetForAsync(page);
+        var attachment = await session.AttachAsync(target);
+        await session.EnablePageAsync(attachment);
+
+        await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/one")}}"}""", attachment);
+        await session.EventAsync("Page.loadEventFired", sessionId: attachment);
+
+        var first = (await session.ResultAsync(
+            "Page.createIsolatedWorld",
+            $$"""{"frameId":"{{target.TargetId}}","worldName":"utility"}""",
+            attachment)).GetProperty("executionContextId").GetInt32();
+
+        // Asking twice for one name answers the world that exists rather than a second identifier over the
+        // same realm, which is Chrome's behaviour and what stops a client accumulating one per attempt.
+        (await session.ResultAsync(
+            "Page.createIsolatedWorld",
+            $$"""{"frameId":"{{target.TargetId}}","worldName":"utility"}""",
+            attachment)).GetProperty("executionContextId").GetInt32().Should().Be(first);
+
+        await session.ResultAsync("Page.navigate", $$"""{"url":"{{server.Url("/two")}}"}""", attachment);
+        await session.EventAsync("Page.loadEventFired", 1, attachment);
+
+        var announced = session.EventsOf("Runtime.executionContextCreated", attachment)
+            .Select(entry => entry.GetProperty("params").GetProperty("context"))
+            .Where(context => context.GetProperty("name").GetString() == "utility")
+            .ToArray();
+
+        announced.Should().HaveCount(2, "the world is announced once per document, under the name that minted it");
+
+        var second = announced[^1].GetProperty("id").GetInt32();
+        second.Should().NotBe(first, "the realm it names is the new document's, so the identifier is a new one");
+
+        // The identifier from the document before is refused rather than resolved against the one that
+        // replaced it, and the new one evaluates in the page.
+        var stale = await session.ErrorAsync(
+            "Runtime.evaluate",
+            $$"""{"expression":"1","contextId":{{first}}}""",
+            attachment);
+
+        stale.GetProperty("message").GetString().Should().Be("Cannot find context with specified id");
+
+        (await session.ResultAsync(
+            "Runtime.evaluate",
+            $$"""{"expression":"document.body.textContent","contextId":{{second}},"returnByValue":true}""",
+            attachment)).GetProperty("result").GetProperty("value").GetString().Should().Be("two");
+    }
+
     [Test]
     public async Task APushStateIsReportedAsANavigationWithinTheDocument()
     {

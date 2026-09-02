@@ -5,15 +5,16 @@ using Jint.Tests.Browser.Navigation;
 namespace Jint.Tests.Browser.DevTools;
 
 /// <summary>
-/// Every command a real client sends before its first script result, replayed against a real page.
+/// Every command a real client sends up to and including its first click, replayed against a real page.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The recordings in <c>tools/devtools-protocol/handshakes/</c> are what Puppeteer, PuppeteerSharp,
 /// Playwright and Playwright for .NET actually put on the wire while driving one Chrome through one scenario.
 /// <c>matrix.md</c>'s "minimum must-answer set" is the first five steps of it — <c>connect</c>,
-/// <c>newContext</c>, <c>newPage</c>, <c>goto</c>, the two evaluations — and this replays exactly those,
-/// in the order each client sent them, on the session each belongs on.
+/// <c>newContext</c>, <c>newPage</c>, <c>goto</c>, the two evaluations — and its "what <c>$</c>,
+/// <c>$$</c>, <c>click</c> and <c>waitForSelector</c> add on top" is the four after them. This replays
+/// all ten, in the order each client sent them, on the session each belongs on.
 /// </para>
 /// <para>
 /// <b>Two properties, and the second is the interesting one.</b> Nothing may answer <c>-32601</c> or
@@ -47,14 +48,18 @@ public class PageHandshakeReplayTests
         ["Fetch.continueRequest"] = "interception arrives with the network work",
     };
 
-    /// <summary>The steps of the scenario that come before a client's first script result.</summary>
-    private static readonly string[] MustAnswerSteps = ["connect", "newContext", "newPage", "goto", "evaluateTitle", "evaluateObject"];
+    /// <summary>The ten steps of the scenario this replay covers, in the order the recording has them.</summary>
+    private static readonly string[] ReplayedSteps =
+    [
+        "connect", "newContext", "newPage", "goto", "evaluateTitle", "evaluateObject",
+        "querySelector", "querySelectorAll", "click", "waitForSelector",
+    ];
 
     [TestCase("puppeteer-node")]
     [TestCase("puppeteersharp-dotnet")]
     [TestCase("playwright-node")]
     [TestCase("playwright-dotnet")]
-    public async Task EveryMethodAClientSendsBeforeItsFirstScriptResultIsAnswered(string client)
+    public async Task EveryMethodAClientSendsUpToItsFirstClickIsAnswered(string client)
     {
         var methods = RecordedMethods(client);
         methods.Should().NotBeEmpty("the recording is the specification these tests are written against");
@@ -81,6 +86,8 @@ public class PageHandshakeReplayTests
         var attachment = attached.GetProperty("sessionId").GetString()!;
         var refused = new List<string>();
         string? handle = null;
+        string? node = null;
+        var nodeId = 0;
 
         foreach (var method in methods)
         {
@@ -92,7 +99,15 @@ public class PageHandshakeReplayTests
                 handle = await HandleAsync(session, attachment);
             }
 
-            var reply = await BestAnswerAsync(session, method, attachment, targetId, contextId, server.Url("/page"), handle);
+            // The DOM half is the same shape of dependency, and it is what the four steps this replay added
+            // are about: a client turns an element handle into a node it can measure and click.
+            if (method.StartsWith("DOM.", StringComparison.Ordinal) || method == "Input.dispatchMouseEvent")
+            {
+                node ??= await NodeHandleAsync(session, attachment);
+                nodeId = nodeId != 0 ? nodeId : await NodeIdAsync(session, attachment, node);
+            }
+
+            var reply = await BestAnswerAsync(session, method, attachment, targetId, contextId, server.Url("/page"), handle, node, nodeId);
             if (!reply.TryGetProperty("error", out var error))
             {
                 Absent.Should().NotContainKey(method, "'{0}' is answered now, so the reason it is excused is stale", method);
@@ -116,8 +131,8 @@ public class PageHandshakeReplayTests
         Assert.That(
             refused.Count == 0,
             $"""
-            {refused.Count} method(s) the '{client}' recording sends before its first script result are not
-            answered. Every one of them is a command that client needs to get as far as evaluating anything,
+            {refused.Count} method(s) the '{client}' recording sends up to and including its first click are
+            not answered. Every one of them is a command that client needs to find an element and click it,
             so each is either implemented or accounted for in PageHandshakeReplayTests.Absent with the reason:
 
             {string.Join(Environment.NewLine, refused.Select(entry => "  " + entry))}
@@ -153,9 +168,11 @@ public class PageHandshakeReplayTests
         string targetId,
         string contextId,
         string url,
-        string? handle)
+        string? handle,
+        string? node,
+        int nodeId)
     {
-        var parameters = Parameters(method, targetId, contextId, url, handle);
+        var parameters = Parameters(method, targetId, contextId, url, handle, node, nodeId);
 
         var onAttachment = await session.SendAsync(method, parameters, attachment).ConfigureAwait(false);
         if (!onAttachment.TryGetProperty("error", out _))
@@ -178,9 +195,46 @@ public class PageHandshakeReplayTests
         return result.GetProperty("result").GetProperty("objectId").GetString()!;
     }
 
-    /// <summary>The parameters a command cannot be answered without.</summary>
-    private static string? Parameters(string method, string targetId, string contextId, string url, string? handle) => method switch
+    /// <summary>The handle for an element of the page, which is what every DOM command here addresses.</summary>
+    private static async Task<string> NodeHandleAsync(PageSession session, string attachment)
     {
+        var result = await session.ResultAsync(
+            "Runtime.evaluate",
+            """{"expression":"document.querySelector('p')"}""",
+            attachment).ConfigureAwait(false);
+
+        var value = result.GetProperty("result");
+        value.GetProperty("subtype").GetString().Should().Be("node", "a client builds an element handle out of the subtype");
+
+        return value.GetProperty("objectId").GetString()!;
+    }
+
+    /// <summary>The identifier that handle is addressed by, which is what resolveNode takes.</summary>
+    private static async Task<int> NodeIdAsync(PageSession session, string attachment, string node)
+    {
+        var result = await session.ResultAsync(
+            "DOM.requestNode",
+            $$"""{"objectId":"{{node}}"}""",
+            attachment).ConfigureAwait(false);
+
+        return result.GetProperty("nodeId").GetInt32();
+    }
+
+    /// <summary>The parameters a command cannot be answered without.</summary>
+    private static string? Parameters(
+        string method,
+        string targetId,
+        string contextId,
+        string url,
+        string? handle,
+        string? node,
+        int nodeId) => method switch
+    {
+        "DOM.describeNode" => $$"""{"objectId":"{{node}}"}""",
+        "DOM.resolveNode" => $$"""{"nodeId":{{nodeId}}}""",
+        "DOM.getContentQuads" => $$"""{"objectId":"{{node}}"}""",
+        "DOM.scrollIntoViewIfNeeded" => $$"""{"objectId":"{{node}}"}""",
+        "Input.dispatchMouseEvent" => """{"type":"mouseMoved","x":4,"y":4,"button":"none"}""",
         "Runtime.callFunctionOn" => $$"""{"functionDeclaration":"function () { return this.answer; }","objectId":"{{handle}}","returnByValue":true}""",
         "Runtime.getProperties" => $$"""{"objectId":"{{handle}}"}""",
         "Runtime.releaseObject" => $$"""{"objectId":"{{handle}}"}""",
@@ -213,12 +267,13 @@ public class PageHandshakeReplayTests
     };
 
     /// <summary>
-    /// The methods one client sent in the steps that come before its first script result.
+    /// The methods one client sent in the ten steps this replay covers.
     /// </summary>
     /// <remarks>
     /// Taken from the recording's own per-step breakdown rather than from its whole method list, because the
-    /// steps after these — <c>$</c>, <c>click</c>, <c>screenshot</c> — need the domains later campaign items
-    /// bring, and a replay that included them would be asserting against work nobody has claimed is done.
+    /// steps after these — typing, screenshots, the network interception — need the domains later campaign
+    /// items bring, and a replay that included them would be asserting against work nobody has claimed is
+    /// done.
     /// </remarks>
     private static IReadOnlyList<string> RecordedMethods(string client)
     {
@@ -230,7 +285,7 @@ public class PageHandshakeReplayTests
 
         foreach (var step in document.RootElement.GetProperty("scenarioSteps").EnumerateArray())
         {
-            if (!Array.Exists(MustAnswerSteps, name => name == step.GetProperty("step").GetString()))
+            if (!Array.Exists(ReplayedSteps, name => name == step.GetProperty("step").GetString()))
             {
                 continue;
             }

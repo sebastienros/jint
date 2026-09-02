@@ -2403,6 +2403,18 @@ with the four events in HTML's order, `tabindex`-aware traversal, `autofocus` on
 `<input>` or `<textarea>` edits the value at the selection with `beforeinput`, `input` and `change`,
 <kbd>Enter</kbd>'s implicit submission and <kbd>Tab</kbd>'s focus traversal. None of it needs a layout.
 
+**And a box for every element, without one.** Nothing is laid out, so every rendered element is given a
+deterministic box instead: one row of sixteen pixels per element in tree order, a container as tall as its
+whole subtree, the viewport wide. `getBoundingClientRect`, `getClientRects`, `offsetWidth`/`offsetTop` and
+their family, `clientWidth`, `scrollHeight`, `document.elementFromPoint`, `scrollIntoView` and the page's own
+`scrollY` all come from that one model — so a coordinate a script computes from a box is a coordinate that
+hits the element it came from, and `IntersectionObserver` and `ResizeObserver` entries report real numbers.
+The page scrolls virtually: `window.scrollTo`, `element.scrollIntoView` and
+`document.scrollingElement.scrollTop` move an offset every rectangle subtracts, and a `scroll` event fires at
+the document. An element that is `hidden`, `display: none` or `visibility: hidden` has no box, answers zeros,
+and is not hit. It is not a layout and does not pretend to be one: nothing wraps, nothing is measured, and two
+elements are never side by side.
+
 **And the budgets.** A page is a host-driven sequence of entries whose event loop is pumped, so neither of
 the engine's per-entry limits bounds one: `BrowserOptions.MaxTaskDuration` (five seconds) brackets every
 *turn* instead — one `Page` call, one drain of the event loop, one inline `<script>` — with the two
@@ -2441,7 +2453,20 @@ var title = await page.EvaluateExpressionAsync<string>("document.title");
 ```
 
 A client's `newPage` opens a real page in a real browser context, `goto` navigates and reports the lifecycle
-Chrome reports, and `evaluate` runs in the page. Three things a client may notice are decisions rather than
+Chrome reports, and `evaluate` runs in the page. **Finding elements and clicking them works too** — the `DOM`
+domain answers about the document a client walks, and `Input.dispatchMouseEvent` turns a coordinate into the
+pointer and mouse sequence a browser fires, with the focus and the activation behaviour that go with it:
+
+```c#
+var button = await page.QuerySelectorAsync("#submit");
+var box = await button.BoundingBoxAsync();      // the flat model's box, the same one the page reads
+await button.ClickAsync();                       // a trusted click at its centre; a link here would navigate
+
+await page.WaitForSelectorAsync("#result");
+var rows = await page.QuerySelectorAllAsync("tr.row");
+```
+
+Three things a client may notice are decisions rather than
 gaps, and each is stated in the code that makes it: an isolated world is a second *name* for the document's
 own realm rather than a realm of its own; a dialog does not block the page, so `Page.handleJavaScriptDialog`
 sets the decision the next `alert`, `confirm` or `prompt` reads; and `Page.captureScreenshot` and
@@ -2465,10 +2490,11 @@ from the DOM — no layout, no rendering, and nothing that runs a line of the pa
 the options the extractor behind it already had.
 
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
-and no rendering or layout — so every rectangle is zeros and `getBoundingClientRect` does not exist. Over the
-protocol that means no `Network` or `Fetch` events (so a client's `goto` answers no response object), no
-`DOM`, `Input`, `Storage` or `Accessibility` domains, and no screenshots. Those are the later items of the
-same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
+and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
+nothing is ever side by side. Over the protocol that means no `Network` or `Fetch` events (so a client's
+`goto` answers no response object), no keyboard (`Input.dispatchKeyEvent` and `insertText` are absent, so
+`page.type` does not work yet), no `Storage` or `Accessibility` domains, and no screenshots. Those are the
+later items of the same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
 absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
 reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
 and `document.write` after a page has finished parsing is refused with a page error rather than implying

@@ -119,7 +119,7 @@ internal static class ObserverInstaller
         .Accessor("intersectionRatio", static (_, _) => JsNumber.Create(1))
         .Accessor("intersectionRect", static (t, _) => JsIntersectionObserverEntry.Brand(t, "intersectionRect").Rect())
         .Accessor("isIntersecting", static (_, _) => JsBoolean.True)
-        .Accessor("rootBounds", static (t, _) => JsIntersectionObserverEntry.Brand(t, "rootBounds").Rect())
+        .Accessor("rootBounds", static (t, _) => JsIntersectionObserverEntry.Brand(t, "rootBounds").RootBounds())
         .Accessor("target", static (t, _) => JsIntersectionObserverEntry.Brand(t, "target").TargetValue)
         .Accessor("time", static (t, _) => JsNumber.Create(JsIntersectionObserverEntry.Brand(t, "time").Time))
         .Build();
