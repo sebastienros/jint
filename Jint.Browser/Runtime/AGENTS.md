@@ -59,9 +59,9 @@ mean re-installing every intrinsic; the prototype swap costs nothing, and
 reading `thisObject` has no engine to reach the runtime through and can only answer `Illegal invocation`.
 Accessors are unaffected, because a bare identifier *read* goes through the global object's `[[Get]]` with the
 global as receiver. So: **an operation that needs its page is a `PerRealmSlot` holding a `ClrFunction` bound to
-the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `scrollTo`,
-`getSelection` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`,
-and fails `foo()`.
+the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `scrollTo`, `blur`,
+`open` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`, and fails
+`foo()`. `getSelection` crossed that line the moment it had a selection to answer.
 
 Several members are own properties of their object rather than accessors on a shaped prototype, and each says
 why in place. On `document`: `defaultView` (the binding excludes AngleSharp's `IWindow`), `currentScript`

@@ -26,6 +26,9 @@ internal sealed class Overrides
     [JsonPropertyName("hooks")]
     public List<HookEntry> Hooks { get; init; } = [];
 
+    [JsonPropertyName("additions")]
+    public List<AdditionEntry> Additions { get; init; } = [];
+
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
@@ -92,6 +95,44 @@ internal sealed class Overrides
         /// <summary>The method on <c>DomHostHooks</c> the generated body calls.</summary>
         [JsonPropertyName("hook")]
         public string Hook { get; init; } = "";
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// A member the DOM standard puts on a generated interface and that AngleSharp's metadata cannot express
+    /// — a callback parameter, a stringifier with no <c>[DomName]</c>, a member AngleSharp spells by another
+    /// name. The body is hand-written and lives in <c>Jint.Browser/Dom/Views/DomViewMembers.cs</c>.
+    /// </summary>
+    /// <remarks>
+    /// This is the one list whose entries name something the pinned assemblies do <em>not</em> have; what is
+    /// checked instead is the opposite — that the interface exists and that the member does not, so an entry
+    /// can never quietly shadow a member AngleSharp grew.
+    /// </remarks>
+    internal sealed class AdditionEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        [JsonPropertyName("member")]
+        public string Member { get; init; } = "";
+
+        /// <summary><c>operation</c> (the default) or <c>attribute</c>.</summary>
+        [JsonPropertyName("kind")]
+        public string Kind { get; init; } = "operation";
+
+        /// <summary>An operation's declared parameter count — its <c>length</c>.</summary>
+        [JsonPropertyName("length")]
+        public int Length { get; init; }
+
+        /// <summary>The C# statements of the operation or of the getter, one entry per line.</summary>
+        [JsonPropertyName("body")]
+        public List<string> Body { get; init; } = [];
+
+        /// <summary>The C# statements of the setter, for a writable attribute.</summary>
+        [JsonPropertyName("setter")]
+        public List<string>? Setter { get; init; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

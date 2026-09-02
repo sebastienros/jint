@@ -21,6 +21,7 @@ namespace Jint.Browser.Runtime;
 internal sealed class JsMediaQueryList : JsEventTarget
 {
     private readonly PageRuntime _runtime;
+    private bool _lastMatches;
 
     internal JsMediaQueryList(PageRuntime runtime, ObjectInstance prototype, string media)
         : base(runtime.Engine, runtime.Engine._mainRealm)
@@ -28,6 +29,8 @@ internal sealed class JsMediaQueryList : JsEventTarget
         _runtime = runtime;
         Media = media;
         Prototype = prototype;
+        _lastMatches = Matches;
+        runtime.Track(this);
     }
 
     /// <summary>The serialized query, as the page wrote it.</summary>
@@ -38,6 +41,27 @@ internal sealed class JsMediaQueryList : JsEventTarget
 
     /// <summary>The event type a <c>MediaQueryList</c> fires, which is also what <c>onchange</c> keys on.</summary>
     internal const string ChangeEventType = "change";
+
+    /// <summary>
+    /// Recomputes after a viewport change and fires <c>change</c> if the answer moved.
+    /// </summary>
+    /// <remarks>
+    /// <a href="https://drafts.csswg.org/cssom-view/#evaluate-media-queries-and-report-changes">CSSOM View</a>
+    /// fires at a list whose <c>matches</c> changed and at no other, so a page with ten listeners hears from
+    /// the ones whose answer actually moved. The event carries <c>media</c> and <c>matches</c> because that is
+    /// what a listener written without a reference to the list reads.
+    /// </remarks>
+    internal void ViewportChanged()
+    {
+        var matches = Matches;
+        if (matches == _lastMatches)
+        {
+            return;
+        }
+
+        _lastMatches = matches;
+        DispatchEvent(_runtime.Views.CreateMediaQueryListEvent(Media, matches));
+    }
 
     /// <inheritdoc />
     public override string ToString() => "[object MediaQueryList]";

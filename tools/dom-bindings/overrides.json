@@ -127,6 +127,127 @@
     }
   ],
 
+  "additions": [
+    {
+      "interface": "Document",
+      "member": "createTreeWalker",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createTreeWalker\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.CreateTreeWalker(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §6.1. AngleSharp has it, but its third parameter is a NodeFilter delegate and the conversion table has no entry for a delegate — deliberately, because only the standard knows a callback's IDL shape. Dom/Views/NodeFilters accepts both shapes DOM's legacy callback interface allows."
+    },
+    {
+      "interface": "Document",
+      "member": "createNodeIterator",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createNodeIterator\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.CreateNodeIterator(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §6.1, and the same delegate parameter as createTreeWalker."
+    },
+    {
+      "interface": "Document",
+      "member": "getSelection",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.getSelection\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm);"
+      ],
+      "reason": "Selection API §3: document.getSelection() answers the same object window.getSelection() does. AngleSharp has no Selection at all, so the interface is the runtime's."
+    },
+    {
+      "interface": "TreeWalker",
+      "member": "filter",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, \"TreeWalker.filter\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);"
+      ],
+      "reason": "DOM §6.2 `readonly attribute NodeFilter? filter`. AngleSharp's ITreeWalker.Filter is the CLR delegate, which cannot cross back; the value the page passed is remembered at creation instead."
+    },
+    {
+      "interface": "NodeIterator",
+      "member": "filter",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeIterator>(thisObj, \"NodeIterator.filter\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);"
+      ],
+      "reason": "DOM §6.1, the same as TreeWalker.filter."
+    },
+    {
+      "interface": "Range",
+      "member": "toString",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.toString\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.RangeToString(self.Target);"
+      ],
+      "reason": "DOM §5.5 declares Range's stringifier. AngleSharp implements it as Range.ToString() and puts no [DomName] on it, so nothing in the metadata says the member exists."
+    },
+    {
+      "interface": "Range",
+      "member": "getBoundingClientRect",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.getBoundingClientRect\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.RangeRect(self.Realm);"
+      ],
+      "reason": "CSSOM View extends Range with it and AngleSharp has no layout to answer from. Zeros, honestly, until the flat-box model (campaign item C4) gives every box a deterministic rectangle."
+    },
+    {
+      "interface": "Range",
+      "member": "getClientRects",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, \"Range.getClientRects\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.RangeRects(self.Realm);"
+      ],
+      "reason": "The other half of getBoundingClientRect: an empty list, because a range with no layout covers no boxes."
+    },
+    {
+      "interface": "ShadowRoot",
+      "member": "mode",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, \"ShadowRoot.mode\");",
+        "return global::Jint.Browser.Dom.DomEnums.FromShadowRootMode(self.Target.Mode);"
+      ],
+      "reason": "DOM §4.8 `readonly attribute ShadowRootMode mode`, and the member a page reads to tell an open root from a closed one. AngleSharp has IShadowRoot.Mode but puts no [DomName] on it — the only member of the interface without one — so nothing in the metadata says it is projected."
+    },
+    {
+      "interface": "HTMLSlotElement",
+      "member": "assignedNodes",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, \"HTMLSlotElement.assignedNodes\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target);"
+      ],
+      "reason": "DOM §4.2.5. AngleSharp's [DomName] is getDistributedNodes, which is the Shadow DOM v0 spelling; both are emitted, because the old one is what the metadata says and the new one is what a page calls."
+    },
+    {
+      "interface": "HTMLSlotElement",
+      "member": "assignedElements",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, \"HTMLSlotElement.assignedElements\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);"
+      ],
+      "reason": "DOM §4.2.5, the element-only half of assignedNodes."
+    }
+  ],
+
   "nullableStrings": [
     {
       "interface": "Element",
@@ -157,6 +278,21 @@
       "interface": "Attr",
       "member": "prefix",
       "reason": "DOM §4.9.2: `readonly attribute DOMString? prefix`."
+    },
+    {
+      "interface": "MutationRecord",
+      "member": "attributeName",
+      "reason": "DOM §4.3.3: `readonly attribute DOMString? attributeName` — null for every record but an attributes one, which is how a callback tells the types apart without reading `type`."
+    },
+    {
+      "interface": "MutationRecord",
+      "member": "attributeNamespace",
+      "reason": "DOM §4.3.3: `readonly attribute DOMString? attributeNamespace` — null for an attribute in no namespace, which is nearly all of them."
+    },
+    {
+      "interface": "MutationRecord",
+      "member": "oldValue",
+      "reason": "DOM §4.3.3: `readonly attribute DOMString? oldValue` — and null is load-bearing here, because it is also what an observer that did not ask for the old value must see. The empty string would be indistinguishable from an attribute whose previous value really was empty."
     },
     {
       "interface": "Node",

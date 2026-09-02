@@ -48,6 +48,9 @@
     <!-- Pinned centrally in Directory.Packages.props, which is also the binding generator's pin. -->
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="AngleSharp.Css" />
+    <!-- AngleSharp's XML parser, for DOMParser's four XML content types and nothing else. It is not a
+         generator input: no interface is projected from it, so the pin stays two assemblies. -->
+    <PackageReference Include="AngleSharp.Xml" />
   </ItemGroup>
 
   <ItemGroup>

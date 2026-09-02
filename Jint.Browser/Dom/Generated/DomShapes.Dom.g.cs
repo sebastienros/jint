@@ -703,6 +703,13 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.CreateElement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createElementNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createElementNS")));
                 },
                 length: 2)
+            .Method("createNodeIterator",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createNodeIterator");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateNodeIterator(self.Realm, self.Target, args);
+                },
+                length: 1)
             .Method("createProcessingInstruction",
                 static (thisObj, args) =>
                 {
@@ -722,6 +729,13 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createTextNode");
                     return self.Realm.WrapNodeValue(self.Target.CreateTextNode(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createTextNode")));
+                },
+                length: 1)
+            .Method("createTreeWalker",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createTreeWalker");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.CreateTreeWalker(self.Realm, self.Target, args);
                 },
                 length: 1)
             .Accessor("currentScript",
@@ -848,6 +862,13 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.GetElementsByTagName(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.getElementsByTagNameNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.getElementsByTagNameNS")));
                 },
                 length: 2)
+            .Method("getSelection",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.getSelection");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.GetSelection(self.Realm);
+                },
+                length: 0)
             .Method("hasFocus",
                 static (thisObj, args) =>
                 {
@@ -1677,13 +1698,13 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.attributeName");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AttributeName);
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeName);
                 })
             .Accessor("attributeNamespace",
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.attributeNamespace");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AttributeNamespace);
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.AttributeNamespace);
                 })
             .Accessor("nextSibling",
                 static (thisObj, args) =>
@@ -1695,7 +1716,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IMutationRecord>(thisObj, "MutationRecord.oldValue");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.PreviousValue);
+                    return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.PreviousValue);
                 })
             .Accessor("previousSibling",
                 static (thisObj, args) =>
@@ -1797,6 +1818,12 @@ internal static partial class DomInterfaces
             .Constant("SHOW_NOTATION", global::Jint.Native.JsNumber.Create(2048))
             .Constant("SHOW_PROCESSING_INSTRUCTION", global::Jint.Native.JsNumber.Create(64))
             .Constant("SHOW_TEXT", global::Jint.Native.JsNumber.Create(4))
+            .Accessor("filter",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeIterator>(thisObj, "NodeIterator.filter");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);
+                })
             .Method("nextNode",
                 static (thisObj, args) =>
                 {
@@ -1833,7 +1860,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INodeIterator>(thisObj, "NodeIterator.whatToShow");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Settings));
+                    return global::Jint.Browser.Dom.DomConvert.Number((long) (self.Target.Settings));
                 })
             .Build();
 
@@ -1978,6 +2005,20 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.ExtractContent());
                 },
                 length: 0)
+            .Method("getBoundingClientRect",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.getBoundingClientRect");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.RangeRect(self.Realm);
+                },
+                length: 0)
+            .Method("getClientRects",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.getClientRects");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.RangeRects(self.Realm);
+                },
+                length: 0)
             .Method("insertNode",
                 static (thisObj, args) =>
                 {
@@ -2074,6 +2115,13 @@ internal static partial class DomInterfaces
                     self.Target.Surround(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Range.surroundContents")); return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 1)
+            .Method("toString",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IRange>(thisObj, "Range.toString");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.RangeToString(self.Target);
+                },
+                length: 0)
             .Build();
 
     /// <summary>The members of <c>ShadowRoot</c>.</summary>
@@ -2103,6 +2151,12 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, "ShadowRoot.innerHTML");
                     self.Target.InnerHtml = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "ShadowRoot.innerHTML"); return global::Jint.Native.JsValue.Undefined;
+                })
+            .Accessor("mode",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IShadowRoot>(thisObj, "ShadowRoot.mode");
+                    return global::Jint.Browser.Dom.DomEnums.FromShadowRootMode(self.Target.Mode);
                 })
             .Accessor("styleSheets",
                 static (thisObj, args) =>
@@ -2181,6 +2235,12 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.currentNode");
                     self.Target.Current = global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "TreeWalker.currentNode"); return global::Jint.Native.JsValue.Undefined;
                 })
+            .Accessor("filter",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.filter");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.Filter(self.Target);
+                })
             .Method("firstChild",
                 static (thisObj, args) =>
                 {
@@ -2240,7 +2300,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITreeWalker>(thisObj, "TreeWalker.whatToShow");
-                    return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Settings));
+                    return global::Jint.Browser.Dom.DomConvert.Number((long) (self.Target.Settings));
                 })
             .Build();
 }
