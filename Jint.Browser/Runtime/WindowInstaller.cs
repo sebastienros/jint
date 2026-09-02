@@ -115,7 +115,16 @@ internal static class WindowInstaller
 
         // The window is the engine's global event target, and a document's event path ends at it. Publishing
         // it here rather than in the binding is what keeps the binding free of any notion of a window.
-        runtime.Dom.WindowTarget = engine._webApi?.GlobalEventTarget;
+        var windowTarget = engine._webApi?.GlobalEventTarget;
+        runtime.Dom.WindowTarget = windowTarget;
+
+        if (windowTarget is not null)
+        {
+            // This global scope is a `Window`, which is the fact DOM's default passive value turns on
+            // (https://dom.spec.whatwg.org/#default-passive-value) and which no engine without a document
+            // can claim.
+            windowTarget.IsWindow = true;
+        }
 
         foreach (var name in (string[]) ["window", "self", "frames", "top", "parent"])
         {

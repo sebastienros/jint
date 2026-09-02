@@ -390,16 +390,6 @@ internal static class WptBrowserExclusions
         new("dom/events/Event-init-while-dispatching.html", "Calling initUIEvent while dispatching.", WptDivergence.NeedsTriage),
         new("dom/events/Event-subclasses-constructors.html", "UIEvent constructor (view argument with wrong type)", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 8. passive by default
-        // https://dom.spec.whatwg.org/#default-passive-value: a `touchstart`, `touchmove`, `wheel` or
-        // `mousewheel` listener added to the Window, the Document, the document element or the body with no
-        // `passive` member is passive, so its `preventDefault()` does nothing. Here it is active, and the
-        // thirty-two rows are those four types over those four targets in the two spellings that leave the
-        // member out. The `{passive:true}` and `{passive:false}` spellings pass, so the rule is what is
-        // missing rather than the mechanism.
-        new("dom/events/passive-by-default.html", "* listener is passive by default for *", WptDivergence.NeedsTriage),
-        new("dom/events/passive-by-default.html", "* listener is passive with {passive:undefined} for *", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- 9. one click, one activation behaviour
         // https://dom.spec.whatwg.org/#eventtarget-activation-behavior: a dispatch runs the activation
         // behaviour of *one* element — the nearest ancestor in the event path that has one — and these rows
