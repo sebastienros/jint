@@ -98,7 +98,13 @@ public interface ICldrProvider
     /// <param name="locale">The locale identifier.</param>
     /// <param name="style">Style: "long", "short", "narrow", or "numeric".</param>
     /// <param name="calendar">Calendar identifier (e.g., "gregory", "buddhist"), or null for default.</param>
-    /// <returns>Array of 12 month names (January-December) or null if not available.</returns>
+    /// <returns>The calendar's month names in order, or null if none are available for it.</returns>
+    /// <remarks>
+    /// The array is indexed by the calendar's own month number, so it is as long as that calendar's year:
+    /// thirteen for Coptic, Ethiopic and a Hebrew or Chinese leap year, twelve for the Gregorian months.
+    /// Answering null is what leaves the month number standing, and is the right answer for a calendar the
+    /// implementation has no names for - a Gregorian name under a non-Gregorian month number is a wrong name.
+    /// </remarks>
     string[]? GetMonthNames(string locale, string style, string? calendar);
 
     /// <summary>

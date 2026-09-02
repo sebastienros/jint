@@ -335,8 +335,25 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return null;
     }
 
+    /// <summary>
+    /// The month names this provider has for <paramref name="calendar"/>, or null when it has none for it.
+    /// </summary>
+    /// <remarks>
+    /// The names come from <see cref="DateTimeFormatInfo.MonthNames"/>, and those are the twelve Gregorian
+    /// months, so this provider answers for the calendars that count them - <c>gregory</c>, <c>iso8601</c>,
+    /// <c>buddhist</c>, <c>japanese</c> and <c>roc</c>, which differ in era and year only - and answers null
+    /// for a calendar counting months of its own. Writing "May" for Shevat would be a wrong name rather than
+    /// no name. A null calendar is the caller with nothing resolved, and reads the culture's names as before.
+    /// </remarks>
     public string[]? GetMonthNames(string locale, string style, string? calendar)
     {
+        if (!IntlUtilities.UsesGregorianMonths(calendar))
+        {
+            return null;
+        }
+
+        // Every calendar that reaches here answers with the same names, which is why the calendar is not
+        // part of the key.
         var cacheKey = string.Concat(locale, "_", style);
         return _monthNameCache.GetOrAdd(cacheKey, _ =>
         {
