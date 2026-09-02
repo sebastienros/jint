@@ -30,9 +30,12 @@ non-zero count there means the corpus has found something and somebody still owe
 empty until [#3260](https://github.com/sebastienros/jint/issues/3260) gave the fetch corpus a server, which
 found five things the moment it could make a real request; they were filed as #3279–#3283, they are all fixed,
 and the category went **empty again**, which is the state that makes the next non-zero count mean something.
-It is non-zero now: vendoring `fetch/api/request/` found that `new Request(anotherRequest)` leaves the input
-undisturbed, because `FetchBodyObject.ProxyBody` shares the source for a buffered body where the standard tees
-the stream, so `bodyUsed` stays false on the input. Three rows of `request-disturbed.any.js` name it.
+It went non-zero once more and is empty again: vendoring `fetch/api/request/` found that
+`new Request(anotherRequest)` left the input undisturbed, because `FetchBodyObject.ProxyBody` teed the stream
+(and shared the source for a buffered body) where the standard *proxies* it, and a proxy disturbs what it
+reads. Three rows of `request-disturbed.any.js` named it; [#3618](https://github.com/sebastienros/jint/issues/3618)
+fixed two and moved the third — which asks for a disturbance the constructor's own step makes conditional on
+there being no init body — to `AssertsWhatNothingRequires`, which is the shape the pair of categories is for.
 A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to

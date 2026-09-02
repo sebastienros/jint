@@ -107,6 +107,22 @@ internal static class TransformStreamOperations
     }
 
     /// <summary>
+    /// https://streams.spec.whatwg.org/#create-an-identity-transformstream — "set up transformStream with
+    /// transformAlgorithm set to an algorithm which, given chunk, enqueues chunk in transformStream".
+    /// </summary>
+    /// <remarks>
+    /// The chunk is enqueued as it arrived, so the pair is a queue with a readable end rather than a
+    /// conversion: what makes it useful is that the readable side is a <i>different</i> stream object, which
+    /// is the whole of <see cref="ReadableStreamPipe.CreateProxy"/>.
+    /// </remarks>
+    internal static JsTransformStream CreateIdentity(Engine engine, Realm realm)
+    {
+        JsTransformStream? identity = null;
+        identity = SetUp(engine, realm, chunk => Enqueue(identity!, chunk));
+        return identity;
+    }
+
+    /// <summary>
     /// "Enqueue <paramref name="chunk"/> into <paramref name="stream"/>" —
     /// https://streams.spec.whatwg.org/#transformstream-enqueue.
     /// </summary>

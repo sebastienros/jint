@@ -133,6 +133,29 @@ internal sealed class ReadableStreamPipe
         return transform.Readable;
     }
 
+    /// <summary>
+    /// "Create a proxy for <paramref name="stream"/>" —
+    /// https://streams.spec.whatwg.org/#readablestream-create-a-proxy: pipe it through an identity transform
+    /// and hand back the readable end.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The standard states the observable consequence itself: the result "pulls its data from
+    /// <i>stream</i>, while <i>stream</i> itself becomes immediately locked and disturbed". Both halves come
+    /// from the pipe rather than from anything written here — it acquires a reader, which locks, and sets
+    /// <c>disturbed</c> before it has read anything. <b>The proxied stream keeps its identity</b>, which is
+    /// the difference from <see cref="ReadableStreamOperations.Tee"/>: a tee replaces the stream its caller
+    /// held with a branch, and a proxy does not.
+    /// </para>
+    /// <para>
+    /// The result is a default stream even when the source is a byte stream, because the identity transform's
+    /// readable side is one — so BYOB reading does not survive a proxy, exactly as it does not in the
+    /// algorithm this implements.
+    /// </para>
+    /// </remarks>
+    internal static JsReadableStream CreateProxy(JsReadableStream stream)
+        => PipeThrough(stream, TransformStreamOperations.CreateIdentity(stream.Engine, stream.Realm));
+
     private void Start()
     {
         if (_signal is { } signal)

@@ -568,7 +568,19 @@ internal enum WptDivergence
     /// arrived, whereas here the divergence is in the test and no change to this engine would move it.
     /// </para>
     /// <para>
-    /// One entry today, moved out of <see cref="NeedsTriage"/> by
+    /// Two divergences today. The second is <c>fetch/api/request/request-disturbed.any.js</c>, "Input request
+    /// used for creating new request became disturbed even if body is not used", which asks that
+    /// <c>new Request(input, { body })</c> disturb <c>input</c>. https://fetch.spec.whatwg.org/#dom-request
+    /// creates the proxy that disturbs it only "if initBody is null and inputBody is non-null", so with an
+    /// init body nothing reads the input and <c>bodyUsed</c> stays false — the answer undici gives as well.
+    /// Neither engine that satisfies the assertion passes the row: Chrome and Firefox both fail this file's
+    /// two "became disturbed" rows, Chrome on the very next assertion because it replaces the input's stream
+    /// where a proxy leaves it in place. Its siblings were the <see cref="NeedsTriage"/> debt
+    /// https://github.com/sebastienros/jint/issues/3618 paid, which is the shape to keep: the rows that were
+    /// a defect left the table, and the row that is the test's own divergence moved here.
+    /// </para>
+    /// <para>
+    /// The first was moved out of <see cref="NeedsTriage"/> by
     /// https://github.com/sebastienros/jint/issues/3261 — <c>fetch/api/response/response-consume-empty.any.js</c>,
     /// "Consume empty FormData response body as text", which asks that
     /// <c>await new Response(new FormData()).text()</c> have length 0 and gets the 50-byte closing boundary

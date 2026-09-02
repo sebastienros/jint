@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+﻿#if NET8_0_OR_GREATER
 #nullable enable
 
 using System.Reflection;
@@ -1175,12 +1175,18 @@ public class WptTestRunner
         new("fetch/api/request/request-error.any.js", "Bad mode init parameter value", WptDivergence.NeedsBrowserRequestModel),
         new("fetch/api/request/request-error.any.js", "Bad cache init parameter value", WptDivergence.NeedsBrowserRequestModel),
 
-        // Constructing a Request from another one must leave the input disturbed. Jint's proxy shares the
-        // source for a buffered body instead of teeing it, so the input's bodyUsed stays false — a defect the
-        // corpus found the moment this file could run, recorded rather than fixed in the same change.
-        new("fetch/api/request/request-disturbed.any.js", "Input request used for creating new request became disturbed", WptDivergence.NeedsTriage),
-        new("fetch/api/request/request-disturbed.any.js", "Input request used for creating new request became disturbed even if body is not used", WptDivergence.NeedsTriage),
-        new("fetch/api/request/request-disturbed.any.js", "Request construction failure should not set \"bodyUsed\"", WptDivergence.NeedsTriage),
+        // The one row of request-disturbed.any.js that no conforming implementation passes. Its two siblings
+        // — "…became disturbed" and "Request construction failure should not set bodyUsed" — were the
+        // corpus's NeedsTriage debt and are fixed (#3618); this one asks that `new Request(input, {body})`
+        // disturb `input` as well, and https://fetch.spec.whatwg.org/#dom-request creates the proxy that
+        // disturbs it only "if initBody is null and inputBody is non-null". With an init body there is no
+        // proxy, nothing reads the input's body, and bodyUsed stays false — which is what undici answers too.
+        // Chrome satisfies this row's bodyUsed assertion and still fails the row on the next line
+        // ("body should not change"), because it replaces the input's stream where a proxy leaves it in
+        // place; Firefox fails both rows outright. See WptDivergence.AssertsWhatNothingRequires.
+        new("fetch/api/request/request-disturbed.any.js",
+            "Input request used for creating new request became disturbed even if body is not used",
+            WptDivergence.AssertsWhatNothingRequires),
 
         // https://fetch.spec.whatwg.org/#concept-bodyinit-extract runs the multipart/form-data encoding
         // algorithm over an empty entry list, which is the closing boundary and not nothing. The file says so

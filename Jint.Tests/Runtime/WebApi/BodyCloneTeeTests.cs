@@ -225,6 +225,10 @@ public class BodyCloneTeeTests
         // https://streams.spec.whatwg.org/#readablestream-create-a-proxy defines as a pipe through an
         // identity TransformStream — chunks pass through unchanged. It is not the clone-a-body algorithm,
         // so it must not start cloning.
+        //
+        // Only the proxy is read here, and that is the other half of the same algorithm: the input's stream
+        // "becomes immediately locked and disturbed", so `source.body.getReader()` is a TypeError from the
+        // moment the proxy exists. RequestTests.ProxyingLeavesTheInputsOwnStreamInPlace pins that half.
         var engine = FetchEngine();
         engine.Execute(Fixture);
 
@@ -238,9 +242,8 @@ public class BodyCloneTeeTests
               });
               const proxy = new Request(source);
 
-              const a = (await source.body.getReader().read()).value;
-              const b = (await proxy.body.getReader().read()).value;
-              return (a === initial) + ',' + (b === initial);
+              const chunk = (await proxy.body.getReader().read()).value;
+              return (chunk === initial) + ',' + source.bodyUsed;
             })()
             """).UnwrapIfPromise().AsString().Should().Be("true,true");
     }

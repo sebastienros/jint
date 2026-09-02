@@ -4801,6 +4801,36 @@ host `Invoke`. There is one more frame in the first case and a name where there 
 nothing about a frame a call expression created has changed. `Options.Interop.BuildCallStackHandler` is
 handed the same frames the renderer walks, so a host that overrides the rendering sees the new one too.
 
+### 4.109 A `Request` built from another `Request` consumes it ([#3618](https://github.com/sebastienros/jint/issues/3618))
+
+[The `Request` constructor](https://fetch.spec.whatwg.org/#dom-request) step 42 sets the new request's body
+to "the result of [creating a proxy](https://streams.spec.whatwg.org/#readablestream-create-a-proxy) for
+*inputBody*", and the Streams Standard says what a proxy leaves behind: the input's stream "becomes
+immediately **locked and disturbed**". Jint teed the stream instead — which replaced the object `input.body`
+had been answering with, and disturbed nothing — and, for a body still held as bytes, shared the source
+without disturbing it at all. So the input stayed usable, and one request could be copied any number of
+times:
+
+```js
+const source = new Request('https://example.org/', { method: 'POST', body: 'hi' });
+const before = source.body;
+const copy = new Request(source);
+
+source.bodyUsed;            // 5.0: false          5.x: true
+source.body === before;     // 5.0: false          5.x: true  (a proxy keeps the input's stream)
+new Request(source);        // 5.0: another copy   5.x: TypeError - body is already used
+```
+
+`fetch(request)` goes through that constructor, so it consumes the request object it is handed, exactly as it
+does in a browser and in Node. `request.clone()` is unchanged and is still the way to keep a second copy —
+[cloning a body](https://fetch.spec.whatwg.org/#concept-body-clone) tees, which is a different algorithm with
+a different purpose.
+
+**What could break:** host or script code that builds several requests from one input, or that reads a
+request's body after handing it to `fetch`. Call `clone()` before the copy that consumes it — the clone is
+what the standard provides for exactly this — or build each request from the same `RequestInit` rather than
+from a previous `Request`.
+
 ### 4.110 A module a host loader supplied honours `RetainFunctionSourceText` ([#3588](https://github.com/sebastienros/jint/issues/3588))
 
 `Options.RetainFunctionSourceText` retained function source for everything the engine parsed itself, and for
