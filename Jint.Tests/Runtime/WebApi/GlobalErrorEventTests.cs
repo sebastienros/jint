@@ -144,18 +144,24 @@ public class GlobalErrorEventTests
     }
 
     [Test]
-    public void TheGlobalObjectItselfIsNotAnEventTarget()
+    public void TheGlobalObjectGainsNoPrototypeButIsStillAcceptedByEventTargetsOperations()
     {
         var (engine, _) = Silent();
 
         // The whole point of the synthetic target: the global object gains no prototype and no brand, so
-        // nothing about its own property model changes.
+        // nothing about its own property model changes. `window instanceof EventTarget` therefore answers
+        // false, which is a browser divergence a host that installs a `Window` prototype chain closes.
         engine.Evaluate("globalThis instanceof EventTarget").AsBoolean().Should().BeFalse();
 
-        // And EventTarget.prototype's own methods still refuse it, because it is not one.
-        Assert.Throws<JavaScriptException>(() =>
-            engine.Execute("EventTarget.prototype.addEventListener.call(globalThis, 'x', function () {})"))!
-            .Message.Should().Contain("not an EventTarget");
+        // EventTarget.prototype's own operations nevertheless accept it and reach the synthetic target's
+        // listener list, because a browser's Window inherits those very functions and script written for one
+        // borrows them. Refusing the receiver would make the two ways of reaching one listener list disagree.
+        engine.Execute("""
+            EventTarget.prototype.addEventListener.call(globalThis, 'ping', function (e) { log.push('borrowed', e.target === globalThis); });
+            EventTarget.prototype.dispatchEvent.call(globalThis, new Event('ping'));
+            """);
+
+        Log(engine).Should().Be("borrowed,true");
     }
 
     [Test]

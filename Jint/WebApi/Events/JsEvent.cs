@@ -26,11 +26,14 @@ namespace Jint.WebApi.Events;
 /// <c>CustomEvent</c>'s brand check can be "is a <c>JsEvent</c> that also carries a detail".
 /// </para>
 /// <para>
-/// Deliberately absent: <c>cancelBubble</c>, which the specification marks legacy and which no script
-/// written for a non-browser runtime reaches for. <c>relatedTarget</c> and the touch target list belong to
-/// interfaces (<c>UIEvent</c>, <c>TouchEvent</c>) that do not exist here. The interface's other legacy
-/// members — <c>srcElement</c>, <c>returnValue</c>, <c>initEvent()</c> and <c>initCustomEvent()</c> —
-/// <i>are</i> implemented; see <see cref="EventPrototype"/> and <see cref="CustomEventPrototype"/>.
+/// Deliberately absent: the touch target list, which belongs to <c>TouchEvent</c> — an interface that does
+/// not exist here, so every path item's list is empty and nothing is modelled for it. The interface's legacy
+/// members — <c>srcElement</c>, <c>returnValue</c>, <c>cancelBubble</c>, <c>initEvent()</c> and
+/// <c>initCustomEvent()</c> — <i>are</i> implemented; see <see cref="EventPrototype"/> and
+/// <see cref="CustomEventPrototype"/>. <c>relatedTarget</c> is carried here, because
+/// https://dom.spec.whatwg.org/#concept-event-dispatch retargets it per path item, but it is exposed by no
+/// interface this engine ships: it becomes visible only once a host declares the <c>MouseEvent</c> or
+/// <c>FocusEvent</c> attribute that reads it.
 /// </para>
 /// </remarks>
 internal class JsEvent : ObjectInstance
@@ -128,6 +131,45 @@ internal class JsEvent : ObjectInstance
     /// <c>composedPath()</c> answers from.
     /// </summary>
     internal bool DispatchFlag { get; set; }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#event-relatedtarget — the event's related target, which
+    /// https://dom.spec.whatwg.org/#concept-event-dispatch retargets against every invocation target on the
+    /// path and which decides where a dispatch stops.
+    /// </summary>
+    /// <remarks>
+    /// A slot on every event rather than a member of a derived interface, because <i>dispatch</i> reads and
+    /// writes it for events of any type; the interfaces that expose it — <c>MouseEvent</c>,
+    /// <c>FocusEvent</c> — do not exist in this engine, so nothing script can reach observes it until a host
+    /// declares one. It is deliberately not restored after a dispatch: the specification leaves the last
+    /// item's retargeted value in place unless <i>clearTargets</i> nulls it.
+    /// </remarks>
+    internal JsEventTarget? RelatedTarget { get; set; }
+
+    /// <summary>
+    /// Whether this is <i>isActivationEvent</i> — https://dom.spec.whatwg.org/#concept-event-dispatch step
+    /// 6.4, "true if event is a <c>MouseEvent</c> object and event's <c>type</c> attribute is <c>click</c>".
+    /// </summary>
+    /// <remarks>
+    /// False here and everywhere in this engine, which has no <c>MouseEvent</c>: activation behaviour is
+    /// reachable only once a host declares that interface and overrides this on it.
+    /// </remarks>
+    internal virtual bool IsActivationEvent => false;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#event-path, or <see langword="null"/> when no dispatch has ever built one.
+    /// </summary>
+    /// <remarks>
+    /// Empty outside a dispatch and empty throughout a tree-less one, which is what keeps an
+    /// <c>AbortSignal</c>, a <c>MessagePort</c> or a global <c>error</c> event allocating exactly what it did
+    /// before the path existed: only <see cref="EventDispatch"/> ever calls <see cref="EnsurePath"/>, and only
+    /// a target that reports <see cref="JsEventTarget.IsNode"/> reaches it. The list is cleared rather than
+    /// dropped at the end of a dispatch, so an event dispatched repeatedly through a tree reuses its capacity.
+    /// </remarks>
+    internal List<EventPathItem>? Path { get; private set; }
+
+    /// <summary>The path list, created on the first tree dispatch this event takes part in.</summary>
+    internal List<EventPathItem> EnsurePath() => Path ??= new List<EventPathItem>();
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-initialize — <i>initialize an event</i>, which is the whole
