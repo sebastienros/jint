@@ -424,5 +424,85 @@ public class EventTargetTests
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("EventTarget.prototype.dispatchEvent.call({}, new Event('x'))"))!
             .Message.Should().Contain("EventTarget");
     }
+
+    // https://dom.spec.whatwg.org/#default-passive-value
+
+    /// <summary>
+    /// The engine's answer to DOM's <i>default passive value</i> is false for every type and every target it
+    /// ships, because the rule names a <c>Window</c>, a document, a document element and a body element and
+    /// an engine with no DOM has none of them.
+    /// </summary>
+    /// <remarks>
+    /// Both spellings of "the member is absent" are checked, because WebIDL treats an explicit
+    /// <c>undefined</c> as absent and it would be easy to make one of the two take a different path.
+    /// </remarks>
+    [TestCase("touchstart")]
+    [TestCase("touchmove")]
+    [TestCase("wheel")]
+    [TestCase("mousewheel")]
+    [TestCase("touchend")]
+    public void TheDefaultPassiveValueIsFalseWithoutADocument(string type)
+    {
+        var engine = WebEngine();
+        engine.SetValue("type", type);
+
+        foreach (var options in new[] { "", ", undefined", ", {}", ", { passive: undefined }", ", { capture: false }" })
+        {
+            engine.Execute($$"""
+                var e = new Event(type, { cancelable: true });
+                var handler = function (ev) { ev.preventDefault(); };
+                target.addEventListener(type, handler{{options}});
+                var result = target.dispatchEvent(e);
+                target.removeEventListener(type, handler);
+                """);
+
+            engine.Evaluate("e.defaultPrevented").AsBoolean().Should().BeTrue($"a listener added with \"{options}\" is not passive");
+            engine.Evaluate("result").AsBoolean().Should().BeFalse();
+        }
+    }
+
+    /// <summary>
+    /// A host that installs a document says which targets DOM's rule names, and the engine then answers true
+    /// for the four types and false for every other. The global scope's half of that is
+    /// <c>GlobalEventTarget.IsWindow</c>.
+    /// </summary>
+    /// <remarks>
+    /// A test rather than a page, because the point is that the engine holds the type list and the host holds
+    /// nothing but the classification: <c>Jint.Browser</c>'s window installer is the only caller that sets
+    /// this, and its own half is pinned by the browser package's tests and by the web-platform-tests document
+    /// <c>dom/events/passive-by-default.html</c>.
+    /// </remarks>
+    [TestCase("touchstart", true)]
+    [TestCase("touchmove", true)]
+    [TestCase("wheel", true)]
+    [TestCase("mousewheel", true)]
+    [TestCase("touchend", false)]
+    [TestCase("click", false)]
+    public void AGlobalScopeAHostCallsAWindowTakesTheDefaultPassiveValue(string type, bool passive)
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        engine._webApi!.GlobalEventTarget.IsWindow = true;
+        engine.SetValue("type", type);
+
+        engine.Execute("""
+            var e = new Event(type, { cancelable: true });
+            addEventListener(type, function (ev) { ev.preventDefault(); });
+            var result = dispatchEvent(e);
+            """);
+
+        engine.Evaluate("e.defaultPrevented").AsBoolean().Should().Be(!passive);
+        engine.Evaluate("result").AsBoolean().Should().Be(passive);
+
+        // The explicit spellings are unaffected by the rule, which is what makes it a *default*.
+        engine.Execute("""
+            var forced = new Event(type, { cancelable: true });
+            addEventListener(type, function (ev) { ev.preventDefault(); }, { passive: false });
+            var forcedResult = dispatchEvent(forced);
+            """);
+
+        engine.Evaluate("forced.defaultPrevented").AsBoolean().Should().BeTrue();
+        engine.Evaluate("forcedResult").AsBoolean().Should().BeFalse();
+    }
+
 }
 #endif

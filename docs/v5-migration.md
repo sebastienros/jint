@@ -5843,6 +5843,20 @@ never revokes grows the store, and no execution constraint describes that memory
 `RestoreGlobalSnapshot` **empties the store**, the way it empties the timer queue: the URLs were minted by
 the cycle that has ended and their strings are unreachable once its globals are gone.
 
+### 5.23 `addEventListener` implements DOM's default passive value ([#3692](https://github.com/sebastienros/jint/issues/3692))
+
+[DOM's *default passive value*](https://dom.spec.whatwg.org/#default-passive-value) makes a `touchstart`,
+`touchmove`, `wheel` or `mousewheel` listener passive when the target is a `Window`, a document, a document
+element or a body element and the `passive` member was left out — so its `preventDefault()` does nothing.
+`addEventListener` now applies that rule instead of defaulting `passive` to false unconditionally, and it
+reads `{ passive: undefined }` as WebIDL does: the member does not exist, so the default applies rather than
+`false`.
+
+**Nothing changes for an engine without a DOM.** The rule is a conjunction, and the half that names the four
+targets is answered by the host: an engine with no document has no `Window` and no body element, so every
+target Jint ships answers false and every listener stays active exactly as before. `Jint.Browser` is what
+answers otherwise, for its window, its `document`, its `documentElement` and its `body`.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

@@ -140,6 +140,26 @@ internal class JsEventTarget : ObjectInstance
     internal virtual bool IsNode => false;
 
     /// <summary>
+    /// The target half of https://dom.spec.whatwg.org/#default-passive-value: whether this target is a
+    /// <c>Window</c>, a document, a document element or a body element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// DOM's rule is a conjunction of two conditions, and this is the one only a host can answer. The other —
+    /// the type being <c>touchstart</c>, <c>touchmove</c>, <c>wheel</c> or <c>mousewheel</c> — is the
+    /// engine's, and <c>EventTargetArguments</c> tests it <i>first</i>, so a listener of any other type never
+    /// reaches this virtual at all.
+    /// </para>
+    /// <para>
+    /// <b>False for every target this engine ships</b>, including the synthetic global one: DOM says
+    /// "<c>Window</c> object", and an engine with no document has none. A host that installs a document says
+    /// so — <c>Jint.Browser</c>'s node wrappers override this, and its window installer sets
+    /// <c>GlobalEventTarget.IsWindow</c>.
+    /// </para>
+    /// </remarks>
+    internal virtual bool IsDefaultPassiveTarget => false;
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#get-the-parent — the target the event travels to next, or
     /// <see langword="null"/> to end the path.
     /// </summary>
