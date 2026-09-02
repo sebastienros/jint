@@ -460,6 +460,16 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         // stays the only one anything converts to.
         var calendarPinned = TryPinGregorianCalendar(dateTimeFormatInfo, culture);
 
+        // https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat - a dateStyle resolves to the
+        // locale's own date pattern, and the format a year-month or a month-day is written with is that
+        // pattern narrowed to the fields the type carries. Which type asked is what required says.
+        var dateStyleFields = required switch
+        {
+            DateTimeRequired.YearMonth => DateStyleFields.YearMonth,
+            DateTimeRequired.MonthDay => DateStyleFields.MonthDay,
+            _ => DateStyleFields.All,
+        };
+
         // https://tc39.es/ecma402/#sec-formatdatetimepattern — the month, weekday and day-period names a
         // pattern writes are locale data. Every one of them is produced by handing a .NET pattern to
         // this culture, so seeding the culture's own tables is the one place a host's names reach all of
@@ -523,7 +533,8 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             timeZoneName,
             hasExplicitFormatComponents,
             dateTimeFormatInfo,
-            culture);
+            culture,
+            dateStyleFields);
     }
 
     /// <summary>
