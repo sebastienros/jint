@@ -4743,6 +4743,34 @@ which still cannot reopen what the profile closed.
 **What could break:** an engine that declared the profile from a callback did not exist — the construction
 threw. The message names the fix: call `options.ForUntrustedCode(limits)` before `new Engine(options)`.
 
+### 4.107 A `dateStyle` writes only the fields a year-month or a month-day has ([#3590](https://github.com/sebastienros/jint/issues/3590))
+
+`Temporal.PlainMonthDay` carries a reference year and `Temporal.PlainYearMonth` a reference day, neither of
+which is part of the value. A `dateStyle` resolves to the locale's own full date pattern, and both types
+filled that pattern's remaining field from their reference value, so a month-day printed a year of 1972 and a
+year-month printed a day. The pattern is now narrowed to the fields the type has, which is what
+[AdjustDateTimeStyleFormat](https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat) says and what
+ICU, and therefore V8, write:
+
+```js
+new Temporal.PlainMonthDay(5, 31, 'gregory', 2222)
+    .toLocaleString('en', { dateStyle: 'full' });    // 5.0: "Friday, May 31, 2222"   5.x: "May 31"
+
+new Temporal.PlainYearMonth(2024, 5, 'gregory', 31)
+    .toLocaleString('en', { dateStyle: 'short' });   // 5.0: "5/31/24"                   5.x: "5/24"
+```
+
+`Intl.DateTimeFormat.prototype.format` and `formatToParts` narrow through the same code, so the two lanes now
+agree for these two types; the lane they took before dropped the same fields but rebuilt the rest from
+hard-coded component options, writing `"August, 2026"` where the locale's pattern has no comma and a
+four-digit year where `dateStyle: 'short'` asks for two. `Temporal.Instant`, `PlainDate`, `PlainDateTime`,
+`PlainTime` and `ZonedDateTime` are unaffected: they have every field their pattern writes.
+
+**What could break:** a script comparing a styled `PlainYearMonth` or `PlainMonthDay` against a hard-coded
+string. There is no option to restore the old output. To write a year beside a month-day, or a day beside a
+year-month, name the fields instead of the style — `{ year: 'numeric', month: 'long', day: 'numeric' }` — and
+supply the value that should stand in the field the type does not have.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

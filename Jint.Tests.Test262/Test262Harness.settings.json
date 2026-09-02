@@ -213,12 +213,6 @@
 
     // === INTL402 TEMPORAL EXCLUSIONS ===
 
-    // The month-name half of these two passes; what still fails is the last assertion of each, that a
-    // dateStyle writes neither PlainMonthDay's reference year nor PlainYearMonth's reference day. Removed
-    // by making toLocaleString drop the reference field from the pattern a dateStyle resolves to.
-    "intl402/Temporal/PlainMonthDay/prototype/toLocaleString/dateStyle.js",
-    "intl402/Temporal/PlainYearMonth/prototype/toLocaleString/dateStyle.js",
-
     // Remaining intl402/Temporal calendar failures
     "intl402/DateTimeFormat/prototype/formatToParts/compare-to-temporal-lunisolar.js",
     "intl402/Temporal/PlainDate/from/roundtrip-from-property-bag.js",

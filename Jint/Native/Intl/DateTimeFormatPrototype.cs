@@ -279,34 +279,20 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                 effectiveDateStyle = null;
             }
 
-            // For PlainYearMonth/PlainMonthDay, convert dateStyle to component-based formatting
-            // because these types need specific fields omitted (day for YearMonth, year for MonthDay)
-            if (effectiveDateStyle != null && required is DateTimeRequired.YearMonth or DateTimeRequired.MonthDay)
+            // https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat - a year-month and a month-day
+            // are written with the pattern the dateStyle resolved to, narrowed to the fields they have. The
+            // narrowing is the formatter's, so that both lanes into it - this one and toLocaleString - write
+            // the locale's own field widths and separators rather than an approximation of them.
+            var dateStyleFields = required switch
             {
-                var isShort = string.Equals(effectiveDateStyle, "short", StringComparison.Ordinal);
-                var isMedium = string.Equals(effectiveDateStyle, "medium", StringComparison.Ordinal);
-                string? year = null, month = null, day = null;
+                DateTimeRequired.YearMonth => DateStyleFields.YearMonth,
+                DateTimeRequired.MonthDay => DateStyleFields.MonthDay,
+                _ => DateStyleFields.All,
+            };
 
-                if (required == DateTimeRequired.YearMonth)
-                {
-                    year = "numeric";
-                    month = isShort ? "numeric" : isMedium ? "short" : "long";
-                }
-                else // MonthDay
-                {
-                    month = isShort ? "numeric" : isMedium ? "short" : "long";
-                    day = "numeric";
-                }
-
-                return new JsDateTimeFormat(
-                    _engine, dtf._prototype!, dtf.Locale, dtf.Calendar, dtf.ResolvedNumberingSystem,
-                    dtf.TimeZone, dtf.HourCycle, null, null,
-                    null, null, year, month, day, null, null, null, null, null,
-                    null, false, dtf.DateTimeFormatInfo, dtf.CultureInfo);
-            }
-
-            // Return modified DTF if styles were stripped, otherwise return as-is
-            if (!string.Equals(effectiveDateStyle, dtf.DateStyle, StringComparison.Ordinal)
+            // Return modified DTF if styles were stripped or fields narrowed, otherwise return as-is
+            if (dateStyleFields != DateStyleFields.All
+                || !string.Equals(effectiveDateStyle, dtf.DateStyle, StringComparison.Ordinal)
                 || !string.Equals(effectiveTimeStyle, dtf.TimeStyle, StringComparison.Ordinal))
             {
                 return new JsDateTimeFormat(
@@ -315,7 +301,7 @@ internal sealed partial class DateTimeFormatPrototype : Prototype
                     dtf.Weekday, dtf.Era, dtf.Year, dtf.Month, dtf.Day, dtf.DayPeriod,
                     dtf.Hour, dtf.Minute, dtf.Second, dtf.FractionalSecondDigits,
                     dtf.TimeZoneName, dtf.HasExplicitFormatComponents,
-                    dtf.DateTimeFormatInfo, dtf.CultureInfo);
+                    dtf.DateTimeFormatInfo, dtf.CultureInfo, dateStyleFields);
             }
             return dtf;
         }

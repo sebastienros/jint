@@ -1360,6 +1360,77 @@ public class IntlTests
     }
 
     /// <summary>
+    /// <see href="https://tc39.es/proposal-temporal/#sec-adjustdatetimestyleformat">AdjustDateTimeStyleFormat</see>
+    /// narrows the pattern a <c>dateStyle</c> resolved to down to the fields the value has, so neither the
+    /// reference year a <c>Temporal.PlainMonthDay</c> carries nor the reference day a
+    /// <c>Temporal.PlainYearMonth</c> carries is written.
+    /// </summary>
+    [TestCase("en-US", "full", "August 2026", "August 27")]
+    [TestCase("en-US", "long", "August 2026", "August 27")]
+    [TestCase("en-US", "medium", "Aug 2026", "Aug 27")]
+    [TestCase("en-US", "short", "8/26", "8/27")]
+    [TestCase("de-DE", "full", "August 2026", "27. August")]
+    [TestCase("de-DE", "short", "08.2026", "27.08")]
+    [TestCase("fr-FR", "full", "août 2026", "27 août")]
+    [TestCase("ja-JP", "full", "2026年8月", "8月27日")]
+    [TestCase("pt-PT", "full", "agosto de 2026", "27 de agosto")]
+    public void ADateStyleWritesOnlyTheFieldsAYearMonthOrAMonthDayHas(
+        string locale, string dateStyle, string yearMonth, string monthDay)
+    {
+        var script = $$"""
+            (function () {
+              const ym = new Temporal.PlainYearMonth(2026, 8, 'gregory', 27);
+              const md = new Temporal.PlainMonthDay(8, 27, 'gregory', 2222);
+              const options = { dateStyle: '{{dateStyle}}' };
+              const f = new Intl.DateTimeFormat('{{locale}}', options);
+              return [
+                ym.toLocaleString('{{locale}}', options),
+                f.format(ym),
+                f.formatToParts(ym).map(p => p.value).join(''),
+                md.toLocaleString('{{locale}}', options),
+                f.format(md),
+                f.formatToParts(md).map(p => p.value).join('')
+              ].join('|');
+            })()
+            """;
+
+        var expected = string.Join("|", yearMonth, yearMonth, yearMonth, monthDay, monthDay, monthDay);
+        _engine.Evaluate(script).AsString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// The narrowing takes the fields out of the pattern the style resolved to, so what is left is still the
+    /// locale's own: its field order, its own separators, and the field widths the style itself asked for -
+    /// a two-digit year under <c>"short"</c>, the month written out under <c>"long"</c>.
+    /// </summary>
+    [Test]
+    public void ANarrowedDateStyleKeepsTheLocalesOwnShape()
+    {
+        const string Script = """
+            (function () {
+              const ym = new Temporal.PlainYearMonth(2026, 8, 'gregory', 27);
+              const md = new Temporal.PlainMonthDay(8, 27, 'gregory', 2222);
+              const wrong = [];
+              for (const locale of ['en-US', 'en-GB', 'de-DE', 'fr-FR', 'ja-JP', 'pt-PT', 'ru-RU', 'hu-HU', 'sv-SE']) {
+                for (const dateStyle of ['full', 'long', 'medium', 'short']) {
+                  const y = ym.toLocaleString(locale, { dateStyle });
+                  const m = md.toLocaleString(locale, { dateStyle });
+                  if (y.includes('27')) wrong.push(locale + ' ' + dateStyle + ' year-month wrote the reference day: ' + y);
+                  if (m.includes('2222')) wrong.push(locale + ' ' + dateStyle + ' month-day wrote the reference year: ' + m);
+                  if (!y.includes('26')) wrong.push(locale + ' ' + dateStyle + ' year-month lost the year: ' + y);
+                  if (!m.includes('27')) wrong.push(locale + ' ' + dateStyle + ' month-day lost the day: ' + m);
+                  if (/^[\s\p{P}]|[\s,;\/-]$/u.test(y)) wrong.push(locale + ' ' + dateStyle + ' year-month kept a stray separator: ' + y);
+                  if (/^[\s\p{P}]|[\s,;\/-]$/u.test(m)) wrong.push(locale + ' ' + dateStyle + ' month-day kept a stray separator: ' + m);
+                }
+              }
+              return wrong.join(' | ');
+            })()
+            """;
+
+        _engine.Evaluate(Script).AsString().Should().BeEmpty();
+    }
+
+    /// <summary>
     /// <see href="https://tc39.es/ecma402/#sec-resolveoptions">ResolveOptions</see> step 3 reads the
     /// <c>localeMatcher</c> option through <c>GetOption</c>, which admits only <c>"lookup"</c> and
     /// <c>"best fit"</c> and raises a <c>RangeError</c> for anything else. <c>Intl.PluralRules</c> left the

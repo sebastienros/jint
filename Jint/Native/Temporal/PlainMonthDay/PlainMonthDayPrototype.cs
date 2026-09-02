@@ -298,10 +298,10 @@ internal sealed partial class PlainMonthDayPrototype : Prototype
     private JsValue ToLocaleString(JsValue thisObject, JsValue locales, JsValue options)
     {
         var md = ValidatePlainMonthDay(thisObject);
-        // Per spec: CreateDateTimeFormat with required=~date~, defaults=~date~
-        // But for PlainMonthDay, we use month-day specific defaults (no year)
+        // CreateDateTimeFormat with required=~month-day~, defaults=~month-day~: the month and the day are the
+        // fields this type has, and the reference year it carries beside them is no part of the value.
         var dtf = _realm.Intrinsics.DateTimeFormat.CreateDateTimeFormat(
-            locales, options, required: Intl.DateTimeRequired.Date, defaults: Intl.DateTimeDefaults.MonthDay);
+            locales, options, required: Intl.DateTimeRequired.MonthDay, defaults: Intl.DateTimeDefaults.MonthDay);
 
         // Calendar mismatch check: PlainMonthDay calendar must match DTF calendar exactly
         var cal = md.Calendar;

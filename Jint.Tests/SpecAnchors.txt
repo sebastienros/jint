@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-08-31
-anchors: 1251
+verified: 2026-09-02
+anchors: 1252
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -1051,6 +1051,7 @@ proposal-source-phase-imports sec-%abstractmodulesource%
 proposal-source-phase-imports sec-ContinueDynamicImport
 proposal-source-phase-imports sec-module-source-objects
 proposal-source-phase-imports sec-source-text-module-record-initialize-environment
+proposal-temporal sec-adjustdatetimestyleformat
 proposal-temporal sec-applyunsignedroundingmode
 proposal-temporal sec-checkisodaysrange
 proposal-temporal sec-createdatetimeformat
