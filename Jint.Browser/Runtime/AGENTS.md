@@ -75,6 +75,73 @@ through its own event bus. And the whole of **`Location`**, which `Runtime/Locat
 the right tool for one object and the wrong one for a class, because a shaped prototype that takes an
 undeclared property loses its shape and its inline caching with it.
 
+### The events bridge
+
+**AngleSharp's event bus is neither observed nor driven by script** (design doc §5). Everything script-visible
+is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the algorithm points this package
+owns. `Events/` is that: the interfaces, the handler attributes, the activation behaviours, focus and the
+input dispatcher. Three things are worth knowing before changing any of it.
+
+**AngleSharp has no activation behaviour at all, so none of it can be delegated.** Measured against the pinned
+1.7.2, with and without a browsing context: `IHtmlElement.DoClick()` dispatches a `click` on AngleSharp's own
+bus and returns — a checkbox it clicks does not toggle, a radio group does not change, a `<summary>` does not
+open its `<details>`, an `<a href>` does not navigate. `DoFocus()` never assigns `IDocument.ActiveElement`, so
+that property answers `null` for the life of every document where HTML says the body element. Those two are
+why `click`, `focus`, `blur`, `document.activeElement` and `document.hasFocus` are `skip`ped in the override
+table and re-declared through `additions`, and they are recorded in the divergence table in
+[`../AGENTS.md`](../AGENTS.md).
+
+**Which algorithm point raises which event.** The table is the artefact — an event fired anywhere else is a
+second bus:
+
+| Point | Fires | Where |
+| --- | --- | --- |
+| the parse ends | `readystatechange`, `DOMContentLoaded` (document), `load` (window) | `Runtime/PageDocument.FireLifecycle` |
+| a click's activation behaviour | `input` + `change` (checkbox, radio, `<option>`), `submit`, `reset`, `toggle`, a forwarded `click` | `Events/ActivationBehaviors` |
+| a form submits or resets | `invalid` at each failing control, `submit` (cancelable, carrying the `submitter`), `reset` (cancelable) | `Events/FormSubmission` |
+| focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
+| a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing` |
+
+`toggle` is the one that is **queued** rather than fired in place, on the engine's own task queue, because
+HTML's details notification task steps say so — a test that clicks a `<summary>` has to pump before it sees it.
+
+**Activation without a layout is exact where it is state and a seam where it is not.** Checkedness,
+`details.open` and selectedness are pure state, so they are implemented outright, legacy pre-activation
+rollback included. A link to follow, a form to submit and a file chooser to open leave the DOM, so they go to
+`Events/BrowserActivationHost`, whose default *records* rather than acting; the navigation layer (campaign
+item R5) replaces it through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing to pick
+with and is honestly nothing rather than a guessed value. Focusability is computed from the element's kind and
+its `tabindex` content attribute rather than from AngleSharp's `TabIndex`, which answers 0 for every element
+including a bare `<div>`.
+
+**Handler content attributes need no notification from AngleSharp, and that is a decision.** The attribute's
+text *is* the state: a handler slot records which text it was last reconciled against, and any difference is
+what HTML's "set the content attribute" step observes. Three points reconcile — wrapper construction (so a
+markup handler is registered ahead of any listener a script can add), `DomNodeObject.GetParent`, which the
+dispatcher calls exactly once per event path item and which costs one `GetAttribute`, and a read or write of
+the IDL attribute. The alternatives — a document-wide `MutationObserver` (R4's lane) or AngleSharp's
+`IAttributeObserver` service (a registration in the `IConfiguration` the page runtime builds, and one
+AngleSharp uses internally) — would put a notification path in a file another campaign item owns to learn
+something the attribute already says. The one case that needs more is `<body onload>`, because HTML redirects
+it to the **window** and `load` never touches the body: `EventHandlerContentAttributes.InstallBodyHandlers`
+builds that wrapper once when the parse ends.
+
+**`isTrusted` is the line between a script and a client.** `element.click()` is untrusted — HTML's `click()`
+says to fire the synthetic pointer event "with the not trusted flag set", and the activation behaviour still
+runs, because trust decides what a page can *tell apart*, not whether the default action happens. Everything
+`InputDispatcher` fires is trusted, because a protocol client driving a page stands in for a user.
+
+**Form submission is split down the middle, and the middle is HTML's.** `Events/FormSubmission` is everything
+up to and including "if the event was canceled, return" — the interactive validation that fires `invalid` at
+each failing control and can refuse outright, then the `submit` event; `Runtime/FormSubmitter` is everything
+after it — the entry list with its `formdata` event, the encoding, the request. The order is the
+specification's and it is observable: validation is step 4.5 and `submit` is step 4.7, so a form whose
+constraints fail never fires `submit` at all, and `form.submit()` skips both, which is the whole of what
+distinguishes it from `form.requestSubmit()` and from a submit button. Constraint validation asks
+`willValidate` before it asks `validity`, because that one member is what excludes a button, a disabled or
+readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
+form would be examined.
+
 ### Navigation is a fetch and a new engine
 
 `Page.NavigateAsync` runs off the page loop and commits onto it, and that split is the design:
@@ -128,8 +195,8 @@ thread while the loop sat blocked, and the engine would be entered from two thre
 **Nothing in this configuration is asynchronous** (the source is in memory, no `IResourceLoader` is registered,
 no `IEventLoop` is registered so `Document.QueueTaskAsync` completes inline, and the scripting hook answers
 `Task.CompletedTask`), so the whole parse including script execution happens on the one thread. That is
-checked, not believed: `PageScriptingService.ObservedThreadId` records the thread it was called on, and a
-mismatch becomes a page error naming the fallback the design specifies — a fully synchronous parse on the loop
+checked, not believed: `PageScriptingService.Hopped` compares the thread it was called on against the loop's,
+and a mismatch becomes a page error naming the fallback the design specifies — a fully synchronous parse on the loop
 with blocking script fetches. **Anything that makes a step of the parse genuinely asynchronous — a resource
 loader, an event loop service, a scripting hook that awaits — takes the fallback with it.**
 

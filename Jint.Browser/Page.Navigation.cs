@@ -130,7 +130,7 @@ public sealed partial class Page
 
             try
             {
-                FormSubmitter.Submit(runtime, form, submitter: null, fireEvent: true);
+                Events.FormSubmission.Submit(runtime.Dom, form, submitter: null);
                 return _capturedNavigation;
             }
             finally

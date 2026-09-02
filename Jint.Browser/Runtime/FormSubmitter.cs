@@ -36,79 +36,33 @@ namespace Jint.Browser.Runtime;
 internal static class FormSubmitter
 {
     /// <summary>
-    /// Runs the whole algorithm: the <c>submit</c> event, the entry list, the encoding and the navigation.
+    /// The lower half of the submission algorithm: the entry list with its <c>formdata</c> event, the
+    /// encoding, and the navigation the result becomes.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The upper half — interactive validation, the <c>submit</c> event and its cancelation — is
+    /// <see cref="Events.FormSubmission"/>, and this is only ever reached once that half has let the
+    /// submission through. <c>form.submit()</c> reaches it having skipped both, which is the whole of what
+    /// distinguishes it from <c>form.requestSubmit()</c> and from a submit button.
+    /// </para>
+    /// <para>
+    /// The reentrancy guard is HTML's <i>constructing entry list</i> flag, and the events half reads the same
+    /// one before it fires anything, so a <c>formdata</c> listener that submits its own form again is stopped
+    /// before a second <c>submit</c> event rather than after it.
+    /// </para>
+    /// </remarks>
     /// <param name="runtime">The page runtime the form belongs to.</param>
     /// <param name="form">The form to submit.</param>
-    /// <param name="submitter">
-    /// The element that caused the submission, or <see langword="null"/> when a script did — which is what
-    /// <c>form.submit()</c> is, and why that call skips the event.
-    /// </param>
-    /// <param name="fireEvent">
-    /// Whether to fire <c>submit</c> first. <c>form.submit()</c> does not
-    /// (https://html.spec.whatwg.org/multipage/forms.html#dom-form-submit); everything else does.
-    /// </param>
-    internal static void Submit(PageRuntime runtime, IHtmlFormElement form, IElement? submitter, bool fireEvent)
+    /// <param name="submitter">The element that caused the submission, or <see langword="null"/>.</param>
+    internal static void Submit(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
     {
         if (runtime.SubmittingForms.Contains(form))
         {
-            // The "constructing entry list" flag, as a reentrancy guard: a formdata listener that submits
-            // the same form again must not recurse.
             return;
         }
 
-        // Step 6 then step 8, in that order, and `form.submit()` skips both — which is the whole of what
-        // distinguishes it from `requestSubmit()` and from a button.
-        if (fireEvent)
-        {
-            if (!Validate(form, submitter) || !FireSubmit(runtime, form, submitter))
-            {
-                return;
-            }
-        }
-
         Navigate(runtime, form, submitter);
-    }
-
-    /// <summary>
-    /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#interactively-validate-the-constraints,
-    /// as far as AngleSharp's own validity model reaches.
-    /// </summary>
-    /// <remarks>
-    /// The <c>invalid</c> events the algorithm fires at each unsatisfied control are not dispatched here:
-    /// they belong with the rest of the form event vocabulary the input model owns (campaign item R2), and
-    /// firing only some of them would be worse than firing none. What this does honour is
-    /// <c>novalidate</c>/<c>formnovalidate</c> and the abort, which is the half a page's behaviour depends on.
-    /// </remarks>
-    private static bool Validate(IHtmlFormElement form, IElement? submitter)
-    {
-        if (form.HasAttribute("novalidate") || submitter?.HasAttribute("formnovalidate") == true)
-        {
-            return true;
-        }
-
-        try
-        {
-            return form.CheckValidity();
-        }
-        catch (Exception)
-        {
-            // A validity model that cannot answer is not a reason to refuse a submission the page asked for.
-            return true;
-        }
-    }
-
-    private static bool FireSubmit(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
-    {
-        if (runtime.Dom.WrapNode(form) is not { } target)
-        {
-            return true;
-        }
-
-        var ev = PageEvents.Create(runtime, "submit", bubbles: true, cancelable: true);
-        PageEvents.Member(ev, "submitter", submitter is null ? JsValue.Null : runtime.Dom.WrapNode(submitter));
-
-        return PageEvents.Dispatch(runtime, target, ev);
     }
 
     private static void Navigate(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)

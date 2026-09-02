@@ -102,40 +102,71 @@ internal sealed class Overrides
 
     /// <summary>
     /// A member the DOM standard puts on a generated interface and that AngleSharp's metadata cannot express
-    /// — a callback parameter, a stringifier with no <c>[DomName]</c>, a member AngleSharp spells by another
-    /// name. The body is hand-written and lives in <c>Jint.Browser/Dom/Views/DomViewMembers.cs</c>.
+    /// - a callback parameter, a stringifier with no <c>[DomName]</c>, a member AngleSharp spells by another
+    /// name, an event handler IDL attribute, an operation whose body is an event rather than a DOM call.
     /// </summary>
     /// <remarks>
-    /// This is the one list whose entries name something the pinned assemblies do <em>not</em> have; what is
-    /// checked instead is the opposite — that the interface exists and that the member does not, so an entry
-    /// can never quietly shadow a member AngleSharp grew.
+    /// <para>
+    /// An entry takes one of two forms, and exactly one: it either names a single <see cref="AdditionEntry.Member"/>
+    /// and carries its <see cref="AdditionEntry.Body"/>, or it names an <see cref="AdditionEntry.Extend"/>
+    /// method that is handed the half-built shape builder. <b>The member form is the one to reach for</b> - it
+    /// goes through the model like any projected member, so the generated file names it, it sorts with the
+    /// rest, and a member the pinned assemblies later grow under the same name is reported as a collision
+    /// instead of quietly shadowed.
+    /// </para>
+    /// <para>
+    /// The extend form exists for the one thing the member form cannot say: a <em>family</em> whose member
+    /// list is computed rather than enumerated. HTML's event handler IDL attributes are that family - eighty
+    /// -odd names on <c>HTMLElement</c> and as many again on <c>Document</c>, each an identically shaped
+    /// accessor pair, which as member entries would be a hundred and seventy near-identical rows of a table
+    /// whose whole purpose is to hold <em>decisions</em>. Its names are declared in C# where the generator
+    /// cannot see them, so its collision check is <c>JsObjectShape.Builder</c>'s own refusal of a duplicate
+    /// name, which <c>DomPrototypeTests</c> reaches for every interface.
+    /// </para>
+    /// <para>
+    /// The member form's entries name something the pinned assemblies do <em>not</em> have; what is checked is
+    /// the opposite - that the interface exists and that the member does not, so an entry can never quietly
+    /// shadow a member AngleSharp grew.
+    /// </para>
     /// </remarks>
     internal sealed class AdditionEntry
     {
         [JsonPropertyName("interface")]
         public string Interface { get; init; } = "";
 
+        /// <summary>The member form: the DOM name of the single member this entry declares.</summary>
         [JsonPropertyName("member")]
         public string Member { get; init; } = "";
 
-        /// <summary><c>operation</c> (the default) or <c>attribute</c>.</summary>
+        /// <summary><c>operation</c> (the default) or <c>attribute</c>. Member form only.</summary>
         [JsonPropertyName("kind")]
         public string Kind { get; init; } = "operation";
 
-        /// <summary>An operation's declared parameter count — its <c>length</c>.</summary>
+        /// <summary>An operation's declared parameter count - its <c>length</c>. Member form only.</summary>
         [JsonPropertyName("length")]
         public int Length { get; init; }
 
-        /// <summary>The C# statements of the operation or of the getter, one entry per line.</summary>
+        /// <summary>The C# statements of the operation or of the getter, one entry per line. Member form only.</summary>
         [JsonPropertyName("body")]
         public List<string> Body { get; init; } = [];
 
-        /// <summary>The C# statements of the setter, for a writable attribute.</summary>
+        /// <summary>The C# statements of the setter, for a writable attribute. Member form only.</summary>
         [JsonPropertyName("setter")]
         public List<string>? Setter { get; init; }
 
+        /// <summary>
+        /// The extend form: the hand-written method the emitter calls with the half-built builder, before
+        /// <c>Build()</c>. It takes a <c>JsObjectShape.Builder</c> and returns nothing.
+        /// </summary>
+        [JsonPropertyName("extend")]
+        public string Extend { get; init; } = "";
+
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";
+
+        /// <summary>Whether this entry hands the builder to a method rather than declaring one member.</summary>
+        [JsonIgnore]
+        public bool IsExtend => !string.IsNullOrEmpty(Extend);
     }
 
     internal sealed class NullableStringEntry

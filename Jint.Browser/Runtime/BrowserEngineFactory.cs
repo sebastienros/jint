@@ -93,8 +93,12 @@ internal static class BrowserEngineFactory
         runtime.Cancellation = cancellation;
 
         DomBindings.Install(engine);
-        runtime.Dom.Hooks = PageHostHooks.Instance;
         WindowInstaller.Install(runtime);
+
+        // Where an activation behaviour's default action goes now that there is a page behind it: a link
+        // navigates, a form submits, a file chooser is reported. Without this the events bridge records what
+        // it was asked for instead, which is what a binding-only engine gets.
+        Events.BrowserEventRealm.Of(engine).ActivationHost = new PageActivationHost(runtime);
 
         if (!hasStorage)
         {

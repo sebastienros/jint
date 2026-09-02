@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using Jint.Browser.Dom;
+using Jint.Browser.Events;
 using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
@@ -134,6 +135,10 @@ internal static class WindowInstaller
         // touching none of them builds none of their prototypes.
         Observers.ObserverInstaller.Install(runtime);
         Dom.Views.ViewInstaller.Install(runtime);
+
+        // The UI event interface objects — MouseEvent, KeyboardEvent and their family — as lazy, non-clobbering
+        // globals, the same way DomBindings.Install adds the DOM's.
+        BrowserEventRealm.Install(engine);
     }
 
     /// <summary>
