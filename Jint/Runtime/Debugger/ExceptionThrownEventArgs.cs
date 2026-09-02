@@ -9,12 +9,14 @@ public sealed class ExceptionThrownEventArgs : EventArgs
 {
     private readonly Engine _engine;
     private readonly SourceLocation _location;
+    private readonly long _generation;
     private DebugCallStack? _callStack;
 
-    internal ExceptionThrownEventArgs(Engine engine, JsValue thrownValue, in SourceLocation location)
+    internal ExceptionThrownEventArgs(Engine engine, JsValue thrownValue, in SourceLocation location, long generation)
     {
         _engine = engine;
         _location = location;
+        _generation = generation;
         ThrownValue = thrownValue;
     }
 
@@ -36,7 +38,7 @@ public sealed class ExceptionThrownEventArgs : EventArgs
         get
         {
             using var ownership = _engine.EnterHostCall();
-            return _callStack ??= new DebugCallStack(_engine, _location, _engine.CallStack, returnValue: null);
+            return _callStack ??= new DebugCallStack(_engine, _location, _engine.CallStack, returnValue: null, _generation);
         }
     }
 }

@@ -5241,6 +5241,37 @@ preview surface: `<NoWarn>$(NoWarn);JINT0002</NoWarn>`, or a `#pragma` at the ca
 `new Request(url, { credentials: "nonsense" })` is a `TypeError` where it used to be ignored.
 `mode`, `cache`, `integrity`, `keepalive` and `priority` are still accepted and ignored.
 
+### 5.11 A debugger can evaluate in any call frame ([#3622](https://github.com/sebastienros/jint/pull/3622))
+
+`DebugHandler.Evaluate` ran in the innermost frame and only there, so selecting a frame in a call-stack pane
+changed what a debugger *displayed* and nothing about what a watch expression or a console input resolved
+against. Both spellings now take the frame:
+
+```csharp
+engine.Debugger.Break += (sender, info) =>
+{
+    var caller = info.CallStack[1];
+
+    // reads and writes the caller's bindings, not the innermost frame's
+    var value = engine.Debugger.Evaluate("shadowed", caller);
+    engine.Debugger.Evaluate("shadowed = 'patched'", caller);
+
+    // the same, with a prepared expression a front end caches across stops
+    engine.Debugger.Evaluate(prepared, caller);
+
+    return StepMode.None;
+};
+```
+
+The frame's own scope chain is what resolves, so `this`, `arguments` and any binding the innermost frame
+shadows are the frame's; the last frame is the global (or module) one, which is what a protocol's plain
+`Runtime.evaluate` uses while a page is paused. Passing `info.CurrentCallFrame` is exactly the frameless
+overload. `CallFrame.Index` names a frame's position, counting from zero at the innermost.
+
+A frame belongs to the pause it was taken in. One kept past the `Break`, `Step` or `ExceptionThrown` handler
+that produced it names environments the engine has since left, and so does one from another engine; both are
+refused with `InvalidOperationException` rather than evaluated against.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

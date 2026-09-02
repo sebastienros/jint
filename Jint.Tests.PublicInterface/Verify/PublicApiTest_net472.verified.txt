@@ -2008,6 +2008,7 @@ namespace Jint.Runtime.Debugger
     {
         public Acornima.SourceLocation? FunctionLocation { get; }
         public string FunctionName { get; }
+        public int Index { get; }
         public Acornima.SourceLocation& Location { get; }
         public Jint.Native.JsValue? ReturnValue { get; }
         public Jint.Runtime.Debugger.DebugScopes ScopeChain { get; }
@@ -2034,7 +2035,9 @@ namespace Jint.Runtime.Debugger
         public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Skip;
         public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Step;
         public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
+        public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript, Jint.Runtime.Debugger.CallFrame frame) { }
         public Jint.Native.JsValue Evaluate(string sourceText, Jint.ScriptParsingOptions? parsingOptions = null) { }
+        public Jint.Native.JsValue Evaluate(string sourceText, Jint.Runtime.Debugger.CallFrame frame, Jint.ScriptParsingOptions? parsingOptions = null) { }
         public static Jint.Runtime.Debugger.StepLocation? FindStepLocation(Acornima.Ast.Program program, int line, int column) { }
         public static System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.StepLocation> GetStepLocations(Acornima.Ast.Program program) { }
         public static System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.StepLocation> GetStepLocations(Acornima.Ast.Program program, int startLine, int startColumn, int endLine, int endColumn) { }
