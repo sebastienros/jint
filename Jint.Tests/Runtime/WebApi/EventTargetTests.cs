@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using Jint.Native;
 using Jint.Runtime;
 
 namespace Jint.Tests.Runtime.WebApi;
@@ -504,5 +505,69 @@ public class EventTargetTests
         engine.Evaluate("forcedResult").AsBoolean().Should().BeFalse();
     }
 
+    // https://dom.spec.whatwg.org/#window-current-event
+
+    /// <summary>
+    /// An engine whose global object is not a <c>Window</c> does not maintain DOM's <i>current event</i> at
+    /// all — the slot stays undefined right through a dispatch.
+    /// </summary>
+    /// <remarks>
+    /// The point of the negative test is the cost: the read is one field on a target that already exists, and
+    /// an engine that installs no document never writes it, so nothing about a dispatch changed for the
+    /// engines that ship.
+    /// </remarks>
+    [Test]
+    public void TheCurrentEventIsNotMaintainedForAGlobalThatIsNotAWindow()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        var scope = engine._webApi!.GlobalEventTarget;
+        engine.SetValue("readEvent", new Func<JsValue>(() => scope.CurrentEvent));
+
+        engine.Execute("""
+            var during = 'unset';
+            addEventListener('ping', function () { during = readEvent(); });
+            dispatchEvent(new Event('ping'));
+            """);
+
+        engine.Evaluate("during === undefined").AsBoolean().Should().BeTrue();
+        scope.CurrentEvent.Should().Be(JsValue.Undefined);
+    }
+
+    /// <summary>
+    /// Once a host says the global object is a <c>Window</c>, the current event is the event whose listener is
+    /// running and is restored when it returns — after a nested dispatch, and after a listener that threw.
+    /// </summary>
+    [Test]
+    public void TheCurrentEventOfAWindowIsSetPerInvocationAndAlwaysRestored()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        var scope = engine._webApi!.GlobalEventTarget;
+        scope.IsWindow = true;
+        engine.SetValue("readEvent", new Func<JsValue>(() => scope.CurrentEvent));
+
+        engine.Execute("""
+            var outer = new Event('outer');
+            var inner = new Event('inner');
+            var seen = [];
+            var nested = new EventTarget();
+
+            nested.addEventListener('inner', function () { seen.push('inner:' + (readEvent() === inner)); });
+            addEventListener('outer', function () {
+                seen.push('outer:' + (readEvent() === outer));
+                nested.dispatchEvent(inner);
+                seen.push('after:' + (readEvent() === outer));
+            });
+
+            dispatchEvent(outer);
+            seen.push('done:' + (readEvent() === undefined));
+            """);
+
+        engine.Evaluate("seen.join(',')").AsString().Should().Be("outer:true,inner:true,after:true,done:true");
+
+        // A listener that throws erupts on an engine with no diagnostics sink, and the slot is still restored.
+        engine.Execute("addEventListener('boom', function () { throw new Error('x'); });");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("dispatchEvent(new Event('boom'))"));
+        scope.CurrentEvent.Should().Be(JsValue.Undefined);
+    }
 }
 #endif

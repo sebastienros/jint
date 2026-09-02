@@ -5857,6 +5857,18 @@ targets is answered by the host: an engine with no document has no `Window` and 
 target Jint ships answers false and every listener stays active exactly as before. `Jint.Browser` is what
 answers otherwise, for its window, its `document`, its `documentElement` and its `body`.
 
+### 5.24 A dispatch maintains DOM's current event for a `Window` global ([#3687](https://github.com/sebastienros/jint/issues/3687))
+
+[DOM's *current event*](https://dom.spec.whatwg.org/#window-current-event) is what `window.event` answers: the
+event a listener is running for, set before each invocation and restored after it — after a nested dispatch,
+and after a listener that threw. It cannot be kept anywhere but in the dispatch, so the engine keeps it, and a
+host with a document is what installs the `event` property that reads it.
+
+**Nothing changes for an engine without a DOM.** The slot is maintained only for a global object a host has
+declared to be a `Window`, which no engine the box ships is, so a dispatch on a stock engine reads one field
+and writes none. There is no `window.event` global either way: the slot is DOM's, the property is HTML's, and
+`Jint.Browser` is what puts the two together.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In
