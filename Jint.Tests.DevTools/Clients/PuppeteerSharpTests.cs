@@ -363,6 +363,94 @@ public class PuppeteerSharpTests
         await session.DetachAsync().WaitAsync(Bound);
     }
 
+    /// <summary>
+    /// The other way a front end stops an engine: not at a line it chose, but at a throw nothing catches.
+    /// </summary>
+    /// <remarks>
+    /// <c>setPauseOnExceptions</c> is a command every recorded client sends while connecting, and until now
+    /// it recorded a state and stopped on nothing. What this asserts is the whole round trip over a socket:
+    /// the state reaches the engine, the throw stops it where it happened, the client is handed the thrown
+    /// value and told nothing was waiting to catch it, and the resume lets the exception carry on out to the
+    /// host that was running the script.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerPausesOnAnUncaughtThrowAndResumes()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://throwing", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await target.PostAsync(engine => engine.Execute(
+            """
+            function fail(reason) {
+                throw new Error(reason);
+            }
+            """,
+            "fail.js")).WaitAsync(Bound);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://throwing", target.TargetId);
+
+        var paused = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        session.MessageReceived += (_, message) =>
+        {
+            if (message.MessageID == "Debugger.paused")
+            {
+                paused.TrySetResult(message.MessageData.Clone());
+            }
+            else if (message.MessageID == "Debugger.resumed")
+            {
+                resumed.TrySetResult(true);
+            }
+        };
+
+        await session.SendAsync("Runtime.enable").WaitAsync(Bound);
+        await session.SendAsync("Debugger.enable").WaitAsync(Bound);
+        await session.SendAsync("Debugger.setPauseOnExceptions", new { state = "uncaught" }).WaitAsync(Bound);
+
+        // Host work rather than a command, so the throw reaches a host the way an embedder's own script does.
+        var running = target.PostAsync(engine =>
+        {
+            try
+            {
+                engine.Evaluate("fail('over the socket')");
+                return "returned";
+            }
+            catch (Jint.Runtime.JavaScriptException exception)
+            {
+                return exception.Message;
+            }
+        });
+
+        var stop = await paused.Task.WaitAsync(Bound);
+
+        stop.GetProperty("reason").GetString().Should().Be("exception");
+        stop.GetProperty("hitBreakpoints").EnumerateArray().Should().BeEmpty();
+
+        var data = stop.GetProperty("data");
+        data.GetProperty("subtype").GetString().Should().Be("error");
+        data.GetProperty("uncaught").GetBoolean().Should().BeTrue();
+        data.GetProperty("description").GetString().Should().Contain("over the socket");
+
+        stop.GetProperty("callFrames").EnumerateArray().First()
+            .GetProperty("functionName").GetString().Should().Be("fail", "the engine stopped at the throw, not after it");
+
+        await session.SendAsync("Debugger.resume").WaitAsync(Bound);
+        await resumed.Task.WaitAsync(Bound);
+
+        // Reporting a pause is not handling the throw: it carries on to the host that was running the script.
+        (await running.WaitAsync(Bound)).Should().Be("over the socket");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
     /// <summary>The <c>result.value</c> of a <c>Runtime.evaluate</c> reply the client handed back.</summary>
     private static JsonElement Value(JsonElement? reply) => reply!.Value.GetProperty("result").GetProperty("value");
 

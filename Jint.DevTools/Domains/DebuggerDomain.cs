@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Debugger;
 using Jint.DevTools.Session;
@@ -97,6 +98,8 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
             _target.Scripts!.Parsed += _onScriptParsed;
         }
 
+        ApplyPauseOnExceptions();
+
         // Every script parsed before the client asked, in the order the engine parsed them. A front end's
         // Sources panel is built from this replay and not from what arrives afterwards, so a client that
         // attached to a running engine sees what it is running.
@@ -130,19 +133,96 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     /// <inheritdoc/>
     protected override ValueTask<GetScriptSourceResponse> GetScriptSourceAsync(GetScriptSourceRequest parameters, CommandContext context)
     {
-        var script = RequireScript(parameters.ScriptId);
+        var sourceText = RequireSourceText(RequireScript(parameters.ScriptId));
+        return new ValueTask<GetScriptSourceResponse>(new GetScriptSourceResponse { ScriptSource = sourceText });
+    }
 
-        if (!_target.Scripts!.TryGetSourceText(script, out var sourceText) || sourceText is null)
+    /// <summary>
+    /// Answers every line of one script that holds a query, which is what a front end's search box sends.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One match per line, not per occurrence</b>, which is the shape V8 answers and the shape a front end
+    /// draws: the panel lists lines and highlights within them. Line numbers are the protocol's, counting
+    /// from zero, and a line's content is reported without its terminator.
+    /// </para>
+    /// <para>
+    /// The search is over the source text the parse retained, so a script that has none is refused for the
+    /// same reason <c>getScriptSource</c> refuses it. A regular expression is the client's, so it is compiled
+    /// with a bound: a pattern that backtracks for ever would otherwise hold the engine thread with it.
+    /// </para>
+    /// </remarks>
+    protected override ValueTask<SearchInContentResponse> SearchInContentAsync(SearchInContentRequest parameters, CommandContext context)
+    {
+        var sourceText = RequireSourceText(RequireScript(parameters.ScriptId));
+        var caseSensitive = parameters.CaseSensitive == true;
+        var matches = new List<SearchMatch>();
+
+        var pattern = parameters.IsRegex == true ? Compile(parameters.Query, caseSensitive) : null;
+        var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        var line = 0;
+        var start = 0;
+
+        while (start <= sourceText.Length)
         {
-            // Source text is retained through the same switch Function.prototype.toString uses, and a module
-            // a loader built follows the parsing options that loader was given -- which is why a host can do
-            // everything right and still meet this for one script. Issue #3588 tracks the loader half.
-            Throw.ServerError(
-                "No source text was retained for this script; enable Options.RetainFunctionSourceText",
-                "Options.UseDevTools() sets it for what the engine parses itself; a prepared script or a loader-supplied module follows the parsing options it was built with");
+            var terminator = sourceText.IndexOf('\n', start);
+            var end = terminator < 0 ? sourceText.Length : terminator;
+
+            // A checkout is CRLF on one operating system and LF on another; the content a client is shown
+            // must not depend on which one the host read the script from.
+            var content = sourceText.AsSpan(start, end - start).TrimEnd('\r').ToString();
+
+            if (Matches(content, parameters.Query, comparison, pattern))
+            {
+                matches.Add(new SearchMatch { LineNumber = line, LineContent = content });
+            }
+
+            if (terminator < 0)
+            {
+                break;
+            }
+
+            start = terminator + 1;
+            line++;
         }
 
-        return new ValueTask<GetScriptSourceResponse>(new GetScriptSourceResponse { ScriptSource = sourceText });
+        return new ValueTask<SearchInContentResponse>(new SearchInContentResponse { Result = [.. matches] });
+    }
+
+    private static bool Matches(string content, string query, StringComparison comparison, Regex? pattern)
+    {
+        if (pattern is null)
+        {
+            return content.Contains(query, comparison);
+        }
+
+        try
+        {
+            return pattern.IsMatch(content);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return Throw.ServerError<bool>(
+                "The query took too long to match",
+                "the pattern is the client's and is bounded so that one cannot hold the engine thread; simplify it");
+        }
+    }
+
+    /// <summary>Compiles a client's pattern, or says it is not one rather than searching for its text.</summary>
+    private static Regex Compile(string query, bool caseSensitive)
+    {
+        try
+        {
+            return new Regex(
+                query,
+                caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                SearchTimeout);
+        }
+        catch (ArgumentException exception)
+        {
+            return Throw.ServerError<Regex>("The query is not a valid regular expression", exception.Message);
+        }
     }
 
     /// <summary>
@@ -178,14 +258,19 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     }
 
     /// <summary>
-    /// Records what a client asked to pause on, and pauses on none of it yet.
+    /// Sets which thrown exceptions stop the engine, in the client's four states.
     /// </summary>
     /// <remarks>
-    /// The engine raises <c>DebugHandler.ExceptionThrown</c> for every throw and says nothing about whether a
-    /// <c>catch</c> is waiting, so <c>uncaught</c> could not be honoured and <c>all</c> would stop on every
-    /// internally handled throw a library makes. The state is accepted and kept — the front end sends
-    /// <c>none</c> on connect and a client reads its own setting back from what it sent — and the pause
-    /// itself arrives with the engine's caught-or-not seam.
+    /// <para>
+    /// Three of the four are the engine's own <see cref="ExceptionPauseMode"/>. <c>caught</c> is not: the
+    /// engine has no mode that stops only where something will catch, so it is asked for
+    /// <see cref="ExceptionPauseMode.All"/> and the uncaught half is dropped in the pause decision.
+    /// </para>
+    /// <para>
+    /// <b>The mode is the attachment's, not the engine's.</b> It reaches the engine only while this domain is
+    /// enabled and goes back to <see cref="ExceptionPauseMode.None"/> on disable or detach, so a client that
+    /// walked away does not leave a host's engine stopping on throws with nobody to answer the pause.
+    /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetPauseOnExceptionsAsync(SetPauseOnExceptionsRequest parameters, CommandContext context)
     {
@@ -198,8 +283,37 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
             _ => Throw.ServerError<string>("Unknown pause on exceptions mode: " + parameters.State),
         };
 
+        ApplyPauseOnExceptions();
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
+
+    /// <summary>Pushes the client's pause mode onto the engine, or takes it back off.</summary>
+    /// <remarks>
+    /// Called from the command that sets it, from <c>enable</c> — a client may send the state before it
+    /// enables, and the front end does — and from the teardown that resets it. Safe from a transport thread:
+    /// it writes one property and runs no engine code.
+    /// </remarks>
+    private void ApplyPauseOnExceptions()
+    {
+        if (_target.Scripts is null)
+        {
+            return;
+        }
+
+        _target.Engine.Debugger.PauseOnExceptions = IsEnabled ? EnginePauseMode(_pauseOnExceptions) : ExceptionPauseMode.None;
+    }
+
+    /// <summary>The engine mode that answers a client's state, which for <c>caught</c> is a superset.</summary>
+    private static ExceptionPauseMode EnginePauseMode(string state) => state switch
+    {
+        SetPauseOnExceptionsRequestStateValues.Uncaught => ExceptionPauseMode.Uncaught,
+
+        // `caught` and `all` both need every throw reported; the pause decision keeps the half that was asked
+        // for. Asking for Uncaught and inverting the test would be wrong, not merely inefficient: the engine
+        // does not raise the pause at all for a throw it was not asked about.
+        SetPauseOnExceptionsRequestStateValues.Caught or SetPauseOnExceptionsRequestStateValues.All => ExceptionPauseMode.All,
+        _ => ExceptionPauseMode.None,
+    };
 
     /// <summary>Announces one newly parsed program, and resolves whatever was waiting for it.</summary>
     /// <remarks>
@@ -253,6 +367,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         RemoveAllBreakpoints();
         Volatile.Write(ref _skipAllPauses, 0);
         _pauseOnExceptions = SetPauseOnExceptionsRequestStateValues.None;
+        ApplyPauseOnExceptions();
 
         // Last, and from whichever thread got here: the engine thread may be parked in the pause loop, and
         // nothing else is going to release it.
@@ -280,6 +395,30 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         return _target.Scripts!.ById(scriptId)
             ?? Throw.ServerError<RegisteredScript>("No script with given id");
     }
+
+    /// <summary>Answers a script's retained source, or says why there is none to answer with.</summary>
+    /// <remarks>
+    /// Source text is retained through the same switch <c>Function.prototype.toString</c> uses, and a module
+    /// a loader built follows the parsing options that loader was given — which is why a host can do
+    /// everything right and still meet this for one script. Issue #3588 tracks the loader half.
+    /// </remarks>
+    private string RequireSourceText(RegisteredScript script)
+    {
+        if (!_target.Scripts!.TryGetSourceText(script, out var sourceText) || sourceText is null)
+        {
+            Throw.ServerError(
+                "No source text was retained for this script; enable Options.RetainFunctionSourceText",
+                "Options.UseDevTools() sets it for what the engine parses itself; a prepared script or a loader-supplied module follows the parsing options it was built with");
+        }
+
+        return sourceText;
+    }
+
+    /// <summary>
+    /// How long one line of one client-supplied pattern may take, which is a bound on the engine thread
+    /// rather than on the search.
+    /// </summary>
+    private static readonly TimeSpan SearchTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// The one execution context an engine target has, which every location and frame names.

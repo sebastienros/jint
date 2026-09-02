@@ -79,6 +79,28 @@ internal abstract class DevToolsDomain
     /// <summary>Runs when the client disables a domain it had enabled.</summary>
     protected virtual ValueTask OnDisabledAsync(CommandContext context) => default;
 
+    /// <summary>
+    /// Refuses the one evaluation parameter this package cannot honour: <c>throwOnSideEffect</c>.
+    /// </summary>
+    /// <remarks>
+    /// The front end sends it for the console's eager evaluation — the grey preview that appears as you
+    /// type — and it means "throw rather than run anything observable". Answering it would need a
+    /// side-effect analysis of the interpreter, which does not exist; answering the evaluation anyway would
+    /// run the very code the client asked not to be run. No recorded client sends it, so the refusal is the
+    /// answer, and a front end that gets one simply shows no preview. It lives here because every command
+    /// that evaluates carries the flag, and a domain that answered it differently would make one request mean
+    /// two things.
+    /// </remarks>
+    private protected static void RefuseSideEffectFreeEvaluation(bool? throwOnSideEffect)
+    {
+        if (throwOnSideEffect == true)
+        {
+            Throw.ServerError(
+                "Side-effect free evaluation is not supported",
+                "the engine has no side-effect analysis, so an evaluation that must throw rather than run anything observable cannot be answered");
+        }
+    }
+
     /// <summary>Gets the session this domain is registered with, once one has registered it.</summary>
     /// <remarks>
     /// A domain raising an event outside a command — a target appearing while nobody asked anything — needs

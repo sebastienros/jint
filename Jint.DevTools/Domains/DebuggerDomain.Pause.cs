@@ -1,4 +1,7 @@
+using System.Buffers;
 using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Debugger;
 using Jint.DevTools.Session;
@@ -75,13 +78,7 @@ internal sealed partial class DebuggerDomain
     /// <summary>Gets whether the engine is stopped inside this domain's pause loop right now.</summary>
     internal bool IsPaused => Volatile.Read(ref _paused) != 0;
 
-    /// <summary>
-    /// Gets what the client last asked to pause on, which nothing acts on yet.
-    /// </summary>
-    /// <remarks>
-    /// Kept rather than discarded so that the state a client set is the state it can read back, and so that
-    /// the engine seam that reports whether a throw was caught has somewhere to arrive.
-    /// </remarks>
+    /// <summary>Gets which thrown exceptions the client asked to stop on, in the protocol's four states.</summary>
     internal string PauseOnExceptions => _pauseOnExceptions;
 
     private bool SkipAllPauses => Volatile.Read(ref _skipAllPauses) != 0;
@@ -140,33 +137,43 @@ internal sealed partial class DebuggerDomain
     }
 
     /// <summary>
-    /// Evaluates an expression in a paused frame's own environment.
+    /// Evaluates an expression in the environment of any frame of the current pause.
     /// </summary>
     /// <remarks>
-    /// <b>The top frame only.</b> <c>DebugHandler.Evaluate</c> runs in the engine's <i>active</i> execution
-    /// context, which is the frame the engine stopped in; evaluating in an outer frame needs an engine seam
-    /// that takes a call frame, and answering an outer frame's request against the top one would silently
-    /// read the wrong variables. A client asking for another frame is told so.
+    /// <para>
+    /// <b>The frame's own scope chain is what the expression resolves against</b>, so a binding the innermost
+    /// frame shadows is read — and written — as the chosen frame sees it, and <c>this</c> is that frame's. A
+    /// front end's call-stack pane is clickable because of this command, and answering an outer frame's
+    /// request against the top one would silently read the wrong variables.
+    /// </para>
+    /// <para>
+    /// <c>silent</c>, <c>timeout</c>, <c>includeCommandLineAPI</c> and <c>scopeNumber</c> are accepted and
+    /// not acted on, on the terms every other evaluation parameter is: each asks for <i>more</i>, and a
+    /// refusal would fail an ordinary evaluation this target can perfectly well answer. Bounding one
+    /// evaluation is <c>Options.Constraints</c>, which is the host's decision rather than a client's.
+    /// </para>
     /// </remarks>
     protected override ValueTask<EvaluateOnCallFrameResponse> EvaluateOnCallFrameAsync(EvaluateOnCallFrameRequest parameters, CommandContext context)
     {
-        var frame = RequireFrame(parameters.CallFrameId);
-        if (frame != 0)
-        {
-            Throw.ServerError(
-                "Only the top call frame can be evaluated",
-                "the engine evaluates in its active execution context, and an outer frame's environment needs a debugger seam that takes a call frame");
-        }
+        var frame = _stack![RequireFrame(parameters.CallFrameId)];
+        RefuseSideEffectFreeEvaluation(parameters.ThrowOnSideEffect);
 
         var request = RemoteObjectRequest.From(parameters.ReturnByValue, parameters.GeneratePreview, parameters.ObjectGroup ?? BacktraceGroup);
 
         try
         {
-            var value = _target.Engine.Debugger.Evaluate(parameters.Expression);
+            var value = _target.Engine.Debugger.Evaluate(parameters.Expression, frame);
             return new ValueTask<EvaluateOnCallFrameResponse>(new EvaluateOnCallFrameResponse
             {
                 Result = _objects.Describe(value, request),
             });
+        }
+        catch (InvalidOperationException exception)
+        {
+            // The engine stamps its own generation on a frame and refuses one from an execution point it has
+            // left. This domain's identifier check catches that first, so getting here means the two
+            // disagreed; a client is told the identifier is stale rather than shown an engine's wording.
+            return Throw.ServerError<ValueTask<EvaluateOnCallFrameResponse>>("Invalid call frame id", exception.Message);
         }
         catch (DebugEvaluationException exception) when (exception.InnerException is JavaScriptException thrown)
         {
@@ -308,6 +315,29 @@ internal sealed partial class DebuggerDomain
             return StepMode.None;
         }
 
+        if (information.PauseType == PauseType.Exception)
+        {
+            // `caught` is the one state the engine has no mode for: it is asked for every throw, and the half
+            // the client did not ask for is dropped here. Returning None cancels a step that was in flight,
+            // which is the only answer the delegate can give — and harmless in this one case, because the
+            // frames a step was walking are about to be unwound by the throw anyway.
+            if (information.IsUncaught && string.Equals(_pauseOnExceptions, SetPauseOnExceptionsRequestStateValues.Caught, StringComparison.Ordinal))
+            {
+                return StepMode.None;
+            }
+
+            return RunPauseLoop(information, new PauseCause
+            {
+                Reason = PausedEventReasonValues.Exception,
+
+                // Empty rather than absent: a client reading the array unconditionally is reading the truth,
+                // which is that a throw stopped the engine and no breakpoint did.
+                HitBreakpoints = [],
+                ThrownValue = information.ThrownValue,
+                IsUncaught = information.IsUncaught,
+            });
+        }
+
         string[]? hitBreakpoints = null;
 
         if (information.BreakPoint is DevToolsBreakPoint hit)
@@ -325,14 +355,44 @@ internal sealed partial class DebuggerDomain
             }
         }
 
-        return RunPauseLoop(information, hitBreakpoints);
+        return RunPauseLoop(information, new PauseCause
+        {
+            // The protocol's reason enum has no member for a `debugger` statement, and V8 answers `other` for
+            // one too; a value outside the enum would be one no client could map. A breakpoint is also
+            // `other`, told apart by hitBreakpoints.
+            Reason = PausedEventReasonValues.Other,
+            HitBreakpoints = hitBreakpoints,
+        });
+    }
+
+    /// <summary>
+    /// Why one pause happened, in the vocabulary <c>Debugger.paused</c> reports it in.
+    /// </summary>
+    /// <remarks>
+    /// A record rather than three more parameters, because the pause loop passes them through untouched and a
+    /// caller that transposed two booleans at the call site would compile.
+    /// </remarks>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct PauseCause
+    {
+        /// <summary>Gets the protocol's word for what stopped the engine.</summary>
+        internal required string Reason { get; init; }
+
+        /// <summary>Gets the breakpoints the position matched, if the client set any there.</summary>
+        internal string[]? HitBreakpoints { get; init; }
+
+        /// <summary>Gets the value that was thrown, when a throw is what stopped the engine.</summary>
+        internal JsValue? ThrownValue { get; init; }
+
+        /// <summary>Gets whether nothing on the stack was waiting to catch that throw.</summary>
+        internal bool IsUncaught { get; init; }
     }
 
     /// <summary>
     /// Holds the engine thread inside the debugger's handler, answering the client, until it says what to do
     /// next.
     /// </summary>
-    private StepMode RunPauseLoop(DebugInformation information, string[]? hitBreakpoints)
+    private StepMode RunPauseLoop(DebugInformation information, in PauseCause cause)
     {
         var dispatcher = _target.Dispatcher;
         var serial = Interlocked.Increment(ref _pauseSerial);
@@ -348,7 +408,7 @@ internal sealed partial class DebuggerDomain
 
         try
         {
-            EmitDetached(DebuggerEvents.Paused(Paused(serial, hitBreakpoints)));
+            EmitDetached(DebuggerEvents.Paused(Paused(serial, in cause)));
 
             var deadline = Environment.TickCount64 + (long) Bound(_target.PauseTimeout).TotalMilliseconds;
             var token = _target.StoppingToken;
@@ -404,7 +464,7 @@ internal sealed partial class DebuggerDomain
             line: 0);
     }
 
-    private PausedEvent Paused(int serial, string[]? hitBreakpoints)
+    private PausedEvent Paused(int serial, in PauseCause cause)
     {
         var stack = _stack!;
         var frames = new ProtocolCallFrame[stack.Count];
@@ -417,13 +477,47 @@ internal sealed partial class DebuggerDomain
         return new PausedEvent
         {
             CallFrames = frames,
+            Reason = cause.Reason,
+            HitBreakpoints = cause.HitBreakpoints,
+            Data = cause.ThrownValue is { } thrown ? ThrownData(thrown, cause.IsUncaught) : null,
 
-            // The protocol's reason enum has no member for a `debugger` statement, and V8 answers `other` for
-            // one too; a value outside the enum would be one no client could map. A breakpoint is also
-            // `other`, told apart by hitBreakpoints.
-            Reason = PausedEventReasonValues.Other,
-            HitBreakpoints = hitBreakpoints,
+            // Nothing here synthesizes asynchronous frames: the engine retains no stack across a promise
+            // reaction or a timer callback, and inventing one that is wrong is worse than reporting none.
+            AsyncStackTrace = null,
         };
+    }
+
+    /// <summary>
+    /// The thrown value as a front end reads it: the value's own remote object, plus whether anything was
+    /// waiting to catch it.
+    /// </summary>
+    /// <remarks>
+    /// V8's shape exactly — the auxiliary data of an exception pause <i>is</i> the <c>RemoteObject</c>, with
+    /// one extra member written onto it — and the front end reads both halves: the object to render in the
+    /// paused banner, and <c>uncaught</c> to choose its wording. The handle is billed to the backtrace group,
+    /// so it is released with the frames when the engine resumes.
+    /// </remarks>
+    private JsonElement ThrownData(JsValue thrown, bool uncaught)
+    {
+        var described = _objects.Describe(thrown, _backtrace);
+        var serialized = JsonSerializer.SerializeToElement(described, ProtocolJsonContext.Default.RuntimeRemoteObject);
+
+        var buffer = new ArrayBufferWriter<byte>(256);
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+
+            foreach (var property in serialized.EnumerateObject())
+            {
+                property.WriteTo(writer);
+            }
+
+            writer.WriteBoolean("uncaught", uncaught);
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(buffer.WrittenMemory);
+        return document.RootElement.Clone();
     }
 
     private ProtocolCallFrame Frame(int serial, int index, EngineCallFrame frame)

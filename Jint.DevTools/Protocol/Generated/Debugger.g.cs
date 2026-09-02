@@ -1534,6 +1534,12 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
+                case "searchInContent":
+                {
+                    var result = await SearchInContentAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSearchInContentRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSearchInContentResponse);
+                }
+
                 case "setAsyncCallStackDepth":
                 {
                     var result = await SetAsyncCallStackDepthAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetAsyncCallStackDepthRequest), context).ConfigureAwait(false);
