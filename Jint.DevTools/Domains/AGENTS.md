@@ -122,13 +122,19 @@ bearing rather than incidental:
 - **Bounded at `MaxScripts`**, oldest first, because a registry that never forgets holds every abstract
   syntax tree a host ever evaluated. A dropped script's identifier stops resolving and its source stops being
   fetchable; run again, it is announced under a new one.
-- **A location is matched back to a script by *name*, not by identity.** A call frame carries a
-  `SourceLocation` and not the program it came from, so `ScriptRegistry.At` takes the scripts under that
-  source name and picks the one whose range contains the position, newest first. Several programs parsed
-  under one name — every `engine.Execute(code)` with no source argument is `<anonymous>` — therefore share
-  one answer, and a location nothing claims is reported against the identifier `0`, which is Chrome's own
-  sentinel for a location it cannot attribute. This is the one place a frame can name the wrong script, and
-  closing it needs an engine seam that puts the program on the frame.
+- **A running position is matched back to a script by identity, never by name.** `CallFrame.Program`, a
+  profile frame's `Program` and `CoverageSource.Program` are the engine seam that carries it
+  ([#3632](https://github.com/sebastienros/jint/issues/3632)), and `ScriptRegistry.For` is a lookup in the
+  same by-reference map `scriptParsed` was minted from. Matching by name is what this replaced, and it must
+  not come back where a program is in hand: every `engine.Execute(code)` with no source argument is
+  `<anonymous>`, so a name answers for every sourceless script at once. A program the engine names none for —
+  `eval`, the `Function` constructor, and a script evicted past `MaxScripts` — is reported against the
+  identifier `0`, Chrome's own sentinel for a location it cannot attribute.
+- **`ScriptRegistry.At` is the fallback, and only a *rendered* stack frame may use it.** A frame of
+  `Error.stack` and a `ConsoleStackFrame` are text — a source name, a line and a column, and no program —
+  so `Runtime.consoleAPICalled`'s `stackTrace` and the frames parsed out of a thrown error's `stack` match by
+  name and range and cannot tell two sourceless scripts apart. Giving those frames a program is a further
+  engine seam; until then, do not reach for `At` from anywhere that has one.
 
 **A source name becomes a URL here, and nowhere else.** The engine's source names stay exactly what the host
 passed — a stack trace prints them, and `Options.Interop.BuildCallStackHandler` is handed them — so

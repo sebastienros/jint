@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Acornima.Ast;
 using Jint.Profiling;
 
 namespace Jint.DevTools.Domains;
@@ -21,8 +22,9 @@ namespace Jint.DevTools.Domains;
 /// </para>
 /// <para>
 /// <b>Everything here runs on the engine thread</b>, like every other domain member, and the
-/// <see cref="RecordedProfile"/> it hands back holds strings and numbers only — no <c>JsValue</c>, no
-/// abstract syntax tree, no engine.
+/// <see cref="RecordedProfile"/> it hands back holds no <c>JsValue</c> and no engine — a function names the
+/// program it was parsed from, which is the identity a script identifier is looked up by and nothing to
+/// walk.
 /// </para>
 /// </remarks>
 internal interface IProfileSource
@@ -55,12 +57,16 @@ internal interface IProfileSource
 /// <param name="File">The source name the function was parsed under, or <see langword="null"/> for a built-in.</param>
 /// <param name="Line">One-based line of the function's declaration, or <see langword="null"/> with <paramref name="File"/>.</param>
 /// <param name="Column">One-based column of the function's declaration, or <see langword="null"/> with <paramref name="File"/>.</param>
+/// <param name="Program">
+/// The program the function was parsed as part of, which is what gives it a script identifier, or
+/// <see langword="null"/> for one the engine names no program for.
+/// </param>
 /// <remarks>
-/// Deliberately not the engine's own <see cref="ScriptProfileFrame"/>, even though it is the same four
+/// Deliberately not the engine's own <see cref="ScriptProfileFrame"/>, even though it is the same five
 /// members today: a seam that names one profiler's type is a seam only that profiler fits through.
 /// </remarks>
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct ProfileFunction(string Name, string? File, int? Line, int? Column);
+internal readonly record struct ProfileFunction(string Name, string? File, int? Line, int? Column, Program? Program);
 
 /// <summary>
 /// One function entering or leaving the stack, timestamped against the start of the recording.
@@ -142,7 +148,7 @@ internal sealed class EventedProfileSource : IProfileSource
         for (var i = 0; i < functions.Length; i++)
         {
             var frame = profile.Frames[i];
-            functions[i] = new ProfileFunction(frame.Name, frame.File, frame.Line, frame.Column);
+            functions[i] = new ProfileFunction(frame.Name, frame.File, frame.Line, frame.Column, frame.Program);
         }
 
         var activations = new ProfileActivation[profile.Events.Count];
