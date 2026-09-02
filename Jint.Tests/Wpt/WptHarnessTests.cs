@@ -97,6 +97,9 @@ public class WptHarnessTests
     // Greater *or equal*, which is the whole difference from the row above, and the same type check.
     [TestCase("assert_greater_than_equal(1, 1)", "assert_greater_than_equal(0, 1)")]
     [TestCase("assert_greater_than_equal(2, 1)", "assert_greater_than_equal('2', 1)")]
+    // The mirror image, which performance-timeline's checkSorted holds an entry list to its own order with.
+    [TestCase("assert_less_than_equal(1, 1)", "assert_less_than_equal(1, 0)")]
+    [TestCase("assert_less_than_equal(1, 2)", "assert_less_than_equal('1', 2)")]
     // Within the tolerance, and the tolerance is inclusive.
     [TestCase("assert_approx_equals(10, 12, 3)", "assert_approx_equals(10, 12, 1)")]
     [TestCase("assert_approx_equals(10, 12, 2)", "assert_approx_equals(10, 12, 1.9)")]

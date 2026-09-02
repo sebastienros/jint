@@ -232,10 +232,10 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s, `MessagePort`s and streams) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
-| `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
+| `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` / `PerformanceObserver` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
-| `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
-| `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` | `Files` | ✔ shipped |
+| `URL` / `URLSearchParams` / `URLPattern` / `URL.createObjectURL` (with `Files`) | `Url` | ✔ shipped |
+| `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` / `FileReader` | `Files` | ✔ shipped |
 | `navigator.userAgent` / `Navigator` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
@@ -657,12 +657,10 @@ retained by its sources until one of them aborts, at which point every link is d
 describes them — the whole overload matrix, mark names or raw timestamps, `detail` deep-copied through the
 same structured-clone algorithm `structuredClone` uses, and `PerformanceEntry` / `PerformanceMark` /
 `PerformanceMeasure` as real interface objects so `entry instanceof PerformanceMark` works. So is
-`Performance` itself: `performance instanceof Performance` holds, and the members live on
-`Performance.prototype` where a browser's do. The one link not claimed is the `EventTarget` the interface
-inherits from in the standard — nothing here fires an event at the object, so asserting the inheritance would
-make `performance instanceof EventTarget` true while `addEventListener` failed its brand check. Entries come back
-from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by `startTime`, and
-`clearMarks(name?)` / `clearMeasures(name?)` remove them.
+`Performance` itself: `performance instanceof Performance` holds, `performance instanceof EventTarget` holds
+as the standard says it should, and the members live on `Performance.prototype` where a browser's do. Entries
+come back from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by
+`startTime`, and `clearMarks(name?)` / `clearMeasures(name?)` remove them.
 
 ```js
 performance.mark('parse');
@@ -676,10 +674,26 @@ number. A page's timeline dies with the page, and an engine embedded in a long-l
 `while (true) performance.mark('x')` would otherwise be a memory leak that no execution constraint describes.
 Once the buffer is full, further entries are dropped exactly as the Performance Timeline standard says a full
 buffer drops them: nothing throws, `mark()` and `measure()` still return the entry they built, and
-`getEntries()` simply stops growing until you clear it. There is no `PerformanceObserver`, and it is absent
-rather than present-and-throwing so feature detection takes its fallback path. Readings are **not coarsened** —
+`getEntries()` simply stops growing until you clear it. What the bound drops is counted, and reported to a
+`PerformanceObserver` once, as its callback's `droppedEntriesCount`. Readings are **not coarsened** —
 an embedded engine has no cross-origin data for a fine clock to help steal, and a host that wants a coarse one
 supplies a coarse `TimeProvider`.
+
+`PerformanceObserver` is the other way to read the timeline, and the one a script written for a browser
+reaches for: `observe({ entryTypes })` or `observe({ type, buffered })`, `takeRecords()`, `disconnect()`, and
+`PerformanceObserver.supportedEntryTypes`, which answers `["mark", "measure"]` — those being the two entry
+types an engine with no document to navigate can produce, so a script that asks for `resource` or
+`navigation` is quietly given nothing rather than an error. **The callback is delivered on the event loop as
+a task**, exactly as a timer handler is, so a host that never pumps never sees one; and because it is a task
+rather than a microtask, a promise reaction queued in the same turn as the mark runs first, as it does in a
+browser. `buffered: true` replays what the timeline already holds of that type, which is how an observer
+registered late still sees the marks it missed.
+
+```js
+new PerformanceObserver(list => {
+  for (const entry of list.getEntries()) { console.log(entry.entryType, entry.name, entry.duration); }
+}).observe({ type: 'measure', buffered: true });
+```
 
 `navigator` carries `userAgent` and nothing else. It reports `Jint/<version>` — a single RFC 7231 product
 token with no comment component, so nothing about your operating system or your application leaks into it —
@@ -1379,6 +1393,47 @@ supplied.
 blob's byte stream piped through a UTF-8 `TextDecoderStream`, so what comes back is an *ordinary* stream
 whose chunks are strings. It always decodes as UTF-8 — the blob's `type` is never consulted, whatever
 `charset` it names, which is the specification's own difference from `FileReader.readAsText()`.
+
+**`FileReader` is there too**, with all four `readAs*` operations, `abort()`, `readyState`, `result`, `error`
+and the six `ProgressEvent`s (`loadstart`, `progress`, `load`, `abort`, `error`, `loadend`) with their `on*`
+handler attributes. A `Blob` here is bytes already in memory, so nothing about a read is I/O and no thread is
+started — but **every event is still a task on the engine's event loop**, which is the thing to know before
+using it: a host that calls `readAsText` and reads `result` without pumping gets `null`.
+
+```js
+const reader = new FileReader();
+reader.onload = () => console.log(reader.result);
+reader.readAsText(blob, 'windows-1252');   // the encoding argument, then the blob type's
+                                           // charset, then a BOM, then UTF-8
+```
+
+`FileReaderSync` is deliberately absent: it is `[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a
+worker block its thread on I/O a window may not block on, and here it would be a second spelling of
+`blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main
+thread.
+
+**Blob URLs** are there too, on an engine that has both `Url` and `Files` — `URL.createObjectURL(blob)` and
+`URL.revokeObjectURL(url)`, with a store the engine owns. They are absent on an engine with only one of the
+two, since neither half is any use without the other.
+
+```js
+const url = URL.createObjectURL(new Blob(['bytes'], { type: 'text/plain' }));
+const text = await (await fetch(url)).text();    // no HttpClient involved
+URL.revokeObjectURL(url);
+```
+
+The URL reads `blob:null/<uuid>`: an engine with no document has an opaque origin, and `"null"` is what one
+serializes to — `Jint.Browser` is what will put a real origin there. **Fetching one reaches no network**, so
+`fetch` and `XMLHttpRequest` answer a blob URL on an engine with no `HttpClient` and no
+`WebApiFeatures.Fetch` at all: [scheme fetch](https://fetch.spec.whatwg.org/#scheme-fetch) dispatches on the
+scheme and the `blob` arm is answered from the store, before `AllowedSchemes`, the `UrlFilter` or the
+concurrency cap is consulted. `Range` requests work, with a 206 and a `Content-Range`.
+
+Two things behave as the standard says and are worth knowing. An entry **holds its blob strongly until it is
+revoked**, so a script that forgets to revoke leaks — that is the trade the API makes, and why the standard's
+own note tells authors to revoke. And the entry is resolved when the request is *built*: `new Request(url)`
+and `xhr.open('GET', url)` take a reference there and then, so revoking afterwards does not take the bytes
+away. A `RestoreGlobalSnapshot` empties the store, the way it empties the timer queue.
 
 **All thirteen interface objects are globals**, as they are in a browser: the five a script constructs by
 name, plus `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four

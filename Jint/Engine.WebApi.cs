@@ -8,7 +8,9 @@ using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
+using Jint.WebApi.Performance;
 using Jint.WebApi;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
@@ -274,6 +276,25 @@ internal sealed class WebApiEngineState
     private int _messagePortPruneThreshold = MessagePortPruneFloor;
 
     private const int MessagePortPruneFloor = 16;
+
+    /// <summary>
+    /// The engine's <i>list of registered performance observer objects</i>, or <see langword="null"/> until a
+    /// script calls <c>observe()</c> for the first time — which is what keeps an engine that merely has the
+    /// <c>performance</c> object paying nothing for the interface.
+    /// </summary>
+    private PerformanceObserverRegistry? _performanceObservers;
+
+    /// <summary>
+    /// The engine's <i>file reading task source</i>, or <see langword="null"/> until the first
+    /// <c>FileReader.readAs*</c> — which is what keeps an engine that merely has the interface installed
+    /// paying nothing for it.
+    /// </summary>
+    private FileReadQueue? _fileReads;
+
+    /// <summary>
+    /// The engine's blob URL store, or <see langword="null"/> until the first <c>URL.createObjectURL</c>.
+    /// </summary>
+    private BlobUrlStore? _blobUrls;
 
     internal WebApiEngineState(Engine engine, TimeProvider timeProvider, TimerQueue? timers, Options.FetchOptions? fetchOptions, SchedulerQueue? scheduler, DiagnosticsSink? diagnostics, Options.StorageOptions? storage = null, CacheStorageProvider? cacheProvider = null, IdleCallbackQueue? idleCallbacks = null, Options.MessagingOptions? messaging = null)
     {
@@ -914,6 +935,30 @@ internal sealed class WebApiEngineState
     }
 
     /// <summary>
+    /// The engine's registered <c>PerformanceObserver</c> objects and the delivery task that serves them.
+    /// </summary>
+    /// <remarks>
+    /// Engine state rather than state of the <c>performance</c> object, unlike the performance entry buffer
+    /// beside it: a registration is a live callback closing over the evaluation cycle it was made in, so a
+    /// <c>RestoreGlobalSnapshot</c> has to end it exactly as it ends a global <c>error</c> listener, while the
+    /// buffer is data behind a restored binding and survives. <see cref="PerformanceObserverRegistry"/> has
+    /// the whole argument.
+    /// </remarks>
+    internal PerformanceObserverRegistry PerformanceObservers => _performanceObservers ??= new PerformanceObserverRegistry(_engine);
+
+    /// <summary>
+    /// The engine's file reads in flight and the one event-loop job that steps them. One queue for every
+    /// <c>FileReader</c>, which is what <see cref="FileReadQueue"/> explains.
+    /// </summary>
+    internal FileReadQueue FileReads => _fileReads ??= new FileReadQueue(_engine);
+
+    /// <summary>
+    /// The <c>blob:</c> URLs this engine has minted and not had revoked, and the <c>Blob</c> each names —
+    /// see <see cref="BlobUrlStore"/> for why an entry holds its blob strongly and why a restore empties it.
+    /// </summary>
+    internal BlobUrlStore BlobUrls => _blobUrls ??= new BlobUrlStore();
+
+    /// <summary>
     /// Registered timers that have not fired and have not been cleared, for
     /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// </summary>
@@ -951,6 +996,12 @@ internal sealed class WebApiEngineState
     /// posting into it. Closing the port drains the queue and ends every side stranded in it, transitively.
     /// The peer is deliberately <i>not</i> closed: disentangling is one-sided, and a peer on another engine is
     /// in a cycle of its own that this restore has no business ending.
+    /// The three File and Performance stores go for the reason the listeners do. A registered
+    /// <c>PerformanceObserver</c> and a <c>FileReader</c> read in flight are both callbacks closing over the
+    /// ended cycle, and a <c>blob:</c> URL is a string only that cycle's script could still be holding — so
+    /// keeping any of them would grow a pooled engine one entry at a time with nothing able to revoke them.
+    /// What does <i>not</i> go with them is the performance entry buffer, which is data behind a restored
+    /// binding and follows the module registry's rule instead; <c>JsPerformance</c> records why.
     /// </remarks>
     internal List<Action>? ResetTransientState()
     {
@@ -969,6 +1020,9 @@ internal sealed class WebApiEngineState
         CloseBroadcastChannels();
         CloseMessagePorts();
         IdleCallbacks?.Clear();
+        _performanceObservers?.Clear();
+        _fileReads?.Clear();
+        _blobUrls?.Clear();
 
         // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
         // and nothing outside this class holds a reference to the old one — the three global operations ask

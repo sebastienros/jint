@@ -36,17 +36,19 @@ and `Response.formData()`, one algorithm reached three ways; and the `headers/` 
 about those three interfaces and nothing else, which is what let that half of the corpus be vendored years
 before there was anything for the other half to talk to).
 
-Thirteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
-`user-timing/` and `xhr/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`),
-`workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone),
-`dom/` as **two** (events, abort), `fetch/api/` as **seven** (abort, basic, body, headers, redirect,
-request, response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one
-suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends.
-That is 348 theory cases over 41,435 assertions, of which 2,939 do not pass and every one is named in the
-driver's table; the whole driver runs in about two minutes.
+Fourteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
+`user-timing/`, `performance-timeline/` and `xhr/` as one suite each, `FileAPI/` as **five** (its root,
+`blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **four**, `html/webappapis/` as
+**three** (timers, microtask-queuing, structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as
+**seven** (abort, basic, body, headers, redirect, request, response), `WebCryptoAPI/` as **eight** and
+`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 382
+theory cases over 41,581 assertions, of which 2,932 do not pass and every one is named in the driver's
+table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before the `xhr/` corpus arrived were 305 / 41,157 / 2,966, before
+change moves them; the counts before the three File and Performance suites arrived were
+348 / 41,435 / 2,939, before the
+`xhr/` corpus 305 / 41,157 / 2,966, before
 [#3260](https://github.com/sebastienros/jint/issues/3260) stood a wpt server up 273 / 40,657 / 2,889,
 before [#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure 270 / 40,631 /
 2,907, and the paragraph they replaced had been left at 269 / 40,617 / 2,980 by an earlier change.
@@ -221,6 +223,14 @@ filed separately (see `WptDivergence.NeedsTriage`) and the fifth of which is not
 that transport limit — see [what the fetch *network* corpus says](#what-the-fetch-network-corpus-says-about-this-engine)
 below for the arithmetic.
 
+**There is a third lane, and it has no server.** `FileAPI/url/url-with-fetch.any.js` and its `url-with-xhr`
+sibling need the shipped `fetch` and `XMLHttpRequest` and nothing to reach with them: the only URLs they open
+are `blob:` ones, which scheme fetch answers from the engine's own blob URL store without a transport. So
+`WptHarness._blobUrlBackedFiles` grants those two the same two features and then sets a `UrlFilter` that
+refuses **every** URL there is — a stricter bound than the server lane's own port check, and one the blob arm
+never consults. `TheBlobUrlLaneHoldsExactlyTheFilesItNames` holds the list to the corpus in both directions
+and refuses a file that is in both lanes, since the two filters contradict each other.
+
 ## Serving a file: content types, `.headers` sidecars and `.sub.` substitution
 
 The server lane above is a set of `.py` handler ports and a static reader that knew four extensions. That is
@@ -384,7 +394,10 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/examples/*` | Upstream's own tutorial for writing worker tests, and it teaches wpt rather than testing an engine: `general.any.js` is two tests, the second asserting `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the wpt server generates for a `.any.js` file. There is no server here to generate one. `onconnect.any.js` beside it is `global=sharedworker`. |
 | `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution, which `WptServer` now performs — but over one origin, and these want a second. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
-| `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
+| `performance-timeline/droppedentriescount.any.js`, `performance-timeline/case-sensitivity.any.js` | Resource timing. The first opens by calling `setResourceTimingBufferSize(0)` so that a later `fetch` counts as a dropped entry, and all five of its tests then assert a `droppedEntriesCount` only a resource entry can produce; the second wants the resource entry for `testharness.js` itself, and reads `self.location` to name it. The observer's dropped-entry plumbing is exercised by `WebApiPerformanceObserverTests` over a mark buffer driven past its cap, and `user-timing/case-sensitivity.any.js` asserts the same case rule over marks. |
+| `FileAPI/url/*.window.js`, `FileAPI/url/*.html` | Not `.any.js`: a `.window.js` needs a browsing context and the rest are documents. Between them they are the two things a blob URL has in a browser and does not have here — an origin to serialize into the URL, and a lifetime tied to a document being unloaded. |
+| `FileAPI/FileReaderSync.worker.js` | `FileReaderSync`, which `FileReaderPrototype` documents declining: it is `[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a worker block its thread on I/O a window may not block on, and a `Blob` here is already in memory — so the synchronous interface would be a second spelling of `blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main thread. It is a `.worker.js` file, so the corpus would not reach it in any case. |
+| `performance-timeline/webtiming-resolution.any.js` | Asserts that two consecutive readings differ by at least five microseconds — that is, that the clock is *coarse*. `PerformancePrototype` records not coarsening as a deliberate divergence: an embedded engine has no cross-origin data to protect, so the resolution is whatever the host's `TimeProvider` gives, and how far apart two readings land would depend on how long an interpreted call happened to take. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/request-cache*` | An HTTP cache, and the `cache` init member `RequestConstructor` documents accepting and ignoring. |
@@ -657,9 +670,30 @@ assertion this change added to the shim.
 
 ## What the File API corpus says about this engine
 
-342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), **all of them passing**. Both
-groups that used to be red are worth an account, because between them they are everything this corpus has
-caught.
+430 assertions across 31 files (11 in `blob/`, 2 in `file/`, 13 in `reading-data-section/`, 3 in `url/`,
+2 in the root), **all of them passing**. Both groups that used to be red are worth an account, because between them they are
+everything this corpus has caught.
+
+`url/` arrived with `URL.createObjectURL`, and it is the one part of this corpus that reaches outside the
+File API: two of its three files fetch the blob URLs they mint, once through `fetch` and once through
+`XMLHttpRequest`. They run in a **third lane** — see `WptHarness._blobUrlBackedFiles` — which grants the
+shipped `fetch` and `XMLHttpRequest` and then sets a `UrlFilter` that refuses every URL there is. That is a
+stricter bound than the server lane's own, and it costs these files nothing: scheme fetch answers a `blob:`
+URL from the engine's own blob URL store, before a filter is consulted at all. What the suite is really about
+is *when* the entry is resolved — at `new Request(url)` and at `xhr.open()`, not when the fetch runs — which
+is why four of its rows revoke the URL between the two and still expect the bytes.
+
+`reading-data-section/` and the root's `fileReader.any.js` arrived with `FileReader` itself, and what they
+found is one thing the specification's text does not say. The read operation queues one task, in which it
+fires `load` and then `loadend`; in a browser the JavaScript stack empties between the two, so a *microtask
+checkpoint* runs there and an `await` resumed by the `load` handler gets to ask for `loadend` before it
+arrives. Jint's event dispatch does not drain the job queue after a listener, so the checkpoint has to come
+from the loop: `loadend` is a task of its own, and with it `filereader_events.any.js` and
+`filereader_result.any.js` pass. `abort()` deliberately keeps its two events in one turn, because there a
+browser has no checkpoint either — script called `abort()`, and the stack is not empty. The same rule is what
+`FileReadQueue` exists for: a checkpoint implemented per read deadlocks the moment two readers are active,
+since each finds the other's job pending and defers forever, so the engine has one pump for every read, as a
+browser has one task queue.
 
 The eight that used to be red were the whole of `Blob-textStream.any.js`, under a `NeedsBlobTextStream`
 category, because [the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) `textStream()`
@@ -799,19 +833,38 @@ so the writable data property it already had is what its own IDL asks for. It ha
 `self`'s, because the contrast is the whole point: HTML decided the two attributes separately, and so does
 this engine.
 
-## What the hr-time and user-timing corpora say about this engine
+## What the hr-time, user-timing and performance-timeline corpora say about this engine
 
-85 assertions, of which **6 do not pass**, and the split is almost exactly the one
-`PerformancePrototype` predicts in its own documentation.
+116 assertions across 37 files, and **all of them pass**.
 
-Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
-"`PerformanceObserver` and everything that reports to one, `toJSON`, `setResourceTimingBufferSize` and the
-resource-timing surface, and the `EventTarget` this interface inherits from" as what it does not implement, and
-says why each is *absent* rather than present-and-throwing — so that a script's own feature detection sees the
-truth. What the corpus adds to that is a measurement of the cost: **only four files** of the user-timing suite
-depend on an observer at all, and one more (`supported-usertiming-types.any.js`, not vendored) reads it at file
-scope. The other fifteen read the timeline through `getEntries()` and pass, including the whole of
-`mark.any.js`, `measure-l3.any.js` and `measure_syntax_err.any.js`.
+They did not before. Until `PerformanceObserver` landed, the hr-time and user-timing corpora had six failing
+rows — five `NeedsPerformanceObserver` and one `NeedsPerformanceEventTarget` — and one file that could not be
+vendored at all, and both categories are gone now along with the exclusions. What the corpus had measured in
+the meantime was the *cost* of the absence, and the figure is worth keeping: **only four files** of the
+user-timing suite depended on an observer, and one more read it at file scope; the other fifteen read the
+timeline through `getEntries()` and passed throughout.
+
+**The performance-timeline corpus is what the observer is really held to**, and its shape is one file per
+rule. `po-observe.any.js` and `po-observe-type.any.js` pin the argument grammar — `entryTypes` must be a
+sequence, an unknown type is ignored rather than refused, and mixing the two shapes on one observer is an
+`InvalidModificationError` rather than a `TypeError`. `po-callback-mutate.any.js` is the one that decides
+whether an implementation has the buffers right: it re-`observe()`s from inside its own callback four times
+and asserts each delivery, so an observer buffer emptied at the wrong moment, or a re-registration that
+cleared it, fails on a named entry rather than by timing out. `po-entries-sort.any.js` holds the three getters
+to one chronological order and is the reason
+`PerformanceEntryFilter` is shared with `performance` rather than reimplemented. And the four
+`buffered`-flag files are the only ones that read the *timeline* rather than the delivery: three observers
+registered at three different moments must all see the same three marks
+(`multiple-buffered-flag-observers.any.js`), and one registered after a timer must still see a mark taken
+before it (`buffered-flag-after-timeout.any.js`).
+
+Three of the directory's files are not vendored and the reasons divide cleanly. Two are resource timing —
+`droppedentriescount.any.js` and `case-sensitivity.any.js` — which needs a document to have fetched something;
+the dropped-entry plumbing they would have exercised is implemented and is pinned instead by a public-interface
+test that drives a mark buffer past its cap. The third, `webtiming-resolution.any.js`, asserts that two
+consecutive readings are at least five microseconds apart, which is an assertion that the clock is *coarse*:
+`PerformancePrototype` records not coarsening as a deliberate divergence, so how far apart two readings land
+here depends on how long an interpreted call took and on nothing the engine promises.
 
 **The four that used to sit beside them were one genuine defect, and it is fixed.**
 `mark-errors.any.js` runs each of its five cases twice — once through `performance.mark(name, x)` and once
@@ -1316,7 +1369,7 @@ those are worth recording because they are the kind of thing prose alone would n
    [processRequestEndOfBody](https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send) fires. The extra event
    showed up in the middle of `event-timeout-order.any.js`, which asserts the whole sequence by name.
 
-The nine that remain are decisions or environment, in four groups that add up exactly: 6 + 1 + 1 + 1.
+The eight that remain are decisions or environment, in three groups that add up exactly: 6 + 1 + 1.
 
 * **6 `NeedsWindowGlobal`.** `open(…, false)` followed by a `responseType` is an `InvalidAccessError` only
   "if the current global object is a `Window` object", and this one is not: the engine is in the position a
@@ -1324,12 +1377,16 @@ The nine that remain are decisions or environment, in four groups that add up ex
   because the seventh of that shape — the one assigning `"nosuchtype"` — passes for the reason above.
 * **1 `NeedsWindowGlobal`.** One row of `send-data-es-object.any.js` builds a `Document` to send. The
   file's point, that `send()` stringifies an ordinary object, is the row that passes.
-* **1 `NeedsBlobUrls`.** One row of `request-content-length.any.js` fetches a `blob:` URL, which needs
-  `URL.createObjectURL`. The file's other row — that an upload sets `Content-Length` — passes.
 * **1 `NeedsLegacyMultiByteEncodings`.** `overridemimetype-unsent-state-force-shiftjis.any.js` decodes a
   Shift_JIS body, one of the seven encodings the label table names and refuses.
 
-Twenty-five files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
+`blob-range.any.js` joined the corpus with `URL.createObjectURL`, and it is the one file here that opens no
+socket at all: its twenty-seven rows are the Fetch standard's `parse a single range header value` read over a
+blob the script itself created — ten whitespace and boundary cases that must answer 206 with a
+`Content-Range`, and seventeen refusals that must be a network error rather than a whole-blob response. The
+row of `request-content-length.any.js` that used to sit in the table beside it passes for the same reason.
+
+Twenty-four files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
 corpus, and every one of those files fetches `get_host_info().HTTP_REMOTE_ORIGIN`. An engine has one origin
 and no CORS model, so there is nothing in them to run. The [not-vendored table](#deliberately-not-vendored)
 has the rest.
@@ -1366,15 +1423,16 @@ their exclusions without revisiting this table.
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
 | Streams | `streams/` ×7 | 66 | 1,170 | 4 |
 | Compression | `compression/` | 15 | 297 | 22 |
-| File API | `FileAPI/` ×3 | 14 | 342 | 0 |
-| High Resolution Time | `hr-time/` | 2 | 7 | 1 |
-| User Timing | `user-timing/` | 19 | 78 | 5 |
+| File API | `FileAPI/` ×5 | 31 | 430 | 0 |
+| High Resolution Time | `hr-time/` | 2 | 7 | 0 |
+| User Timing | `user-timing/` | 20 | 81 | 0 |
+| Performance Timeline | `performance-timeline/` | 15 | 28 | 0 |
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
-| XMLHttpRequest | `xhr/` | 42 | 260 | 9 |
-| **total** | **41** | **348** | **41,435** | **2,939** |
+| XMLHttpRequest | `xhr/` | 43 | 287 | 8 |
+| **total** | **44** | **382** | **41,581** | **2,932** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

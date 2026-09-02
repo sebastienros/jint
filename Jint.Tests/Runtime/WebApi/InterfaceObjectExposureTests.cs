@@ -184,21 +184,23 @@ public class InterfaceObjectExposureTests
     /// <summary>
     /// The five interfaces whose singleton had no interface object at all. They are real now: the members
     /// live on the interface prototype object, the instance inherits from it, and the brand check is what it
-    /// always was. The last argument is what <c>typeof instance.member</c> answers, which separates an
-    /// operation from an attribute without needing two tests.
+    /// always was. The last two arguments are what <c>typeof instance.member</c> answers, which separates an
+    /// operation from an attribute without needing two tests, and what the interface prototype object's own
+    /// <c>[[Prototype]]</c> is — <c>Object</c> for an interface that inherits from nothing, and
+    /// <c>EventTarget</c> for the one that does.
     /// </summary>
-    [TestCase("crypto", "Crypto", "randomUUID", "function")]
-    [TestCase("crypto.subtle", "SubtleCrypto", "digest", "function")]
-    [TestCase("performance", "Performance", "now", "function")]
-    [TestCase("navigator", "Navigator", "userAgent", "string")]
-    [TestCase("scheduler", "Scheduler", "postTask", "function")]
-    public void TheSingletonsAreRealInstancesOfTheirInterface(string instance, string name, string member, string memberType)
+    [TestCase("crypto", "Crypto", "randomUUID", "function", "Object")]
+    [TestCase("crypto.subtle", "SubtleCrypto", "digest", "function", "Object")]
+    [TestCase("performance", "Performance", "now", "function", "EventTarget")]
+    [TestCase("navigator", "Navigator", "userAgent", "string", "Object")]
+    [TestCase("scheduler", "Scheduler", "postTask", "function", "Object")]
+    public void TheSingletonsAreRealInstancesOfTheirInterface(string instance, string name, string member, string memberType, string inherits)
     {
         var engine = new Engine(options => options.UseWebApis());
 
         engine.Evaluate(instance + " instanceof " + name).AsBoolean().Should().BeTrue();
         engine.Evaluate("Object.getPrototypeOf(" + instance + ") === " + name + ".prototype").AsBoolean().Should().BeTrue();
-        engine.Evaluate("Object.getPrototypeOf(" + name + ".prototype) === Object.prototype").AsBoolean().Should().BeTrue();
+        engine.Evaluate("Object.getPrototypeOf(" + name + ".prototype) === " + inherits + ".prototype").AsBoolean().Should().BeTrue();
         engine.Evaluate(name + ".prototype.constructor === " + name).AsBoolean().Should().BeTrue();
         engine.Evaluate(name + ".name").AsString().Should().Be(name);
         engine.Evaluate(name + ".length").AsNumber().Should().Be(0);

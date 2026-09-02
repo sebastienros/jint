@@ -80,6 +80,7 @@ internal sealed class RequestConstructor : Constructor
         ReferrerPolicy? referrerPolicy = null;
         HeaderList headerList;
         JsAbortSignal? signal = null;
+        Files.JsBlob? blobUrlEntry = null;
 
         if (inputRequest is not null)
         {
@@ -92,6 +93,11 @@ internal sealed class RequestConstructor : Constructor
             referrerPolicy = inputRequest.ReferrerPolicy;
             headerList = inputRequest.Headers.List.Clone();
             signal = inputRequest.Signal;
+
+            // "Set request to input's request", so the copy carries the entry the input resolved rather than
+            // looking the URL up again — which is what makes `fetch(new Request(url))` work after the URL has
+            // been revoked, the case FileAPI/url/url-with-fetch.any.js is written for.
+            blobUrlEntry = inputRequest.BlobUrlEntry;
         }
         else
         {
@@ -240,6 +246,15 @@ internal sealed class RequestConstructor : Constructor
 
         request.Method = method;
         request.Url = url;
+
+        // "If parsedURL's scheme is 'blob', then set request's blob URL entry to parsedURL's blob URL entry."
+        // The URL standard resolves that entry when it parses the URL; Jint's parser is engine-free, so the
+        // lookup happens here instead — at the same moment, and with the same consequence: a request built
+        // from a blob URL holds the blob, and revoking the URL afterwards does not take it away.
+        request.BlobUrlEntry = blobUrlEntry ?? (string.Equals(url.Scheme, "blob", StringComparison.Ordinal)
+            ? _engine._webApi?.BlobUrls.Resolve(url)
+            : null);
+
         request.Redirect = redirect;
         request.Credentials = credentials;
         request.ReferrerSource = referrerSource;

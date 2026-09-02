@@ -57,6 +57,18 @@ internal sealed class JsRequest : FetchBodyObject
     internal UrlRecord Url { get; set; } = null!;
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-request-blob-url-entry — the <c>Blob</c> a <c>blob:</c> URL
+    /// named <b>when this request was constructed</b>, or <see langword="null"/> for every other URL.
+    /// </summary>
+    /// <remarks>
+    /// It is resolved once, here, and never again: that is what makes
+    /// <c>const r = new Request(url); URL.revokeObjectURL(url); fetch(r)</c> succeed, which is the whole
+    /// reason the standard gives a request a field for it rather than looking the URL up when the fetch runs.
+    /// A <c>clone()</c> carries it across for the same reason.
+    /// </remarks>
+    internal Files.JsBlob? BlobUrlEntry { get; set; }
+
+    /// <summary>
     /// https://fetch.spec.whatwg.org/#concept-request-redirect-mode — <c>follow</c>, <c>error</c> or
     /// <c>manual</c>.
     /// </summary>

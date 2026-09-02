@@ -318,5 +318,12 @@ public enum DiagnosticCallbackSource
     /// measured, and the callback is still the one <c>requestIdleCallback</c> was given.
     /// </remarks>
     IdleCallback,
+
+    /// <summary>
+    /// A <c>PerformanceObserver</c> callback. <i>Queue the PerformanceObserver task</i> invokes it with the
+    /// same <c>"report"</c> exception behavior —
+    /// https://w3c.github.io/performance-timeline/#queue-the-performance-observer-task.
+    /// </summary>
+    PerformanceObserver,
 }
 #endif

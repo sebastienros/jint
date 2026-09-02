@@ -260,18 +260,22 @@ public class PerformanceTests
     }
 
     [Test]
-    public void HasNoObserverAndNoResourceTiming()
+    public void HasNoResourceTiming()
     {
         var (engine, _) = PerformanceEngine();
 
-        // Absent rather than present-and-throwing, so a library that feature-detects an observer takes its
+        // Absent rather than present-and-throwing, so a library that feature-detects one of these takes its
         // fallback path instead of crashing.
-        foreach (var member in new[] { "toJSON", "setResourceTimingBufferSize", "getEntriesByObserver", "eventCounts", "addEventListener" })
+        foreach (var member in new[] { "toJSON", "setResourceTimingBufferSize", "getEntriesByObserver", "eventCounts" })
         {
             engine.Evaluate($"typeof performance.{member}").AsString().Should().Be("undefined");
         }
 
-        engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
+        // The one event the interface declares is resourcetimingbufferfull, and there is no resource timing
+        // buffer to fill — so the EventTarget it inherits from is real and nothing the engine does ever
+        // dispatches at it.
+        engine.Evaluate("performance instanceof EventTarget").AsBoolean().Should().BeTrue();
+        engine.Evaluate("typeof performance.addEventListener").AsString().Should().Be("function");
     }
 
     [Test]

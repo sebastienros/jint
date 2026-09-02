@@ -206,6 +206,7 @@ internal sealed partial class RequestPrototype : Prototype
             _prototype = _realm.Intrinsics.Request.PrototypeObject,
             Method = request.Method,
             Url = request.Url,
+            BlobUrlEntry = request.BlobUrlEntry,
             Redirect = request.Redirect,
 
             // Step 4: "set clonedRequestObject's signal to the result of creating a dependent abort signal

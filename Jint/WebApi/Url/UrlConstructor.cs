@@ -4,6 +4,8 @@ using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.Runtime.Interop;
+using Jint.WebApi.Files;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.WebApi.Url;
@@ -20,9 +22,13 @@ namespace Jint.WebApi.Url;
 /// <c>%Function.prototype%</c> and calling it without <c>new</c> raises a <c>TypeError</c>, which
 /// <see cref="Constructor"/> already does.
 /// <para>
-/// <c>URL.createObjectURL</c> and <c>URL.revokeObjectURL</c> are deliberately absent rather than present and
-/// throwing: they belong to the File API's blob URL store, which this engine has none of, and an absent member
-/// is what feature detection expects to find.
+/// <c>URL.createObjectURL</c> and <c>URL.revokeObjectURL</c> come from the File API rather than from the URL
+/// standard — <c>partial interface URL</c>, https://w3c.github.io/FileAPI/#creating-revoking — and are
+/// installed only on an engine that has <b>both</b> <see cref="WebApiFeatures.Url"/> and
+/// <see cref="WebApiFeatures.Files"/>. Neither is any use without the other: the store's entries are
+/// <c>Blob</c>s, and the URL it mints has to be parseable. Absent rather than present-and-throwing on an
+/// engine with only one of them, which is what feature detection expects to find, and what makes this a pair
+/// of conditional members rather than a feature closure that would give every <c>URL</c> user a <c>Blob</c>.
 /// </para>
 /// </remarks>
 [JsObject(UseShape = true)]
@@ -45,7 +51,69 @@ internal sealed partial class UrlConstructor : Constructor
 
     internal UrlPrototype PrototypeObject { get; }
 
-    protected override void Initialize() => CreateProperties_Generated();
+    protected override void Initialize()
+    {
+        CreateProperties_Generated();
+
+        const WebApiFeatures BlobUrls = WebApiFeatures.Url | WebApiFeatures.Files;
+        if ((_engine._webApiFeatures & BlobUrls) != BlobUrls)
+        {
+            return;
+        }
+
+        // Static operations, so the same attributes a regular one gets —
+        // https://webidl.spec.whatwg.org/#es-operations. Added after the shape rather than declared in it
+        // because their presence is conditional; the shaped host keeps its shape and holds these two beside
+        // it.
+        SetProperty("createObjectURL", new PropertyDescriptor(
+            new ClrFunction(_engine, _realm, "createObjectURL", CreateObjectUrl, length: 1, PropertyFlag.Configurable),
+            PropertyFlag.ConfigurableEnumerableWritable));
+
+        SetProperty("revokeObjectURL", new PropertyDescriptor(
+            new ClrFunction(_engine, _realm, "revokeObjectURL", RevokeObjectUrl, length: 1, PropertyFlag.Configurable),
+            PropertyFlag.ConfigurableEnumerableWritable));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#dfn-createObjectURL — "return the result of adding an entry to the blob
+    /// URL store for obj".
+    /// </summary>
+    /// <remarks>
+    /// The IDL argument is <c>(Blob or MediaSource)</c> and this engine has no <c>MediaSource</c>, so the
+    /// union conversion reduces to the <c>Blob</c> arm and everything else is the <c>TypeError</c> WebIDL
+    /// raises for a union nothing in it matches.
+    /// </remarks>
+    private JsValue CreateObjectUrl(JsValue thisObject, JsCallArguments arguments)
+    {
+        if (arguments.At(0) is not JsBlob blob)
+        {
+            Throw.TypeError(_realm, "Failed to execute 'createObjectURL' on 'URL': parameter 1 is not of type 'Blob'.");
+            return Undefined;
+        }
+
+        return JsString.Create(FileApi.RequireState(_engine).BlobUrls.Add(blob));
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#dfn-revokeObjectURL — parse, and remove the entry the serialization
+    /// names.
+    /// </summary>
+    /// <remarks>
+    /// A url that does not parse, or that parses to something other than a <c>blob:</c> URL, is a silent
+    /// no-op rather than an error; and the removal is by the serialization <i>including</i> the fragment, so
+    /// only an exact match revokes. Both are the algorithm's, and both are asserted by
+    /// <c>FileAPI/url/resources/fetch-tests.js</c>.
+    /// </remarks>
+    private JsValue RevokeObjectUrl(JsValue thisObject, JsCallArguments arguments)
+    {
+        var record = UrlParser.Parse(UrlValues.ToUsvString(arguments.At(0)));
+        if (record is not null)
+        {
+            FileApi.RequireState(_engine).BlobUrls.Remove(record);
+        }
+
+        return Undefined;
+    }
 
     /// <summary>
     /// https://url.spec.whatwg.org/#dom-url-url

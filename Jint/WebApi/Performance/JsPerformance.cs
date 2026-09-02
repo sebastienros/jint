@@ -1,9 +1,9 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
 using Jint.Native.Array;
-using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Events;
 
 namespace Jint.WebApi.Performance;
 
@@ -22,6 +22,14 @@ namespace Jint.WebApi.Performance;
 /// operate on it, so an extracted <c>getEntries</c> is exactly as usable as a browser's.
 /// </para>
 /// <para>
+/// <b>It is an <c>EventTarget</c></b>, which https://w3c.github.io/hr-time/#sec-performance declares and
+/// which Jint used to decline while nothing here could fire an event at it. Nothing still does: the one event
+/// the specifications define on this interface is <c>resourcetimingbufferfull</c>, and there is no resource
+/// timing buffer to fill. The inheritance is claimed all the same, because it is what a script's own
+/// listeners need — <c>performance.addEventListener</c> is how a host-supplied timeline extension would
+/// deliver, and <c>performance instanceof EventTarget</c> is what a browser answers.
+/// </para>
+/// <para>
 /// <b>The time origin is per engine, not per evaluation cycle.</b> A pooled engine that a host recycles with
 /// <c>Engine.Advanced.RestoreGlobalSnapshot</c> keeps the origin it was built with, so <c>now()</c> goes on
 /// growing across cycles and a script cannot use it to tell how long <i>its own</i> cycle has been running.
@@ -30,10 +38,12 @@ namespace Jint.WebApi.Performance;
 /// https://w3c.github.io/hr-time/#dom-performance-now forbids outright. The entry buffer survives a restore
 /// for the plainer reason that a restore reverts the global <i>binding table</i> and explicitly not the object
 /// graphs behind the restored bindings; a pooled host that wants a clean timeline calls <c>clearMarks()</c>
-/// and <c>clearMeasures()</c>, which is what a browser gives it too.
+/// and <c>clearMeasures()</c>, which is what a browser gives it too. A registered
+/// <c>PerformanceObserver</c> does <b>not</b> survive one, and
+/// <see cref="PerformanceObserverRegistry"/> says why the two differ.
 /// </para>
 /// </remarks>
-internal sealed class JsPerformance : ObjectInstance
+internal sealed class JsPerformance : JsEventTarget
 {
     /// <summary>
     /// How many entries the timeline holds before it starts dropping them.
@@ -54,14 +64,12 @@ internal sealed class JsPerformance : ObjectInstance
     /// <c>clearMarks()</c> and <c>clearMeasures()</c> free it again.
     /// </para>
     /// <para>
-    /// The dropped-entries count itself is not exposed, because the only thing that reads it in the
-    /// specification is a <c>PerformanceObserver</c> callback's <c>droppedEntriesCount</c>, and there is no
-    /// <c>PerformanceObserver</c> here.
+    /// The dropped entries count is kept <i>per entry type</i> even though the capacity is shared, because
+    /// that is what a <c>PerformanceObserver</c> callback's <c>droppedEntriesCount</c> reports: the count for
+    /// the types that observer asked for, and not for the timeline as a whole.
     /// </para>
     /// </remarks>
     private const int MaxBufferedEntries = 10_000;
-
-    private readonly Realm _realm;
 
     /// <summary>
     /// The performance entry buffer, https://w3c.github.io/performance-timeline/#performance-entry-buffer,
@@ -70,9 +78,15 @@ internal sealed class JsPerformance : ObjectInstance
     /// </summary>
     private List<JsPerformanceEntry>? _entries;
 
-    private JsPerformance(Engine engine, Realm realm, WebApiEngineState state) : base(engine, ObjectClass.Object)
+    /// <summary>
+    /// The dropped entries count of the <c>mark</c> and the <c>measure</c> tuple, in that order. A pair of
+    /// counters rather than a map, because the registry has two entry types in it and both are known here.
+    /// </summary>
+    private double _droppedMarks;
+    private double _droppedMeasures;
+
+    private JsPerformance(Engine engine, Realm realm, WebApiEngineState state) : base(engine, realm)
     {
-        _realm = realm;
         State = state;
     }
 
@@ -94,14 +108,31 @@ internal sealed class JsPerformance : ObjectInstance
     }
 
     /// <summary>
-    /// The surviving half of "queue a PerformanceEntry": append unless the buffer is full, in which case the
-    /// entry is silently dropped. See <see cref="MaxBufferedEntries"/>.
+    /// https://w3c.github.io/performance-timeline/#queue-a-performanceentry — hand the entry to every
+    /// interested observer, then add it to the buffer unless the buffer is full.
     /// </summary>
-    internal void AddToBuffer(JsPerformanceEntry entry)
+    /// <remarks>
+    /// The order is the algorithm's and it matters: an observer is given the entry whether or not the buffer
+    /// had room for it, so a full timeline stops <c>getEntries()</c> growing and does not stop an observer
+    /// being told. What the observer loses instead is counted, and reported once as
+    /// <c>droppedEntriesCount</c>.
+    /// </remarks>
+    internal void QueuePerformanceEntry(JsPerformanceEntry entry)
     {
+        State.PerformanceObservers.QueuePerformanceEntry(entry);
+
         var entries = _entries ??= new List<JsPerformanceEntry>();
         if (entries.Count >= MaxBufferedEntries)
         {
+            if (ReferenceEquals(entry.EntryType, JsPerformanceMark.MarkEntryType))
+            {
+                _droppedMarks++;
+            }
+            else
+            {
+                _droppedMeasures++;
+            }
+
             return;
         }
 
@@ -109,43 +140,43 @@ internal sealed class JsPerformance : ObjectInstance
     }
 
     /// <summary>
+    /// The <c>buffered: true</c> replay: every entry of <paramref name="entryType"/> the timeline still holds,
+    /// appended to the observer's buffer in timeline order.
+    /// </summary>
+    internal void ReplayInto(JsPerformanceObserver observer, string entryType)
+    {
+        var entries = _entries;
+        if (entries is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (string.Equals(entry.EntryType.ToString(), entryType, StringComparison.Ordinal))
+            {
+                observer.AppendToObserverBuffer(entry);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The dropped entries count of one entry type's tuple, which is what a first observer callback reports.
+    /// A type this engine does not produce has never dropped anything, so it contributes zero.
+    /// </summary>
+    internal double DroppedEntriesCount(string entryType) => entryType switch
+    {
+        "mark" => _droppedMarks,
+        "measure" => _droppedMeasures,
+        _ => 0,
+    };
+
+    /// <summary>
     /// https://w3c.github.io/performance-timeline/#dfn-filter-buffer-map-by-name-and-type, whose last step is
     /// "Sort results's entries in chronological order with respect to startTime".
     /// </summary>
-    internal JsArray FilterBuffer(string? name, string? type)
-    {
-        var entries = _entries;
-        var matched = new List<JsPerformanceEntry>();
-
-        if (entries is not null)
-        {
-            for (var i = 0; i < entries.Count; i++)
-            {
-                var entry = entries[i];
-                if (name is not null && !string.Equals(entry.EntryName.ToString(), name, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                if (type is not null && !string.Equals(entry.EntryType.ToString(), type, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                matched.Add(entry);
-            }
-
-            SortChronologically(matched);
-        }
-
-        var values = new List<JsValue>(matched.Count);
-        for (var i = 0; i < matched.Count; i++)
-        {
-            values.Add(matched[i]);
-        }
-
-        return _realm.Intrinsics.Array.ConstructFast(values);
-    }
+    internal JsArray FilterBuffer(string? name, string? type) => PerformanceEntryFilter.Filter(_realm, _entries, name, type);
 
     /// <summary>
     /// The body both <c>clearMarks</c> and <c>clearMeasures</c> share: remove every entry of the given type,
@@ -215,47 +246,6 @@ internal sealed class JsPerformance : ObjectInstance
         var location = _engine._lastSyntaxElement?.Location ?? default;
         Throw.JavaScriptException(_engine, exception, in location);
         return 0;
-    }
-
-    /// <summary>
-    /// Orders entries by <c>startTime</c>, keeping buffer order among equal ones.
-    /// </summary>
-    /// <remarks>
-    /// Insertion order is already chronological unless a mark was given an explicit <c>startTime</c> — the one
-    /// way an entry can be added out of order — so the common case is the scan that finds nothing to do. The
-    /// sort itself is stabilized by the buffer index, because <see cref="Array.Sort{T}(T[], Comparison{T})"/>
-    /// is introsort and is not stable, and two marks taken in the same clock tick must not swap.
-    /// </remarks>
-    private static void SortChronologically(List<JsPerformanceEntry> entries)
-    {
-        for (var i = 1; i < entries.Count; i++)
-        {
-            if (entries[i].StartTime < entries[i - 1].StartTime)
-            {
-                StableSort(entries);
-                return;
-            }
-        }
-    }
-
-    private static void StableSort(List<JsPerformanceEntry> entries)
-    {
-        var items = new (double StartTime, int Index, JsPerformanceEntry Entry)[entries.Count];
-        for (var i = 0; i < entries.Count; i++)
-        {
-            items[i] = (entries[i].StartTime, i, entries[i]);
-        }
-
-        Array.Sort(items, static (a, b) =>
-        {
-            var comparison = a.StartTime.CompareTo(b.StartTime);
-            return comparison != 0 ? comparison : a.Index.CompareTo(b.Index);
-        });
-
-        for (var i = 0; i < items.Length; i++)
-        {
-            entries[i] = items[i].Entry;
-        }
     }
 }
 #endif

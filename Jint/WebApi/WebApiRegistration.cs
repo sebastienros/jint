@@ -222,6 +222,12 @@ internal static class WebApiRegistration
             Install(global, engine, "Blob", static e => e.Realm.Intrinsics.Blob, PropertyFlag.NonEnumerable);
             Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
             Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
+            Install(global, engine, "FileReader", static e => e.Realm.Intrinsics.FileReader, PropertyFlag.NonEnumerable);
+
+            // FileReader fires ProgressEvents, which the XHR standard declares and which therefore arrives
+            // with whichever feature brings the first interface that fires one. Installed non-clobbering like
+            // everything else, so an engine that enabled both features installs the one interface object once.
+            Install(global, engine, "ProgressEvent", static e => e.Realm.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Url) != WebApiFeatures.None)
@@ -326,6 +332,12 @@ internal static class WebApiRegistration
             Install(global, engine, "PerformanceEntry", static e => e.Realm.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
             Install(global, engine, "PerformanceMark", static e => e.Realm.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
             Install(global, engine, "PerformanceMeasure", static e => e.Realm.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
+
+            // The observer half of the timeline. Both interface objects are reachable because a callback is
+            // handed one and checks it — `entries instanceof PerformanceObserverEntryList` — and because
+            // `PerformanceObserver.supportedEntryTypes` is what a script reads before it observes anything.
+            Install(global, engine, "PerformanceObserver", static e => e.Realm.Intrinsics.PerformanceObserver, PropertyFlag.NonEnumerable);
+            Install(global, engine, "PerformanceObserverEntryList", static e => e.Realm.Intrinsics.PerformanceObserverEntryList, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Navigator) != WebApiFeatures.None)
@@ -629,12 +641,31 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Files;
         }
 
+        // https://w3c.github.io/hr-time/#sec-performance declares `interface Performance : EventTarget`, so
+        // the performance object is one and its prototype chain reaches EventTarget.prototype. A script that
+        // can call performance.addEventListener has to be able to build the Event it dispatches, which is
+        // what makes this a closure rather than an inheritance claimed in private.
+        if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
+        }
+
         // The Cache API stores Request/Response pairs, so it needs the same three for the same reasons — and
         // the fetch interface objects, which the install block adds. It deliberately does not bring
         // WebApiFeatures.Fetch: caching is not network access, and only Cache.add/addAll need one.
         if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
+        // FileReader is an EventTarget that fires ProgressEvents, so the File API cannot be had without the
+        // interfaces those are: a script registering `reader.onload` needs `addEventListener` under it, and
+        // `event instanceof ProgressEvent` needs the class to exist. Blob, File and FormData need none of it,
+        // which is why this is a closure and not a merged feature. It is last of all deliberately: four of
+        // the rules above add WebApiFeatures.Files, and this one has to see what they added.
+        if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
         }
 
         return features;

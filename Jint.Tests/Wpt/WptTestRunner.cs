@@ -167,11 +167,19 @@ public class WptTestRunner
         // and arrives with that feature; WebApiFeatures.Default never includes it.
         ("FileAPI/file/send-file-formdata*.any.js", "posts multipart/form-data to wptserve's echo-content.py"),
 
-        // The one file in the FileAPI root that is neither vendored nor a browsing-context test. Jint has no
-        // FileReader — a Blob is read here through text()/arrayBuffer()/bytes()/stream() — and the file is
-        // about the reader's state machine (readyState, abort, the progress events) rather than about a Blob.
-        // Its sibling unicode.any.js needs no reader at all and *is* vendored.
-        ("FileAPI/fileReader.any.js", "FileReader is not implemented"),
+        // The FileAPI/url files that are not .any.js: a `.window.js` needs a browsing context, and the rest
+        // are documents. Between them they are the two things a blob URL has here and Jint does not — an
+        // origin to serialize into the URL, and a lifetime tied to a document being unloaded.
+        ("FileAPI/url/*.window.js", "needs a browsing context"),
+        ("FileAPI/url/*.html", "needs a document, an iframe or a second global"),
+
+        // FileReaderSync, which FileReaderPrototype documents declining: it is
+        // [Exposed=(DedicatedWorker,SharedWorker)] and exists to let a worker block its thread on I/O a
+        // window may not block on, and a Blob here is already in memory — so the synchronous interface would
+        // be a second spelling of blob.text() and blob.arrayBuffer() whose only distinguishing feature is
+        // being unavailable on the main thread. It is a .worker.js file, so the corpus would not reach it in
+        // any case.
+        ("FileAPI/FileReaderSync.worker.js", "FileReaderSync is declined; see FileReaderPrototype"),
 
         // ---------------------------------------------------------------- workers
         // Twenty-one files that look like the most runnable thing in the directory and are the least: every
@@ -234,14 +242,25 @@ public class WptTestRunner
         ("workers/modules/resources/*credentials-checker*", "needs a wptserve credentials handler"),
         ("workers/modules/resources/*referrer-checker*", "needs a wptserve referrer handler"),
 
-        // ---------------------------------------------------------------- hr-time and user-timing
-        // The file reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide whether to
-        // register its promise tests, so on an engine with no PerformanceObserver it throws a ReferenceError
-        // before the first test is registered — a harness error for the whole file, which no per-test
-        // exclusion can name. The rows that reach for an observer from inside a test body are excluded one by
-        // one instead, under WptDivergence.NeedsPerformanceObserver.
-        ("user-timing/supported-usertiming-types.any.js",
-            "reads PerformanceObserver at file scope; PerformancePrototype documents declining the observer"),
+        // ------------------------------------------- hr-time, user-timing and the performance timeline
+        // Every row is about resource timing: the file opens by calling setResourceTimingBufferSize(0) so that
+        // a later fetch counts as a dropped entry, and each of its five tests then asserts a
+        // droppedEntriesCount that only a resource entry can produce. The observer's own dropped-entry
+        // plumbing is implemented and exercised by WebApiPerformanceObserverTests instead, over a mark buffer
+        // driven past its cap.
+        ("performance-timeline/droppedentriescount.any.js", "needs resource timing and setResourceTimingBufferSize"),
+
+        // Two of its three tests read `self.location.protocol` and `self.location.host` and expect the
+        // resource entry for testharness.js itself; there is no document to have fetched one.
+        ("performance-timeline/case-sensitivity.any.js",
+            "needs resource timing entries and a document location; user-timing/case-sensitivity.any.js asserts the same case rule over marks"),
+
+        // It asserts that two consecutive readings differ by at least 5 microseconds, which is an assertion
+        // that the clock is *coarse*. PerformancePrototype records the opposite as a deliberate divergence:
+        // an embedded engine has no cross-origin data to protect, so the readings are whatever the host's
+        // TimeProvider gives — on Windows a 100-nanosecond Stopwatch tick — and how far apart two of them
+        // land would depend on how long an interpreted call happened to take.
+        ("performance-timeline/webtiming-resolution.any.js", "asserts a coarsened clock, which PerformancePrototype declines"),
 
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
@@ -361,7 +380,6 @@ public class WptTestRunner
         ("xhr/event-upload-progress*", "cross-origin: it uploads to a second origin to see the progress events"),
         ("xhr/xhr-authorization-redirect.any.js", "cross-origin: it follows a redirect to a second origin with an Authorization header"),
         ("xhr/idlharness.any.js", "needs idlharness.js and a WebIDL parser, which the harness shim does not have"),
-        ("xhr/blob-range.any.js", "needs URL.createObjectURL and Range requests over a blob: URL"),
         ("xhr/send-data-sharedarraybuffer.any.js", "needs WebAssembly.Memory, which Jint declines by design"),
         ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
@@ -596,6 +614,25 @@ public class WptTestRunner
         ["FileAPI/file/File-constructor.any.js"] = 49,
 
         ["FileAPI/unicode.any.js"] = 4,
+        ["FileAPI/fileReader.any.js"] = 4,
+
+        ["FileAPI/reading-data-section/Determining-Encoding.any.js"] = 6,
+        ["FileAPI/reading-data-section/FileReader-event-handler-attributes.any.js"] = 6,
+        ["FileAPI/reading-data-section/FileReader-multiple-reads.any.js"] = 6,
+        ["FileAPI/reading-data-section/filereader_abort.any.js"] = 3,
+        ["FileAPI/reading-data-section/filereader_error.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_events.any.js"] = 2,
+        ["FileAPI/reading-data-section/filereader_readAsArrayBuffer.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_readAsBinaryString.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_readAsDataURL.any.js"] = 4,
+        ["FileAPI/reading-data-section/filereader_readAsText.any.js"] = 2,
+        ["FileAPI/reading-data-section/filereader_readAsText_blob_type_charset.any.js"] = 3,
+        ["FileAPI/reading-data-section/filereader_readystate.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_result.any.js"] = 12,
+
+        ["FileAPI/url/url-format.any.js"] = 6,
+        ["FileAPI/url/url-with-fetch.any.js"] = 16,
+        ["FileAPI/url/url-with-xhr.any.js"] = 14,
 
         // Small numbers, because these files are small: the worker corpus asks one question per file about the
         // global it is running in, and the floor is what proves the file reached a worker at all rather than
@@ -637,7 +674,24 @@ public class WptTestRunner
         ["user-timing/measure-with-dict.any.js"] = 2,
         ["user-timing/measure_syntax_err.any.js"] = 5,
         ["user-timing/structured-serialize-detail.any.js"] = 9,
+        ["user-timing/supported-usertiming-types.any.js"] = 3,
         ["user-timing/user_timing_exists.any.js"] = 4,
+
+        ["performance-timeline/buffered-flag-after-timeout.any.js"] = 1,
+        ["performance-timeline/buffered-flag-observer.any.js"] = 1,
+        ["performance-timeline/multiple-buffered-flag-observers.any.js"] = 1,
+        ["performance-timeline/observer-buffered-false.any.js"] = 1,
+        ["performance-timeline/performanceentry-tojson.any.js"] = 1,
+        ["performance-timeline/po-callback-mutate.any.js"] = 1,
+        ["performance-timeline/po-disconnect-removes-observed-types.any.js"] = 1,
+        ["performance-timeline/po-disconnect.any.js"] = 3,
+        ["performance-timeline/po-entries-sort.any.js"] = 1,
+        ["performance-timeline/po-getentries.any.js"] = 1,
+        ["performance-timeline/po-observe-repeated-type.any.js"] = 1,
+        ["performance-timeline/po-observe-type.any.js"] = 6,
+        ["performance-timeline/po-observe.any.js"] = 6,
+        ["performance-timeline/po-takeRecords.any.js"] = 1,
+        ["performance-timeline/supportedEntryTypes.any.js"] = 2,
 
         ["html/webappapis/timers/clearinterval-from-callback.any.js"] = 1,
         ["html/webappapis/timers/cleartimeout-clearinterval.any.js"] = 2,
@@ -751,6 +805,7 @@ public class WptTestRunner
         ["xhr/abort-progress-events.any.js"] = 2,
         ["xhr/abort-upload-event-abort.any.js"] = 1,
         ["xhr/abort-upload-event-loadend.any.js"] = 1,
+        ["xhr/blob-range.any.js"] = 27,
         ["xhr/abort-with-error.any.js"] = 1,
         ["xhr/content-type-unmodified.any.js"] = 1,
         ["xhr/event-abort.any.js"] = 1,
@@ -1147,14 +1202,10 @@ public class WptTestRunner
         // TextDecoder half — the same 168 labels, the same expectations — passes.
         new("encoding/single-byte-decoder.any.js", "*(XMLHttpRequest)", WptDivergence.NeedsWptServer),
 
-        // ---------------------------------------------------------------- hr-time and user-timing
-        new("hr-time/basic.any.js", "Performance interface extends EventTarget.", WptDivergence.NeedsPerformanceEventTarget),
-
-        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous marks", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous measures", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/case-sensitivity.any.js", "getEntriesByType values are case sensitive", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
+        // ------------------------------------------- hr-time, user-timing and the performance timeline
+        // Nothing. The five NeedsPerformanceObserver rows and the one NeedsPerformanceEventTarget row that
+        // stood here until PerformanceObserver landed all pass now, and so does the whole of the
+        // performance-timeline corpus that arrived with it.
 
         // ---------------------------------------------------------------- fetch
         // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"
@@ -1248,10 +1299,6 @@ public class WptTestRunner
         // file's point — that send() stringifies an ordinary object — is the row that passes.
         new("xhr/send-data-es-object.any.js", "object whose toString() returns a document, expected to throw",
             WptDivergence.NeedsWindowGlobal),
-
-        // One row of two: the other asserts the Content-Length an upload sets, and passes.
-        new("xhr/request-content-length.any.js", "Fetched blob: URLs set the Content-Length header",
-            WptDivergence.NeedsBlobUrls),
 
         // The file's one test decodes a Shift_JIS body, which is one of the seven encodings the label
         // table names and refuses.
@@ -1367,6 +1414,8 @@ public class WptTestRunner
         "FileAPI",
         "FileAPI/blob",
         "FileAPI/file",
+        "FileAPI/reading-data-section",
+        "FileAPI/url",
     ];
 
     public static IEnumerable<object[]> FileApiSuiteFiles() => Cases("FileAPI");
@@ -1374,6 +1423,10 @@ public class WptTestRunner
     public static IEnumerable<object[]> FileApiBlobSuiteFiles() => Cases("FileAPI/blob");
 
     public static IEnumerable<object[]> FileApiFileSuiteFiles() => Cases("FileAPI/file");
+
+    public static IEnumerable<object[]> FileApiReadingDataSuiteFiles() => Cases("FileAPI/reading-data-section");
+
+    public static IEnumerable<object[]> FileApiUrlSuiteFiles() => Cases("FileAPI/url");
 
     /// <summary>
     /// The three vendored <c>workers/</c> directories. Every file in them runs <b>inside a real module
@@ -1446,6 +1499,8 @@ public class WptTestRunner
     public static IEnumerable<object[]> HrTimeSuiteFiles() => Cases("hr-time");
 
     public static IEnumerable<object[]> UserTimingSuiteFiles() => Cases("user-timing");
+
+    public static IEnumerable<object[]> PerformanceTimelineSuiteFiles() => Cases("performance-timeline");
 
     public static IEnumerable<object[]> TimersSuiteFiles() => Cases("html/webappapis/timers");
 
@@ -1539,6 +1594,12 @@ public class WptTestRunner
     [TestCaseSource(nameof(FileApiFileSuiteFiles))]
     public void RunsTheFileApiFileSuite(string file) => RunSuiteFile(file);
 
+    [TestCaseSource(nameof(FileApiReadingDataSuiteFiles))]
+    public void RunsTheFileApiReadingDataSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(FileApiUrlSuiteFiles))]
+    public void RunsTheFileApiUrlSuite(string file) => RunSuiteFile(file);
+
     [TestCaseSource(nameof(WorkersSuiteFiles))]
     public void RunsTheWorkersSuite(string file) => RunSuiteFile(file);
 
@@ -1556,6 +1617,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(UserTimingSuiteFiles))]
     public void RunsTheUserTimingSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(PerformanceTimelineSuiteFiles))]
+    public void RunsThePerformanceTimelineSuite(string file) => RunSuiteFile(file);
 
     [TestCaseSource(nameof(TimersSuiteFiles))]
     public void RunsTheTimersSuite(string file) => RunSuiteFile(file);
@@ -1886,6 +1950,49 @@ public class WptTestRunner
         }
     }
 
+    /// <summary>
+    /// The blob-URL lane holds exactly the files it names, and no file is in two lanes at once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the second place in the driver that grants <see cref="WebApiFeatures.Fetch"/>, so it moves the
+    /// boundary the test above guards and has to be held to the same rule. What keeps the promise here is not
+    /// a port but the absence of one: a lane engine's <c>UrlFilter</c> refuses <b>every</b> URL, and the only
+    /// requests these files make are of <c>blob:</c> URLs, which scheme fetch answers from the engine's own
+    /// blob URL store before a filter is consulted at all. So a file that drifted into this lane would gain
+    /// the interfaces and no reach whatever — but it would also gain the <i>shipped</i> <c>fetch</c> and
+    /// <c>XMLHttpRequest</c> in place of the shim's corpus reader, and fail for a reason that looks like an
+    /// engine defect.
+    /// </para>
+    /// <para>
+    /// A file in both lanes would be a contradiction rather than a doubling: the server lane's filter admits
+    /// its own port and this one's admits nothing, and which of the two an engine got would depend on the
+    /// order of two <c>if</c> statements.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void TheBlobUrlLaneHoldsExactlyTheFilesItNames()
+    {
+        var named = WptHarness.BlobUrlBackedFiles.ToArray();
+
+        named.Should().NotBeEmpty("the blob-URL lane is what the two FileAPI/url fetch suites run in");
+
+        foreach (var file in named)
+        {
+            WptCorpus.Contains(file).Should().BeTrue($"{file} is in the blob-URL lane but is not vendored");
+            WptHarness.IsBlobUrlBacked(file).Should().BeTrue($"{file} must answer for itself");
+            WptHarness.IsServerBacked(file).Should().BeFalse($"{file} cannot be in two lanes at once");
+        }
+
+        foreach (var path in WptCorpus.Paths)
+        {
+            if (path.EndsWith(".any.js", StringComparison.Ordinal) && !Array.Exists(named, f => string.Equals(f, path, StringComparison.Ordinal)))
+            {
+                WptHarness.IsBlobUrlBacked(path).Should().BeFalse($"{path} is not one of the files the blob-URL lane names");
+            }
+        }
+    }
+
     [Test]
     public void TheHarnessShimAndItsHelpersAreEmbedded()
     {
@@ -1929,7 +2036,12 @@ public class WptTestRunner
                      // META reference that leaves a suite's own directory.
                      "FileAPI/support/Blob.js",
 
+                     // The blob-URL lane's shared body: the same twelve tests run once through `fetch` and
+                     // once through `XMLHttpRequest`, which is what the file exists to make possible.
+                     "FileAPI/url/resources/fetch-tests.js",
+
                      "user-timing/resources/user-timing-helper.js",
+                     "performance-timeline/performanceobservers.js",
                      "dom/abort/resources/abort-signal-any-tests.js",
                      "html/webappapis/structured-clone/structured-clone-battery-of-tests.js",
                      "html/webappapis/structured-clone/structured-clone-battery-of-tests-with-transferables.js",

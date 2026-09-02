@@ -267,31 +267,6 @@ internal enum WptDivergence
     NeedsIncrementalInflater,
 
     /// <summary>
-    /// The test needs <c>PerformanceObserver</c>. <c>PerformancePrototype</c> names it first in the list of
-    /// what it does not implement — "<c>PerformanceObserver</c> and everything that reports to one,
-    /// <c>toJSON</c>, <c>setResourceTimingBufferSize</c> and the resource-timing surface" — and says why it is
-    /// <i>absent</i> rather than present-and-throwing: so that a script's own feature detection sees the truth.
-    /// The user-timing corpus takes that at its word in some files and not in others, which is why these are
-    /// per-test entries: <c>mark.any.js</c>, <c>measure-l3.any.js</c> and the rest of the suite read the
-    /// timeline through <c>getEntries()</c> and pass. One file reads the observer at file scope and is not
-    /// vendored at all; see <c>Vendor/README.md</c>.
-    /// </summary>
-    NeedsPerformanceObserver,
-
-    /// <summary>
-    /// The test dispatches an event at the <c>performance</c> object. <c>Performance</c> inherits from
-    /// <c>EventTarget</c> in https://w3c.github.io/hr-time/#sec-performance, and Jint's does not: the
-    /// interface object and its prototype are real (sebastienros/jint#3195), but
-    /// <c>Performance.prototype</c>'s own <c>[[Prototype]]</c> is <c>%Object.prototype%</c> rather than
-    /// <c>EventTarget.prototype</c>. <c>PerformanceConstructor</c> records why — nothing here fires an event
-    /// at the object, the specification's whole event surface for it is
-    /// <c>resourcetimingbufferfull</c>, and claiming the inheritance would make
-    /// <c>performance instanceof EventTarget</c> true while <c>addEventListener</c> failed its brand check.
-    /// One row of <c>hr-time/basic.any.js</c>; its other four pass.
-    /// </summary>
-    NeedsPerformanceEventTarget,
-
-    /// <summary>
     /// The test needs an HTTP response that only a wpt server can produce — a <c>.py</c> handler that echoes
     /// headers, generates bytes with a charset, trickles a body or redirects — <b>from a lane that has no
     /// server</b>. <see cref="WptServer"/> now stands in for wptserve, but only for the files
@@ -406,13 +381,6 @@ internal enum WptDivergence
     /// that branches on them takes the window arm.
     /// </summary>
     NeedsWindowGlobal,
-
-    /// <summary>
-    /// The test fetches a <c>blob:</c> URL, which needs <c>URL.createObjectURL</c> and the per-engine blob
-    /// store behind it. Neither exists yet; the File API surface Jint has stops at <c>Blob</c>,
-    /// <c>File</c> and <c>FormData</c>.
-    /// </summary>
-    NeedsBlobUrls,
 
     /// <summary>
     /// The test clones an <c>ImageBitmap</c> or an <c>OffscreenCanvas</c>. Both are browser graphics objects

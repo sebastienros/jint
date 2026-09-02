@@ -101,11 +101,18 @@ public class LiveEnableTests
     }
 
     /// <summary>
-    /// The state-extension half. A state built for <see cref="WebApiFeatures.Performance"/> alone carries the
-    /// time origin and no queue at all, so enabling a scheduling feature has to attach one — to that very
-    /// state, because replacing it would move the time origin and lose everything the engine had already put
-    /// in it.
+    /// The state-extension half. A state built for <see cref="WebApiFeatures.Encoding"/> plus
+    /// <see cref="WebApiFeatures.Performance"/> carries the time origin and none of the queues a scheduling
+    /// feature needs, so enabling one has to attach it — to that very state, because replacing it would move
+    /// the time origin and lose everything the engine had already put in it.
     /// </summary>
+    /// <remarks>
+    /// The engine is built with <see cref="WebApiFeatures.Performance"/> and reaches its state through the
+    /// <see cref="WebApiFeatures.Events"/> the closure brings with it —
+    /// <c>interface Performance : EventTarget</c> — which is also why it starts with a timer queue: that is
+    /// where <c>AbortSignal.timeout()</c> schedules. What it has none of is the scheduler and the idle
+    /// callbacks, and those are what this asserts get attached rather than rebuilt.
+    /// </remarks>
     [Test]
     public void ExtendingAnExistingStateAttachesTheQueuesWithoutReplacingIt()
     {
@@ -113,8 +120,7 @@ public class LiveEnableTests
 
         var state = engine._webApi;
         state.Should().NotBeNull();
-        state!.Timers.Should().BeNull("a performance-only engine reads the time origin and never schedules");
-        state.Scheduler.Should().BeNull();
+        state!.Scheduler.Should().BeNull();
         state.IdleCallbacks.Should().BeNull();
 
         var timeOrigin = state.TimeOrigin;

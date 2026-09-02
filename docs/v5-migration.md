@@ -4866,6 +4866,50 @@ where it printed `[native code]`. Neither is new behaviour so much as the behavi
 promised, but a host that wants the old answer for loader-loaded modules can say so per loader — pass
 `new ModuleParsingOptions { RetainFunctionSourceText = false }` to
 `ModuleFactory.BuildSourceTextModule`.
+### 4.111 `performance` is an `EventTarget`, and asking for it brings the events ([#3660](https://github.com/sebastienros/jint/pull/3660))
+
+[HR-Time](https://w3c.github.io/hr-time/#sec-performance) declares `interface Performance : EventTarget`, and
+Jint's did not: `Performance.prototype`'s own `[[Prototype]]` was `%Object.prototype%`, so
+`performance instanceof EventTarget` was false and `performance.addEventListener` was `undefined`. It was a
+deliberate refusal while nothing could fire an event at the object, and `PerformanceObserver` is what changed
+the argument — the timeline is now something a script listens to, and half an `EventTarget` is worse than
+none.
+
+```js
+performance instanceof EventTarget;            // 5.0: false        5.x: true
+typeof performance.addEventListener;           // 5.0: "undefined"  5.x: "function"
+Object.getPrototypeOf(Performance.prototype);  // 5.0: Object.prototype   5.x: EventTarget.prototype
+```
+
+**What could break:** feature detection that reads `typeof performance.addEventListener` to decide whether it
+is running in a browser. And the feature closure now brings `WebApiFeatures.Events` with
+`WebApiFeatures.Performance`, so an engine built with the performance flag alone additionally carries `Event`,
+`CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal` as globals — a script that tested
+`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing is
+dispatched at `performance` by the engine: the one event the specifications define on the interface is
+`resourcetimingbufferfull`, and there is no resource timing buffer here to fill.
+
+### 4.112 The File API brings the event interfaces with it ([#3660](https://github.com/sebastienros/jint/pull/3660))
+
+`WebApiFeatures.Files` now closes over `WebApiFeatures.Events`, because `FileReader` is an `EventTarget` that
+fires `ProgressEvent`s and a script registering `reader.onload` needs `addEventListener` under it. An engine
+built with the files flag alone additionally carries `Event`, `CustomEvent`, `EventTarget`,
+`AbortController`, `AbortSignal` and `ProgressEvent` as globals. `Blob`, `File` and `FormData` need none of
+it, which is why this is a closure rather than a merged feature.
+
+```js
+// options.UseWebApis(WebApiFeatures.Files)
+typeof EventTarget;      // 5.0: "undefined"  5.x: "function"
+typeof ProgressEvent;    // 5.0: "undefined"  5.x: "function"
+```
+
+`ProgressEvent` in particular moved: it used to arrive only with `WebApiFeatures.XmlHttpRequest`, and it now
+arrives with whichever feature brings the first interface that fires one — which for `WebApiFeatures.Default`
+is the files flag. The install is non-clobbering, so an engine with both features still gets the one
+interface object.
+
+**What could break:** feature detection that reads `typeof EventTarget` or `typeof ProgressEvent` to decide
+whether some other feature is on.
 
 ### 4.111 A coverage source is one parse, not one name ([#3632](https://github.com/sebastienros/jint/issues/3632))
 
@@ -5576,6 +5620,93 @@ new EngineTargetOptions { Url = Path.GetFullPath("app.js") }   // /json/list say
 `Options.Interop.BuildCallStackHandler` is handed, and they stay exactly what the host passed;
 `Debugger.setBreakpointByUrl` accepts either form. A `Url` that is not a path — `jint://repl`,
 `https://…`, the empty string — is unchanged.
+### 5.17 `PerformanceObserver` ([#3660](https://github.com/sebastienros/jint/pull/3660))
+
+`WebApiFeatures.Performance` now installs `PerformanceObserver` and `PerformanceObserverEntryList` beside
+`performance` and the entry interfaces. No new flag, and nothing changes for an engine that does not enable
+the feature.
+
+```js
+new PerformanceObserver((list, observer, options) => {
+  for (const entry of list.getEntries()) { console.log(entry.entryType, entry.name, entry.duration); }
+  // options.droppedEntriesCount is present on the first callback only.
+}).observe({ type: 'measure', buffered: true });
+```
+
+`observe({ entryTypes })` and `observe({ type, buffered })` are both supported and, as the standard says,
+stack differently — an `entryTypes` call replaces the observer's whole options list, a `type` call appends to
+it, and mixing the two on one observer is an `InvalidModificationError`. `takeRecords()`, `disconnect()` and
+the static `PerformanceObserver.supportedEntryTypes` are all there; the last answers
+`["mark", "measure"]`, which are the entry types an engine with no document to navigate can produce, so
+`observe({ type: 'resource' })` registers nothing rather than throwing.
+
+Two things an embedder has to know. **The callback is delivered on the event loop as a task**, exactly as a
+timer handler is — `engine.Tasks.ProcessTasks()` is what runs it, and an engine nobody pumps never calls one.
+Because it is a task and not a microtask, a promise reaction queued in the same turn as the entry runs first,
+as it does in a browser. And **a `RestoreGlobalSnapshot` ends every registration**, the way it ends a global
+`error` listener and for the same reason — a registered callback is a closure over the evaluation cycle that
+has just been thrown away — while the performance entry buffer survives it, being data behind a restored
+binding.
+
+`DiagnosticCallbackSource` gains a `PerformanceObserver` member: a callback that throws is reported to
+`Options.WebApi.Diagnostics.Sink` and the observers behind it are still delivered to, which is the
+`"report"` exception behaviour the algorithm invokes it with.
+
+### 5.18 `FileReader` ([#3660](https://github.com/sebastienros/jint/pull/3660))
+
+`WebApiFeatures.Files` now installs `FileReader` beside `Blob`, `File` and `FormData`. No new flag.
+
+```js
+const reader = new FileReader();
+reader.onload = () => console.log(reader.result);
+reader.readAsDataURL(blob);
+```
+
+All four operations are there — `readAsArrayBuffer`, `readAsBinaryString`, `readAsText(blob, encoding?)`,
+`readAsDataURL` — with `abort()`, `readyState` and its three constants, `result`, `error`, and the six
+`ProgressEvent`s with their `on*` handler attributes. `readAsText` resolves its encoding the way the File API
+says: the argument if it names one, otherwise the blob type's `charset` parameter, otherwise UTF-8 — and a
+byte order mark overrides all three, which is the Encoding standard's *decode* rather than `TextDecoder`'s
+BOM stripping.
+
+Two things an embedder has to know. **A read is tasks on the event loop**, so `engine.Tasks.ProcessTasks()`
+is what finishes one and a host that reads `result` without pumping gets `null`. There is no thread: a `Blob`
+is bytes already in memory, so "reading" is the event sequence and nothing else. And **a
+`RestoreGlobalSnapshot` drops a read in flight**, leaving its reader in `LOADING` — the contract every other
+piece of pending work has across a restore.
+
+`FileReaderSync` is not implemented, and is absent rather than throwing. It is
+`[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a worker block its thread on I/O a window may
+not block on; here it would be a second spelling of `blob.text()` and `blob.arrayBuffer()` whose only
+distinguishing feature is being unavailable on the main thread.
+
+### 5.19 Blob URLs ([#3660](https://github.com/sebastienros/jint/pull/3660))
+
+An engine with both `WebApiFeatures.Url` and `WebApiFeatures.Files` — which `WebApiFeatures.Default` has —
+now carries `URL.createObjectURL` and `URL.revokeObjectURL`, and a blob URL store behind them. They are
+absent on an engine with only one of the two: neither half is any use without the other, and an absent member
+is what feature detection expects to find.
+
+```js
+const url = URL.createObjectURL(new Blob(['bytes'], { type: 'text/plain' }));
+const text = await (await fetch(url)).text();
+URL.revokeObjectURL(url);
+```
+
+The URL reads `blob:null/<uuid>`, because an engine with no document has an opaque origin and `"null"` is
+what one serializes to; `Jint.Browser` is what will put a real origin there.
+
+**Fetching one reaches no network.** [Scheme fetch](https://fetch.spec.whatwg.org/#scheme-fetch) dispatches
+on the URL's scheme, and the `blob` arm is answered from the engine's own store before `AllowedSchemes`, the
+host's `UrlFilter`, the concurrency cap or an `HttpClient` is consulted — so `fetch` and `XMLHttpRequest`
+both read a blob URL on an engine that has no network grant at all. Only `GET` is answered; a `Range` gets a
+206 with a `Content-Range`.
+
+Two consequences for a host. An entry **holds its blob strongly until it is revoked**, which is the trade the
+API makes and why the standard's own note tells authors to revoke; a script that mints URLs in a loop and
+never revokes grows the store, and no execution constraint describes that memory. And a
+`RestoreGlobalSnapshot` **empties the store**, the way it empties the timer queue: the URLs were minted by
+the cycle that has ended and their strings are unreachable once its globals are gone.
 
 ### 5.17 A frame, a profile frame and a coverage source name the program they belong to ([#3632](https://github.com/sebastienros/jint/issues/3632))
 

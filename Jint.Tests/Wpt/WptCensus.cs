@@ -101,6 +101,7 @@ internal static class WptCensus
         ("File API", "FileAPI/"),
         ("High Resolution Time", "hr-time/"),
         ("User Timing", "user-timing/"),
+        ("Performance Timeline", "performance-timeline/"),
         ("HTML — workers", "workers/"),
         ("HTML — timers, microtasks, structured clone", "html/webappapis/"),
         ("DOM", "dom/"),

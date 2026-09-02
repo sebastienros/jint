@@ -6,6 +6,7 @@ using Jint.Constraints;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
+using Jint.WebApi.Files;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.WebApi.Xhr;
@@ -78,6 +79,12 @@ internal sealed class XhrOperation : IDisposable
     private readonly ReadOnlyMemory<byte>? _body;
 
     /// <summary>
+    /// The <c>Blob</c> a <c>blob:</c> URL named when <c>open()</c> ran, or <see langword="null"/> for every
+    /// other URL — see <see cref="DeliverBlobUrl"/>.
+    /// </summary>
+    private readonly JsBlob? _blobUrlEntry;
+
+    /// <summary>
     /// The engine's own cancellation token, from <see cref="CancellationConstraint"/>. A request cancelled
     /// through it settles nothing at all: a constraint that became an <c>error</c> event would no longer
     /// bound anything.
@@ -107,7 +114,8 @@ internal sealed class XhrOperation : IDisposable
         WebApiEngineState state,
         string method,
         UrlRecord url,
-        ReadOnlyMemory<byte>? body)
+        ReadOnlyMemory<byte>? body,
+        JsBlob? blobUrlEntry = null)
     {
         _xhr = xhr;
         _engine = engine;
@@ -116,6 +124,7 @@ internal sealed class XhrOperation : IDisposable
         _method = method;
         _url = url;
         _body = body;
+        _blobUrlEntry = blobUrlEntry;
         _registration = engine.CaptureEventLoopRegistration();
         _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
         _cancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -145,6 +154,15 @@ internal sealed class XhrOperation : IDisposable
     /// </summary>
     internal void Start()
     {
+        if (IsBlobUrl)
+        {
+            // Scheme fetch's `blob` arm. Queued rather than delivered here, because an asynchronous
+            // XMLHttpRequest fires every one of its events from a task and a script that has not returned
+            // from send() has had no chance to register a handler.
+            Post(() => DeliverBlobUrl(reportProgress: true));
+            return;
+        }
+
         if (!TryBegin(out var client, out var policy, out var failure))
         {
             // Every one of these failures is the standard's network error, and for an asynchronous request a
@@ -189,6 +207,14 @@ internal sealed class XhrOperation : IDisposable
     /// </remarks>
     internal void RunSynchronously()
     {
+        if (IsBlobUrl)
+        {
+            // No task and no wait: the bytes are already in hand, and a synchronous request fires its events
+            // on the caller's own stack anyway.
+            DeliverBlobUrl(reportProgress: false);
+            return;
+        }
+
         if (!TryBegin(out var client, out var policy, out var failure))
         {
             Release();
@@ -240,6 +266,67 @@ internal sealed class XhrOperation : IDisposable
         }
 
         Settle(outcome);
+    }
+
+    /// <summary>
+    /// Whether this request names a <c>blob:</c> URL, which scheme fetch answers without a transport.
+    /// </summary>
+    private bool IsBlobUrl => string.Equals(_url.Scheme, "blob", StringComparison.Ordinal);
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, the <c>blob</c> arm, delivered through the same three
+    /// calls a real response takes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every network check is skipped, which is the algorithm's own order rather than a shortcut: a blob URL
+    /// names bytes this engine's own script created, so there is no socket for
+    /// <c>Options.WebApi.Fetch.AllowedSchemes</c>, the host's <c>UrlFilter</c>, the concurrency cap or the
+    /// network grant to bound. That is what makes <c>xhr.open('GET', URL.createObjectURL(blob))</c> work on
+    /// an engine that named <c>WebApiFeatures.XmlHttpRequest</c> and nothing else — see
+    /// <see cref="BlobUrlFetch"/>.
+    /// </para>
+    /// <para>
+    /// The request's own <c>Range</c> header is honoured, so a 206 with a <c>Content-Range</c> is what a
+    /// script asking for part of a blob gets, exactly as it would from a server.
+    /// </para>
+    /// </remarks>
+    private void DeliverBlobUrl(bool reportProgress)
+    {
+        if (_blobUrlEntry is null
+            || !BlobUrlFetch.TryBuild(_blobUrlEntry, _method, _xhr.AuthorRequestHeaders.Get("Range"), out var built))
+        {
+            if (reportProgress)
+            {
+                Settle(XhrOutcome.NetworkError);
+            }
+            else
+            {
+                _xhr.RunRequestErrorSteps(
+                    JsXmlHttpRequestEventTarget.ErrorEventType,
+                    DomExceptionNames.Network,
+                    "The request failed.");
+            }
+
+            return;
+        }
+
+        var headers = new HeaderList();
+        headers.Entries.AddRange(built.Headers);
+
+        _xhr.ReceiveResponseHead(
+            built.Status,
+            built.StatusText,
+            headers,
+            _url.Serialize(excludeFragment: true),
+            built.Body.Length);
+
+        if (built.Body.Length > 0)
+        {
+            _xhr.ReceiveBodyChunk(built.Body.ToArray());
+        }
+
+        _xhr.HandleResponseEndOfBody();
     }
 
     /// <summary>
