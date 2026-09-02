@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Jint.DevTools;
+using Jint.Runtime.Debugger;
 
 namespace Jint.Tests.DevTools.Session;
 
@@ -84,8 +85,8 @@ public class DebuggerExceptionPauseTests
     }
 
     /// <summary>
-    /// <c>caught</c> is the mirror image, and the engine has no mode for it: it is <c>all</c> with the
-    /// uncaught half filtered out inside the pause decision.
+    /// <c>caught</c> is the mirror image, and it is an engine mode of its own: the engine decides it at the
+    /// throw, so a throw nobody will catch never reaches the pause handler at all.
     /// </summary>
     [Test]
     public async Task CaughtStopsOnlyAtTheThrowSomethingCatches()
@@ -97,7 +98,34 @@ public class DebuggerExceptionPauseTests
         Uncaught(paused).Should().BeFalse();
 
         (await RunAsync(session, "unguarded()")).Should().Be("threw boom");
-        session.EventsOf("Debugger.paused").Should().HaveCount(1, "the uncaught throw is filtered out, not stopped at");
+        session.EventsOf("Debugger.paused").Should().HaveCount(1, "the engine was never asked about the uncaught throw");
+    }
+
+    /// <summary>
+    /// Each of the protocol's four states is one engine mode, so no throw is raised for this domain to
+    /// decline — which it could only do by answering with a <c>StepMode</c>, and every one of those but
+    /// <c>Unchanged</c> sets the mode and cancels a step in flight.
+    /// </summary>
+    [Test]
+    public async Task EachProtocolStateIsAnEngineModeOfItsOwn()
+    {
+        await using var session = await CreateAsync();
+
+        var states = new (string State, ExceptionPauseMode Mode)[]
+        {
+            ("none", ExceptionPauseMode.None),
+            ("caught", ExceptionPauseMode.Caught),
+            ("uncaught", ExceptionPauseMode.Uncaught),
+            ("all", ExceptionPauseMode.All),
+        };
+
+        foreach (var (state, mode) in states)
+        {
+            await session.ResultAsync("Debugger.setPauseOnExceptions", $$"""{"state":"{{state}}"}""");
+
+            (await session.Target.PostAsync(engine => engine.Debugger.PauseOnExceptions))
+                .Should().Be(mode, "'{0}' is what the client asked the engine for", state);
+        }
     }
 
     /// <summary>

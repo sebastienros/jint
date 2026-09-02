@@ -21,7 +21,26 @@ public enum PauseType
 public class DebugHandler
 {
     public delegate void BeforeEvaluateEventHandler(object sender, Program ast);
+
+    /// <summary>
+    /// Handles one execution point the engine stopped at, and answers what it does next.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The return value is the next step mode, not an acknowledgement.</b> Returning
+    /// <see cref="StepMode.None"/> from a handler that only meant "not this one" cancels a step the host
+    /// armed earlier; <see cref="StepMode.Unchanged"/> is how a handler declines without deciding.
+    /// </para>
+    /// <para>
+    /// It runs on the engine's own thread, inside the execution point: returning is what resumes the script,
+    /// so a handler that services a user interface has to do it before it returns.
+    /// </para>
+    /// </remarks>
+    /// <param name="sender">The <see cref="Engine"/> that stopped.</param>
+    /// <param name="e">Where it stopped, and what the call stack looks like there.</param>
+    /// <returns>How the engine should continue.</returns>
     public delegate StepMode DebugEventHandler(object sender, DebugInformation e);
+
     public delegate void ExceptionThrownEventHandler(object sender, ExceptionThrownEventArgs e);
 
     private readonly Engine _engine;
@@ -82,7 +101,10 @@ public class DebugHandler
     {
         _engine = engine;
         BreakPoints = new BreakPointCollection();
-        HandleNewStepMode(initialStepMode);
+
+        // There is no mode yet to keep, and leaving the stepping depth at its default would arm a step at
+        // top level rather than arm nothing.
+        HandleNewStepMode(initialStepMode == StepMode.Unchanged ? StepMode.None : initialStepMode);
     }
 
     private bool IsStepping => _engine.CallStack.Count <= _steppingDepth;
@@ -121,12 +143,13 @@ public class DebugHandler
     /// </para>
     /// <para>
     /// <see cref="ExceptionPauseMode.Uncaught"/> means no <c>catch</c> clause is executing on the stack — a
-    /// <c>finally</c>-only <c>try</c> does not count, a <c>catch</c> in a calling function does. Two
-    /// boundaries end that search, because a throw crossing either becomes something other than an exception:
-    /// a host entry, whose caller receives a <see cref="JavaScriptException"/>, and an async function body,
-    /// whose throw becomes a rejection of its own promise. So an async function that throws is uncaught even
-    /// when its caller wrapped the call in <c>try</c>/<c>catch</c>, which is what a user asking to stop on
-    /// uncaught exceptions wants and what a rejection nobody handles turns out to be.
+    /// <c>finally</c>-only <c>try</c> does not count, a <c>catch</c> in a calling function does — and
+    /// <see cref="ExceptionPauseMode.Caught"/> is its complement. Two boundaries end that search, because a
+    /// throw crossing either becomes something other than an exception: a host entry, whose caller receives a
+    /// <see cref="JavaScriptException"/>, and an async function body, whose throw becomes a rejection of its
+    /// own promise. So an async function that throws is uncaught even when its caller wrapped the call in
+    /// <c>try</c>/<c>catch</c>, which is what a user asking to stop on uncaught exceptions wants and what a
+    /// rejection nobody handles turns out to be.
     /// </para>
     /// <para>
     /// A rejection with no throw behind it — <c>Promise.reject(x)</c> — never stops the engine. Nothing here
@@ -539,7 +562,18 @@ public class DebugHandler
         // Nothing on the CLR stack between the throw and here has popped a call frame, so the engine's
         // count of executing try-with-catch blocks is still the one the throw was raised under.
         var uncaught = _engine._tryCatchDepth == 0;
-        if (pauseMode == ExceptionPauseMode.Uncaught && !uncaught)
+
+        // The four modes partition the throws, so the decision is made here and a handler is never raised
+        // for one it would have to decline.
+        var asked = pauseMode switch
+        {
+            ExceptionPauseMode.All => true,
+            ExceptionPauseMode.Uncaught => uncaught,
+            ExceptionPauseMode.Caught => !uncaught,
+            _ => false,
+        };
+
+        if (!asked)
         {
             return;
         }
@@ -665,9 +699,14 @@ public class DebugHandler
         HandleNewStepMode(result);
     }
 
+    /// <summary>
+    /// Applies what a notification's handler decided. Null is what no subscriber answers, and
+    /// <see cref="StepMode.Unchanged"/> is what a subscriber that declined to pause answers; both leave the
+    /// mode alone, so a step a client armed before the notification is still armed after it.
+    /// </summary>
     private void HandleNewStepMode(StepMode? newStepMode)
     {
-        if (newStepMode != null)
+        if (newStepMode is not null and not StepMode.Unchanged)
         {
             _steppingDepth = newStepMode switch
             {

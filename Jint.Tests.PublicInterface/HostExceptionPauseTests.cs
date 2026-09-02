@@ -236,4 +236,119 @@ public class HostExceptionPauseTests
 
         reported.Should().Contain("caught", "the event reports every throw, caught or not");
     }
+
+    // ---- caught, which is the fourth state a tool offers ----
+
+    /// <summary>
+    /// The complement of <see cref="ExceptionPauseMode.Uncaught"/>: a throw something will catch stops the
+    /// engine, and one nothing will catch does not.
+    /// </summary>
+    [Test]
+    public void CaughtStopsOnTheThrowsThatUncaughtLetsThrough()
+    {
+        var pauses = Run("""
+            function thrower() { throw new Error('handled'); }
+            try { thrower(); } catch (e) {}
+            undefined.foo;
+            """, ExceptionPauseMode.Caught);
+
+        pauses.Should().ContainSingle("only the throw a catch clause will land in");
+        pauses[0].ThrownValue.Should().Be("handled");
+        pauses[0].IsUncaught.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The four modes partition the throws of one script, which is the property a tool's four-state control
+    /// is built on.
+    /// </summary>
+    [Test]
+    public void TheFourModesPartitionTheThrows()
+    {
+        const string Script = """
+            try { throw new Error('caught'); } catch (e) {}
+            undefined.foo;
+            """;
+
+        Run(Script, ExceptionPauseMode.None).Should().BeEmpty();
+        Run(Script, ExceptionPauseMode.Caught).Select(pause => pause.ThrownValue).Should().Equal("caught");
+        Run(Script, ExceptionPauseMode.Uncaught).Should().ContainSingle().Which.IsUncaught.Should().BeTrue();
+        Run(Script, ExceptionPauseMode.All).Should().HaveCount(2);
+    }
+
+    /// <summary>
+    /// <see cref="StepMode.Unchanged"/> is what a handler that declines to decide answers, and it is the
+    /// only answer that leaves a step in flight alone.
+    /// </summary>
+    [Test]
+    public void UnchangedLeavesAStepInFlightArmed()
+    {
+        static int StepsAfterTheThrow(StepMode declined)
+        {
+            var engine = new Engine(options =>
+            {
+                options.Debugger.Enabled = true;
+                options.Debugger.InitialStepMode = StepMode.Into;
+            });
+
+            engine.Debugger.PauseOnExceptions = ExceptionPauseMode.All;
+
+            var thrown = false;
+            var afterwards = 0;
+
+            engine.Debugger.Break += (sender, info) =>
+            {
+                // The exception pause, which this handler wants no part of.
+                thrown = true;
+                return declined;
+            };
+
+            engine.Debugger.Step += (sender, info) =>
+            {
+                if (thrown)
+                {
+                    afterwards++;
+                }
+
+                return StepMode.Into;
+            };
+
+            engine.Execute("""
+                var before = 1;
+                try { throw new Error('x'); } catch (e) {}
+                var first = 2;
+                var second = 3;
+                """);
+
+            thrown.Should().BeTrue("the throw was raised to the handler");
+            return afterwards;
+        }
+
+        StepsAfterTheThrow(StepMode.Unchanged).Should().BeGreaterThan(0, "the step was still armed");
+        StepsAfterTheThrow(StepMode.None).Should().Be(0, "None is a decision, and it cancelled the step");
+    }
+
+    /// <summary>
+    /// As an engine's initial mode it means <see cref="StepMode.None"/>: there is no mode yet to keep, and
+    /// an engine that quietly started stepping would stop on its first statement.
+    /// </summary>
+    [Test]
+    public void UnchangedAsTheInitialModeIsNoStepping()
+    {
+        var engine = new Engine(options =>
+        {
+            options.Debugger.Enabled = true;
+            options.Debugger.InitialStepMode = StepMode.Unchanged;
+        });
+
+        var steps = 0;
+        engine.Debugger.Step += (sender, info) =>
+        {
+            steps++;
+            return StepMode.Unchanged;
+        };
+
+        engine.Execute("var a = 1; var b = 2;");
+
+        steps.Should().Be(0);
+    }
 }

@@ -317,15 +317,9 @@ internal sealed partial class DebuggerDomain
 
         if (information.PauseType == PauseType.Exception)
         {
-            // `caught` is the one state the engine has no mode for: it is asked for every throw, and the half
-            // the client did not ask for is dropped here. Returning None cancels a step that was in flight,
-            // which is the only answer the delegate can give — and harmless in this one case, because the
-            // frames a step was walking are about to be unwound by the throw anyway.
-            if (information.IsUncaught && string.Equals(_pauseOnExceptions, SetPauseOnExceptionsRequestStateValues.Caught, StringComparison.Ordinal))
-            {
-                return StepMode.None;
-            }
-
+            // Nothing is filtered here: the protocol's four states are four engine modes, so a throw that
+            // reaches this handler is one the client asked to stop on. Deciding it here instead would mean
+            // declining with a StepMode, and every one of those but Unchanged sets the mode.
             return RunPauseLoop(information, new PauseCause
             {
                 Reason = PausedEventReasonValues.Exception,
