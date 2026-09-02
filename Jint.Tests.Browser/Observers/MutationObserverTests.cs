@@ -353,7 +353,13 @@ public sealed class MutationObserverTests
               window.log = [];
               const host = document.getElementById('host');
               const observer = new MutationObserver(function (records, self) {
-                window.log.push(records[0] instanceof MutationRecord, self === observer, this === observer, Array.isArray(records));
+                window.log.push(
+                  records[0] instanceof MutationRecord,
+                  self === observer,
+                  this === observer,
+                  Array.isArray(records),
+                  records[0].addedNodes instanceof NodeList,
+                  Object.prototype.toString.call(records[0]) === '[object MutationRecord]');
               });
               observer.observe(host, { childList: true });
               host.appendChild(document.createElement('p'));
@@ -362,7 +368,7 @@ public sealed class MutationObserverTests
             """);
 
         (await page.EvaluateAsync<bool>("window.isObserver")).Should().BeTrue();
-        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("true|true|true|true");
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("true|true|true|true|true|true");
     }
 
     [Test]

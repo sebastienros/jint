@@ -97,6 +97,15 @@ public sealed class ViewportObserverTests
         (await page.EvaluateAsync<string>(
             "(() => { try { new IntersectionObserver(() => {}, { threshold: 2 }); return 'no throw' } catch (e) { return e.constructor.name } })()"))
             .Should().Be("RangeError");
+
+        // A malformed rootMargin crossed WebIDL's DOMString conversion and failed the interface's own parse,
+        // which is a SyntaxError DOMException rather than a TypeError.
+        (await page.EvaluateAsync<string>(
+            "(() => { try { new IntersectionObserver(() => {}, { rootMargin: '1em' }); return 'no throw' } catch (e) { return e.name } })()"))
+            .Should().Be("SyntaxError");
+        (await page.EvaluateAsync<string>(
+            "(() => { try { new IntersectionObserver(() => {}, { rootMargin: '1px 2px 3px 4px 5px' }); return 'no throw' } catch (e) { return e.name } })()"))
+            .Should().Be("SyntaxError");
     }
 
     [Test]

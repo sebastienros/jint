@@ -49,9 +49,18 @@ internal sealed class HostInterfaceObject : Constructor
     }
 
     /// <summary>https://webidl.spec.whatwg.org/#es-interface-call — an interface object is never callable.</summary>
+    /// <remarks>
+    /// An interface that cannot be constructed at all says so rather than pointing at <c>new</c>, which would
+    /// only send the caller round a second time.
+    /// </remarks>
     protected internal override JsValue Call(JsValue thisObject, JsValue[] arguments)
     {
-        Throw.TypeError(_realm, "Failed to construct '" + _name + "': Please use the 'new' operator, this DOM object constructor cannot be called as a function.");
+        Throw.TypeError(
+            _realm,
+            _construct is null
+                ? "Illegal constructor"
+                : "Failed to construct '" + _name + "': Please use the 'new' operator, this DOM object constructor cannot be called as a function.");
+
         return JsValue.Undefined;
     }
 

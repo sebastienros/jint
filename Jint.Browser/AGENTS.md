@@ -218,8 +218,10 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
   would make a step of the parse asynchronous and take the fallback. So the inline call is used as the
   **arrival** of a record and nothing else: `JsMutationObserver` parks it and `MutationObserverLane` puts one
   job on the engine's queue per batch. Ordering then falls out of a plain enqueue, and
-  `Observers/MutationObserverTests` pins it. The notify set is also the only strong reference this package
-  keeps to an observer, which is DOM's own rule that one with a non-empty record queue is reachable.
+  `Observers/MutationObserverTests` pins it. Lifetime falls out too, and it is DOM's own rule: a *connected*
+  observer is held by the document (AngleSharp's `MutationHost` holds the callback, which holds the wrapper),
+  and a disconnected one is held only by the notify set until its records are taken — so an observer a page
+  dropped with nothing queued collects together with its callback.
 - **`IntersectionObserver` and `ResizeObserver` deliver as a *task*** — a zero-delay timer entry
   (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
   of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.

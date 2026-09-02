@@ -86,7 +86,7 @@ internal sealed class JsDomParser : ObjectInstance
         {
             "text/html" => ParseHtml(source),
             "text/xml" or "application/xml" or "application/xhtml+xml" or "image/svg+xml" => ParseXml(source),
-            _ => Unsupported(type),
+            _ => Unsupported(_runtime.Engine, type),
         };
 
         return _runtime.Dom.WrapNode(document);
@@ -126,9 +126,14 @@ internal sealed class JsDomParser : ObjectInstance
         return new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, NewContext()).ParseDocument(markup);
     }
 
-    private static IDocument Unsupported(string type)
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-enumeration — a value outside the enumeration is a
+    /// <c>TypeError</c>, built in the page's own realm.
+    /// </summary>
+    private static IDocument Unsupported(Engine engine, string type)
     {
-        Throw.TypeErrorNoEngine(
+        Throw.TypeError(
+            engine._mainRealm,
             "Failed to execute 'parseFromString' on 'DOMParser': The provided value '" + type
             + "' is not a valid enum value of type SupportedType.");
         return null!;

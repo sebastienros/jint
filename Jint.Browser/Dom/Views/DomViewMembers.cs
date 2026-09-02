@@ -110,6 +110,13 @@ internal static class DomViewMembers
         => DomConvert.NodeSequence(realm, slot.GetDistributedNodes().OfType<IElement>());
 
     /// <summary>https://w3c.github.io/selection-api/#dom-document-getselection.</summary>
+    /// <remarks>
+    /// The page's selection, whichever document the call was made on: a selection belongs to a document's
+    /// browsing context, and a document a <c>DOMParser</c> produced has none. So
+    /// <c>parsed.getSelection()</c> answers the page's rather than a second empty one, where a browser gives
+    /// the parsed document its own. Nothing can select inside a parsed document, so the difference is what
+    /// the object is rather than what it holds.
+    /// </remarks>
     internal static JsValue GetSelection(DomRealm realm)
     {
         var runtime = PageRuntime.Find(realm.Engine);

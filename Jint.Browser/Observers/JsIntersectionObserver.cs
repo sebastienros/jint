@@ -191,20 +191,20 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 
         var margin = options?.Get("rootMargin") is { } m && !m.IsUndefined() ? TypeConverter.ToString(m) : "0px";
 
-        return (root, SerializeMargin(realm, margin), ReadThresholds(realm, options?.Get("threshold")));
+        return (root, SerializeMargin(engine, margin), ReadThresholds(realm, options?.Get("threshold")));
     }
 
     /// <summary>
     /// The margin is one to four <c>&lt;length-percentage&gt;</c> components, serialized back as four. Only
     /// <c>px</c> and <c>%</c> are units a margin may carry, and a zero may be written bare.
     /// </summary>
-    private static string SerializeMargin(Realm realm, string margin)
+    private static string SerializeMargin(Engine engine, string margin)
     {
         var parts = margin.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
 
         if (parts.Length is 0 or > 4)
         {
-            Throw.TypeError(realm, "Failed to construct 'IntersectionObserver': rootMargin must be one to four length or percentage components.");
+            BadMargin(engine, "rootMargin must be one to four length or percentage components");
         }
 
         // CSS's one-to-four shorthand expansion, in the order top, right, bottom, left.
@@ -219,13 +219,13 @@ internal sealed class JsIntersectionObserver : ObjectInstance
                 _ => i,
             };
 
-            components[i] = Component(realm, parts[source]);
+            components[i] = Component(engine, parts[source]);
         }
 
         return string.Join(" ", components);
     }
 
-    private static string Component(Realm realm, string part)
+    private static string Component(Engine engine, string part)
     {
         var value = part;
         var unit = "px";
@@ -242,10 +242,24 @@ internal sealed class JsIntersectionObserver : ObjectInstance
 
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
         {
-            Throw.TypeError(realm, "Failed to construct 'IntersectionObserver': rootMargin component '" + part + "' is not a length or a percentage.");
+            BadMargin(engine, "rootMargin component '" + part + "' is not a length or a percentage");
         }
 
         return number.ToString("0.####", CultureInfo.InvariantCulture) + unit;
+    }
+
+    /// <summary>
+    /// A malformed <c>rootMargin</c> is a <c>SyntaxError</c> <c>DOMException</c> rather than a
+    /// <c>TypeError</c>: the value crossed WebIDL's <c>DOMString</c> conversion cleanly and failed the
+    /// interface's own parse, which is the distinction the two error types carry.
+    /// </summary>
+    private static void BadMargin(Engine engine, string what)
+    {
+        var error = engine._mainRealm.Intrinsics.DomException.CreateException(
+            Jint.WebApi.DomException.DomExceptionNames.Syntax,
+            "Failed to construct 'IntersectionObserver': " + what + ".");
+
+        Throw.JavaScriptException(engine, error, engine.GetLastSyntaxElement()?.Location ?? default);
     }
 
     private static double[] ReadThresholds(Realm realm, JsValue? value)
