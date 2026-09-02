@@ -221,8 +221,11 @@ public class WebApiXmlHttpRequestTests
             xhr.send();
             """);
 
-        // Before the pump, nothing at all has happened beyond open()'s own state change.
-        engine.Evaluate("log.length").AsNumber().Should().Be(0);
+        // Before the pump, nothing at all has happened beyond open()'s own state change. Read the array
+        // through GetValue rather than Evaluate: an evaluation drains the event loop when it finishes, so on
+        // a fast loopback the response that has already been posted would be delivered by the very read
+        // that is meant to prove nothing was delivered yet.
+        engine.GetValue("log").AsArray().Length.Should().Be(0u);
 
         var deadline = DateTime.UtcNow + TransportSignalCeiling;
         while (engine.Evaluate("log.length").AsNumber() == 0 && DateTime.UtcNow < deadline)
