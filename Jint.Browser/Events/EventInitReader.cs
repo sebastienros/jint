@@ -26,6 +26,7 @@ internal static class EventInitReader
 {
     private static readonly JsString _view = new("view");
     private static readonly JsString _detail = new("detail");
+    private static readonly JsString _which = new("which");
     private static readonly JsString _screenX = new("screenX");
     private static readonly JsString _screenY = new("screenY");
     private static readonly JsString _clientX = new("clientX");
@@ -139,8 +140,13 @@ internal static class EventInitReader
     /// <summary>
     /// https://w3c.github.io/uievents/#dictdef-uievent-init — the members every UI event inherits.
     /// </summary>
-    internal static (JsValue View, double Detail) UiInit(ObjectInstance? init)
-        => (Any(init, _view, JsValue.Null), Long(init, _detail));
+    /// <remarks>
+    /// <c>which</c> stays nullable so that "the dictionary said nothing" is distinguishable from "the
+    /// dictionary said zero": the first lets each interface compute its own legacy value, the second is
+    /// honoured as given.
+    /// </remarks>
+    internal static (JsValue View, double Detail, double? Which) UiInit(ObjectInstance? init)
+        => (Any(init, _view, JsValue.Null), Long(init, _detail), OptionalUnsignedLong(init, _which));
 
     /// <summary>
     /// https://w3c.github.io/uievents/#dictdef-eventmodifierinit — the fourteen modifier members,

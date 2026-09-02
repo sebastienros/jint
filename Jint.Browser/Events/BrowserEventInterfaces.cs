@@ -33,8 +33,8 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
-            return new JsUiEvent(realm.Engine, Type(realm, args, "UIEvent"), EventInit(realm, args, "UIEvent"), realm.TimeStamp, view, detail);
+            var (view, detail, which) = EventInitReader.UiInit(init);
+            return new JsUiEvent(realm.Engine, Type(realm, args, "UIEvent"), EventInit(realm, args, "UIEvent"), realm.TimeStamp, view, detail, which);
         });
 
     /// <summary>https://w3c.github.io/uievents/#interface-mouseevent.</summary>
@@ -45,7 +45,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsMouseEvent(
                 realm.Engine,
                 Type(realm, args, "MouseEvent"),
@@ -53,6 +53,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.MouseInit(realm.Engine, init));
         });
 
@@ -64,7 +65,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsPointerEvent(
                 realm.Engine,
                 Type(realm, args, "PointerEvent"),
@@ -72,6 +73,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.MouseInit(realm.Engine, init),
                 new PointerEventState(
                     EventInitReader.Long(init, Names.PointerId),
@@ -94,7 +96,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsWheelEvent(
                 realm.Engine,
                 Type(realm, args, "WheelEvent"),
@@ -102,6 +104,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.MouseInit(realm.Engine, init),
                 EventInitReader.Number(init, Names.DeltaX),
                 EventInitReader.Number(init, Names.DeltaY),
@@ -118,7 +121,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsKeyboardEvent(
                 realm.Engine,
                 Type(realm, args, "KeyboardEvent"),
@@ -126,6 +129,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 new KeyboardEventState(
                     EventInitReader.Text(init, Names.Key),
                     EventInitReader.Text(init, Names.Code),
@@ -152,7 +156,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsInputEvent(
                 realm.Engine,
                 Type(realm, args, "InputEvent"),
@@ -160,6 +164,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.Any(init, Names.Data, JsValue.Null),
                 EventInitReader.Bool(init, Names.IsComposing),
                 EventInitReader.Text(init, Names.InputType));
@@ -173,7 +178,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsCompositionEvent(
                 realm.Engine,
                 Type(realm, args, "CompositionEvent"),
@@ -181,6 +186,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.Text(init, Names.Data));
         });
 
@@ -192,7 +198,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(init);
             return new JsFocusEvent(
                 realm.Engine,
                 Type(realm, args, "FocusEvent"),
@@ -200,6 +206,7 @@ internal static class BrowserEventInterfaces
                 realm.TimeStamp,
                 view,
                 detail,
+                which,
                 EventInitReader.RelatedTarget(realm.Engine, init));
         });
 
@@ -325,7 +332,18 @@ internal static class BrowserEventInterfaces
         BeforeUnloadEvent,
     ];
 
-    private static int _next;
+    /// <summary>
+    /// Assigns each definition its dense index into <see cref="BrowserEventRealm"/>'s per-engine arrays. Done
+    /// from <see cref="All"/> rather than as the definitions are declared, so the index can never drift from
+    /// the position the arrays are sized by.
+    /// </summary>
+    static BrowserEventInterfaces()
+    {
+        for (var i = 0; i < All.Length; i++)
+        {
+            All[i].Index = i;
+        }
+    }
 
     private static BrowserEventDefinition Define(
         string name,
@@ -334,12 +352,7 @@ internal static class BrowserEventInterfaces
         Func<BrowserEventRealm, JsValue[], JsEvent> construct,
         int constructorLength = 1,
         (string Name, int Value)[]? constants = null)
-    {
-        return new BrowserEventDefinition(name, parent, constructorLength, shape, construct, constants ?? [])
-        {
-            Index = _next++,
-        };
-    }
+        => new(name, parent, constructorLength, shape, construct, constants ?? []);
 
     private static JsString Type(BrowserEventRealm realm, JsValue[] args, string interfaceName)
         => EventConstructor.RequireType(realm.PrincipalRealm, args, interfaceName);
@@ -356,7 +369,7 @@ internal static class BrowserEventInterfaces
     private static JsObjectShape BuildUiEvent() => Base("UIEvent")
         .Accessor("view", static (t, _) => Brand<JsUiEvent>(t, "UIEvent.view").View)
         .Accessor("detail", static (t, _) => JsNumber.Create(Brand<JsUiEvent>(t, "UIEvent.detail").Detail))
-        .Accessor("which", static (t, _) => JsNumber.Create(Brand<JsUiEvent>(t, "UIEvent.which").Detail))
+        .Accessor("which", static (t, _) => JsNumber.Create(Brand<JsUiEvent>(t, "UIEvent.which").Which))
         .Build();
 
     private static JsObjectShape BuildMouseEvent()
@@ -415,7 +428,6 @@ internal static class BrowserEventInterfaces
         .Accessor("metaKey", static (t, _) => KeyboardModifier(t, "KeyboardEvent.metaKey", EventModifiers.Meta))
         .Accessor("charCode", static (t, _) => JsNumber.Create(Brand<JsKeyboardEvent>(t, "KeyboardEvent.charCode").CharCode))
         .Accessor("keyCode", static (t, _) => JsNumber.Create(Brand<JsKeyboardEvent>(t, "KeyboardEvent.keyCode").KeyCode))
-        .Accessor("which", static (t, _) => JsNumber.Create(Brand<JsKeyboardEvent>(t, "KeyboardEvent.which").Which))
         .Method(
             "getModifierState",
             static (t, args) => JsBoolean.Create(EventModifierNames.IsActive(

@@ -45,11 +45,12 @@ internal enum EventModifiers
 /// </remarks>
 internal class JsUiEvent : JsEvent
 {
-    internal JsUiEvent(Engine engine, JsString type, EventInit init, double timeStamp, JsValue view, double detail)
+    internal JsUiEvent(Engine engine, JsString type, EventInit init, double timeStamp, JsValue view, double detail, double? which = null)
         : base(engine, type, init, timeStamp)
     {
         View = view;
         Detail = detail;
+        WhichInit = which;
     }
 
     /// <summary>https://w3c.github.io/uievents/#dom-uievent-view.</summary>
@@ -57,6 +58,19 @@ internal class JsUiEvent : JsEvent
 
     /// <summary>https://w3c.github.io/uievents/#dom-uievent-detail — a click count, a wheel tick count.</summary>
     internal double Detail { get; }
+
+    /// <summary>
+    /// The <c>which</c> the init dictionary supplied, or <see langword="null"/> when it said nothing — which is
+    /// what lets a derived interface compute its own legacy value instead.
+    /// </summary>
+    internal double? WhichInit { get; }
+
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-uievent-which — a legacy attribute whose value the standard leaves
+    /// to the interface. It is zero unless the dictionary said otherwise; <c>MouseEvent</c> and
+    /// <c>KeyboardEvent</c> override it with the values every implementation agrees on.
+    /// </summary>
+    internal virtual double Which => WhichInit ?? 0;
 }
 
 /// <summary>
@@ -88,8 +102,9 @@ internal class JsMouseEvent : JsUiEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         in MouseEventState state)
-        : base(engine, type, init, timeStamp, view, detail)
+        : base(engine, type, init, timeStamp, view, detail, which)
     {
         ScreenX = state.ScreenX;
         ScreenY = state.ScreenY;
@@ -128,6 +143,13 @@ internal class JsMouseEvent : JsUiEvent
     /// </summary>
     internal sealed override bool IsActivationEvent
         => string.Equals(TypeName, "click", StringComparison.Ordinal);
+
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-uievent-which for a mouse event: the button number plus one, so a
+    /// primary click answers 1. It is the value every implementation reports and the one a page's
+    /// <c>e.which === 1</c> test was written against.
+    /// </summary>
+    internal override double Which => WhichInit ?? Button + 1;
 }
 
 /// <summary>
@@ -166,9 +188,10 @@ internal sealed class JsPointerEvent : JsMouseEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         in MouseEventState mouse,
         in PointerEventState pointer)
-        : base(engine, type, init, timeStamp, view, detail, mouse)
+        : base(engine, type, init, timeStamp, view, detail, which, mouse)
     {
         PointerId = pointer.PointerId;
         Width = pointer.Width;
@@ -242,12 +265,13 @@ internal sealed class JsWheelEvent : JsMouseEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         in MouseEventState mouse,
         double deltaX,
         double deltaY,
         double deltaZ,
         double deltaMode)
-        : base(engine, type, init, timeStamp, view, detail, mouse)
+        : base(engine, type, init, timeStamp, view, detail, which, mouse)
     {
         DeltaX = deltaX;
         DeltaY = deltaY;
@@ -290,8 +314,9 @@ internal sealed class JsKeyboardEvent : JsUiEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         in KeyboardEventState state)
-        : base(engine, type, init, timeStamp, view, detail)
+        : base(engine, type, init, timeStamp, view, detail, which)
     {
         Key = state.Key;
         Code = state.Code;
@@ -327,8 +352,11 @@ internal sealed class JsKeyboardEvent : JsUiEvent
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-keycode.</summary>
     internal double KeyCode { get; }
 
-    /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-which.</summary>
-    internal double Which => CharCode != 0 ? CharCode : KeyCode;
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-uievent-which for a keyboard event: the character code when there is
+    /// one, and the virtual key code otherwise.
+    /// </summary>
+    internal override double Which => CharCode != 0 ? CharCode : KeyCode;
 }
 
 /// <summary>The <c>KeyboardEventInit</c> members a <see cref="JsKeyboardEvent"/> keeps.</summary>
@@ -367,10 +395,11 @@ internal sealed class JsInputEvent : JsUiEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         JsValue data,
         bool isComposing,
         string inputType)
-        : base(engine, type, init, timeStamp, view, detail)
+        : base(engine, type, init, timeStamp, view, detail, which)
     {
         Data = data;
         IsComposing = isComposing;
@@ -402,8 +431,9 @@ internal sealed class JsCompositionEvent : JsUiEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         string data)
-        : base(engine, type, init, timeStamp, view, detail)
+        : base(engine, type, init, timeStamp, view, detail, which)
     {
         Data = data;
     }
@@ -432,8 +462,9 @@ internal sealed class JsFocusEvent : JsUiEvent
         double timeStamp,
         JsValue view,
         double detail,
+        double? which,
         JsEventTarget? relatedTarget)
-        : base(engine, type, init, timeStamp, view, detail)
+        : base(engine, type, init, timeStamp, view, detail, which)
     {
         RelatedTarget = relatedTarget;
     }

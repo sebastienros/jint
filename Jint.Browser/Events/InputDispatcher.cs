@@ -77,6 +77,7 @@ internal static class InputDispatcher
             realm.TimeStamp,
             dom.Engine._mainRealm.GlobalObject,
             detail: options.Detail,
+            which: null,
             new MouseEventState(
                 options.ScreenX,
                 options.ScreenY,
@@ -285,6 +286,7 @@ internal static class InputDispatcher
             realm.TimeStamp,
             dom.Engine._mainRealm.GlobalObject,
             detail: 0,
+            which: null,
             new KeyboardEventState(
                 options.Key,
                 options.Code,

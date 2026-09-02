@@ -202,6 +202,33 @@ public sealed class UiEventTests
             """)).Should().Be("999,0,65");
     }
 
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-uievent-which — a legacy attribute the standard leaves to the
+    /// interface: zero on a plain <c>UIEvent</c>, the button plus one on a mouse event, and the character or
+    /// key code on a keyboard event. An explicit value in the dictionary wins over all three.
+    /// </summary>
+    [Test]
+    public async Task TheLegacyWhichIsPerInterface()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>x</p>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            [
+              new UIEvent('x').which,
+              new UIEvent('x', { which: 7 }).which,
+              new MouseEvent('click').which,
+              new MouseEvent('click', { button: 2 }).which,
+              new MouseEvent('click', { button: 2, which: 9 }).which,
+              new KeyboardEvent('keydown', { key: 'Enter' }).which,
+              new KeyboardEvent('keypress', { key: 'a' }).which,
+              new PointerEvent('pointerdown', { button: 1 }).which
+            ].join(',')
+            """)).Should().Be("0,7,1,3,9,13,97,2");
+    }
+
     [Test]
     public async Task TheHtmlEventsReadBackTheirOwnMembers()
     {

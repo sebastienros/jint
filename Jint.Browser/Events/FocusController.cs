@@ -139,6 +139,7 @@ internal static class FocusController
                 realm.TimeStamp,
                 dom.Engine._mainRealm.GlobalObject,
                 detail: 0,
+                which: null,
                 related is null ? null : dom.WrapNode(related)));
 
         target.DispatchEvent(ev);

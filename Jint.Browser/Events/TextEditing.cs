@@ -242,6 +242,7 @@ internal static class TextEditing
                 realm.TimeStamp,
                 dom.Engine._mainRealm.GlobalObject,
                 detail: 0,
+                which: null,
                 data,
                 isComposing: false,
                 inputType));
