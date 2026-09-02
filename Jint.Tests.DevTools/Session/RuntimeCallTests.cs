@@ -328,6 +328,24 @@ public class RuntimeCallTests
         broken.GetProperty("exceptionDetails").GetProperty("text").GetString().Should().NotBeNullOrEmpty();
     }
 
+    /// <summary>
+    /// A <c>sourceURL</c> that is an absolute filesystem path is answered as the <c>file://</c> URL every
+    /// other command publishes it as, so a compile failure and the <c>scriptParsed</c> a run announces name
+    /// one location rather than two.
+    /// </summary>
+    [Test]
+    public async Task CompileScriptReportsTheUrlTheScriptIsAnnouncedUnder()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var broken = await session.ResultAsync(
+            "Runtime.compileScript",
+            """{"expression":"function (","sourceURL":"D:\\Work\\fixture\\app.js","persistScript":true}""");
+
+        broken.GetProperty("exceptionDetails").GetProperty("url").GetString()
+            .Should().Be("file:///D:/Work/fixture/app.js");
+    }
+
     [Test]
     public async Task RunScriptWithAnUnknownIdIsRefused()
     {

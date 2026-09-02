@@ -332,7 +332,11 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
                     Text = exception.Message,
                     LineNumber = 0,
                     ColumnNumber = 0,
-                    Url = string.IsNullOrEmpty(parameters.SourceURL) ? null : parameters.SourceURL,
+
+                    // Through the same mapping every other command publishes a source name under, so a
+                    // client that sent a filesystem path is answered the URL a later scriptParsed would
+                    // announce rather than a second spelling of one script.
+                    Url = string.IsNullOrEmpty(parameters.SourceURL) ? null : ScriptUrl.From(parameters.SourceURL),
                     ExecutionContextId = MainExecutionContextId,
                 },
             });

@@ -62,6 +62,19 @@ accessor breaks the one invariant a client relies on while paused. It hangs off 
 internal, because the type publishes the protocol's own vocabulary and no third-party describer yet
 justifies making that a public commitment.
 
+**An internal property is a slot, and every one sent is one the engine already holds.** `[[Prototype]]` and
+a promise's `[[PromiseState]]`/`[[PromiseResult]]`, plus — for a function — `[[FunctionLocation]]`, and for a
+bound one `[[TargetFunction]]`, `[[BoundThis]]` and `[[BoundArgs]]`. `[[FunctionLocation]]` is the one that
+makes a function *clickable*: without it a front end names the function and opens nothing. It is the
+declaration node the function already carries — `Function.FunctionDeclaration`, published; the *program* that
+node was parsed in is not — so it is the one caller of `ScriptRegistry.At` that is not a rendered stack frame,
+and it inherits that lookup's caveat rather than resolving by identity. A function the engine has no
+declaration for carries no location at all, rather than one against the sentinel identifier `0`.
+`[[BoundArgs]]` is a **copy** of the arguments array, because the engine's own is what every call through the
+bound function reads from. `[[Scopes]]` is absent for the same reason `[[Handler]]` and `[[Target]]` of a
+proxy are: the engine publishes neither the environment a closure captured nor a proxy's slots outside its own
+assembly, and a *paused* frame's scope chain reaches a client through `Debugger.paused` instead.
+
 Two gaps are real rather than pending. `[[PromiseResult]]` is answered as a *description* with no handle,
 because the engine publishes a settled promise's value to nothing outside its own assembly. And a host
 object's members are listed without their values, for the reason above.
@@ -133,7 +146,10 @@ bearing rather than incidental:
 - **`ScriptRegistry.At` is the fallback, and only a *rendered* stack frame may use it.** A frame of
   `Error.stack` and a `ConsoleStackFrame` are text — a source name, a line and a column, and no program —
   so `Runtime.consoleAPICalled`'s `stackTrace` and the frames parsed out of a thrown error's `stack` match by
-  name and range and cannot tell two sourceless scripts apart. Giving those frames a program is a further
+  name and range and cannot tell two sourceless scripts apart. `[[FunctionLocation]]` is the third caller and
+  the only one that is not rendered text: a function value publishes its declaration node
+  (`Function.FunctionDeclaration`) and not the program it was parsed in, so there is no identity to look up —
+  the seam #3632 opened for a frame, not yet extended to a function. Giving all three a program is a further
   engine seam; until then, do not reach for `At` from anywhere that has one.
 
 **A source name becomes a URL here, and nowhere else.** The engine's source names stay exactly what the host
@@ -145,7 +161,8 @@ because a bare path has no origin. Two consequences: `ScriptRegistry.At` maps be
 location carries the source name and a script is registered under the URL; and `setBreakpointByUrl` accepts
 either form through `ScriptUrl.Same`, because a client sends back what it read off `scriptParsed` while a
 host driving the protocol has only ever seen the name it passed. `EngineTargetOptions.Url` goes through the
-same mapping, so `/json/list` and `scriptParsed` name one location rather than two. The shapes are recognized
+same mapping, and so does the `sourceURL` a client hands `Runtime.compileScript`, so `/json/list`,
+`scriptParsed` and a compile failure all name one location rather than three spellings of it. The shapes are recognized
 without asking the operating system: a source name reaches an engine from wherever the host got it.
 
 **`Runtime.getExceptionDetails` reconstructs, it does not remember.** The front end sends it once per error

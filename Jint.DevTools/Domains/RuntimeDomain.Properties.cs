@@ -1,8 +1,12 @@
+using System.Buffers;
+using System.Text.Json;
+using Acornima.Ast;
 using Jint.Diagnostics;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Runtime;
 using Jint.DevTools.Session;
 using Jint.Native;
+using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using EngineDescriptor = Jint.Runtime.Descriptors.PropertyDescriptor;
@@ -270,14 +274,22 @@ internal sealed partial class RuntimeDomain
 
 #pragma warning disable JINT0002 // ValueInspector is the engine's getter-free describer; this is what it is for
     /// <summary>
-    /// The slots a client is shown in double brackets: what the value inherits from, and what a promise has
-    /// settled to.
+    /// The slots a client is shown in double brackets: what the value inherits from, what a promise has
+    /// settled to, where a function was declared, and what a bound function is bound to.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>[[Handler]]</c> and <c>[[Target]]</c> of a proxy are deliberately absent rather than forgotten: a
     /// proxy answers no properties at all here, and the engine publishes neither slot outside its own
     /// assembly. <c>[[Entries]]</c> of a map or a set is absent for the same reason it is optional in the
-    /// protocol — the preview already carries them, bounded.
+    /// protocol — the preview already carries them, bounded. <c>[[Scopes]]</c> is absent because the
+    /// environment a closure captured is not published either; the scope chain of a <i>paused</i> frame is,
+    /// through <c>Debugger.paused</c>.
+    /// </para>
+    /// <para>
+    /// Reading any of them runs nothing: a function's declaration is an abstract syntax tree node it already
+    /// carries, and a bound function's three slots are fields.
+    /// </para>
     /// </remarks>
     private InternalPropertyDescriptor[]? InternalProperties(ObjectInstance instance, ValueDescription header, in RemoteObjectRequest request)
     {
@@ -313,9 +325,114 @@ internal sealed partial class RuntimeDomain
             }
         }
 
+        AppendFunctionSlots(instance, request, properties);
+
         return properties.ToArray();
     }
 #pragma warning restore JINT0002
+
+    /// <summary>
+    /// What a function carries beyond its properties: where it was declared, and — for a bound one — what it
+    /// was bound to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>[[FunctionLocation]]</c> is what makes a function clickable: a front end opens the script at the
+    /// declaration rather than only naming it. A function the engine has no declaration for — every built-in,
+    /// and anything a host installed — carries none, rather than a location against the sentinel script
+    /// identifier <c>0</c> that a front end cannot open.
+    /// </para>
+    /// <para>
+    /// <b>This is the one caller of <c>ScriptRegistry.At</c> that is not a rendered stack frame</b>, and the
+    /// reason is that there is no identity to look up: a function value publishes its declaration node
+    /// through <c>Function.FunctionDeclaration</c> and does not publish the <c>Program</c> that node was
+    /// parsed in, the way <c>CallFrame.Program</c> does for a frame. So the script is matched by the source
+    /// name the declaration's own location carries, with that lookup's caveat — a name is shared by every
+    /// program a host parsed under it, and every sourceless <c>Execute</c> is <c>&lt;anonymous&gt;</c>.
+    /// Closing it is the seam <see href="https://github.com/sebastienros/jint/issues/3632">#3632</see>
+    /// opened for a frame, extended to a function value; nothing here depends on that landing.
+    /// </para>
+    /// <para>
+    /// A bound function's three slots are Chrome's names in Chrome's order. <c>[[BoundArgs]]</c> is a
+    /// <i>copy</i>: the engine's own array is what every call through the bound function reads its leading
+    /// arguments from, and a client holding a handle to it could otherwise write through it.
+    /// </para>
+    /// </remarks>
+    private void AppendFunctionSlots(
+        ObjectInstance instance,
+        in RemoteObjectRequest request,
+        List<InternalPropertyDescriptor> properties)
+    {
+        if (instance is BindFunction bound)
+        {
+            properties.Add(new InternalPropertyDescriptor
+            {
+                Name = "[[TargetFunction]]",
+                Value = _objects.Describe(bound.BoundTargetFunction, request),
+            });
+            properties.Add(new InternalPropertyDescriptor
+            {
+                Name = "[[BoundThis]]",
+                Value = _objects.Describe(bound.BoundThis, request),
+            });
+
+            var arguments = bound.BoundArguments;
+            var copy = new JsValue[arguments.Length];
+            Array.Copy(arguments, copy, arguments.Length);
+
+            properties.Add(new InternalPropertyDescriptor
+            {
+                Name = "[[BoundArgs]]",
+                Value = _objects.Describe(new JsArray(_target.Engine, copy), request),
+            });
+
+            return;
+        }
+
+        if (instance is Function function && function.FunctionDeclaration is Node declaration)
+        {
+            properties.Add(new InternalPropertyDescriptor
+            {
+                Name = "[[FunctionLocation]]",
+                Value = Location(declaration),
+            });
+        }
+    }
+
+    /// <summary>
+    /// One declaration position in the shape V8 sends it: a remote object with no handle, whose
+    /// <c>value</c> is the location itself.
+    /// </summary>
+    private RemoteObject Location(Node declaration)
+    {
+        var location = declaration.Location;
+        var script = _target.Scripts?.At(location.SourceFile, location.Start.Line, location.Start.Column);
+
+        var buffer = new ArrayBufferWriter<byte>(96);
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("scriptId", script?.ScriptId ?? "0");
+
+            // The engine counts lines from one and the protocol counts them from zero; both count columns
+            // from zero, which is why only one of the two is shifted.
+            writer.WriteNumber("lineNumber", Math.Max(0, location.Start.Line - 1));
+            writer.WriteNumber("columnNumber", location.Start.Column);
+            writer.WriteEndObject();
+        }
+
+        using var document = JsonDocument.Parse(buffer.WrittenMemory);
+
+        return new RemoteObject
+        {
+            Type = RemoteObjectTypeValues.Object,
+
+            // Not one of RemoteObjectSubtypeValues: V8 sends this subtype for a location and the pinned
+            // protocol description does not declare it, so the string is written here and named nowhere.
+            Subtype = "internal#location",
+            Value = document.RootElement.Clone(),
+        };
+    }
 
 #pragma warning disable JINT0002 // ValueInspector is the engine's getter-free describer; this is what it is for
     /// <summary>Whether a value is a proxy, asked without touching a single one of its traps.</summary>

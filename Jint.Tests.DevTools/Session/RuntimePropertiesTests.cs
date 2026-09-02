@@ -180,6 +180,84 @@ public class RuntimePropertiesTests
             "the protocol says an accessor-only listing carries none");
     }
 
+    /// <summary>
+    /// A function whose definition the engine knows carries <c>[[FunctionLocation]]</c>, which is what makes
+    /// the row clickable in a front end: it opens the script at the declaration.
+    /// </summary>
+    [Test]
+    public async Task AFunctionCarriesWhereItWasDeclared()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        await session.Target.PostAsync(engine => engine.Execute(
+            """
+            function first() {}
+            function second(a, b) { return a + b; }
+            """,
+            "main.js"));
+        await session.EnableDebuggerAsync();
+        var scriptId = (await session.EventAsync("Debugger.scriptParsed")).GetProperty("scriptId").GetString();
+
+        var handle = await session.HandleAsync("second");
+        var properties = await session.PropertiesAsync(handle, ownProperties: true);
+
+        var location = properties.Internal("[[FunctionLocation]]").GetProperty("value");
+        location.GetProperty("type").GetString().Should().Be("object");
+        location.GetProperty("subtype").GetString().Should().Be("internal#location");
+
+        var position = location.GetProperty("value");
+        position.GetProperty("scriptId").GetString().Should().Be(scriptId);
+        position.GetProperty("lineNumber").GetInt32().Should().Be(1, "the protocol counts lines from zero");
+        position.GetProperty("columnNumber").GetInt32().Should().Be(0);
+    }
+
+    /// <summary>
+    /// A function the engine has no declaration for — a built-in — carries none, rather than a location
+    /// against the sentinel script a front end cannot open.
+    /// </summary>
+    [Test]
+    public async Task ANativeFunctionCarriesNoLocation()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var handle = await session.HandleAsync("Math.max");
+        var properties = await session.PropertiesAsync(handle, ownProperties: true);
+
+        properties.GetProperty("internalProperties").EnumerateArray()
+            .Select(property => property.GetProperty("name").GetString())
+            .Should().NotContain("[[FunctionLocation]]");
+    }
+
+    /// <summary>
+    /// A bound function carries what it is bound to, which is the only way a client sees through one: the
+    /// wrapper has no source of its own and its properties say nothing about the target.
+    /// </summary>
+    [Test]
+    public async Task ABoundFunctionCarriesItsTargetItsThisAndItsArguments()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var handle = await session.HandleAsync(
+            "(function () { const receiver = { tag: 'r' }; return (function named(a, b) {}).bind(receiver, 1, 'two'); })()");
+        var properties = await session.PropertiesAsync(handle, ownProperties: true);
+
+        var target = properties.Internal("[[TargetFunction]]").GetProperty("value");
+        target.GetProperty("type").GetString().Should().Be("function");
+        target.GetProperty("objectId").GetString().Should().NotBeNullOrEmpty();
+
+        var boundThis = properties.Internal("[[BoundThis]]").GetProperty("value");
+        boundThis.GetProperty("type").GetString().Should().Be("object");
+
+        var boundArgs = properties.Internal("[[BoundArgs]]").GetProperty("value");
+        boundArgs.GetProperty("subtype").GetString().Should().Be("array");
+        boundArgs.GetProperty("description").GetString().Should().Be("Array(2)");
+
+        // The array is a copy, so expanding it never hands a client the storage the bound call reads from.
+        var arguments = await session.PropertiesAsync(boundArgs.GetProperty("objectId").GetString()!, ownProperties: true);
+        arguments.Property("0").GetProperty("value").GetProperty("value").GetInt32().Should().Be(1);
+        arguments.Property("1").GetProperty("value").GetProperty("value").GetString().Should().Be("two");
+    }
+
     [Test]
     public async Task NonIndexedPropertiesOnlyLeavesOutTheElements()
     {
