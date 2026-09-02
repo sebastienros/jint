@@ -157,6 +157,36 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.lang");
                     self.Target.Language = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.lang"); return global::Jint.Native.JsValue.Undefined;
                 })
+            .Accessor("offsetHeight",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetHeight");
+                    return global::Jint.Browser.Layout.LayoutMembers.OffsetHeight(self.Realm, self.Target);
+                })
+            .Accessor("offsetLeft",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetLeft");
+                    return global::Jint.Browser.Layout.LayoutMembers.OffsetLeft(self.Realm, self.Target);
+                })
+            .Accessor("offsetParent",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetParent");
+                    return global::Jint.Browser.Layout.LayoutMembers.OffsetParent(self.Realm, self.Target);
+                })
+            .Accessor("offsetTop",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetTop");
+                    return global::Jint.Browser.Layout.LayoutMembers.OffsetTop(self.Realm, self.Target);
+                })
+            .Accessor("offsetWidth",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.offsetWidth");
+                    return global::Jint.Browser.Layout.LayoutMembers.OffsetWidth(self.Realm, self.Target);
+                })
             .Accessor("spellcheck",
                 static (thisObj, args) =>
                 {

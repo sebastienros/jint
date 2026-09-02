@@ -25,7 +25,7 @@ namespace Jint.Tests.Browser.DevTools;
 public class PageProtocolManifestTests
 {
     /// <summary>The domains a page target answers, which is what this test is responsible for.</summary>
-    private static readonly string[] PageDomains = ["Page", "Emulation", "Network", "Fetch", "Performance", "Audits", "Jint"];
+    private static readonly string[] PageDomains = ["Page", "DOM", "Input", "Emulation", "Network", "Fetch", "Performance", "Audits", "Jint"];
 
     [Test]
     public async Task EveryPageLevelMethodTheManifestNamesIsOverridden()

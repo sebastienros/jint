@@ -160,11 +160,29 @@ internal sealed class JsResizeObserverEntry : ObjectInstance
     /// <summary>The wrapper for <see cref="Node"/>, which is what <c>entry.target</c> answers.</summary>
     internal JsValue TargetValue => _runtime.Dom.WrapNode(Node);
 
-    /// <summary>A fresh zero rectangle; a page may keep or mutate the one it is given.</summary>
-    internal JsValue Rect() => ObserverGeometry.ZeroRect(Engine);
+    /// <summary>
+    /// https://drafts.csswg.org/resize-observer/#dom-resizeobserverentry-contentrect — the target's own
+    /// size, at the origin of its own padding box, which is where a content rectangle is measured from.
+    /// </summary>
+    internal JsValue Rect()
+    {
+        var box = Box();
+        return Layout.DomRects.Of(Engine, new Layout.FlatBox(0, 0, box.Width, box.Height));
+    }
 
-    /// <summary>A fresh one-element array of zero box sizes.</summary>
-    internal JsValue BoxSizes() => ObserverGeometry.BoxSizes(Engine, 0, 0);
+    /// <summary>A fresh one-element array holding the target's own size.</summary>
+    internal JsValue BoxSizes()
+    {
+        var box = Box();
+        return ObserverGeometry.BoxSizes(Engine, box.Width, box.Height);
+    }
+
+    /// <summary>The target's box, or the empty one when it has none.</summary>
+    private Layout.FlatBox Box()
+    {
+        var box = Node is IElement element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
+        return box ?? Layout.FlatBox.Empty;
+    }
 
     /// <inheritdoc />
     public override string ToString() => "[object ResizeObserverEntry]";

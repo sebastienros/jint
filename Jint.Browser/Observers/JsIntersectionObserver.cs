@@ -328,8 +328,28 @@ internal sealed class JsIntersectionObserverEntry : ObjectInstance
     /// <summary>The wrapper for <see cref="Node"/>, which is what <c>entry.target</c> answers.</summary>
     internal JsValue TargetValue => _runtime.Dom.WrapNode(Node);
 
-    /// <summary>A fresh zero rectangle; a page may keep or mutate the one it is given.</summary>
-    internal JsValue Rect() => ObserverGeometry.ZeroRect(Engine);
+    /// <summary>
+    /// The target's own box, from the flat layout. A fresh object each time; a page may keep or mutate the
+    /// one it is given.
+    /// </summary>
+    internal JsValue Rect()
+    {
+        var box = Node is IElement element ? _runtime.Layout.Current().ClientBoxOf(element) : null;
+        return Layout.DomRects.Of(Engine, box ?? Layout.FlatBox.Empty);
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/IntersectionObserver/#dom-intersectionobserverentry-rootbounds — the viewport.
+    /// </summary>
+    /// <remarks>
+    /// The root is always the viewport here: an observer given an explicit <c>root</c> element records it,
+    /// validates it and intersects against nothing, which is the stub this class already documents.
+    /// </remarks>
+    internal JsValue RootBounds()
+    {
+        var viewport = _runtime.Viewport;
+        return Layout.DomRects.Of(Engine, new Layout.FlatBox(0, 0, viewport.Width, viewport.Height));
+    }
 
     /// <inheritdoc />
     public override string ToString() => "[object IntersectionObserverEntry]";

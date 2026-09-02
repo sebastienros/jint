@@ -497,10 +497,13 @@ internal static class BrowserEventInterfaces
     /// on <c>MouseEvent</c> and inherited below it, which is exactly what the prototype chain gives.
     /// </summary>
     /// <remarks>
-    /// <c>pageX</c> is <c>clientX</c> plus the scroll offset, which is zero for a document that cannot scroll,
-    /// and <c>offsetX</c> is <c>clientX</c> minus the target's padding-box origin, which is zero until the flat
-    /// renderer (campaign item C4) gives every element a box. Both are declared rather than left off, because a
-    /// page reading an absent member gets <see langword="undefined"/> and computes <c>NaN</c>.
+    /// <c>pageY</c> is <c>clientY</c> plus the page's scroll offset and <c>offsetY</c> is <c>clientY</c> minus
+    /// the target's own box origin, both read from the flat box model when the event is read rather than
+    /// captured when it was dispatched. That is a divergence a page can only observe by scrolling from inside
+    /// a listener and then reading the event it is handling; capturing them instead means two more members on
+    /// every <c>MouseEvent</c>, including the ones a script constructs from an init dictionary that has
+    /// neither. <c>pageX</c> and <c>offsetX</c> are <c>clientX</c> itself and that is the same two formulas
+    /// rather than a shortcut: the page never scrolls sideways and every box starts at <c>x = 0</c>.
     /// </remarks>
     private static void AddMouseMembers(JsObjectShape.Builder builder)
     {
@@ -512,9 +515,9 @@ internal static class BrowserEventInterfaces
             .Accessor("x", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.x").ClientX))
             .Accessor("y", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.y").ClientY))
             .Accessor("pageX", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.pageX").ClientX))
-            .Accessor("pageY", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.pageY").ClientY))
+            .Accessor("pageY", static (t, _) => PageY(Brand<JsMouseEvent>(t, "MouseEvent.pageY")))
             .Accessor("offsetX", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.offsetX").ClientX))
-            .Accessor("offsetY", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.offsetY").ClientY))
+            .Accessor("offsetY", static (t, _) => OffsetY(Brand<JsMouseEvent>(t, "MouseEvent.offsetY")))
             .Accessor("movementX", static (t, _) => Zero<JsMouseEvent>(t, "MouseEvent.movementX"))
             .Accessor("movementY", static (t, _) => Zero<JsMouseEvent>(t, "MouseEvent.movementY"))
             .Accessor("button", static (t, _) => JsNumber.Create(Brand<JsMouseEvent>(t, "MouseEvent.button").Button))
@@ -562,6 +565,32 @@ internal static class BrowserEventInterfaces
 
     private static JsBoolean MouseModifier(JsValue thisObject, string member, EventModifiers flag)
         => JsBoolean.Create((Brand<JsMouseEvent>(thisObject, member).Modifiers & flag) != EventModifiers.None);
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-mouseevent-pagey — the client coordinate plus the page's own
+    /// scroll offset, which is what makes a coordinate stay put as the page moves under it.
+    /// </summary>
+    private static JsNumber PageY(JsMouseEvent ev)
+    {
+        var scroll = Runtime.PageRuntime.Find(ev.Engine)?.Layout.ScrollY ?? 0;
+        return JsNumber.Create(ev.ClientY + scroll);
+    }
+
+    /// <summary>
+    /// https://drafts.csswg.org/cssom-view/#dom-mouseevent-offsety — the client coordinate relative to the
+    /// top of the target's own box, or the client coordinate itself when the target has no box.
+    /// </summary>
+    private static JsNumber OffsetY(JsMouseEvent ev)
+    {
+        if (ev.Target is not Dom.DomNodeObject { Node: AngleSharp.Dom.IElement element } wrapper ||
+            Runtime.PageRuntime.Find(wrapper.DomRealm.Engine) is not { } runtime ||
+            runtime.Layout.Current().ClientBoxOf(element) is not { } box)
+        {
+            return JsNumber.Create(ev.ClientY);
+        }
+
+        return JsNumber.Create(ev.ClientY - box.Y);
+    }
 
     private static JsBoolean KeyboardModifier(JsValue thisObject, string member, EventModifiers flag)
         => JsBoolean.Create((Brand<JsKeyboardEvent>(thisObject, member).Modifiers & flag) != EventModifiers.None);

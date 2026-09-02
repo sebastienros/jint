@@ -299,6 +299,219 @@
       "reason": "Form reset fires a cancelable reset event whose default action resets the controls; AngleSharp's Reset() is only that default action and fires nothing, so it is called from the event half rather than projected."
     },
     {
+      "interface": "Node",
+      "member": "isConnected",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.isConnected\");",
+        "return global::Jint.Browser.Dom.Views.DomViewMembers.IsConnected(self.Target);"
+      ],
+      "reason": "DOM section 4.4's isConnected. AngleSharp's INode has no member for it at all, so there is nothing to project; every client library asks a node whether it is still in the document before it clicks it, and an absent member makes every element handle read as detached."
+    },
+    {
+      "interface": "Element",
+      "member": "getBoundingClientRect",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.getBoundingClientRect\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.BoundingClientRect(self.Realm, self.Target);"
+      ],
+      "reason": "The flat box model (docs/design/headless-browser.md section 8): AngleSharp has no layout, so CSSOM View declares this member and nothing in the metadata can. Jint.Browser/Layout/FlatLayout answers it from tree order, and the same model answers DOM.getBoxModel and Input.dispatchMouseEvent, so a client that reads a box and clicks its centre gets one consistent story."
+    },
+    {
+      "interface": "Element",
+      "member": "getClientRects",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.getClientRects\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ClientRects(self.Realm, self.Target);"
+      ],
+      "reason": "The other half of getBoundingClientRect: one rectangle for an element that has a box and none at all for one that does not, which is what a page testing getClientRects().length for visibility asks."
+    },
+    {
+      "interface": "Element",
+      "member": "clientWidth",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.clientWidth\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ClientWidth(self.Realm, self.Target);"
+      ],
+      "reason": "The padding box of the flat model, which for the scrolling element is the viewport."
+    },
+    {
+      "interface": "Element",
+      "member": "clientHeight",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.clientHeight\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ClientHeight(self.Realm, self.Target);"
+      ],
+      "reason": "The other half of clientWidth."
+    },
+    {
+      "interface": "Element",
+      "member": "clientTop",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.clientTop\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ClientEdge(self.Realm, self.Target);"
+      ],
+      "reason": "Zero: a flat box has no border for a client edge to measure."
+    },
+    {
+      "interface": "Element",
+      "member": "clientLeft",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.clientLeft\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ClientEdge(self.Realm, self.Target);"
+      ],
+      "reason": "Zero, for the same reason as clientTop."
+    },
+    {
+      "interface": "Element",
+      "member": "scrollWidth",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollWidth\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollWidth(self.Realm, self.Target);"
+      ],
+      "reason": "Nothing overflows sideways - every box is exactly as wide as the viewport - so this is clientWidth."
+    },
+    {
+      "interface": "Element",
+      "member": "scrollHeight",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollHeight\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollHeight(self.Realm, self.Target);"
+      ],
+      "reason": "The document's own height for the scrolling element, and the element's box for everything else: only the page scrolls here."
+    },
+    {
+      "interface": "Element",
+      "member": "scrollTop",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollTop\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollTop(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollTop\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.SetScrollTop(self.Realm, self.Target, args);"
+      ],
+      "reason": "The page's virtual scroll offset, and the one metric that is writable: writing it on document.scrollingElement scrolls the page, and on anything else does nothing."
+    },
+    {
+      "interface": "Element",
+      "member": "scrollLeft",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollLeft\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollLeft(self.Realm, self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollLeft\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.SetScrollLeft(self.Realm, self.Target, args);"
+      ],
+      "reason": "Zero, and a write changes nothing: there is no horizontal overflow to scroll."
+    },
+    {
+      "interface": "Element",
+      "member": "scrollIntoView",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.scrollIntoView\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollIntoView(self.Realm, self.Target, args);"
+      ],
+      "reason": "The virtual scroll's other setter, and the one a client's own click path calls before it checks that a box is inside the viewport. Both argument forms are read - the legacy boolean and ScrollIntoViewOptions' block member."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "offsetWidth",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.offsetWidth\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.OffsetWidth(self.Realm, self.Target);"
+      ],
+      "reason": "The border box of the flat model, which has no border, so it is the box."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "offsetHeight",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.offsetHeight\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.OffsetHeight(self.Realm, self.Target);"
+      ],
+      "reason": "The other half of offsetWidth."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "offsetTop",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.offsetTop\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.OffsetTop(self.Realm, self.Target);"
+      ],
+      "reason": "The distance from the offset parent in document coordinates, which is what distinguishes it from getBoundingClientRect().top: this one does not move when the page scrolls."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "offsetLeft",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.offsetLeft\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.OffsetLeft(self.Realm, self.Target);"
+      ],
+      "reason": "Zero: nothing is laid out horizontally."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "offsetParent",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.offsetParent\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.OffsetParent(self.Realm, self.Target);"
+      ],
+      "reason": "Nothing here is positioned, so HTML's walk to the nearest positioned ancestor always ends at the body - which is what a browser answers for an unpositioned element. The body, the document element and an element with no box answer null, as they do in Chrome."
+    },
+    {
+      "interface": "Document",
+      "member": "elementFromPoint",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.elementFromPoint\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, args);"
+      ],
+      "reason": "The flat model's hit test, which is the same one DOM.getNodeForLocation and a mouse event at a coordinate go through - so a client that clicks the centre of a box it read is told the same element was hit."
+    },
+    {
+      "interface": "Document",
+      "member": "elementsFromPoint",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.elementsFromPoint\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, args);"
+      ],
+      "reason": "The hit element and every rendered ancestor above it, innermost first. Boxes nest exactly as the tree does in this model, so the list is the ancestor chain rather than a second hit test."
+    },
+    {
+      "interface": "Document",
+      "member": "scrollingElement",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.scrollingElement\");",
+        "return global::Jint.Browser.Layout.LayoutMembers.ScrollingElement(self.Realm, self.Target);"
+      ],
+      "reason": "The one element whose scrollTop moves the window, which is how a client finds the page's own scroll offset. Standards mode always: it is the document element."
+    },
+    {
       "interface": "HTMLElement",
       "extend": "Jint.Browser.Events.DomShapeAdditions.HtmlElementHandlers",
       "reason": "HTML's GlobalEventHandlers and DocumentAndElementEventHandlers mixins - eighty-odd on* IDL attributes with an identically shaped accessor pair each. AngleSharp declares the handlers as CLR events, which the member closure never yields, and as member entries they would be a hundred and seventy near-identical rows; the extend form exists for exactly this."

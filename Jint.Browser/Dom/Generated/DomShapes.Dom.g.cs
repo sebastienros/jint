@@ -97,6 +97,12 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.InsertBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.insertBefore"), global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 1, "Node.insertBefore")));
                 },
                 length: 2)
+            .Accessor("isConnected",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.isConnected");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.IsConnected(self.Target);
+                })
             .Method("isDefaultNamespace",
                 static (thisObj, args) =>
                 {
@@ -797,6 +803,20 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.domain");
                     self.Target.Domain = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.domain"); return global::Jint.Native.JsValue.Undefined;
                 })
+            .Method("elementFromPoint",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.elementFromPoint");
+                    return global::Jint.Browser.Layout.LayoutMembers.ElementFromPoint(self.Realm, args);
+                },
+                length: 2)
+            .Method("elementsFromPoint",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.elementsFromPoint");
+                    return global::Jint.Browser.Layout.LayoutMembers.ElementsFromPoint(self.Realm, args);
+                },
+                length: 2)
             .Accessor("embeds",
                 static (thisObj, args) =>
                 {
@@ -1033,6 +1053,12 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.scripts");
                     return self.Realm.WrapCollection<global::AngleSharp.Html.Dom.IHtmlScriptElement>(self.Target.Scripts);
+                })
+            .Accessor("scrollingElement",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.scrollingElement");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollingElement(self.Realm, self.Target);
                 })
             .Accessor("selectedStyleSheetSet",
                 static (thisObj, args) =>
@@ -1280,6 +1306,30 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.className");
                     self.Target.ClassName = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.className"); return global::Jint.Native.JsValue.Undefined;
                 })
+            .Accessor("clientHeight",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.clientHeight");
+                    return global::Jint.Browser.Layout.LayoutMembers.ClientHeight(self.Realm, self.Target);
+                })
+            .Accessor("clientLeft",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.clientLeft");
+                    return global::Jint.Browser.Layout.LayoutMembers.ClientEdge(self.Realm, self.Target);
+                })
+            .Accessor("clientTop",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.clientTop");
+                    return global::Jint.Browser.Layout.LayoutMembers.ClientEdge(self.Realm, self.Target);
+                })
+            .Accessor("clientWidth",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.clientWidth");
+                    return global::Jint.Browser.Layout.LayoutMembers.ClientWidth(self.Realm, self.Target);
+                })
             .Method("closest",
                 static (thisObj, args) =>
                 {
@@ -1307,6 +1357,20 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Dom.DomConvert.NullableText(self.Target.GetAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.getAttributeNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.getAttributeNS")));
                 },
                 length: 2)
+            .Method("getBoundingClientRect",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getBoundingClientRect");
+                    return global::Jint.Browser.Layout.LayoutMembers.BoundingClientRect(self.Realm, self.Target);
+                },
+                length: 0)
+            .Method("getClientRects",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.getClientRects");
+                    return global::Jint.Browser.Layout.LayoutMembers.ClientRects(self.Realm, self.Target);
+                },
+                length: 0)
             .Method("getElementsByClassName",
                 static (thisObj, args) =>
                 {
@@ -1485,6 +1549,47 @@ internal static partial class DomInterfaces
                     self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, "Element.replace")); return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 0)
+            .Accessor("scrollHeight",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollHeight");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollHeight(self.Realm, self.Target);
+                })
+            .Method("scrollIntoView",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollIntoView");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollIntoView(self.Realm, self.Target, args);
+                },
+                length: 0)
+            .Accessor("scrollLeft",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollLeft");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollLeft(self.Realm, self.Target);
+                },
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollLeft");
+                    return global::Jint.Browser.Layout.LayoutMembers.SetScrollLeft(self.Realm, self.Target, args);
+                })
+            .Accessor("scrollTop",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollTop");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollTop(self.Realm, self.Target);
+                },
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollTop");
+                    return global::Jint.Browser.Layout.LayoutMembers.SetScrollTop(self.Realm, self.Target, args);
+                })
+            .Accessor("scrollWidth",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.scrollWidth");
+                    return global::Jint.Browser.Layout.LayoutMembers.ScrollWidth(self.Realm, self.Target);
+                })
             .Method("setAttribute",
                 static (thisObj, args) =>
                 {

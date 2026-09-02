@@ -201,6 +201,14 @@ public abstract class DevToolsTarget : ICommandGateway
     /// swap, so that a client told about the new context can already call what it added.
     /// </para>
     /// <para>
+    /// <b>A named world is then made again, under its own name and with a fresh identifier.</b> Chrome does
+    /// that, and every client depends on it: Puppeteer and Playwright each create one utility world when
+    /// they attach and then use it for the whole life of the page, so a world that ended with the first
+    /// document leaves <c>$</c>, <c>$$</c> and <c>waitForSelector</c> waiting for a context that never
+    /// arrives. It happens after the observers, which is the order a client reads — the default context
+    /// first, then the worlds over it.
+    /// </para>
+    /// <para>
     /// Runs on the thread that owns both engines — the page loop — like everything else that touches one.
     /// </para>
     /// </remarks>
@@ -214,8 +222,10 @@ public abstract class DevToolsTarget : ICommandGateway
         var previous = _runtime;
         var next = new TargetRuntime(this, engine, Interlocked.Increment(ref _nextExecutionContextId));
 
+        string[] names;
         lock (_worldLock)
         {
+            names = [.. _worlds.Select(world => world.Name).Where(name => name.Length != 0).Distinct(StringComparer.Ordinal)];
             _worlds.Clear();
         }
 
@@ -228,6 +238,11 @@ public abstract class DevToolsTarget : ICommandGateway
         {
             observer.RuntimeReplaced(next);
         }
+
+        foreach (var name in names)
+        {
+            CreateWorldContext(name);
+        }
     }
 
     /// <summary>Mints a context identifier that names the current document's realm under a name.</summary>
@@ -239,17 +254,33 @@ public abstract class DevToolsTarget : ICommandGateway
     /// per document here, and a world is a second name for it. It buys a client its own
     /// <c>executionContextId</c> to address — which is what Puppeteer and Playwright use it for — and it
     /// buys none of the isolation the name promises. The alias lasts until the next navigation, because the
-    /// realm it names does.
+    /// realm it names does, and <see cref="Replace"/> makes a named one again over the document that follows.
+    /// </remarks>
+    /// <remarks>
+    /// <b>A name is a world.</b> Asking twice for the same non-empty name answers the one that exists rather
+    /// than minting a second identifier over the same realm, which is Chrome's behaviour and what keeps a
+    /// client that re-creates its utility world per navigation from accumulating one per attempt. An
+    /// unnamed world is a fresh one every time, because there is nothing to match it by.
     /// </remarks>
     internal TargetWorld CreateWorldContext(string? worldName)
     {
-        var world = new TargetWorld(
-            Interlocked.Increment(ref _nextExecutionContextId),
-            worldName ?? "",
-            TargetId);
+        var name = worldName ?? "";
+        TargetWorld world;
 
         lock (_worldLock)
         {
+            if (name.Length != 0)
+            {
+                foreach (var existing in _worlds)
+                {
+                    if (string.Equals(existing.Name, name, StringComparison.Ordinal))
+                    {
+                        return existing;
+                    }
+                }
+            }
+
+            world = new TargetWorld(Interlocked.Increment(ref _nextExecutionContextId), name, TargetId);
             _worlds.Add(world);
         }
 

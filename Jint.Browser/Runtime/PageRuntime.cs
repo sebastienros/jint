@@ -57,6 +57,7 @@ internal sealed class PageRuntime
         DocumentUrl = documentUrl;
         Referrer = referrer;
         MutationObservers = new Observers.MutationObserverLane(this);
+        Layout = new Layout.PageLayout(this);
         _started = System.Diagnostics.Stopwatch.GetTimestamp();
     }
 
@@ -116,6 +117,14 @@ internal sealed class PageRuntime
 
     /// <summary>Where mutation records wait for the microtask checkpoint that delivers them.</summary>
     internal Observers.MutationObserverLane MutationObservers { get; }
+
+    /// <summary>The flat box model of this document, and the virtual scroll offset over it.</summary>
+    /// <remarks>
+    /// Per document rather than per page, because a navigation starts at the top of the new document and
+    /// nothing of the previous one's scroll position survives it — there is no back/forward cache here to
+    /// restore one from.
+    /// </remarks>
+    internal Layout.PageLayout Layout { get; }
 
     /// <summary>The observer interface objects of this engine, built on first use.</summary>
     internal Observers.ObserverRealm Observers => _observers ??= new Observers.ObserverRealm(this);

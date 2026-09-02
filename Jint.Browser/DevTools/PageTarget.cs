@@ -35,6 +35,7 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
     private readonly Action<PageTarget>? _closed;
 
     private PageDomain[] _domains = [];
+    private PageRuntime? _runtime;
 
     private PageTarget(Page page, string? browserContextId, bool waitForDebuggerOnStart, Action<PageTarget>? closed)
         : base(
@@ -43,7 +44,7 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
             url: page.Url,
             browserContextId: browserContextId,
             openerId: null,
-            describer: null,
+            describer: DomRemoteObjectDescriber.Instance,
             waitForDebuggerOnStart: waitForDebuggerOnStart)
     {
         Page = page;
@@ -70,6 +71,16 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
 
     /// <summary>The scripts <c>Page.addScriptToEvaluateOnNewDocument</c> runs before each document's own.</summary>
     internal NewDocumentScripts NewDocumentScripts { get; } = new();
+
+    /// <summary>
+    /// The node identifiers the <c>DOM</c> domain addresses this page's document by.
+    /// </summary>
+    /// <remarks>
+    /// On the target rather than on the runtime, because a <c>backendNodeId</c> outlives one document while
+    /// a <c>nodeId</c> does not: the tracker holds both and is told to throw the second away when a document
+    /// commits. It is shared by every attachment, the way the remote-object table is.
+    /// </remarks>
+    internal DomNodeTracker Nodes { get; } = new();
 
     /// <summary>The tab this page hangs off, which is how a client reaches it. Set by the host.</summary>
     /// <remarks>
@@ -126,6 +137,8 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
         var domains = base.RegisterDomains(session, browser);
 
         var page = new PageDomain(this);
+        var dom = new DomDomain(this);
+        var input = new InputDomain(this);
         var emulation = new EmulationDomain(this);
         var network = new NetworkDomain(this);
         var fetch = new FetchDomain();
@@ -135,6 +148,8 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
 
         session
             .Register(page)
+            .Register(dom)
+            .Register(input)
             .Register(emulation)
             .Register(network)
             .Register(fetch)
@@ -144,7 +159,12 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
 
         AddDomain(page);
 
-        return domains with { Extra = [page, emulation, network, fetch, performance, audits, jint] };
+        // The DOM domain hears about the engine being replaced under the target the way the built-in five do,
+        // and is unobserved again with them when the attachment detaches.
+        Observe(dom);
+        Nodes.Add(dom);
+
+        return domains with { Extra = [page, dom, input, emulation, network, fetch, performance, audits, jint] };
     }
 
     /// <inheritdoc/>
@@ -194,6 +214,11 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
             domain.FrameNavigated(runtime.DocumentUrl, loaderId);
         }
 
+        // Before the swap, because the swap is what tells every DOM domain to announce documentUpdated and a
+        // client that acted on it must find the identifiers already gone rather than resolving one more time.
+        _runtime = runtime;
+        Nodes.DocumentReplaced();
+
         Replace(runtime.Engine);
         NewDocumentScripts.Run(runtime);
     }
@@ -201,6 +226,13 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
     /// <inheritdoc/>
     void IPageObserver.Phase(NavigationPhase phase, string loaderId)
     {
+        if (phase == NavigationPhase.Committed && _runtime is { } runtime)
+        {
+            // The first moment the document exists and the parse is over, which is when a client's view of
+            // the tree can start being kept current. Idempotent, and a no-op while nobody has enabled DOM.
+            Nodes.Watch(runtime);
+        }
+
         foreach (var domain in Snapshot())
         {
             domain.Phase(phase, loaderId);
