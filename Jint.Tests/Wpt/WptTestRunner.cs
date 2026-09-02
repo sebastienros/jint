@@ -295,12 +295,14 @@ public class WptTestRunner
         ("fetch/api/policies/*", "CSP and Referrer-Policy on a document; the directory holds no .any.js at all"),
 
         // ---- abort/
-        // general.any.js is 20 kB of `AbortSignal` against a server, and it opens by including
-        // /common/get-host-info.sub.js — wptserve's server-side substitution — and ../request/request-error.js
-        // out of the one fetch directory that is out for having no API base URL. Both are file-scope
-        // requirements, so it cannot even register a test here. request.any.js and cache.https.any.js
-        // construct their Requests from *relative* urls, which is the same NeedsApiBaseUrl story as request/.
-        ("fetch/api/abort/*", "a relative-url Request, and for general.any.js wptserve substitution at file scope"),
+        // The relative-url reason this directory used to give is gone with Options.WebApi.Fetch.BaseUrl, so
+        // each file now says what it actually needs. All three were run to find out.
+        ("fetch/api/abort/general.any.js", "/common/get-host-info.sub.js at file scope: wptserve's server-side substitution"),
+        ("fetch/api/abort/cache.https.any.js", "the Cache API, which the driver's engine does not enable"),
+        ("fetch/api/abort/request.any.js", "consuming the body of a request whose signal is already aborted must reject, which this engine does not do"),
+        ("fetch/api/abort/*.html", "a document"),
+        ("fetch/api/abort/*.window.js", "a browsing context"),
+        ("fetch/api/abort/*.sub.any.js", "wptserve substitutes a second origin into the file before serving it"),
 
         // ---- basic/, file by file, now that nine of its 31 files are vendored
         // Server-shaped, but not this server: each needs a handler this one deliberately does not reproduce.
