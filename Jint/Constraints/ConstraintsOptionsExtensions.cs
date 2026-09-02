@@ -142,6 +142,10 @@ public static class ConstraintsOptionsExtensions
 
         if (cancellationToken != default)
         {
+            // Recorded as well as registered: a factory cannot be recognised without being invoked, so this
+            // is what lets the untrusted-code profile put back a token it would otherwise clear away with
+            // every other constraint the host registered before it.
+            options.Constraints.RequestedCancellationToken = cancellationToken;
             options.AddConstraint(() => new CancellationConstraint(cancellationToken));
         }
         return options;

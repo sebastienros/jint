@@ -14,7 +14,7 @@
 ### The page loop, and the thread rule
 
 **One thread per page owns its engine and its DOM, and nothing else may touch either.** `Runtime/PageLoop`
-is that thread: it drains a `Channel<Action<Engine?>>` mailbox, calls `Tasks.ProcessTasks()`, and parks in
+is that thread: it drains a mailbox of requests, calls `Tasks.ProcessTasks()`, and parks in
 `Tasks.WaitForScheduledWork` for the shorter of `BrowserOptions.PumpIdle` and
 `Tasks.TimeUntilNextScheduledWork`. The engine is built on it and disposed on it, because both are
 engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
@@ -43,6 +43,63 @@ Four rules follow, and each of them is a way to break the package silently:
 poke is itself an engine job: a probe posted from another thread would find the queue non-empty and never see
 idle. Idle is `TimeUntilNextScheduledWork is null`. It holds the loop for its whole duration, so it takes the
 page's cancellation token: a wait that closing could not end would make closing wait out its ceiling.
+
+### Budgets: what a turn is, and which constraints can bound one
+
+Read the repository-root [`AGENTS.md`](../../AGENTS.md#gotchas) constraints gotcha and
+[`Jint/Constraints/AGENTS.md`](../../Jint/Constraints/AGENTS.md#bounding-a-host-driven-sequence) before
+changing anything here; neither is restated. What they mean *for a page* is that the trap applies twice over,
+so almost nothing an embedder would reach for bounds one. A page is a host-driven sequence of entries, so
+`LimitExecutionTime` arms a fresh deadline for every `Page` call and bounds no sequence of them; and a page's
+event loop is **pumped**, so a job chain under `Tasks.ProcessTasks` never reaches `ExecuteWithConstraints` at
+all and a per-entry timeout there never fires even once. The two whose window the *host* owns are the two that
+survive both — `OperationDeadlineConstraint` and `MemoryLimitConstraint` — and `Runtime/PageBudget` is where a
+page arms them.
+
+**A turn is one unit of work the page's thread does with the engine**, and there are exactly three kinds:
+one mailbox request (`PageLoop.PostAsync`), one `ProcessTasks` drain — which is every due timer callback,
+microtask, promise reaction and animation-frame batch together — and one inline `<script>`
+(`PageScriptingService`, and the parser driver after it). Each takes `BrowserOptions.MaxTaskDuration` and,
+where one is configured, `BrowserOptions.MemoryLimit`. Four consequences are easy to get wrong:
+
+- **A request's bracket is outside `PostAsync`'s own `try`/`catch`**, which is what makes a budget failure the
+  *caller's*: `Page.EvaluateAsync` faults with `TimeoutException`. A drain's erupts into the pump, becomes a
+  `PageErrorKind.BudgetExceeded` entry, and the loop goes on — a page survives its scripts.
+- **A request that pumps brackets its own turns and is posted `bracketed: false`.** `WaitForIdleAsync` is the
+  one; bracketing the whole wait would charge every drain *and every park* to one budget and fail a wait
+  longer than `MaxTaskDuration` for no reason. A `Page` member added later wants the default.
+- **`ReplaceEngine` closes the outgoing engine's turn and opens one on the incoming engine.** A constraint
+  belongs to one engine, so the turn a navigation request opened cannot be closed on the engine that replaced
+  it — and doing it this way is also what stops an engine construction from spending the budget the new
+  document's first script will meet.
+- **A nested turn re-arms the deadline and hands the enclosing turn a full budget back**, so a document with
+  many scripts is not failed for having many, while each script is bounded. The *allocation* budget is not
+  re-armed: `MemoryLimitConstraint.Begin` refuses to start while the engine is executing, which is exactly
+  where the parser driver will open a nested turn from.
+
+A worker's pump takes the same bracket over its own engine's constraints, which it has because
+`WorkerRequest.CreateDefaultOptions` replays the parent's constraint **factories**. What that replay does
+*not* carry is a web-API setting, so `MaxActiveTimers`, `MaxResponseBytes` and `FetchTimeout` are named again
+in `ThreadPerWorkerProvider`; a new page-sized limit needs the same second call or a worker keeps the engine
+default.
+
+`BrowserOptions.ForUntrustedContent` applies `Options.ForUntrustedCode` from inside the factory's own
+construction callback, so the profile is expanded before the engine builds anything and re-expanded over the
+host's `ConfigureEngine` callbacks. It registers the same two constraints, which is why `PageBudget` *finds*
+them on the engine rather than creating them: one code path arms a turn under either profile. Two things it
+costs a page and both are deliberate — there is no module loader (a page has none anyway; a worker's is
+installed by the provider afterwards and is untouched) and `RetainFunctionSourceText` is off, so a recorded
+stack names less.
+
+`MaxDomNodes` is one number checked against two quantities, and that is deliberate rather than a compromise.
+The parse counts the *document* and refuses a navigation over the ceiling; `DomRealm` counts the *node
+wrappers* one engine has made and refuses the projection that would pass it. Making them share a count — the
+parse seeding the wrapper counter — was tried and is wrong: it makes merely **walking** a document of the
+permitted size a refusal, which is a limit no real page survives, and a framework touching most of its own
+tree is the ordinary case rather than the abusive one. So the two together bound a page at roughly twice the
+number, and a host setting it should read it as "this big a document, and this many nodes handed to script".
+Script-driven growth is bounded by `MemoryLimit` first — an `innerHTML` assignment materializes a subtree with
+no wrapper of its own, so nothing counts it — and by this second.
 
 ### The window: why the global stays `GlobalObject`, and the trap in it
 

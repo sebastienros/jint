@@ -230,6 +230,71 @@ public class UntrustedCodeProfileTests
             .WithMessage("Atomics.wait cannot be used in this agent");
     }
 
+    /// <summary>
+    /// A cancellation token is not a budget, so the profile puts back the one registration it would
+    /// otherwise clear away with every other constraint the host declared before it.
+    /// </summary>
+    /// <remarks>
+    /// The profile is the whole budget and a looser one declared before it must not survive — which is why
+    /// every registration is cleared. <c>ObserveCancellation</c> is the exception: it is how a host stops an
+    /// engine it is still holding, and it is what <c>fetch</c>, <c>XMLHttpRequest</c>, <c>EventSource</c>,
+    /// the WebSocket operations, the module loader and the engine's own blocking waits read to learn that
+    /// their work has been abandoned. Dropping it left a hardened engine deaf to a token the host had
+    /// already handed over, and nothing said so.
+    /// </remarks>
+    [Test]
+    public void ProfileKeepsACancellationTokenTheHostRegisteredBeforeIt()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var options = new Options();
+        options.ObserveCancellation(cancellation.Token);
+        options.ForUntrustedCode(Fixture);
+
+        var engine = new Engine(options);
+        engine.Constraints.Find<CancellationConstraint>().Should().NotBeNull();
+
+        cancellation.Cancel();
+        Invoking(() => engine.Evaluate("while (true) { }"))
+            .Should().Throw<ExecutionCanceledException>();
+    }
+
+    /// <summary>
+    /// And a token registered <em>after</em> the profile is declared reaches the engine too, since the
+    /// profile is expanded when the engine is built rather than when it is declared.
+    /// </summary>
+    [Test]
+    public void ProfileKeepsACancellationTokenTheHostRegisteredAfterIt()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var engine = new Engine(options =>
+        {
+            options.ForUntrustedCode(Fixture);
+            options.ObserveCancellation(cancellation.Token);
+        });
+
+        engine.Constraints.Find<CancellationConstraint>().Should().NotBeNull();
+
+        cancellation.Cancel();
+        Invoking(() => engine.Evaluate("while (true) { }"))
+            .Should().Throw<ExecutionCanceledException>();
+    }
+
+    /// <summary>
+    /// Withdrawing the token withdraws it: the profile puts back what the host still wants observed, never
+    /// a registration the host has since removed.
+    /// </summary>
+    [Test]
+    public void ProfileDoesNotReviveACancellationTokenTheHostWithdrew()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var options = new Options();
+        options.ObserveCancellation(cancellation.Token);
+        options.ObserveCancellation(default);
+        options.ForUntrustedCode(Fixture);
+
+        new Engine(options).Constraints.Find<CancellationConstraint>().Should().BeNull();
+    }
+
     [Test]
     public void ProfileClearsHostFactoryAndOperatorCapabilities()
     {

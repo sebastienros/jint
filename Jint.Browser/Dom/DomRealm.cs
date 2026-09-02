@@ -45,6 +45,7 @@ internal sealed class DomRealm
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
+    private int _nodes;
 
     private DomRealm(Engine engine)
     {
@@ -70,6 +71,28 @@ internal sealed class DomRealm
     /// what a binding with no runtime behind it can do; the parser driver replaces it.
     /// </summary>
     internal DomHostHooks Hooks { get; set; } = DomHostHooks.Default;
+
+    /// <summary>
+    /// How many nodes this engine may project into script, or zero for no limit
+    /// (<see cref="BrowserOptions.MaxDomNodes"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It counts <b>wrappers</b>, which is deliberately not the same quantity the parse bounds. The wrapper
+    /// table is what a script's DOM growth actually costs an engine, and it is the one place every projection
+    /// passes through — so this bounds what one document hands to script, while the parse bounds what the
+    /// document itself holds. Seeding this from the parsed size instead would make merely <i>walking</i> a
+    /// document of the permitted size a refusal, which is a limit no page could live with.
+    /// </para>
+    /// <para>
+    /// Set by the page runtime. A binding used without one — <c>DomBindings.Install</c> alone — counts
+    /// nothing, which is what a host embedding the projection on its own asked for.
+    /// </para>
+    /// </remarks>
+    internal int MaxNodes { get; set; }
+
+    /// <summary>How many node wrappers this engine has made, for a diagnostic and for the tests.</summary>
+    internal int NodeCount => _nodes;
 
     /// <summary>
     /// The window an event path continues into above the document, or <see langword="null"/> when the engine
@@ -248,9 +271,27 @@ internal sealed class DomRealm
 
         // Only the wrapper that won the race is decorated, and only once, because the table is what decides
         // which one exists at all.
-        if (ReferenceEquals(cached, wrapper))
+        if (!ReferenceEquals(cached, wrapper))
         {
-            Hooks.WrapperCreated(this, key, wrapper);
+            return cached;
+        }
+
+        Hooks.WrapperCreated(this, key, wrapper);
+
+        if (wrapper is DomNodeObject)
+        {
+            // Counted after the table took it, and the throw is after the count, so a script catching the
+            // RangeError and asking again is refused again rather than charged again — and the node it asked
+            // for keeps the one wrapper it now has.
+            _nodes++;
+
+            if (MaxNodes > 0 && _nodes > MaxNodes)
+            {
+                Throw.RangeError(
+                    PrincipalRealm,
+                    "The document has reached the " + MaxNodes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + "-node limit this browser was configured with.");
+            }
         }
 
         return cached;

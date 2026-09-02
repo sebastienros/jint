@@ -28,7 +28,7 @@ public sealed class BrowserContext : IAsyncDisposable
     internal BrowserContext(Browser browser, BrowserContextOptions options)
     {
         Browser = browser;
-        Network = new PageNetwork(options);
+        Network = new PageNetwork(options, browser.Options.BlocksPrivateNetworkByDefault);
     }
 
     /// <summary>The browser this context belongs to.</summary>

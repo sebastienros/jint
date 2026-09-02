@@ -31,24 +31,35 @@ namespace Jint.Browser.Workers;
 /// is the per-engine backstop; this provider refuses nothing of its own, and it stops every thread it
 /// started when the page closes.
 /// </para>
+/// <para>
+/// <b>A worker's turns are bounded the way a page's are.</b> <c>CreateDefaultOptions</c> replays the
+/// parent's constraint <i>factories</i>, so a worker has an <c>OperationDeadlineConstraint</c> and — where
+/// the page has one — a <c>MemoryLimitConstraint</c> of its own, and the pump below brackets each drain with
+/// them exactly as <see cref="Runtime.PageLoop"/> does. Without that a worker would be the one engine here
+/// with no wall-clock bound at all: an inherited <c>TimeoutInterval</c> never fires on an engine that is only
+/// ever pumped. The three web-API limits are not constraints and do not travel with the posture, so they are
+/// named again below.
+/// </para>
 /// </remarks>
 internal sealed class ThreadPerWorkerProvider : WorkerProvider
 {
     private readonly Page _page;
     private readonly PageNetwork _network;
     private readonly PageNetworkRecorder _requests;
+    private readonly BrowserOptions _options;
     private readonly TimeSpan _pumpIdle;
     private readonly System.Threading.Lock _gate = new();
     private readonly List<WorkerConnection> _live = [];
 
     private volatile bool _closed;
 
-    internal ThreadPerWorkerProvider(Page page, PageNetwork network, PageNetworkRecorder requests, TimeSpan pumpIdle)
+    internal ThreadPerWorkerProvider(Page page, PageNetwork network, PageNetworkRecorder requests, BrowserOptions options)
     {
         _page = page;
         _network = network;
         _requests = requests;
-        _pumpIdle = pumpIdle;
+        _options = options;
+        _pumpIdle = options.PumpIdle;
     }
 
     /// <summary>How many workers of this page are running.</summary>
@@ -80,6 +91,14 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         // GlobalEvents are already on — CreateDefaultOptions adds them, because the worker global is built
         // out of them.
         options.WebApi.Features |= WebApiFeatures.Fetch;
+
+        // The three page-sized limits, again. CopySecurityPosture carries the engine's own bounds — the
+        // constraint values, the parser bounds, the module-graph bounds, the result limits — but a web-API
+        // setting is not one of them and a worker starts from a fresh Options, so a page held to five timers
+        // and a small response ceiling would otherwise spawn a worker holding the engine defaults.
+        options.WebApi.Timers.MaxActiveTimers = _options.MaxActiveTimers;
+        options.WebApi.Fetch.MaxResponseBytes = _options.MaxResponseBytes;
+        options.WebApi.Fetch.Timeout = _options.FetchTimeout;
 
         // On the parent's thread, inside the constructor, so the host's factory sees the engine that asked
         // for the worker — which is the engine whose HostDefined carries whatever varies per page.
@@ -183,11 +202,30 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
     {
         var worker = connection.Worker;
 
+        // The same bracket the page loop puts around its own turns, over the same two constraints: a worker
+        // inherits its parent's constraint factories, so it has an OperationDeadlineConstraint and — where
+        // the page has one — a MemoryLimitConstraint of its own. Without it a worker is the one engine in
+        // the package with no wall-clock bound at all, because a pumped engine reaches ExecuteWithConstraints
+        // never and its inherited TimeoutInterval therefore never fires.
+        var budget = PageBudget.For(worker, _options);
+
         try
         {
             while (!connection.IsEnded)
             {
-                worker.Tasks.ProcessTasks();
+                try
+                {
+                    using (budget.BeginTurn())
+                    {
+                        worker.Tasks.ProcessTasks();
+                    }
+                }
+                catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+                {
+                    // Recorded on the page, and the worker goes on with a budget of its own — the same
+                    // answer the page gives its own drains. Anything else still ends the worker below.
+                    _page.RecordWorkerError(exception, connection.Name);
+                }
 
                 if (connection.IsEnded)
                 {
