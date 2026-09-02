@@ -215,6 +215,8 @@ file to read before touching any of it; two rules from it matter enough to repea
   turns optional parameters into required ones. Fetch, regenerate, *read the diff of
   `Jint.DevTools/Protocol/Generated/`* — that diff is the upstream change in the vocabulary this repository
   compiles — and fix what it broke, in the same pull request.
+- **A third file beside the two vendored ones is ours.** `jint_protocol.json` describes the `Jint` domain
+  in the protocol's own format, is read alike, and is cited against itself rather than against Chrome.
 - **The generated output is checked in and diffed by a test.** `GeneratedProtocolIsCurrentTests` runs the
   emitter in memory and compares byte for byte, so editing the manifest without regenerating fails the
   build, and so does hand-editing a `.g.cs`.

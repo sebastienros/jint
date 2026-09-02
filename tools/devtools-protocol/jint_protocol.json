@@ -1,0 +1,77 @@
+{
+  "version": { "major": "1", "minor": "3" },
+  "domains": [
+    {
+      "domain": "Jint",
+      "description": "What this browser can answer that a rendering one is asked for a picture of: the page as text, as CommonMark, and as its accessibility tree. Jint.Browser renders nothing, so Page.captureScreenshot and Page.printToPDF are refused; these are what to ask instead, and each is computed from the DOM rather than from a layout. Answered by a page target only.",
+      "experimental": true,
+      "commands": [
+        {
+          "name": "getMarkdown",
+          "description": "Renders the document as CommonMark.",
+          "parameters": [
+            {
+              "name": "mainContentOnly",
+              "description": "Whether to render only the document's main content - the first <main>, [role=main] or <article> - when it has one.",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "includeImages",
+              "description": "Whether an image becomes ![alt](src) rather than its alternative text alone. Defaults to true.",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "maxLength",
+              "description": "The greatest number of characters to return, or zero for no limit.",
+              "optional": true,
+              "type": "integer"
+            },
+            {
+              "name": "useComputedStyle",
+              "description": "Whether the CSS cascade is consulted for display and visibility. Defaults to true.",
+              "optional": true,
+              "type": "boolean"
+            }
+          ],
+          "returns": [
+            { "name": "markdown", "description": "The rendered document.", "type": "string" },
+            { "name": "truncated", "description": "Whether maxLength cut the result short.", "type": "boolean" }
+          ]
+        },
+        {
+          "name": "getText",
+          "description": "Renders the document the way innerText does: the text of the document rather than the text of a rendering of it, so the line breaks, the cell tabs and the white-space processing are there and nothing wraps.",
+          "parameters": [
+            {
+              "name": "useComputedStyle",
+              "description": "Whether the CSS cascade is consulted for display and visibility. Defaults to true.",
+              "optional": true,
+              "type": "boolean"
+            }
+          ],
+          "returns": [
+            { "name": "text", "description": "The document's text.", "type": "string" }
+          ]
+        },
+        {
+          "name": "getAccessibilitySnapshot",
+          "description": "Renders the document's accessibility tree as the indented outline an agent reads.",
+          "parameters": [
+            {
+              "name": "mode",
+              "description": "Which tree to render: the pruned one, the pruned one with the text between its nodes, or every node including the ignored ones. Defaults to snapshot.",
+              "optional": true,
+              "type": "string",
+              "enum": [ "default", "snapshot", "full" ]
+            }
+          ],
+          "returns": [
+            { "name": "snapshot", "description": "The rendered tree.", "type": "string" }
+          ]
+        }
+      ]
+    }
+  ]
+}

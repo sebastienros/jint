@@ -163,12 +163,25 @@ internal static class Naming
     }
 
     /// <summary>
-    /// The Chrome DevTools Protocol documentation URL for one member, which
+    /// Where one member is documented, which
     /// <c>Jint.Tests.DevTools/Protocol/ProtocolCitationTests.cs</c> resolves against the vendored JSON.
     /// </summary>
-    internal static string Citation(string domain, string? anchor = null)
+    /// <param name="domain">The domain the member belongs to.</param>
+    /// <param name="anchor">The member's anchor, or <see langword="null"/> for the domain itself.</param>
+    /// <remarks>
+    /// <b>A domain Chrome does not have is cited against our own description instead.</b> Pointing a member
+    /// of the <c>Jint</c> domain at Chrome's documentation would send a reader to a page that has never
+    /// heard of it, and would fail the citation test — which resolves every <c>chromedevtools</c> URL
+    /// against the vendored JSON precisely so that a citation cannot drift into naming nothing.
+    /// </remarks>
+    internal static string Citation(ProtocolDomain domain, string? anchor = null)
     {
-        var url = string.Create(CultureInfo.InvariantCulture, $"https://chromedevtools.github.io/devtools-protocol/tot/{domain}/");
+        if (!domain.Vendored)
+        {
+            return "https://github.com/sebastienros/jint/blob/main/tools/devtools-protocol/" + Protocol.OwnFile;
+        }
+
+        var url = string.Create(CultureInfo.InvariantCulture, $"https://chromedevtools.github.io/devtools-protocol/tot/{domain.Name}/");
         return anchor is null ? url : url + "#" + anchor;
     }
 }

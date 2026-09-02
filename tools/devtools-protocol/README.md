@@ -11,8 +11,24 @@ say the same thing.
 
 `devtools-protocol-LICENSE` is that commit's `LICENSE`. The protocol description is
 Copyright The Chromium Authors and is redistributed here under the 3-Clause BSD License it carries.
-Nothing in this directory is edited — a fetch at the pinned commit has to produce no diff, which is
-why `.gitattributes` pins both files to LF.
+Neither vendored file is edited — a fetch at the pinned commit has to produce no diff, which is
+why `.gitattributes` pins both to LF. The one file here that is *not* upstream's is `jint_protocol.json`,
+below.
+
+## The domain that is ours
+
+`jint_protocol.json` sits beside the two vendored files, in the same format, and is **not** part of the
+fetch: it is this repository's own, and a re-fetch at the pinned commit still produces no diff in the two
+files above. It describes the `Jint` domain — `getMarkdown`, `getText`, `getAccessibilitySnapshot` — the way
+Lightpanda describes its `LP` one, and the generator reads all three files alike, so a `Jint` command gets
+data transfer objects, a dispatch base and a manifest entry exactly as a Chrome command does. The one place
+they differ is the citation: a member of a domain Chrome does not have is cited against this file rather
+than against Chrome's documentation, because `ProtocolCitationTests` resolves every `chromedevtools` URL
+against the vendored JSON and a `Jint` anchor would name nothing there.
+
+It declares the same protocol version as the vendored files, which the reader checks. Adding a domain to it
+is the same three steps as any other: describe it here, add its commands to `manifest.json`, regenerate, and
+override the virtuals.
 
 ## A bump is a code change
 

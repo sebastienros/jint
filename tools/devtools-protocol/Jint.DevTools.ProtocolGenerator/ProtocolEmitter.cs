@@ -110,7 +110,7 @@ public sealed class ProtocolEmitter
                     type.Id + "Values",
                     domain.Name + "." + type.Id,
                     enumeration,
-                    Naming.Citation(domain.Name, "type-" + type.Id));
+                    Naming.Citation(domain, "type-" + type.Id));
                 continue;
             }
 
@@ -126,7 +126,7 @@ public sealed class ProtocolEmitter
                 declared,
                 type.Id,
                 Naming.Summary(type.Description, string.Create(CultureInfo.InvariantCulture, $"The <c>{domain.Name}.{type.Id}</c> protocol type.")),
-                Naming.Citation(domain.Name, "type-" + type.Id),
+                Naming.Citation(domain, "type-" + type.Id),
                 type.Experimental,
                 type.Deprecated,
                 type.Properties);
@@ -134,7 +134,7 @@ public sealed class ProtocolEmitter
 
         foreach (var command in domain.Commands)
         {
-            var citation = Naming.Citation(domain.Name, "method-" + command.Name);
+            var citation = Naming.Citation(domain, "method-" + command.Name);
 
             if (command.Parameters.Count > 0)
             {
@@ -181,7 +181,7 @@ public sealed class ProtocolEmitter
                 declared,
                 EventName(@event),
                 string.Create(CultureInfo.InvariantCulture, $"The parameters of the <c>{domain.Name}.{@event.Name}</c> event."),
-                Naming.Citation(domain.Name, "event-" + @event.Name),
+                Naming.Citation(domain, "event-" + @event.Name),
                 @event.Experimental,
                 @event.Deprecated,
                 @event.Parameters);
@@ -318,7 +318,7 @@ public sealed class ProtocolEmitter
             builder,
             "    ",
             string.Create(CultureInfo.InvariantCulture, $"Dispatches the <c>{domain.Name}</c> domain's commands."),
-            Naming.Citation(domain.Name),
+            Naming.Citation(domain),
             domain.Experimental,
             domain.Deprecated);
 
@@ -407,7 +407,7 @@ public sealed class ProtocolEmitter
             builder,
             "    ",
             string.Create(CultureInfo.InvariantCulture, $"Builds the <c>{domain.Name}</c> domain's events."),
-            Naming.Citation(domain.Name),
+            Naming.Citation(domain),
             experimental: false,
             deprecated: false);
 
@@ -427,7 +427,7 @@ public sealed class ProtocolEmitter
                 builder,
                 "        ",
                 string.Create(CultureInfo.InvariantCulture, $"Builds the <c>{domain.Name}.{@event.Name}</c> event."),
-                Naming.Citation(domain.Name, "event-" + @event.Name),
+                Naming.Citation(domain, "event-" + @event.Name),
                 @event.Experimental,
                 @event.Deprecated);
 
@@ -728,7 +728,7 @@ public sealed class ProtocolEmitter
 
         builder
             .Append("Reached only while manifest.json lists it. See <see href=\"")
-            .Append(Naming.Citation(domain.Name, "method-" + command.Name)).Append("\"/>.</remarks>\n");
+            .Append(Naming.Citation(domain, "method-" + command.Name)).Append("\"/>.</remarks>\n");
     }
 
     private static void Separate(StringBuilder builder, ref bool first)

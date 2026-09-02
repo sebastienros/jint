@@ -131,6 +131,7 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
         var fetch = new FetchDomain();
         var performance = new PerformanceDomain();
         var audits = new AuditsDomain();
+        var jint = new JintDomain(this);
 
         session
             .Register(page)
@@ -138,11 +139,12 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
             .Register(network)
             .Register(fetch)
             .Register(performance)
-            .Register(audits);
+            .Register(audits)
+            .Register(jint);
 
         AddDomain(page);
 
-        return domains with { Extra = [page, emulation, network, fetch, performance, audits] };
+        return domains with { Extra = [page, emulation, network, fetch, performance, audits, jint] };
     }
 
     /// <inheritdoc/>
