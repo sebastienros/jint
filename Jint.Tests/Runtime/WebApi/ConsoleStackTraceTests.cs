@@ -35,7 +35,9 @@ public class ConsoleStackTraceTests
     private static RecordingSink Run(string script, bool wantsStackTrace, string source = "app.js")
     {
         var sink = new RecordingSink(wantsStackTrace);
-        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Console | WebApiFeatures.Timers).UseConsole(sink));
+        var engine = new Engine(options => options
+            .UseWebApis(WebApiFeatures.Console | WebApiFeatures.Timers | WebApiFeatures.Events)
+            .UseConsole(sink));
         engine.Execute(script, source);
         engine.Tasks.ProcessTasks();
         return sink;
@@ -101,6 +103,39 @@ public class ConsoleStackTraceTests
         frames.Should().NotBeNull();
         frames!.Select(frame => frame.FunctionName).Should().Equal("heartbeat", "");
         frames[0].Line.Should().Be(2);
+    }
+
+    [Test]
+    public void AMessageLoggedFromAnEventListenerAnchorsInsideTheListener()
+    {
+        var sink = Run(
+            """
+            var target = new EventTarget();
+            target.addEventListener('ping', function receive() {
+                console.log('got it');
+            });
+            target.dispatchEvent(new Event('ping'));
+            """,
+            wantsStackTrace: true);
+
+        var frames = sink.Records.Should().ContainSingle().Which.StackTrace;
+        frames.Should().NotBeNull();
+        frames![0].FunctionName.Should().Be("receive");
+        frames[0].Line.Should().Be(3);
+    }
+
+    [Test]
+    public void ConsoleTraceInsideAnEventListenerStartsAtTheListener()
+    {
+        var sink = Run(
+            """
+            var target = new EventTarget();
+            target.addEventListener('ping', function receive() { console.trace('why'); });
+            target.dispatchEvent(new Event('ping'));
+            """,
+            wantsStackTrace: false);
+
+        sink.Records.Should().ContainSingle().Which.StackTrace![0].FunctionName.Should().Be("receive");
     }
 
     [Test]
