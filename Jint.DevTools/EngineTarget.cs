@@ -70,7 +70,10 @@ public sealed class EngineTarget : IAsyncDisposable
 
         Engine = engine;
         Title = options.Title;
-        Url = options.Url;
+
+        // Through the same mapping a script's own name goes through, so a host that names its target after
+        // the file it runs sees one URL in /json/list and in Debugger.scriptParsed rather than two.
+        Url = Domains.ScriptUrl.From(options.Url);
         ThreadMode = options.ThreadMode;
         TargetId = Identifiers.New();
         Describer = options.RemoteObjectDescriber;

@@ -531,7 +531,7 @@ internal sealed partial class DebuggerDomain
             FunctionName = FunctionName(frame.FunctionName),
             FunctionLocation = FunctionLocation(frame),
             Location = At(script, location.Start.Line, location.Start.Column),
-            Url = script?.Url ?? location.SourceFile ?? "",
+            Url = script?.Url ?? ScriptUrl.From(location.SourceFile),
             ScopeChain = Scopes(frame),
             This = _objects.Describe(This(frame), _backtrace),
             ReturnValue = frame.ReturnValue is { } value ? _objects.Describe(value, _backtrace) : null,

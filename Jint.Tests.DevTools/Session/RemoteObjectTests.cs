@@ -223,11 +223,17 @@ public class RemoteObjectTests
         result.GetProperty("description").GetString().Should().Be(description);
     }
 
-    [TestCase("(function named() {})", "ƒ named()")]
-    [TestCase("(async function a() {})", "async ƒ a()")]
-    [TestCase("(function* g() {})", "ƒ* g()")]
-    [TestCase("(class C {})", "class C")]
-    public async Task AFunctionIsDescribedTheWayAFrontEndRendersIt(string expression, string description)
+    /// <summary>
+    /// A function's <c>description</c> is its source text, because the front end reads that field as
+    /// <c>Function.prototype.toString</c> output and parses the name back out of it — a short label makes
+    /// every function in a Scope pane render as <c>ƒ undefined()</c>. Recorded from a real Chrome.
+    /// </summary>
+    [TestCase("(function named() {})", "function named() {}")]
+    [TestCase("(async function a() {})", "async function a() {}")]
+    [TestCase("(function* g() {})", "function* g() {}")]
+    [TestCase("(class C { m() {} })", "class C { m() {} }")]
+    [TestCase("(x => x * 2)", "x => x * 2")]
+    public async Task AFunctionIsDescribedByItsSourceTheWayAFrontEndParsesIt(string expression, string description)
     {
         await using var session = await AttachedSession.CreateAsync();
 
@@ -236,6 +242,33 @@ public class RemoteObjectTests
         result.GetProperty("type").GetString().Should().Be("function");
         result.GetProperty("description").GetString().Should().Be(description);
         result.TryGetProperty("preview", out _).Should().BeFalse("a function's declaration is already its description");
+    }
+
+    [Test]
+    public async Task AFunctionWithNoSourceIsThePlaceholderChromeSends()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var result = await session.EvaluateAsync("Math.max");
+
+        result.GetProperty("type").GetString().Should().Be("function");
+        result.GetProperty("description").GetString().Should().Be("function max() { [native code] }");
+    }
+
+    [Test]
+    public async Task AFunctionInsideAPreviewCarriesTheEmptyValueChromeSends()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var result = await session.EvaluateAsync("({ run: function run() { return 1; } })", generatePreview: true);
+
+        var property = result.GetProperty("preview").GetProperty("properties").EnumerateArray().Single();
+        property.GetProperty("name").GetString().Should().Be("run");
+        property.GetProperty("type").GetString().Should().Be("function");
+
+        // Chrome sends the empty string here and lets the front end draw the ƒ from the type; a whole
+        // declaration inside an inline preview is not what that field is for.
+        property.GetProperty("value").GetString().Should().Be("");
     }
 
     [Test]

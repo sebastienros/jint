@@ -48,7 +48,10 @@ const UI = {
     consolePrompt: '.cm-content[aria-label="Console prompt"]',
     consoleMessage: '.console-message-text',
     consoleResult: '.console-user-command-result',
+    consoleAnchor: '.console-message-anchor',
+    consoleStack: '.stack-preview-container, .console-message-stack-trace-wrapper',
     callFrame: '.call-frame-item-title, .call-frame-title-text',
+    callFrameLocation: '.call-frame-location',
     scopeSection: '.scope-chain-sidebar-pane-section-title',
     scopeBinding: '.object-properties-section span.name-and-value',
     infoMessage: '.gray-info-message',
@@ -265,35 +268,44 @@ async function main() {
         await step(page, proxy, 'sources-lists-script',
             'the Sources navigator lists the script the engine is running',
             async () => {
-                // The navigator groups scripts under a folder node and starts collapsed, so the file is in
-                // the document before it is on screen. Expanding is part of the step: an assertion that read
-                // the collapsed subtree would be reporting the DOM rather than the panel.
-                const folders = await waitFor('a folder node in the Sources navigator', async () => {
-                    const found = await deepTexts(page, UI.navigatorFolder, 20, true);
-                    return found.length ? found : null;
-                }, { timeoutMs: STEP_TIMEOUT });
-
-                const folder = await deepClick(page, UI.navigatorFolder, { text: folders[0], exact: true });
-                await page.keyboard.press('ArrowRight');
-
+                // The navigator groups scripts under a domain and then under the folders of their path, and
+                // starts collapsed — so the file is in the document before it is on screen, and every node
+                // down to it has to be opened. Expanding is part of the step: an assertion that read the
+                // collapsed subtree would be reporting the DOM rather than the panel.
+                const opened = [];
                 const entries = await waitFor('a visible file entry in the Sources navigator', async () => {
+                    for (const text of await deepTexts(page, UI.navigatorFolder, 20, true)) {
+                        if (opened.includes(text)) {
+                            continue;
+                        }
+                        opened.push(text);
+                        if (await deepClick(page, UI.navigatorFolder, { text, exact: true })) {
+                            await page.keyboard.press('ArrowRight');
+                        }
+                    }
+
                     const found = await deepTexts(page, UI.navigatorFile, 50, true);
                     return found.length ? found : null;
                 }, { timeoutMs: STEP_TIMEOUT });
 
-                scriptEntry = entries.find((text) => text.replace(/\\/g, '/').endsWith('fixture/app.js'));
+                const folder = { text: opened[0] };
+
+                scriptEntry = entries.find((text) => text.replace(/\\/g, '/').endsWith('app.js'));
                 if (!scriptEntry) {
-                    throw new Error(`the navigator shows ${JSON.stringify(entries)}, none of which ends with fixture/app.js`);
+                    throw new Error(`the navigator shows ${JSON.stringify(entries)}, none of which ends with app.js`);
                 }
-                return {
-                    folder: folder?.text ?? folders[0],
-                    navigatorEntries: entries,
-                    matched: scriptEntry,
-                    note: scriptEntry === 'app.js'
-                        ? 'listed by file name'
-                        : 'listed by its whole path under a "(no domain)" folder, because Jint publishes a bare '
-                            + 'filesystem path as Debugger.scriptParsed.url rather than a file:// URL',
-                };
+
+                // Jint publishes an absolute path as a file:// URL, so the navigator groups the script under
+                // a domain and names it by its file name — not "(no domain)" with the whole path for a name.
+                const folderText = folder?.text ?? folders[0];
+                if (!folderText.startsWith('file://')) {
+                    throw new Error(`the navigator groups the script under "${folderText}", not under a file:// domain`);
+                }
+                if (scriptEntry !== 'app.js') {
+                    throw new Error(`the navigator names the script "${scriptEntry}" rather than "app.js"`);
+                }
+
+                return { folder: folderText, navigatorEntries: entries, matched: scriptEntry };
             });
 
         // --- 3 -------------------------------------------------------------------------------------------
@@ -342,6 +354,50 @@ async function main() {
             });
 
         // --- 5 -------------------------------------------------------------------------------------------
+        await step(page, proxy, 'console-message-has-a-source-anchor',
+            'each console message links to the line of the script it was logged from',
+            async () => {
+                // The filter from the previous step is still on the "order book ready" line, which was
+                // logged from the top level of app.js.
+                const anchors = await waitFor('a source anchor beside a console message', async () => {
+                    const found = await deepTexts(page, UI.consoleAnchor, 20, true);
+                    return found.length ? found : null;
+                }, { timeoutMs: STEP_TIMEOUT });
+
+                const anchored = anchors.filter((text) => /app\.js:\d+/.test(text));
+                if (anchored.length === 0) {
+                    throw new Error(`the console anchors read ${JSON.stringify(anchors)}, none of which names app.js and a line`);
+                }
+
+                return { anchors, anchored };
+            });
+
+        // --- 6 -------------------------------------------------------------------------------------------
+        await step(page, proxy, 'uncaught-exception-shows-its-stack',
+            'the uncaught throw from inside a timer callback shows an expanded stack naming the callback',
+            async () => {
+                await typeInto(page, UI.consoleFilter, 'reconciliation failed');
+
+                const stack = await waitFor('the error message with its stack expanded', async () => {
+                    const messages = await deepTexts(page, UI.consoleMessage, 30, true);
+                    const failure = messages.find((text) => text.includes('reconciliation failed'));
+                    if (!failure) {
+                        return null;
+                    }
+
+                    const frames = await deepTexts(page, UI.consoleStack, 10, true);
+                    const text = frames.join('\n');
+
+                    // `reconcile` is the timer callback itself: the frame the engine was entered at, which
+                    // is absent from the stack unless the callback owns a call-stack frame.
+                    return text.includes('reconcile') ? { failure, frames } : null;
+                }, { timeoutMs: STEP_TIMEOUT });
+
+                await typeInto(page, UI.consoleFilter, '');
+                return stack;
+            });
+
+        // --- 7 -------------------------------------------------------------------------------------------
         await step(page, proxy, 'console-evaluates-expression',
             'typing an expression at the Console prompt evaluates it in the engine',
             async () => {
@@ -357,7 +413,7 @@ async function main() {
                 return { typed: '1+1', result };
             });
 
-        // --- 6 -------------------------------------------------------------------------------------------
+        // --- 8 -------------------------------------------------------------------------------------------
         let tickBeforeResume = null;
         let pausedForReal = false;
         await step(page, proxy, 'breakpoint-set-in-the-gutter-is-hit',
@@ -384,17 +440,34 @@ async function main() {
 
                 pausedForReal = true;
                 tickBeforeResume = await latestTick(page);
+
+                // The Call Stack pane, which is where the entry frame shows. `computeTotal` was called by
+                // `heartbeat`, the setInterval callback — the frame the engine was entered at. Without a
+                // frame of its own the pane showed `computeTotal` over an unnamed row.
+                const frames = await deepTexts(page, UI.callFrame, 20, true);
+                if (!frames.includes('heartbeat')) {
+                    throw new Error(`the Call Stack reads ${JSON.stringify(frames)}, which does not name the timer callback`);
+                }
+
+                // Every row carries a location, which is what makes it clickable.
+                const locations = await deepTexts(page, UI.callFrameLocation, 20, true);
+                const located = locations.filter((text) => /app\.js:\d+/.test(text));
+                if (located.length < 2) {
+                    throw new Error(`the Call Stack rows link to ${JSON.stringify(locations)}, fewer than two of which name app.js`);
+                }
+
                 return {
                     breakpointLine: `${line.number}: ${line.text}`,
                     pausedIndicator: paused.status,
                     resumeButton: paused.resumeButton,
-                    callStackSays: await deepTexts(page, UI.callFrame, 20, true),
+                    callStackSays: frames,
+                    callStackLinksTo: locations,
                     tickWhenPaused: tickBeforeResume,
                 };
             });
 
-        // --- 7 -------------------------------------------------------------------------------------------
-        await step(page, proxy, 'scope-pane-populated',
+        // --- 9 -------------------------------------------------------------------------------------------
+        await step(page, proxy, 'scope-pane-names-its-functions',
             'the Scope pane shows the paused frame\'s bindings',
             async () => {
                 if (!pausedForReal) {
@@ -407,22 +480,32 @@ async function main() {
                     return scopes.length && bindings.length ? { scopes, bindings, all } : null;
                 }, { timeoutMs: STEP_TIMEOUT });
 
-                // Not an assertion — a recording. Every function-valued binding renders as "ƒ undefined()",
-                // because Jint sends a rendered label as RemoteObject.description where the front end
-                // expects the function's source text and parses the name back out of it. The README says so;
-                // this keeps the evidence in the artefact rather than only in a human's memory.
+                // Every function-valued binding is rendered from RemoteObject.description, which the front
+                // end parses as Function.prototype.toString output. A label there made all of them read
+                // "ƒ undefined()"; the source text makes each read "ƒ <its own name>(<its parameters>)".
                 const functionValues = scope.all.filter((text) => text.includes(': ƒ '));
+                const rendered = [...new Set(functionValues.map((text) => text.replace(/^[^:]+: /, '')))];
+
+                const undefinedOnes = rendered.filter((text) => text.startsWith('ƒ undefined('));
+                if (undefinedOnes.length > 0) {
+                    throw new Error(`the Scope pane renders ${undefinedOnes.length} function(s) as "ƒ undefined()"`);
+                }
+
+                // The frame's own function-valued local, which is a *script* function: its name and its
+                // parameter can only have come from the declaration Jint retained. A native one would prove
+                // the `[native code]` half alone.
+                if (!rendered.includes('ƒ describeLine(order)')) {
+                    throw new Error(`the Scope pane renders ${JSON.stringify(rendered)}, none of which is ƒ describeLine(order)`);
+                }
+
                 return {
                     scopes: scope.scopes,
                     bindings: scope.bindings,
-                    functionValuedBindings: {
-                        count: functionValues.length,
-                        rendered: [...new Set(functionValues.map((text) => text.replace(/^[^:]+: /, '')))].slice(0, 6),
-                    },
+                    functionValuedBindings: { count: functionValues.length, rendered: rendered.slice(0, 8) },
                 };
             });
 
-        // --- 8 -------------------------------------------------------------------------------------------
+        // --- 10 ------------------------------------------------------------------------------------------
         await step(page, proxy, 'resume-continues-execution',
             'Resume lets the engine run on, which the heartbeat advancing proves',
             async () => {

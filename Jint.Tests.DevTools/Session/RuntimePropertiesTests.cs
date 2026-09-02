@@ -72,7 +72,7 @@ public class RuntimePropertiesTests
 
         trap.Optional("value").Should().BeNull("an accessor has no value that could be reported without calling it");
         trap.GetProperty("get").GetProperty("type").GetString().Should().Be("function");
-        trap.GetProperty("get").GetProperty("description").GetString().Should().Be("ƒ reader()");
+        trap.GetProperty("get").GetProperty("description").GetString().Should().StartWith("function reader() {");
         trap.GetProperty("set").GetProperty("type").GetString().Should().Be("function");
 
         var counters = await session.EvaluateAsync("[reads, writes]", returnByValue: true);

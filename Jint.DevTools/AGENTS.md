@@ -310,8 +310,6 @@ Not oversights, and not to be added without a decision:
   and no names, so answering means either an engine seam nobody has asked for or an empty list that tells a
   client there are no `let`s when there are.
 - **`Runtime.queryObjects`.** It enumerates a heap by prototype; the heap is the CLR's.
-- **`Runtime.getExceptionDetails`.** Nothing retains an exception's details past the command that reported
-  them, and an identifier resolving to nothing is worse than no command.
 - **`Runtime.terminateExecution`.** Execution is bounded by `Options.Constraints`, the host's decision; a
   client that could stop a host's script at will is a different security posture.
 - **`throwOnSideEffect`.** The console's eager evaluation asks for "throw rather than run anything
