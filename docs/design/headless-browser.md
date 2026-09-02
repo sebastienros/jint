@@ -34,8 +34,10 @@ what nobody else has — a binding layer built on Jint's own shape and layout ma
 trampoline, a page runtime that wires Jint's timers, fetch, storage and workers into a `Window` under Jint's
 execution constraints, and the automation protocol. The generated bindings and the tree-aware event dispatcher
 are designed so that AngleSharp.Js can adopt them, and the offer is made as soon as they work; every AngleSharp
-or AngleSharp.Js defect the conformance lane finds is filed upstream, and where we can, fixed there. In every
-document and README sentence, `Jint.Browser` is "AngleSharp + Jint", never a rival DOM stack.
+or AngleSharp.Js divergence the conformance lane finds is recorded (in the PR that found it and in
+`Jint.Browser/AGENTS.md`'s divergence table) and presented to the maintainer, who decides what is raised
+upstream — an agent never opens an issue on a neighbouring project on its own. In every document and README
+sentence, `Jint.Browser` is "AngleSharp + Jint", never a rival DOM stack.
 
 ## 2. What it is, and what it is not
 
