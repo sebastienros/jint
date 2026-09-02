@@ -16,6 +16,47 @@ namespace Jint.Native.Intl;
 internal static class IntlUtilities
 {
     /// <summary>
+    /// The calendars that count the very months <c>gregory</c> counts, so that a month number of one names
+    /// the same month and the locale's own month names are the ones to write for it.
+    /// </summary>
+    /// <remarks>
+    /// <c>buddhist</c>, <c>japanese</c> and <c>roc</c> differ from <c>gregory</c> in era and year only - ICU
+    /// writes "January" for all four and a number for none of them. Every other calendar, this engine's or a
+    /// host's, counts months of its own, and a name for one has to come from data that knows that calendar:
+    /// <see cref="ICldrProvider.GetMonthNames"/>, which takes the calendar for exactly this.
+    /// </remarks>
+    private static readonly string[] GregorianMonthedCalendars = ["gregory", "iso8601", "buddhist", "japanese", "roc"];
+
+    /// <summary>
+    /// Whether <paramref name="calendar"/> counts the Gregorian months. A formatter that resolved one writes
+    /// its months exactly as <c>gregory</c> does, names included; every other calendar needs its own names, or
+    /// keeps the month number.
+    /// </summary>
+    /// <remarks>
+    /// A null calendar is the unresolved case and answers as <c>gregory</c>, so a caller with nothing resolved
+    /// reads the locale's own names rather than none. The comparison is case-insensitive because
+    /// <see cref="ICldrProvider.GetMonthNames"/> is public and its argument has been through no
+    /// canonicalization this class can see.
+    /// </remarks>
+    internal static bool UsesGregorianMonths(string? calendar)
+    {
+        if (calendar is null)
+        {
+            return true;
+        }
+
+        foreach (var candidate in GregorianMonthedCalendars)
+        {
+            if (string.Equals(calendar, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The primary language subtag of a BCP 47 tag, so "es" from "es-ES", and the tag itself when it
     /// carries no subtags. Equivalent to <c>tag.Split('-')[0]</c> without the string[] that allocates
     /// to read one element -- including for a leading separator, where Split yields an empty string.
