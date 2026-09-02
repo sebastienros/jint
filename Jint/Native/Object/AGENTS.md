@@ -99,6 +99,14 @@ when it breaks nothing at compile time — and the engine-wide rows are in
 
 The three lazy mechanisms each own one storage world and are not interchangeable: `JsObjectLayout.Builder.AddLazy` for a member of a fixed-shape **record**, `JsObjectShape` for a member of a **prototype**, [`PropertyDescriptor.CreateLazy`](../../Runtime/Descriptors/AGENTS.md#lazy-values) for a **descriptor** a host stores or returns itself (`SetOwnProperty`/`GetOwnProperty` on a subclass, `DefineOwnPropertyUnchecked` on a dictionary-mode object, a hand-rolled global install). The factory does not change the `DefineOwnPropertyUnchecked` rule in the repository-root [`AGENTS.md`](../../../AGENTS.md) — a string-keyed `DefineOwnPropertyUnchecked` of any raw descriptor still deopts a shape-mode receiver to dictionary — so reaching for it inside a shaped world buys laziness at the cost of the shape.
 
+### The unchecked defines: when to reach for them
+
+The repository-root [`AGENTS.md`](../../../AGENTS.md) states the trap. This is what to do instead. **Use them for setup-time writes only**: `Set` for steady-state mutation, and `JsObject.Create` / `JsObject.CreateFromEntries` to build an object whose members are known up front, which keeps the hidden-class representation the deopt would have cost. Two refinements narrow the trap rather than widen the licence: a **symbol** key never disturbs the shared string-keyed layout, so a symbol-keyed unchecked define is free; and a receiver in `BuiltinShapeMode` — anything `JsObjectShape.Instantiate` returned — survives an in-place **slot replacement**, a define under a name the shape already declared. That second one is what fills a prototype's `constructor` slot without costing the prototype its shape, and it is the only reason a shaped object may see one of these at all.
+
+### The enumeration hook: what a host overrides instead
+
+The root file states the trap. What reads the hook: `Object.keys`/`values`/`entries`, `for..in`, object spread and rest, `Object.assign`, `JSON.stringify` and `JsonSerializer` all list keys through it and filter them with `ProbeOwnProperty`, and so — since [#3461](https://github.com/sebastienros/jint/pull/3461) — do `GetOwnProperties`' own consumers, the CLR conversion path (`ToObject` under `Options.Interop.CreateClrObject`), the debugger's `GetAllBindingNames` and the debug view. So a host **overrides `GetOwnPropertyKeys`**, and with it `ProbeOwnProperty` so that existence and enumerability are answered without materializing a descriptor — or derives from `NamedPropertyObject` / `ArrayLikeObject` and writes neither, which is the option to reach for first.
+
 ### Gotchas
 
 Each of these cost a real integrator or a real bug. These are the ones that bite in this area; the

@@ -1,0 +1,13 @@
+{
+  "$comment": [
+    "The AngleSharp versions the checked-in Jint.Browser/Dom/Generated/ was produced from. This file and the",
+    "AngleSharp / AngleSharp.Css entries in Directory.Packages.props have to say the same thing, which",
+    "DomBindingsPinTests checks by reading both. Bumping a version is a code change, not a configuration edit:",
+    "see tools/dom-bindings/README.md."
+  ],
+  "packages": {
+    "AngleSharp": "1.7.2",
+    "AngleSharp.Css": "1.0.2"
+  },
+  "retrieved": "2026-09-02"
+}

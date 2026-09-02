@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <!-- The whole package is net8.0+, the same floor Jint/WebApi/ and Jint.DevTools sit on and for the same
+         reason: this is host surface built on the modern BCL, not engine surface a netstandard consumer
+         resolves. AngleSharp itself still ships netstandard2.0, so the floor is ours, not its. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Jint.Browser</PackageId>
+    <Description>A headless browser on Jint and AngleSharp</Description>
+    <PackageTags>javascript, interpreter, jint, anglesharp, dom, html, headless, browser</PackageTags>
+
+    <Nullable>enable</Nullable>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!--
+      Trim and AOT analysis is OFF, deliberately, and the reason is a dependency rather than this code.
+
+      AngleSharp is not trim-annotated: it resolves services, element factories and attribute handlers by
+      reflection over its own assembly, and none of that carries a DynamicallyAccessedMembers claim. Setting
+      IsAotCompatible here would turn on IL2xxx/IL3xxx analysis for THIS compilation only — where the bindings
+      themselves are clean, because every generated member is a static lambda over an interface call and no
+      protocol type is reached by reflection — while saying nothing at all about what a published native
+      binary would do when AngleSharp's own reflection fails at run time. A claim nothing runs is worse than
+      no claim. The v1.1 item is an inventory: publish a native Jint.Browser host, count AngleSharp's warnings,
+      and decide whether the ones that survive are answerable upstream or by a feature switch here.
+    -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jint\Jint.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned centrally in Directory.Packages.props, which is also the binding generator's pin. -->
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="AngleSharp.Css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The AST does not reach this assembly at all, so the repository-wide Acornima global usings would be
+         noise; the same call Jint.DevTools makes. -->
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>
