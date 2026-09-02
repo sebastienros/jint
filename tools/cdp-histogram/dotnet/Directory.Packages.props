@@ -1,0 +1,10 @@
+<!--
+  Stops the walk to Jint's Directory.Packages.props and turns central package management off. These
+  projects reference two automation clients that Jint itself does not depend on, and their versions belong
+  next to the code that pins them — this tool's whole output records which client version sent what.
+-->
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

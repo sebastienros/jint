@@ -1,0 +1,1994 @@
+{
+  "client": "puppeteersharp-dotnet",
+  "clientVersion": "PuppeteerSharp 25.8.0 (.NET 10.0.11)",
+  "entryStyle": "Puppeteer.ConnectAsync(new ConnectOptions { BrowserWSEndpoint })",
+  "chromeVersion": "Chrome/148.0.7778.97",
+  "recordedAt": "2026-09-02",
+  "scenario": "connect, newContext, newPage, goto, $, $$, evaluate x2, click, waitForSelector, type, checkbox, select, content, title, cookies, setCookie, localStorage, console, goto page2, goBack, screenshot, pdf, request interception, close",
+  "counts": {
+    "distinctMethods": 45,
+    "distinctEvents": 28,
+    "domains": [
+      "Audits",
+      "Browser",
+      "DOM",
+      "Emulation",
+      "Fetch",
+      "IO",
+      "Input",
+      "Inspector",
+      "Log",
+      "Network",
+      "Page",
+      "Performance",
+      "Runtime",
+      "Storage",
+      "Target",
+      "WebMCP"
+    ]
+  },
+  "sessionModel": {
+    "flattened": true,
+    "setAutoAttachParams": {
+      "flatten": true,
+      "waitForDebuggerOnStart": true,
+      "autoAttach": true,
+      "filter": [
+        {
+          "type": "page",
+          "exclude": true
+        },
+        {}
+      ]
+    },
+    "attachToTargetParams": null,
+    "sessionCount": 6
+  },
+  "scenarioSteps": [
+    {
+      "step": "connect",
+      "methods": [
+        {
+          "method": "Browser.getVersion",
+          "count": 1,
+          "paramsKeys": [],
+          "resultKeys": [
+            "protocolVersion",
+            "product",
+            "revision",
+            "userAgent",
+            "jsVersion"
+          ]
+        },
+        {
+          "method": "Target.getBrowserContexts",
+          "count": 1,
+          "paramsKeys": [],
+          "resultKeys": [
+            "browserContextIds",
+            "defaultBrowserContextId"
+          ]
+        },
+        {
+          "method": "Target.setDiscoverTargets",
+          "count": 1,
+          "paramsKeys": [
+            "discover",
+            "filter"
+          ],
+          "paramsValues": {
+            "discover": true
+          }
+        },
+        {
+          "method": "Target.setAutoAttach",
+          "count": 3,
+          "paramsKeys": [
+            "autoAttach",
+            "waitForDebuggerOnStart",
+            "flatten",
+            "filter"
+          ],
+          "paramsValues": {
+            "flatten": true,
+            "waitForDebuggerOnStart": true,
+            "autoAttach": true,
+            "filter": [
+              {
+                "type": "page",
+                "exclude": true
+              },
+              {}
+            ]
+          }
+        },
+        {
+          "method": "Runtime.runIfWaitingForDebugger",
+          "count": 3,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.detachFromTarget",
+          "count": 1,
+          "paramsKeys": [
+            "sessionId"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Target.targetCreated",
+          "count": 3,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Target.attachedToTarget",
+          "count": 3,
+          "paramsKeys": [
+            "sessionId",
+            "targetInfo",
+            "waitingForDebugger"
+          ]
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 3,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Inspector.workerScriptLoaded",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.detachedFromTarget",
+          "count": 1,
+          "paramsKeys": [
+            "sessionId",
+            "targetId"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "newContext",
+      "methods": [
+        {
+          "method": "Target.createBrowserContext",
+          "count": 1,
+          "paramsKeys": [
+            "proxyBypassList"
+          ],
+          "resultKeys": [
+            "browserContextId"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "newPage",
+      "methods": [
+        {
+          "method": "Target.createTarget",
+          "count": 1,
+          "paramsKeys": [
+            "url",
+            "browserContextId"
+          ],
+          "resultKeys": [
+            "targetId"
+          ]
+        },
+        {
+          "method": "Target.setAutoAttach",
+          "count": 2,
+          "paramsKeys": [
+            "autoAttach",
+            "waitForDebuggerOnStart",
+            "flatten"
+          ],
+          "paramsValues": {
+            "flatten": true,
+            "waitForDebuggerOnStart": true,
+            "autoAttach": true
+          }
+        },
+        {
+          "method": "Runtime.runIfWaitingForDebugger",
+          "count": 3,
+          "paramsKeys": []
+        },
+        {
+          "method": "Network.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Network.setCacheDisabled",
+          "count": 1,
+          "paramsKeys": [
+            "cacheDisabled"
+          ]
+        },
+        {
+          "method": "Fetch.disable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Page.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.detachFromTarget",
+          "count": 1,
+          "paramsKeys": [
+            "sessionId"
+          ]
+        },
+        {
+          "method": "Page.getFrameTree",
+          "count": 1,
+          "paramsKeys": [],
+          "resultKeys": [
+            "frameTree"
+          ]
+        },
+        {
+          "method": "Page.setLifecycleEventsEnabled",
+          "count": 1,
+          "paramsKeys": [
+            "enabled"
+          ]
+        },
+        {
+          "method": "Runtime.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Audits.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Page.addScriptToEvaluateOnNewDocument",
+          "count": 1,
+          "paramsKeys": [
+            "source",
+            "worldName"
+          ],
+          "resultKeys": [
+            "identifier"
+          ]
+        },
+        {
+          "method": "Page.createIsolatedWorld",
+          "count": 1,
+          "paramsKeys": [
+            "frameId",
+            "worldName",
+            "grantUniveralAccess"
+          ],
+          "resultKeys": [
+            "executionContextId"
+          ],
+          "paramsValues": {
+            "worldName": "__puppeteer_utility_world__25.8.0.0",
+            "grantUniveralAccess": true
+          }
+        },
+        {
+          "method": "Performance.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Log.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "WebMCP.enable",
+          "count": 1,
+          "paramsKeys": [],
+          "errors": [
+            "-32601: 'WebMCP.enable' wasn't found"
+          ]
+        },
+        {
+          "method": "Emulation.setDeviceMetricsOverride",
+          "count": 1,
+          "paramsKeys": [
+            "mobile",
+            "width",
+            "height",
+            "deviceScaleFactor",
+            "screenOrientation"
+          ],
+          "paramsValues": {
+            "width": 800,
+            "height": 600,
+            "deviceScaleFactor": 1,
+            "mobile": false
+          }
+        },
+        {
+          "method": "Emulation.setTouchEmulationEnabled",
+          "count": 1,
+          "paramsKeys": [
+            "enabled"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Target.attachedToTarget",
+          "count": 3,
+          "paramsKeys": [
+            "sessionId",
+            "targetInfo",
+            "waitingForDebugger"
+          ]
+        },
+        {
+          "method": "Target.targetCreated",
+          "count": 2,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 4,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Network.policyUpdated",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Page.frameStoppedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Page.frameResized",
+          "count": 2,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.detachedFromTarget",
+          "count": 1,
+          "paramsKeys": [
+            "sessionId",
+            "targetId"
+          ]
+        },
+        {
+          "method": "Page.lifecycleEvent",
+          "count": 5,
+          "paramsKeys": [
+            "frameId",
+            "loaderId",
+            "name",
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextCreated",
+          "count": 2,
+          "paramsKeys": [
+            "context"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "goto",
+      "methods": [
+        {
+          "method": "Page.navigate",
+          "count": 1,
+          "paramsKeys": [
+            "url",
+            "referrer",
+            "frameId"
+          ],
+          "resultKeys": [
+            "frameId",
+            "loaderId",
+            "isDownload"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Page.frameStartedNavigating",
+          "count": 1,
+          "paramsKeys": [
+            "frameId",
+            "url",
+            "loaderId",
+            "navigationType"
+          ]
+        },
+        {
+          "method": "Page.frameStartedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Network.requestWillBeSent",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "documentURL",
+            "request",
+            "timestamp",
+            "wallTime",
+            "initiator",
+            "redirectHasExtraInfo",
+            "type",
+            "frameId",
+            "hasUserGesture"
+          ]
+        },
+        {
+          "method": "Network.responseReceived",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "timestamp",
+            "type",
+            "response",
+            "hasExtraInfo",
+            "frameId"
+          ]
+        },
+        {
+          "method": "Network.requestWillBeSentExtraInfo",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "associatedCookies",
+            "headers",
+            "connectTiming",
+            "siteHasCookieInOtherPartition",
+            "clientSecurityState"
+          ]
+        },
+        {
+          "method": "Network.responseReceivedExtraInfo",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "blockedCookies",
+            "headers",
+            "resourceIPAddressSpace",
+            "statusCode",
+            "headersText",
+            "cookiePartitionKey",
+            "cookiePartitionKeyOpaque",
+            "exemptedCookies"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextsCleared",
+          "count": 2,
+          "paramsKeys": []
+        },
+        {
+          "method": "Page.lifecycleEvent",
+          "count": 6,
+          "paramsKeys": [
+            "frameId",
+            "loaderId",
+            "name",
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Page.frameNavigated",
+          "count": 1,
+          "paramsKeys": [
+            "frame",
+            "type"
+          ]
+        },
+        {
+          "method": "Network.policyUpdated",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 1,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Network.dataReceived",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "dataLength",
+            "encodedDataLength"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextCreated",
+          "count": 2,
+          "paramsKeys": [
+            "context"
+          ]
+        },
+        {
+          "method": "Runtime.consoleAPICalled",
+          "count": 2,
+          "paramsKeys": [
+            "type",
+            "args",
+            "executionContextId",
+            "timestamp",
+            "stackTrace"
+          ]
+        },
+        {
+          "method": "Network.loadingFinished",
+          "count": 3,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "encodedDataLength"
+          ]
+        },
+        {
+          "method": "Page.domContentEventFired",
+          "count": 1,
+          "paramsKeys": [
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Audits.issueAdded",
+          "count": 2,
+          "paramsKeys": [
+            "issue"
+          ]
+        },
+        {
+          "method": "Page.loadEventFired",
+          "count": 1,
+          "paramsKeys": [
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Page.frameStoppedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Log.entryAdded",
+          "count": 1,
+          "paramsKeys": [
+            "entry"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "querySelector",
+      "note": "found",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 2,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": false,
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 3,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 3,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ]
+        },
+        {
+          "method": "Runtime.addBinding",
+          "count": 2,
+          "paramsKeys": [
+            "name",
+            "executionContextName"
+          ],
+          "paramsValues": {
+            "name": [
+              "puppeteer___ariaQuerySelector",
+              "puppeteer___ariaQuerySelectorAll"
+            ],
+            "executionContextName": "__puppeteer_utility_world__25.8.0.0"
+          }
+        },
+        {
+          "method": "Runtime.evaluate",
+          "count": 3,
+          "paramsKeys": [
+            "expression",
+            "contextId",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              true,
+              false
+            ],
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "querySelectorAll",
+      "note": "3 anchors",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 4,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": false,
+            "userGesture": true
+          }
+        },
+        {
+          "method": "Runtime.getProperties",
+          "count": 2,
+          "paramsKeys": [
+            "ownProperties",
+            "objectId"
+          ],
+          "resultKeys": [
+            "result",
+            "internalProperties"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 6,
+          "paramsKeys": [
+            "objectId"
+          ]
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 3,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 3,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Page.lifecycleEvent",
+          "count": 3,
+          "paramsKeys": [
+            "frameId",
+            "loaderId",
+            "name",
+            "timestamp"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "evaluateTitle",
+      "note": "CDP histogram fixture",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "evaluateObject",
+      "note": "{\"a\":1,\"b\":[1,2]}",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "click",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 6,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              false,
+              true
+            ],
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 2,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ]
+        },
+        {
+          "method": "Input.dispatchMouseEvent",
+          "count": 3,
+          "paramsKeys": [
+            "type",
+            "button",
+            "x",
+            "y",
+            "modifiers",
+            "clickCount",
+            "deltaX",
+            "deltaY",
+            "pointerType",
+            "buttons"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "waitForSelector",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 4,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              false,
+              true
+            ],
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 1,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 1,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "type",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 2,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              false,
+              true
+            ],
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 2,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 1,
+          "paramsKeys": [
+            "objectId"
+          ]
+        },
+        {
+          "method": "Input.dispatchKeyEvent",
+          "count": 6,
+          "paramsKeys": [
+            "type",
+            "modifiers",
+            "windowsVirtualKeyCode",
+            "code",
+            "key",
+            "text",
+            "unmodifiedText",
+            "autoRepeat",
+            "location",
+            "isKeypad"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "clickCheckbox",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 6,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              false,
+              true
+            ],
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 2,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ]
+        },
+        {
+          "method": "Input.dispatchMouseEvent",
+          "count": 3,
+          "paramsKeys": [
+            "type",
+            "button",
+            "x",
+            "y",
+            "modifiers",
+            "clickCount",
+            "deltaX",
+            "deltaY",
+            "pointerType",
+            "buttons"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "selectOption",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 2,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": [
+              false,
+              true
+            ],
+            "userGesture": true
+          }
+        },
+        {
+          "method": "DOM.describeNode",
+          "count": 2,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "resultKeys": [
+            "node"
+          ]
+        },
+        {
+          "method": "DOM.resolveNode",
+          "count": 2,
+          "paramsKeys": [
+            "backendNodeId",
+            "executionContextId"
+          ],
+          "resultKeys": [
+            "object"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 1,
+          "paramsKeys": [
+            "objectId"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "content",
+      "note": "1554 chars",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "title",
+      "note": "clicked",
+      "methods": [
+        {
+          "method": "Runtime.evaluate",
+          "count": 1,
+          "paramsKeys": [
+            "expression",
+            "contextId",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "cookies",
+      "note": "session",
+      "methods": [
+        {
+          "method": "Storage.getCookies",
+          "count": 1,
+          "paramsKeys": [
+            "browserContextId"
+          ],
+          "resultKeys": [
+            "cookies"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "setCookie",
+      "methods": [
+        {
+          "method": "Storage.setCookies",
+          "count": 1,
+          "paramsKeys": [
+            "browserContextId",
+            "cookies"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "evaluateLocalStorage",
+      "note": "v",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "consoleEvent",
+      "note": "from-scenario",
+      "methods": [
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        }
+      ],
+      "events": [
+        {
+          "method": "Runtime.consoleAPICalled",
+          "count": 1,
+          "paramsKeys": [
+            "type",
+            "args",
+            "executionContextId",
+            "timestamp",
+            "stackTrace"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "gotoPage2",
+      "methods": [
+        {
+          "method": "Page.navigate",
+          "count": 1,
+          "paramsKeys": [
+            "url",
+            "referrer",
+            "frameId"
+          ],
+          "resultKeys": [
+            "frameId",
+            "loaderId",
+            "isDownload"
+          ]
+        },
+        {
+          "method": "Runtime.releaseObject",
+          "count": 1,
+          "paramsKeys": [
+            "objectId"
+          ],
+          "errors": [
+            "-32000: Cannot find context with specified id"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Page.frameStartedNavigating",
+          "count": 1,
+          "paramsKeys": [
+            "frameId",
+            "url",
+            "loaderId",
+            "navigationType"
+          ]
+        },
+        {
+          "method": "Page.frameStartedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Network.requestWillBeSent",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "documentURL",
+            "request",
+            "timestamp",
+            "wallTime",
+            "initiator",
+            "redirectHasExtraInfo",
+            "type",
+            "frameId",
+            "hasUserGesture"
+          ]
+        },
+        {
+          "method": "Network.requestWillBeSentExtraInfo",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "associatedCookies",
+            "headers",
+            "connectTiming",
+            "siteHasCookieInOtherPartition"
+          ]
+        },
+        {
+          "method": "Network.responseReceived",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "timestamp",
+            "type",
+            "response",
+            "hasExtraInfo",
+            "frameId"
+          ]
+        },
+        {
+          "method": "Network.responseReceivedExtraInfo",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "blockedCookies",
+            "headers",
+            "resourceIPAddressSpace",
+            "statusCode",
+            "headersText",
+            "cookiePartitionKey",
+            "cookiePartitionKeyOpaque",
+            "exemptedCookies"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextsCleared",
+          "count": 2,
+          "paramsKeys": []
+        },
+        {
+          "method": "Page.lifecycleEvent",
+          "count": 6,
+          "paramsKeys": [
+            "frameId",
+            "loaderId",
+            "name",
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Page.frameNavigated",
+          "count": 1,
+          "paramsKeys": [
+            "frame",
+            "type"
+          ]
+        },
+        {
+          "method": "Network.policyUpdated",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 1,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Network.dataReceived",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "dataLength",
+            "encodedDataLength"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextCreated",
+          "count": 2,
+          "paramsKeys": [
+            "context"
+          ]
+        },
+        {
+          "method": "Network.loadingFinished",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "encodedDataLength"
+          ]
+        },
+        {
+          "method": "Page.domContentEventFired",
+          "count": 1,
+          "paramsKeys": [
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Page.loadEventFired",
+          "count": 1,
+          "paramsKeys": [
+            "timestamp"
+          ]
+        },
+        {
+          "method": "Page.frameStoppedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "goBack",
+      "methods": [
+        {
+          "method": "Page.getNavigationHistory",
+          "count": 1,
+          "paramsKeys": [],
+          "resultKeys": [
+            "currentIndex",
+            "entries"
+          ]
+        },
+        {
+          "method": "Page.navigateToHistoryEntry",
+          "count": 1,
+          "paramsKeys": [
+            "entryId"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Page.frameStartedNavigating",
+          "count": 1,
+          "paramsKeys": [
+            "frameId",
+            "url",
+            "loaderId",
+            "navigationType"
+          ]
+        },
+        {
+          "method": "Page.frameStartedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 1,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Page.frameStoppedLoading",
+          "count": 1,
+          "paramsKeys": [
+            "frameId"
+          ]
+        },
+        {
+          "method": "Runtime.executionContextsCleared",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Runtime.executionContextCreated",
+          "count": 2,
+          "paramsKeys": [
+            "context"
+          ]
+        },
+        {
+          "method": "Runtime.consoleAPICalled",
+          "count": 3,
+          "paramsKeys": [
+            "type",
+            "args",
+            "executionContextId",
+            "timestamp",
+            "stackTrace"
+          ]
+        },
+        {
+          "method": "Log.entryAdded",
+          "count": 1,
+          "paramsKeys": [
+            "entry"
+          ]
+        },
+        {
+          "method": "Audits.issueAdded",
+          "count": 3,
+          "paramsKeys": [
+            "issue"
+          ]
+        },
+        {
+          "method": "Page.frameNavigated",
+          "count": 1,
+          "paramsKeys": [
+            "frame",
+            "type"
+          ]
+        },
+        {
+          "method": "Page.lifecycleEvent",
+          "count": 1,
+          "paramsKeys": [
+            "frameId",
+            "loaderId",
+            "name",
+            "timestamp"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "screenshot",
+      "note": "12245 bytes",
+      "methods": [
+        {
+          "method": "Page.captureScreenshot",
+          "count": 1,
+          "paramsKeys": [
+            "format",
+            "quality",
+            "captureBeyondViewport",
+            "fromSurface"
+          ],
+          "resultKeys": [
+            "data"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "pdf",
+      "note": "63629 bytes",
+      "methods": [
+        {
+          "method": "Runtime.evaluate",
+          "count": 1,
+          "paramsKeys": [
+            "expression",
+            "contextId",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        },
+        {
+          "method": "Page.printToPDF",
+          "count": 1,
+          "paramsKeys": [
+            "landscape",
+            "displayHeaderFooter",
+            "headerTemplate",
+            "footerTemplate",
+            "printBackground",
+            "scale",
+            "paperWidth",
+            "paperHeight",
+            "marginTop",
+            "marginBottom",
+            "marginLeft",
+            "marginRight",
+            "pageRanges",
+            "preferCSSPageSize",
+            "transferMode",
+            "generateTaggedPDF",
+            "generateDocumentOutline"
+          ],
+          "resultKeys": [
+            "data",
+            "stream"
+          ]
+        },
+        {
+          "method": "IO.read",
+          "count": 2,
+          "paramsKeys": [
+            "handle"
+          ],
+          "resultKeys": [
+            "base64Encoded",
+            "data",
+            "eof"
+          ]
+        },
+        {
+          "method": "IO.close",
+          "count": 1,
+          "paramsKeys": [
+            "handle"
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "step": "interception",
+      "note": "1 intercepted",
+      "methods": [
+        {
+          "method": "Network.setCacheDisabled",
+          "count": 1,
+          "paramsKeys": [
+            "cacheDisabled"
+          ]
+        },
+        {
+          "method": "Fetch.enable",
+          "count": 1,
+          "paramsKeys": [
+            "handleAuthRequests",
+            "patterns"
+          ],
+          "paramsValues": {
+            "patterns": [
+              {
+                "urlPattern": "*"
+              }
+            ],
+            "handleAuthRequests": true
+          }
+        },
+        {
+          "method": "Runtime.callFunctionOn",
+          "count": 1,
+          "paramsKeys": [
+            "functionDeclaration",
+            "executionContextId",
+            "arguments",
+            "returnByValue",
+            "awaitPromise",
+            "userGesture"
+          ],
+          "resultKeys": [
+            "result"
+          ],
+          "paramsValues": {
+            "awaitPromise": true,
+            "returnByValue": true,
+            "userGesture": true
+          }
+        },
+        {
+          "method": "Fetch.continueRequest",
+          "count": 1,
+          "paramsKeys": [
+            "requestId"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Network.requestWillBeSent",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "documentURL",
+            "request",
+            "timestamp",
+            "wallTime",
+            "initiator",
+            "redirectHasExtraInfo",
+            "type",
+            "frameId",
+            "hasUserGesture"
+          ]
+        },
+        {
+          "method": "Fetch.requestPaused",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "request",
+            "frameId",
+            "resourceType",
+            "networkId"
+          ]
+        },
+        {
+          "method": "Network.requestWillBeSentExtraInfo",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "associatedCookies",
+            "headers",
+            "connectTiming",
+            "clientSecurityState",
+            "siteHasCookieInOtherPartition"
+          ]
+        },
+        {
+          "method": "Network.responseReceivedExtraInfo",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "blockedCookies",
+            "headers",
+            "resourceIPAddressSpace",
+            "statusCode",
+            "headersText",
+            "cookiePartitionKey",
+            "cookiePartitionKeyOpaque",
+            "exemptedCookies"
+          ]
+        },
+        {
+          "method": "Network.responseReceived",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "loaderId",
+            "timestamp",
+            "type",
+            "response",
+            "hasExtraInfo",
+            "frameId"
+          ]
+        },
+        {
+          "method": "Network.dataReceived",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "dataLength",
+            "encodedDataLength"
+          ]
+        },
+        {
+          "method": "Network.loadingFinished",
+          "count": 1,
+          "paramsKeys": [
+            "requestId",
+            "timestamp",
+            "encodedDataLength"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "close",
+      "methods": [
+        {
+          "method": "Target.closeTarget",
+          "count": 1,
+          "paramsKeys": [
+            "targetId"
+          ],
+          "resultKeys": [
+            "success"
+          ]
+        },
+        {
+          "method": "Target.disposeBrowserContext",
+          "count": 1,
+          "paramsKeys": [
+            "browserContextId"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "method": "Inspector.detached",
+          "count": 1,
+          "paramsKeys": [
+            "reason"
+          ]
+        },
+        {
+          "method": "Target.targetInfoChanged",
+          "count": 2,
+          "paramsKeys": [
+            "targetInfo"
+          ]
+        },
+        {
+          "method": "Target.detachedFromTarget",
+          "count": 2,
+          "paramsKeys": [
+            "sessionId",
+            "targetId"
+          ]
+        },
+        {
+          "method": "Target.targetDestroyed",
+          "count": 2,
+          "paramsKeys": [
+            "targetId"
+          ]
+        }
+      ]
+    }
+  ],
+  "allMethods": [
+    "Browser.getVersion",
+    "Target.getBrowserContexts",
+    "Target.setDiscoverTargets",
+    "Target.setAutoAttach",
+    "Runtime.runIfWaitingForDebugger",
+    "Target.detachFromTarget",
+    "Target.createBrowserContext",
+    "Target.createTarget",
+    "Network.enable",
+    "Network.setCacheDisabled",
+    "Fetch.disable",
+    "Page.enable",
+    "Page.getFrameTree",
+    "Page.setLifecycleEventsEnabled",
+    "Runtime.enable",
+    "Audits.enable",
+    "Page.addScriptToEvaluateOnNewDocument",
+    "Page.createIsolatedWorld",
+    "Performance.enable",
+    "Log.enable",
+    "WebMCP.enable",
+    "Emulation.setDeviceMetricsOverride",
+    "Emulation.setTouchEmulationEnabled",
+    "Page.navigate",
+    "Runtime.callFunctionOn",
+    "DOM.describeNode",
+    "DOM.resolveNode",
+    "Runtime.releaseObject",
+    "Runtime.addBinding",
+    "Runtime.evaluate",
+    "Runtime.getProperties",
+    "Input.dispatchMouseEvent",
+    "Input.dispatchKeyEvent",
+    "Storage.getCookies",
+    "Storage.setCookies",
+    "Page.getNavigationHistory",
+    "Page.navigateToHistoryEntry",
+    "Page.captureScreenshot",
+    "Page.printToPDF",
+    "IO.read",
+    "IO.close",
+    "Fetch.enable",
+    "Fetch.continueRequest",
+    "Target.closeTarget",
+    "Target.disposeBrowserContext"
+  ],
+  "allEvents": [
+    "Target.targetCreated",
+    "Target.attachedToTarget",
+    "Target.targetInfoChanged",
+    "Inspector.workerScriptLoaded",
+    "Target.detachedFromTarget",
+    "Network.policyUpdated",
+    "Page.frameStoppedLoading",
+    "Page.frameResized",
+    "Page.lifecycleEvent",
+    "Runtime.executionContextCreated",
+    "Page.frameStartedNavigating",
+    "Page.frameStartedLoading",
+    "Network.requestWillBeSent",
+    "Network.responseReceived",
+    "Network.requestWillBeSentExtraInfo",
+    "Network.responseReceivedExtraInfo",
+    "Runtime.executionContextsCleared",
+    "Page.frameNavigated",
+    "Network.dataReceived",
+    "Runtime.consoleAPICalled",
+    "Network.loadingFinished",
+    "Page.domContentEventFired",
+    "Audits.issueAdded",
+    "Page.loadEventFired",
+    "Log.entryAdded",
+    "Fetch.requestPaused",
+    "Inspector.detached",
+    "Target.targetDestroyed"
+  ],
+  "errors": [
+    {
+      "method": "WebMCP.enable",
+      "error": "-32601: 'WebMCP.enable' wasn't found"
+    },
+    {
+      "method": "Runtime.releaseObject",
+      "error": "-32000: Cannot find context with specified id"
+    }
+  ],
+  "notes": {
+    "querySelector": "found",
+    "querySelectorAll": "3 anchors",
+    "evaluateTitle": "CDP histogram fixture",
+    "evaluateObject": "{\"a\":1,\"b\":[1,2]}",
+    "content": "1554 chars",
+    "title": "clicked",
+    "cookies": "session",
+    "evaluateLocalStorage": "v",
+    "consoleEvent": "from-scenario",
+    "screenshot": "12245 bytes",
+    "pdf": "63629 bytes",
+    "interception": "1 intercepted"
+  }
+}

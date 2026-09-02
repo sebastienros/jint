@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Deliberately not in Jint.slnx, same reason as the PuppeteerSharp harness beside it. Microsoft.Playwright
+    carries its own Node driver in the package, which is what ConnectOverCDPAsync needs; no browser is
+    installed, because the browser is the Chrome for Testing that puppeteer downloaded.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Histogram</RootNamespace>
+    <AssemblyName>Histogram.Playwright</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- One source of truth for the client version: the PackageReference below uses it, and it is
+         stamped into the assembly so the recording can say which client version sent what. Both
+         packages ship an assembly stamped 1.0.0, so neither the assembly nor the file version can
+         answer that. -->
+    <ClientPackageVersion>1.62.0</ClientPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ClientPackageVersion</_Parameter1>
+      <_Parameter2>$(ClientPackageVersion)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Playwright" Version="$(ClientPackageVersion)" />
+  </ItemGroup>
+
+</Project>

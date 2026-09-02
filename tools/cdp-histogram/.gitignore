@@ -1,0 +1,9 @@
+# Everything the tool downloads or produces on the way to the checked-in results.
+node_modules/
+package-lock.json
+.cache/
+.local-chromium/
+.playwright/
+raw/
+bin/
+obj/
