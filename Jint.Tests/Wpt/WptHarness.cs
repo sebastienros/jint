@@ -714,6 +714,8 @@ internal static class WptHarness
         bool serverBacked = false,
         string? sourceName = null)
     {
+        Debug.Assert(!serverBacked || sourceName is not null, "the server lane needs the file's own URL");
+
         var engine = new Engine(options =>
         {
             // Everything except outbound network access, which is what a suite under test is allowed to see —
@@ -732,25 +734,20 @@ internal static class WptHarness
                 // reported as a failing test rather than as a stalled file. See _fetchTimeout.
                 options.WebApi.Fetch.Timeout = _fetchTimeout;
 
-                // The API base URL a browser would take from the document: the URL the driver's server really
-                // serves this file at. It is the harness playing the part of the browsing environment,
-                // exactly as `location` and `GLOBAL` are — and it is what lets `fetch("../resources/status.py")`
-                // and `new Request("")` mean the same thing here as they do upstream. Before
-                // `Options.WebApi.Fetch.BaseUrl` existed the shim resolved the first of those itself and
-                // pointedly not the second, which is why the whole of `fetch/api/request/` was unvendorable.
-                if (sourceName is not null)
-                {
-                    options.WebApi.Fetch.BaseUrl = new Uri(WptServer.Instance.UrlFor(sourceName));
-                }
-
-                // The referrer a browser would take from the same document, under the default policy. Without
-                // one the referrer suites have nothing to assert against; with it, `fetch/api/basic/request-referrer.any.js`
-                // measures the engine's own "determine request's referrer" rather than the harness's.
-                options.WebApi.Fetch.Referrer = new Uri(WptServer.Instance.UrlFor(sourceName ?? string.Empty));
+                // Everything a browsing environment supplies that the engine cannot invent for itself, all
+                // taken from the URL the driver's own server really serves this file at. It is the harness
+                // playing that part exactly as it does by supplying `location` and `GLOBAL` at all.
+                //
+                // The base URL is what lets `fetch("../resources/status.py")` and `new Request("")` mean
+                // here what they mean upstream: the shim used to resolve the first of those and pointedly
+                // not the second, which is why the whole of `fetch/api/request/` was unvendorable. The
+                // referrer is what `fetch/api/basic/request-referrer.any.js` measures the engine's own
+                // "determine request's referrer" against. And the jar is per engine, so a file's cookies are
+                // its own and no suite sees the one before it.
+                var documentUrl = new Uri(WptServer.Instance.UrlFor(sourceName!));
+                options.WebApi.Fetch.BaseUrl = documentUrl;
+                options.WebApi.Fetch.Referrer = documentUrl;
                 options.WebApi.Fetch.Origin = WptServer.Instance.Origin;
-
-                // One jar per engine, so a file's cookies are its own and a suite cannot see the one before
-                // it — the same partitioning rule the option's own documentation states.
                 options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar();
             }
 

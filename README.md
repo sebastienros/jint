@@ -1207,9 +1207,10 @@ iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `
 `Response.redirect()`, `Response.json()`. A `FormData` body is serialized as `multipart/form-data` with a
 cryptographically random boundary, and `formData()` reads one back — as well as an
 `application/x-www-form-urlencoded` body — rejecting with a `TypeError` for anything else. `duplex` is read
-and validated, because it decides whether a body may be a stream at all (see below). `credentials`, `cache`,
-`mode`, `referrer` and `integrity` are accepted and ignored, the same convention Node and workerd follow,
-because there is no origin, cookie jar or HTTP cache here to honour them with.
+and validated, because it decides whether a body may be a stream at all (see below). So are `credentials`,
+`referrer` and `referrerPolicy`, once you give the engine the things they describe (see below); `cache`,
+`mode`, `integrity`, `keepalive` and `priority` are accepted and ignored, the same convention Node and
+workerd follow, because there is no HTTP cache or origin model here to honour them with.
 
 A `Headers` object carries the standard's
 [guard](https://fetch.spec.whatwg.org/#concept-headers-guard), so **the headers of a response `fetch`
@@ -1220,6 +1221,44 @@ in a browser and in Node's own `fetch`. So do `Response.error()`'s, `Response.re
 a header to a response that came off the wire, copy it —
 `new Response(body, { headers: new Headers(r.headers) })` — because filling one `Headers` from another
 copies the headers and not the guard.
+
+### A base URL, a referrer, an origin, cookies, and an observer
+
+Five more settings, all absent by default, that turn `fetch` from an HTTP client a script can call into a
+*document's* fetch. An engine that sets none of them behaves exactly as it did.
+
+```csharp
+var jar = new CookieContainerCookieJar();
+
+var engine = new Engine(options => options.UseFetch(fetch =>
+{
+    fetch.BaseUrl = new Uri("https://example.org/app/page.html");   // resolves fetch('/api') and new Request('x')
+    fetch.Referrer = new Uri("https://example.org/app/page.html");  // what a Referer header is computed from
+    fetch.ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin;
+    fetch.Origin = "https://example.org";                           // an Origin header, on POST/PUT/…
+    fetch.CookieJar = jar;                                          // Cookie out, Set-Cookie in
+}));
+```
+
+**The referrer, the `Origin` header and the `Cookie` header are decided per redirect hop**, against that
+hop's own URL — so a chain that leaves the referrer's origin, or downgrades from `https` to `http`, narrows
+or drops the header from that hop on, and each hop is asked for its own host's cookies rather than carrying
+the previous hop's forward.
+
+**A cookie jar is a partition, not a cache.** The `HttpClientHandler` still has `UseCookies = false`,
+because a jar shared by every engine in the process would be a channel between them; cookies exist only
+where you gave one, and each tenant, session or page should have its own instance. `CookieContainerCookieJar`
+is the in-box implementation over `System.Net.CookieContainer`, with `Set-Cookie` parsed by Jint so that the
+`__Secure-` and `__Host-` name prefixes are enforced. How far a jar is consulted is the request's
+`credentials` mode: `omit` never sends or stores, `same-origin` only while the hop is same origin with
+`Origin`, and `include` always. `SameSite` is not enforced — there is no top-level site and no public
+suffix list to enforce it against — so derive your own `CookieJar` if your host knows its browsing context.
+
+**An observer sees every hop and may answer one itself.** `Options.WebApi.Fetch.Observer` is called before
+each request (returning `null` to continue, or `FetchInterception.Fulfill`/`Fail`/`Continue`), on each
+response, on each body chunk, and once at the end. **Its callbacks run on transport threads and must never
+touch the `Engine`** — nothing they are handed is a `JsValue`. The shape is a preview, declared to the
+compiler as `JINT0002`; acknowledge it with `<NoWarn>$(NoWarn);JINT0002</NoWarn>` or a `#pragma`.
 
 ### Bodies stream, in both directions
 
@@ -1468,8 +1507,8 @@ It is the standard's own object: `url`, `readyState` with `CONNECTING`/`OPEN`/`C
 parsed exactly as the specification writes it — UTF-8 with a leading BOM stripped, CRLF/CR/LF line endings,
 `data`/`event`/`id`/`retry` fields, one leading space removed after the colon, comment lines as keep-alives,
 `data` values joined with a newline, and an event dispatched only at a blank line. `withCredentials` is
-accepted, remembered and ignored, the same treatment `fetch` gives `credentials`: there is no origin, cookie
-jar or credential store here for it to select.
+accepted, remembered and ignored: an `EventSource` reads its response stream itself rather than going
+through `fetch`'s own request pipeline, so `Options.WebApi.Fetch.CookieJar` is not consulted for it.
 
 **It reads `Options.WebApi.Fetch`** — the same transport (`HttpClient` / `HttpClientFactory`) and the same
 policy (`AllowedSchemes`, `UrlFilter`, `MaxRedirects`) that `fetch` uses, so a filter you have already written
