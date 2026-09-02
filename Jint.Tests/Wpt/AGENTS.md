@@ -55,7 +55,11 @@ of the wptserve `.py` handlers those suites name, which `WptServerTests` holds t
 thirty files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
 server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
 list in both directions — so *no suite can reach the network*, which is the promise the driver has always
-made, while the files that could not produce a test report at all now do. Two things about that lane
+made, while the files that could not produce a test report at all now do. **A third lane grants the same two
+features and no reach at all**: `WptHarness._blobUrlBackedFiles` is the two `FileAPI/url` files whose only
+requests are of `blob:` URLs, which scheme fetch answers from the engine's own store before a filter is
+consulted, so their `UrlFilter` refuses *every* URL — pinned, in both directions and against double
+membership, by `TheBlobUrlLaneHoldsExactlyTheFilesItNames`. Two things about the server lane
 are worth knowing before touching it: the driver gives each of its engines the API base URL, the referrer,
 the origin and the cookie jar a browsing environment would supply — `Options.WebApi.Fetch.BaseUrl` is the URL
 the server really serves that file at, and it is what let the whole of `fetch/api/request/` be vendored,

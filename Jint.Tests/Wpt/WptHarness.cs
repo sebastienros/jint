@@ -326,6 +326,29 @@ internal static class WptHarness
     /// <summary>Every file the server lane claims, so the inventory can hold the list to the corpus.</summary>
     internal static IEnumerable<string> ServerBackedFiles => _serverBackedFiles.Concat(_xhrFiles);
 
+    /// <summary>
+    /// The third lane: files that need the shipped <c>fetch</c> and <c>XMLHttpRequest</c> and no server at
+    /// all, because the only URLs they open are <c>blob:</c> ones.
+    /// </summary>
+    /// <remarks>
+    /// A blob URL names bytes the script itself created, so scheme fetch answers it without a transport and
+    /// with no port to check it against. That is why these two cannot join the server lane — there is nothing
+    /// for a server to serve — and why granting them the network features costs the driver's promise nothing:
+    /// their <c>UrlFilter</c> refuses <b>every</b> URL, which is a stricter bound than the server lane's own,
+    /// and the blob arm is reached before a filter is consulted at all.
+    /// </remarks>
+    private static readonly HashSet<string> _blobUrlBackedFiles = new(StringComparer.Ordinal)
+    {
+        "FileAPI/url/url-with-fetch.any.js",
+        "FileAPI/url/url-with-xhr.any.js",
+    };
+
+    /// <summary>Whether a file runs in the blob-URL lane. Read by the runner's inventory checks as well.</summary>
+    internal static bool IsBlobUrlBacked(string testFilePath) => _blobUrlBackedFiles.Contains(testFilePath);
+
+    /// <summary>Every file the blob-URL lane claims, so the inventory can hold the list to the corpus.</summary>
+    internal static IEnumerable<string> BlobUrlBackedFiles => _blobUrlBackedFiles;
+
 
     internal static WptRunOutcome Run(string testFilePath)
     {
@@ -636,7 +659,7 @@ internal static class WptHarness
             ? new WptWorkerProvider(moduleSource: null, directory, sink)
             : null;
 
-        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName);
+        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName, IsBlobUrlBacked(sourceName));
 
         try
         {
@@ -747,7 +770,8 @@ internal static class WptHarness
         WptDiagnosticsSink sink,
         WptWorkerProvider? workers = null,
         bool serverBacked = false,
-        string? sourceName = null)
+        string? sourceName = null,
+        bool blobUrlBacked = false)
     {
         Debug.Assert(!serverBacked || sourceName is not null, "the server lane needs the file's own URL");
 
@@ -761,9 +785,17 @@ internal static class WptHarness
             // corpus is about and is also what retired the two fetch/api/headers rows that used to read the
             // shim's corpus reader instead. Every other engine still gets that reader, because a file with no
             // server has nothing for a real one to talk to — see the shim's own header.
-            options.UseWebApis(serverBacked
+            options.UseWebApis(serverBacked || blobUrlBacked
                 ? WebApiFeatures.Default | WebApiFeatures.Fetch | WebApiFeatures.XmlHttpRequest
                 : WebApiFeatures.Default);
+
+            if (blobUrlBacked)
+            {
+                // The blob-URL lane: the shipped fetch and XMLHttpRequest, and a filter that refuses every URL
+                // there is. Scheme fetch answers a `blob:` URL before a filter is consulted, so these files
+                // get exactly the reach they need and nothing else — see _blobUrlBackedFiles.
+                options.WebApi.Fetch.UrlFilter = static _ => false;
+            }
 
             if (serverBacked)
             {

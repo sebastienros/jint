@@ -186,7 +186,7 @@ internal sealed partial class PerformanceObserverPrototype : Prototype
         // The buffer is handed out in the order the entries were queued, which is already chronological
         // unless a mark carried an explicit startTime — the same sort every other reader of a list of
         // entries runs.
-        return PerformanceEntryFilter.Filter(_realm, entries, name: null, type: null);
+        return PerformanceEntryFilter.Filter(observer.Realm, entries, name: null, type: null);
     }
 
     /// <summary>

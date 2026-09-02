@@ -641,15 +641,6 @@ internal static class WebApiRegistration
             features |= WebApiFeatures.Events | WebApiFeatures.Files;
         }
 
-        // FileReader is an EventTarget that fires ProgressEvents, so the File API cannot be had without the
-        // interfaces those are: a script registering `reader.onload` needs `addEventListener` under it, and
-        // `event instanceof ProgressEvent` needs the class to exist. Blob, File and FormData need none of it,
-        // which is why this is a closure and not a merged feature.
-        if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
-        {
-            features |= WebApiFeatures.Events;
-        }
-
         // https://w3c.github.io/hr-time/#sec-performance declares `interface Performance : EventTarget`, so
         // the performance object is one and its prototype chain reaches EventTarget.prototype. A script that
         // can call performance.addEventListener has to be able to build the Event it dispatches, which is
@@ -665,6 +656,16 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.CacheApi) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Url | WebApiFeatures.Files;
+        }
+
+        // FileReader is an EventTarget that fires ProgressEvents, so the File API cannot be had without the
+        // interfaces those are: a script registering `reader.onload` needs `addEventListener` under it, and
+        // `event instanceof ProgressEvent` needs the class to exist. Blob, File and FormData need none of it,
+        // which is why this is a closure and not a merged feature. It is last of all deliberately: four of
+        // the rules above add WebApiFeatures.Files, and this one has to see what they added.
+        if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
         }
 
         return features;

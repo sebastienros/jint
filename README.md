@@ -234,7 +234,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` / `PerformanceObserver` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
-| `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
+| `URL` / `URLSearchParams` / `URLPattern` / `URL.createObjectURL` (with `Files`) | `Url` | ✔ shipped |
 | `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` / `FileReader` | `Files` | ✔ shipped |
 | `navigator.userAgent` / `Navigator` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
@@ -441,7 +441,6 @@ carries all four, with `onerror` in HTML's legacy five-argument shape.
 | `FormData` | XHR | `Files` |
 | `Blob` | File API | `Files` |
 | `File` | File API | `Files` |
-| `FileReader` | File API | `Files` |
 | `CompressionStream` | Compression | `Compression` **and** `Streams` |
 | `DecompressionStream` | Compression | `Compression` **and** `Streams` |
 | `ByteLengthQueuingStrategy` | Streams | `Streams` |
@@ -1412,6 +1411,29 @@ reader.readAsText(blob, 'windows-1252');   // the encoding argument, then the bl
 worker block its thread on I/O a window may not block on, and here it would be a second spelling of
 `blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main
 thread.
+
+**Blob URLs** are there too, on an engine that has both `Url` and `Files` — `URL.createObjectURL(blob)` and
+`URL.revokeObjectURL(url)`, with a store the engine owns. They are absent on an engine with only one of the
+two, since neither half is any use without the other.
+
+```js
+const url = URL.createObjectURL(new Blob(['bytes'], { type: 'text/plain' }));
+const text = await (await fetch(url)).text();    // no HttpClient involved
+URL.revokeObjectURL(url);
+```
+
+The URL reads `blob:null/<uuid>`: an engine with no document has an opaque origin, and `"null"` is what one
+serializes to — `Jint.Browser` is what will put a real origin there. **Fetching one reaches no network**, so
+`fetch` and `XMLHttpRequest` answer a blob URL on an engine with no `HttpClient` and no
+`WebApiFeatures.Fetch` at all: [scheme fetch](https://fetch.spec.whatwg.org/#scheme-fetch) dispatches on the
+scheme and the `blob` arm is answered from the store, before `AllowedSchemes`, the `UrlFilter` or the
+concurrency cap is consulted. `Range` requests work, with a 206 and a `Content-Range`.
+
+Two things behave as the standard says and are worth knowing. An entry **holds its blob strongly until it is
+revoked**, so a script that forgets to revoke leaks — that is the trade the API makes, and why the standard's
+own note tells authors to revoke. And the entry is resolved when the request is *built*: `new Request(url)`
+and `xhr.open('GET', url)` take a reference there and then, so revoking afterwards does not take the bytes
+away. A `RestoreGlobalSnapshot` empties the store, the way it empties the timer queue.
 
 **All thirteen interface objects are globals**, as they are in a browser: the five a script constructs by
 name, plus `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four

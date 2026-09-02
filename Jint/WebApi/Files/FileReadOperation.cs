@@ -183,6 +183,12 @@ internal sealed class FileReadOperation
     /// <c>EventWatcher</c> has been told to expect it. The <c>abort()</c> path deliberately keeps both events
     /// in one turn, because there a browser has no checkpoint either — the stack is not empty, script called
     /// <c>abort()</c>.
+    /// <para>
+    /// The <c>error</c> arm is unreachable for a blob whose bytes are already in memory — none of the four
+    /// packagings can fail, and the failure the algorithm has in mind is a stream that errored mid-read. It
+    /// is written all the same, because packaging is where such a failure would arrive and a reader whose
+    /// <c>error</c> was only ever <c>null</c> would be a promise this class had not made.
+    /// </para>
     /// </remarks>
     private void Complete()
     {

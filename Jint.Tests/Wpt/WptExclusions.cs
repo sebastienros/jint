@@ -383,13 +383,6 @@ internal enum WptDivergence
     NeedsWindowGlobal,
 
     /// <summary>
-    /// The test fetches a <c>blob:</c> URL, which needs <c>URL.createObjectURL</c> and the per-engine blob
-    /// store behind it. Neither exists yet; the File API surface Jint has stops at <c>Blob</c>,
-    /// <c>File</c> and <c>FormData</c>.
-    /// </summary>
-    NeedsBlobUrls,
-
-    /// <summary>
     /// The test clones an <c>ImageBitmap</c> or an <c>OffscreenCanvas</c>. Both are browser graphics objects
     /// with no analogue in an embedded interpreter — the rows obtain one by drawing into a canvas — so this is
     /// the corpus meeting an environment it was not written for rather than a gap to close.

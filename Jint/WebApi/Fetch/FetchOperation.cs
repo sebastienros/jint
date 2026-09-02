@@ -8,6 +8,7 @@ using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.WebApi.Abort;
 using Jint.WebApi.DomException;
+using Jint.WebApi.Files;
 
 namespace Jint.WebApi.Fetch;
 
@@ -151,6 +152,16 @@ internal sealed class FetchOperation
             return capability.PromiseInstance;
         }
 
+        // Scheme fetch's `blob` arm, before every network check and before the options are even read: a blob
+        // URL names bytes this engine's own script created, so there is nothing for AllowedSchemes, the
+        // UrlFilter, the concurrency cap or an HttpClient to decide, and nothing for a FetchObserver to
+        // watch — it never reaches a transport. See BlobUrlFetch.
+        if (string.Equals(request.Url.Scheme, "blob", StringComparison.Ordinal))
+        {
+            SettleBlobUrl(realm, request, capability);
+            return capability.PromiseInstance;
+        }
+
         var options = state.FetchOptions!;
         var network = state.FetchNetwork;
 
@@ -275,6 +286,51 @@ internal sealed class FetchOperation
 
         operation.Run(client, Snapshot(request.Source), policy);
         return capability.PromiseInstance;
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#scheme-fetch, the <c>blob</c> arm: resolve with the blob's bytes, or
+    /// reject with a network error when the URL has been revoked, names no entry, or was asked for with
+    /// something other than <c>GET</c> or with a <c>Range</c> the blob refuses.
+    /// </summary>
+    /// <remarks>
+    /// The response is built and the promise settled <b>synchronously</b>, which is what the algorithm says
+    /// and what <c>FileAPI/url/url-with-fetch.any.js</c> depends on: a script that revokes the URL on the
+    /// line after <c>fetch()</c> still gets the bytes, because the entry was read before <c>fetch</c>
+    /// returned. Resolving a promise only enqueues its reactions, so nothing about the ordering a caller
+    /// sees changes.
+    /// </remarks>
+    private static void SettleBlobUrl(Realm realm, JsRequest request, PromiseCapability capability)
+    {
+        // The entry the Request constructor resolved, not a fresh lookup: a URL revoked between building the
+        // request and fetching it still names the blob it named then.
+        var blob = request.BlobUrlEntry;
+        if (blob is null)
+        {
+            capability.Reject(NetworkError(realm, new FetchFailureException(
+                FetchFailureKind.Network,
+                $"The blob URL '{request.Url.Serialize()}' names no live entry.")));
+            return;
+        }
+
+        if (!BlobUrlFetch.TryBuild(blob, request.Method, request.Headers.List.Get("Range"), out var built))
+        {
+            capability.Reject(NetworkError(realm, new FetchFailureException(
+                FetchFailureKind.Network,
+                "The blob URL request was refused: only GET is answered, and a Range must name bytes the blob has.")));
+            return;
+        }
+
+        var list = new HeaderList();
+        list.Entries.AddRange(built.Headers);
+
+        var response = realm.Intrinsics.Response.CreateInstance(list, HeadersGuard.Immutable);
+        response.Status = built.Status;
+        response.StatusText = built.StatusText;
+        response.Url = request.Url.Serialize(excludeFragment: true);
+        response.SetBufferedBody(built.Body);
+
+        capability.Resolve(response);
     }
 
     /// <summary>

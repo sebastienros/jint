@@ -154,6 +154,13 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     private UrlRecord? RequestUrl { get; set; }
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-request-blob-url-entry, resolved by <c>open()</c> — so a URL
+    /// revoked between <c>open()</c> and <c>send()</c> still names the blob it named then, which is what
+    /// <c>FileAPI/url/url-with-xhr.any.js</c> asserts.
+    /// </summary>
+    private Files.JsBlob? RequestBlobUrlEntry { get; set; }
+
+    /// <summary>
     /// Whether the request's method is one <c>send()</c> drops a body for —
     /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send step 3, "If this's request method is `GET` or
     /// `HEAD`, then set body to null".
@@ -210,6 +217,9 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
         UploadListenerFlag = false;
         RequestMethod = method;
         RequestUrl = url;
+        RequestBlobUrlEntry = string.Equals(url.Scheme, "blob", StringComparison.Ordinal)
+            ? _state.BlobUrls.Resolve(url)
+            : null;
         SynchronousFlag = !async;
         AuthorRequestHeaders = new HeaderList();
         ClearResponse();
@@ -266,7 +276,7 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
         UploadCompleteFlag = body is null;
         SendFlag = true;
 
-        var operation = new XhrOperation(this, _engine, _realm, _state, RequestMethod, RequestUrl!, body);
+        var operation = new XhrOperation(this, _engine, _realm, _state, RequestMethod, RequestUrl!, body, RequestBlobUrlEntry);
         CurrentOperation = operation;
 
         if (SynchronousFlag)
