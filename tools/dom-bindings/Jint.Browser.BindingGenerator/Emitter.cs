@@ -137,7 +137,21 @@ internal sealed class Emitter
 
             builder.Append("    /// <summary>The members of <c>").Append(model.DomName).Append("</c>.</summary>\n");
             builder.Append("    private static global::Jint.Native.JsObjectShape Build").Append(model.FieldName).Append("()\n");
-            builder.Append("        => new global::Jint.Native.JsObjectShape.Builder()\n");
+
+            // An interface with hand-written additions takes a block body, so the addition runs against the
+            // half-built builder and every member — generated and hand-written — lands in one shape. Everyone
+            // else keeps the expression body, which is what keeps this change's diff to the interfaces that
+            // actually gained something.
+            if (model.ShapeAdditions is not null)
+            {
+                builder.Append("    {\n");
+                builder.Append("        var builder = new global::Jint.Native.JsObjectShape.Builder()\n");
+            }
+            else
+            {
+                builder.Append("        => new global::Jint.Native.JsObjectShape.Builder()\n");
+            }
+
             builder.Append("            .ToStringTag(").Append(CSharpNames.Literal(model.DomName)).Append(")\n");
 
             // https://webidl.spec.whatwg.org/#interface-prototype-object — `constructor` is
@@ -186,7 +200,20 @@ internal sealed class Emitter
                 }
             }
 
-            builder.Append("            .Build();\n");
+            if (model.ShapeAdditions is not null)
+            {
+                // The last member's own newline becomes the statement terminator, so the chain ends the way a
+                // hand-written one would rather than with a semicolon on a line of its own.
+                builder.Length -= 1;
+                builder.Append(";\n\n");
+                builder.Append("        global::").Append(model.ShapeAdditions).Append("(builder);\n");
+                builder.Append("        return builder.Build();\n");
+                builder.Append("    }\n");
+            }
+            else
+            {
+                builder.Append("            .Build();\n");
+            }
         }
 
         builder.Append("}\n");

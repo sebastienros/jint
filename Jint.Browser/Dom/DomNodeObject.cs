@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using Jint.Browser.Events;
 using Jint.WebApi.Events;
 
 namespace Jint.Browser.Dom;
@@ -15,11 +16,11 @@ namespace Jint.Browser.Dom;
 /// lane at all: a target that overrides <c>GetParent</c> without it dispatches to itself alone, in silence.
 /// </para>
 /// <para>
-/// <b>What is deliberately not here yet.</b> Assigned slots answer <see langword="null"/> — flat-tree
-/// dispatch through <c>&lt;slot&gt;</c> is campaign item R2 along with the activation behaviours, and
-/// answering a wrong slot would be worse than answering none. Activation behaviour (a link navigating, a
-/// checkbox toggling with its pre-activation rollback) is R2 for the same reason: there is no navigation and
-/// no input model to activate into yet.
+/// <b>What is deliberately not here yet.</b> Assigned slots answer <see langword="null"/>, so flat-tree
+/// dispatch through <c>&lt;slot&gt;</c> is still absent; answering a wrong slot would be worse than answering
+/// none. The activation behaviours below <i>are</i> here — <c>Events/ActivationBehaviors</c> is the table, and
+/// it is what makes a checkbox toggle, a <c>&lt;summary&gt;</c> open its <c>&lt;details&gt;</c> and a submit
+/// button reach its form.
 /// </para>
 /// </remarks>
 internal class DomNodeObject : JsEventTarget, IDomWrapper
@@ -77,6 +78,14 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
     /// </remarks>
     internal override JsEventTarget? GetParent(JsEvent ev)
     {
+        // The dispatcher calls this exactly once per event path item, before any listener runs, which makes it
+        // the one place a handler content attribute a script changed since the wrapper was built can be
+        // noticed without an observer. It costs one GetAttribute, and only for a type that can be a handler.
+        if (EventHandlerContentAttributes.IsHandlerType(ev.TypeName))
+        {
+            EventHandlerContentAttributes.Reconcile(this, ev.TypeName);
+        }
+
         if (Node is IShadowRoot shadowRoot)
         {
             return !ev.Composed || shadowRoot.Host is not { } host ? null : DomRealm.WrapNode(host);
@@ -110,6 +119,18 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
     /// <inheritdoc />
     internal override JsEventTarget? ShadowHost
         => Node is IShadowRoot { Host: { } host } ? DomRealm.WrapNode(host) : null;
+
+    /// <inheritdoc />
+    internal override bool HasActivationBehavior => ActivationBehaviors.Has(Node);
+
+    /// <inheritdoc />
+    internal override void ActivationBehavior(JsEvent ev) => ActivationBehaviors.Run(this, ev);
+
+    /// <inheritdoc />
+    internal override void LegacyPreActivationBehavior() => ActivationBehaviors.LegacyPreActivationBehavior(this);
+
+    /// <inheritdoc />
+    internal override void LegacyCanceledActivationBehavior() => ActivationBehaviors.LegacyCanceledActivationBehavior(this);
 
     public override string ToString() => "[object " + Definition.Name + "]";
 }

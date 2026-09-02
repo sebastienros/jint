@@ -2385,11 +2385,25 @@ and every request share one jar per browser context; `localStorage` is partition
 `BrowserContextOptions.UrlFilter` bounds every load a page makes, on the first hop and on every redirect, and
 `Page.Requests` is the network log of what it made.
 
+**Events and input.** The UI Events family — `MouseEvent`, `PointerEvent`, `KeyboardEvent`, `InputEvent`,
+`FocusEvent`, `WheelEvent`, `CompositionEvent` — plus HTML's `SubmitEvent`, `FormDataEvent`,
+`HashChangeEvent`, `PopStateEvent`, `PageTransitionEvent` and `BeforeUnloadEvent`, each constructible from its
+init dictionary and each on the prototype chain below Jint's own `Event`. `onclick="…"` and its kind compile
+with HTML's own scope and share one slot with `el.onclick`, `<body onload>` included. The activation
+behaviours a click has a default action for are implemented against the standards rather than approximated: a
+link is followed, a submit button submits with itself as the `submitter`, a checkbox or radio toggles with the
+legacy pre-activation rollback a canceled click asks for, a `<label>` forwards to its control, a `<summary>`
+opens its `<details>`, an `<option>` selects. Focus is real — `document.activeElement`, `focus()`/`blur()`
+with the four events in HTML's order, `tabindex`-aware traversal, `autofocus` on load — and typing into an
+`<input>` or `<textarea>` edits the value at the selection with `beforeinput`, `input` and `change`,
+<kbd>Enter</kbd>'s implicit submission and <kbd>Tab</kbd>'s focus traversal. None of it needs a layout.
+
 **What does not exist yet.** No external `<script src>` and no module scripts in a document — a page names
 what it could not run in `Page.UnsupportedScripts` — no import maps, no `document.write` during a parse, no
 iframe scripting (frames are parsed and listed; `contentWindow` is absent), no rendering or layout — so every
 rectangle is zeros and `getBoundingClientRect` does not exist — and no Chrome DevTools page domains. Those
-are the later items of the same campaign.
+are the later items of the same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent`
+and `ClipboardEvent` are absent rather than stubbed.
 
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is

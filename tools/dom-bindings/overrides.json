@@ -49,22 +49,32 @@
     {
       "interface": "HTMLElement",
       "member": "click",
-      "reason": "Activation behaviour: a click is a dispatched event with a default action, not a method call on the element (campaign items R2 and C4). AngleSharp's DoClick runs its own event bus."
+      "reason": "Activation behaviour: a click is a dispatched event with a default action, not a method call on the element. AngleSharp's DoClick dispatches on AngleSharp's own event bus and runs no activation behaviour at all — a checkbox it clicks does not toggle. The events bridge re-declares click() in `additions`."
     },
     {
       "interface": "HTMLElement",
       "member": "focus",
-      "reason": "Focus is a document-level concept the input model owns (campaign item C4), and it fires focus/blur events."
+      "reason": "Focus is a document-level concept. AngleSharp's DoFocus does not set IDocument.ActiveElement, so its focus() would move nothing. The events bridge re-declares focus() in `additions`."
     },
     {
       "interface": "HTMLElement",
       "member": "blur",
-      "reason": "The other half of focus()."
+      "reason": "The other half of focus(), re-declared in `additions` for the same reason."
     },
     {
       "interface": "HTMLFormElement",
       "member": "reset",
-      "reason": "Form reset fires a reset event whose default action resets the controls; the events bridge owns it (campaign item R2)."
+      "reason": "Form reset fires a cancelable reset event whose default action resets the controls; AngleSharp's Reset() is only the default action's second half and fires nothing. The events bridge re-declares reset() in `additions` and calls AngleSharp's Reset() from it."
+    },
+    {
+      "interface": "Document",
+      "member": "activeElement",
+      "reason": "AngleSharp never assigns IDocument.ActiveElement — not on DoFocus, not on parse — so the generated accessor answers null for the whole life of a document, where HTML says the body element. The events bridge owns focus and re-declares activeElement in `additions`."
+    },
+    {
+      "interface": "Document",
+      "member": "hasFocus",
+      "reason": "AngleSharp's HasFocus() reports a window-level flag DoFocus sets and nothing clears, which is not HTML's 'is the document's viewport focused'. Re-declared in `additions` beside activeElement, from the same focus state."
     },
     {
       "interface": "Location",
@@ -86,44 +96,6 @@
       "member": "href",
       "half": "setter",
       "reason": "Assigning location.href is a navigation (campaign item R5). The getter stays, because reading the document's URL is not."
-    }
-  ],
-
-  "hooks": [
-    {
-      "interface": "Element",
-      "member": "innerHTML",
-      "half": "setter",
-      "hook": "SetInnerHtml",
-      "reason": "Setting innerHTML parses markup into the tree, and a <script> inserted that way has to reach the script scheduler. Until the parser driver exists (campaign item R3) the hook's default body assigns AngleSharp's property directly, which is exactly today's behaviour; R3 replaces the body and nothing generated changes."
-    },
-    {
-      "interface": "Element",
-      "member": "outerHTML",
-      "half": "setter",
-      "hook": "SetOuterHtml",
-      "reason": "The same parse, replacing the element itself (campaign item R3)."
-    },
-    {
-      "interface": "Element",
-      "member": "insertAdjacentHTML",
-      "half": "operation",
-      "hook": "InsertAdjacentHtml",
-      "reason": "The same parse, at a position relative to the element (campaign item R3)."
-    },
-    {
-      "interface": "Document",
-      "member": "write",
-      "half": "operation",
-      "hook": "Write",
-      "reason": "document.write during parsing writes into the live text source while the parser is parked, which only the parser driver can do (campaign item R3)."
-    },
-    {
-      "interface": "Document",
-      "member": "writeln",
-      "half": "operation",
-      "hook": "WriteLine",
-      "reason": "document.write with a newline appended (campaign item R3)."
     }
   ],
 
@@ -245,6 +217,134 @@
         "return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);"
       ],
       "reason": "DOM §4.2.5, the element-only half of assignedNodes."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "click",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.click\");",
+        "global::Jint.Browser.Events.InputDispatcher.FireSyntheticClick((global::Jint.Browser.Dom.DomNodeObject) thisObj, trusted: false);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "HTML's click() fires a synthetic pointer event with the NOT TRUSTED flag set, and the activation behaviour still runs: trust decides what a page can tell apart, not whether the default action happens. AngleSharp's DoClick is skipped because it dispatches on AngleSharp's own bus and runs no activation behaviour at all."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "focus",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.focus\");",
+        "global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "AngleSharp's DoFocus never assigns IDocument.ActiveElement, so its focus() would move nothing. FocusOptions' one member is preventScroll, which nothing here could honour or violate."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "blur",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, \"HTMLElement.blur\");",
+        "global::Jint.Browser.Events.FocusController.Blur(self.Realm, self.Target);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "The other half of focus(), for the same reason."
+    },
+    {
+      "interface": "Document",
+      "member": "activeElement",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.activeElement\");",
+        "var element = global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target);",
+        "return element is null ? global::Jint.Native.JsValue.Null : self.Realm.WrapNode(element);"
+      ],
+      "reason": "AngleSharp never assigns IDocument.ActiveElement - not on DoFocus, not on parse - so the generated accessor answers null for the whole life of a document, where HTML says the body element."
+    },
+    {
+      "interface": "Document",
+      "member": "hasFocus",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.hasFocus\");",
+        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine).DocumentHasFocus);"
+      ],
+      "reason": "AngleSharp's HasFocus() reports a window-level flag DoFocus sets and nothing clears, which is not HTML's 'is the document's viewport focused'."
+    },
+    {
+      "interface": "HTMLFormElement",
+      "member": "submit",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, \"HTMLFormElement.submit\");",
+        "global::Jint.Browser.Events.FormSubmission.SubmitWithoutEvent(self.Realm, self.Target, submitter: null);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "AngleSharp's [DomName(\"submit\")] sits on SubmitAsync(), whose Task return has no conversion-table entry. HTML's submit() skips both the interactive validation and the submit event, which is the whole of what distinguishes it from requestSubmit()."
+    },
+    {
+      "interface": "HTMLFormElement",
+      "member": "requestSubmit",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, \"HTMLFormElement.requestSubmit\");",
+        "global::Jint.Browser.Events.FormSubmission.RequestSubmit(self.Realm, self.Target, args.Length > 0 ? args[0] : global::Jint.Native.JsValue.Undefined);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "AngleSharp has no such member at all; it is the one that behaves like a button, so the submit event fires and a listener can stop it."
+    },
+    {
+      "interface": "HTMLFormElement",
+      "member": "reset",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, \"HTMLFormElement.reset\");",
+        "global::Jint.Browser.Events.FormSubmission.Reset(self.Realm, self.Target);",
+        "return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "Form reset fires a cancelable reset event whose default action resets the controls; AngleSharp's Reset() is only that default action and fires nothing, so it is called from the event half rather than projected."
+    },
+    {
+      "interface": "HTMLElement",
+      "extend": "Jint.Browser.Events.DomShapeAdditions.HtmlElementHandlers",
+      "reason": "HTML's GlobalEventHandlers and DocumentAndElementEventHandlers mixins - eighty-odd on* IDL attributes with an identically shaped accessor pair each. AngleSharp declares the handlers as CLR events, which the member closure never yields, and as member entries they would be a hundred and seventy near-identical rows; the extend form exists for exactly this."
+    },
+    {
+      "interface": "Document",
+      "extend": "Jint.Browser.Events.DomShapeAdditions.DocumentHandlers",
+      "reason": "The same two mixins plus onreadystatechange and onvisibilitychange, for the same reason."
+    }
+  ],
+
+  "hooks": [
+    {
+      "interface": "Element",
+      "member": "innerHTML",
+      "half": "setter",
+      "hook": "SetInnerHtml",
+      "reason": "Setting innerHTML parses markup into the tree, and a <script> inserted that way has to reach the script scheduler. Until the parser driver exists (campaign item R3) the hook's default body assigns AngleSharp's property directly, which is exactly today's behaviour; R3 replaces the body and nothing generated changes."
+    },
+    {
+      "interface": "Element",
+      "member": "outerHTML",
+      "half": "setter",
+      "hook": "SetOuterHtml",
+      "reason": "The same parse, replacing the element itself (campaign item R3)."
+    },
+    {
+      "interface": "Element",
+      "member": "insertAdjacentHTML",
+      "half": "operation",
+      "hook": "InsertAdjacentHtml",
+      "reason": "The same parse, at a position relative to the element (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "write",
+      "half": "operation",
+      "hook": "Write",
+      "reason": "document.write during parsing writes into the live text source while the parser is parked, which only the parser driver can do (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "writeln",
+      "half": "operation",
+      "hook": "WriteLine",
+      "reason": "document.write with a newline appended (campaign item R3)."
     }
   ],
 

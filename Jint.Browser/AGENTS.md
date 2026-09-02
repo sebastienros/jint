@@ -86,9 +86,9 @@ version of AngleSharp nobody references.
 | --- | --- |
 | `excludedInterfaces` | An interface the runtime owns instead. Today: `IWindow` (campaign item R1). |
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
-| `skip` | A member a later campaign item owns: navigation (`location.assign`, `location.href`'s setter), activation (`click`, `focus`, `blur`, `form.reset`), the parser (`document.open`/`close`/`load`), and `document.createEvent`, whose AngleSharp `Event` must never reach script. `half: "setter"` skips the write half only. |
-| `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper. |
-| `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter (`createTreeWalker`, `createNodeIterator`), a stringifier with no `[DomName]` (`Range.toString`), a member AngleSharp spells by its Shadow DOM v0 name (`slot.assignedNodes`), a member whose `[DomName]` is simply missing (`ShadowRoot.mode`), and the two CSSOM View rectangles a page with no layout still calls. The body is one line calling `Dom/Views/DomViewMembers`, and it is the **only** list whose entries name something the pinned assemblies do not have — what is checked is the opposite, that the interface exists and that the member does not, so an addition can never quietly shadow a member AngleSharp grew. An addition whose member AngleSharp *skipped* replaces that skip and removes it from the report. |
+| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. `half: "setter"` skips the write half only. |
+| `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
+| `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, a CSSOM View rectangle, and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
 | `nullableStrings` | The members whose IDL type is `DOMString?` rather than `DOMString`. See the conversion table below. |
 | `stringEnums`, `constants` | The two enum decisions the heuristics above cannot make. |
 
@@ -148,10 +148,27 @@ here:
 | `slot.assignedNodes()` | DOM §4.2.5 | named `getDistributedNodes`, the Shadow DOM v0 spelling |
 | `getComputedStyle(span).display` | `inline` | the empty string: the cascade reports only what a stylesheet *declared*, and `display: inline` is CSS's initial value, so the user-agent sheet does not declare it. A declared one (`div` → `block`) resolves |
 | the computed style is writable | CSSOM's computed flag makes every write a `NoModificationAllowedError` | an ordinary writable declaration, and a detached one, so a write neither throws nor changes anything readable — see `Dom/Views/ReadOnlyStyleDeclaration` |
+| `el.click()` on a checkbox, radio, `<summary>` or `<a href>` | the element's activation behaviour runs | `DoClick` dispatches on AngleSharp's own bus and runs **no activation behaviour at all**, with or without a browsing context: nothing toggles, opens or navigates |
+| `document.activeElement` | the focused element, or the body | `null` for the life of every document — nothing in AngleSharp ever assigns it, `DoFocus()` included |
+| `el.tabIndex` when the attribute is absent | −1 for anything not inherently focusable | 0 for every element, including a bare `<div>`, so it cannot decide focusability |
+| `input.labels` | the `<label>`s whose `for` names the control | an empty collection, though `label.control` resolves correctly in the other direction |
+| `select.selectedIndex` with no `selected` option | 0 — the selectedness-setting algorithm picks the first option of a non-`multiple`, display-size-1 select | −1 |
+| `input.value = …` | the cursor moves to the end and the selection is dropped | `SelectionStart`/`SelectionEnd` are left where they were, so they can point past the end of the new value |
+| `input.setSelectionRange` on a `type=checkbox` | `InvalidStateError` — the type does not support selection | answers, so the type test has to be the caller's |
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
 the same instant or host-contract verification fails. That is keeping *our* contract, not mending AngleSharp's.
+
+### The events bridge lives with the runtime
+
+Every script-visible event is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the
+algorithm points the package owns (design doc §5) — never AngleSharp's own bus, which holds nothing a script
+registered. What that costs the binding is the `skip` and `additions` rows above: `click`, `focus`, `blur`,
+`form.reset`, `document.activeElement` and `document.hasFocus` are all AngleSharp members that do nothing
+useful, so they are skipped and re-declared. The behaviour behind them — which algorithm point raises which
+event, what activation means with no layout, and why the handler content attributes need no notification from
+AngleSharp — is [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-events-bridge).
 
 ### Wrapper identity, and the two classes that are not one hierarchy
 

@@ -68,6 +68,13 @@ internal sealed class ModelBuilder
                 Group = GroupOf(type),
                 HasInterfaceObject = !Has(type, DomNoInterfaceObject),
                 ManualShape = _overrides.Manual.FirstOrDefault(m => m.Interface == type.FullName)?.Shape,
+
+                // Keyed on the DOM name, the way `skip` and `hooks` are, because an addition is a decision
+                // about the interface script sees rather than about the CLR type it is projected from.
+                // The extend form of `additions`, keyed on the DOM name the way `skip` and `hooks` are: an
+                // addition is a decision about the interface script sees rather than about the CLR type it is
+                // projected from. The member form is appended in BuildMembers instead.
+                ShapeAdditions = _overrides.Additions.FirstOrDefault(a => a.IsExtend && a.Interface == domName)?.Extend,
             };
 
             if (_overrides.Manual.Any(m => m.Interface == type.FullName))
@@ -436,7 +443,9 @@ internal sealed class ModelBuilder
         // pinned assemblies grew a member the table is now shadowing — and is reported.
         foreach (var addition in _overrides.Additions)
         {
-            if (addition.Interface != model.DomName)
+            // An extend entry declares its members in C#, so there is nothing to append here; the emitter
+            // hands it the builder instead.
+            if (addition.IsExtend || addition.Interface != model.DomName)
             {
                 continue;
             }
@@ -1176,11 +1185,33 @@ internal sealed class ModelBuilder
         // be one AngleSharp does not have — a member it grew is reported by BuildMembers as a collision.
         foreach (var entry in _overrides.Additions)
         {
-            if (!_byClrName.Values.Any(m => m.DomName == entry.Interface))
+            var named = entry.IsExtend ? entry.Extend : entry.Member;
+
+            if (entry.IsExtend == !string.IsNullOrEmpty(entry.Member))
             {
                 _model.Diagnostics.Add(
-                    "overrides.json's addition '" + entry.Interface + "." + entry.Member + "' (" + entry.Reason
+                    "overrides.json's addition on '" + entry.Interface + "' (" + entry.Reason
+                    + ") sets " + (entry.IsExtend ? "both 'member' and 'extend'" : "neither 'member' nor 'extend'")
+                    + "; an entry declares one member or hands the builder to one method, never both and never neither.");
+                continue;
+            }
+
+            var target = _byClrName.Values.FirstOrDefault(m => m.DomName == entry.Interface);
+
+            if (target is null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's addition '" + entry.Interface + "." + named + "' (" + entry.Reason
                     + ") names an interface the pinned assemblies do not project.");
+                continue;
+            }
+
+            // An extend entry needs a builder to add to, and a manual interface's shape is hand-written whole.
+            if (entry.IsExtend && target.ManualShape is not null)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's addition hands the builder of '" + entry.Interface + "' to '" + named
+                    + "' (" + entry.Reason + "), but that interface's shape is hand-written by 'manual', so the generator emits no builder for it.");
             }
         }
 

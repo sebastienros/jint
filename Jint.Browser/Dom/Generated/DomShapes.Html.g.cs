@@ -16,7 +16,8 @@ internal static partial class DomInterfaces
 {
     /// <summary>The members of <c>HTMLElement</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildHTMLElement()
-        => new global::Jint.Native.JsObjectShape.Builder()
+    {
+        var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLElement")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("accessKey",
@@ -36,6 +37,22 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.accessKeyLabel");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.AccessKeyLabel);
                 })
+            .Method("blur",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.blur");
+                    global::Jint.Browser.Events.FocusController.Blur(self.Realm, self.Target);
+                    return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
+            .Method("click",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.click");
+                    global::Jint.Browser.Events.InputDispatcher.FireSyntheticClick((global::Jint.Browser.Dom.DomNodeObject) thisObj, trusted: false);
+                    return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
             .Accessor("contentEditable",
                 static (thisObj, args) =>
                 {
@@ -97,6 +114,14 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.dropzone");
                     var forwardTarget = self.Target.DropZone; if (forwardTarget is not null) { forwardTarget.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "HTMLElement.dropzone"); } return global::Jint.Native.JsValue.Undefined;
                 })
+            .Method("focus",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.focus");
+                    global::Jint.Browser.Events.FocusController.Focus(self.Realm, self.Target);
+                    return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
             .Method("forceSpellCheck",
                 static (thisObj, args) =>
                 {
@@ -175,8 +200,11 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlElement>(thisObj, "HTMLElement.translate");
                     self.Target.IsTranslated = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
-            .Build();
+                });
+
+        global::Jint.Browser.Events.DomShapeAdditions.HtmlElementHandlers(builder);
+        return builder.Build();
+    }
 
     /// <summary>The members of <c>HTMLAnchorElement</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildHTMLAnchorElement()
@@ -1609,6 +1637,30 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.requestAutocomplete");
                     self.Target.RequestAutocomplete(); return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
+            .Method("requestSubmit",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.requestSubmit");
+                    global::Jint.Browser.Events.FormSubmission.RequestSubmit(self.Realm, self.Target, args.Length > 0 ? args[0] : global::Jint.Native.JsValue.Undefined);
+                    return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
+            .Method("reset",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.reset");
+                    global::Jint.Browser.Events.FormSubmission.Reset(self.Realm, self.Target);
+                    return global::Jint.Native.JsValue.Undefined;
+                },
+                length: 0)
+            .Method("submit",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlFormElement>(thisObj, "HTMLFormElement.submit");
+                    global::Jint.Browser.Events.FormSubmission.SubmitWithoutEvent(self.Realm, self.Target, submitter: null);
+                    return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 0)
             .Accessor("target",

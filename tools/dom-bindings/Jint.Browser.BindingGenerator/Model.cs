@@ -80,6 +80,15 @@ internal sealed class InterfaceModel
     /// </summary>
     internal string? ManualShape { get; set; }
 
+    /// <summary>
+    /// The hand-written method the emitter hands the half-built builder to, for an interface that carries
+    /// members no AngleSharp member could ever project — an event handler IDL attribute, an activation
+    /// behaviour, a member the runtime rather than the DOM answers. Unlike <see cref="ManualShape"/> this
+    /// adds to the generated members instead of replacing them, so the interface keeps everything the
+    /// attributes did say and the shape stays one shape.
+    /// </summary>
+    internal string? ShapeAdditions { get; set; }
+
     public override string ToString() => DomName;
 }
 

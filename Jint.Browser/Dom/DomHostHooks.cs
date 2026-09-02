@@ -49,6 +49,15 @@ internal class DomHostHooks
     /// <param name="wrapper">The wrapper, before anything has read a property off it.</param>
     internal virtual void WrapperCreated(DomRealm realm, object target, ObjectInstance wrapper)
     {
+        // The handler content attributes an element's markup declares, registered the moment its wrapper wins
+        // the cache — which is before anything can dispatch through it or add a listener of its own, and is
+        // what puts a markup handler ahead of a script's in the listener list. It is here rather than in
+        // DomNodeObject's constructor because this hook fires exactly once for the wrapper that won, and a
+        // re-entrant member that built a second one would otherwise have scanned the loser too.
+        if (wrapper is DomNodeObject node)
+        {
+            Events.EventHandlerContentAttributes.InstallFromMarkup(node);
+        }
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>

@@ -562,7 +562,8 @@ internal static partial class DomInterfaces
 
     /// <summary>The members of <c>Document</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDocument()
-        => new global::Jint.Native.JsObjectShape.Builder()
+    {
+        var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("Document")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("URL",
@@ -575,7 +576,8 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.activeElement");
-                    return self.Realm.WrapNodeValue(self.Target.ActiveElement);
+                    var element = global::Jint.Browser.Events.FocusController.ActiveElement(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine), self.Target);
+                    return element is null ? global::Jint.Native.JsValue.Null : self.Realm.WrapNode(element);
                 })
             .Method("adoptNode",
                 static (thisObj, args) =>
@@ -873,7 +875,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.hasFocus");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.HasFocus());
+                    return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Events.BrowserEventRealm.Of(self.Realm.Engine).DocumentHasFocus);
                 },
                 length: 0)
             .Accessor("head",
@@ -1079,8 +1081,11 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.writeln");
                     self.Realm.Hooks.WriteLine(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 },
-                length: 1)
-            .Build();
+                length: 1);
+
+        global::Jint.Browser.Events.DomShapeAdditions.DocumentHandlers(builder);
+        return builder.Build();
+    }
 
     /// <summary>The members of <c>DocumentFragment</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDocumentFragment()

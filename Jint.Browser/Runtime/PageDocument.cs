@@ -154,9 +154,26 @@ internal static class PageDocument
             return;
         }
 
+        // The handler content attributes on <body> that HTML redirects to the window — onload above all —
+        // belong to a target the body's own wrapper is what registers them on. Every other element's arrive
+        // with its wrapper; see EventHandlerContentAttributes.InstallBodyHandlers for why this one cannot.
+        var parsed = runtime.Document;
+
+        if (parsed is not null)
+        {
+            Events.EventHandlerContentAttributes.InstallBodyHandlers(runtime.Dom, parsed);
+        }
+
         Dispatch(runtime, document, events.CreateTrustedEvent(JsString.Create("readystatechange")));
         Dispatch(runtime, document, events.CreateTrustedEvent(JsString.Create("DOMContentLoaded"), new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
         onPhase?.Invoke(NavigationPhase.DomContentLoaded);
+
+        // https://html.spec.whatwg.org/multipage/interaction.html#the-autofocus-attribute — the autofocus
+        // candidate is flushed once the document has parsed, before `load`, and it fires the focus events.
+        if (parsed is not null)
+        {
+            Events.FocusController.FlushAutofocus(runtime.Dom, parsed);
+        }
 
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#history-traversal: pageshow follows
         // load, and its persisted flag is false because nothing here restores a document from a cache.
