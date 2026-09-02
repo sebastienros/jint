@@ -11,7 +11,8 @@ using Jint.WebApi.Url.Parsing;
 namespace Jint.Browser.Runtime;
 
 /// <summary>
-/// HTML's form submission algorithm, ending in a navigation the page runs.
+/// The lower half of HTML's form submission algorithm: the entry list, the encoding, and the navigation the
+/// page runs.
 /// <para>
 /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#form-submission-algorithm
 /// </para>
@@ -27,10 +28,11 @@ namespace Jint.Browser.Runtime;
 /// asking the page to navigate.
 /// </para>
 /// <para>
-/// <b>A button click is not here.</b> This is the algorithm a submission runs once something has decided to
-/// submit; what decides is either a script (<c>form.submit()</c>, <c>form.requestSubmit()</c>) or an
-/// activation behaviour, and activation behaviour is the input model's (campaign item R2). That is why the
-/// submitter is a parameter rather than something this works out.
+/// <b>Neither the decision nor the events are here.</b> This is what a submission runs once something has
+/// decided to submit and the <c>submit</c> event has survived; what decides is a script
+/// (<c>form.submit()</c>, <c>form.requestSubmit()</c>) or a submit button's activation behaviour, and the
+/// validation and the event are <see cref="Events.FormSubmission"/>. That is why the submitter is a
+/// parameter rather than something this works out.
 /// </para>
 /// </remarks>
 internal static class FormSubmitter
