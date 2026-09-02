@@ -120,10 +120,24 @@ internal static class WindowInstaller
 
         if (windowTarget is not null)
         {
-            // This global scope is a `Window`, which is the fact DOM's default passive value turns on
-            // (https://dom.spec.whatwg.org/#default-passive-value) and which no engine without a document
-            // can claim.
+            // This global scope is a `Window`, which is the fact two DOM rules turn on and which no engine
+            // without a document can claim: the default passive value
+            // (https://dom.spec.whatwg.org/#default-passive-value) and the current event
+            // (https://dom.spec.whatwg.org/#window-current-event) the accessor below reads.
             windowTarget.IsWindow = true;
+
+            // `window.event` is an *own* property of the global rather than an accessor on `Window.prototype`,
+            // which is where every other Window member here lives. WebIDL's [Global] puts an interface's
+            // members on the global object itself, and this is the one a page can tell apart:
+            // `dom/events/event-global.html` opens with `assert_own_property(window, "event")`. One property
+            // per engine, installed the way `PageStorage` installs its own.
+            var scope = windowTarget;
+            global.SetProperty(
+                "event",
+                new GetSetPropertyDescriptor(
+                    new ClrFunction(engine, "get event", (_, _) => scope.CurrentEvent),
+                    set: null,
+                    PropertyFlag.Configurable | PropertyFlag.Enumerable));
         }
 
         foreach (var name in (string[]) ["window", "self", "frames", "top", "parent"])
@@ -303,8 +317,9 @@ internal static class WindowInstaller
     /// own globals instead.
     /// </summary>
     /// <remarks>
-    /// <c>window.event</c> is HTML's "current event", a legacy attribute that is undefined outside a dispatch;
-    /// nothing sets it here, so a page reading it gets what a page with no dispatch in progress gets.
+    /// <c>event</c> is not here: DOM's <i>current event</i> is the one member a page can tell apart from an
+    /// accessor on <c>Window.prototype</c>, because WebIDL's <c>[Global]</c> makes it an own property of the
+    /// global object. <see cref="Install"/> installs it there.
     /// </remarks>
     private static JsObjectShape BuildWindowShape()
     {
@@ -333,7 +348,6 @@ internal static class WindowInstaller
                     return JsValue.Undefined;
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
-            .Accessor("event", static (_, _) => JsValue.Undefined)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)

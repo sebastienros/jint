@@ -196,13 +196,26 @@ internal static class EventHandlerContentAttributes
         // removes a handler the markup no longer declares, and for a document there never was one.
         var attribute = element?.GetAttribute("on" + type);
         var sources = _sources.GetOrCreateValue(target);
+        var known = sources.TryGetLast(type, out var last);
 
-        if (!sources.HasChanged(type, attribute))
+        if (known && string.Equals(last, attribute, StringComparison.Ordinal))
         {
             return target;
         }
 
         sources.Record(type, attribute);
+
+        // **A slot nobody has looked at, for an attribute that is not there, is not a change.** HTML's "set
+        // the content attribute" step is what this reconciliation stands in for, and it observes an attribute
+        // appearing, changing or going away — never one that was absent all along. The distinction is only
+        // visible where the slot is *shared*: a body's `onerror`, `onload` and their kind are redirected to
+        // the window, so the first dispatch through a body of an event whose handler a script assigned to the
+        // window would otherwise arrive here, find no `onerror` attribute on the body, and remove it.
+        // `dom/events/event-global.html`'s ErrorEvent test is what found that.
+        if (!known && attribute is null)
+        {
+            return target;
+        }
 
         // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes — setting the
         // attribute sets the handler to an internal raw uncompiled handler, and removing it sets the handler to
@@ -293,8 +306,12 @@ internal static class EventHandlerContentAttributes
     {
         private readonly Dictionary<string, string?> _byType = new(StringComparer.Ordinal);
 
-        internal bool HasChanged(string type, string? attribute)
-            => !_byType.TryGetValue(type, out var last) || !string.Equals(last, attribute, StringComparison.Ordinal);
+        /// <summary>
+        /// Whether this slot has ever been reconciled, and against what. The caller needs the two answers
+        /// apart: "unchanged" and "never looked at, and still absent" both mean do nothing, but they are not
+        /// the same fact and only one of them may leave the recorded value alone.
+        /// </summary>
+        internal bool TryGetLast(string type, out string? attribute) => _byType.TryGetValue(type, out attribute);
 
         internal void Record(string type, string? attribute) => _byType[type] = attribute;
     }

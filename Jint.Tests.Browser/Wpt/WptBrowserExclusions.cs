@@ -313,14 +313,6 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 2. window.event
-        // https://dom.spec.whatwg.org/#dom-window-event: the global `event`, set for the duration of a
-        // dispatch and restored afterwards. It is absent, which is what `assert_own_property: expected
-        // property "event" missing` says, and it is why an inline handler that reads a bare `event` reads
-        // nothing. Two more documents cannot even report because of it and are in NotVendored above.
-        new("dom/events/event-global.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/window-event-restored-after-throwing-onerror.html", "*", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- 3. a script's exception is not reported
         // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. An exception escaping a
         // classic `<script>` — a parse error, a runtime error, an external script's either — must be reported
