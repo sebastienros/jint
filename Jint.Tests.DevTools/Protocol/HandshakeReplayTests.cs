@@ -83,12 +83,8 @@ public class HandshakeReplayTests
         ["Performance.enable"] = "page",
         ["Log.enable"] = "page",
 
-        // Engine-level and not written yet. Each needs the remote-object table, the debugger seam or the
-        // profiler seam, and half of any of those is worse than none.
-        ["Runtime.getProperties"] = "later",
-        ["Runtime.callFunctionOn"] = "later",
-        ["Runtime.releaseObject"] = "later",
-        ["Runtime.addBinding"] = "later",
+        // Engine-level and not written yet. Each needs the debugger seam or the profiler seam, and half of
+        // either of those is worse than none.
         ["Debugger.enable"] = "later",
         ["Debugger.setPauseOnExceptions"] = "later",
         ["Debugger.setAsyncCallStackDepth"] = "later",
@@ -119,7 +115,7 @@ public class HandshakeReplayTests
     /// What one replay addresses: the target and attachment under test, plus a spare of each so that the
     /// two destructive commands do not pull the ground out from under the rest of the run.
     /// </summary>
-    private sealed record Fixture(string TargetId, string SpareTargetId, string SpareSessionId);
+    private sealed record Fixture(string TargetId, string SpareTargetId, string SpareSessionId, string ObjectId, string SpareObjectId);
 
     /// <summary>Parameters for the recorded methods that need them to get past deserialization.</summary>
     /// <remarks>
@@ -137,6 +133,13 @@ public class HandshakeReplayTests
         "Target.createTarget" => """{"url":"about:blank"}""",
         "Target.disposeBrowserContext" => """{"browserContextId":"X"}""",
         "Runtime.evaluate" => """{"expression":"1"}""",
+        "Runtime.getProperties" => $$"""{"objectId":"{{fixture.ObjectId}}"}""",
+        "Runtime.callFunctionOn" => $$"""{"functionDeclaration":"function () { return this.answer; }","objectId":"{{fixture.ObjectId}}","returnByValue":true}""",
+
+        // Its own handle, so that whichever order the recording lists the methods in, releasing one does not
+        // pull the ground out from under getProperties and callFunctionOn.
+        "Runtime.releaseObject" => $$"""{"objectId":"{{fixture.SpareObjectId}}"}""",
+        "Runtime.addBinding" => """{"name":"__jintHandshakeBinding"}""",
         _ => null,
     };
 
@@ -159,7 +162,12 @@ public class HandshakeReplayTests
         var attachment = await session.AttachAsync(target);
 
         var spare = session.AddTarget(new EngineTargetOptions { ThreadMode = ThreadMode.LibraryOwned });
-        var fixture = new Fixture(target.TargetId, spare.TargetId, await session.AttachAsync(spare));
+        var fixture = new Fixture(
+            target.TargetId,
+            spare.TargetId,
+            await session.AttachAsync(spare),
+            await HandleAsync(session, attachment),
+            await HandleAsync(session, attachment));
 
         var unexpected = new List<string>();
 
@@ -220,6 +228,18 @@ public class HandshakeReplayTests
 
             {string.Join(Environment.NewLine, stale.Select(method => "  " + method))}
             """);
+    }
+
+    /// <summary>Evaluates one object on the attachment and hands back the handle the server minted for it.</summary>
+    /// <remarks>
+    /// The recorded clients send <c>getProperties</c>, <c>callFunctionOn</c> and <c>releaseObject</c> about a
+    /// handle they were given moments earlier, so a replay that made one up would be testing the refusal
+    /// rather than the command.
+    /// </remarks>
+    private static async Task<string> HandleAsync(ProtocolSession session, string attachment)
+    {
+        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"({ answer: 42 })"}""", attachment).ConfigureAwait(false);
+        return reply.GetProperty("result").GetProperty("result").GetProperty("objectId").GetString()!;
     }
 
     /// <summary>

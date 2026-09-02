@@ -105,6 +105,53 @@ Three decisions worth not relitigating:
   that partitions nothing would tell a client its next target was isolated when it is not. The page package
   is where contexts start meaning something.
 
+### RemoteObject lifetime
+
+A client cannot hold a `JsValue`, so it holds an `objectId` and the server holds the value for it. That
+promise — **the value will still be there when you come back** — is the whole of `Domains/RemoteObjectTable.cs`,
+and everything else about handles follows from it:
+
+- **The table is on the `EngineTarget`, ownership is per attachment.** The values in it belong to the engine,
+  so two sessions attached to one engine address the same value by the same identifier; but each entry
+  remembers which attachment registered it, so detaching releases that attachment's handles and nobody else's.
+- **Strong, never weak, and never deduplicated.** A fresh identifier per wrap, which is V8's behaviour and
+  what stops a client's release of one handle from invalidating another it still holds.
+- **Four endings**: `releaseObject`, `releaseObjectGroup`, the attachment detaching, and the target being
+  disposed. Nothing expires on its own, and a client that leaks handles leaks engine values — which is the
+  cost of the promise rather than a defect in it.
+- **A group is inherited on the way in.** `getProperties` and `callFunctionOn` bill the handles they mint to
+  the group the receiver already belongs to, so `releaseObjectGroup` frees the tree a client walked rather
+  than only the root it started from. A group name is a client's own vocabulary, so the release is scoped to
+  the attachment: two clients both use `"console"`.
+- **Detaching runs on a transport thread, and may.** Dropping a reference and dropping a binding
+  subscription both run no engine code, so a detach is answered rather than queued behind whatever the
+  engine is busy with — a target still waiting for a debugger included.
+
+**Describing a value runs none of that value's code.** Type, subtype, class name, one-line description and
+preview all come from `Jint.Diagnostics.ValueInspector`, the engine's own getter-free, trap-free describer:
+an accessor is reported rather than called, a proxy is named by its kind, a CLR value is named rather than
+read. `getProperties` keeps the same promise by reading descriptors — so a proxy answers *no* properties,
+because `ownKeys` and `getOwnPropertyDescriptor` are script, and a CLR property arrives as an accessor
+descriptor and is listed rather than read.
+
+**`returnByValue` is the deliberate exception, and it runs script.** It is `Jint.Native.Json.JsonSerializer`
+— `JSON.stringify`'s own contract, `toJSON` hooks and getters both — because a client that asked for the
+value itself asked for exactly that, and V8 does the same. A cycle, a `toJSON` that threw, and a value with
+no JSON form are all `-32000 "Object couldn't be returned by value"` with the engine's own message as the
+data. Everything else on the path is getter-free; this one call is not.
+
+**`Domains/RemoteObjectDescriber.cs` is the seam `Jint.Browser` fills in.** It is consulted first for every
+non-primitive value and may answer a subtype, a class name and a description — `subtype: "node"`,
+`description: "div#id.cls"` — and it is held to the same promise: a describer that reads a script-visible
+accessor breaks the one invariant a client relies on while paused. It hangs off `EngineTargetOptions` and is
+internal, because the type publishes the protocol's own vocabulary and there is no third-party describer yet
+to justify making that a public commitment.
+
+Two gaps are real rather than pending. `[[PromiseResult]]` is answered as a *description* with no handle,
+because the engine publishes a settled promise's value to nothing outside its own assembly —
+`Runtime.awaitPromise` is what hands the value over, and it does so by attaching reactions. And a host
+object's members are listed without their values, for the reason above.
+
 ### The pause loop
 
 When the debugger pauses, the engine thread is *inside* `DebugHandler`'s synchronous `Break`/`Step`
@@ -280,14 +327,25 @@ Not oversights, and not to be added without a decision:
   questions are `engine.Diagnostics` and the constraints, not this protocol.
 - **Per-session breakpoint state.** Breakpoints live on the engine's `DebugHandler`, so two sessions
   attached to one engine share them. Making them per-session means a filter on every pause.
-- **Remote-object handles.** `Runtime.evaluate` describes what it cannot send by value — type, subtype,
-  class name, one-line description — and mints no `objectId`. A handle is a promise to keep a value alive
-  until the client releases it, and half a table is worse than none: a client handed an identifier nothing
-  keeps alive is worse off than one told the value by description. `getProperties`, `callFunctionOn`,
-  `releaseObject`, `addBinding` and the `Runtime.awaitPromise` *command* all wait for that table; the
-  `awaitPromise` **parameter** of `Runtime.evaluate` is answered today, because it needs no handle.
-- **Previews.** For the same reason, and because a bounded preview is the same walk the table's describer
-  will do.
+- **`Runtime.globalLexicalScopeNames`.** The realm's global declarative record publishes a binding *count*
+  and no names, so answering would mean either an engine seam this package has not asked for or an empty
+  list that tells a client there are no `let`s when there are.
+- **`Runtime.queryObjects`.** It enumerates a heap by prototype, and the heap is the CLR's.
+- **`Runtime.getExceptionDetails`.** Nothing retains an exception's details past the command that reported
+  them, and an identifier that resolves to nothing is worse than no command.
+- **`Runtime.terminateExecution`.** Execution is bounded by `Options.Constraints`, which is the host's
+  decision; a client that could stop a host's script at will is a different security posture and would be a
+  deliberate one.
+- **`throwOnSideEffect`.** The console's eager evaluation asks for "throw rather than run anything
+  observable", which needs a side-effect analysis of the interpreter. It is refused with `-32000` rather
+  than answered by running the very code the client asked not to be run; no recorded client sends it, and a
+  front end that gets the refusal simply shows no preview.
+- **The evaluation parameters this package does not act on.** `timeout`, `silent`, `userGesture`,
+  `disableBreaks`, `replMode`, `includeCommandLineAPI`, `allowUnsafeEvalBlockedByCSP`, `uniqueContextId`
+  and `serializationOptions` are accepted and ignored rather than refused: each of them is a client asking
+  for *more*, and a `-32601` would make an ordinary evaluation fail on a target that can perfectly well
+  answer it. Bounding one evaluation is `Options.Constraints`, which is the host's decision rather than a
+  client's.
 - **The full protocol description at `/json/protocol`.** It answers what this server implements, derived
   from the manifest. The pinned document is two megabytes of mostly commands answered here with `-32601`,
   and a client reading it would be told it can call them.

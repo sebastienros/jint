@@ -1689,6 +1689,24 @@ namespace Jint.DevTools.Domains
         {
             switch (method)
             {
+                case "awaitPromise":
+                {
+                    var result = await AwaitPromiseAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeAwaitPromiseRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeAwaitPromiseResponse);
+                }
+
+                case "callFunctionOn":
+                {
+                    var result = await CallFunctionOnAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeCallFunctionOnRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeCallFunctionOnResponse);
+                }
+
+                case "compileScript":
+                {
+                    var result = await CompileScriptAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeCompileScriptRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeCompileScriptResponse);
+                }
+
                 case "disable":
                 {
                     var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
@@ -1719,9 +1737,63 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetIsolateIdResponse);
                 }
 
+                case "getHeapUsage":
+                {
+                    var result = await GetHeapUsageAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetHeapUsageResponse);
+                }
+
+                case "getProperties":
+                {
+                    var result = await GetPropertiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetPropertiesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetPropertiesResponse);
+                }
+
+                case "releaseObject":
+                {
+                    var result = await ReleaseObjectAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeReleaseObjectRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "releaseObjectGroup":
+                {
+                    var result = await ReleaseObjectGroupAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeReleaseObjectGroupRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 case "runIfWaitingForDebugger":
                 {
                     var result = await RunIfWaitingForDebuggerAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "runScript":
+                {
+                    var result = await RunScriptAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeRunScriptRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeRunScriptResponse);
+                }
+
+                case "setCustomObjectFormatterEnabled":
+                {
+                    var result = await SetCustomObjectFormatterEnabledAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeSetCustomObjectFormatterEnabledRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setMaxCallStackSizeToCapture":
+                {
+                    var result = await SetMaxCallStackSizeToCaptureAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeSetMaxCallStackSizeToCaptureRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "addBinding":
+                {
+                    var result = await AddBindingAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeAddBindingRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "removeBinding":
+                {
+                    var result = await RemoveBindingAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeRemoveBindingRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 

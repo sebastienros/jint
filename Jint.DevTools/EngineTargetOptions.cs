@@ -39,4 +39,16 @@ public sealed class EngineTargetOptions
     /// nothing, because its own thread is already pumping.
     /// </remarks>
     public bool WaitForDebuggerOnStart { get; set; }
+
+    /// <summary>
+    /// Gets or sets what names a value the protocol has a vocabulary for and this package does not
+    /// recognize, or <see langword="null"/> for none.
+    /// </summary>
+    /// <remarks>
+    /// The seam <c>Jint.Browser</c> answers <c>subtype: "node"</c> through. Internal rather than public
+    /// because the type it takes publishes the protocol's own vocabulary, and the first member of this
+    /// package's surface to do that is the one that carries <c>JINTDT001</c>; there is no third-party
+    /// describer yet to justify making that decision now.
+    /// </remarks>
+    internal Domains.RemoteObjectDescriber? RemoteObjectDescriber { get; set; }
 }

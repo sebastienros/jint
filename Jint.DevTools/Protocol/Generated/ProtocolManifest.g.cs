@@ -44,12 +44,24 @@ namespace Jint.DevTools.Protocol
         [
             "Browser.close",
             "Browser.getVersion",
+            "Runtime.addBinding",
+            "Runtime.awaitPromise",
+            "Runtime.callFunctionOn",
+            "Runtime.compileScript",
             "Runtime.disable",
             "Runtime.discardConsoleEntries",
             "Runtime.enable",
             "Runtime.evaluate",
+            "Runtime.getHeapUsage",
             "Runtime.getIsolateId",
+            "Runtime.getProperties",
+            "Runtime.releaseObject",
+            "Runtime.releaseObjectGroup",
+            "Runtime.removeBinding",
             "Runtime.runIfWaitingForDebugger",
+            "Runtime.runScript",
+            "Runtime.setCustomObjectFormatterEnabled",
+            "Runtime.setMaxCallStackSizeToCapture",
             "Schema.getDomains",
             "Target.activateTarget",
             "Target.attachToTarget",
@@ -68,6 +80,7 @@ namespace Jint.DevTools.Protocol
         /// <summary>The events this assembly emits.</summary>
         internal static global::System.Collections.Generic.IReadOnlyList<string> ImplementedEvents { get; } =
         [
+            "Runtime.bindingCalled",
             "Runtime.executionContextCreated",
             "Target.attachedToTarget",
             "Target.detachedFromTarget",

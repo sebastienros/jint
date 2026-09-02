@@ -48,7 +48,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- This assembly never touches the AST, so the repository-wide Acornima global usings are noise here. -->
+    <!-- The AST reaches this assembly in exactly one place — `Prepared<Script>`, which is what a compiled
+         script is — so the repository-wide Acornima global usings would be noise. That one file names the
+         namespace itself, which is also how a reader sees that the dependency is one type deep. -->
     <Using Remove="Acornima" />
     <Using Remove="Acornima.Ast" />
   </ItemGroup>

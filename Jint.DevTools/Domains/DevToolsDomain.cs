@@ -96,4 +96,56 @@ internal abstract class DevToolsDomain
     {
         return _session is { } session ? session.SendEventAsync(in @event, cancellationToken) : default;
     }
+
+    /// <summary>Sends one event from a path that cannot wait for it: inside a script call on the engine thread.</summary>
+    /// <remarks>
+    /// <para>
+    /// A binding a script invoked, a <c>console</c> call, an exception nobody caught: each of them reaches a
+    /// domain synchronously, from inside the engine, where there is nothing to <c>await</c> onto and no
+    /// caller to hand a failure to. Both connections queue rather than write — a send is a channel insertion
+    /// — so this completes synchronously in practice; what it guarantees is only that the engine thread is
+    /// never blocked and that a failure to write cannot erupt out of the host's pump.
+    /// </para>
+    /// <para>
+    /// A domain that <i>is</i> answering a command emits with <see cref="EmitAsync"/> instead, so that the
+    /// event is on the wire before the reply that follows it.
+    /// </para>
+    /// </remarks>
+    protected void EmitDetached(in ProtocolEvent @event)
+    {
+        if (_session is not { } session)
+        {
+            return;
+        }
+
+        ValueTask pending;
+        try
+        {
+            pending = session.SendEventAsync(in @event);
+        }
+#pragma warning disable CA1031 // this runs inside the engine; an escape here erupts out of the host's pump
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return;
+        }
+
+        if (!pending.IsCompletedSuccessfully)
+        {
+            _ = Observe(pending);
+        }
+
+        static async Task Observe(ValueTask pending)
+        {
+            try
+            {
+                await pending.ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // an unobserved task exception is worse than a swallowed write failure
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+            }
+        }
+    }
 }

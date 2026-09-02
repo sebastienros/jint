@@ -89,7 +89,7 @@ public class WebSocketServerTests
 
         var runtime = domains.Single(domain => domain.GetProperty("domain").GetString() == "Runtime");
         runtime.GetProperty("commands").EnumerateArray().Select(command => command.GetProperty("name").GetString())
-            .Should().Contain("evaluate").And.NotContain("getProperties");
+            .Should().Contain("evaluate").And.Contain("getProperties").And.NotContain("terminateExecution");
         runtime.GetProperty("events").EnumerateArray().Select(name => name.GetProperty("name").GetString())
             .Should().Contain("executionContextCreated");
     }

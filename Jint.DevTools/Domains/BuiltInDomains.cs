@@ -51,14 +51,19 @@ internal static class BuiltInDomains
     /// The conversation the attachment belongs to, or <see langword="null"/> for a direct
     /// <c>/devtools/page/</c> connection, which has no browser session and therefore no target tree.
     /// </param>
-    internal static DevToolsSession RegisterTargetDomains(DevToolsSession session, EngineTarget target, BrowserSession? browser)
+    /// <returns>
+    /// The domains that hold engine state, which is what an attachment releases when it detaches: a handle
+    /// is a promise to keep a value alive, and the client it was promised to has gone.
+    /// </returns>
+    internal static TargetDomains RegisterTargetDomains(DevToolsSession session, EngineTarget target, BrowserSession? browser)
     {
         if (session is null)
         {
             Throw.ArgumentNull(nameof(session));
         }
 
-        session.Register(new RuntimeDomain(target));
+        var runtime = new RuntimeDomain(target);
+        session.Register(runtime);
 
         if (browser is not null)
         {
@@ -67,6 +72,22 @@ internal static class BuiltInDomains
             session.Register(new TargetDomain(browser, nested: true));
         }
 
-        return session;
+        return new TargetDomains(runtime);
     }
+}
+
+/// <summary>
+/// The domains of one attachment that hold state of the engine behind it, so that detaching can give it
+/// back.
+/// </summary>
+/// <remarks>
+/// A record struct rather than a lookup through <c>session.Domains</c>: what an attachment owns is settled
+/// where it is registered, and a domain added to the registration without a member here is one whose state
+/// nothing releases.
+/// </remarks>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+internal readonly record struct TargetDomains(RuntimeDomain Runtime)
+{
+    /// <summary>Releases everything this attachment holds of its engine.</summary>
+    internal void Detach() => Runtime.Detach();
 }
