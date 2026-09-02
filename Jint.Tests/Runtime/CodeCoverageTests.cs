@@ -29,8 +29,12 @@ public class CodeCoverageTests
     private static string Text(string code, CoverageEntry entry)
         => code.Substring(entry.Start.Index, entry.End.Index - entry.Start.Index);
 
+    /// <summary>
+    /// Every entry counted under one name. A source is one parse, so a name several parses share has a
+    /// source each and a reader that wants the name's total is the one that adds them up.
+    /// </summary>
     private static IReadOnlyList<CoverageEntry> EntriesOf(CoverageReport report, string source = Source)
-        => report.Sources.Single(s => s.Name == source).Entries;
+        => report.Sources.Where(s => s.Name == source).SelectMany(s => s.Entries).ToList();
 
     private static List<(string Text, CoverageEntryKind Kind, long Hits)> Rows(string code, CoverageReport report)
         => EntriesOf(report).Select(e => (Text(code, e), e.Kind, e.HitCount)).ToList();
@@ -288,13 +292,12 @@ public class CodeCoverageTests
     }
 
     /// <summary>
-    /// The counters key on AST node identity, and <c>Execute(string)</c> re-parses, so the same construct is a
-    /// different node on every call. The report folds those together by position — otherwise a host that does
-    /// not cache a <c>Prepared&lt;Script&gt;</c> would read "ran once" ten times over instead of "ran ten
-    /// times".
+    /// The counters key on AST node identity, and <c>Execute(string)</c> re-parses, so the same construct is
+    /// a different node on every call — and a different program. Each parse is a source of its own, under
+    /// the same name and told apart by its program; a reader that wants the name's total adds them up.
     /// </summary>
     [Test]
-    public void ReParsingTheSameSourceAddsToTheSameEntry()
+    public void ReParsingTheSameSourceIsOneSourcePerParse()
     {
         const string Code = "function f() { return 1; } f(); f();";
 
@@ -302,11 +305,55 @@ public class CodeCoverageTests
         engine.Execute(Code, Source);
         engine.Execute(Code, Source);
 
-        var rows = Rows(Code, engine.Diagnostics.GetCoverage());
+        var sources = engine.Diagnostics.GetCoverage().Sources.Where(s => s.Name == Source).ToList();
 
-        rows.Count(r => r.Text == "return 1;").Should().Be(1);
-        rows.Should().Contain(("return 1;", CoverageEntryKind.Statement, 4L));
-        rows.Should().Contain(("{ return 1; }", CoverageEntryKind.Function, 4L));
+        sources.Should().HaveCount(2);
+        sources.Select(s => s.Program).Should().OnlyHaveUniqueItems();
+        sources.Should().AllSatisfy(s => s.Program.Should().NotBeNull());
+
+        foreach (var source in sources)
+        {
+            source.Entries.Select(e => (Text(Code, e), e.Kind, e.HitCount))
+                .Should().Contain(("return 1;", CoverageEntryKind.Statement, 2L));
+        }
+
+        Rows(Code, engine.Diagnostics.GetCoverage())
+            .Where(r => r.Text == "return 1;").Sum(r => r.Hits).Should().Be(4L);
+    }
+
+    /// <summary>
+    /// The identity a host maps a source back to the script it prepared by, which is what a name cannot
+    /// answer once several parses share one.
+    /// </summary>
+    [Test]
+    public void ASourceNamesTheProgramItWasParsedFrom()
+    {
+        var prepared = Engine.PrepareScript("var a = 1;", Source);
+
+        var engine = CreateEngine();
+        engine.Execute(prepared);
+        engine.Execute(prepared);
+
+        var sources = engine.Diagnostics.GetCoverage().Sources.Where(s => s.Name == Source).ToList();
+
+        sources.Should().ContainSingle();
+        sources[0].Program.Should().BeSameAs(prepared.Program);
+    }
+
+    /// <summary>
+    /// Code the engine reached through <c>eval</c> belongs to a program no execution context names, so it is
+    /// reported with none rather than against the script that ran it.
+    /// </summary>
+    [Test]
+    public void EvaluatedCodeIsReportedWithNoProgram()
+    {
+        var engine = CreateEngine();
+        engine.Execute("eval('var a = 1;');", Source);
+
+        var report = engine.Diagnostics.GetCoverage();
+
+        report.Sources.Should().Contain(s => s.Program == null);
+        report.Sources.Where(s => s.Name == Source).Should().AllSatisfy(s => s.Program.Should().NotBeNull());
     }
 
     [Test]

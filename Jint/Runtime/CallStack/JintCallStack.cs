@@ -18,9 +18,17 @@ internal readonly record struct CallStackExecutionContext
     public CallStackExecutionContext(in ExecutionContext context)
     {
         LexicalEnvironment = context.LexicalEnvironment;
+        ScriptOrModule = context.ScriptOrModule;
     }
 
     internal readonly Environment LexicalEnvironment;
+
+    /// <summary>
+    /// The script or module whose code runs in this context, which is what tells a debugger's
+    /// <c>CallFrame</c> which program its position belongs to. One reference copied per pushed frame,
+    /// read by nothing else.
+    /// </summary>
+    internal readonly IScriptOrModule? ScriptOrModule;
 
     internal Environment GetThisEnvironment()
     {

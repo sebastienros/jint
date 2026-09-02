@@ -70,16 +70,24 @@ public sealed record CoverageEntry
 }
 
 /// <summary>
-/// The entries collected for one source, identified by the name that source was parsed under.
+/// The entries collected for one parsed program, under the name that program was parsed with.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>One source is one parse, not one name.</b> Several programs parsed under one name — every
+/// <c>Execute</c> given no source is <c>&lt;anonymous&gt;</c> — are reported as one source each, told apart
+/// by <see cref="Program"/>.
+/// </para>
+/// <para>
 /// <b>Forward-extensible.</b> This type may gain members in any release; it has no public constructor.
+/// </para>
 /// </remarks>
 public sealed record CoverageSource
 {
-    internal CoverageSource(string name, IReadOnlyList<CoverageEntry> entries)
+    internal CoverageSource(string name, Program? program, IReadOnlyList<CoverageEntry> entries)
     {
         Name = name;
+        Program = program;
         Entries = entries;
     }
 
@@ -90,6 +98,23 @@ public sealed record CoverageSource
     /// name is reported as the empty string.
     /// </summary>
     public string Name { get; }
+
+    /// <summary>
+    /// Gets the program these entries were parsed as part of, or <see langword="null"/> when the engine
+    /// knows of none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same reference <see cref="Runtime.Debugger.DebugHandler.BeforeEvaluate"/> hands over and
+    /// <see cref="Engine.AdvancedOperations.TryGetSourceText"/> is keyed by, so a host maps a source to the
+    /// script it announced by reference rather than by matching <see cref="Name"/>.
+    /// </para>
+    /// <para>
+    /// Null for code the engine reached another way — <c>eval</c> and the <c>Function</c> constructor are
+    /// programs no script names — and those entries are grouped by <see cref="Name"/> alone.
+    /// </para>
+    /// </remarks>
+    public Program? Program { get; }
 
     /// <summary>
     /// The executed constructs, ordered by <see cref="CoveragePosition.Index"/> of their start.
@@ -113,7 +138,7 @@ public sealed record CoverageReport
 
     /// <summary>
     /// The sources that contributed at least one executed construct, ordered by
-    /// <see cref="CoverageSource.Name"/> (ordinal).
+    /// <see cref="CoverageSource.Name"/> (ordinal), then by when each parse was first counted.
     /// </summary>
     public IReadOnlyList<CoverageSource> Sources { get; }
 }

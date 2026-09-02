@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Jint.Native;
 using Jint.Native.Function;
+using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
@@ -34,7 +35,7 @@ internal static class ProfileFrames
     internal static readonly IEqualityComparer<object> FunctionIdentity = new IdentityComparer();
 
     /// <summary>
-    /// The name, file and declaration position to show for <paramref name="function"/>.
+    /// The name, file, declaration position and owning program to show for <paramref name="function"/>.
     /// </summary>
     internal static ScriptProfileFrame Describe(Function function, JintFunctionDefinition? definition)
     {
@@ -56,7 +57,15 @@ internal static class ProfileFrames
 
         // Column is reported one-based, matching the column Jint puts in a stack trace; the parser's is an
         // index.
-        return new ScriptProfileFrame(name, file, location.Start.Line, location.Start.Column + 1);
+        // The function's [[ScriptOrModule]] is the script that was active when it was created, which is the
+        // program its body belongs to for everything but eval and the Function constructor — and those two
+        // are what OwningProgramOf declines rather than mis-attributing.
+        return new ScriptProfileFrame(
+            name,
+            file,
+            location.Start.Line,
+            location.Start.Column + 1,
+            function._scriptOrModule.OwningProgramOf(node));
     }
 
     /// <summary>

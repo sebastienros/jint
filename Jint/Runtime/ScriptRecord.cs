@@ -5,4 +5,7 @@ internal sealed record ScriptRecord(
     Script EcmaScriptCode,
     string? Location,
     ParsingConstraints ParsingConstraints,
-    ParserOptions? ParserOptions) : IScriptOrModule;
+    ParserOptions? ParserOptions) : IScriptOrModule
+{
+    Program IScriptOrModule.Program => EcmaScriptCode;
+}

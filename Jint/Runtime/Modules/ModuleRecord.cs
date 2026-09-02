@@ -25,8 +25,15 @@ public abstract class ModuleRecord : JsValue, IScriptOrModule
 
     ParsingConstraints IScriptOrModule.ParsingConstraints => ParsingConstraints;
     ParserOptions IScriptOrModule.ParserOptions => ParserOptions;
+    Program IScriptOrModule.Program => Source;
     internal virtual ParsingConstraints ParsingConstraints => default;
     internal virtual ParserOptions ParserOptions => null;
+
+    /// <summary>
+    /// The parsed module body, or null for a module with no source of its own — a synthetic module, a
+    /// builder module, and any host record that is not text.
+    /// </summary>
+    internal virtual Module Source => null;
 
     /// <summary>
     /// [[LoadedModules]] — the module records this one has already resolved a specifier to. Per

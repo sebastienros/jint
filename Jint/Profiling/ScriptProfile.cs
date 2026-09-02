@@ -12,9 +12,10 @@ namespace Jint.Profiling;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Immutable, engine-independent and safe to hand to another thread: it holds strings and numbers only.
-/// In particular it retains no <c>Function</c>, no AST and no <see cref="Engine"/>, so keeping a profile
-/// around does not keep the engine that produced it alive.
+/// Immutable and engine-independent: it retains no <c>Function</c>, no <c>JsValue</c> and no
+/// <see cref="Engine"/>, so keeping a profile around does not keep the engine that produced it alive. A
+/// frame does name the <see cref="ScriptProfileFrame.Program"/> it was parsed from, which is an identity to
+/// compare and not a tree to walk from another thread.
 /// </para>
 /// <para>
 /// <see cref="WriteSpeedscopeJson(TextWriter)"/> renders it in the

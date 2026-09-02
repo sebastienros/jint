@@ -35,13 +35,20 @@ internal sealed class CoverageCollector
 {
     private sealed class Counter
     {
-        internal Counter(CoverageEntryKind kind, bool reported)
+        internal Counter(CoverageEntryKind kind, bool reported, Program? program)
         {
             Kind = kind;
             Reported = reported;
+            Program = program;
         }
 
         internal readonly CoverageEntryKind Kind;
+
+        /// <summary>
+        /// The program the node was parsed as part of, read once when the counter is made: a node belongs
+        /// to one program for as long as it exists, so this never has to be re-asked.
+        /// </summary>
+        internal readonly Program? Program;
 
         /// <summary>
         /// False for a node the granularity excludes. Such a node still gets an entry here so the
@@ -75,7 +82,7 @@ internal sealed class CoverageCollector
     /// one of the three things that arms it, so this runs for every executed statement and every function-body
     /// entry.
     /// </summary>
-    internal void Record(StatementOrExpression node)
+    internal void Record(StatementOrExpression node, Engine engine)
     {
         if (_counters.TryGetValue(node, out var counter))
         {
@@ -83,14 +90,19 @@ internal sealed class CoverageCollector
             return;
         }
 
-        AddCounter(node);
+        AddCounter(node, engine);
     }
 
+    /// <summary>
+    /// Makes the counter for a node seen for the first time, and settles which program it belongs to while
+    /// the context that is running it is still the top of the stack.
+    /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private void AddCounter(Node node)
+    private void AddCounter(Node node, Engine engine)
     {
         var reported = TryClassify(node, out var kind);
-        _counters[node] = new Counter(kind, reported) { Hits = 1 };
+        var program = engine.ExecutionContext.ScriptOrModule.OwningProgramOf(node);
+        _counters[node] = new Counter(kind, reported, program) { Hits = 1 };
     }
 
     /// <summary>
@@ -134,7 +146,7 @@ internal sealed class CoverageCollector
 
     internal CoverageReport BuildReport()
     {
-        var bySource = new Dictionary<string, List<Raw>>(StringComparer.Ordinal);
+        var bySource = new Dictionary<SourceKey, Group>(SourceKeyComparer.Instance);
 
         foreach (var pair in _counters)
         {
@@ -146,39 +158,87 @@ internal sealed class CoverageCollector
 
             var node = pair.Key;
             var location = node.Location;
-            var name = location.SourceFile ?? string.Empty;
+            var key = new SourceKey(counter.Program, location.SourceFile ?? string.Empty);
 
-            if (!bySource.TryGetValue(name, out var raws))
+            if (!bySource.TryGetValue(key, out var group))
             {
-                bySource[name] = raws = new List<Raw>();
+                bySource[key] = group = new Group(bySource.Count);
             }
 
-            raws.Add(new Raw(
+            group.Raws.Add(new Raw(
                 counter.Kind,
                 new CoveragePosition(location.Start.Line, location.Start.Column, node.Start),
                 new CoveragePosition(location.End.Line, location.End.Column, node.End),
                 counter.Hits));
         }
 
-        var sources = new List<CoverageSource>(bySource.Count);
+        var sources = new List<(SourceKey Key, Group Group)>(bySource.Count);
         foreach (var pair in bySource)
         {
-            sources.Add(new CoverageSource(pair.Key, Coalesce(pair.Value)));
+            sources.Add((pair.Key, pair.Value));
         }
 
-        sources.Sort(static (a, b) => string.CompareOrdinal(a.Name, b.Name));
-        return new CoverageReport(sources);
+        // By name first, which is the order that reads; several programs parsed under one name are then in
+        // the order they were first counted, so the report stays reproducible without inventing an order
+        // between two trees that have none.
+        sources.Sort(static (a, b) =>
+        {
+            var result = string.CompareOrdinal(a.Key.Name, b.Key.Name);
+            return result != 0 ? result : a.Group.Ordinal.CompareTo(b.Group.Ordinal);
+        });
+
+        var reported = new List<CoverageSource>(sources.Count);
+        foreach (var source in sources)
+        {
+            reported.Add(new CoverageSource(source.Key.Name, source.Key.Program, Coalesce(source.Group.Raws)));
+        }
+
+        return new CoverageReport(reported);
+    }
+
+    /// <summary>
+    /// What one <see cref="CoverageSource"/> is made of: the program the nodes were parsed as part of, and
+    /// the name they carry. Both, because a program the engine cannot name still has a source name to
+    /// report under, and two such parses must not be folded into one.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct SourceKey(Program? Program, string Name);
+
+    private sealed class Group(int ordinal)
+    {
+        internal readonly int Ordinal = ordinal;
+        internal readonly List<Raw> Raws = new();
+    }
+
+    /// <summary>
+    /// Reference identity for the program half of a key, spelt out rather than left to the default
+    /// comparer: two abstract syntax trees with identical contents are two parses, and one source name
+    /// covering both is exactly the case this key exists to keep apart.
+    /// </summary>
+    private sealed class SourceKeyComparer : IEqualityComparer<SourceKey>
+    {
+        internal static readonly SourceKeyComparer Instance = new();
+
+        public bool Equals(SourceKey x, SourceKey y)
+            => ReferenceEquals(x.Program, y.Program) && string.Equals(x.Name, y.Name, StringComparison.Ordinal);
+
+        public int GetHashCode(SourceKey obj)
+        {
+            var program = obj.Program is null ? 0 : RuntimeHelpers.GetHashCode(obj.Program);
+            return (program * 397) ^ StringComparer.Ordinal.GetHashCode(obj.Name);
+        }
     }
 
     /// <summary>
     /// Orders the raw counts and sums the ones that name the same construct.
     /// </summary>
     /// <remarks>
-    /// The counters are keyed on AST node identity, and a host that re-parses the same text — every
-    /// <c>engine.Execute(code)</c> does — gets a fresh node per parse for the same construct. Reporting those
-    /// separately would answer "this statement ran once, ten times over" instead of "ten times", so a source
-    /// position counted through several parses is folded into one entry here. Within a single parse the fold
-    /// is a no-op: no two distinct nodes of the same kind share a range.
+    /// The counters are keyed on AST node identity, and several parses can land in one group: the entries of
+    /// every program the engine cannot name — <c>eval</c> and the <c>Function</c> constructor — are grouped
+    /// by source name alone, and a host evaluating the same string twice there gets a fresh node per parse
+    /// for the same construct. Reporting those separately would answer "this statement ran once, twice over"
+    /// instead of "twice". Within one program the fold is a no-op: no two distinct nodes of the same kind
+    /// share a range.
     /// </remarks>
     private static List<CoverageEntry> Coalesce(List<Raw> raws)
     {

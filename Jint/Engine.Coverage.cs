@@ -36,12 +36,12 @@ public partial class Engine
         /// not double-counted by a resumption; execution picks up where it suspended.
         /// </para>
         /// <para>
-        /// <b>Re-parsing the same source.</b> The counters are keyed on AST node identity, so a host calling
-        /// <see cref="Engine.Execute(string, string, ScriptParsingOptions)"/> with the same text twice counts two different node
-        /// sets for one construct. The report folds those together by source name and position, so such a host
-        /// reads the total rather than one entry per parse — and a host that caches a
-        /// <see cref="Prepared{TProgram}"/> (which it should) never creates the situation in the first place.
-        /// The corollary is that two genuinely different sources must not share a name.
+        /// <b>Re-parsing the same source.</b> A source is one parse, so a host calling
+        /// <see cref="Engine.Execute(string, string, ScriptParsingOptions)"/> with the same text twice reads two
+        /// <see cref="CoverageSource"/>s of one name, told apart by <see cref="CoverageSource.Program"/> — and a
+        /// host that caches a <see cref="Prepared{TProgram}"/> (which it should) never creates the situation in
+        /// the first place. Only entries of a program the engine cannot name — <c>eval</c>, the <c>Function</c>
+        /// constructor — are folded together by name and position.
         /// </para>
         /// <para>
         /// <b>What is not in the report.</b> Only constructs that actually ran. A statement with zero hits has

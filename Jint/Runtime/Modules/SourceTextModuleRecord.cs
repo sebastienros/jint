@@ -60,6 +60,7 @@ internal class SourceTextModuleRecord : CyclicModuleRecord
     private readonly ParsingConstraints _parsingConstraints;
     internal override ParsingConstraints ParsingConstraints => _parsingConstraints;
     internal override ParserOptions ParserOptions => _parserOptions;
+    internal override Module Source => _source;
     private ExecutionContext _context;
     private ObjectInstance? _importMeta;
     private readonly List<ImportEntry>? _importEntries;
