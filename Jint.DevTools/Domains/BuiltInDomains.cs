@@ -32,11 +32,13 @@ internal static class BuiltInDomains
     /// <param name="version">What <c>Browser.getVersion</c> answers.</param>
     /// <param name="closeRequested">What to run when a client sends <c>Browser.close</c>, if anything.</param>
     /// <param name="targets">The <c>Target</c> domain the conversation keeps its discovery state on.</param>
+    /// <param name="server">The server, so a window can be described from the target it is asked about.</param>
     internal static DevToolsSession RegisterBrowserDomains(
         DevToolsSession session,
         GetVersionResponse version,
         Action? closeRequested,
-        TargetDomain targets)
+        TargetDomain targets,
+        DevToolsServer? server = null)
     {
         if (session is null)
         {
@@ -45,7 +47,7 @@ internal static class BuiltInDomains
 
         return session
             .Register(new SchemaDomain())
-            .Register(new BrowserDomain(version, closeRequested))
+            .Register(new BrowserDomain(version, closeRequested, server))
             .Register(targets);
     }
 
@@ -86,9 +88,9 @@ internal static class BuiltInDomains
 
         if (browser is not null)
         {
-            // Clients walk down the target tree by sending setAutoAttach on every session they are given.
-            // A target here has no children, so the nested copy answers it as the success it is.
-            session.Register(new TargetDomain(browser, nested: true));
+            // Clients walk down the target tree by sending setAutoAttach on every session they are given,
+            // and one kind of target really does have children: a tab, which is how Puppeteer reaches a page.
+            session.Register(new TargetDomain(browser, nested: true, target));
         }
 
         return new TargetDomains(target, runtime, console, log, debugger, profiler);

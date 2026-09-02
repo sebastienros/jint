@@ -46,18 +46,32 @@ public class ProtocolManifestTests
 
         var browser = server.OpenBrowserSession(new InProcessConnection());
         var attachment = browser.Session.CreateChild("S1");
-        BuiltInDomains.RegisterTargetDomains(attachment, target, browser);
+        target.RegisterDomains(attachment, browser);
 
         var domains = new List<DevToolsDomain>(browser.Session.Domains);
         domains.AddRange(attachment.Domains);
         return domains;
     }
 
+    /// <summary>
+    /// The domains a <i>page</i> target answers, which this suite has no target for.
+    /// </summary>
+    /// <remarks>
+    /// <b>They are in the manifest and they are not answered here, and both halves are deliberate.</b> A
+    /// page-level command belongs to a target that has a document — <c>Jint.Browser</c>, which is AngleSharp
+    /// plus Jint — and an engine target answers every one of them with <c>-32601</c>, which is what
+    /// <c>HandshakeReplayTests</c> pins. The same property this test holds for the engine-level domains is
+    /// held for these by <c>Jint.Tests.Browser</c>'s own manifest test, over a real page target; naming them
+    /// here rather than skipping anything unrecognized is what keeps the two halves adding up to the whole
+    /// manifest.
+    /// </remarks>
+    private static readonly string[] PageDomains = ["Page", "Emulation", "Network", "Fetch", "Performance", "Audits", "DOM"];
+
     [Test]
     public void EveryImplementedMethodTheManifestNamesIsOverridden()
     {
         var notOverridden = ProtocolManifest.ImplementedMethods
-            .Where(method => !IsOverridden(method))
+            .Where(method => !IsPageLevel(method) && !IsOverridden(method))
             .ToArray();
 
         Assert.That(
@@ -126,6 +140,34 @@ public class ProtocolManifestTests
                 "Schema.getDomains reports '{0}', so something in it has to answer",
                 reported.Name);
         }
+    }
+
+    /// <summary>
+    /// The page-level half of the manifest is answered somewhere else, and this test says where.
+    /// </summary>
+    [Test]
+    public void EveryPageLevelMethodIsCheckedByTheBrowserSuite()
+    {
+        var unanswered = ProtocolManifest.ImplementedMethods
+            .Where(method => IsPageLevel(method) && IsOverridden(method))
+            .ToArray();
+
+        Assert.That(
+            unanswered.Length == 0,
+            $"""
+            {unanswered.Length} method(s) of a page-level domain are overridden on an engine-level session.
+            A page-level command belongs to a target that has a document; answering one here would answer it
+            for a target with no page to answer about:
+
+            {string.Join(Environment.NewLine, unanswered.Select(method => "  " + method))}
+            """);
+    }
+
+    private static bool IsPageLevel(string qualified)
+    {
+        var separator = qualified.IndexOf('.', StringComparison.Ordinal);
+        var domain = qualified.Substring(0, separator);
+        return Array.Exists(PageDomains, name => string.Equals(name, domain, StringComparison.Ordinal));
     }
 
     private static bool IsOverridden(string qualified)

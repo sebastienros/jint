@@ -145,6 +145,12 @@ Four consequences:
   one realm per document, so a world is a name for it and not an isolate; it buys a client its own
   identifier to address and none of the isolation the name promises, and it lasts until the next navigation.
 
+**A target may have children, and one kind does.** `DevToolsTarget.Children` is empty for everything but a
+`tab`: modern Chrome puts one between the browser and each page, Puppeteer's browser-level `setAutoAttach`
+filter is *everything but a page*, and it reaches a page by sending `setAutoAttach` again on the tab's
+session. So the nested `Target` domain attaches its own target's children rather than answering an empty
+success. `Jint.Browser` is what publishes tabs; found by driving the client.
+
 `ITargetHost` is what mints a target when a client asks for one. `DevToolsServer.UseHost` registers it, and
 `Target.createTarget` / `closeTarget` / `createBrowserContext` / `disposeBrowserContext` / `getBrowserContexts`
 route through it; with none registered they behave exactly as they did. A target created while the asking

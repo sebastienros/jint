@@ -127,19 +127,55 @@ drives, and every `MediaQueryList` the page holds recomputes and fires `change` 
 `MediaQueryListEvent`, because `e => e.matches` is how the listener is written — only if its own answer moved.
 No `resize` event fires at the window: HTML fires that from update-the-rendering, and there is none.
 
+### The protocol layer
+
+`DevTools/` is what makes a page drivable by Puppeteer, Playwright and their .NET ports. The public surface
+is one method — `DevToolsServerExtensions.AddBrowser(server, browser)`. Read
+[`Jint.DevTools/AGENTS.md`](../Jint.DevTools/AGENTS.md) first: the thread rule, the mailbox, the
+target/runtime split and the manifest are there and none of it is repeated here.
+
+- **A target is a page and a runtime is a document.** `PageTarget : DevToolsTarget` holds what a client keeps
+  addressing — the identifier, the frame it names, the bindings, the new-document scripts, the emulation —
+  and the engine under it is replaced on every navigation. The frame identifier **is** the target
+  identifier: there is one scripted frame per page, and a client matching the frame it navigated against the
+  context it evaluates in gets one string from both.
+- **`IPageObserver` is the only seam, and a page has exactly one observer.** Every event a client hears is
+  one of its calls turned into a protocol event. `DocumentCreated` runs after the window installer and
+  before the parse, on the loop, which is what makes it the place to replace the engine, re-install the
+  bindings and run `addScriptToEvaluateOnNewDocument` — all of which have to be in place before the
+  document's first inline script.
+- **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
+  (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
+- **Tab targets exist because Puppeteer requires them.** Its browser-level `setAutoAttach` filter excludes
+  `page`; it reaches a page by sending `setAutoAttach` again on the tab's session. `TabTarget` answers about
+  the page's engine rather than one of its own. Found by driving the client, not by reading the protocol.
+- **Three divergences, each stated where it is made.** An isolated world is an alias for the document's own
+  realm; a dialog does not block the page, so `handleJavaScriptDialog` sets the standing decision the next
+  one reads; and `captureScreenshot` / `printToPDF` answer `-32000` with a sentence naming the text and
+  markdown alternatives, because this browser renders no pixels.
+- **What is accepted and not yet effective says so, in place.** `Emulation`'s touch, focus, media and
+  user-agent overrides, `Network.setCacheDisabled`/`setExtraHTTPHeaders`, `Fetch.enable`,
+  `Performance.enable` and `Audits.enable` are answered because a refusal fails an ordinary connection, and
+  each names the campaign item that makes it real. `Fetch.enable` must never stall a navigation.
+
+`Jint.Tests.Browser/DevTools/` holds three checks: the handshake replay of what four recorded clients send
+before their first script result, `PageProtocolManifestTests` (the page half of the property
+`Jint.Tests.DevTools` holds for the engine half), and the PuppeteerSharp suite, the only test here that can
+claim client compatibility.
+
 ### The seams promoted later
 
-The package publishes exactly one thing: the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
+The package publishes the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
 `BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` and what a navigation
-takes and answers — and `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a
-change to it a reviewable diff. **Nothing public takes or answers an AngleSharp node**, which is why
-`Page.SubmitFormAsync` takes a selector; R2 reaches the same algorithm through the internal
-`FormSubmitter.Submit` from inside the loop. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
-until the protocol layer has settled what a host actually holds. `DomBindings`, `DomRealm`,
-`DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, and each would arrive
-with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is
-why it is named in `InternalsVisibleTo` and why every test of the binding is written against the internal
-surface rather than around it.
+takes and answers — plus `DevToolsServerExtensions.AddBrowser`, and
+`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a change to it a reviewable
+diff. **Nothing public takes or answers an AngleSharp node**, which is why `Page.SubmitFormAsync` takes a
+selector; R2 reaches the same algorithm through the internal `FormSubmitter.Submit` from inside the loop.
+Everything else is internal, and that is a decision with a date on it. `DomBindings`, `DomRealm`,
+`DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, each with XML docs
+and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is why it is
+named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
+rather than around it.
 
 ### Accessibility and extraction have no layout
 

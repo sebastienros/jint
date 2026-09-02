@@ -96,6 +96,16 @@ mints a `sessionId` that then rides every message; `flatten: false` is refused (
 `Debugger`-enabled session per target at a time; `Runtime` is shared. This is a documented divergence from V8's
 per-session breakpoints.
 
+**A page target is a target that outlives its engine.** `DevToolsTarget` carries the identity a client keeps
+addressing and `TargetRuntime` carries one engine and everything that dies with it — the mailbox, the
+remote-object table, the script registry, the console journal, the execution context — so committing a
+document replaces the lot through `DevToolsTarget.Replace` and every domain hears about it. The
+execution-context counter is the target's, so a second document's default context is `2` and never `1` again
+and a stale identifier is refused rather than resolved. `ITargetHost` is what mints a target when a client
+sends `Target.createTarget`; with none registered every target command behaves as it did.
+`Jint.Browser`'s `AddBrowser` registers one, and publishes a **`tab`** target in front of each page because
+Puppeteer's browser-level `setAutoAttach` filter excludes pages and reaches one through its tab.
+
 The transport is `TcpListener` + an HTTP/1.1 upgrade + `WebSocket.CreateFromStream` — no `HttpListener`, no
 ASP.NET dependency — behind `IDevToolsConnection`, with an `InProcessConnection` (string in, string out) for tests
 and embedding.

@@ -252,6 +252,32 @@ is rebound to the new id afterwards, or every step among its siblings would beco
 is always queued, never inline; and navigating away from the initial `about:blank` is a **replace**, so
 `history.length` counts what a browser counts.
 
+### The one observer, and what it is owed
+
+`Runtime/IPageObserver` is the seam the protocol layer hangs off, and **a page has exactly one observer**,
+set through `Page.Observe` from the loop thread so that a navigation cannot slip between the registration and
+the first call. Everything a client is told about a page is one of its calls; nothing else reads it.
+
+- **`DocumentCreated` is the load-bearing one.** It fires in `LoadInto`, after the engine is built and its
+  window installed and **before `ParserDriver.Load`**, on the loop — the only moment at which a watcher can
+  replace its engine, re-install what a client added and run what a client asked to run on every new
+  document, all of which must be in place before the document's first script.
+- **A `loaderId` names one committed document**, minted when the navigation starts so that
+  `NavigationStarted` and every `Phase` of that load agree, and carried by a same-document move because the
+  document did not change. Each is prefixed per page, so two pages never mint the same.
+- **`Phase` is the driver's three, composed with the caller's.** `LoadInto` wraps whatever `onPhase` a
+  navigation passed, so a watcher hears `Committed`, `DomContentLoaded` and `Loaded` at exactly the points
+  `WaitUntilState` answers at — on the loop, because that is where the driver raises them.
+- **`DialogOpening` runs before the host's own `Page.DialogOpened` handler and `DialogClosed` after it.** A
+  watcher answers from a decision it already holds — the page has no thread to block, and the thread a
+  protocol client's answer would arrive on is the one inside the script that called `alert` — and the host,
+  which owns the page, overrides it.
+- **`NetworkIdle` is timed off the loop**, on a timer of the page's own, because a page with nothing
+  scheduled never turns its loop and would never notice the quiet. Armed at `Loaded`, cancelled by the next
+  navigation or by closing.
+- **Nothing an observer is handed may be kept.** A `PageRuntime` belongs to the document that is loading and
+  a `DialogEventArgs` to the call that raised it.
+
 ### The parser driver, and the baton
 
 `Runtime/Parsing/` is the parse: `ParserDriver` owns it, `ParserBaton` is the hand-off, `PageResourceLoader`

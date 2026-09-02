@@ -29,7 +29,7 @@ internal sealed class BrowserSession
         Session = new DevToolsSession(connection);
         _targets = new TargetDomain(this, nested: false);
 
-        BuiltInDomains.RegisterBrowserDomains(Session, server.Version, closeRequested, _targets);
+        BuiltInDomains.RegisterBrowserDomains(Session, server.Version, closeRequested, _targets, server);
     }
 
     /// <summary>Gets the server whose targets this session sees.</summary>

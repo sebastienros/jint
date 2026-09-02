@@ -96,6 +96,7 @@ public sealed class BrowserContext : IAsyncDisposable
             ObjectDisposedException.ThrowIf(true, this);
         }
 
+        Browser.OnPageOpened(this, page);
         return page;
     }
 

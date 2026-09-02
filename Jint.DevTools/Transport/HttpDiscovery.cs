@@ -102,7 +102,12 @@ internal static class HttpDiscovery
             writer.WriteStartArray();
             foreach (var target in server.AllTargets)
             {
-                WriteTarget(writer, authority, target);
+                // Chrome's own /json/list leaves tab targets out: a tab is a handle a protocol client
+                // attaches through, and a person reading this document is looking for pages.
+                if (!string.Equals(target.Type, "tab", StringComparison.Ordinal))
+                {
+                    WriteTarget(writer, authority, target);
+                }
             }
 
             writer.WriteEndArray();

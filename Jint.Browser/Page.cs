@@ -52,6 +52,30 @@ public sealed partial class Page : IAsyncDisposable
     /// </summary>
     private readonly Dictionary<string, StorageProvider> _sessionStores = new(StringComparer.Ordinal);
 
+    /// <summary>How long the network has to stay quiet before a load is called idle.</summary>
+    /// <remarks>
+    /// Chrome's own half-second, and the number every client's <c>waitUntil: "networkidle"</c> is written
+    /// against. It is checked on a timer of the page's own rather than on the loop, because a page with
+    /// nothing scheduled does not turn its loop at all and would never notice the quiet.
+    /// </remarks>
+    private static readonly TimeSpan NetworkQuietPeriod = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>How often the quiet period is looked at once a document has loaded.</summary>
+    private static readonly TimeSpan NetworkQuietPoll = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// What every one of this page's loader identifiers starts with, so that two pages never mint the same
+    /// one. A client holds a <c>loaderId</c> across a navigation and compares it with the next document's.
+    /// </summary>
+    private readonly string _loaderIdPrefix = Guid.NewGuid().ToString("N").ToUpperInvariant() + ".";
+
+    private readonly System.Threading.Lock _idleGate = new();
+    private Timer? _idleTimer;
+    private string _idleLoaderId = "";
+
+    private volatile IPageObserver? _observer;
+    private volatile string _loaderId = "";
+    private volatile string _pendingLoaderId = "";
     private volatile PageLoad? _load;
     private volatile string _url = "about:blank";
     private volatile string _referrer = "";
@@ -264,7 +288,72 @@ public sealed partial class Page : IAsyncDisposable
         }).ConfigureAwait(false);
 
         FailPendingNavigationWaiters();
+        CancelNetworkIdle();
         _loop.Dispose();
+
+        _observer?.Closed();
+    }
+
+    /// <summary>
+    /// Watches for the network to go quiet after a document has loaded, and says so once.
+    /// </summary>
+    /// <remarks>
+    /// Armed at <see cref="NavigationPhase.Loaded"/> and cancelled by the next navigation or by closing. The
+    /// timer is the page's own rather than a job on its loop, because a page with nothing scheduled never
+    /// turns that loop and would never notice the quiet; nothing the callback touches belongs to an engine.
+    /// </remarks>
+    private void ArmNetworkIdle(string loaderId)
+    {
+        lock (_idleGate)
+        {
+            _idleLoaderId = loaderId;
+            _idleTimer ??= new Timer(static state => ((Page) state!).CheckNetworkIdle(), this, Timeout.Infinite, Timeout.Infinite);
+            _idleTimer.Change(NetworkQuietPoll, NetworkQuietPoll);
+        }
+    }
+
+    private void CancelNetworkIdle()
+    {
+        lock (_idleGate)
+        {
+            _idleLoaderId = "";
+            _idleTimer?.Dispose();
+            _idleTimer = null;
+        }
+    }
+
+    private void CheckNetworkIdle()
+    {
+        string loaderId;
+        lock (_idleGate)
+        {
+            loaderId = _idleLoaderId;
+        }
+
+        if (loaderId.Length == 0 || _closed)
+        {
+            return;
+        }
+
+        var (inFlight, lastChange) = _requests.Activity;
+        if (inFlight > 0 || System.Diagnostics.Stopwatch.GetElapsedTime(lastChange) < NetworkQuietPeriod)
+        {
+            return;
+        }
+
+        lock (_idleGate)
+        {
+            if (!string.Equals(_idleLoaderId, loaderId, StringComparison.Ordinal))
+            {
+                // A navigation re-armed it while this tick was running; that document's quiet is not this one's.
+                return;
+            }
+
+            _idleLoaderId = "";
+            _idleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+
+        _observer?.NetworkIdle(loaderId);
     }
 
     /// <inheritdoc />
@@ -283,6 +372,38 @@ public sealed partial class Page : IAsyncDisposable
     /// </remarks>
     internal Task<T> RunOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
 
+    /// <summary>
+    /// Registers the one thing that hears what the page does, which is what a protocol target is.
+    /// </summary>
+    /// <param name="observer">The watcher, or <see langword="null"/> to stop watching.</param>
+    /// <remarks>
+    /// One at a time, because a page has one target. Set it from the page loop — the observer is called from
+    /// there and the whole point is that a navigation cannot slip between the registration and the first
+    /// call.
+    /// </remarks>
+    internal void Observe(IPageObserver? observer) => _observer = observer;
+
+    /// <summary>The watcher, for the navigation half of this type.</summary>
+    internal IPageObserver? Observer => _observer;
+
+    /// <summary>The identifier of the document currently loaded, which every lifecycle signal carries.</summary>
+    internal string LoaderId => _loaderId;
+
+    /// <summary>The identifier the navigation now in flight will give the document it produces.</summary>
+    /// <remarks>
+    /// What a navigation that produced nothing is reported against: a client is told a navigation started
+    /// under one identifier, and a failure has to name that one rather than the document still showing.
+    /// </remarks>
+    internal string PendingLoaderId => _pendingLoaderId;
+
+    /// <summary>The page's viewport, which is a document's rather than the browser's once one overrides it.</summary>
+    internal Task<Viewport> ViewportAsync()
+        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Viewport ?? _options.Viewport);
+
+    /// <summary>Overrides what the page believes its window to be, announcing the change to its media queries.</summary>
+    internal Task SetViewportAsync(Viewport viewport)
+        => _loop.PostAsync(engine => PageRuntime.Find(engine)?.SetViewport(viewport));
+
     /// <summary>The context's network position, which owns the cookie jar every document read shares.</summary>
     internal PageNetwork Network => _network;
 
@@ -299,7 +420,7 @@ public sealed partial class Page : IAsyncDisposable
 
             // The loop built an engine on the way up, and it is already the about:blank engine this load
             // wants, so the first document reuses it rather than replacing a realm nothing has run in.
-            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null)).ConfigureAwait(false);
+            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null, page.NextLoaderId())).ConfigureAwait(false);
             await page._loop.PostAsync(page.RecordFirstHistoryEntry).ConfigureAwait(false);
         }
         catch
@@ -319,7 +440,15 @@ public sealed partial class Page : IAsyncDisposable
     internal DialogEventArgs RaiseDialog(DialogKind kind, string message, string defaultPromptText)
     {
         var args = new DialogEventArgs(kind, message, defaultPromptText);
+
+        // The watcher first, so that a protocol client's standing decision is the default the host's handler
+        // starts from -- and the host second, because a host that attached a handler owns the answer. What
+        // the watcher is then told about is what the page is actually about to be given.
+        var observer = _observer;
+        observer?.DialogOpening(args);
         DialogOpened?.Invoke(this, args);
+        observer?.DialogClosed(args);
+
         return args;
     }
 

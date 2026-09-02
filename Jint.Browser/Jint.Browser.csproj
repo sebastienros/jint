@@ -42,6 +42,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
+    <!--
+      The page-level protocol domains derive from the generated dispatch bases in Jint.DevTools, and a page
+      target is one of its targets. The dependency is one way and stays that way: Jint.DevTools works for a
+      host with no pages at all, and nothing in it knows what a document is.
+    -->
+    <ProjectReference Include="..\Jint.DevTools\Jint.DevTools.csproj" />
   </ItemGroup>
 
   <ItemGroup>

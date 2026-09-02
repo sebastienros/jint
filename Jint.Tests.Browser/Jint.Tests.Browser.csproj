@@ -27,6 +27,13 @@
 
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" />
+    <!--
+      The only client library in this suite, and the only test in it that can claim client compatibility: it
+      connects to an in-process server over a real socket, opens a page and drives it. It launches nothing and
+      downloads nothing. The version is the one tools/devtools-protocol/handshakes/puppeteersharp-dotnet.json
+      was recorded with, so what it sends here is what that file says it sends.
+    -->
+    <PackageReference Include="PuppeteerSharp" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />

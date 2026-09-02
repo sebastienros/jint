@@ -110,7 +110,20 @@ public abstract class DevToolsTarget : ICommandGateway
     internal BindingRegistry Bindings { get; } = new();
 
     /// <summary>Gets the engine a client is evaluating in, and everything that dies with it.</summary>
-    internal TargetRuntime Runtime => _runtime;
+    /// <remarks>
+    /// Virtual because a target need not own one: a <c>tab</c> target is a handle a client attaches to on its
+    /// way to the page inside it, and it answers about that page's engine rather than about one of its own.
+    /// </remarks>
+    internal virtual TargetRuntime Runtime => _runtime;
+
+    /// <summary>Gets the targets this one is a parent of, which is how a client reaches them.</summary>
+    /// <remarks>
+    /// <b>Empty for everything but a <c>tab</c>.</b> Modern Chrome puts a tab target between the browser and
+    /// each page, and Puppeteer is written against that: it excludes <c>page</c> from its browser-level
+    /// <c>setAutoAttach</c> filter and reaches a page by sending <c>setAutoAttach</c> again on the tab's own
+    /// session. A server with no tab targets is one Puppeteer connects to and then never finds a page in.
+    /// </remarks>
+    internal virtual IReadOnlyList<DevToolsTarget> Children => [];
 
     /// <summary>Gets whether work posted to the target is still held for a client that has not released it.</summary>
     internal bool IsWaitingForDebugger => Volatile.Read(ref _waitingForDebugger) != 0;
@@ -129,6 +142,18 @@ public abstract class DevToolsTarget : ICommandGateway
 
     /// <summary>Gets the token that is cancelled when the target stops running, if it has one.</summary>
     internal virtual CancellationToken StoppingToken => CancellationToken.None;
+
+    /// <summary>The size a target with nothing to say about a window reports.</summary>
+    /// <remarks>The browser package's own default viewport, so the two answer alike for a page.</remarks>
+    internal static (int Width, int Height) DefaultWindowSize => (1280, 720);
+
+    /// <summary>Gets the size <c>Browser.getWindowForTarget</c> reports for this target.</summary>
+    /// <remarks>
+    /// There is no window. What a client is told is the size the target believes it has — a page's viewport,
+    /// which <c>Emulation.setDeviceMetricsOverride</c> really does change — so that reading the window back
+    /// after setting it answers what was set.
+    /// </remarks>
+    internal virtual (int Width, int Height) WindowSize => DefaultWindowSize;
 
     /// <summary>Gets what to tell when this target's title or location changes, set by the server.</summary>
     internal Action<DevToolsTarget>? InfoChanged { get; set; }
@@ -153,7 +178,7 @@ public abstract class DevToolsTarget : ICommandGateway
     /// replaced under the target on every navigation.
     /// </remarks>
     ValueTask<string> ICommandGateway.DispatchAsync(DevToolsSession session, ProtocolRequest request, CommandContext context)
-        => _runtime.Dispatcher.DispatchAsync(session, request, context);
+        => Runtime.Dispatcher.DispatchAsync(session, request, context);
 
     /// <summary>Registers what one attachment to this target answers, on <paramref name="session"/>.</summary>
     /// <param name="session">The session node the attachment answers on.</param>
@@ -260,7 +285,7 @@ public abstract class DevToolsTarget : ICommandGateway
     /// </exception>
     internal void RequireContext(int? contextId)
     {
-        if (contextId is not { } id || id == _runtime.ExecutionContextId)
+        if (contextId is not { } id || id == Runtime.ExecutionContextId)
         {
             return;
         }
@@ -313,7 +338,7 @@ public abstract class DevToolsTarget : ICommandGateway
     /// <summary>Journals one <c>console</c> call and tells everyone attached, on the engine thread.</summary>
     internal void Record(in ConsoleRecord record)
     {
-        var runtime = _runtime;
+        var runtime = Runtime;
         var entry = runtime.Console.Add(in record, UnixMilliseconds(), runtime.RemoteObjects);
 
         foreach (var observer in Observers)
@@ -348,7 +373,7 @@ public abstract class DevToolsTarget : ICommandGateway
         }
 
         DebuggerWaitEnded?.Invoke();
-        _runtime.Dispatcher.ScheduleDrain();
+        Runtime.Dispatcher.ScheduleDrain();
     }
 
     /// <summary>Holds every posted host work until a client sends <c>Runtime.runIfWaitingForDebugger</c>.</summary>

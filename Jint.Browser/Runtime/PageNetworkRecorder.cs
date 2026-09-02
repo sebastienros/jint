@@ -37,9 +37,27 @@ internal sealed class PageNetworkRecorder : FetchObserver
     private readonly int _max;
     private long _syntheticId;
 
+    private long _lastChange = System.Diagnostics.Stopwatch.GetTimestamp();
+
     internal PageNetworkRecorder(int max)
     {
         _max = max;
+    }
+
+    /// <summary>How many requests are still in flight, and when the last one stopped being.</summary>
+    /// <remarks>
+    /// What "the network is quiet" is computed from. Both are written from a transport thread under the same
+    /// lock the log is, and read from wherever the quiet period is being timed; neither touches an engine.
+    /// </remarks>
+    internal (int InFlight, long LastChangeTicks) Activity
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return (_live.Count, _lastChange);
+            }
+        }
     }
 
     /// <summary>Every request the page has made, oldest first.</summary>
@@ -155,6 +173,7 @@ internal sealed class PageNetworkRecorder : FetchObserver
 
             var request = new PageRequest(id, initiator, url.AbsoluteUri, method);
             _live[id] = request;
+            _lastChange = System.Diagnostics.Stopwatch.GetTimestamp();
             _requests.Enqueue(request);
             Trim();
         }
@@ -191,7 +210,11 @@ internal sealed class PageNetworkRecorder : FetchObserver
     {
         lock (_gate)
         {
-            _live.Remove(id);
+            if (_live.Remove(id))
+            {
+                _lastChange = System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+
             _declared.Remove(id);
         }
     }
