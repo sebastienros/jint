@@ -37,9 +37,13 @@ namespace Jint.Browser
     public sealed class BrowserOptions
     {
         public BrowserOptions() { }
+        public System.TimeSpan FetchTimeout { get; set; }
+        public int MaxActiveTimers { get; set; }
         public long MaxDocumentBytes { get; set; }
+        public int MaxDomNodes { get; set; }
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
+        public long MaxResponseBytes { get; set; }
         public System.TimeSpan MaxTaskDuration { get; set; }
         public long MemoryLimit { get; set; }
         public System.TimeSpan PumpIdle { get; set; }
@@ -48,6 +52,7 @@ namespace Jint.Browser
         public string UserAgent { get; set; }
         public Jint.Browser.Viewport Viewport { get; set; }
         public Jint.Browser.BrowserOptions ConfigureEngine(System.Action<Jint.Options> configure) { }
+        public Jint.Browser.BrowserOptions ForUntrustedContent(Jint.UntrustedCodeLimits? limits = null) { }
     }
     public sealed class DialogEventArgs : System.EventArgs
     {
@@ -132,6 +137,7 @@ namespace Jint.Browser
         UnhandledPromiseRejection = 2,
         WorkerError = 3,
         ScriptError = 4,
+        BudgetExceeded = 5,
     }
     public readonly struct PageHeader : System.IEquatable<Jint.Browser.PageHeader>
     {

@@ -64,14 +64,24 @@ public sealed partial class Page : IAsyncDisposable
         _recorder = recorder;
         _requests = new PageNetworkRecorder(options.MaxRecordedEvents);
         _network = context.Network;
-        _workers = new ThreadPerWorkerProvider(this, _network, _requests, options.PumpIdle);
+        _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
         _mainFrame = Frame.Detached(this);
         _loop = new PageLoop(
             "Jint.Browser page loop",
             options.PumpIdle,
             () => BuildEngine("about:blank", ""),
-            exception => recorder.Add(new PageError(PageErrorKind.UncaughtCallbackError, exception.Message, "PageLoop")));
+            exception => recorder.Add(PumpError(exception)));
     }
+
+    /// <summary>What a page records when something erupts from its pump rather than from a callback.</summary>
+    /// <remarks>
+    /// A turn that ran out of its budget is not a callback that threw, and a host reading the log needs to
+    /// tell "this page's script is in a loop" from "this page's script has a bug".
+    /// </remarks>
+    private static PageError PumpError(Exception exception) => new(
+        PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError,
+        exception.Message,
+        "PageLoop");
 
     /// <summary>The context this page belongs to.</summary>
     public BrowserContext Context { get; }
@@ -219,7 +229,13 @@ public sealed partial class Page : IAsyncDisposable
     /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<bool> WaitForIdleAsync(TimeSpan timeout) => _loop.PostAsync(engine => PumpUntilIdle(engine, timeout));
+    public Task<bool> WaitForIdleAsync(TimeSpan timeout)
+    {
+        // Not bracketed as one turn: the request is a pump, so it brackets each drain itself. Bracketing the
+        // whole wait would charge every drain and every park to one turn's budget and fail a wait longer than
+        // BrowserOptions.MaxTaskDuration for no reason at all.
+        return _loop.PostAsync(engine => PumpUntilIdle(engine, timeout), bracketed: false);
+    }
 
     /// <summary>Closes the page, disposing its engine and its document on the page's own thread.</summary>
     /// <returns>A task that completes when the page's thread has ended.</returns>
@@ -360,10 +376,25 @@ public sealed partial class Page : IAsyncDisposable
     {
         var started = Stopwatch.GetTimestamp();
         var closing = _loop.Closing;
+        var budget = PageRuntime.Find(engine)?.Budget;
 
         while (!closing.IsCancellationRequested)
         {
-            engine.Tasks.ProcessTasks();
+            try
+            {
+                // One drain, one turn — the same bracket the page loop puts around its own drains, taken
+                // here because this request is the pump for as long as it holds the thread.
+                using (budget?.BeginTurn() ?? default)
+                {
+                    engine.Tasks.ProcessTasks();
+                }
+            }
+            catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+            {
+                // A job that ran out of budget ends; the wait does not, because the next drain gets a budget
+                // of its own and the caller's own ceiling is what bounds this loop.
+                _recorder.Add(new PageError(PageErrorKind.BudgetExceeded, exception.Message, "PageLoop"));
+            }
 
             if (engine.Tasks.TimeUntilNextScheduledWork is not { } next)
             {

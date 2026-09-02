@@ -143,16 +143,23 @@ while the parser is parked; `innerHTML` insertion routes through the same driver
 ## 7. Constraints per page
 
 The constraints gotcha in the root `AGENTS.md` applies twice over: a page is a host-driven sequence of entries,
-and its event loop is pumped. So a page's budget is built only from what survives the per-entry reset:
-`BrowserOptions.MaxTaskDuration` brackets each loop turn — one `ProcessTasks` drain, one baton hand-off, one
-animation-frame batch — with `OperationDeadlineConstraint.Begin/End`, so a runaway job chain throws into the
-diagnostics sink and the page survives; a per-page `MemoryLimitConstraint` bounds each job chain;
-`Page.Close` and `Target.closeTarget` cancel the page token registered with `ObserveCancellation`;
-`LimitExecutionTime` still governs each `Runtime.evaluate` / `Page.Evaluate` entry; `MaxDomNodes` is checked in
-the wrapper factory and the parser driver; `Timers.MaxActiveTimers` and the fetch limits apply; one `UrlFilter`
-covers document, subresource, XHR, WebSocket, EventSource and worker loads. `BrowserOptions.ForUntrustedContent`
-applies `Options.ForUntrustedCode` to page engines and `CopySecurityPosture` to their workers, with
-`BlockPrivateNetwork` on by default.
+and its event loop is pumped. So a page's budget is built only from what survives the per-entry reset.
+`BrowserOptions.MaxTaskDuration` brackets each **turn** with `OperationDeadlineConstraint.Begin`/`End`, and a
+turn is one mailbox request, one `ProcessTasks` drain (every due timer callback, microtask, promise reaction
+and animation-frame batch together) or one inline `<script>`. A request that runs out of budget fails its own
+task with `TimeoutException`; a drain's and a script's are recorded as a `PageErrorKind.BudgetExceeded` entry
+and the page survives. `BrowserOptions.MemoryLimit` arms a per-page `MemoryLimitConstraint` over the same turn,
+and a worker's pump takes the same bracket over the constraint factories its parent replayed. `Page.Close` and
+`Target.closeTarget` cancel the page token registered with `ObserveCancellation`; `LimitExecutionTime` still
+governs each `Runtime.evaluate` / `Page.Evaluate` entry as well. `MaxDomNodes` is one number checked against two
+quantities — the parse refuses a document holding more, and the wrapper factory refuses the projection that
+would take one engine past the same number of node wrappers. `MaxActiveTimers`, `MaxResponseBytes` and `FetchTimeout` are the
+page-sized names for their engine settings, applied to page and worker engines alike before any host callback;
+one `UrlFilter` covers document, subresource, XHR, WebSocket, EventSource and worker loads.
+`BrowserOptions.ForUntrustedContent` applies `Options.ForUntrustedCode` to page engines — from inside the
+package's own construction callback, so it wins over a host's `ConfigureEngine` — and reaches their workers
+through `CopySecurityPosture` and the replayed factories, with `BlockPrivateNetwork` on by default for every
+context that did not assign it.
 
 ## 8. Input without layout
 

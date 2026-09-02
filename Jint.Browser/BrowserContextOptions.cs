@@ -104,6 +104,12 @@ public sealed class BrowserContextOptions
     /// deployment that loads pages a stranger named wants it on, and wants a <see cref="UrlFilter"/> as well.
     /// </para>
     /// <para>
+    /// <b><see cref="BrowserOptions.ForUntrustedContent"/> turns it on for every context of that browser</b>
+    /// — unless the context's own options assigned this property, in which case the context keeps its choice
+    /// and <see langword="false"/> really means "and I mean it". Assigning <see langword="true"/> is what a
+    /// context that must block regardless of the browser's posture does.
+    /// </para>
+    /// <para>
     /// <b>It is a coarse rule and cannot be otherwise.</b> It refuses an address literal in the private,
     /// loopback, link-local, carrier-grade-NAT or unique-local ranges — the cloud metadata endpoint among
     /// them — and the names <c>localhost</c> and anything under <c>.localhost</c>. It cannot refuse a
@@ -112,5 +118,17 @@ public sealed class BrowserContextOptions
     /// the private network is not reachable.
     /// </para>
     /// </remarks>
-    public bool BlockPrivateNetwork { get; set; }
+    public bool BlockPrivateNetwork
+    {
+        get => _blockPrivateNetwork ?? false;
+        set => _blockPrivateNetwork = value;
+    }
+
+    /// <summary>
+    /// What the host assigned to <see cref="BlockPrivateNetwork"/>, or <see langword="null"/> when it left
+    /// the decision to the browser.
+    /// </summary>
+    internal bool? BlockPrivateNetworkAssignment => _blockPrivateNetwork;
+
+    private bool? _blockPrivateNetwork;
 }

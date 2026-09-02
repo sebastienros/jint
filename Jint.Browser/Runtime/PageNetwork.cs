@@ -29,7 +29,15 @@ internal sealed class PageNetwork
     private readonly HttpClient? _client;
     private readonly Func<Engine, HttpClient>? _clientFactory;
 
-    internal PageNetwork(BrowserContextOptions options)
+    /// <summary>Composes one context's network position.</summary>
+    /// <param name="options">What the context keeps to itself.</param>
+    /// <param name="blockPrivateNetworkByDefault">
+    /// What the browser's posture decides for a context that did not assign
+    /// <see cref="BrowserContextOptions.BlockPrivateNetwork"/> itself —
+    /// <see cref="BrowserOptions.ForUntrustedContent"/> is what turns it on. A context that assigned the
+    /// property keeps its own answer, in either direction.
+    /// </param>
+    internal PageNetwork(BrowserContextOptions options, bool blockPrivateNetworkByDefault = false)
     {
         _client = options.HttpClient;
         _clientFactory = options.HttpClientFactory;
@@ -38,10 +46,12 @@ internal sealed class PageNetwork
         // are the state that makes that visible. A host supplying its own is supplying the partition.
         CookieJar = options.CookieJar ?? new CookieContainerCookieJar();
         Storage = options.StoragePartition ?? new InMemoryStoragePartitionProvider();
-        BlockPrivateNetwork = options.BlockPrivateNetwork;
+
+        var blockPrivateNetwork = options.BlockPrivateNetworkAssignment ?? blockPrivateNetworkByDefault;
+        BlockPrivateNetwork = blockPrivateNetwork;
 
         var hostFilter = options.UrlFilter;
-        UrlFilter = (hostFilter, options.BlockPrivateNetwork) switch
+        UrlFilter = (hostFilter, blockPrivateNetwork) switch
         {
             (null, false) => static _ => true,
             (null, true) => IsPublic,

@@ -1,5 +1,6 @@
 using Jint.Browser.Dom;
 using Jint.Browser.Workers;
+using Jint.Constraints;
 using Jint.WebApi;
 
 namespace Jint.Browser.Runtime;
@@ -47,6 +48,26 @@ internal static class BrowserEngineFactory
 
         var engine = new Engine(o =>
         {
+            // First, and before anything else this callback writes: the profile is expanded onto a private
+            // snapshot before the engine builds anything, and re-expanded over whatever the host's own
+            // ConfigureEngine callbacks write below — so it wins over them however they loosen it.
+            if (options.EffectiveUntrustedLimits is { } limits)
+            {
+                o.ForUntrustedCode(limits);
+            }
+            else
+            {
+                // With no profile, the same two constraints ForUntrustedCode would have registered are
+                // registered here instead, so that one code path in PageBudget brackets a turn either way.
+                // Factories rather than instances, which is also what makes a worker inherit them.
+                o.AddConstraint(static () => new OperationDeadlineConstraint());
+
+                if (options.MemoryLimit > 0)
+                {
+                    o.LimitMemory(options.MemoryLimit);
+                }
+            }
+
             o.ObserveCancellation(cancellation.Token);
 
             hasStorage = PageStorage.Configure(o, request.Network, request.SessionStores, origin);
@@ -62,6 +83,13 @@ internal static class BrowserEngineFactory
             }
 
             o.UseWebApis(features);
+
+            // The page-sized names for three engine settings, applied here rather than left to the host so
+            // that one BrowserOptions is the whole configuration of a page. Before the host's own callbacks
+            // below, which is what still lets a host override any of them per engine.
+            o.WebApi.Timers.MaxActiveTimers = options.MaxActiveTimers;
+            o.WebApi.Fetch.MaxResponseBytes = options.MaxResponseBytes;
+            o.WebApi.Fetch.Timeout = options.FetchTimeout;
 
             if (options.RecordErrors)
             {
@@ -93,6 +121,7 @@ internal static class BrowserEngineFactory
         runtime.Cancellation = cancellation;
 
         DomBindings.Install(engine);
+        runtime.Dom.MaxNodes = options.MaxDomNodes;
         WindowInstaller.Install(runtime);
 
         // Where an activation behaviour's default action goes now that there is a page behind it: a link

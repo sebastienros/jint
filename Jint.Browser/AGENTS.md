@@ -197,6 +197,15 @@ The wrappers deliberately do **not** share a base class, and `IDomWrapper` is wh
 - **`DomObject : ObjectInstance`** — everything else, overriding nothing, which is what keeps it on the
   engine's ordinary access lane.
 
+The cache is also where a page's DOM is *counted*. `DomRealm.MaxNodes` — `BrowserOptions.MaxDomNodes` when a
+page runtime set it, and zero, meaning no limit, for a binding installed on its own — makes the projection
+that would pass the ceiling a `RangeError` in the script that asked for it. It counts node wrappers because
+that is the one place every projection passes through and because the wrapper table is what a script's DOM
+growth actually costs an engine — a different quantity from the one the parse bounds, and deliberately so:
+seeding this counter from the parsed document's size would make merely walking a document of the permitted
+size a refusal. [`Runtime/AGENTS.md`](Runtime/AGENTS.md#budgets-what-a-turn-is-and-which-constraints-can-bound-one)
+has the other side.
+
 Read [`Jint/Native/Object/AGENTS.md`](../Jint/Native/Object/AGENTS.md) before changing any of them: the
 subclassing cliff, the named-projection hook table and the coherence obligations every one of these classes
 carries are there, and host-contract verification (`JINT_HOST_CONTRACT_VERIFICATION=1`) is what checks them.

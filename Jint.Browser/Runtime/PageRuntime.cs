@@ -42,6 +42,7 @@ internal sealed class PageRuntime
         Recorder = recorder;
         Viewport = options.Viewport;
         Dom = DomRealm.Of(engine);
+        Budget = PageBudget.For(engine, options);
         AnimationFrames = new AnimationFrameLane(this);
         DocumentUrl = documentUrl;
         Referrer = referrer;
@@ -70,6 +71,12 @@ internal sealed class PageRuntime
 
     /// <summary>The DOM binding state of this engine.</summary>
     internal DomRealm Dom { get; }
+
+    /// <summary>
+    /// The two constraints one turn of this engine's loop is bracketed with, held here because the engine is
+    /// where they were registered and this is what one engine's page state is.
+    /// </summary>
+    internal PageBudget Budget { get; }
 
     /// <summary>The <c>requestAnimationFrame</c> lane, run as a batch on the engine's timer queue.</summary>
     internal AnimationFrameLane AnimationFrames { get; }

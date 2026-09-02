@@ -54,4 +54,15 @@ public enum PageErrorKind
 
     /// <summary>An inline <c>&lt;script&gt;</c> threw while the document was being parsed.</summary>
     ScriptError,
+
+    /// <summary>
+    /// A turn of the page's loop ran past <see cref="BrowserOptions.MaxTaskDuration"/> or
+    /// <see cref="BrowserOptions.MemoryLimit"/> and was cut short.
+    /// </summary>
+    /// <remarks>
+    /// The turn ends and the page goes on: whatever was running is abandoned, the next timer callback, the
+    /// next mailbox request and the rest of a parse all run with a budget of their own. A page that keeps
+    /// producing these is a page whose script is in a loop.
+    /// </remarks>
+    BudgetExceeded,
 }

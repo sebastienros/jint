@@ -2398,6 +2398,23 @@ with the four events in HTML's order, `tabindex`-aware traversal, `autofocus` on
 `<input>` or `<textarea>` edits the value at the selection with `beforeinput`, `input` and `change`,
 <kbd>Enter</kbd>'s implicit submission and <kbd>Tab</kbd>'s focus traversal. None of it needs a layout.
 
+**And the budgets.** A page is a host-driven sequence of entries whose event loop is pumped, so neither of
+the engine's per-entry limits bounds one: `BrowserOptions.MaxTaskDuration` (five seconds) brackets every
+*turn* instead — one `Page` call, one drain of the event loop, one inline `<script>` — with the two
+constraints a per-entry reset never rewinds, and `BrowserOptions.MemoryLimit` is the allocation half of the
+same bracket. A `Page` call that runs out fails its own task with a `TimeoutException`; a runaway timer or a
+runaway `<script>` becomes a `PageError` and the page goes on answering. Workers are bracketed the same way.
+`MaxActiveTimers`, `MaxResponseBytes`, `FetchTimeout` and `MaxDomNodes` bound the rest, and
+`BrowserOptions.ForUntrustedContent()` is the one call that hardens a whole browser for content nobody
+vouches for: it applies `Options.ForUntrustedCode` to every page engine before any of your own configuration
+runs, derives the two budgets above from its limits, and turns `BlockPrivateNetwork` on for every context
+that did not choose for itself.
+
+```c#
+var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(2) }.ForUntrustedContent();
+await using var browser = new Browser(options);
+```
+
 **What does not exist yet.** No external `<script src>` and no module scripts in a document — a page names
 what it could not run in `Page.UnsupportedScripts` — no import maps, no `document.write` during a parse, no
 iframe scripting (frames are parsed and listed; `contentWindow` is absent), no rendering or layout — so every

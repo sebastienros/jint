@@ -23,10 +23,17 @@ namespace Jint.Browser.Runtime;
 /// request that arrives after the loop has stopped is failed with <see cref="ObjectDisposedException"/>
 /// rather than left to hang.
 /// </para>
+/// <para>
+/// <b>Every turn is bracketed.</b> One mailbox request and one <c>ProcessTasks</c> drain are each one turn,
+/// and each takes the page's <see cref="PageBudget"/> — see
+/// <see cref="BrowserOptions.MaxTaskDuration"/>. A request that runs out of budget fails its own task,
+/// because the bracket is outside <see cref="PostAsync{T}"/>'s own <c>catch</c>; a drain that runs out
+/// erupts here and is recorded like anything else that erupts, and the loop goes on.
+/// </para>
 /// </remarks>
 internal sealed class PageLoop : IDisposable
 {
-    private readonly Channel<Action<Engine?>> _mailbox = Channel.CreateUnbounded<Action<Engine?>>(
+    private readonly Channel<LoopRequest> _mailbox = Channel.CreateUnbounded<LoopRequest>(
         new UnboundedChannelOptions { SingleReader = true, AllowSynchronousContinuations = false });
 
     private readonly CancellationTokenSource _closing = new();
@@ -39,8 +46,13 @@ internal sealed class PageLoop : IDisposable
 
     private volatile Engine? _engine;
     private volatile Engine.TaskOperations? _tasks;
+    private volatile PageBudget? _budget;
     private volatile bool _closed;
     private Action<Engine?>? _beforeStop;
+
+    /// <summary>The turn the loop currently has open, if any. Loop thread only.</summary>
+    private PageBudget.TurnScope _turn;
+    private bool _inTurn;
 
     internal PageLoop(string name, TimeSpan idle, Func<Engine> engineFactory, Action<Exception> onPumpError)
     {
@@ -85,7 +97,14 @@ internal sealed class PageLoop : IDisposable
     });
 
     /// <summary>Runs <paramref name="work"/> on the loop thread and completes with what it answered.</summary>
-    internal Task<T> PostAsync<T>(Func<Engine, T> work)
+    /// <param name="work">What to do with the engine, on the thread that owns it.</param>
+    /// <param name="bracketed">
+    /// Whether the request is one turn and takes the page's turn budget. <see langword="false"/> is for a
+    /// request that <i>pumps</i> — it brackets each drain itself, so bracketing the request as well would
+    /// charge a whole wait to one turn's budget and fail it. There are two of those and both are here in the
+    /// package; a member added later wants the default.
+    /// </param>
+    internal Task<T> PostAsync<T>(Func<Engine, T> work, bool bracketed = true)
     {
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -107,7 +126,7 @@ internal sealed class PageLoop : IDisposable
             }
         }
 
-        if (_closed || !_mailbox.Writer.TryWrite(Request))
+        if (_closed || !_mailbox.Writer.TryWrite(new LoopRequest(Request, bracketed)))
         {
             return Task.FromException<T>(Disposed());
         }
@@ -167,10 +186,23 @@ internal sealed class PageLoop : IDisposable
     internal Engine ReplaceEngine(Func<Engine> factory)
     {
         var previous = _engine;
+
+        // Before the swap, and before the new engine is built: a constraint belongs to one engine, so the
+        // turn the request opened has to be closed on the engine it was opened on. Building the replacement
+        // then costs the outgoing turn nothing, which also means the first script of the new document meets
+        // a full budget rather than one an engine construction already spent.
+        var bracketed = _inTurn;
+        EndTurn();
+
         var replacement = factory();
 
         _engine = replacement;
         _tasks = replacement.Tasks;
+        _budget = PageRuntime.Find(replacement)?.Budget;
+
+        // The rest of the request — the parse, its inline scripts, DOMContentLoaded and load — is a turn of
+        // the engine that will run it.
+        BeginTurn(bracketed);
 
         if (previous is not null)
         {
@@ -196,6 +228,7 @@ internal sealed class PageLoop : IDisposable
             // Cached before the engine is visible to any other thread, because Engine.Tasks materializes on
             // first read and that read is not thread-safe. Everything after this point uses the one instance.
             _tasks = engine.Tasks;
+            _budget = PageRuntime.Find(engine)?.Budget;
             _engine = engine;
             _started.TrySetResult();
         }
@@ -249,7 +282,19 @@ internal sealed class PageLoop : IDisposable
         {
             while (!_closing.IsCancellationRequested && reader.TryRead(out var request))
             {
-                request(_engine);
+                // The bracket is outside the request rather than inside it, and that is what makes a budget
+                // failure the caller's: PostAsync's own try/catch is inside this one, so a TimeoutException
+                // from the turn's deadline faults that request's Task and nothing reaches the pump.
+                BeginTurn(request.Bracketed);
+
+                try
+                {
+                    request.Work(_engine);
+                }
+                finally
+                {
+                    EndTurn();
+                }
             }
 
             var tasks = _tasks!;
@@ -261,7 +306,19 @@ internal sealed class PageLoop : IDisposable
 
             try
             {
-                tasks.ProcessTasks();
+                // One drain is one turn: every timer callback, microtask, promise reaction and animation
+                // frame that was due shares one time and one allocation budget, because none of them reaches
+                // ExecuteWithConstraints and so none of them is bounded by a per-entry limit at all.
+                BeginTurn(bracketed: true);
+
+                try
+                {
+                    tasks.ProcessTasks();
+                }
+                finally
+                {
+                    EndTurn();
+                }
             }
             catch (Exception exception)
             {
@@ -298,11 +355,41 @@ internal sealed class PageLoop : IDisposable
         }
     }
 
+    /// <summary>Opens the loop's own turn on whichever engine it currently owns.</summary>
+    private void BeginTurn(bool bracketed)
+    {
+        if (!bracketed || _budget is not { } budget)
+        {
+            return;
+        }
+
+        _turn = budget.BeginTurn();
+        _inTurn = true;
+    }
+
+    /// <summary>Closes it, if one is open. Safe to call when none is.</summary>
+    private void EndTurn()
+    {
+        if (!_inTurn)
+        {
+            return;
+        }
+
+        _inTurn = false;
+        var turn = _turn;
+        _turn = default;
+        turn.Dispose();
+    }
+
     private void FailPending()
     {
         while (_mailbox.Reader.TryRead(out var request))
         {
-            request(null);
+            request.Work(null);
         }
     }
+
+    /// <summary>One item of the mailbox: what to run, and whether the loop brackets it as a turn.</summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+    private readonly record struct LoopRequest(Action<Engine?> Work, bool Bracketed);
 }

@@ -98,7 +98,13 @@ internal sealed class PageScriptingService : IScriptingService
 
         try
         {
-            _runtime.Engine.Execute(text, _url + ":" + LineOf(element, text));
+            // One script is one turn, bracketed at the one place a script runs so that the parser driver
+            // inherits it without knowing: it is entered from inside the mailbox request that is parsing the
+            // document, so the enclosing turn is re-armed on the way out rather than spent here.
+            using (_runtime.Budget.BeginTurn())
+            {
+                _runtime.Engine.Execute(text, _url + ":" + LineOf(element, text));
+            }
         }
         catch (JavaScriptException exception)
         {
@@ -107,6 +113,13 @@ internal sealed class PageScriptingService : IScriptingService
                 PageErrorKind.ScriptError,
                 PageRecorder.Diagnostics.Describe(exception.Error, exception),
                 _url));
+        }
+        catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+        {
+            // The same step for a budget rather than a throw: this script ends, the parse goes on with a
+            // budget of its own, and the document still loads. A page whose first script is a loop is still
+            // a page a host can read.
+            _runtime.Recorder.Add(new PageError(PageErrorKind.BudgetExceeded, exception.Message, _url));
         }
         finally
         {

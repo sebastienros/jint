@@ -67,6 +67,23 @@ internal static class PageDocument
 
         runtime.Document ??= document;
 
+        if (runtime.Options.MaxDomNodes is var maxNodes and > 0 && Exceeds(document, maxNodes))
+        {
+            // Before the lifecycle events, so a document over the limit never gets DOMContentLoaded or load:
+            // there is nothing to show and the navigation says so. The parse itself cannot be stopped part
+            // way — AngleSharp owns it, and its inline scripts have already run — so this is the first moment
+            // the size is known.
+            runtime.Document = null;
+            document.Dispose();
+            (context as IDisposable)?.Dispose();
+
+            throw new NavigationFailedException(
+                url,
+                "The document has more than the "
+                + maxNodes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " nodes BrowserOptions.MaxDomNodes allows.");
+        }
+
         if (scripting.Hopped)
         {
             runtime.Recorder.Add(new PageError(
@@ -81,6 +98,37 @@ internal static class PageDocument
         FireLifecycle(runtime, onPhase);
 
         return new PageLoad(document, context, unsupported, scripting.ScriptsRun);
+    }
+
+    /// <summary>
+    /// Whether the tree rooted at <paramref name="node"/> holds more than <paramref name="limit"/> nodes.
+    /// </summary>
+    /// <remarks>
+    /// An explicit stack rather than recursion, because the depth is the document's and a document is
+    /// something a stranger wrote; and it stops at the first node past the limit rather than counting a tree
+    /// whose whole point is to be too large.
+    /// </remarks>
+    private static bool Exceeds(INode node, int limit)
+    {
+        var pending = new Stack<INode>();
+        pending.Push(node);
+        var seen = 0;
+
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (++seen > limit)
+            {
+                return true;
+            }
+
+            foreach (var child in current.ChildNodes)
+            {
+                pending.Push(child);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
