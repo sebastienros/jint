@@ -149,6 +149,11 @@ target/runtime split and the manifest are there and none of it is repeated here.
 - **Tab targets exist because Puppeteer requires them.** Its browser-level `setAutoAttach` filter excludes
   `page`; it reaches a page by sending `setAutoAttach` again on the tab's session. `TabTarget` answers about
   the page's engine rather than one of its own. Found by driving the client, not by reading the protocol.
+- **The `Jint` domain is ours, and it is described rather than invented.**
+  `tools/devtools-protocol/jint_protocol.json` sits beside the vendored Chrome files in the same format, so
+  `Jint.getMarkdown`, `Jint.getText` and `Jint.getAccessibilitySnapshot` are generated like any other
+  command. They are what the screenshot refusal names, and `JintDomainTests` closes that loop by following
+  the refusal to a command that answers.
 - **Three divergences, each stated where it is made.** An isolated world is an alias for the document's own
   realm; a dialog does not block the page, so `handleJavaScriptDialog` sets the standing decision the next
   one reads; and `captureScreenshot` / `printToPDF` answer `-32000` with a sentence naming the text and

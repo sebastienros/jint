@@ -20,10 +20,11 @@
     "Fetch",
     "Performance",
     "Audits",
-    "DOM"
+    "DOM",
+    "Jint"
   ],
 
-  // The commands Jint.DevTools actually answers. Every entry is checked against the vendored protocol,
+  // The commands Jint.DevTools actually answers. Every entry is checked against the protocol description,
   // and ProtocolManifestTests checks each one is overridden on a registered domain - and that nothing
   // else is. An unlisted command is not a silent success; it is 'Domain.method' wasn't found.
   //
@@ -41,9 +42,14 @@
   // engine at all - ConsoleMethod has no member for either - so consoleProfileStarted and
   // consoleProfileFinished would be events nothing could ever raise.
   //
-  // The last six domains are a *page* target's, and Jint.Browser is what answers them: an engine target has
-  // no document, so every one of them is -32601 there. That is why they are absent from reportedDomains
+  // The page-level domains are a *page* target's, and Jint.Browser is what answers them: an engine target
+  // has no document, so every one of them is -32601 there. That is why they are absent from reportedDomains
   // below, and why Jint.Tests.DevTools checks them through the page-level suite rather than its own.
+  //
+  // Jint is not Chrome's. It is described in tools/devtools-protocol/jint_protocol.json, in the protocol's
+  // own format and beside the two vendored files, the way Lightpanda adds its LP domain: this browser
+  // renders nothing, so the three commands a client would have used a screenshot for are answered by the
+  // page as text, as CommonMark and as its accessibility tree.
   "implementedMethods": [
     "Audits.disable",
     "Audits.enable",
@@ -86,6 +92,9 @@
     "Emulation.setUserAgentOverride",
     "Fetch.disable",
     "Fetch.enable",
+    "Jint.getAccessibilitySnapshot",
+    "Jint.getMarkdown",
+    "Jint.getText",
     "Log.clear",
     "Log.disable",
     "Log.enable",

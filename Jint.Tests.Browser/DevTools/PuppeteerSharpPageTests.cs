@@ -75,6 +75,12 @@ public class PuppeteerSharpPageTests
         await page.EvaluateExpressionAsync("history.pushState({}, '', '/two/deeper')").WaitAsync(Bound);
         (await page.EvaluateExpressionAsync<string>("location.pathname").WaitAsync(Bound)).Should().Be("/two/deeper");
 
+        // And the domain that is ours, reached the way a client reaches any command its library has never
+        // heard of. This is the snippet the README gives, compiled.
+        var cdp = await page.CreateCDPSessionAsync().WaitAsync(Bound);
+        var answer = await cdp.SendAsync("Jint.getMarkdown", new { mainContentOnly = false }).WaitAsync(Bound);
+        answer!.Value.GetProperty("markdown").GetString().Should().Contain("again");
+
         await page.CloseAsync().WaitAsync(Bound);
 
         browser.Disconnect();

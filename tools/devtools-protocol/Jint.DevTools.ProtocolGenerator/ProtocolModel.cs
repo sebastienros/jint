@@ -3,8 +3,16 @@ using System.Text.Json;
 namespace Jint.DevTools.ProtocolGenerator;
 
 /// <summary>
-/// The vendored protocol description, read out of <c>js_protocol.json</c> and <c>browser_protocol.json</c>.
+/// The protocol description: the vendored <c>js_protocol.json</c> and <c>browser_protocol.json</c>, and this
+/// repository's own <c>jint_protocol.json</c> beside them.
 /// </summary>
+/// <remarks>
+/// The two vendored files are Chrome's, copied verbatim at the pinned commit and never edited.
+/// <c>jint_protocol.json</c> is ours, in the same format, and it is what a domain this browser adds is
+/// described in — the way Lightpanda adds its <c>LP</c> domain. Everything downstream treats the three
+/// alike, except that a member of a domain Chrome does not have is cited against that file rather than
+/// against Chrome's documentation.
+/// </remarks>
 public sealed class Protocol
 {
     private readonly Dictionary<string, ProtocolDomain> _domains = new(StringComparer.Ordinal);
@@ -34,12 +42,19 @@ public sealed class Protocol
 
     public bool HasDomain(string name) => _domains.ContainsKey(name);
 
+    /// <summary>This repository's own description file, beside the two vendored ones.</summary>
+    public const string OwnFile = "jint_protocol.json";
+
     /// <summary>
-    /// Reads the two protocol files out of <paramref name="directory"/> and merges their domain lists.
+    /// Reads the protocol files out of <paramref name="directory"/> and merges their domain lists.
     /// </summary>
+    /// <remarks>
+    /// The two vendored files are required and must declare one version between them; ours is optional, and
+    /// is held to the same version so that the three describe one protocol rather than two.
+    /// </remarks>
     public static Protocol Read(string directory)
     {
-        var files = new[] { "js_protocol.json", "browser_protocol.json" };
+        var files = new[] { "js_protocol.json", "browser_protocol.json", OwnFile };
         var domains = new List<ProtocolDomain>();
         string? version = null;
 
@@ -48,6 +63,13 @@ public sealed class Protocol
             var path = Path.Combine(directory, file);
             if (!File.Exists(path))
             {
+                if (string.Equals(file, OwnFile, StringComparison.Ordinal))
+                {
+                    // Ours is optional: a checkout that has not added a domain of its own is complete without
+                    // it, and the two vendored files alone are still a whole protocol.
+                    continue;
+                }
+
                 throw new ProtocolGeneratorException($"'{path}' does not exist. The vendored protocol is what the generator reads; see tools/devtools-protocol/README.md.");
             }
 
@@ -65,19 +87,21 @@ public sealed class Protocol
 
             version = declared;
 
+            var vendored = !string.Equals(file, OwnFile, StringComparison.Ordinal);
             foreach (var element in root.GetProperty("domains").EnumerateArray())
             {
-                domains.Add(ReadDomain(element));
+                domains.Add(ReadDomain(element, vendored));
             }
         }
 
         return new Protocol(version!, domains);
     }
 
-    private static ProtocolDomain ReadDomain(JsonElement element)
+    private static ProtocolDomain ReadDomain(JsonElement element, bool vendored)
     {
         return new ProtocolDomain
         {
+            Vendored = vendored,
             Name = element.GetProperty("domain").GetString()!,
             Description = Text(element, "description"),
             Experimental = Flag(element, "experimental"),
@@ -199,6 +223,10 @@ public sealed class Protocol
 /// <summary>One domain of the protocol.</summary>
 public sealed class ProtocolDomain
 {
+    /// <summary>Whether the domain is Chrome's, rather than one this repository describes itself.</summary>
+    /// <remarks>What decides where a member of it is cited: Chrome's documentation, or our own file.</remarks>
+    public bool Vendored { get; init; } = true;
+
     public required string Name { get; init; }
     public string? Description { get; init; }
     public bool Experimental { get; init; }

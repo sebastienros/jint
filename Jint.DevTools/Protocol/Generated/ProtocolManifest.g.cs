@@ -44,6 +44,7 @@ namespace Jint.DevTools.Protocol
             "Performance",
             "Audits",
             "DOM",
+            "Jint",
         ];
 
         /// <summary>The commands this assembly answers; every other one is method-not-found.</summary>
@@ -90,6 +91,9 @@ namespace Jint.DevTools.Protocol
             "Emulation.setUserAgentOverride",
             "Fetch.disable",
             "Fetch.enable",
+            "Jint.getAccessibilitySnapshot",
+            "Jint.getMarkdown",
+            "Jint.getText",
             "Log.clear",
             "Log.disable",
             "Log.enable",

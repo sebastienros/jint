@@ -2449,6 +2449,21 @@ sets the decision the next `alert`, `confirm` or `prompt` reads; and `Page.captu
 The endpoint is unauthenticated by the protocol's own design, so it listens on loopback and should stay
 there.
 
+**And what to ask instead of a picture.** The refusal names a domain of Jint's own — described in
+`tools/devtools-protocol/jint_protocol.json` beside the vendored Chrome ones, so a client reaches it with the
+raw `send` every library has:
+
+```c#
+var cdp = await page.CreateCDPSessionAsync();
+var answer = await cdp.SendAsync("Jint.getMarkdown", new { mainContentOnly = true, maxLength = 4000 });
+var markdown = answer!.Value.GetProperty("markdown").GetString();
+```
+
+`Jint.getMarkdown` renders the document as CommonMark, `Jint.getText` as `innerText` would, and
+`Jint.getAccessibilitySnapshot` as the indented accessibility outline an agent reads. All three are computed
+from the DOM — no layout, no rendering, and nothing that runs a line of the page's script — and each takes
+the options the extractor behind it already had.
+
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering or layout — so every rectangle is zeros and `getBoundingClientRect` does not exist. Over the
 protocol that means no `Network` or `Fetch` events (so a client's `goto` answers no response object), no
