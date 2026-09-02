@@ -76,19 +76,39 @@ public static class ModuleFactory
     /// from the provided javascript <paramref name="code"/>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The returned modules location (see <see cref="ModuleRecord.Location"/>) is <see cref="ResolvedSpecifier.Key"/>,
     /// or the <see cref="Uri.LocalPath"/> of <see cref="ResolvedSpecifier.Uri"/> when that is an absolute
     /// <c>file:</c> uri. It is never null. This name is also the module's identity for stack traces and for
     /// the debugger, and the <c>referencingModuleLocation</c> passed to <see cref="ModuleLoader.Resolve"/>
     /// for the module's own imports.
+    /// </para>
+    /// <para>
+    /// <paramref name="parsingOptions"/> defaults to <paramref name="engine"/>'s own, so a loader naming none
+    /// parses as that engine does — <see cref="Options.RetainFunctionSourceText"/> included, which
+    /// <c>Function.prototype.toString</c> and <see cref="Engine.AdvancedOperations.TryGetSourceText"/> read.
+    /// A loader that does name options is deciding for itself, and is used as given.
+    /// </para>
     /// </remarks>
     /// <exception cref="ParseErrorException">Is thrown if the provided <paramref name="code"/> can not be parsed.</exception>
     /// <exception cref="JavaScriptException">Is thrown if an error occurred when parsing <paramref name="code"/>.</exception>
     public static ModuleRecord BuildSourceTextModule(Engine engine, ResolvedSpecifier resolved, string code, ModuleParsingOptions? parsingOptions = null)
     {
         var source = LocationOf(resolved);
-        parsingOptions ??= ModuleParsingOptions.Default;
-        var parserOptions = parsingOptions.GetParserOptions();
+
+        // The engine's cached ParserOptions when it is the engine's own options, so the common loader path
+        // allocates none.
+        ParserOptions parserOptions;
+        if (parsingOptions is null)
+        {
+            parsingOptions = engine.DefaultModuleParsingOptions;
+            parserOptions = engine.DefaultModuleParserOptions;
+        }
+        else
+        {
+            parserOptions = parsingOptions.GetParserOptions();
+        }
+
         var parser = engine.CreateModuleParser(parserOptions, parsingOptions);
         var module = parser.ParseModuleGuarded(engine, code, source);
 
@@ -246,7 +266,10 @@ public static class ModuleFactory
         }
 
         var source = LocationOf(resolved);
-        var parserOptions = ModuleParsingOptions.Default.GetParserOptions();
+
+        // The engine's own, exactly as the synchronous loader path above: an asynchronous loader must not
+        // parse under a different retention setting from a synchronous one.
+        var parserOptions = engine.DefaultModuleParserOptions;
         var parser = JintParser.Create(parserOptions, in parsingConstraints);
         var module = parser.ParseModuleGuarded(engine, code, source);
         var result = BuildSourceTextModule(engine, new Prepared<Module>(

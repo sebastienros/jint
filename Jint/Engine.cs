@@ -2063,8 +2063,15 @@ public sealed partial class Engine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the module parsing options a parse that names none is made with, which is what carries
+    /// <see cref="Options.RetainFunctionSourceText"/> into a module a host loader supplied.
+    /// </summary>
+    internal ModuleParsingOptions DefaultModuleParsingOptions =>
+        Options.RetainFunctionSourceText ? ModuleParsingOptions.RetainingDefault : ModuleParsingOptions.Default;
+
     internal ParserOptions DefaultModuleParserOptions => _defaultModuleParserOptions ??=
-        (Options.RetainFunctionSourceText ? ModuleParsingOptions.RetainingDefault : ModuleParsingOptions.Default).GetParserOptions(Options);
+        DefaultModuleParsingOptions.GetParserOptions(Options);
 
     internal ParserOptions GetActiveParserOptions()
     {

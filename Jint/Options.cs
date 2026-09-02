@@ -205,9 +205,11 @@ public sealed partial class Options
     /// <c>function name() { [native code] }</c> placeholder and the script source is not kept in memory.
     /// </summary>
     /// <remarks>
-    /// This only affects scripts/modules parsed by the engine itself (e.g. <see cref="Engine"/>'s <c>Execute(string)</c>).
-    /// When parsing via an explicit <see cref="ScriptParsingOptions"/>/<see cref="ModuleParsingOptions"/> or a
-    /// prepared script/module, the corresponding <see cref="IParsingOptions.RetainFunctionSourceText"/> setting applies.
+    /// This affects scripts and modules parsed by the engine itself (e.g. <see cref="Engine"/>'s
+    /// <c>Execute(string)</c>), and a module a host <see cref="Runtime.Modules.IModuleLoader"/> supplied
+    /// without parsing options of its own. When parsing via an explicit
+    /// <see cref="ScriptParsingOptions"/>/<see cref="ModuleParsingOptions"/> or a prepared script/module, the
+    /// corresponding <see cref="IParsingOptions.RetainFunctionSourceText"/> setting applies.
     /// </remarks>
     public bool RetainFunctionSourceText { get; set { ThrowIfReadOnly(); field = value; } }
 
