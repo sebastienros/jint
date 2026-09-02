@@ -69,6 +69,46 @@ public class DocumentLoadTests
     }
 
     [Test]
+    public async Task ATimerThatFiresLateInASlowLoadGetsABudgetOfItsOwn()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(
+            server => server
+                .Map("/slow.js", _ =>
+                {
+                    Thread.Sleep(600);
+                    return LoopbackResponse.Script("window.slowRan = true;");
+                })
+                .MapHtml("/", """
+                    <!doctype html><html><head>
+                    <script>
+                      window.late = false;
+                      setTimeout(function () {
+                        var end = Date.now() + 20;
+                        while (Date.now() < end) { }
+                        window.late = true;
+                      }, 300);
+                    </script>
+                    <script src="/slow.js"></script>
+                    </head><body><p id="p">parsed</p></body></html>
+                    """),
+            configureBrowser: options => options.MaxTaskDuration = TimeSpan.FromMilliseconds(200));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // The callback is due 300 ms into a load whose budget is 200 ms, and it does twenty milliseconds of
+        // honest work. The drains this pump runs happen *inside* the mailbox request that is parsing the
+        // document, so the turn PageLoop opened for that request is the one they would otherwise run under —
+        // and by 300 ms its deadline is long gone. Bracketing each drain is what gives the callback a budget
+        // of its own, which is what PageLoop does for every drain it runs itself.
+        loopback.Page.Errors.Should().BeEmpty();
+        (await loopback.Page.EvaluateAsync<bool>("window.late === true")).Should().BeTrue();
+
+        // And the rest of the load is unaffected: the script that was on its way still ran.
+        (await loopback.Page.EvaluateAsync<bool>("window.slowRan === true")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync("document.readyState")).Should().Be("complete");
+    }
+
+    [Test]
     public async Task AnExternalStyleSheetIsFetchedAndGetComputedStyleAnswersFromIt()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

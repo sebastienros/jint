@@ -67,7 +67,7 @@ internal sealed class ParserDriver : IDisposable
         _maxRedirects = runtime.Options.MaxRedirects;
         _timeout = runtime.Options.SubresourceTimeout;
         _cancellationToken = cancellationToken;
-        _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
+        _baton = new ParserBaton(runtime.Engine, runtime.Budget, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
     /// <summary>Parses <paramref name="html"/> as <paramref name="url"/> and runs the document's scripts.</summary>
@@ -436,12 +436,25 @@ internal sealed class ParserDriver : IDisposable
 
         try
         {
-            _runtime.Engine.Execute(text, location);
+            // A turn of its own, nested inside the mailbox request that is parsing the document: the deadline
+            // is re-armed for this script and the enclosing turn gets a full budget back on the way out, so
+            // each script is bounded and a document is not failed for containing many. See PageBudget.
+            using (_runtime.Budget.BeginTurn())
+            {
+                _runtime.Engine.Execute(text, location);
+            }
         }
         catch (JavaScriptException exception)
         {
             // HTML's "report the exception" step: the script ends, the parse goes on, and the page is told.
             Report(PageErrorKind.ScriptError, PageRecorder.Diagnostics.Describe(exception.Error, exception), location);
+        }
+        catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+        {
+            // The same step for a budget rather than a throw: this script ends, the parse goes on with a
+            // budget of its own, and the document still loads. A page whose first script is a loop is still
+            // a page a host can read.
+            Report(PageErrorKind.BudgetExceeded, exception.Message, location);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -727,7 +740,19 @@ internal sealed class ParserDriver : IDisposable
 
         try
         {
-            operation = _runtime.Engine.Modules.StartImport(specifier);
+            // Starting an import parses and links on this thread, so it is script running and takes a turn of
+            // its own. The graph's *load* is not inside it: the pump below brackets each of its own drains,
+            // which is where a module's evaluation actually happens.
+            using (_runtime.Budget.BeginTurn())
+            {
+                operation = _runtime.Engine.Modules.StartImport(specifier);
+            }
+        }
+        catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
+        {
+            Report(PageErrorKind.BudgetExceeded, exception.Message, specifier);
+            FireAt(script, "error");
+            return;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -797,7 +822,10 @@ internal sealed class ParserDriver : IDisposable
     /// this exists — a page bounded by a budget that fires into nothing is a page nobody can debug.
     /// </remarks>
     private void OnPumpError(Exception exception)
-        => Report(PageErrorKind.UncaughtCallbackError, exception.Message, "ParserDriver");
+        => Report(
+            PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError,
+            exception.Message,
+            "ParserDriver");
 
     /// <summary>The one-based line an inline script's first character is on.</summary>
     /// <remarks>

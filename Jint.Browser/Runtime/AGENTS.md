@@ -287,15 +287,25 @@ replaced and its token cancelled. Nothing stops a document mid-parse except clos
 the token every subresource fetch is linked to: the fetch in flight fails, the parse runs out and
 `ParserBaton.Serve` stops serving.
 
+**Every turn inside the parse is a turn.** A document load is *one* mailbox request, so `PageLoop` opens one
+budget turn around the whole of it — and that turn's deadline is wall-clock, so by the time a slow
+`<script src>` has come back it is long gone. Each script therefore takes a nested turn of its own
+(`ParserDriver.Execute`, `RunModule`), and so does **each drain of the job queue** the pump runs
+(`ParserBaton.Drain`), which is the same rule `PageLoop.Pump` follows for the drains it runs itself. Without
+that last one a timer callback that fires late in a slow load is killed for the enclosing turn's exhaustion
+rather than its own — `DocumentLoadTests.ATimerThatFiresLateInASlowLoadGetsABudgetOfItsOwn` is that case, and
+it fails without the bracket. A budget running out is a `PageErrorKind.BudgetExceeded` and the load goes on,
+which is what `PageBudget` promises and what makes a page whose first script is a loop still a page a host
+can read.
+
 **The residual, stated because it is the one thing a budget does not reach.** `Serve` holds the loop for the
 whole parse, so while the baton is in the parser's hands the loop runs nothing and an execution constraint
-cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script runs on the loop
-where the engine's own constraints reach it, which leaves AngleSharp's tokenizer as the only unbounded step.
-There is no total budget on the parse — the navigation timeout is armed outside the loop and the commit does
-not carry it — so what a wedged parser thread costs is bounded by the page's own token instead: closing the
-page ends `Serve`, abandons the parse and fails the parser's next hand-off, so `Page.CloseAsync` is never
-held by a parse that will not finish. Giving the commit a real deadline is the change to make when R6's
-per-turn bracketing lands.
+cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script and every drain
+takes a turn, which leaves AngleSharp's tokenizer as the only unbounded step. There is still no *total*
+budget on the parse — `PageLoop`'s turn is the enclosing one, and nothing re-arms it for the parse as a whole
+— so what a wedged parser thread costs is bounded by the page's own token instead: closing the page ends
+`Serve`, abandons the parse and fails the parser's next hand-off, so `Page.CloseAsync` is never held by a
+parse that will not finish.
 
 **Every fetch the parser asks for finishes before the loader returns.** `PageResourceLoader.FetchAsync` hands
 the baton over, the loop fetches while pumping, and AngleSharp receives an already-completed `IDownload` — so

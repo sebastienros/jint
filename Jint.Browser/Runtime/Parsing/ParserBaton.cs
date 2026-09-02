@@ -38,6 +38,7 @@ internal sealed class ParserBaton : IDisposable
     private readonly SemaphoreSlim _arrived = new(0);
     private readonly Engine _engine;
     private readonly Engine.TaskOperations _tasks;
+    private readonly PageBudget _budget;
     private readonly TimeSpan _idle;
     private readonly CancellationToken _cancellationToken;
     private readonly Action<Exception> _onPumpError;
@@ -45,10 +46,11 @@ internal sealed class ParserBaton : IDisposable
     private volatile int _parserThreadId;
     private volatile bool _abandoned;
 
-    internal ParserBaton(Engine engine, TimeSpan idle, Action<Exception> onPumpError, CancellationToken cancellationToken)
+    internal ParserBaton(Engine engine, PageBudget budget, TimeSpan idle, Action<Exception> onPumpError, CancellationToken cancellationToken)
     {
         _engine = engine;
         _tasks = engine.Tasks;
+        _budget = budget;
         _idle = idle <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(5) : idle;
         _cancellationToken = cancellationToken;
         _onPumpError = onPumpError;
@@ -199,17 +201,7 @@ internal sealed class ParserBaton : IDisposable
 
         while (!task.IsCompleted)
         {
-            try
-            {
-                tasks.ProcessTasks();
-            }
-            catch (Exception exception)
-            {
-                // A job erupting out of the pump must not abandon the parse — the same trade PageLoop.Pump
-                // makes — but it must not vanish either. The diagnostics sink covers what a callback throws;
-                // what reaches here is what it does not, and a constraint abort is the case that matters.
-                _onPumpError(exception);
-            }
+            Drain();
 
             if (task.IsCompleted)
             {
@@ -258,16 +250,7 @@ internal sealed class ParserBaton : IDisposable
                 return false;
             }
 
-            try
-            {
-                tasks.ProcessTasks();
-            }
-            catch (Exception exception)
-            {
-                // See the Task overload: a job erupting out of the pump must not abandon the load, and must
-                // not vanish either.
-                _onPumpError(exception);
-            }
+            Drain();
 
             if (completed())
             {
@@ -297,6 +280,36 @@ internal sealed class ParserBaton : IDisposable
 
     /// <summary>Releases the wake handle, once the parse this baton served has finished.</summary>
     public void Dispose() => _arrived.Dispose();
+
+    /// <summary>One drain of the engine's job queue, bracketed and reported the way the page loop does it.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A drain is a turn</b>, which is <c>PageLoop.Pump</c>'s rule and has to be this pump's too: these
+    /// drains happen <i>inside</i> the mailbox request that is parsing the document, so without a bracket a
+    /// timer callback firing while a parser-blocking script is on its way would run with no budget at all —
+    /// and the enclosing turn's deadline would go stale across a slow fetch. A nested turn re-arms it and
+    /// hands the enclosing turn a full budget back, which is exactly what <see cref="PageBudget"/> is for.
+    /// </para>
+    /// <para>
+    /// A job erupting out of the pump must not abandon the parse — the same trade <c>PageLoop.Pump</c> makes
+    /// — but it must not vanish either. The diagnostics sink covers what a callback throws; what reaches here
+    /// is what it does not, and a budget running out is the case that matters.
+    /// </para>
+    /// </remarks>
+    private void Drain()
+    {
+        try
+        {
+            using (_budget.BeginTurn())
+            {
+                _tasks.ProcessTasks();
+            }
+        }
+        catch (Exception exception)
+        {
+            _onPumpError(exception);
+        }
+    }
 
     /// <summary>Records the thread the parse is on, and whether it has changed since it started.</summary>
     private void Observe()

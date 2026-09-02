@@ -6,21 +6,22 @@ using Jint.Runtime;
 namespace Jint.Browser.Dom;
 
 /// <summary>
-/// The seam for the DOM members whose real behaviour belongs to a browser runtime that does not exist yet:
+/// The seam for the DOM members whose behaviour depends on whether a page runtime is behind the binding:
 /// the ones that parse markup into the tree, and so have to reach the script scheduler.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The generated members call these instead of AngleSharp directly, and the default implementations below
-/// <em>are</em> the AngleSharp call — so today the binding behaves exactly as it would without the seam, and
-/// the parser driver (campaign item R3) replaces the bodies by handing the realm a subclass without a line of
-/// generated code changing. That is the whole point of routing them through here now rather than later: the
-/// override table names them once, and the day the driver arrives it is one assignment.
+/// The generated members call these instead of AngleSharp directly. There is one instance and no subclass —
+/// <see cref="DomRealm.Hooks"/> is a seam nothing currently replaces — so a member whose answer differs with
+/// a page asks for one here, through <c>PageRuntime.Find</c>, and falls through to AngleSharp when there is
+/// none. That is what a binding-only engine gets, and it is the behaviour these members have always had.
 /// </para>
 /// <para>
-/// What the driver has to do that this cannot: a <c>&lt;script&gt;</c> inserted through <c>innerHTML</c> must
-/// be prepared and executed, and <c>document.write</c> during a parse writes into the live text source while
-/// the parser is parked. Both need the baton the driver owns.
+/// Two of them the parser driver settled rather than replaced. A <c>&lt;script&gt;</c> inserted through
+/// <c>innerHTML</c> needs nothing here: AngleSharp's fragment parser marks it "already started", so adopting
+/// it into the tree never runs it, which is HTML's own rule. And <c>document.write</c> <i>during</i> a parse
+/// is AngleSharp's own call and is correct — its writable text source inserts at the parser's index while the
+/// baton has the parser parked. Only the after-the-parse half needed a decision, and it is below.
 /// </para>
 /// </remarks>
 internal class DomHostHooks
@@ -75,11 +76,64 @@ internal class DomHostHooks
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>
     internal virtual void Write(DomRealm realm, IDocument document, JsValue[] arguments)
-        => document.Write(Join(arguments));
+    {
+        if (RefusedAfterTheParse(realm, document, "write"))
+        {
+            return;
+        }
+
+        document.Write(Join(arguments));
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-writeln</summary>
     internal virtual void WriteLine(DomRealm realm, IDocument document, JsValue[] arguments)
-        => document.WriteLine(Join(arguments));
+    {
+        if (RefusedAfterTheParse(realm, document, "writeln"))
+        {
+            return;
+        }
+
+        document.WriteLine(Join(arguments));
+    }
+
+    /// <summary>
+    /// Whether a write to a document that has finished parsing is refused, and the page told why.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// HTML says such a write implies <c>document.open()</c>, which replaces the document. AngleSharp's
+    /// <c>Document.Open</c> implements that by unloading through its own browsing context — blocking on
+    /// <c>PromptToUnloadAsync().Result</c> and <c>Unload(recycle: true).Wait()</c>, on whatever thread the
+    /// script ran on — and rebuilding the document behind the page's back, leaving the page's wrapper table,
+    /// its frame tree and its runtime pointing at a document that no longer exists. Until the page owns that
+    /// algorithm the honest answer is a page error naming it rather than a corrupted page.
+    /// </para>
+    /// <para>
+    /// With no page runtime there is nothing to corrupt and nothing to report to, so a binding-only engine
+    /// keeps AngleSharp's behaviour — which is what it had before there was a driver at all.
+    /// </para>
+    /// </remarks>
+    private static bool RefusedAfterTheParse(DomRealm realm, IDocument document, string member)
+    {
+        if (document.ReadyState == DocumentReadyState.Loading)
+        {
+            return false;
+        }
+
+        if (Runtime.PageRuntime.Find(realm.Engine) is not { } runtime)
+        {
+            return false;
+        }
+
+        runtime.Recorder.Add(new PageError(
+            PageErrorKind.ReportedError,
+            "document." + member + "() after the document finished parsing implies document.open(), which "
+            + "would replace the document; Jint.Browser does not implement it, so the call did nothing. "
+            + "Build the markup with the DOM, or set the page's content again.",
+            document.Url));
+
+        return true;
+    }
 
     /// <summary>
     /// <c>document.write</c> takes a variadic <c>DOMString...</c> and concatenates it; AngleSharp's signature
