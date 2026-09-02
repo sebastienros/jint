@@ -47,8 +47,10 @@ public class HandshakeReplayTests
     /// Three reasons, and they are not interchangeable. A <b>page</b> entry belongs to a target that has a
     /// document — <c>Jint.Browser</c>, which is AngleSharp plus Jint — and would be wrong to answer here
     /// whatever the implementation state, because an engine target has no page to answer about. A
-    /// <b>later</b> entry is engine-level and simply not written yet. A <b>none</b> entry is one Chrome
-    /// itself answered <c>-32601</c> to in the very recording.
+    /// <b>later</b> entry is engine-level and simply not written yet — <b>there are none, and that is the
+    /// point of naming the reason</b>: everything a recorded client sends and this server does not answer is
+    /// now either somebody else's to answer or nobody's. A <b>none</b> entry is one Chrome itself answered
+    /// <c>-32601</c> to in the very recording.
     /// </remarks>
     private static readonly Dictionary<string, string> Absent = new(StringComparer.Ordinal)
     {
@@ -81,9 +83,6 @@ public class HandshakeReplayTests
         ["IO.close"] = "page",
         ["Audits.enable"] = "page",
         ["Performance.enable"] = "page",
-
-        // Engine-level and not written yet. It needs the profiler seam, and half of that is worse than none.
-        ["Profiler.enable"] = "later",
 
         // Chrome answered -32601 to these in the recording itself, so a client that sends one already
         // handles not getting it.

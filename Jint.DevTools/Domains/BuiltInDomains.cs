@@ -66,8 +66,9 @@ internal static class BuiltInDomains
         var console = new ConsoleDomain(target);
         var log = new LogDomain();
         var debugger = new DebuggerDomain(target, log);
+        var profiler = new ProfilerDomain(target);
 
-        session.Register(runtime).Register(console).Register(log).Register(debugger);
+        session.Register(runtime).Register(console).Register(log).Register(debugger).Register(profiler);
 
         // Registered with the engine's own event sources in one place, so that the three domains that hear
         // about a console call, an uncaught exception or an unhandled rejection are exactly the three the
@@ -83,7 +84,7 @@ internal static class BuiltInDomains
             session.Register(new TargetDomain(browser, nested: true));
         }
 
-        return new TargetDomains(target, runtime, console, log, debugger);
+        return new TargetDomains(target, runtime, console, log, debugger, profiler);
     }
 }
 
@@ -102,7 +103,8 @@ internal readonly record struct TargetDomains(
     RuntimeDomain Runtime,
     ConsoleDomain Console,
     LogDomain Log,
-    DebuggerDomain Debugger)
+    DebuggerDomain Debugger,
+    ProfilerDomain Profiler)
 {
     /// <summary>Releases everything this attachment holds of its engine, and stops it hearing anything.</summary>
     /// <remarks>
@@ -117,6 +119,7 @@ internal readonly record struct TargetDomains(
         Target.Unobserve(Log);
 
         Runtime.Detach();
+        Profiler.Detach();
         Debugger.Detach();
     }
 }
