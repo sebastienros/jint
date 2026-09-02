@@ -32,9 +32,12 @@
 
       Nothing here is suppressed, and that is the point of the design: every payload crosses through the
       source-generated ProtocolJsonContext, so no protocol type is reached by reflection and the assembly
-      produces no IL2xxx or IL3050 of its own. The AOT probe that turns the claim into evidence arrives
-      with the end-to-end pull request (campaign P7); until then this property says "analysed clean",
-      not "measured".
+      produces no IL2xxx or IL3050 of its own.
+
+      That is now measured rather than analysed. Jint.AotExample references this package and deliberately
+      does NOT root it, then drives the published native binary over a real socket - attach, evaluate,
+      break, resume - and the same CI leg fails if any IL2xxx/IL3xxx diagnostic ILC re-derives over the
+      closed program is attributed to a file in here.
     -->
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
   </PropertyGroup>

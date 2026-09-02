@@ -2234,14 +2234,52 @@ loop does: every command waits for your next `ProcessTasks`, and one that waits 
 `target.Post(engine => …)` or `await target.PostAsync(engine => …)` — the engine's own rules are unchanged,
 so touching it from anywhere else still fails fast rather than corrupting anything.
 
-Today a client can list targets, attach, hear about the execution context and evaluate — including
-`returnByValue` and awaiting a promise. `Debugger` (breakpoints, stepping, scopes), `Profiler` and the
-console and log domains arrive in later releases; until then each answers `'Domain.method' wasn't found`,
-which is what a client feature-detects on. Page-level domains are not this package's business at all.
-
 **The endpoint is unauthenticated**, exactly as it is in Chrome: anything that can reach it can evaluate
 arbitrary script in your process. `DevToolsServerOptions.Host` therefore defaults to `127.0.0.1`; do not
 bind it to a routable address.
+
+### What answers today
+
+- **`Runtime`** — list targets, attach, hear about the execution context, and evaluate, including
+  `returnByValue`, object handles you can walk with `getProperties`, `callFunctionOn`, bindings and awaiting
+  a promise.
+- **`Debugger`** — breakpoints by URL or script, the three steps, `continueToLocation`, call frames, scopes
+  (a getter-free snapshot, with a binding still in its temporal dead zone absent rather than `undefined`),
+  `setVariableValue`, evaluation in any frame, and **pausing where a script throws**.
+- **`Profiler`** — a sampled CPU profile in the document the Performance panel loads, and precise coverage in
+  which a function that never ran is reported with a zero count rather than being absent. Coverage is the
+  one switch with a running cost, so it is opt-in: `options.UseDevTools(devTools => devTools.Coverage = true)`.
+- **`Console`, `Log`** — what a script logged, with its values still attached, and what it threw.
+- **`Target`, `Browser`, `Schema`** — the session core, flattened sessions only.
+
+Everything else answers `'Domain.method' wasn't found`, which is what a client feature-detects on, and the
+package's `AGENTS.md` says why for each. Page-level domains are not this package's business.
+
+### Trying it without writing a host
+
+The REPL serves the protocol over `--inspect`:
+
+```bash
+dotnet run --project Jint.Repl -c Release -- --inspect -f script.js -t 60
+```
+
+It prints the WebSocket endpoint, the `devtools://` front-end address and what to type into
+`chrome://inspect`. `--inspect=[host:]port` chooses where to listen — `0` takes an ephemeral port and the
+banner names it — and `--inspect-brk` runs nothing until a client has attached and sent
+`Runtime.runIfWaitingForDebugger`. The engine stays attached after the script finishes, so a timer still
+fires and a client can still read it.
+
+`Jint.DevTools/docs/manual-checklist.md` is what each panel should show, and
+`tools/devtools-frontend-smoke/` drives most of that walk against a real Chrome automatically.
+
+### Native AOT
+
+**Measured rather than claimed.** `Jint.AotExample` references this package *without* rooting it and, in the
+published native binary, opens a real socket to it: `Target.getTargets`, a flattened attach, an evaluation,
+a breakpoint that pauses the engine, and a resume. The CI leg that publishes and runs that binary also fails
+if any trim or AOT analysis diagnostic is attributed to a file in `Jint.DevTools` — everything the protocol
+serializes goes through a source-generated `System.Text.Json` context, and the first reflective member would
+show up there and nowhere else.
 
 ## Performance
 

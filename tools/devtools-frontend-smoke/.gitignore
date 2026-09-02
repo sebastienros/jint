@@ -1,0 +1,4 @@
+# Everything this tool downloads or produces on the way to a run's verdict.
+node_modules/
+package-lock.json
+out/

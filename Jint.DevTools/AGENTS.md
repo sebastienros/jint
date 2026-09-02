@@ -357,6 +357,15 @@ everything it tests is `internal`.
   tolerance a decision, and
   [`Domains/AGENTS.md`](Domains/AGENTS.md#the-absent-table-and-how-a-command-leaves-it) says what an entry
   means and how one is retired.
-- **What is not here yet**: the manual checklist for attaching
-  `devtools://devtools/bundled/js_app.html?v8only=true&ws=`, which is how the front end's own behaviour is
-  claimed and which nothing automated replaces.
+- **The front end is claimed by driving it, not by asserting against it.**
+  [`docs/manual-checklist.md`](docs/manual-checklist.md) is the walk — `chrome://inspect` → Configure → the
+  port, then what each panel should show and what is expected to be empty — and
+  [`tools/devtools-frontend-smoke/`](../tools/devtools-frontend-smoke/README.md) automates most of it against a real
+  Chrome and a real Jint process. That tool downloads a browser and reaches the network, so it is **not in
+  CI**; run it when the protocol surface changes, and run the checklist by hand for the steps it reports as
+  not driven.
+- **The published binary is a claim too.** `Jint.AotExample` references this package without rooting it and
+  probes it over a real socket — attach, evaluate, break, resume — so the `aot` leg's own run is what says
+  Native AOT works here. That leg additionally fails if any `IL2xxx`/`IL3xxx` diagnostic is attributed to a
+  file in this package: everything it serializes goes through a source-generated `System.Text.Json` context,
+  and the first reflective one would show up there rather than in a test.

@@ -48,7 +48,11 @@
 // script's arguments will produce, and rooting a guessed set would cost every AOT consumer binary size
 // for instantiations they never use.
 
+using System.Net.WebSockets;
+using System.Text;
+using System.Text.Json;
 using Jint;
+using Jint.DevTools;
 using Jint.Native;
 using Jint.Runtime.Interop;
 using UnrootedAotProbe;
@@ -557,6 +561,18 @@ Probe("promise and async function", static () =>
     Expect(42, engine.Evaluate("(async function () { return 42; })()").UnwrapIfPromise());
 });
 
+// The DevTools protocol server, natively compiled and driven over a real socket by a client that is not
+// PuppeteerSharp and not this package: attach, evaluate, stop the engine at a breakpoint, resume.
+//
+// It is here because the claim "Jint.DevTools is AOT-safe" is exactly as unfounded as the one this whole
+// project exists to check. Two things could have made it false and neither is visible from a JIT run: the
+// protocol is JSON in both directions, which is where a reflection-based serializer would raise IL2026 and
+// IL3050 at every call and then fail at run time under a trimmer (the package uses a source-generated
+// System.Text.Json context, which is what makes this pass); and Jint.DevTools is deliberately NOT rooted in
+// this project's TrimmerRootAssembly list, so a domain reachable only through the generated dispatch is
+// preserved by that switch or by nothing at all.
+Probe("DevTools protocol over a socket: attach, evaluate, break, resume", static () => DevToolsProbe.Run());
+
 Console.WriteLine();
 if (failures == 0)
 {
@@ -784,6 +800,219 @@ public sealed class ReadOnlyDoubles : IReadOnlyList<double>
     public int Count => _items.Count;
     public IEnumerator<double> GetEnumerator() => _items.GetEnumerator();
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+}
+
+/// <summary>
+/// The DevTools half of the probe: a WebSocket client of its own, so that what is being checked is the
+/// published server and not a client library's ability to talk to it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Deliberately hand-rolled rather than PuppeteerSharp. Adding a client package here would put that
+/// package's Native AOT behaviour into the measurement, and a failure would then be ambiguous. Everything
+/// below is <see cref="System.Net.WebSockets.ClientWebSocket"/> plus <see cref="JsonDocument"/>, both of
+/// which are AOT-clean, and every JSON body it sends is a constant with an identifier interpolated into it.
+/// </para>
+/// <para>
+/// The target is <see cref="ThreadMode.LibraryOwned"/> because this thread is the client: the engine needs
+/// a thread of its own to be paused on while this one reads <c>Debugger.paused</c> off the socket and sends
+/// the resume.
+/// </para>
+/// </remarks>
+public static class DevToolsProbe
+{
+    /// <summary>Long enough that a loaded machine does not fail the run, short enough not to be a hang.</summary>
+    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(60);
+
+    private const string Source = """
+        function twice(n) {
+            var doubled = n * 2;
+            return doubled;
+        }
+        """;
+
+    /// <summary>Runs the probe, throwing whatever went wrong so the caller reports it as a failure.</summary>
+    public static void Run() => RunAsync().GetAwaiter().GetResult();
+
+    private static async Task RunAsync()
+    {
+        await using var server = new DevToolsServer(new DevToolsServerOptions { Port = 0 });
+        await server.StartAsync().ConfigureAwait(false);
+
+        await using var target = new EngineTarget(
+            new Engine(static options => options.UseDevTools()),
+            new EngineTargetOptions { Title = "aot", Url = "jint://aot", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+        await target.PostAsync(static engine => engine.Execute(Source, "twice.js")).ConfigureAwait(false);
+
+        using var deadline = new CancellationTokenSource(Bound);
+        using var socket = new ClientWebSocket();
+        await socket.ConnectAsync(new Uri(server.BrowserWebSocketUrl), deadline.Token).ConfigureAwait(false);
+
+        var client = new ProtocolClient(socket, deadline.Token);
+
+        // Target.getTargets, then attach flattened - the two commands every recorded client sends before it
+        // can address an engine at all.
+        using (var targets = await client.CallAsync("Target.getTargets", null, "{}").ConfigureAwait(false))
+        {
+            var listed = targets.RootElement.GetProperty("result").GetProperty("targetInfos");
+            if (listed.GetArrayLength() != 1 || listed[0].GetProperty("targetId").GetString() != target.TargetId)
+            {
+                throw new InvalidOperationException("Target.getTargets did not list the one engine this server was given");
+            }
+        }
+
+        string session;
+        using (var attached = await client.CallAsync("Target.attachToTarget", null, $$"""{"targetId":"{{target.TargetId}}","flatten":true}""").ConfigureAwait(false))
+        {
+            session = attached.RootElement.GetProperty("result").GetProperty("sessionId").GetString()
+                ?? throw new InvalidOperationException("Target.attachToTarget answered no sessionId");
+        }
+
+        using (var evaluated = await client.CallAsync("Runtime.evaluate", session, """{"expression":"6 * 7","returnByValue":true}""").ConfigureAwait(false))
+        {
+            var value = evaluated.RootElement.GetProperty("result").GetProperty("result").GetProperty("value").GetInt32();
+            if (value != 42)
+            {
+                throw new InvalidOperationException($"Runtime.evaluate answered {value} rather than 42");
+            }
+        }
+
+        (await client.CallAsync("Runtime.enable", session, "{}").ConfigureAwait(false)).Dispose();
+        (await client.CallAsync("Debugger.enable", session, "{}").ConfigureAwait(false)).Dispose();
+
+        string breakpoint;
+        using (var set = await client.CallAsync("Debugger.setBreakpointByUrl", session, """{"url":"twice.js","lineNumber":2}""").ConfigureAwait(false))
+        {
+            var result = set.RootElement.GetProperty("result");
+            breakpoint = result.GetProperty("breakpointId").GetString()
+                ?? throw new InvalidOperationException("Debugger.setBreakpointByUrl answered no breakpointId");
+
+            if (result.GetProperty("locations").GetArrayLength() != 1)
+            {
+                throw new InvalidOperationException("the script is already parsed, so the breakpoint should have been placed at once");
+            }
+        }
+
+        // Not awaited: this evaluation is what pauses, so waiting for its reply before resuming would be
+        // waiting for this probe to answer itself.
+        var pending = client.SendAsync("Runtime.evaluate", session, """{"expression":"twice(21)","returnByValue":true}""");
+
+        using (var paused = await client.EventAsync("Debugger.paused").ConfigureAwait(false))
+        {
+            var parameters = paused.RootElement.GetProperty("params");
+            var hit = parameters.GetProperty("hitBreakpoints");
+            if (hit.GetArrayLength() != 1 || hit[0].GetString() != breakpoint)
+            {
+                throw new InvalidOperationException("the engine paused somewhere other than on the breakpoint that was set");
+            }
+
+            var frame = parameters.GetProperty("callFrames")[0].GetProperty("functionName").GetString();
+            if (frame != "twice")
+            {
+                throw new InvalidOperationException($"the top call frame was '{frame}' rather than 'twice'");
+            }
+        }
+
+        (await client.CallAsync("Debugger.resume", session, "{}").ConfigureAwait(false)).Dispose();
+
+        using (var resumed = await client.ResponseAsync(await pending.ConfigureAwait(false)).ConfigureAwait(false))
+        {
+            var value = resumed.RootElement.GetProperty("result").GetProperty("result").GetProperty("value").GetInt32();
+            if (value != 42)
+            {
+                throw new InvalidOperationException($"the resumed evaluation answered {value} rather than 42");
+            }
+        }
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", deadline.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>The smallest thing that can be called a Chrome DevTools Protocol client.</summary>
+    private sealed class ProtocolClient(ClientWebSocket socket, CancellationToken token)
+    {
+        private readonly byte[] _buffer = new byte[16 * 1024];
+        private int _id;
+
+        /// <summary>Sends one command and answers with the identifier its reply will carry.</summary>
+        internal async Task<int> SendAsync(string method, string? session, string parameters)
+        {
+            var id = Interlocked.Increment(ref _id);
+            var envelope = session is null
+                ? $$"""{"id":{{id}},"method":"{{method}}","params":{{parameters}}}"""
+                : $$"""{"id":{{id}},"method":"{{method}}","params":{{parameters}},"sessionId":"{{session}}"}""";
+
+            await socket.SendAsync(Encoding.UTF8.GetBytes(envelope), WebSocketMessageType.Text, endOfMessage: true, token).ConfigureAwait(false);
+            return id;
+        }
+
+        /// <summary>Sends one command and reads until its reply arrives, skipping the events in between.</summary>
+        internal async Task<JsonDocument> CallAsync(string method, string? session, string parameters)
+            => await ResponseAsync(await SendAsync(method, session, parameters).ConfigureAwait(false)).ConfigureAwait(false);
+
+        /// <summary>Reads until the reply to <paramref name="id"/> arrives, and fails on a protocol error.</summary>
+        internal async Task<JsonDocument> ResponseAsync(int id)
+        {
+            while (true)
+            {
+                var message = await ReadAsync().ConfigureAwait(false);
+                if (!message.RootElement.TryGetProperty("id", out var answered) || answered.GetInt32() != id)
+                {
+                    message.Dispose();
+                    continue;
+                }
+
+                if (message.RootElement.TryGetProperty("error", out var error))
+                {
+                    var reported = error.GetProperty("message").GetString();
+                    message.Dispose();
+                    throw new InvalidOperationException($"the server answered {id} with an error: {reported}");
+                }
+
+                return message;
+            }
+        }
+
+        /// <summary>Reads until <paramref name="method"/> is raised, skipping everything else.</summary>
+        internal async Task<JsonDocument> EventAsync(string method)
+        {
+            while (true)
+            {
+                var message = await ReadAsync().ConfigureAwait(false);
+                if (message.RootElement.TryGetProperty("method", out var raised) && raised.GetString() == method)
+                {
+                    return message;
+                }
+
+                message.Dispose();
+            }
+        }
+
+        /// <summary>Reads one whole message, however many frames it took.</summary>
+        private async Task<JsonDocument> ReadAsync()
+        {
+            using var message = new MemoryStream();
+
+            while (true)
+            {
+                var frame = await socket.ReceiveAsync(_buffer, token).ConfigureAwait(false);
+                if (frame.MessageType == WebSocketMessageType.Close)
+                {
+                    throw new InvalidOperationException("the server closed the socket before the probe was finished");
+                }
+
+                message.Write(_buffer, 0, frame.Count);
+                if (frame.EndOfMessage)
+                {
+                    break;
+                }
+            }
+
+            message.Position = 0;
+            return JsonDocument.Parse(message);
+        }
+    }
 }
 
 namespace AotProbe

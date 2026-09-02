@@ -1,7 +1,9 @@
 ﻿#nullable enable
 
+using System.Globalization;
 using System.Reflection;
 using Jint;
+using Jint.DevTools;
 using Jint.Native;
 using Jint.Native.Json;
 using Jint.Runtime;
@@ -17,6 +19,10 @@ string? inputFile = null;
 int? timeoutSeconds = null;
 bool runAsModule = false;
 bool enableFetch = false;
+bool inspect = false;
+bool inspectBreak = false;
+string inspectHost = "127.0.0.1";
+int inspectPort = 9229;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -58,6 +64,23 @@ for (int i = 0; i < args.Length; i++)
             PrintHelp();
             return 0;
         default:
+            // --inspect and --inspect-brk carry their endpoint in the same argument, the way Node spells it,
+            // so they are matched by prefix rather than by a case label.
+            if (args[i] is "--inspect" or "--inspect-brk" || args[i].StartsWith("--inspect=", StringComparison.Ordinal) || args[i].StartsWith("--inspect-brk=", StringComparison.Ordinal))
+            {
+                inspect = true;
+                inspectBreak = args[i].StartsWith("--inspect-brk", StringComparison.Ordinal);
+
+                var equals = args[i].IndexOf('=');
+                if (equals >= 0 && !TryReadEndpoint(args[i].Substring(equals + 1), ref inspectHost, ref inspectPort))
+                {
+                    Console.Error.WriteLine($"Error: {args[i]} is not [host:]port");
+                    return 1;
+                }
+
+                break;
+            }
+
             // For backwards compatibility, treat first positional arg as filename
             if (!args[i].StartsWith("-") && inputFile == null)
             {
@@ -96,6 +119,14 @@ var engine = new Engine(cfg =>
         cfg.LimitExecutionTime(TimeSpan.FromSeconds(timeoutSeconds.Value));
     }
 
+    // An attachable engine is built for it: debugging, retained source text, profiling and coverage are all
+    // construction-time, so --inspect has to be known here rather than when a client connects. Last of the
+    // web-API calls, because the console sink it wraps is the one UseConsole installed above.
+    if (inspect)
+    {
+        cfg.UseDevTools(devTools => devTools.Coverage = true);
+    }
+
     // Even if the script is not a module, modules still need to be enabled
     // for dynamic import to work.
     var basePath = inputFile != null
@@ -114,6 +145,47 @@ var test262 = Test262Object.Install(engine);
 
 var agentManager = new Test262AgentManager();
 agentManager.InstallAgent(engine, test262);
+
+DevToolsServer? inspector = null;
+EngineTarget? inspected = null;
+
+if (inspect)
+{
+    try
+    {
+        inspector = new DevToolsServer(new DevToolsServerOptions { Host = inspectHost, Port = inspectPort, Product = $"Jint/{Assembly.GetExecutingAssembly().GetName().Version}" });
+        inspector.Start();
+    }
+    catch (Exception e)
+    {
+        // A port already in use and an address that is not one are the two ways this fails, and both are
+        // the command line's fault rather than the script's. Node says so and stops; so does this.
+        Console.Error.WriteLine($"Error: cannot listen on {inspectHost}:{inspectPort}: {e.Message}");
+        return 1;
+    }
+
+    inspected = new EngineTarget(engine, new EngineTargetOptions
+    {
+        Title = inputFile is null ? "Jint REPL" : Path.GetFileName(inputFile),
+        Url = inputFile is null ? "jint://repl" : new Uri(Path.GetFullPath(inputFile)).AbsoluteUri,
+
+        // The REPL owns its loop: it evaluates on this thread, so this thread is also the one that answers
+        // the protocol. A LibraryOwned target would be a second thread in the same engine.
+        ThreadMode = ThreadMode.HostOwned,
+        WaitForDebuggerOnStart = inspectBreak,
+    });
+
+    inspector.AddTarget(inspected);
+    PrintInspectorBanner(inspectHost, inspector.BoundPort, inspected.TargetId, inspectBreak);
+
+    if (inspectBreak)
+    {
+        // Node's --inspect-brk: nothing the host queued runs until a client has attached and sent
+        // Runtime.runIfWaitingForDebugger. The wait pumps rather than blocks, because that very command is
+        // answered on this thread.
+        inspected.WaitForDebugger(Timeout.InfiniteTimeSpan);
+    }
+}
 
 // Execute file if provided via -f
 if (!string.IsNullOrEmpty(inputFile))
@@ -140,13 +212,16 @@ if (!string.IsNullOrEmpty(inputFile))
                 Console.WriteLine(result);
             }
         }
-        return 0;
+        return KeepInspecting(inspected);
     }
     catch (JavaScriptException je)
     {
+        // An attached client hears the throw the way it hears one from a timer: as Runtime.exceptionThrown,
+        // so the Console panel shows it rather than only this terminal.
+        inspected?.ReportUncaughtException(je);
         Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
-        return 1;
+        return KeepInspecting(inspected, 1);
     }
     catch (ModuleResolutionException mre)
     {
@@ -184,13 +259,14 @@ if (Console.IsInputRedirected)
                 Console.WriteLine(result);
             }
         }
-        return 0;
+        return KeepInspecting(inspected);
     }
     catch (JavaScriptException je)
     {
+        inspected?.ReportUncaughtException(je);
         Console.Error.WriteLine(FormatJavaScriptException(je));
         Console.Error.WriteLine(je.JavaScriptStackTrace);
-        return 1;
+        return KeepInspecting(inspected, 1);
     }
     catch (ModuleResolutionException mre)
     {
@@ -229,7 +305,7 @@ while (true)
 {
     Console.ForegroundColor = defaultColor;
     Console.Write("jint> ");
-    var input = Console.ReadLine();
+    var input = inspected is null ? Console.ReadLine() : ReadLineWhilePumping(inspected);
     if (input is null or "exit" or ".exit")
     {
         return 0;
@@ -276,6 +352,111 @@ while (true)
         Console.ForegroundColor = ConsoleColor.Red;
         Console.WriteLine(e.Message);
     }
+
+    // Between inputs, which is what a HostOwned target means: the commands a client sent while the prompt
+    // was waiting were already answered by the read above, and this runs whatever the evaluation queued.
+    if (inspected is not null)
+    {
+        PumpInspector(inspected);
+    }
+}
+
+/// <summary>Reads one line while the engine keeps answering an attached client.</summary>
+static string? ReadLineWhilePumping(EngineTarget target)
+{
+    // The console read is the one thing that leaves this thread. It touches no engine state, and moving it
+    // off is what makes a client's commands answered while the prompt waits rather than only after the next
+    // line is typed.
+    var line = Task.Run(Console.ReadLine);
+    while (!line.IsCompleted)
+    {
+        PumpInspector(target);
+        ((IAsyncResult) line).AsyncWaitHandle.WaitOne(25);
+    }
+
+    // A read that failed rather than returned is end of input, which is what the caller does with a null
+    // anyway. Waiting on the task instead would throw the console's exception out of the REPL's loop.
+    return line.IsCompletedSuccessfully ? line.Result : null;
+}
+
+/// <summary>Gives the engine one turn, and reports whatever the turn threw rather than dying of it.</summary>
+static void PumpInspector(EngineTarget target)
+{
+    try
+    {
+        target.Pump();
+    }
+    catch (JavaScriptException je)
+    {
+        target.ReportUncaughtException(je);
+        Console.Error.WriteLine(FormatJavaScriptException(je));
+    }
+    catch (Exception e)
+    {
+        Console.Error.WriteLine($"Error: {e.Message}");
+    }
+}
+
+/// <summary>
+/// Keeps a --inspect engine attachable after the script it was given has finished, so a client can still
+/// read it, and so a timer the script scheduled still fires.
+/// </summary>
+static int KeepInspecting(EngineTarget? target, int exitCode = 0)
+{
+    if (target is null)
+    {
+        return exitCode;
+    }
+
+    Console.WriteLine("The script has finished; the engine stays attached. Press Ctrl+C to exit.");
+
+    var stopping = 0;
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        Interlocked.Exchange(ref stopping, 1);
+    };
+
+    while (Volatile.Read(ref stopping) == 0)
+    {
+        PumpInspector(target);
+
+        // The mailbox wakes this through Engine.Tasks.Post, so a command a client sends is answered on the
+        // next turn rather than after the wait.
+        target.Engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50));
+    }
+
+    return exitCode;
+}
+
+/// <summary>Reads a <c>--inspect=</c> endpoint, which is a port or a host and a port.</summary>
+static bool TryReadEndpoint(string endpoint, ref string host, ref int port)
+{
+    var colon = endpoint.LastIndexOf(':');
+    if (colon >= 0)
+    {
+        host = endpoint.Substring(0, colon);
+        endpoint = endpoint.Substring(colon + 1);
+    }
+
+    return host.Length > 0 && int.TryParse(endpoint, NumberStyles.None, CultureInfo.InvariantCulture, out port) && port <= 65535;
+}
+
+/// <summary>Says where a client attaches, in the three forms one is reached from.</summary>
+static void PrintInspectorBanner(string host, int port, string targetId, bool waiting)
+{
+    var endpoint = string.Create(CultureInfo.InvariantCulture, $"{host}:{port}/devtools/page/{targetId}");
+
+    Console.WriteLine($"Debugger listening on ws://{endpoint}");
+    Console.WriteLine($"  front end: devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws={endpoint}");
+    Console.WriteLine($"  or open chrome://inspect, click Configure..., add {host}:{port}, and the target appears under Remote Target");
+
+    if (waiting)
+    {
+        Console.WriteLine("Waiting for the debugger to attach; nothing runs until a client sends Runtime.runIfWaitingForDebugger.");
+    }
+
+    Console.WriteLine();
 }
 
 static string FormatJavaScriptException(JavaScriptException je)
@@ -314,7 +495,19 @@ static void PrintHelp()
     Console.WriteLine("  -m, --module          Run script as ES6 module");
     Console.WriteLine("  -t, --timeout <secs>  Set execution timeout in seconds");
     Console.WriteLine("      --fetch           Allow the script to make network requests");
+    Console.WriteLine("      --inspect[=[host:]port]      Serve the Chrome DevTools protocol (default 127.0.0.1:9229)");
+    Console.WriteLine("      --inspect-brk[=[host:]port]  The same, but run nothing until a client attaches");
     Console.WriteLine("  -h, --help            Show this help message");
+    Console.WriteLine();
+    Console.WriteLine("Inspecting:");
+    Console.WriteLine("  --inspect prints the endpoint, the devtools:// front-end address and what to type into");
+    Console.WriteLine("  chrome://inspect. The engine is the one this process runs, so it is pumped between inputs:");
+    Console.WriteLine("  a command sent while the prompt is waiting is answered there and then, and a script run with");
+    Console.WriteLine("  -f keeps the engine attached after it finishes so a timer still fires and the client can still");
+    Console.WriteLine("  read it - Ctrl+C exits. Port 0 asks the operating system for one and the banner says which.");
+    Console.WriteLine("  It also turns on coverage counting, so the front end's Coverage panel answers.");
+    Console.WriteLine("  -t still bounds execution, and it keeps counting while the debugger has the engine paused,");
+    Console.WriteLine("  so a timeout short enough to matter and a breakpoint do not go together.");
     Console.WriteLine();
     Console.WriteLine("Web APIs:");
     Console.WriteLine("  console, timers, TextEncoder/TextDecoder, atob/btoa, structuredClone, crypto,");
@@ -331,6 +524,8 @@ static void PrintHelp()
     Console.WriteLine("  jint -m module.js             Execute module.js as ES6 module");
     Console.WriteLine("  jint -f script.js -t 10       Execute with 10 second timeout");
     Console.WriteLine("  jint -f script.js --fetch     Execute with network access enabled");
+    Console.WriteLine("  jint --inspect                Start the REPL with DevTools on 127.0.0.1:9229");
+    Console.WriteLine("  jint -f app.js --inspect-brk=0  Attach before app.js runs, on a port the banner names");
     Console.WriteLine("  echo \"1+1\" | jint             Execute from stdin");
     Console.WriteLine("  echo \"1+1\" | jint -t 5        Execute from stdin with timeout");
 }

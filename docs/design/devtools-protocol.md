@@ -125,15 +125,33 @@ the vendored JSON by `ProtocolCitationTests`.
 
 | Domain | What it maps onto | Engine change |
 | --- | --- | --- |
-| `Runtime` | `engine.Evaluate` (running) or `DebugHandler.Evaluate` (paused); `getProperties` over `GetOwnPropertyKeys` + descriptors, accessors reported and never invoked; `awaitPromise` by reactions; `consoleAPICalled`; `exceptionThrown`/`exceptionRevoked` from `Tasks.PromiseRejectionTracker`; `getHeapUsage` from `Diagnostics.GetMemoryReport` | **E5** structured `ConsoleRecord` sink overload + public `ValueInspector` (previews that never run script, promoted from `ConsoleFormatter`) |
-| `Debugger` | `ScriptRegistry` on `DebugHandler.BeforeEvaluate` keyed by `Program` identity (a cached `Prepared<Script>` is announced once); breakpoints as `DevToolsBreakPoint : BreakPoint` (the class is unsealed for this); `pause` as a flag checked in `Skip`; scopes from `DebugScopeType` 1:1 | **E1** `TryGetSourceText(Program)` for `getScriptSource`; **E2** `GetStepLocations(Program)` for `getPossibleBreakpoints` and column snapping; **E3** pause on exceptions with caught/uncaught; **E4** evaluate on any call frame |
-| `Profiler` | `Profiler.Profile` synthesized from the evented `ScriptProfile` (`Jint/Profiling/`) behind an `IProfileSource` seam — one weighted sample per interval between two activations, so the time deltas add up to the recording rather than approximating it; precise/best-effort coverage from `CoverageReport` (`Jint/Runtime/Coverage/`), with the uncovered set derived from the script registry's abstract syntax tree so an unused function is reported with `count: 0` | none. The sampling profiler that landed as [#3608](https://github.com/sebastienros/jint/pull/3608) is **not** the source: `SampledProfile` publishes its sample, frame and stack tables as `internal` and a Firefox Profiler document as its only output, so it plugs into the same seam once those tables are public — an additive engine change, not an edit to the domain |
+| `Runtime` | `engine.Evaluate` (running) or `DebugHandler.Evaluate` (paused); `getProperties` over `GetOwnPropertyKeys` + descriptors, accessors reported and never invoked; `awaitPromise` by reactions; `consoleAPICalled`; `exceptionThrown`/`exceptionRevoked` from `Tasks.PromiseRejectionTracker`; `getHeapUsage` from `Diagnostics.GetMemoryReport` | **E5** ([#3597](https://github.com/sebastienros/jint/pull/3597)) structured `ConsoleRecord` sink overload + public `ValueInspector` (previews that never run script, promoted from `ConsoleFormatter`) |
+| `Debugger` | `ScriptRegistry` on `DebugHandler.BeforeEvaluate` keyed by `Program` identity (a cached `Prepared<Script>` is announced once); breakpoints as `DevToolsBreakPoint : BreakPoint` (the class is unsealed for this); `pause` as a flag checked in `Skip`; scopes from `DebugScopeType` 1:1 | **E1** ([#3587](https://github.com/sebastienros/jint/pull/3587)) `TryGetSourceText(Program)` for `getScriptSource`; **E2** ([#3614](https://github.com/sebastienros/jint/pull/3614)) `GetStepLocations(Program)` for `getPossibleBreakpoints` and column snapping; **E3** ([#3623](https://github.com/sebastienros/jint/pull/3623)) pause on exceptions with caught/uncaught; **E4** ([#3622](https://github.com/sebastienros/jint/pull/3622)) evaluate on any call frame |
+| `Profiler` | `Profiler.Profile` synthesized from the evented `ScriptProfile` (`Jint/Profiling/`) behind an `IProfileSource` seam — one weighted sample per interval between two activations, so the time deltas add up to the recording rather than approximating it; precise/best-effort coverage from `CoverageReport` (`Jint/Runtime/Coverage/`), with the uncovered set derived from the script registry's abstract syntax tree so an unused function is reported with `count: 0` | none. The sampling profiler that landed as [#3608](https://github.com/sebastienros/jint/pull/3608) is **not** the source: `SampledProfile` publishes its sample, frame and stack tables as `internal` and a Firefox Profiler document as its only output, so it plugs into the same seam once those tables are public — an additive engine change ([#3630](https://github.com/sebastienros/jint/issues/3630)), not an edit to the domain |
 | `Console`, `Log` | the structured record | E5 |
 | `Target`, `Browser`, `Schema` | the session core and the manifest | none |
 
-The five engine PRs are additive and public, so that a third party — AngleSharp.Js, a DAP adapter, a host's own
-tooling — can build the same thing without `InternalsVisibleTo`. `Jint.DevTools` itself consumes only public
-Jint API; that is deliberate, and it is what proves the seams are reachable.
+**All five engine seams are merged**, and every one is additive and public — so that a third party (AngleSharp.Js,
+a DAP adapter, a host's own tooling) can build the same thing without `InternalsVisibleTo`. `Jint.DevTools`
+itself consumes only public Jint API; that is deliberate, and it is what proves the seams are reachable.
+
+Three seams the build wanted and did not get are open issues rather than silent workarounds, and each is
+named where it bites:
+
+- [#3630](https://github.com/sebastienros/jint/issues/3630) — **the sampler is not the profile's source.**
+  `SampledProfile` publishes its sample, frame and stack tables as `internal` and a Firefox Profiler document
+  as its only output, so `Profiler.start`/`stop` samples on its own activations behind `IProfileSource` and
+  reports `(root)`/`(program)` frames. Public read-only accessors on those tables make the sampler a second
+  `IProfileSource`, with no edit to the domain.
+- [#3631](https://github.com/sebastienros/jint/issues/3631) — **`caught` is not an engine mode.**
+  `ExceptionPauseMode` is `None`/`Uncaught`/`All`, so the client's `caught` asks for `All` and drops the
+  uncaught half in the `Break` handler — and declining a pause there means returning a `StepMode`, whose value
+  *is* the next step mode, so it cancels a step in flight. Harmless only because those frames are about to be
+  unwound; a trap for every other host that filters pauses.
+- [#3632](https://github.com/sebastienros/jint/issues/3632) — **a frame carries a source name, not a
+  `Program`.** `ScriptRegistry.At` therefore matches by name and range, which collapses every sourceless
+  `Execute` into one `<anonymous>` script. It limits paused frames, profile frames and coverage sources at
+  once, and one seam closes all three.
 
 ## 6. Costs, stated up front
 
@@ -154,8 +172,24 @@ Each is a follow-up issue if a client turns out to need it.
 
 ## 8. Verification
 
-In-process protocol tests over `InProcessConnection` (no sockets); recorded handshake fixtures of PuppeteerSharp
-and the DevTools frontend replayed as tests (no `-32601` for a manifest method, no unhandled exception for any
-other); a PuppeteerSharp end-to-end suite over a real WebSocket; a documented manual checklist for attaching the
-Chrome DevTools frontend; an AOT probe in `Jint.AotExample`; the host-contract verification leg with
-`JINT_HOST_CONTRACT_VERIFICATION=1`, which makes the thread rule exact.
+All of it is in place, and each layer claims something the one below it cannot:
+
+- **In-process protocol tests** over `InProcessConnection`, no sockets, asserting the envelope as text — `id`,
+  `error.code` and the wording a client feature-detects on.
+- **Socket tests**, which are not a duplicate of those: the upgrade handshake, the frame handling, the single
+  writer, the close ordering, and whether the read loop keeps reading while a command is outstanding.
+- **Recorded handshake fixtures** of PuppeteerSharp, Puppeteer, Playwright, Playwright for .NET and the DevTools
+  front end, in `tools/devtools-protocol/handshakes/`, replayed as tests: a manifest method must be answered,
+  and every other must be *exactly* `-32601`.
+- **A PuppeteerSharp suite over a real WebSocket**, the only test that can claim client compatibility: connect,
+  handles, bindings, console, breakpoints, exception pauses, a profile, a coverage round trip, and the Jint
+  REPL's `--inspect` spawned as a separate process and reached through the port its banner named.
+- **The Chrome DevTools front end, driven.** `tools/devtools-frontend-smoke/` launches Chrome for Testing,
+  loads the hosted front end against a real Jint process and asserts against the front end's own DOM;
+  `Jint.DevTools/docs/manual-checklist.md` is the same walk by hand. Neither runs in CI — one downloads a
+  browser, the other is a person — which is why the layers above it exist.
+- **A Native AOT probe in `Jint.AotExample`**, which references `Jint.DevTools` *without* rooting it and drives
+  the published native binary over a real socket: attach, evaluate, break, resume. The same CI leg fails if any
+  `IL2xxx`/`IL3xxx` diagnostic is attributed to a file in the package.
+- **The host-contract verification leg** with `JINT_HOST_CONTRACT_VERIFICATION=1`, which makes the thread rule
+  exact rather than asserted: a `JsValue` touched from a transport thread fails loudly under it.

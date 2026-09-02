@@ -46,6 +46,14 @@
     <ProjectReference Include="..\Jint\Jint.csproj" />
 
     <!--
+      The DevTools protocol server, referenced but NOT rooted below, and that absence is the measurement.
+      The package speaks JSON in both directions through a source-generated System.Text.Json context and
+      reaches its domains through a generated switch, so what preserves a domain is that switch or nothing
+      at all. Rooting it would make the probe pass whether or not either of those is true.
+    -->
+    <ProjectReference Include="..\Jint.DevTools\Jint.DevTools.csproj" />
+
+    <!--
       The unrooted half. Deliberately absent from the TrimmerRootAssembly list below, and that absence is
       the whole measurement: every host type declared beside Program.cs is rooted wholesale, so a probe
       over one cannot tell "the annotation preserved this member" from "the root did". The types in this

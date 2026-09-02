@@ -25,6 +25,36 @@ internal static class RepositoryPaths
     /// <summary>The package's own sources.</summary>
     internal static string SourceDirectory => Path.Combine(Root, "Jint.DevTools");
 
+    /// <summary>
+    /// The compiled REPL, which is what <c>--inspect</c> is served from, or <see langword="null"/> when the
+    /// build that produced this assembly did not produce it.
+    /// </summary>
+    /// <remarks>
+    /// Found rather than configured, because the one thing that must not happen is a test that quietly
+    /// passes by testing nothing. <c>Jint.Tests.DevTools.csproj</c> takes a build-only reference on
+    /// <c>Jint.Repl</c> so this is always there; the search is what keeps the failure legible if it is not.
+    /// </remarks>
+    internal static string? ReplAssembly { get; } = FindRepl();
+
+    private static string? FindRepl()
+    {
+        var output = Path.Combine(Root, "artifacts", "bin", "Jint.Repl");
+        if (!Directory.Exists(output))
+        {
+            return null;
+        }
+
+        // This assembly's own output directory is `<configuration>_<targetFramework>`, and the REPL has one
+        // target framework so its is `<configuration>`. Preferring that over the first match is what stops a
+        // Release test run from spawning a Debug REPL left over from somebody's last build.
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Name.Split('_')[0];
+        var preferred = Path.Combine(output, configuration, "Jint.Repl.dll");
+
+        return File.Exists(preferred)
+            ? preferred
+            : Directory.EnumerateFiles(output, "Jint.Repl.dll", SearchOption.AllDirectories).FirstOrDefault();
+    }
+
     /// <summary>Line endings as the emitter writes them, so a Windows checkout compares equal.</summary>
     internal static string NormalizeNewlines(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal);
 
