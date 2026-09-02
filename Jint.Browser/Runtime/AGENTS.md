@@ -118,10 +118,10 @@ the focus this package tracks, so `el.matches(':focus')` is not an answer about 
 
 **Handler content attributes need no notification from AngleSharp, and that is a decision.** The attribute's
 text *is* the state: a handler slot records which text it was last reconciled against, and any difference is
-what HTML's "set the content attribute" step observes. Three points reconcile — wrapper construction (so a
-markup handler is registered ahead of any listener a script can add), `DomNodeObject.GetParent`, which the
-dispatcher calls exactly once per event path item and which costs one `GetAttribute`, and a read or write of
-the IDL attribute. The alternatives — a document-wide `MutationObserver` (R4's lane) or AngleSharp's
+what HTML's "set the content attribute" step observes. Three points reconcile — `DomHostHooks.WrapperCreated`, which
+fires once for the wrapper that won the identity cache and is what registers a markup handler ahead of any
+listener a script can add; `DomNodeObject.GetParent`, which the dispatcher calls exactly once per event path
+item and which costs one `GetAttribute`; and a read or write of the IDL attribute. The alternatives — a document-wide `MutationObserver` (R4's lane) or AngleSharp's
 `IAttributeObserver` service (a registration in the `IConfiguration` the page runtime builds, and one
 AngleSharp uses internally) — would put a notification path in a file another campaign item owns to learn
 something the attribute already says. The one case that needs more is `<body onload>`, because HTML redirects

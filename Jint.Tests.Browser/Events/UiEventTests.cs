@@ -330,6 +330,30 @@ public sealed class UiEventTests
     }
 
     /// <summary>
+    /// <c>ProgressEvent</c> and <c>CustomEvent</c> are the engine's own and are not re-declared here: a second
+    /// interface object would be a second brand, and a <c>ProgressEvent</c> the engine fires at an
+    /// <c>XMLHttpRequest</c> would not be an <c>instanceof</c> the one a page can name.
+    /// </summary>
+    [Test]
+    public async Task TheEventInterfacesTheEngineAlreadyHasAreReusedRatherThanRedeclared()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<p>x</p>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            [
+              new ProgressEvent('progress', { loaded: 3, total: 4, lengthComputable: true }).loaded,
+              new ProgressEvent('progress') instanceof Event,
+              new CustomEvent('x', { detail: 5 }).detail,
+              Object.getPrototypeOf(ProgressEvent.prototype) === Event.prototype,
+              Object.getPrototypeOf(UIEvent.prototype) === Event.prototype
+            ].join(',')
+            """)).Should().Be("3,true,5,true,true");
+    }
+
+    /// <summary>
     /// <c>DragEvent</c> is a stated v1 non-goal: drag and drop has no <c>DataTransfer</c> behind it, so an
     /// interface object would be a constructor for an event nothing can mean. Feature detection has to be
     /// honest about it.

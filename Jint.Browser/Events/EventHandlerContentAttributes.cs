@@ -141,7 +141,9 @@ internal static class EventHandlerContentAttributes
     /// </summary>
     internal static void InstallFromMarkup(DomNodeObject wrapper)
     {
-        if (wrapper.Node is not IElement element)
+        // The length check is what keeps this off the cost of an ordinary wrapper: most elements in a document
+        // carry no attribute at all, and asking is cheaper than taking an enumerator to find that out.
+        if (wrapper.Node is not IElement element || element.Attributes.Length == 0)
         {
             return;
         }
