@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Jint.Profiling;
 
@@ -231,5 +232,107 @@ public class HostSamplingProfilerTests
 
         Assert.Throws<ArgumentNullException>(() => profile.WriteTo((Stream) null!));
         Assert.Throws<ArgumentNullException>(() => profile.WriteTo((TextWriter) null!));
+    }
+
+    // ---- the tables, which is what a tool that is not the Firefox Profiler reads ----
+
+    /// <summary>
+    /// The four tables are the document without the document: a host that renders a profile itself, or
+    /// speaks a protocol of its own, reads them rather than writing JSON and parsing it back.
+    /// </summary>
+    [Test]
+    public void TheTablesAnswerWhatTheDocumentWrites()
+    {
+        var engine = new Engine(options => options.Profiling.Enabled = true);
+
+        engine.Diagnostics.StartSampling(new SamplingOptions { Interval = TimeSpan.Zero });
+        engine.Execute(Script, "host.js");
+        var profile = engine.Diagnostics.StopSampling();
+
+        profile.Samples.Should().HaveCount(profile.SampleCount);
+        profile.Functions.Should().NotBeEmpty();
+        profile.Frames.Should().NotBeEmpty();
+        profile.Stacks.Should().NotBeEmpty();
+
+        // Index 0 is the synthetic program function every stack is rooted at.
+        profile.Functions[0].Name.Should().Be("(program)");
+        profile.Functions.Select(function => function.Name).Should().Contain(["hot", "cold"]);
+
+        // every index is in range, and every stack walk terminates at a root
+        foreach (var sample in profile.Samples)
+        {
+            sample.Time.Should().BeGreaterThanOrEqualTo(TimeSpan.Zero);
+            sample.Stack.Should().BeInRange(0, profile.Stacks.Count - 1);
+
+            var node = sample.Stack;
+            var depth = 0;
+            while (node >= 0)
+            {
+                var stack = profile.Stacks[node];
+                stack.Frame.Should().BeInRange(0, profile.Frames.Count - 1);
+                profile.Frames[stack.Frame].Function.Should().BeInRange(0, profile.Functions.Count - 1);
+
+                node = stack.Parent;
+                (++depth).Should().BeLessThan(1000, "a stack walk terminates");
+            }
+        }
+
+        // the samples are in the order they were taken
+        profile.Samples.Select(sample => sample.Time).Should().BeInAscendingOrder();
+    }
+
+    /// <summary>
+    /// The classification a CLR profiler cannot make, which is half the diagnosis for an embedder: whose
+    /// code was on the stack.
+    /// </summary>
+    [Test]
+    public void AFrameSaysWhoseCodeItIsRunning()
+    {
+        var engine = new Engine(options => options.Profiling.Enabled = true);
+        engine.SetValue("host", new Func<int, int>(value => value + 1));
+
+        engine.Diagnostics.StartSampling(new SamplingOptions { Interval = TimeSpan.Zero });
+        engine.Execute("function work() { var t = 0; for (var i = 0; i < 5000; i++) { t += host(i); } return t; } work();", "host.js");
+        var profile = engine.Diagnostics.StopSampling();
+
+        var categories = profile.Frames.Select(frame => frame.Category).Distinct().ToList();
+        categories.Should().Contain(ProfileFrameCategory.Script);
+
+        // a script function names its position and its program; a native one has neither
+        foreach (var frame in profile.Frames)
+        {
+            var function = profile.Functions[frame.Function];
+            if (frame.Category != ProfileFrameCategory.Script)
+            {
+                function.File.Should().BeNull();
+                function.Program.Should().BeNull();
+                frame.Line.Should().BeNull();
+            }
+        }
+
+        var work = profile.Functions.Single(function => function.Name == "work");
+        work.File.Should().Be("host.js");
+        work.Program.Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// A table is a view over what the session recorded, so reading it twice is reading one thing and costs
+    /// no second copy of it.
+    /// </summary>
+    [Test]
+    public void ATableIsAStableViewRatherThanACopy()
+    {
+        var engine = new Engine(options => options.Profiling.Enabled = true);
+        engine.Diagnostics.StartSampling(new SamplingOptions { Interval = TimeSpan.Zero });
+        engine.Execute(Script);
+        var profile = engine.Diagnostics.StopSampling();
+
+        profile.Samples.Should().BeSameAs(profile.Samples);
+        profile.Frames.Should().BeSameAs(profile.Frames);
+        profile.Stacks.Should().BeSameAs(profile.Stacks);
+        profile.Functions.Should().BeSameAs(profile.Functions);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = profile.Samples[profile.Samples.Count]);
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = profile.Stacks[-1]);
     }
 }

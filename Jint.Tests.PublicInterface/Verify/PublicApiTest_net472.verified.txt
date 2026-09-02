@@ -1711,14 +1711,45 @@ namespace Jint.NodeCompat
 }
 namespace Jint.Profiling
 {
+    public enum ProfileFrameCategory
+    {
+        Other = 0,
+        Script = 1,
+        BuiltIn = 2,
+        HostInterop = 3,
+    }
     public sealed class SampledProfile
     {
         public int DroppedSampleCount { get; }
         public System.TimeSpan Duration { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Profiling.SampledProfileFrame> Frames { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Profiling.ScriptProfileFrame> Functions { get; }
         public System.TimeSpan Interval { get; }
         public int SampleCount { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Profiling.SampledProfileSample> Samples { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Profiling.SampledProfileStack> Stacks { get; }
         public void WriteTo(System.IO.Stream stream) { }
         public void WriteTo(System.IO.TextWriter writer) { }
+    }
+    public readonly struct SampledProfileFrame : System.IEquatable<Jint.Profiling.SampledProfileFrame>
+    {
+        public SampledProfileFrame(int Function, Jint.Profiling.ProfileFrameCategory Category, int? Line, int? Column) { }
+        public Jint.Profiling.ProfileFrameCategory Category { get; init; }
+        public int? Column { get; init; }
+        public int Function { get; init; }
+        public int? Line { get; init; }
+    }
+    public readonly struct SampledProfileSample : System.IEquatable<Jint.Profiling.SampledProfileSample>
+    {
+        public SampledProfileSample(System.TimeSpan Time, int Stack) { }
+        public int Stack { get; init; }
+        public System.TimeSpan Time { get; init; }
+    }
+    public readonly struct SampledProfileStack : System.IEquatable<Jint.Profiling.SampledProfileStack>
+    {
+        public SampledProfileStack(int Parent, int Frame) { }
+        public int Frame { get; init; }
+        public int Parent { get; init; }
     }
     public sealed class SamplingOptions
     {

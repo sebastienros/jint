@@ -10,15 +10,14 @@ namespace Jint.DevTools.Domains;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The seam exists because the engine has two profilers and the protocol has one profile. Today's
-/// implementation is <see cref="EventedProfileSource"/> over
-/// <c>Engine.Diagnostics.StartProfiling</c>/<c>StopProfiling</c>, which is the only one whose data model this
-/// package can read: the sampling profiler added in
-/// <see href="https://github.com/sebastienros/jint/pull/3608">#3608</see> publishes its sample, frame and
-/// stack tables as <c>internal</c> fields and its only public output is a Firefox Profiler document, so
-/// consuming it here would mean serializing to JSON and parsing it back. Making those tables public is an
-/// engine change, and when it lands the sampler becomes a second implementation of this interface rather
-/// than an edit to the domain.
+/// The seam exists because the engine has two profilers and the protocol has one profile, and both of them
+/// fit through it: <see cref="SampledProfileSource"/> over
+/// <c>Engine.Diagnostics.StartSampling</c>/<c>StopSampling</c>, which is what a client asking for a
+/// <c>Profile</c> at a <c>samplingInterval</c> means, and <see cref="EventedProfileSource"/> over
+/// <c>StartProfiling</c>/<c>StopProfiling</c>, which records every call instead. <c>ProfilerDomain</c>
+/// chooses per recording. The seam speaks a function table and a balanced stream of enters and leaves
+/// deliberately, rather than either profiler's own type: a seam that names one instrument is a seam only
+/// that instrument fits through.
 /// </para>
 /// <para>
 /// <b>Everything here runs on the engine thread</b>, like every other domain member, and the

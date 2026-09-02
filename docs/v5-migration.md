@@ -5545,6 +5545,28 @@ programs no execution context names, and a built-in or host callable has no sour
 being attributed to whichever script was running. `ScriptProfileFrame`'s primary constructor gained the
 optional parameter that carries it, so a profile a host keeps now retains the abstract syntax trees it names.
 
+### 5.18 A sampled profile is readable, not only writable ([#3630](https://github.com/sebastienros/jint/issues/3630))
+
+`SampledProfile` published a Firefox Profiler document and nothing else, so a host rendering its own view —
+or speaking a protocol of its own — had to write that JSON and parse it back. Its four tables are now public,
+in the same shape the document is built from:
+
+```csharp
+foreach (var sample in profile.Samples)          // when it was taken, and which stack
+{
+    for (var node = sample.Stack; node >= 0; node = profile.Stacks[node].Parent)
+    {
+        var frame = profile.Frames[profile.Stacks[node].Frame];   // executing line/column, and a category
+        var function = profile.Functions[frame.Function];         // name, file, declaration, Program
+    }
+}
+```
+
+`ProfileFrameCategory` becomes public with them, and `SampledProfileFrame`, `SampledProfileStack` and
+`SampledProfileSample` are new. All of it is in the same preview area the sampler already was, so it carries
+`JINT0002`; a table is a view over what the session recorded rather than a copy, so reading one costs nothing
+until a row is asked for. Nothing that existed changed.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In
