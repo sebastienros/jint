@@ -92,16 +92,8 @@ internal static class DocumentFetch
             var response = exchange.Response;
             var headerList = Collect(response);
 
-            observation?.Response(new ObservedFetchResponse
-            {
-                Id = observation.Id,
-                Url = exchange.RequestUri,
-                Status = (int) response.StatusCode,
-                StatusText = response.ReasonPhrase ?? "",
-                Headers = ToFetchHeaders(headerList),
-                FromInterception = exchange.FromInterception,
-                IsRedirect = false,
-            });
+            // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
+            observation?.FinalResponse(exchange, ToFetchHeaders(headerList));
 
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
             observation?.Completed(bytes.Length);

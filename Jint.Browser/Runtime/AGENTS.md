@@ -209,9 +209,16 @@ form would be examined.
   close while the response is on its way — and the engine the new document will run in does not exist yet, so
   there is none for it to be on. `Runtime/DocumentFetch` drives `SendForStreamAsync` (the redirect loop and
   the per-hop policy re-check) and reads the body itself under `BrowserOptions.MaxDocumentBytes`. It therefore
-  owes the observer the final `OnResponse`/`OnCompleted`, which only `SendAsync` makes for itself — the same
-  debt `XhrOperation` and `Workers/PageModuleLoader` pay for the same reason. The **first hop's `UrlFilter` is
-  run by the page**, not the transport, which deliberately never runs a host filter twice per request.
+  owes the observer the final response and completion, which only `SendAsync` makes for itself; every caller
+  of `SendForStreamAsync` pays that debt through the engine's own `FetchObservation.FinalResponse`, and
+  `Runtime/SubresourceFetch`, `Workers/PageModuleLoader` and the engine's `XhrOperation` are the other three.
+  The **first hop's `UrlFilter` is run by the page**, not the transport, which deliberately never runs a host
+  filter twice per request.
+- **A subresource is `Runtime/SubresourceFetch`**, `DocumentFetch`'s sibling: same transport, same per-hop
+  re-check, same jar, bounded by `BrowserOptions.MaxSubresourceBytes` and `SubresourceTimeout`. Two rules
+  differ, because a subresource is fetched on someone else's behalf: its credentials mode is `same-origin`
+  rather than the `include` a top-level navigation gets, and a status the server calls an error is a failure
+  rather than a document to show.
 - **The commit is one mailbox request**, in order: unload (`beforeunload`, `pagehide`, `unload`), cancel that
   engine's `CancellationTokenSource`, `PageLoop.ReplaceEngine` (which disposes the old one), parse. **The
   token is what makes abandonment real**: `FetchOperation` and `XhrOperation` read
@@ -245,26 +252,100 @@ is rebound to the new id afterwards, or every step among its siblings would beco
 is always queued, never inline; and navigating away from the initial `about:blank` is a **replace**, so
 `history.length` counts what a browser counts.
 
-### The parse, and the parser hop
+### The parser driver, and the baton
 
-`Runtime/PageDocument` opens the document through `IBrowsingContext.OpenAsync` on the loop thread and blocks on
-it. AngleSharp's parse is an asynchronous method whose every `await` carries `ConfigureAwait(false)`, so a
-genuinely asynchronous step anywhere in it would resume the parse — and the scripting hook with it — on a pool
-thread while the loop sat blocked, and the engine would be entered from two threads with nothing to say so.
-**Nothing in this configuration is asynchronous** (the source is in memory, no `IResourceLoader` is registered,
-no `IEventLoop` is registered so `Document.QueueTaskAsync` completes inline, and the scripting hook answers
-`Task.CompletedTask`), so the whole parse including script execution happens on the one thread. That is
-checked, not believed: `PageScriptingService.Hopped` compares the thread it was called on against the loop's,
-and a mismatch becomes a page error naming the fallback the design specifies — a fully synchronous parse on the loop
-with blocking script fetches. **Anything that makes a step of the parse genuinely asynchronous — a resource
-loader, an event loop service, a scripting hook that awaits — takes the fallback with it.**
+`Runtime/Parsing/` is the parse: `ParserDriver` owns it, `ParserBaton` is the hand-off, `PageResourceLoader`
+is what AngleSharp asks for a subresource, `PageScriptingService` is what it asks to run a script, and
+`PageModuleScriptLoader` plus `ImportMap` are the module half AngleSharp does not have.
 
-What runs: a classic inline `<script>`, synchronously at its own `</script>`, in document order. What does not:
-an external `src` (no network yet), a module, an import map. `SupportsType` answering `false` is what stops
-AngleSharp preparing a module at all, and `PageDocument.Survey` walks the parsed document afterwards so that
-every skipped script is named in `Page.UnsupportedScripts` rather than silently doing nothing.
+**Why there are two threads.** AngleSharp's parse is an asynchronous method whose every `await` carries
+`ConfigureAwait(false)`, and `HtmlDomBuilder.ParseAsync` awaits the task a script's `RunAsync` produces. The
+moment anything in that chain genuinely suspends — an external `<script src>` is the first thing that does —
+the parse, and the scripting hook with it, resume on a pool thread. Driving it on the loop and blocking would
+put the engine and the DOM in two threads' hands with nothing to say so. So the parse runs on a thread of its
+own and hands a **baton** back to the loop for everything that needs the engine or the DOM.
 
-`readystatechange`, `DOMContentLoaded` (bubbling) and `load` (at the window) are dispatched afterwards through
-Jint's own dispatcher, because AngleSharp's own firing goes into its own listener lists, which hold nothing a
-script registered. `document.readyState` already reads `"complete"` at all three: AngleSharp advances it during
-the parse and `Document.ReadyState`'s setter is not reachable from outside its assembly.
+**The hand-off is a blocking handshake.** `ParserBaton.RunOnLoop` queues the work, wakes the loop through
+`engine.Tasks.Post`, and parks the parser thread on a `ManualResetEventSlim` until the loop has finished it.
+That is a stronger form of the design's `RunContinuationsAsynchronously`: the parser cannot resume inline on
+the loop thread because it cannot resume at all until the loop releases it. **The whole invariant is that one
+property**, and it is why nothing else in the driver needs a lock.
+
+**Timers fire exactly where a browser fires them.** While the parser is tokenizing it holds the baton and the
+loop runs nothing, which is right — in a browser the parser *is* the task the event loop is running. While the
+loop is fetching a parser-blocking script it holds the baton and pumps `ProcessTasks`, so timers, promise jobs
+and animation frames run while the page waits for the network. `ParserBaton.PumpUntil` is that pump, and
+`DocumentLoadTests.TimersFireWhileAParserBlockingScriptIsOnItsWay` is the proof (it reads zero without it).
+What that pump swallows it reports: a job erupting out of `ProcessTasks` must not end the load, and it must
+not vanish either, so it goes to the page recorder — which is the only way an execution constraint aborting
+a timer mid-parse is visible at all.
+
+**A script that navigates does not cut the parse short.** `location.href = '…'` takes the navigation gate
+the running load still holds and its commit is a mailbox request, and the whole parse is *one* such request
+— so every remaining script of the outgoing document runs, the load finishes, and only then is the engine
+replaced and its token cancelled. Nothing stops a document mid-parse except closing the page, which cancels
+the token every subresource fetch is linked to: the fetch in flight fails, the parse runs out and
+`ParserBaton.Serve` stops serving.
+
+**Every turn inside the parse is a turn.** A document load is *one* mailbox request, so `PageLoop` opens one
+budget turn around the whole of it — and that turn's deadline is wall-clock, so by the time a slow
+`<script src>` has come back it is long gone. Each script therefore takes a nested turn of its own
+(`ParserDriver.Execute`, `RunModule`), and so does **each drain of the job queue** the pump runs
+(`ParserBaton.Drain`), which is the same rule `PageLoop.Pump` follows for the drains it runs itself. Without
+that last one a timer callback that fires late in a slow load is killed for the enclosing turn's exhaustion
+rather than its own — `DocumentLoadTests.ATimerThatFiresLateInASlowLoadGetsABudgetOfItsOwn` is that case, and
+it fails without the bracket. A budget running out is a `PageErrorKind.BudgetExceeded` and the load goes on,
+which is what `PageBudget` promises and what makes a page whose first script is a loop still a page a host
+can read.
+
+**The residual, stated because it is the one thing a budget does not reach.** `Serve` holds the loop for the
+whole parse, so while the baton is in the parser's hands the loop runs nothing and an execution constraint
+cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script and every drain
+takes a turn, which leaves AngleSharp's tokenizer as the only unbounded step. There is still no *total*
+budget on the parse — `PageLoop`'s turn is the enclosing one, and nothing re-arms it for the parse as a whole
+— so what a wedged parser thread costs is bounded by the page's own token instead: closing the page ends
+`Serve`, abandons the parse and fails the parser's next hand-off, so `Page.CloseAsync` is never held by a
+parse that will not finish.
+
+**Every fetch the parser asks for finishes before the loader returns.** `PageResourceLoader.FetchAsync` hands
+the baton over, the loop fetches while pumping, and AngleSharp receives an already-completed `IDownload` — so
+the parse never suspends and the thread it runs on never changes. `ParserBaton.ParserHopped` is the check
+rather than the belief: a change of parser thread means a step suspended where none was expected, and it
+becomes a page error. **A fetch a *script* triggered blocks instead of pumping**, because pumping from inside
+a running script would run the page's jobs in the middle of one; that is the price of an inserted
+`<script src>`, and it is stated in `ParserDriver.Fetch`. One shape of inserted script does not run at all:
+AngleSharp prepares one when it is *inserted*, so `el.src = '…'` **after** `appendChild` is never fetched —
+set the source first, which is what a page does anyway.
+
+**Who runs what.** A classic script — inline, external, `defer`, `async` — is prepared and ordered by
+AngleSharp, which is what buys parser-blocking, document order, the deferred queue and the `document.write`
+insertion point without re-implementing any of them. `PageScriptingService.SupportsType` answers `false` for
+`module`, `importmap` and every unknown type, so AngleSharp never prepares them and the driver runs the
+modules itself after the parse — which is where HTML puts them anyway. Four scheduling divergences follow and
+each is deliberate: a `defer`/`async` script's *download* is not overlapped with the parse; an `async` script
+executes in document order at the end of the parse rather than the instant its fetch lands; a deferred classic
+script runs before a module script that precedes it in the document, because they are two queues rather than
+HTML's one; and the first import map found anywhere applies to every module, because none of them could have
+resolved before the parse ended anyway.
+
+**`document.readyState` is the page's shadow.** `PageRuntime.ReadyState` moves `loading` → `interactive` →
+`complete` and `ParserDriver.SetReadyState` fires the `readystatechange` that goes with each, because
+`Document.ReadyState`'s setter is protected and unreachable from outside AngleSharp's assembly. AngleSharp's
+own value is read at exactly one point — `ObserveReadiness`, on the way into a script, which is the only way
+to see the moment it starts the deferred queue. `DOMContentLoaded` (bubbling, at the document) follows the
+module scripts; `complete` and then `load` and `pageshow` (at the window) follow every subresource, which is
+the order HTML gives and the reason a `load` listener reads `"complete"`.
+
+**What is not fetched is recorded, not skipped.** An `<img>`, a frame's document, a non-stylesheet `<link>`:
+there is no rendering to need them, so the reference goes into `Page.Requests` with a
+`PageRequest.NotFetchedReason` and no socket is opened. A refusal and a failure are both a download that
+completes with a `null` response, which is the shape AngleSharp's own processors already test for; the `load`
+and `error` a *page* hears are dispatched through Jint's dispatcher, because AngleSharp's go into its own
+listener lists. `integrity` and `crossorigin` are accepted and ignored, and say so here rather than in a
+sentence nobody reads.
+
+**`document.write` after the parse is refused.** During one it is AngleSharp's own call and it is right — its
+writable text source inserts at the parser's index and the script processor restores the index afterwards, so
+the written markup is the next thing the tokenizer reads. Afterwards HTML implies `document.open()`, which
+AngleSharp implements by unloading through its own browsing context on the calling thread and rebuilding the
+document behind the page's back; `PageHostHooks.Write` answers with a page error naming it instead.

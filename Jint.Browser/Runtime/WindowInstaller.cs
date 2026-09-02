@@ -188,6 +188,17 @@ internal static class WindowInstaller
                 set: null,
                 PropertyFlag.OnlyConfigurable));
 
+        // https://html.spec.whatwg.org/multipage/dom.html#current-document-readiness. AngleSharp advances
+        // its own readiness on its own schedule and its setter is not reachable from outside its assembly
+        // (AngleSharp#1309), so the three transitions a page observes are the parser driver's.
+        wrapper.DefineOwnPropertyUnchecked(
+            "readyState",
+            new GetSetPropertyDescriptor(
+                new ClrFunction(engine, "get readyState", static (thisObject, _) =>
+                    JsString.Create(PageRuntime.Of(thisObject, "readyState").ReadyState)),
+                set: null,
+                PropertyFlag.OnlyConfigurable));
+
         // The four members whose answer is the page's URL rather than AngleSharp's document address. They
         // are the same divergence `location` is: pushState and a fragment navigation move the URL without
         // reloading, and AngleSharp's address cannot follow without raising its own navigation.

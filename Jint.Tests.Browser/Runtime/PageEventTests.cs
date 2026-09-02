@@ -71,16 +71,19 @@ public sealed class PageEventTests
         await page.SetContentAsync(
             """
             <script>
-              window.lifecycle = ['script'];
-              document.addEventListener('readystatechange', () => window.lifecycle.push('readystatechange'));
+              window.lifecycle = ['script:' + document.readyState];
+              document.addEventListener('readystatechange', () => window.lifecycle.push('readystatechange:' + document.readyState));
               window.addEventListener('DOMContentLoaded', () => window.lifecycle.push('DOMContentLoaded@window'));
               document.addEventListener('DOMContentLoaded', () => window.lifecycle.push('DOMContentLoaded@document'));
-              window.addEventListener('load', () => window.lifecycle.push('load'));
+              window.addEventListener('load', () => window.lifecycle.push('load:' + document.readyState));
             </script>
             """);
 
+        // https://html.spec.whatwg.org/multipage/parsing.html#the-end: readiness becomes "interactive" when
+        // the parse ends and "complete" before load fires, so there are two readystatechange events and a
+        // load listener reads "complete".
         (await page.EvaluateAsync<string>("window.lifecycle.join(',')")).Should()
-            .Be("script,readystatechange,DOMContentLoaded@document,DOMContentLoaded@window,load");
+            .Be("script:loading,readystatechange:interactive,DOMContentLoaded@document,DOMContentLoaded@window,readystatechange:complete,load:complete");
     }
 
     [Test]

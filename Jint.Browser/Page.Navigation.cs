@@ -642,7 +642,7 @@ public sealed partial class Page
         // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
         SignalNavigation();
 
-        var load = PageDocument.Load(runtime, html, url, _loop.Thread.ManagedThreadId, onPhase);
+        var load = PageDocument.Load(runtime, html, url, onPhase);
 
         _load = load;
         _mainFrame = Frame.Build(this, load.Document, url);

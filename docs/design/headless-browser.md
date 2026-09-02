@@ -131,14 +131,36 @@ bounding the document (engine PR B3 adds the base URL, referrer, cookie jar and 
 `ParserDriver` runs AngleSharp's parser on a parser thread and hands a **baton** back and forth with the page
 loop: `IScriptingService.EvaluateScriptAsync` and the resource loader park the parser and give the DOM to the
 loop, which runs the script (or the fetch and any due tasks) and hands it back; completions use
-`RunContinuationsAsynchronously` so the parser never resumes inline on the loop thread. Invariant: exactly one
-side holds the baton, and only the holder touches the DOM. That is also what gives browser-correct timing — timers
-fire while the parser waits on a parser-blocking `<script src>`. If AngleSharp's synchronous parse turns out to
-call the scripting hook inline, the fallback is a fully synchronous parse on the loop with blocking script
-fetches: correct, with no timers mid-load. Classic, `defer`, `async` and module scripts, import maps and
-dynamic `import()` go over Jint's `IModuleLoader` against the page's fetch; `DOMContentLoaded` fires after the
-deferred scripts and `load` after subresources; `document.write` during parsing writes into the live text source
-while the parser is parked; `innerHTML` insertion routes through the same driver with a depth guard.
+a blocking handshake, so the parser never resumes inline on the loop thread — it cannot resume at all until the
+loop releases it. Invariant: exactly one side holds the baton, and only the holder touches the DOM. That is
+also what gives browser-correct timing — timers fire while the parser waits on a parser-blocking
+`<script src>`, and run nowhere while it is tokenizing, which is what a browser does because there the parser
+*is* the task the event loop is running.
+
+**What shipped, measured rather than assumed** (campaign item R3). The question the design left open —
+whether AngleSharp's parse suspends and resumes on a pool thread once a `<script src>` is present — is
+answered in its source and by the driver's own check: `HtmlDomBuilder.ParseAsync` awaits the task
+`HandleScript` produced with `ConfigureAwait(false)`, so **yes, it does**, and the baton rather than the
+fallback is what the package implements. The refinement the implementation adds is that a subresource fetch
+finishes *before* AngleSharp's `IResourceLoader` returns — the loader hands the baton over and the loop
+fetches while pumping — so the parse never suspends at all and stays on the thread it started on;
+`ParserBaton.ParserHopped` reports it as a page error if that ever stops being true. Registering an
+`IResourceLoader` is itself what makes the parse asynchronous, so it and the baton arrive together.
+
+Classic, `defer` and `async` scripts stay AngleSharp's to prepare and order — which is what buys
+parser-blocking, document order, the deferred queue and the `document.write` insertion point without
+re-implementing any of them — while module scripts and import maps are hidden from it (`SupportsType` answers
+`false`) and run from the driver after the parse over Jint's `IAsyncModuleLoader` against the page's fetch,
+which is where HTML puts them anyway. `document.readyState` is the page's own shadow, moved
+`loading` → `interactive` → `complete` with the `readystatechange` events that go with them, because
+AngleSharp's setter is protected; `DOMContentLoaded` fires after the deferred and module scripts and `load`
+after every subresource. `document.write` during parsing writes into the live text source while the parser is
+parked, and after it is refused with a page error rather than implying `document.open()`. A `<script>` a
+script inserted runs (blocking the loop for its fetch rather than pumping, since pumping from inside a
+running script would run the page's jobs in the middle of one); one `innerHTML` inserted does not, which is
+HTML's rule and AngleSharp's behaviour already. `<link rel=stylesheet>` is fetched and cascaded; an `<img>`
+and a frame's document are recorded in `Page.Requests` as not fetched, there being nothing to render them
+with. The scheduling divergences this shape costs are listed in `Jint.Browser/Runtime/AGENTS.md`.
 
 ## 7. Constraints per page
 

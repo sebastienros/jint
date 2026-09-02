@@ -522,9 +522,8 @@ internal sealed class XhrOperation : IDisposable
         };
 
         // The final response, reported here rather than by the redirect loop, which only reports the hops it
-        // walks past. FetchTransport.SendAsync does the same for fetch(); this path reads its own body, so it
-        // owes the observer the same two calls — without them an XMLHttpRequest appears in a host's network
-        // log as a request that was sent and never answered.
+        // walks past — the debt FetchObservation.FinalResponse names, paid with the headers already collected
+        // above rather than by reading them off the response a second time.
         Observe(observation, head, exchange);
 
         if (!hasBody)
@@ -595,7 +594,7 @@ internal sealed class XhrOperation : IDisposable
     }
 
     /// <summary>
-    /// Hands the final response to the observer, in the shape <c>FetchTransport</c> would have given it.
+    /// Hands the final response to the observer, with the headers this request already collected.
     /// </summary>
     private static void Observe(FetchObservation? observation, XhrResponseData head, FetchExchange exchange)
     {
@@ -611,16 +610,7 @@ internal sealed class XhrOperation : IDisposable
             reported[i] = new FetchHeader(entries[i].LowerName, entries[i].Value);
         }
 
-        observation.Response(new ObservedFetchResponse
-        {
-            Id = observation.Id,
-            Url = exchange.RequestUri,
-            Status = head.Status,
-            StatusText = head.StatusText,
-            Headers = reported,
-            FromInterception = exchange.FromInterception,
-            IsRedirect = false,
-        });
+        observation.FinalResponse(exchange, reported);
     }
 
     private static FetchFailureException TooLarge(FetchPolicy policy)

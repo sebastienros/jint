@@ -2364,8 +2364,13 @@ prototype the global object inherits (so `window === globalThis`, `window instan
 `getComputedStyle` (read-only, from the cascade, with no layout behind it), `matchMedia` (with `change`
 fired when the viewport moves), `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
 that fire because the page's thread pumps the engine, and console output and script errors recorded on the
-page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, with classic inline scripts run in
-document order as the parse reaches them, then `readystatechange`, `DOMContentLoaded`, `load` and `pageshow`.
+page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, and a document's scripts run the
+way HTML says: inline and external classic scripts in document order as the parse reaches them, `defer` and
+`async` ones after it, then module scripts resolved through the document's import map, then
+`DOMContentLoaded`, `load` and `pageshow`, with `document.readyState` moving `loading` → `interactive` →
+`complete`. `document.write` during a parse writes at the insertion point, a script a script inserted runs
+and one `innerHTML` inserted does not, `import()` works from a classic script, and `<link rel=stylesheet>` is
+fetched so `getComputedStyle` answers from it.
 
 **And the observers and views a page written this decade expects.** A `MutationObserver` whose records come
 from AngleSharp and are delivered at Jint's microtask checkpoint; `IntersectionObserver` and `ResizeObserver`
@@ -2415,12 +2420,13 @@ var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(2) }.F
 await using var browser = new Browser(options);
 ```
 
-**What does not exist yet.** No external `<script src>` and no module scripts in a document — a page names
-what it could not run in `Page.UnsupportedScripts` — no import maps, no `document.write` during a parse, no
-iframe scripting (frames are parsed and listed; `contentWindow` is absent), no rendering or layout — so every
-rectangle is zeros and `getBoundingClientRect` does not exist — and no Chrome DevTools page domains. Those
-are the later items of the same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent`
-and `ClipboardEvent` are absent rather than stubbed.
+**What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
+no rendering or layout — so every rectangle is zeros and `getBoundingClientRect` does not exist — and no
+Chrome DevTools page domains. Those are the later items of the same campaign. Drag and drop and the clipboard
+are v1 non-goals, so `DragEvent` and `ClipboardEvent` are absent rather than stubbed. Deliberately absent for
+good: images and frame documents are never fetched — the reference is recorded in `Page.Requests` with the
+reason instead — `integrity` is accepted and not enforced, and `document.write` after a page has finished
+parsing is refused with a page error rather than implying `document.open()`.
 
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is

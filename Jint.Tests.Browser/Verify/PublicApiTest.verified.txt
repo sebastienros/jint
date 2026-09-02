@@ -44,11 +44,13 @@ namespace Jint.Browser
         public int MaxRecordedEvents { get; set; }
         public int MaxRedirects { get; set; }
         public long MaxResponseBytes { get; set; }
+        public long MaxSubresourceBytes { get; set; }
         public System.TimeSpan MaxTaskDuration { get; set; }
         public long MemoryLimit { get; set; }
         public System.TimeSpan PumpIdle { get; set; }
         public bool RecordConsoleMessages { get; set; }
         public bool RecordErrors { get; set; }
+        public System.TimeSpan SubresourceTimeout { get; set; }
         public string UserAgent { get; set; }
         public Jint.Browser.Viewport Viewport { get; set; }
         public Jint.Browser.BrowserOptions ConfigureEngine(System.Action<Jint.Options> configure) { }
@@ -107,7 +109,6 @@ namespace Jint.Browser
         public Jint.Browser.Frame MainFrame { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
         public Jint.Browser.PageResponse? Response { get; }
-        public System.Collections.Generic.IReadOnlyList<string> UnsupportedScripts { get; }
         public string Url { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
@@ -153,6 +154,7 @@ namespace Jint.Browser
         public long Id { get; }
         public Jint.Browser.RequestInitiator Initiator { get; }
         public string Method { get; }
+        public string? NotFetchedReason { get; }
         public int RedirectCount { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageHeader> ResponseHeaders { get; }
         public int Status { get; }
@@ -174,6 +176,7 @@ namespace Jint.Browser
     {
         Document = 0,
         Script = 1,
+        Subresource = 2,
     }
     public abstract class StoragePartitionProvider
     {
