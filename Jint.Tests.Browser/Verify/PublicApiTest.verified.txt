@@ -16,10 +16,10 @@ namespace Jint.Browser
     public sealed class BrowserContext : System.IAsyncDisposable
     {
         public Jint.Browser.Browser Browser { get; }
-        public Jint.WebApi.Fetch.CookieJar? CookieJar { get; }
+        public Jint.WebApi.Fetch.CookieJar CookieJar { get; }
         public bool IsClosed { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.Page> Pages { get; }
-        public string? StoragePartition { get; }
+        public Jint.Browser.StoragePartitionProvider StoragePartition { get; }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<Jint.Browser.Page> NewPageAsync() { }
@@ -27,13 +27,19 @@ namespace Jint.Browser
     public sealed class BrowserContextOptions
     {
         public BrowserContextOptions() { }
+        public bool BlockPrivateNetwork { get; set; }
         public Jint.WebApi.Fetch.CookieJar? CookieJar { get; set; }
-        public string? StoragePartition { get; set; }
+        public System.Net.Http.HttpClient? HttpClient { get; set; }
+        public System.Func<Jint.Engine, System.Net.Http.HttpClient>? HttpClientFactory { get; set; }
+        public Jint.Browser.StoragePartitionProvider? StoragePartition { get; set; }
+        public System.Func<System.Uri, bool>? UrlFilter { get; set; }
     }
     public sealed class BrowserOptions
     {
         public BrowserOptions() { }
+        public long MaxDocumentBytes { get; set; }
         public int MaxRecordedEvents { get; set; }
+        public int MaxRedirects { get; set; }
         public System.TimeSpan MaxTaskDuration { get; set; }
         public long MemoryLimit { get; set; }
         public System.TimeSpan PumpIdle { get; set; }
@@ -66,6 +72,27 @@ namespace Jint.Browser
         public Jint.Browser.Frame? Parent { get; }
         public string Url { get; }
     }
+    public sealed class InMemoryStoragePartitionProvider : Jint.Browser.StoragePartitionProvider
+    {
+        public InMemoryStoragePartitionProvider() { }
+        public InMemoryStoragePartitionProvider(long maxTotalBytes) { }
+        public override Jint.WebApi.StorageProvider? GetLocalStorage(string origin) { }
+    }
+    public sealed class NavigationFailedException : System.Exception
+    {
+        public NavigationFailedException() { }
+        public NavigationFailedException(string message) { }
+        public NavigationFailedException(string message, System.Exception innerException) { }
+        public string Url { get; }
+    }
+    public sealed class NavigationOptions
+    {
+        public NavigationOptions() { }
+        public bool AllowCancel { get; set; }
+        public string? Referrer { get; set; }
+        public System.TimeSpan Timeout { get; set; }
+        public Jint.Browser.WaitUntilState WaitUntil { get; set; }
+    }
     public sealed class Page : System.IAsyncDisposable
     {
         public System.Collections.Generic.IReadOnlyList<string> ConsoleMessages { get; }
@@ -73,18 +100,23 @@ namespace Jint.Browser
         public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageError> Errors { get; }
         public bool IsClosed { get; }
         public Jint.Browser.Frame MainFrame { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageRequest> Requests { get; }
+        public Jint.Browser.PageResponse? Response { get; }
         public System.Collections.Generic.IReadOnlyList<string> UnsupportedScripts { get; }
         public string Url { get; }
+        public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<object?> EvaluateAsync(string script) { }
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string script) { }
-        public System.Threading.Tasks.Task NavigateAsync(string url) { }
+        public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task SetContentAsync(string html, string? baseUrl = null) { }
+        public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
     }
     public sealed class PageError
     {
@@ -101,6 +133,47 @@ namespace Jint.Browser
         WorkerError = 3,
         ScriptError = 4,
     }
+    public readonly struct PageHeader : System.IEquatable<Jint.Browser.PageHeader>
+    {
+        public PageHeader(string Name, string Value) { }
+        public string Name { get; init; }
+        public string Value { get; init; }
+    }
+    public sealed class PageRequest
+    {
+        public long BodyLength { get; }
+        public bool Failed { get; }
+        public string? FailureReason { get; }
+        public long Id { get; }
+        public Jint.Browser.RequestInitiator Initiator { get; }
+        public string Method { get; }
+        public int RedirectCount { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageHeader> ResponseHeaders { get; }
+        public int Status { get; }
+        public string StatusText { get; }
+        public string Url { get; }
+        public override string ToString() { }
+    }
+    public sealed class PageResponse
+    {
+        public System.Collections.Generic.IReadOnlyList<Jint.Browser.PageHeader> Headers { get; }
+        public bool Ok { get; }
+        public bool Redirected { get; }
+        public int Status { get; }
+        public string StatusText { get; }
+        public string Url { get; }
+        public string? Header(string name) { }
+    }
+    public enum RequestInitiator
+    {
+        Document = 0,
+        Script = 1,
+    }
+    public abstract class StoragePartitionProvider
+    {
+        protected StoragePartitionProvider() { }
+        public abstract Jint.WebApi.StorageProvider? GetLocalStorage(string origin);
+    }
     public readonly struct Viewport : System.IEquatable<Jint.Browser.Viewport>
     {
         public Viewport(int width, int height) { }
@@ -109,5 +182,11 @@ namespace Jint.Browser
         public int Height { get; init; }
         public int Width { get; init; }
         public static Jint.Browser.Viewport Default { get; }
+    }
+    public enum WaitUntilState
+    {
+        Commit = 0,
+        DomContentLoaded = 1,
+        Load = 2,
     }
 }

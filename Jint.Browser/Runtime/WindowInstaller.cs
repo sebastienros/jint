@@ -123,6 +123,7 @@ internal static class WindowInstaller
 
         engine.AddLazyGlobal("document", static e => (JsValue?) PageRuntime.Find(e)?.DocumentWrapper ?? JsValue.Null);
         engine.AddLazyGlobal("location", static e => LocationOf(e));
+        engine.AddLazyGlobal("history", static e => HistoryInstaller.Create(e));
         engine.AddLazyGlobal("screen", static e => _screenShape.Instantiate(e, e._mainRealm.Intrinsics.Object.PrototypeObject));
         // Both interface objects are handed in as state rather than built by the factory, because the one the
         // global names has to be the one the prototype's `constructor` slot already holds.
@@ -176,83 +177,54 @@ internal static class WindowInstaller
                 }),
                 set: null,
                 PropertyFlag.OnlyConfigurable));
+
+        // The four members whose answer is the page's URL rather than AngleSharp's document address. They
+        // are the same divergence `location` is: pushState and a fragment navigation move the URL without
+        // reloading, and AngleSharp's address cannot follow without raising its own navigation.
+        DocumentUrlMember(engine, wrapper, "URL", static runtime => runtime.DocumentUrl);
+        DocumentUrlMember(engine, wrapper, "documentURI", static runtime => runtime.DocumentUrl);
+        DocumentUrlMember(engine, wrapper, "baseURI", BaseUri);
+        DocumentUrlMember(engine, wrapper, "referrer", static runtime => runtime.Referrer);
+
+        DocumentCookies.Attach(runtime, wrapper);
     }
 
     /// <summary>
-    /// Adds the navigating members of <c>Location</c> to the location wrapper, as own properties.
+    /// https://dom.spec.whatwg.org/#dom-node-baseuri — the document's base URL, which <c>&lt;base href&gt;</c>
+    /// moves.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The generated <c>Location</c> skips <c>href</c>'s setter, <c>assign</c>, <c>replace</c> and
-    /// <c>reload</c>, because each of them is a navigation and navigation is not this version's. They cannot
-    /// simply be absent — a page that assigns <c>location.href</c> would silently create an expando — so each
-    /// is installed here and each calls the page's navigation seam, which today starts a navigation when the
-    /// target is one of the schemes a page can load and reports a page error otherwise.
-    /// </para>
-    /// <para>
-    /// <c>toString</c> comes with them, because AngleSharp's <c>ILocation</c> has no <c>[DomName]</c> for it
-    /// and <c>String(location)</c> would otherwise answer <c>[object Location]</c> instead of the URL.
-    /// </para>
-    /// <para>
-    /// The attributes are WebIDL's <c>[LegacyUnforgeable]</c> ones, which is what every member of
-    /// <c>Location</c> carries: enumerable, and neither writable nor configurable, so a page cannot delete
-    /// <c>location.assign</c> or redefine <c>location.href</c> out of the way.
-    /// </para>
+    /// The first <c>&lt;base&gt;</c> with an <c>href</c> wins, resolved against the document's own URL, and
+    /// one that does not parse is ignored. AngleSharp computes the same thing from the same element; it is
+    /// recomputed here because the URL it resolves against has to be the page's.
     /// </remarks>
-    internal static void AttachLocationMembers(PageRuntime runtime, ObjectInstance wrapper)
+    private static string BaseUri(PageRuntime runtime)
     {
-        var engine = runtime.Engine;
+        var href = runtime.Document?.QuerySelector("base[href]")?.GetAttribute("href");
+        if (string.IsNullOrEmpty(href))
+        {
+            return runtime.DocumentUrl;
+        }
 
-        wrapper.DefineOwnPropertyUnchecked(
-            "href",
-            new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get href", static (thisObject, _) =>
-                    JsString.Create(PageRuntime.Of(thisObject, "href").Document?.Url ?? "about:blank")),
-                new ClrFunction(engine, "set href", static (thisObject, arguments) =>
-                {
-                    PageRuntime.Of(thisObject, "href").Page.RequestNavigation(TypeConverter.ToString(arguments.At(0)), replace: false);
-                    return JsValue.Undefined;
-                }),
-                PropertyFlag.OnlyEnumerable));
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "assign",
-            new PropertyDescriptor(
-                new ClrFunction(engine, "assign", static (thisObject, arguments) =>
-                {
-                    PageRuntime.Of(thisObject, "assign").Page.RequestNavigation(TypeConverter.ToString(arguments.At(0)), replace: false);
-                    return JsValue.Undefined;
-                }, 1),
-                PropertyFlag.OnlyEnumerable));
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "replace",
-            new PropertyDescriptor(
-                new ClrFunction(engine, "replace", static (thisObject, arguments) =>
-                {
-                    PageRuntime.Of(thisObject, "replace").Page.RequestNavigation(TypeConverter.ToString(arguments.At(0)), replace: true);
-                    return JsValue.Undefined;
-                }, 1),
-                PropertyFlag.OnlyEnumerable));
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "reload",
-            new PropertyDescriptor(
-                new ClrFunction(engine, "reload", static (thisObject, _) =>
-                {
-                    var runtime = PageRuntime.Of(thisObject, "reload");
-                    runtime.Page.RequestNavigation(runtime.Document?.Url ?? "about:blank", replace: true);
-                    return JsValue.Undefined;
-                }),
-                PropertyFlag.OnlyEnumerable));
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "toString",
-            new PropertyDescriptor(
-                new ClrFunction(engine, "toString", static (thisObject, _) =>
-                    JsString.Create(PageRuntime.Of(thisObject, "toString").Document?.Url ?? "about:blank")),
-                PropertyFlag.OnlyEnumerable));
+        return PageUrl.Resolve(href!, runtime.DocumentUrl) ?? runtime.DocumentUrl;
     }
+
+    private static void DocumentUrlMember(Engine engine, ObjectInstance wrapper, string name, Func<PageRuntime, string> read)
+    {
+        var member = name;
+
+        wrapper.DefineOwnPropertyUnchecked(
+            name,
+            new GetSetPropertyDescriptor(
+                new ClrFunction(engine, "get " + name, (thisObject, _) =>
+                    JsString.Create(read(PageRuntime.Of(thisObject, member)))),
+                set: null,
+                PropertyFlag.OnlyConfigurable));
+    }
+
+    /// <summary>Adds every <c>Location</c> member to the location wrapper; see <see cref="LocationInstaller"/>.</summary>
+    internal static void AttachLocationMembers(PageRuntime runtime, ObjectInstance wrapper)
+        => LocationInstaller.Attach(runtime, wrapper);
 
     private static JsValue LocationOf(Engine engine)
     {
@@ -263,9 +235,9 @@ internal static class WindowInstaller
         }
 
         var wrapper = runtime.Dom.Wrap(document.Location);
-        if (wrapper is ObjectInstance instance && !instance.HasOwnProperty("assign"))
+        if (wrapper is ObjectInstance instance && !LocationInstaller.IsInstalled(instance))
         {
-            AttachLocationMembers(runtime, instance);
+            LocationInstaller.Attach(runtime, instance);
         }
 
         return wrapper;

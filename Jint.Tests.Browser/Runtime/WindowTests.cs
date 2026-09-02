@@ -290,11 +290,13 @@ public sealed class WindowTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.EvaluateAsync("location.href = 'https://example.com/'");
+        // A scheme a page has no transport for; http and https really do navigate now.
+        await page.EvaluateAsync("location.href = 'ftp://example.com/file.txt'");
+        (await page.WaitForNavigationAsync(TimeSpan.FromSeconds(2))).Should().BeFalse("the navigation never committed");
 
         page.Errors.Should().ContainSingle();
-        page.Errors[0].Message.Should().Contain("https://example.com/");
-        page.Errors[0].Message.Should().Contain("no network");
+        page.Errors[0].Message.Should().Contain("ftp://example.com/file.txt");
+        page.Errors[0].Message.Should().Contain("http, https, about: and data:");
         page.Url.Should().Be("about:blank");
     }
 
@@ -304,8 +306,12 @@ public sealed class WindowTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
+        // The wait is armed before the script that triggers it, which is the only race-free order: a
+        // navigation a script starts runs off the page's thread, so it can commit before a wait registered
+        // afterwards would have seen it.
+        var navigated = page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
         await page.EvaluateAsync("location.assign('data:text/html,<p id=\\'moved\\'>moved</p>')");
-        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await navigated).Should().BeTrue();
 
         (await page.EvaluateAsync<string>("document.getElementById('moved').textContent")).Should().Be("moved");
     }

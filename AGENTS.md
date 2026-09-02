@@ -26,7 +26,8 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | write a test proving a third party can reach an API, or read a run that died rather than failed | [`Jint.Tests.PublicInterface/AGENTS.md`](Jint.Tests.PublicInterface/AGENTS.md) | It is the only test project without `InternalsVisibleTo`, which is the whole reason a test there means anything; and what a `TestPipelineException` naming no test actually means. |
 | touch `Jint.DevTools/` — the protocol server, its transport or its sessions | [`Jint.DevTools/AGENTS.md`](Jint.DevTools/AGENTS.md) | Which thread may touch the engine, the pause-time message loop, the protocol pin. Cost: a command run on the socket thread. |
 | implement or change a `Jint.DevTools` domain — a command, an event, a handle | [`Jint.DevTools/Domains/AGENTS.md`](Jint.DevTools/Domains/AGENTS.md) | What a client is promised about a value it cannot see, and what may never run script. Cost: a preview that runs a getter. |
-| touch the DOM bindings, the binding generator or its override table | [`Jint.Browser/AGENTS.md`](Jint.Browser/AGENTS.md) | The AngleSharp principle, what is generated and what is hand-written, wrapper identity, the conversion table's divergences, how to regenerate. Cost: a hand-edited `.g.cs`, or a divergence worked around instead of reported upstream. |
+| touch the DOM bindings or their generator | [`Jint.Browser/AGENTS.md`](Jint.Browser/AGENTS.md) | The AngleSharp principle, generated versus hand-written, wrapper identity, the divergence tables. Cost: a hand-edited `.g.cs`, or a divergence worked around instead of reported upstream. |
+| touch a page — its loop, a navigation, a form, history, cookies, storage, a worker | [`Jint.Browser/Runtime/AGENTS.md`](Jint.Browser/Runtime/AGENTS.md) | The one thread that owns a page's engine and its DOM, and why a navigation is a fetch off the loop and a new engine on it. Cost: a second thread in the DOM. |
 | write, run, or quote a benchmark number | [`Jint.Benchmark/AGENTS.md`](Jint.Benchmark/AGENTS.md) | The measurement environment and its three modes, the paired comparison, one engine per row. Cost: a `--job short` number in a PR, or a row that depends on its siblings. |
 
 Before adding to any of them, read [the size budget](#the-size-budget-and-which-agents-load-what) at the end of this file: keep this one under 24 KiB and each of those under 32 KiB, which `dotnet test` fails on rather than merely states.
@@ -62,7 +63,7 @@ dotnet run --project Jint.Repl -c Release -- -f script.js -t 10
 echo "Math.sqrt(16)" | dotnet run --project Jint.Repl -c Release -- -t 10
 ```
 
-**Always pass `-t`** so a runaway script cannot hang the session. Use the REPL for quick one-off checks; use a test in `Jint.Tests` for anything worth keeping.
+**Always pass `-t`** so a runaway script cannot hang the session. Anything worth keeping is a test in `Jint.Tests`.
 
 ## Architecture
 
@@ -184,7 +185,7 @@ them — which is why the index has a trigger column rather than being a list of
 agent must obey *before* it knows which area it is in has to stay in this file.
 
 **`Jint.Tests/AgentInstructionFileTests.cs` is what makes those two numbers fail rather than merely be
-stated**, since the truncation is silent and nobody was measuring by hand. It counts CRLF line endings —
-the largest a checkout can be, so the verdict does not depend on the operating system — reports *every*
-file's headroom when one crosses, because that is the moment you need to know where there is room, and
-holds the routing map together: index, `.claude/rules`, links and anchors.
+stated**, since the truncation is silent and nobody was measuring by hand. It counts CRLF line endings — the
+largest a checkout can be — reports *every* file's headroom when one crosses, because that is the moment you
+need to know where there is room, and holds the routing map together: index, `.claude/rules`, links and
+anchors.

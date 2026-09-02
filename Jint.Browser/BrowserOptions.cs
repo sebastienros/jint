@@ -22,6 +22,8 @@ public sealed class BrowserOptions
     private string _userAgent = DefaultUserAgent;
     private TimeSpan _pumpIdle = TimeSpan.FromMilliseconds(50);
     private int _maxRecordedEvents = 1000;
+    private long _maxDocumentBytes = 32 * 1024 * 1024;
+    private int _maxRedirects = 20;
 
     /// <summary>
     /// What a page reports itself as. It does not reach <c>navigator.userAgent</c> in this version.
@@ -78,6 +80,36 @@ public sealed class BrowserOptions
     /// Carried and not read, for the reason <see cref="MaxTaskDuration"/> gives. Zero means no limit.
     /// </remarks>
     public long MemoryLimit { get; set; }
+
+    /// <summary>The most bytes one document may be; 32 MiB by default.</summary>
+    /// <remarks>
+    /// It bounds the navigation itself rather than a script's <c>fetch</c>, which
+    /// <c>Options.WebApi.Fetch.MaxResponseBytes</c> bounds and which a host changes through
+    /// <see cref="ConfigureEngine"/>. A response that declares or reaches more is abandoned and the
+    /// navigation fails with a <see cref="NavigationFailedException"/>.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public long MaxDocumentBytes
+    {
+        get => _maxDocumentBytes;
+        set => _maxDocumentBytes = value > 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxDocumentBytes must be positive.");
+    }
+
+    /// <summary>How many redirects one navigation may follow; 20, which is what browsers use.</summary>
+    /// <remarks>
+    /// Every hop is re-checked against <see cref="BrowserContextOptions.UrlFilter"/> and the scheme list, so
+    /// this bounds the length of a chain rather than what it may reach.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public int MaxRedirects
+    {
+        get => _maxRedirects;
+        set => _maxRedirects = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxRedirects cannot be negative.");
+    }
 
     /// <summary>How long a page loop parks when it has nothing due; 50 ms by default.</summary>
     /// <remarks>

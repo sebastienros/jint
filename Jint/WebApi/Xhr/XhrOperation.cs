@@ -89,6 +89,12 @@ internal sealed class XhrOperation : IDisposable
     private readonly CancellationTokenSource _scriptDeadline = new();
     private readonly CancellationTokenSource _cancellation;
 
+    /// <summary>
+    /// This request's side of the host's <c>FetchObserver</c>, kept so that the failure path — which is not
+    /// inside the send — can report the one terminal call the observer is owed.
+    /// </summary>
+    private FetchObservation? _observation;
+
     /// <summary>When the request was sent, so a re-armed <c>timeout</c> measures from the right instant.</summary>
     private long _sentAt;
 
@@ -357,6 +363,22 @@ internal sealed class XhrOperation : IDisposable
     /// </summary>
     private async Task<XhrResponseData> SendAsync(HttpClient client, FetchPolicy policy, bool reportProgress)
     {
+        try
+        {
+            return await SendCoreAsync(client, policy, reportProgress).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            // The observer is owed exactly one terminal call, and every failure of this request arrives here:
+            // a refused hop, a blown cap, an abort, a timeout, a transport error. Reporting it is what keeps a
+            // host network log from showing an XMLHttpRequest as sent and never answered.
+            _observation?.Failed(exception.Message, exception);
+            throw;
+        }
+    }
+
+    private async Task<XhrResponseData> SendCoreAsync(HttpClient client, FetchPolicy policy, bool reportProgress)
+    {
         var network = _state.FetchNetwork;
         var uploadLength = _body?.Length ?? 0;
 
@@ -376,6 +398,7 @@ internal sealed class XhrOperation : IDisposable
         };
 
         var observation = FetchObservation.Create(network.Observer, FetchInitiator.Script);
+        _observation = observation;
 
         using var exchange = await FetchTransport
             .SendForStreamAsync(client, request, policy, _cancellation.Token, observation)
@@ -410,6 +433,17 @@ internal sealed class XhrOperation : IDisposable
             Url = exchange.Url.Serialize(excludeFragment: true),
             DeclaredLength = hasBody ? declaredLength ?? 0 : 0,
         };
+
+        // The final response, reported here rather than by the redirect loop, which only reports the hops it
+        // walks past. FetchTransport.SendAsync does the same for fetch(); this path reads its own body, so it
+        // owes the observer the same two calls — without them an XMLHttpRequest appears in a host's network
+        // log as a request that was sent and never answered.
+        Observe(observation, head, exchange);
+
+        if (!hasBody)
+        {
+            observation?.Completed(0);
+        }
 
         if (reportProgress)
         {
@@ -466,9 +500,40 @@ internal sealed class XhrOperation : IDisposable
             Post(() => _xhr.ReceiveBodyChunk(chunk));
         }
 
+        observation?.Completed(total);
+
         return collected is null
             ? head
             : head with { Body = collected.ToArray() };
+    }
+
+    /// <summary>
+    /// Hands the final response to the observer, in the shape <c>FetchTransport</c> would have given it.
+    /// </summary>
+    private static void Observe(FetchObservation? observation, XhrResponseData head, FetchExchange exchange)
+    {
+        if (observation is null)
+        {
+            return;
+        }
+
+        var entries = head.Headers.Entries;
+        var reported = new FetchHeader[entries.Count];
+        for (var i = 0; i < entries.Count; i++)
+        {
+            reported[i] = new FetchHeader(entries[i].LowerName, entries[i].Value);
+        }
+
+        observation.Response(new ObservedFetchResponse
+        {
+            Id = observation.Id,
+            Url = exchange.RequestUri,
+            Status = head.Status,
+            StatusText = head.StatusText,
+            Headers = reported,
+            FromInterception = exchange.FromInterception,
+            IsRedirect = false,
+        });
     }
 
     private static FetchFailureException TooLarge(FetchPolicy policy)

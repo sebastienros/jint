@@ -59,6 +59,17 @@ internal sealed class PageLoop : IDisposable
     /// <summary>The thread this loop runs on, which is the only thread allowed to touch the engine.</summary>
     internal Thread Thread => _thread;
 
+    /// <summary>
+    /// The engine the loop currently owns, for the members already running on the loop thread.
+    /// </summary>
+    /// <remarks>
+    /// Reading it from anywhere else is the thread rule broken: an engine belongs to this thread, and the
+    /// only sound way to reach one from outside is <see cref="PostAsync{T}"/>. It exists for the seams a
+    /// script reaches — <c>history.back()</c> — which are already on the loop and need the engine they were
+    /// called from without posting to themselves.
+    /// </remarks>
+    internal Engine? CurrentEngine => _engine;
+
     /// <summary>Starts the thread and completes once the engine exists, or faults if building it threw.</summary>
     internal Task StartAsync()
     {

@@ -1,3 +1,4 @@
+using Jint.Browser.Runtime;
 using Jint.WebApi.Fetch;
 
 namespace Jint.Browser;
@@ -9,9 +10,10 @@ namespace Jint.Browser;
 /// <remarks>
 /// <para>
 /// Contexts are how one <see cref="Browser"/> keeps unrelated work apart: two agents driving the same browser
-/// take a context each and cannot see one another's state. In this version there is no state to see, because
-/// a page reaches no network and its storage lives on its own engine; what the context has today is its list
-/// of pages and the seats those two will fill.
+/// take a context each and cannot see one another's cookies, one another's <c>localStorage</c> or one
+/// another's pages. What makes that true is that the jar, the storage partition and the network position are
+/// the context's rather than the page's — so two pages of one site in one context share a session, and the
+/// same two pages in two contexts are two visitors.
 /// </para>
 /// <para>
 /// Closing a context closes its pages.
@@ -26,8 +28,7 @@ public sealed class BrowserContext : IAsyncDisposable
     internal BrowserContext(Browser browser, BrowserContextOptions options)
     {
         Browser = browser;
-        CookieJar = options.CookieJar;
-        StoragePartition = options.StoragePartition;
+        Network = new PageNetwork(options);
     }
 
     /// <summary>The browser this context belongs to.</summary>
@@ -45,14 +46,24 @@ public sealed class BrowserContext : IAsyncDisposable
         }
     }
 
-    /// <summary>Where this context's cookies live, as its options named it. Not yet consulted.</summary>
-    public CookieJar? CookieJar { get; }
+    /// <summary>Where this context's cookies live — the one its options named, or a private jar.</summary>
+    /// <remarks>
+    /// The same jar answers every request's <c>Cookie</c> header, stores every response's <c>Set-Cookie</c>
+    /// and backs <c>document.cookie</c>, so a host can seed a session before a page loads and read one back
+    /// afterwards.
+    /// </remarks>
+    public CookieJar CookieJar => Network.CookieJar;
 
-    /// <summary>The name this context's storage partitions under, as its options named it. Not yet consulted.</summary>
-    public string? StoragePartition { get; }
+    /// <summary>Where this context's <c>localStorage</c> lives, one store per origin.</summary>
+    public StoragePartitionProvider StoragePartition => Network.Storage;
 
     /// <summary>Whether the context has been closed.</summary>
     public bool IsClosed => _closed;
+
+    /// <summary>
+    /// The client, filter, jar and storage partition every page of this context loads through.
+    /// </summary>
+    internal PageNetwork Network { get; }
 
     /// <summary>Opens a new page on <c>about:blank</c>, with its own engine and its own thread.</summary>
     /// <returns>The page, once its thread is running and the blank document has loaded.</returns>

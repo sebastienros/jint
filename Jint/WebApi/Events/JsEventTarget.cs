@@ -614,6 +614,19 @@ internal class JsEventTarget : ObjectInstance
 
         var result = handler.Call(ev.CurrentTarget, ev);
 
+        // Step 4's BeforeUnloadEvent arm: "if return value is not null, then set event's canceled flag".
+        // Undefined counts as null here — a handler with no return statement must not stop a navigation —
+        // and the event decides, so the engine needs to know nothing about the interface that has the rule.
+        if (ev.CancelsOnNonNullHandlerResult)
+        {
+            if (!result.IsNull() && !result.IsUndefined())
+            {
+                ev.SetCanceledFlag();
+            }
+
+            return;
+        }
+
         if (result is JsBoolean && !result.AsBoolean())
         {
             ev.SetCanceledFlag();

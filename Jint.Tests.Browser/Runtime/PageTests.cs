@@ -124,9 +124,10 @@ public sealed class PageTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        var act = async () => await page.NavigateAsync("https://example.com/");
+        // http and https are a page's now; a scheme with no transport behind it still says what it can load.
+        var act = async () => await page.NavigateAsync("ftp://example.com/file.txt");
 
-        await act.Should().ThrowAsync<NotSupportedException>().WithMessage("*no network*");
+        await act.Should().ThrowAsync<NavigationFailedException>().WithMessage("*http, https, about: and data:*");
     }
 
     [Test]
@@ -175,9 +176,12 @@ public sealed class PageTests
         // parse and fault whatever the host was awaiting instead of the page.
         await page.SetContentAsync("<script>location.href = 'data:text/html;base64,!!!not base64!!!'</script>");
 
+        // The navigation runs off the page's thread, so the error arrives shortly after the script does.
+        (await page.WaitForNavigationAsync(TimeSpan.FromSeconds(2))).Should().BeFalse("the navigation never committed");
+
         page.Errors.Should().ContainSingle();
-        page.Errors[0].Source.Should().Be("Location");
-        page.Errors[0].Message.Should().Contain("was refused");
+        page.Errors[0].Source.Should().Be("Navigation");
+        page.Errors[0].Message.Should().Contain("not a valid data URL");
         (await page.EvaluateAsync<int>("1 + 1")).Should().Be(2);
     }
 
