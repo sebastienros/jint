@@ -54,6 +54,42 @@ internal static class WptCorpus
     internal static readonly string[] SharedDirectories = ["common", "resources"];
 
     /// <summary>
+    /// The file extensions that make a vendored file a <b>browser lane</b> test — a document a page is
+    /// navigated to, rather than a script an engine is handed.
+    /// </summary>
+    /// <remarks>
+    /// <c>.xht</c> is upstream's older spelling of <c>.xhtml</c> and is here for the same reason
+    /// <c>Jint.Tests.csproj</c> embeds it: nothing at this pin uses it, and a corpus bump that brought one in
+    /// should find it accounted for rather than invisible.
+    /// </remarks>
+    internal static readonly string[] BrowserTestExtensions = [".html", ".htm", ".xhtml", ".xht"];
+
+    /// <summary>
+    /// The directories whose documents the browser lane runs, as paths in the wpt tree.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It lives here rather than in <c>Jint.Tests.Browser</c> because <i>this</i> project's inventory check is
+    /// what needs it: a <c>.html</c> file vendored under a directory no lane claims would be embedded, byte-
+    /// verified and never run, which is the same silence the minimum-test table exists to break for
+    /// <c>.any.js</c>. <c>WptTestRunner.EveryVendoredFileIsAccountedFor</c> holds every vendored document to
+    /// this list, and <c>Jint.Tests.Browser</c>'s <c>WptBrowserTestRunner</c> holds the list to its own
+    /// theories from the other side — so a directory named here with no test-case source reaching it fails
+    /// there.
+    /// </para>
+    /// <para>
+    /// The rule for what may be added is the <c>.any.js</c> rule: a suite is one directory, because
+    /// <see cref="BrowserTestFiles"/> lists a directory's own files and never descends.
+    /// </para>
+    /// </remarks>
+    internal static readonly string[] BrowserSuites =
+    [
+        "dom/events",
+        "html/webappapis/scripting/events",
+        "html/webappapis/scripting/processing-model-2",
+    ];
+
+    /// <summary>
     /// Every vendored path, normalised to forward slashes: <c>url/url-constructor.any.js</c>,
     /// <c>encoding/resources/encodings.js</c>, and so on.
     /// </summary>
@@ -107,6 +143,70 @@ internal static class WptCorpus
 
         files.Sort(StringComparer.Ordinal);
         return files;
+    }
+
+    /// <summary>
+    /// The browser lane's test documents in one suite directory, ordered by path so the theory's cases are
+    /// stable.
+    /// </summary>
+    /// <remarks>
+    /// The same rule as <see cref="TestFiles"/>, for the same reason: a directory's own files and never its
+    /// sub-directories, so a suite is a directory and a file belongs to exactly one. A <c>resources/</c> or
+    /// <c>support/</c> child therefore holds the helper documents a test frames or navigates to and never a
+    /// case of its own.
+    /// </remarks>
+    internal static IReadOnlyList<string> BrowserTestFiles(string suite)
+    {
+        var prefix = suite + "/";
+        var files = new List<string>();
+        foreach (var path in _resourceNames.Keys)
+        {
+            if (path.StartsWith(prefix, StringComparison.Ordinal)
+                && IsBrowserTestFile(path)
+                && path.IndexOf('/', prefix.Length) < 0)
+            {
+                files.Add(path);
+            }
+        }
+
+        files.Sort(StringComparer.Ordinal);
+        return files;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="path"/> names a document rather than a script — see
+    /// <see cref="BrowserTestExtensions"/>.
+    /// </summary>
+    internal static bool IsBrowserTestFile(string path)
+    {
+        foreach (var extension in BrowserTestExtensions)
+        {
+            if (path.EndsWith(extension, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="path"/> lives under one of the <see cref="BrowserSuites"/>, at any depth — so
+    /// a suite's own <c>resources/</c> and <c>support/</c> helpers count as claimed too.
+    /// </summary>
+    internal static bool IsUnderABrowserSuite(string path)
+    {
+        foreach (var suite in BrowserSuites)
+        {
+            if (path.Length > suite.Length
+                && path.StartsWith(suite, StringComparison.Ordinal)
+                && path[suite.Length] == '/')
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

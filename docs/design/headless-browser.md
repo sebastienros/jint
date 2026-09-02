@@ -256,10 +256,19 @@ already enforces: the exclusion table is the artefact (an entry matches at least
 one), `NeedsTriage` empty is the signal, the census is a ceiling that only lowers. `Jint.Tests.Browser` adds the
 browser lane: the in-process `WptServer` serves `.html`, the real upstream `testharness.js`, `.headers` sidecars
 and `.sub.html` substitution; a `testharnessreport.js` overlay posts results through a page binding; the existing
-`.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers; the initial
-suites are `dom/nodes`, `dom/events`, `dom/collections`, `dom/lists`, `dom/traversal`, `html/dom`,
-`html/semantics/scripting-1/the-script-element`, `html/webappapis`, `html/browsers/history`,
-`html/browsers/the-window-object` (limited), `xhr`, `url` and `fetch/api` in page mode, `FileAPI`. A nightly
+`.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers.
+
+**What was built** is `Jint.Tests.Browser/Wpt/`, and four things about it differ from the paragraph above, each
+for a reason its own [`AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) argues. The corpus is **not** vendored
+twice: `Jint.Tests.Browser` references `Jint.Tests` and runs the same tree at the same pin, so there is one
+corpus and one pin. The overlay posts **strings** through a host function the driver installs on every page
+engine, not values through a binding, because a page's engine belongs to a thread the driver is not on. Only the
+**window** wrapper is synthesized — upstream's dedicated-worker wrapper builds a *classic* worker whose body
+opens with `importScripts`, which Jint runs no lane for. And an uncaught exception is **upstream's harness's**
+business rather than the driver's, because the engine fires a real `error` event at the global scope and
+`testharness.js` listens for it, `setup({allow_uncaught_exception: true})` included. The suites arrive a PR at a
+time; the first are `dom/events` and `html/webappapis/scripting`'s events and processing-model halves, and the
+rest of the list above follows through the same lane. A nightly
 real `wpt run` over CDP produces a public scoreboard later; it is not a PR gate. Next to it, an obstacle course
 of offline fixtures (React, Vue, Preact and Svelte TodoMVC, SSR hydration, jQuery 3 with `async: false`, htmx,
 Alpine, a `pushState` router, custom elements, modules with an import map, forms with redirects, a cookie login,

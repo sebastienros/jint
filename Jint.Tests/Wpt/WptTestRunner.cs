@@ -1699,6 +1699,20 @@ public class WptTestRunner
             {
                 problems.Add($"{path} is under a shared helper root, which is never a suite — see WptCorpus.SharedDirectories");
             }
+
+            // A document belongs to the browser lane, and this project is where that has to be said, because
+            // this is the project the corpus is embedded in. Jint.Tests.Browser holds the other half — every
+            // document under a suite is a case, a not-vendored row or a helper — but it cannot see a document
+            // vendored somewhere no lane claims, and such a file would be embedded, byte-verified and never
+            // run by anything. The two exceptions are the shared roots, whose documents are fixtures a test
+            // frames or navigates to rather than tests: common/blank.html and common/dummy.xhtml today.
+            if (WptCorpus.IsBrowserTestFile(path)
+                && !WptCorpus.IsShared(path)
+                && !WptCorpus.IsUnderABrowserSuite(path))
+            {
+                problems.Add($"{path} is a document under no browser-lane suite, so nothing runs it — see "
+                    + $"{nameof(WptCorpus)}.{nameof(WptCorpus.BrowserSuites)} and Jint.Tests.Browser/Wpt/AGENTS.md");
+            }
         }
 
         foreach (var declared in _minimumTests.Keys)
@@ -1724,6 +1738,13 @@ public class WptTestRunner
         WptCorpus.TestFiles("urlpattern").Should().HaveCountGreaterThan(2);
         WptCorpus.TestFiles("hr-time").Should().HaveCount(2);
         WptCorpus.TestFiles("user-timing").Should().HaveCountGreaterThan(15);
+
+        // And a browser-lane suite that names a directory holding no document is a typo whose only symptom
+        // would be a theory with no cases in another project.
+        foreach (var suite in WptCorpus.BrowserSuites)
+        {
+            WptCorpus.BrowserTestFiles(suite).Should().NotBeEmpty($"{suite} is named as a browser-lane suite");
+        }
 
         // And a sub-directory that lost its theory member would be a suite nothing runs, which the
         // minimum-test check above cannot see: it proves a file is declared, not that a theory reaches it.

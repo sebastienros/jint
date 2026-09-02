@@ -172,11 +172,7 @@ internal static class WptServerFiles
         in WptSubstitutionContext context,
         Func<string, string?> read)
     {
-        var headers = new List<(string Name, string Value)>();
-
-        var directory = WptCorpus.DirectoryOf(path);
-        Load(headers, directory.Length == 0 ? "__dir__" : directory + "/__dir__", context, read);
-        Load(headers, path, context, read);
+        var headers = Sidecars(path, context, read);
 
         var hasContentType = false;
         foreach (var (name, _) in headers)
@@ -196,6 +192,31 @@ internal static class WptServerFiles
         headers.RemoveAll(static header => IsFraming(header.Name));
 
         return Group(headers);
+    }
+
+    /// <summary>
+    /// <c>handlers.py</c>'s <c>load_headers</c> alone: the directory's sidecar and then the file's, with no
+    /// guessed <c>Content-Type</c> in front.
+    /// </summary>
+    /// <remarks>
+    /// The split matters for exactly one caller. <c>FileHandler.get_headers</c> is what adds the guess, and a
+    /// <see cref="WptServerWrappers">generated wrapper</see> does not go through it: its own
+    /// <c>Content-Type: text/html</c> comes first and the sidecars of the file <i>on disk</i> are set over it.
+    /// Guessing there would answer <c>text/javascript</c> for a document, because the path on disk ends in
+    /// <c>.any.js</c> — a page served as a script, which is a failure three layers away from its cause.
+    /// </remarks>
+    internal static List<(string Name, string Value)> Sidecars(
+        string path,
+        in WptSubstitutionContext context,
+        Func<string, string?> read)
+    {
+        var headers = new List<(string Name, string Value)>();
+
+        var directory = WptCorpus.DirectoryOf(path);
+        Load(headers, directory.Length == 0 ? "__dir__" : directory + "/__dir__", context, read);
+        Load(headers, path, context, read);
+
+        return headers;
 
         static void Load(
             List<(string Name, string Value)> into,
@@ -285,6 +306,23 @@ internal static class WptServerFiles
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// <c>ResponseHeaders.set</c>: remove every value already held for that name, then append the new one at
+    /// the end.
+    /// </summary>
+    /// <remarks>
+    /// The <i>other</i> of wptserve's two ways of putting headers on a response, and the one
+    /// <c>WrapperHandler.handle_request</c> uses — it loops over its headers calling <c>set</c>, where
+    /// <c>FileHandler</c> calls <c>update</c> (which is <see cref="Group"/>). The difference is observable: a
+    /// sidecar naming the same header twice keeps both under <c>update</c> and only the last under
+    /// <c>set</c>, and a sidecar naming <c>Content-Type</c> replaces a wrapper's <c>text/html</c> outright.
+    /// </remarks>
+    internal static void Set(List<(string Name, string Value)> headers, string name, string value)
+    {
+        headers.RemoveAll(header => string.Equals(header.Name, name, StringComparison.OrdinalIgnoreCase));
+        headers.Add((name, value));
     }
 
     /// <summary>

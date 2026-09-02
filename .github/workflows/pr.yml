@@ -39,7 +39,10 @@ jobs:
           # The WPT corpus inventory in Jint.Tests/Wpt/Vendor/README.md is measured on Windows — assertion
           # counts move per operating system — so this is the one leg entitled to check it. The census reuses
           # the outcomes the suites produce anyway and cost 65 s -> 85 s of Jint.Tests when it was measured
-          # always-on, which is why it is opt-in everywhere else rather than part of an ordinary run.
+          # always-on, which is why it is opt-in everywhere else rather than part of an ordinary run. The
+          # browser lane's table in Jint.Tests.Browser/Wpt/README.md is the same arrangement for the same
+          # reason: a not-passing figure counts outcomes, and a TIMEOUT is an outcome a loaded machine can
+          # produce on its own.
           - { name: 'windows', image: 'windows-latest', census: '1' }
           - { name: 'macos', image: 'macos-latest' }
 
@@ -47,6 +50,7 @@ jobs:
 
     env:
       JINT_WPT_CENSUS: ${{ matrix.os.census }}
+      JINT_WPT_BROWSER_CENSUS: ${{ matrix.os.census }}
 
     steps:
 

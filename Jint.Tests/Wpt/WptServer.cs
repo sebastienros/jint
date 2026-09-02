@@ -630,6 +630,11 @@ internal sealed class WptServer : IDisposable
     /// </remarks>
     private static WptServerResponse StaticFile(WptServerRequest request, int port)
     {
+        if (WptServerWrappers.IsWrapperPath(request.Path) && !WptCorpus.Contains(request.Path))
+        {
+            return GeneratedWrapper(request, port);
+        }
+
         if (!WptCorpus.Contains(request.Path))
         {
             return new WptServerResponse(404, "Not Found", [("content-type", "text/plain")], []);
@@ -650,6 +655,52 @@ internal sealed class WptServer : IDisposable
         content = ApplyQueryPipes(request, context, content);
 
         return new WptServerResponse(200, "OK", headers, Encoding.UTF8.GetBytes(content));
+    }
+
+    /// <summary>
+    /// <c>AnyHtmlHandler</c>: the document upstream manufactures for a <c>.any.js</c> file, which exists on no
+    /// disk anywhere.
+    /// </summary>
+    /// <remarks>
+    /// Two 404s rather than one, and they are upstream's own. A wrapper whose underlying file is not vendored
+    /// is <c>_get_metadata</c>'s <c>OSError</c>, and one whose file does not declare the <c>window</c> global
+    /// is <c>check_exposure</c> refusing — "This test cannot be loaded in window mode". The second is what
+    /// stops the lane silently running a worker-only suite in a window, where it would assert nothing about
+    /// the global it is named for and stay green.
+    /// </remarks>
+    private static WptServerResponse GeneratedWrapper(WptServerRequest request, int port)
+    {
+        var underlying = WptServerWrappers.UnderlyingFile(request.Path);
+
+        if (WptCorpus.TryRead(underlying) is not { } source)
+        {
+            return new WptServerResponse(404, "Not Found", [("content-type", "text/plain")], []);
+        }
+
+        if (WptServerWrappers.Window(request.Path, source) is not { } document)
+        {
+            return new WptServerResponse(404, "Not Found", [("content-type", "text/plain")],
+                Bytes("This test cannot be loaded in window mode"));
+        }
+
+        var context = new WptSubstitutionContext(port, request);
+
+        // `for header_name, header_value in self.headers + handlers.load_headers(request, path):
+        //      response.headers.set(header_name, header_value)` — the wrapper's own content type, then
+        // whatever the *underlying* file's `.headers` sidecars ask for, each one set rather than appended.
+        // The path is the one on disk and not the one requested, which is the whole reason
+        // `_get_filesystem_path` exists; and it is `load_headers` alone, so nothing guesses a content type
+        // from the `.any.js` suffix and serves the document as a script.
+        var headers = new List<(string Name, string Value)>();
+        WptServerFiles.Set(headers, "Content-Type", "text/html");
+
+        foreach (var (name, value) in WptServerFiles.Sidecars(underlying, context, WptCorpus.TryRead))
+        {
+            WptServerFiles.Set(headers, name, value);
+        }
+
+        return new WptServerResponse(200, "OK", headers,
+            Encoding.UTF8.GetBytes(ApplyQueryPipes(request, context, document)));
     }
 
     /// <summary>

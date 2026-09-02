@@ -2474,6 +2474,11 @@ reference is recorded in `Page.Requests` with the reason instead — `integrity`
 and `document.write` after a page has finished parsing is refused with a page error rather than implying
 `document.open()`.
 
+**How much of that is measured rather than claimed** is
+[`Jint.Tests.Browser/Wpt/README.md`](Jint.Tests.Browser/Wpt/README.md): the web-platform-tests browser lane
+loads the vendored `.html` corpus into a real page under upstream's own `testharness.js`, and its census
+counts, suite by suite, how many of those tests pass — a figure that is a ceiling and only ever goes down.
+
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is
 [#3575](https://github.com/sebastienros/jint/issues/3575). The package targets `net8.0` and later and is
