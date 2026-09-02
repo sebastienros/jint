@@ -24,7 +24,7 @@ public class InProcessProtocolTests
             .Select(domain => domain.GetProperty("name").GetString())
             .ToArray();
 
-        domains.Should().BeEquivalentTo(["Browser", "Console", "Log", "Runtime", "Schema", "Target"]);
+        domains.Should().BeEquivalentTo(["Browser", "Console", "Debugger", "Log", "Runtime", "Schema", "Target"]);
         result.GetProperty("domains")[0].GetProperty("version").GetString().Should().Be("1.3");
     }
 

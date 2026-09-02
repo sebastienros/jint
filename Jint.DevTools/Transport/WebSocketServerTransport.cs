@@ -304,10 +304,12 @@ internal sealed class WebSocketServerTransport : IAsyncDisposable
 
     private static Action? OpenTarget(WebSocketConnection connection, EngineTarget target)
     {
-        // A direct connection owns nothing but itself: there is no attachment to release and no browser
-        // conversation to forget, so the connection ending is the whole of the teardown.
-        DevToolsServer.OpenTargetSession(connection, target);
-        return null;
+        // There is no browser conversation to forget, but the session itself holds engine state — the
+        // handles it minted, the bindings it installed, the debugger it may have paused — and a connection
+        // that goes away is a client that will never release any of it. A pause makes that load-bearing
+        // rather than tidy: nothing else would let the engine thread out of it.
+        var session = DevToolsServer.OpenTargetSession(connection, target);
+        return session.Detach;
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.DevTools.Domains;
 using Jint.DevTools.Protocol.Browser;
 using Jint.DevTools.Session;
@@ -171,6 +171,7 @@ public sealed class DevToolsServer : IAsyncDisposable
         // The bound is the server's rather than the target's: a target may well have been built before the
         // server it ends up on.
         target.Dispatcher.CommandTimeout = Options.CommandTimeout;
+        target.PauseTimeout = Options.PauseTimeout;
 
         foreach (var session in sessions)
         {

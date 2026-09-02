@@ -32,15 +32,24 @@ namespace Jint.DevTools.Session;
 /// engine is next pumped; what the timeout decides is only that the client stops waiting. An engine nobody
 /// pumps would otherwise hang every client that ever spoke to it.
 /// </para>
+/// <para>
+/// <b>There is a second drain, and it exists because the first one cannot run while the engine is paused.</b>
+/// A debugger pause blocks the engine thread inside <c>DebugHandler</c>'s handler, so nothing posted through
+/// <see cref="Engine.TaskOperations.Post(System.Action)"/> will ever run: the pump is that very thread.
+/// <see cref="DrainPaused"/> is what the pause loop calls instead — the same queue, answered inline on the
+/// thread that is already holding it — and <see cref="Wake"/> is what tells that loop something arrived.
+/// </para>
 /// </remarks>
-internal sealed class EngineDispatcher : ICommandGateway
+internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 {
     private readonly Engine _engine;
     private readonly Action _drain;
     private readonly ConcurrentQueue<CommandItem> _commands = new();
     private readonly ConcurrentQueue<Action<Engine>> _hostWork = new();
+    private readonly ManualResetEventSlim _arrivals = new(initialState: false);
 
     private int _waitingForDebugger;
+    private int _draining;
 
     internal EngineDispatcher(Engine engine, TimeSpan commandTimeout, bool waitForDebuggerOnStart)
     {
@@ -124,25 +133,141 @@ internal sealed class EngineDispatcher : ICommandGateway
     /// Runs everything queued, on the engine thread.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Called as the event-loop job <see cref="Engine.TaskOperations.Post(System.Action)"/> queued, and
     /// directly by <see cref="EngineTarget.Pump"/> and the library-owned loop. It drains everything rather
     /// than one item, so the extra passes an unconditional post produces cost a dequeue that finds nothing.
+    /// </para>
+    /// <para>
+    /// <b>It never re-enters itself.</b> A command runs script, script pauses, the pause loop answers a
+    /// command that runs more script — and a second running-mode drain anywhere down that stack would run
+    /// host work in the middle of a paused engine and dequeue items the loop above it is still answering.
+    /// The pause loop's own <see cref="DrainPaused"/> is deliberately exempt: nesting <i>it</i> inside this
+    /// one is the whole mechanism.
+    /// </para>
     /// </remarks>
     internal void Drain()
     {
-        while (_commands.TryDequeue(out var item))
-        {
-            item.Run();
-        }
-
-        if (IsWaitingForDebugger)
+        if (Interlocked.Exchange(ref _draining, 1) != 0)
         {
             return;
         }
 
-        while (_hostWork.TryDequeue(out var work))
+        try
         {
-            work(_engine);
+            while (_commands.TryDequeue(out var item))
+            {
+                item.Run();
+            }
+
+            if (IsWaitingForDebugger)
+            {
+                return;
+            }
+
+            while (_hostWork.TryDequeue(out var work))
+            {
+                work(_engine);
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _draining, 0);
+        }
+    }
+
+    /// <summary>
+    /// Answers the commands waiting for an engine that is paused in the debugger, inline on the engine's own
+    /// thread.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Host work is not drained.</b> A host's <c>Post</c> is work for a running engine; running it from
+    /// inside a paused one would execute script at a point the client is looking at. It waits for the resume,
+    /// which is the whole difference between this and <see cref="Drain"/>.
+    /// </para>
+    /// <para>
+    /// The two commands that are refused are the two that would re-enter a public engine entry while the
+    /// engine is suspended part-way through a statement. Everything else — every <c>Runtime</c> read, every
+    /// <c>Debugger</c> command, the browser-level domains — is answered, because a client that serializes on
+    /// one of them would otherwise deadlock against its own pause.
+    /// </para>
+    /// </remarks>
+    internal void DrainPaused()
+    {
+        while (_commands.TryDequeue(out var item))
+        {
+            if (IsPauseSafe(item.Method))
+            {
+                item.Run();
+            }
+            else
+            {
+                item.Refuse();
+            }
+        }
+    }
+
+    /// <summary>Tells a waiting pause loop that something arrived for it.</summary>
+    internal void Wake() => Set();
+
+    /// <summary>Clears the arrival flag, which a pause loop does before it drains.</summary>
+    /// <remarks>
+    /// Reset first, then drain: an arrival <i>during</i> the drain sets the flag again, so the wait that
+    /// follows returns at once rather than parking on work already queued.
+    /// </remarks>
+    internal void ResetWake()
+    {
+        try
+        {
+            _arrivals.Reset();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The target is going away underneath the pause loop, which resumes on the next pass.
+        }
+    }
+
+    /// <summary>Parks the pause loop until something arrives, the bound elapses, or the target stops.</summary>
+    internal void WaitForWake(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _arrivals.Wait(timeout, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose() => _arrivals.Dispose();
+
+    /// <summary>
+    /// Whether a command may be answered while the engine is paused.
+    /// </summary>
+    /// <remarks>
+    /// <c>Runtime.runScript</c> calls <c>Engine.Evaluate</c>, a public entry, on
+    /// an engine that is suspended inside a statement of another one; <c>Profiler</c> starts and stops a
+    /// recording around the same. Both are answered with a reason rather than run.
+    /// </remarks>
+    private static bool IsPauseSafe(string method)
+    {
+        return !string.Equals(method, "Runtime.runScript", StringComparison.Ordinal)
+            && !method.StartsWith("Profiler.", StringComparison.Ordinal);
+    }
+
+    private void Set()
+    {
+        try
+        {
+            _arrivals.Set();
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 
@@ -160,6 +285,10 @@ internal sealed class EngineDispatcher : ICommandGateway
     private void ScheduleDrain()
     {
         _engine.Tasks.Post(_drain);
+
+        // The post above wakes whichever thread pumps the engine, and a paused engine has no such thread:
+        // it is inside the debugger's handler, running a loop of its own. This is what that loop waits on.
+        Set();
     }
 
     /// <summary>
@@ -188,6 +317,19 @@ internal sealed class EngineDispatcher : ICommandGateway
 
         /// <summary>Whether the engine thread has begun answering this command.</summary>
         internal bool HasStarted => Volatile.Read(ref _started) != 0;
+
+        /// <summary>Gets the qualified method the client asked for, which is what a paused drain filters on.</summary>
+        internal string Method => _request.Method;
+
+        /// <summary>Answers a command the engine may not run in the state it is in.</summary>
+        internal void Refuse()
+        {
+            Volatile.Write(ref _started, 1);
+            Completion.TrySetException(new ProtocolException(
+                ProtocolErrorCodes.ServerError,
+                "Not allowed while paused",
+                "the command re-enters a public engine entry, and the engine is suspended inside the debugger; resume first"));
+        }
 
         internal void Run()
         {

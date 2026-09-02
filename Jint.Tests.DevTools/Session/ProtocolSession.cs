@@ -17,12 +17,20 @@ internal sealed class ProtocolSession : IAsyncDisposable
 {
     private readonly InProcessConnection _connection = new();
     private readonly DevToolsServer _server;
+    private readonly bool _ownsServer;
     private int _nextId = 1000;
 
     private ProtocolSession(DevToolsServerOptions options, Action? closeRequested)
     {
         _server = new DevToolsServer(options);
+        _ownsServer = true;
         Browser = _server.OpenBrowserSession(_connection, closeRequested);
+    }
+
+    private ProtocolSession(DevToolsServer server)
+    {
+        _server = server;
+        Browser = server.OpenBrowserSession(_connection);
     }
 
     /// <summary>The conversation under test.</summary>
@@ -37,6 +45,17 @@ internal sealed class ProtocolSession : IAsyncDisposable
     /// <summary>Builds a session carrying the domains a browser endpoint answers.</summary>
     internal static ProtocolSession Create(Action? closeRequested = null, DevToolsServerOptions? options = null)
         => new(options ?? new DevToolsServerOptions(), closeRequested);
+
+    /// <summary>
+    /// Opens a second client's conversation with the same server, over a connection of its own.
+    /// </summary>
+    /// <remarks>
+    /// Not a second attachment: <c>Target.attachToTarget</c> on a conversation that is already attached to a
+    /// target answers the session it already has, which is right and is also why anything about <i>two</i>
+    /// clients needs two connections. Disposing this one leaves the server alone; the conversation that made
+    /// it owns that.
+    /// </remarks>
+    internal ProtocolSession OpenSecondConversation() => new(_server);
 
     /// <summary>Publishes a host-pumped engine target on the server.</summary>
     internal EngineTarget AddTarget(EngineTargetOptions? options = null, Engine? engine = null)
@@ -126,6 +145,12 @@ internal sealed class ProtocolSession : IAsyncDisposable
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
+        if (!_ownsServer)
+        {
+            _server.CloseBrowserSession(Browser);
+            return;
+        }
+
         foreach (var target in _server.Targets)
         {
             await target.DisposeAsync().ConfigureAwait(false);

@@ -85,7 +85,7 @@ public class WebSocketServerTests
         document.RootElement.GetProperty("version").GetProperty("minor").GetString().Should().Be("3");
 
         var domains = document.RootElement.GetProperty("domains").EnumerateArray().ToArray();
-        domains.Select(domain => domain.GetProperty("domain").GetString()).Should().BeEquivalentTo(["Browser", "Console", "Log", "Runtime", "Schema", "Target"]);
+        domains.Select(domain => domain.GetProperty("domain").GetString()).Should().BeEquivalentTo(["Browser", "Console", "Debugger", "Log", "Runtime", "Schema", "Target"]);
 
         var runtime = domains.Single(domain => domain.GetProperty("domain").GetString() == "Runtime");
         runtime.GetProperty("commands").EnumerateArray().Select(command => command.GetProperty("name").GetString())

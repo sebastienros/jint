@@ -82,12 +82,7 @@ public class HandshakeReplayTests
         ["Audits.enable"] = "page",
         ["Performance.enable"] = "page",
 
-        // Engine-level and not written yet. Each needs the debugger seam or the profiler seam, and half of
-        // either of those is worse than none.
-        ["Debugger.enable"] = "later",
-        ["Debugger.setPauseOnExceptions"] = "later",
-        ["Debugger.setAsyncCallStackDepth"] = "later",
-        ["Debugger.setBlackboxPatterns"] = "later",
+        // Engine-level and not written yet. It needs the profiler seam, and half of that is worse than none.
         ["Profiler.enable"] = "later",
 
         // Chrome answered -32601 to these in the recording itself, so a client that sends one already
@@ -131,6 +126,9 @@ public class HandshakeReplayTests
         "Target.setDiscoverTargets" => """{"discover":false}""",
         "Target.createTarget" => """{"url":"about:blank"}""",
         "Target.disposeBrowserContext" => """{"browserContextId":"X"}""",
+        "Debugger.setPauseOnExceptions" => """{"state":"none"}""",
+        "Debugger.setAsyncCallStackDepth" => """{"maxDepth":32}""",
+        "Debugger.setBlackboxPatterns" => """{"patterns":[]}""",
         "Runtime.evaluate" => """{"expression":"1"}""",
         "Runtime.getProperties" => $$"""{"objectId":"{{fixture.ObjectId}}"}""",
         "Runtime.callFunctionOn" => $$"""{"functionDeclaration":"function () { return this.answer; }","objectId":"{{fixture.ObjectId}}","returnByValue":true}""",

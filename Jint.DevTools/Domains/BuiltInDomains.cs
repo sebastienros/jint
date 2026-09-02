@@ -65,8 +65,9 @@ internal static class BuiltInDomains
         var runtime = new RuntimeDomain(target);
         var console = new ConsoleDomain(target);
         var log = new LogDomain();
+        var debugger = new DebuggerDomain(target, log);
 
-        session.Register(runtime).Register(console).Register(log);
+        session.Register(runtime).Register(console).Register(log).Register(debugger);
 
         // Registered with the engine's own event sources in one place, so that the three domains that hear
         // about a console call, an uncaught exception or an unhandled rejection are exactly the three the
@@ -82,7 +83,7 @@ internal static class BuiltInDomains
             session.Register(new TargetDomain(browser, nested: true));
         }
 
-        return new TargetDomains(target, runtime, console, log);
+        return new TargetDomains(target, runtime, console, log, debugger);
     }
 }
 
@@ -96,9 +97,19 @@ internal static class BuiltInDomains
 /// nothing releases.
 /// </remarks>
 [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-internal readonly record struct TargetDomains(EngineTarget Target, RuntimeDomain Runtime, ConsoleDomain Console, LogDomain Log)
+internal readonly record struct TargetDomains(
+    EngineTarget Target,
+    RuntimeDomain Runtime,
+    ConsoleDomain Console,
+    LogDomain Log,
+    DebuggerDomain Debugger)
 {
     /// <summary>Releases everything this attachment holds of its engine, and stops it hearing anything.</summary>
+    /// <remarks>
+    /// <b>The debugger goes last, and that ordering is load-bearing.</b> Its release resumes an engine that
+    /// is paused, and the engine thread comes straight back out of the pause loop into whatever it was
+    /// running — so everything else this attachment held has to be gone before it does.
+    /// </remarks>
     internal void Detach()
     {
         Target.Unobserve(Runtime);
@@ -106,5 +117,6 @@ internal readonly record struct TargetDomains(EngineTarget Target, RuntimeDomain
         Target.Unobserve(Log);
 
         Runtime.Detach();
+        Debugger.Detach();
     }
 }

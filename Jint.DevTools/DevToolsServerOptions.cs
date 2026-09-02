@@ -1,4 +1,4 @@
-namespace Jint.DevTools;
+﻿namespace Jint.DevTools;
 
 /// <summary>
 /// How a <see cref="DevToolsServer"/> listens, what it calls itself, and what it refuses.
@@ -11,6 +11,9 @@ public sealed class DevToolsServerOptions
 {
     /// <summary>The command timeout a target uses until a server tells it otherwise.</summary>
     internal static readonly TimeSpan DefaultCommandTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>The pause bound a target uses until a server tells it otherwise.</summary>
+    internal static readonly TimeSpan DefaultPauseTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>Creates a set of options, each at its default.</summary>
     public DevToolsServerOptions()
@@ -56,11 +59,19 @@ public sealed class DevToolsServerOptions
     /// Defaults to 30 seconds.
     /// </summary>
     /// <remarks>
-    /// Nothing pauses yet: the debugger domain and the pause-time message loop arrive separately. It is
-    /// declared now because the pause loop's bound is a host decision and a host writing its configuration
-    /// today should not have to revisit it.
+    /// <para>
+    /// <b>It is what stops a debugger pause from being a wedged host.</b> A pause blocks the thread that runs
+    /// the engine — the host's own, for a <see cref="ThreadMode.HostOwned"/> target — inside the debugger's
+    /// handler, and only a client can end it. When this elapses the engine resumes as though the client had
+    /// sent <c>Debugger.resume</c>, and every attached client is told through <c>Log.entryAdded</c>.
+    /// </para>
+    /// <para>
+    /// The clock runs from the pause rather than from the last command, so a client that keeps asking
+    /// questions about a paused engine still reaches the bound. Raise it for interactive debugging; lower it
+    /// for a host that must not be held up by a client that walked away.
+    /// </para>
     /// </remarks>
-    public TimeSpan PauseTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan PauseTimeout { get; set; } = DefaultPauseTimeout;
 
     /// <summary>Gets or sets the largest message the server will accept. Defaults to 16 MiB.</summary>
     /// <remarks>
