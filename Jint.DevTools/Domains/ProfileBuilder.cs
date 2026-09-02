@@ -181,7 +181,7 @@ internal sealed class ProfileBuilder
         }
 
         var column = function.Column ?? 1;
-        var script = _scripts?.At(file, line, column - 1);
+        var script = _scripts?.For(function.Program);
 
         return new ProtocolCallFrame
         {

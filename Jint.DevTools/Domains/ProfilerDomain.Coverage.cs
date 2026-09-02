@@ -129,16 +129,17 @@ internal sealed partial class ProfilerDomain
 
         foreach (var source in report.Sources)
         {
-            // The engine names a source and the registry names a script, and the two meet on that name. A
-            // source no script claims is still reported, against the unattributable identifier, because a
-            // client can do something with ranges it cannot place and nothing with a source that vanished.
-            var script = _target.Scripts?.At(source.Name, line: 1, column: 0);
+            // A coverage source is one parse and names the program it was counted from, so the script it
+            // belongs to is a lookup rather than a guess from a name. A source no script claims is still
+            // reported, against the unattributable identifier, because a client can do something with
+            // ranges it cannot place and nothing with a source that vanished.
+            var script = _target.Scripts?.For(source.Program);
 
             scripts.Add(new ScriptCoverage
             {
                 ScriptId = script?.ScriptId ?? UnknownScriptId,
                 Url = script?.Url ?? ScriptUrl.From(source.Name),
-                Functions = Functions(source, script?.Program, detailed),
+                Functions = Functions(source, source.Program, detailed),
             });
         }
 

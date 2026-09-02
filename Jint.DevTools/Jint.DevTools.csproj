@@ -51,9 +51,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The AST reaches this assembly in exactly one place — `Prepared<Script>`, which is what a compiled
-         script is — so the repository-wide Acornima global usings would be noise. That one file names the
-         namespace itself, which is also how a reader sees that the dependency is one type deep. -->
+    <!-- The AST reaches this assembly as one type — the `Program` a script registry is keyed on, which is
+         also what a `Prepared<Script>` carries — so the repository-wide Acornima global usings would be
+         noise. The few files that name it name the namespace themselves, which is also how a reader sees
+         that the dependency is one type deep. -->
     <Using Remove="Acornima" />
     <Using Remove="Acornima.Ast" />
   </ItemGroup>

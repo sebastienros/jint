@@ -106,14 +106,38 @@ internal sealed class ScriptRegistry
     }
 
     /// <summary>
-    /// Answers which script a running location belongs to, or <see langword="null"/> when none is known.
+    /// Answers which script a program is, or <see langword="null"/> when none is known.
     /// </summary>
     /// <remarks>
-    /// A call frame carries a <c>SourceLocation</c> and not the program it came from, so the answer is
-    /// reconstructed: among the scripts parsed under that source name, the one whose own range contains the
-    /// position, and failing that the most recently parsed. Several unnamed scripts therefore share one
-    /// source name and the newest wins, which is a divergence from Chrome — where every frame carries the
-    /// script identifier the engine recorded for it.
+    /// The engine hands the program itself to a call frame, a profile frame and a coverage source, so the
+    /// answer is a lookup by reference rather than a guess from a source name — which is what keeps two
+    /// scripts parsed under one name (every sourceless <c>Execute</c> is <c>&lt;anonymous&gt;</c>) apart.
+    /// Null for a program the engine reached another way — <c>eval</c>, the <c>Function</c> constructor —
+    /// and for one this registry has forgotten.
+    /// </remarks>
+    internal RegisteredScript? For(Program? program)
+    {
+        if (program is null)
+        {
+            return null;
+        }
+
+        lock (_gate)
+        {
+            return _byProgram.GetValueOrDefault(program);
+        }
+    }
+
+    /// <summary>
+    /// Answers which script a rendered stack frame belongs to, or <see langword="null"/> when none is known.
+    /// </summary>
+    /// <remarks>
+    /// <b>The name-and-range fallback, and the only place left that needs one.</b> A frame of a rendered
+    /// stack trace — a <c>ConsoleStackFrame</c>, a line of <c>Error.stack</c> — is text, so all it carries
+    /// is a source name and a position: among the scripts registered under that name, the one whose own
+    /// range contains the position, and failing that the most recently parsed. Several programs parsed under
+    /// one name therefore share one answer. Anything that has the program itself resolves through
+    /// <see cref="For"/> instead, and must: this cannot tell two sourceless scripts apart.
     /// </remarks>
     internal RegisteredScript? At(string? sourceFile, int line, int column)
     {

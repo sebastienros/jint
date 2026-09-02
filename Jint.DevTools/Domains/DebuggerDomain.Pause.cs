@@ -523,7 +523,7 @@ internal sealed partial class DebuggerDomain
     private ProtocolCallFrame Frame(int serial, int index, EngineCallFrame frame)
     {
         var location = frame.Location;
-        var script = _target.Scripts!.At(location.SourceFile, location.Start.Line, location.Start.Column);
+        var script = _target.Scripts!.For(frame.Program);
 
         return new ProtocolCallFrame
         {
@@ -610,6 +610,9 @@ internal sealed partial class DebuggerDomain
         }
     }
 
+    /// <summary>
+    /// Where the frame's own function was declared, which lies in the very program the frame is running.
+    /// </summary>
     private ProtocolLocation? FunctionLocation(EngineCallFrame frame)
     {
         if (frame.FunctionLocation is not { } location)
@@ -617,8 +620,7 @@ internal sealed partial class DebuggerDomain
             return null;
         }
 
-        var script = _target.Scripts!.At(location.SourceFile, location.Start.Line, location.Start.Column);
-        return At(script, location.Start.Line, location.Start.Column);
+        return At(_target.Scripts!.For(frame.Program), location.Start.Line, location.Start.Column);
     }
 
     /// <summary>
