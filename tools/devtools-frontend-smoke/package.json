@@ -1,0 +1,14 @@
+{
+  "name": "devtools-frontend-smoke",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drives the real Chrome DevTools frontend against a real Jint REPL under --inspect and asserts through the frontend's own shadow DOM.",
+  "scripts": {
+    "start": "node smoke.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^24.29.0",
+    "ws": "^8.19.0"
+  }
+}

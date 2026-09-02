@@ -24,6 +24,18 @@
       unreferenceable from the lower one.
     -->
     <ProjectReference Include="..\tools\devtools-protocol\Jint.DevTools.ProtocolGenerator\Jint.DevTools.ProtocolGenerator.csproj" />
+    <!--
+      The REPL, referenced so that it is built rather than so that it is used: one test spawns it as a
+      process to check that the inspector flag really serves a target, and a test that passed because nobody
+      had built the thing it spawns would be worse than no test. ReferenceOutputAssembly=false because there
+      is nothing here to call into it - and because it is net10.0 while this suite also runs on net8.0, which
+      is what SkipGetTargetFrameworkProperties tells MSBuild not to reconcile.
+    -->
+    <ProjectReference Include="..\Jint.Repl\Jint.Repl.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true"
+                      UndefineProperties="TargetFramework"
+                      PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

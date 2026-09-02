@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using Jint.DevTools;
 using Jint.DevTools.Protocol;
@@ -509,6 +511,259 @@ public class PuppeteerSharpTests
         profile.EndTime.Should().BeGreaterThan(profile.StartTime);
 
         await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// Which of the engine's code ran, taken over a real socket in the shape a front end's Coverage panel
+    /// draws.
+    /// </summary>
+    /// <remarks>
+    /// The assertion that matters is the second one. Coverage is a <i>covered set</i> — a function that
+    /// never ran has no entry anywhere in the engine — so a client is told about it only because the domain
+    /// derives the uncovered functions from the script's abstract syntax tree. A panel that shaded nothing
+    /// red would look exactly like a passing test without it.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerTakesCoverageAndIsToldWhatNeverRan()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools(devTools => devTools.Coverage = true)),
+            new EngineTargetOptions { Url = "jint://coverage", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://coverage", target.TargetId);
+
+        await session.SendAsync("Profiler.enable").WaitAsync(Bound);
+        await session.SendAsync("Profiler.startPreciseCoverage", new { callCount = true, detailed = false }).WaitAsync(Bound);
+
+        // Executed after the recording started, which is the order a client uses: what ran before it began
+        // is not what the panel is asking about.
+        await target.PostAsync(engine => engine.Execute(
+            """
+            function counted(n) {
+                return n + 1;
+            }
+
+            function skipped(n) {
+                return n - 1;
+            }
+
+            var total = counted(1);
+            """,
+            "coverage.js")).WaitAsync(Bound);
+
+        var taken = await session.SendAsync("Profiler.takePreciseCoverage").WaitAsync(Bound);
+        var scripts = taken!.Value.GetProperty("result").Deserialize(ProtocolJsonContext.Default.ProfilerScriptCoverageArray);
+
+        scripts.Should().NotBeNull();
+        var script = scripts!.Single(candidate => candidate.Url == "coverage.js");
+
+        var functions = script.Functions.ToDictionary(function => function.FunctionName, function => function);
+        functions.Should().ContainKeys("counted", "skipped");
+        functions["counted"].Ranges.Single().Count.Should().Be(1);
+        functions["skipped"].Ranges.Single().Count.Should().Be(0, "it is declared and never called, which is what the panel shades");
+
+        await session.SendAsync("Profiler.stopPreciseCoverage").WaitAsync(Bound);
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// The REPL's <c>--inspect</c>, from the outside: a separate process, its own port, and a client that
+    /// reaches the engine that process ran its script in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Everything else in this suite builds its own server in this process, so nothing else would notice if
+    /// the flag stopped serving a target — the wiring the flag does is a host's wiring, and a host is the
+    /// one thing an in-process test cannot be. It also pins the two halves of a
+    /// <see cref="ThreadMode.HostOwned"/> host that are easy to get wrong: the banner has to name the port
+    /// the operating system actually chose, and the engine has to keep being pumped after the script it was
+    /// given has finished, or every command a client sends times out.
+    /// </para>
+    /// <para>
+    /// The script arrives on standard input rather than in a file, because a redirected standard input is
+    /// what the REPL reads when it is not given <c>-f</c>, and a test that wrote a temporary file would be
+    /// testing the file path instead of the flag.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerReachesTheEngineTheReplsInspectFlagServes()
+    {
+        using var repl = ReplProcess.Start("--inspect=0");
+
+        var port = await repl.ListeningPortAsync();
+        port.Should().BeGreaterThan(0, "port 0 asks the operating system for one, and the banner has to name what it chose");
+
+        await repl.RunAsync("function twice(n) { return n * 2; }");
+        await repl.Finished.WaitAsync(Bound);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserURL = $"http://127.0.0.1:{port}" });
+        var target = browser.Targets().Single(candidate => candidate.Url == "jint://repl");
+
+        var session = await target.CreateCDPSessionAsync().WaitAsync(Bound);
+        var evaluated = await session.SendAsync("Runtime.evaluate", new { expression = "twice(21)", returnByValue = true }).WaitAsync(Bound);
+
+        Value(evaluated).GetInt32().Should().Be(42, "the client reached the engine that process ran its script in, and that engine is still being pumped");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// <c>--inspect-brk</c>: the script the REPL was given does not run until a client has attached and said
+    /// so.
+    /// </summary>
+    /// <remarks>
+    /// The half of the flag that cannot be checked by seeing something happen, because what it promises is
+    /// that nothing does. The negative is asserted with a bounded wait rather than a sleep and a poll: if the
+    /// hold were broken the script would run within milliseconds of standard input closing, so a wait that
+    /// times out is the assertion, and the positive half immediately after it is what stops that timeout from
+    /// passing for a REPL that never got as far as reading its input at all.
+    /// </remarks>
+    [Test]
+    public async Task TheReplHoldsItsScriptUntilAClientSaysToRunIt()
+    {
+        using var repl = ReplProcess.Start("--inspect-brk=0");
+
+        var port = await repl.ListeningPortAsync();
+        await repl.RunAsync("globalThis.ran = true;");
+
+        var held = async () => await repl.Finished.WaitAsync(TimeSpan.FromSeconds(2));
+        await held.Should().ThrowAsync<TimeoutException>("nothing the host queued runs until a client releases the target");
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserURL = $"http://127.0.0.1:{port}" });
+        var target = browser.Targets().Single(candidate => candidate.Url == "jint://repl");
+        var session = await target.CreateCDPSessionAsync().WaitAsync(Bound);
+
+        await session.SendAsync("Runtime.runIfWaitingForDebugger").WaitAsync(Bound);
+        await repl.Finished.WaitAsync(Bound);
+
+        var evaluated = await session.SendAsync("Runtime.evaluate", new { expression = "ran === true", returnByValue = true }).WaitAsync(Bound);
+        Value(evaluated).GetBoolean().Should().BeTrue("the held script ran once the client released it, and it ran in the engine this session reaches");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// The REPL as a separate process, which is the only way an inspector flag can be checked: the wiring it
+    /// does is a host's wiring, and a host is the one thing an in-process test cannot be.
+    /// </summary>
+    private sealed class ReplProcess : IDisposable
+    {
+        private const string Banner = "Debugger listening on ws://";
+
+        private readonly Process _process = new();
+        private readonly TaskCompletionSource<string> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<string> _printed = [];
+
+        private ReplProcess()
+        {
+        }
+
+        /// <summary>Completes when the REPL says the script it was given has finished.</summary>
+        internal Task Finished => _finished.Task;
+
+        internal static ReplProcess Start(params string[] arguments)
+        {
+            var assembly = RepositoryPaths.ReplAssembly;
+            assembly.Should().NotBeNull("Jint.Repl has to be built for this test; run `dotnet build -c Release Jint.Repl/Jint.Repl.csproj`");
+
+            var repl = new ReplProcess();
+
+            // A framework-dependent assembly is run by the .NET host, and the one running this test is the
+            // host to use: it is the runtime this build was verified against rather than whichever `dotnet`
+            // a PATH happens to name first.
+            var host = Environment.ProcessPath is { } path && Path.GetFileNameWithoutExtension(path).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+                ? path
+                : "dotnet";
+
+            repl._process.StartInfo = new ProcessStartInfo(host)
+            {
+                ArgumentList = { assembly!, "-t", "60" },
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = RepositoryPaths.Root,
+            };
+
+            foreach (var argument in arguments)
+            {
+                repl._process.StartInfo.ArgumentList.Add(argument);
+            }
+
+            repl._process.OutputDataReceived += repl.OnOutput;
+            repl._process.ErrorDataReceived += repl.OnOutput;
+
+            repl._process.Start();
+            repl._process.BeginOutputReadLine();
+            repl._process.BeginErrorReadLine();
+
+            return repl;
+        }
+
+        /// <summary>The port the banner named, which is what port 0 makes worth reading.</summary>
+        internal async Task<int> ListeningPortAsync()
+        {
+            var banner = await _listening.Task.WaitAsync(Bound);
+            var authority = banner.Substring(Banner.Length).Split('/')[0];
+
+            return int.Parse(authority.Split(':')[1], CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>Hands the REPL a script on standard input, which is what it reads when given no file.</summary>
+        internal async Task RunAsync(string script)
+        {
+            await _process.StandardInput.WriteAsync(script + "\n");
+            _process.StandardInput.Close();
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                _process.Kill(entireProcessTree: true);
+                _process.WaitForExit((int) Bound.TotalMilliseconds);
+            }
+            catch (InvalidOperationException)
+            {
+                // Already gone, which is the outcome the kill was for.
+            }
+
+            lock (_printed)
+            {
+                TestContext.Out.WriteLine(string.Join(Environment.NewLine, _printed));
+            }
+
+            _process.Dispose();
+        }
+
+        private void OnOutput(object sender, DataReceivedEventArgs line)
+        {
+            if (line.Data is not { } text)
+            {
+                return;
+            }
+
+            lock (_printed)
+            {
+                _printed.Add(text);
+            }
+
+            if (text.StartsWith(Banner, StringComparison.Ordinal))
+            {
+                _listening.TrySetResult(text);
+            }
+            else if (text.StartsWith("The script has finished", StringComparison.Ordinal))
+            {
+                _finished.TrySetResult(true);
+            }
+        }
     }
 
     /// <summary>The <c>result.value</c> of a <c>Runtime.evaluate</c> reply the client handed back.</summary>

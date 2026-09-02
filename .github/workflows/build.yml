@@ -111,6 +111,19 @@ jobs:
         ./artifacts/publish/Jint.AotExample/release/Jint.AotExample | tee aot-run.log
         grep -q '^ALL PROBES PASSED' aot-run.log
 
+    # Jint.DevTools is referenced by the example and deliberately NOT rooted, so ILC re-derives its whole
+    # diagnostic set over the closed program here. Unlike Jint's own inventory - a tracked backlog the step
+    # below merely summarises - this one gates at zero: everything the protocol serializes goes through a
+    # source-generated System.Text.Json context, and the first reflective member would raise IL2026 or
+    # IL3050 in this log and nowhere else. No test can see it, and an embedder publishing Native AOT would.
+    - name: No trim or AOT diagnostic is attributed to Jint.DevTools
+      run: |
+        if grep -E 'IL[0-9]{4}' aot-publish.log | grep -E 'Jint\.DevTools'; then
+          echo '::error::a trim or AOT analysis diagnostic names Jint.DevTools; the lines above say which'
+          exit 1
+        fi
+        echo 'no IL2xxx/IL3xxx diagnostic names Jint.DevTools'
+
     - name: Summarise the trim and AOT analysis warnings
       if: always()
       run: |
