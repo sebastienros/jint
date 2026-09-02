@@ -83,7 +83,7 @@ internal sealed partial class DebuggerDomain
         Remember(request);
 
         var locations = new List<ProtocolLocation>();
-        foreach (var script in _target.Scripts!.Snapshot())
+        foreach (var script in _target.Runtime.Scripts!.Snapshot())
         {
             if (Place(request, script) is { } placed)
             {
@@ -147,7 +147,7 @@ internal sealed partial class DebuggerDomain
         // The engine's own switch, which makes every breakpoint fail to match without forgetting any of
         // them. It is the engine's rather than this session's, which is the same thing here: one session
         // debugs one engine.
-        _target.Engine.Debugger.BreakPoints.Active = parameters.Active;
+        _target.Runtime.Engine.Debugger.BreakPoints.Active = parameters.Active;
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -287,7 +287,7 @@ internal sealed partial class DebuggerDomain
             if (!live.Placed.Contains(breakLocation))
             {
                 live.Placed.Add(breakLocation);
-                _target.Engine.Debugger.BreakPoints.Set(new DevToolsBreakPoint(request.Id, breakLocation, request.Condition, request.IsOneShot));
+                _target.Runtime.Engine.Debugger.BreakPoints.Set(new DevToolsBreakPoint(request.Id, breakLocation, request.Condition, request.IsOneShot));
             }
         }
 
@@ -343,6 +343,26 @@ internal sealed partial class DebuggerDomain
         }
     }
 
+    /// <summary>
+    /// Forgets where every request was placed, because the engine that held those positions has gone.
+    /// </summary>
+    /// <remarks>
+    /// The requests themselves stay: a breakpoint is what the client asked for, and it is owed to the next
+    /// document as much as it was to this one. What cannot survive is the record of having placed it, which
+    /// named an engine's own breakpoint collection -- keeping it would make <see cref="Place"/> believe the
+    /// position was already set and leave the new engine with no breakpoint at all.
+    /// </remarks>
+    private void ForgetPlacedBreakpoints()
+    {
+        lock (_breakpointGate)
+        {
+            foreach (var request in _breakpoints.Values)
+            {
+                request.Placed.Clear();
+            }
+        }
+    }
+
     private void RemoveAllBreakpoints()
     {
         lock (_breakpointGate)
@@ -360,7 +380,7 @@ internal sealed partial class DebuggerDomain
     /// <remarks>Called under <c>_breakpointGate</c>, which is what keeps it and <see cref="Place"/> apart.</remarks>
     private void RemovePlaced(BreakpointRequest request)
     {
-        if (request.Placed.Count == 0 || _target.Scripts is null)
+        if (request.Placed.Count == 0 || _target.Runtime.Scripts is null)
         {
             // Nothing was placed, or the engine never had a debugger to place it on. Reaching for
             // Engine.Debugger in either case would claim engine ownership from a transport thread for the
@@ -369,7 +389,7 @@ internal sealed partial class DebuggerDomain
             return;
         }
 
-        var breakpoints = _target.Engine.Debugger.BreakPoints;
+        var breakpoints = _target.Runtime.Engine.Debugger.BreakPoints;
         foreach (var location in request.Placed)
         {
             // Removal is by position, and a later request may have replaced what this one set there: the

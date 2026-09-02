@@ -110,11 +110,10 @@
     "Target.setDiscoverTargets"
   ],
 
-  // The events Jint.DevTools emits. Target.targetInfoChanged is deliberately not among them: an engine
-  // target's title and location are fixed when the host makes it, so there is nothing that could change
-  // and claiming the event would be a claim nothing ever honours. Runtime.executionContextDestroyed and
-  // executionContextsCleared are absent for the same reason: an engine target's one context lives as long
-  // as the engine does. Debugger.scriptFailedToParse is absent because the engine raises
+  // The events Jint.DevTools emits. Runtime.executionContextDestroyed is deliberately not among them: a
+  // target that replaces its engine clears every context at once and says so with executionContextsCleared,
+  // which is what Chrome sends for a cross-document navigation, and there is no way to destroy one context
+  // of a target while others live. Debugger.scriptFailedToParse is absent because the engine raises
   // BeforeEvaluate only for a program it did parse; a parse failure never reaches this package.
   "implementedEvents": [
     "Console.messageAdded",
@@ -128,10 +127,12 @@
     "Runtime.exceptionRevoked",
     "Runtime.exceptionThrown",
     "Runtime.executionContextCreated",
+    "Runtime.executionContextsCleared",
     "Target.attachedToTarget",
     "Target.detachedFromTarget",
     "Target.targetCreated",
-    "Target.targetDestroyed"
+    "Target.targetDestroyed",
+    "Target.targetInfoChanged"
   ],
 
   // What Schema.getDomains answers. A domain reaches this list only once it has an implemented command,

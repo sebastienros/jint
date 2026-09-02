@@ -100,7 +100,7 @@ internal static class HttpDiscovery
         using (var writer = new Utf8JsonWriter(buffer))
         {
             writer.WriteStartArray();
-            foreach (var target in server.Targets)
+            foreach (var target in server.AllTargets)
             {
                 WriteTarget(writer, authority, target);
             }
@@ -215,16 +215,27 @@ internal static class HttpDiscovery
         return HttpDiscoveryResponse.NotFound;
     }
 
-    private static void WriteTarget(Utf8JsonWriter writer, string authority, EngineTarget target)
+    /// <summary>
+    /// Writes one target exactly as <c>Target.getTargets</c> describes it, plus the two addresses only the
+    /// discovery document carries.
+    /// </summary>
+    /// <remarks>
+    /// The description comes from <see cref="DevToolsTarget.Describe"/>, the same one the socket answers
+    /// with: a client that reads <c>/json/list</c> and then asks the same question over the socket must not
+    /// be told two different things about one target.
+    /// </remarks>
+    private static void WriteTarget(Utf8JsonWriter writer, string authority, DevToolsTarget target)
     {
+        var info = target.Describe(attached: false);
+
         writer.WriteStartObject();
         writer.WriteString("description", "");
-        writer.WriteString("devtoolsFrontendUrl", FrontendUrl(authority, target.TargetId));
-        writer.WriteString("id", target.TargetId);
-        writer.WriteString("title", target.Title);
-        writer.WriteString("type", target.Type);
-        writer.WriteString("url", target.Url);
-        writer.WriteString("webSocketDebuggerUrl", PageUrl(authority, target.TargetId));
+        writer.WriteString("devtoolsFrontendUrl", FrontendUrl(authority, info.TargetId, info.Type));
+        writer.WriteString("id", info.TargetId);
+        writer.WriteString("title", info.Title);
+        writer.WriteString("type", info.Type);
+        writer.WriteString("url", info.Url);
+        writer.WriteString("webSocketDebuggerUrl", PageUrl(authority, info.TargetId));
         writer.WriteEndObject();
     }
 
@@ -236,17 +247,23 @@ internal static class HttpDiscovery
     }
 
     /// <summary>
-    /// The address of the DevTools front end for one target, in Node's flavour.
+    /// The address of the DevTools front end for one target, in the flavour that target's type calls for.
     /// </summary>
     /// <remarks>
-    /// <c>v8only=true</c> is what makes the front end open its JavaScript-only layout — Sources, Console,
-    /// Memory — rather than asking the target for a page it does not have.
+    /// Two layouts, and picking the wrong one is what a client sees. <c>js_app.html?v8only=true</c> is Node's:
+    /// Sources, Console and Memory, and the front end never asks the target for a page. A <c>page</c> target
+    /// has one, so it gets <c>inspector.html</c> — Chrome's own page-flavoured address, with the Elements and
+    /// Network panels the layout above deliberately leaves out.
     /// </remarks>
-    private static string FrontendUrl(string authority, string targetId)
+    private static string FrontendUrl(string authority, string targetId, string type)
     {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws={authority}/devtools/page/{targetId}");
+        return string.Equals(type, "page", StringComparison.Ordinal)
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"devtools://devtools/bundled/inspector.html?experiments=true&ws={authority}/devtools/page/{targetId}")
+            : string.Create(
+                CultureInfo.InvariantCulture,
+                $"devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws={authority}/devtools/page/{targetId}");
     }
 
     private static string PageUrl(string authority, string targetId)

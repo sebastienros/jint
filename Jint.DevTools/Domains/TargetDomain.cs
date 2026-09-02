@@ -5,7 +5,7 @@ using Jint.DevTools.Session;
 namespace Jint.DevTools.Domains;
 
 /// <summary>
-/// Answers the <c>Target</c> commands: what engines exist, and which of them a client is attached to.
+/// Answers the <c>Target</c> commands: what targets exist, and which of them a client is attached to.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,10 +16,12 @@ namespace Jint.DevTools.Domains;
 /// routing path kept alive forever for nobody.
 /// </para>
 /// <para>
-/// <b>A browser context is not something an engine target has.</b> <c>getBrowserContexts</c> answers an
-/// empty list, and <c>createBrowserContext</c> refuses with a reason rather than minting an identifier that
-/// partitions nothing: a client that was handed one would believe its next target was isolated. The page
-/// package, where a context really does own cookies and storage, is where they start meaning something.
+/// <b>Creating targets and contexts is the host's, when there is one.</b> A server with no
+/// <see cref="ITargetHost"/> has nothing to open and nothing to partition, so <c>createBrowserContext</c>
+/// refuses with a reason rather than minting an identifier that isolates nothing and
+/// <c>createTarget</c> falls back to <see cref="DevToolsServerOptions.EngineFactory"/>. A server that
+/// <i>has</i> one — <c>Jint.Browser</c>, which is AngleSharp plus Jint — routes all four commands through it,
+/// and everything else on this domain behaves identically either way.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Target/"/>.
@@ -40,7 +42,7 @@ internal sealed class TargetDomain : TargetDomainBase
     /// <param name="browser">The conversation whose attachments this domain mints.</param>
     /// <param name="nested">
     /// Whether this is the copy on an attached session rather than on the browser session, which decides
-    /// only what <c>setAutoAttach</c> does: an engine target has no children to attach to.
+    /// only what <c>setAutoAttach</c> does: a target here has no children to attach to.
     /// </param>
     internal TargetDomain(BrowserSession browser, bool nested)
     {
@@ -52,7 +54,7 @@ internal sealed class TargetDomain : TargetDomainBase
     protected override ValueTask<GetTargetsResponse> GetTargetsAsync(GetTargetsRequest parameters, CommandContext context)
     {
         var infos = new List<TargetInfo>();
-        foreach (var target in _browser.Server.Targets)
+        foreach (var target in _browser.Server.AllTargets)
         {
             if (Matches(parameters.Filter, target.Type))
             {
@@ -81,7 +83,7 @@ internal sealed class TargetDomain : TargetDomainBase
         {
             // Chrome replays targetCreated for everything that already exists, which is what makes discovery
             // usable by a client that connected after the targets did.
-            foreach (var target in _browser.Server.Targets)
+            foreach (var target in _browser.Server.AllTargets)
             {
                 if (Matches(_discoverFilter, target.Type))
                 {
@@ -103,9 +105,10 @@ internal sealed class TargetDomain : TargetDomainBase
 
         if (_nested)
         {
-            // An engine target has no children, so there is nothing to attach to and nothing to remember.
-            // Answered as the success it is: a client walks down the tree by sending this on every session
-            // it is given, and a refusal there reads to it as a broken target.
+            // A target here has no children — a worker is not a target in this server, and an engine has
+            // none at all — so there is nothing to attach to and nothing to remember. Answered as the
+            // success it is: a client walks down the tree by sending this on every session it is given, and
+            // a refusal there reads to it as a broken target.
             return EmptyResult.Instance;
         }
 
@@ -118,7 +121,7 @@ internal sealed class TargetDomain : TargetDomainBase
             return EmptyResult.Instance;
         }
 
-        foreach (var target in _browser.Server.Targets)
+        foreach (var target in _browser.Server.AllTargets)
         {
             if (Matches(_autoAttachFilter, target.Type))
             {
@@ -169,18 +172,38 @@ internal sealed class TargetDomain : TargetDomainBase
         return EmptyResult.Instance;
     }
 
-    /// <inheritdoc/>
-    protected override ValueTask<CreateTargetResponse> CreateTargetAsync(CreateTargetRequest parameters, CommandContext context)
+    /// <summary>
+    /// Creates one target, through the host when there is one and from the engine factory otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <b>A target created while this session asked for <c>waitForDebuggerOnStart</c> is created waiting.</b>
+    /// The flag travels with the request rather than being applied afterwards, because a host that navigates
+    /// as it creates would otherwise have run the first document before anybody could hold it. What releases
+    /// it is <c>Runtime.runIfWaitingForDebugger</c> on the session the client is about to be attached on, and
+    /// <c>attachedToTarget.waitingForDebugger</c> is what tells the client it has to send one.
+    /// </remarks>
+    protected override async ValueTask<CreateTargetResponse> CreateTargetAsync(CreateTargetRequest parameters, CommandContext context)
     {
-        var target = _browser.Server.CreateTarget();
-        return new ValueTask<CreateTargetResponse>(new CreateTargetResponse { TargetId = target.TargetId });
+        var server = _browser.Server;
+
+        if (server.Host is not { } host)
+        {
+            var engineTarget = server.CreateTarget();
+            return new CreateTargetResponse { TargetId = engineTarget.TargetId };
+        }
+
+        var request = new TargetCreationRequest(parameters.Url, parameters.BrowserContextId, _autoAttach && _autoAttachWaitsForDebugger);
+        var target = await host.CreateTargetAsync(request, context.CancellationToken).ConfigureAwait(false);
+
+        server.AddTarget(target);
+        return new CreateTargetResponse { TargetId = target.TargetId };
     }
 
     /// <inheritdoc/>
     protected override async ValueTask<CloseTargetResponse> CloseTargetAsync(CloseTargetRequest parameters, CommandContext context)
     {
         var target = Find(parameters.TargetId);
-        await _browser.Server.CloseTargetAsync(target).ConfigureAwait(false);
+        await _browser.Server.CloseTargetAsync(target, context.CancellationToken).ConfigureAwait(false);
         return new CloseTargetResponse { Success = true };
     }
 
@@ -200,27 +223,47 @@ internal sealed class TargetDomain : TargetDomainBase
     /// <inheritdoc/>
     protected override ValueTask<GetBrowserContextsResponse> GetBrowserContextsAsync(EmptyParameters parameters, CommandContext context)
     {
-        return new ValueTask<GetBrowserContextsResponse>(new GetBrowserContextsResponse { BrowserContextIds = [] });
+        var host = _browser.Server.Host;
+        return new ValueTask<GetBrowserContextsResponse>(new GetBrowserContextsResponse
+        {
+            BrowserContextIds = host is null ? [] : [.. host.BrowserContextIds],
+        });
     }
 
     /// <inheritdoc/>
-    protected override ValueTask<CreateBrowserContextResponse> CreateBrowserContextAsync(CreateBrowserContextRequest parameters, CommandContext context)
+    /// <remarks>
+    /// With no host there is nothing to partition, and a client handed an identifier would believe its next
+    /// target was isolated when it is not — so it is refused with the reason rather than answered.
+    /// </remarks>
+    protected override async ValueTask<CreateBrowserContextResponse> CreateBrowserContextAsync(CreateBrowserContextRequest parameters, CommandContext context)
     {
-        return Throw.ServerError<ValueTask<CreateBrowserContextResponse>>(
-            "Browser contexts are not supported",
-            "an engine target has no cookies, storage or cache to partition, so a context identifier would isolate nothing");
+        if (_browser.Server.Host is not { } host)
+        {
+            return Throw.ServerError<CreateBrowserContextResponse>(
+                "Browser contexts are not supported",
+                "an engine target has no cookies, storage or cache to partition, so a context identifier would isolate nothing");
+        }
+
+        var browserContextId = await host.CreateBrowserContextAsync(context.CancellationToken).ConfigureAwait(false);
+        return new CreateBrowserContextResponse { BrowserContextId = browserContextId };
     }
 
-    /// <inheritdoc/>
-    protected override ValueTask<EmptyResult> DisposeBrowserContextAsync(DisposeBrowserContextRequest parameters, CommandContext context)
+    /// <inheritdoc cref="CreateBrowserContextAsync"/>
+    protected override async ValueTask<EmptyResult> DisposeBrowserContextAsync(DisposeBrowserContextRequest parameters, CommandContext context)
     {
-        return Throw.ServerError<ValueTask<EmptyResult>>(
-            "Browser contexts are not supported",
-            "an engine target has no cookies, storage or cache to partition, so there is no context to dispose");
+        if (_browser.Server.Host is not { } host)
+        {
+            return Throw.ServerError<EmptyResult>(
+                "Browser contexts are not supported",
+                "an engine target has no cookies, storage or cache to partition, so there is no context to dispose");
+        }
+
+        await host.DisposeBrowserContextAsync(parameters.BrowserContextId, context.CancellationToken).ConfigureAwait(false);
+        return EmptyResult.Instance;
     }
 
     /// <summary>Tells the client about a target that has just appeared, if it asked to be told.</summary>
-    internal async ValueTask TargetAddedAsync(EngineTarget target, CancellationToken cancellationToken)
+    internal async ValueTask TargetAddedAsync(DevToolsTarget target, CancellationToken cancellationToken)
     {
         if (_discover && Matches(_discoverFilter, target.Type))
         {
@@ -233,8 +276,25 @@ internal sealed class TargetDomain : TargetDomainBase
         }
     }
 
+    /// <summary>Tells the client that a target's title or location moved, if it asked to be told.</summary>
+    /// <remarks>
+    /// A page changes both on every navigation, which is what makes this event worth emitting at all: a
+    /// client keeps its own idea of where each target is, and Puppeteer's <c>page.url()</c> reads it.
+    /// </remarks>
+    internal async ValueTask TargetInfoChangedAsync(DevToolsTarget target, CancellationToken cancellationToken)
+    {
+        if (!_discover || !Matches(_discoverFilter, target.Type))
+        {
+            return;
+        }
+
+        await EmitAsync(
+            TargetEvents.TargetInfoChanged(new TargetInfoChangedEvent { TargetInfo = Describe(target) }),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Tells the client about a target that has gone, detaching first if it was attached.</summary>
-    internal async ValueTask TargetRemovedAsync(EngineTarget target, CancellationToken cancellationToken)
+    internal async ValueTask TargetRemovedAsync(DevToolsTarget target, CancellationToken cancellationToken)
     {
         if (_browser.SessionIdOf(target) is { } sessionId)
         {
@@ -250,7 +310,7 @@ internal sealed class TargetDomain : TargetDomainBase
         }
     }
 
-    private async ValueTask<string> AttachAsync(EngineTarget target, CancellationToken cancellationToken)
+    private async ValueTask<string> AttachAsync(DevToolsTarget target, CancellationToken cancellationToken)
     {
         var sessionId = _browser.Attach(target, out var created);
         if (!created)
@@ -275,7 +335,7 @@ internal sealed class TargetDomain : TargetDomainBase
         return sessionId;
     }
 
-    private EngineTarget Find(string? targetId)
+    private DevToolsTarget Find(string? targetId)
     {
         if (targetId is not null && _browser.Server.FindTarget(targetId) is { } target)
         {
@@ -284,21 +344,11 @@ internal sealed class TargetDomain : TargetDomainBase
 
         // Chrome's wording, which clients match on to tell a target that went away from a call that was
         // wrong.
-        return Throw.ServerError<EngineTarget>("No target with given id found");
+        return Throw.ServerError<DevToolsTarget>("No target with given id found");
     }
 
-    private TargetInfo Describe(EngineTarget target, bool attached = false)
-    {
-        return new TargetInfo
-        {
-            TargetId = target.TargetId,
-            Type = target.Type,
-            Title = target.Title,
-            Url = target.Url,
-            Attached = attached || _browser.SessionIdOf(target) is not null,
-            CanAccessOpener = false,
-        };
-    }
+    private TargetInfo Describe(DevToolsTarget target, bool attached = false)
+        => target.Describe(attached || _browser.SessionIdOf(target) is not null);
 
     [System.Diagnostics.CodeAnalysis.DoesNotReturn]
     private static void RefuseUnflattened()

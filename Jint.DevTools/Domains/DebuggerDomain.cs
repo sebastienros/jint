@@ -27,9 +27,9 @@ namespace Jint.DevTools.Domains;
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Debugger/"/>.
 /// </para>
 /// </remarks>
-internal sealed partial class DebuggerDomain : DebuggerDomainBase
+internal sealed partial class DebuggerDomain : DebuggerDomainBase, ITargetObserver
 {
-    private readonly EngineTarget _target;
+    private readonly DevToolsTarget _target;
     private readonly LogDomain _log;
     private readonly RemoteObjectMapper _objects;
     private readonly DebugHandler.DebugEventHandler _onBreak;
@@ -39,7 +39,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
 
     private int _handlersSubscribed;
 
-    internal DebuggerDomain(EngineTarget target, LogDomain log)
+    internal DebuggerDomain(DevToolsTarget target, LogDomain log)
     {
         _target = target;
         _log = log;
@@ -92,10 +92,10 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     {
         if (Interlocked.Exchange(ref _handlersSubscribed, 1) == 0)
         {
-            var debugger = _target.Engine.Debugger;
+            var debugger = _target.Runtime.Engine.Debugger;
             debugger.Break += _onBreak;
             debugger.Step += _onStep;
-            _target.Scripts!.Parsed += _onScriptParsed;
+            _target.Runtime.Scripts!.Parsed += _onScriptParsed;
         }
 
         ApplyPauseOnExceptions();
@@ -103,7 +103,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         // Every script parsed before the client asked, in the order the engine parsed them. A front end's
         // Sources panel is built from this replay and not from what arrives afterwards, so a client that
         // attached to a running engine sees what it is running.
-        foreach (var script in _target.Scripts!.Snapshot())
+        foreach (var script in _target.Runtime.Scripts!.Snapshot())
         {
             await EmitAsync(DebuggerEvents.ScriptParsed(ScriptParsed(script)), context.CancellationToken).ConfigureAwait(false);
         }
@@ -114,6 +114,42 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     {
         Teardown();
         return default;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// A navigation is a new engine with a new <c>DebugHandler</c>, a new script registry and an empty
+    /// breakpoint collection, so everything <c>enable</c> did has to be done again against it: the
+    /// subscriptions move, and every breakpoint the client set by URL is re-resolved as the new document's
+    /// scripts are parsed -- which is what makes a breakpoint set before a reload still fire after one.
+    /// </para>
+    /// <para>
+    /// <b>The client's own settings carry over and the engine's positions do not.</b> The pause-on-exceptions
+    /// state, the skip-all-pauses flag and the asynchronous stack depth are the attachment's and survive; the
+    /// places a request was placed at named breakpoints of an engine that is gone, so they are forgotten and
+    /// re-earned. The scripts announce themselves: the registry is fresh, so every program the new document
+    /// parses arrives as a <c>scriptParsed</c> of its own with no replay needed.
+    /// </para>
+    /// </remarks>
+    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime)
+    {
+        if (Volatile.Read(ref _handlersSubscribed) == 0)
+        {
+            return;
+        }
+
+        var debugger = runtime.Engine.Debugger;
+        debugger.Break += _onBreak;
+        debugger.Step += _onStep;
+
+        if (runtime.Scripts is { } scripts)
+        {
+            scripts.Parsed += _onScriptParsed;
+        }
+
+        ForgetPlacedBreakpoints();
+        ApplyPauseOnExceptions();
     }
 
     /// <summary>
@@ -295,12 +331,12 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     /// </remarks>
     private void ApplyPauseOnExceptions()
     {
-        if (_target.Scripts is null)
+        if (_target.Runtime.Scripts is null)
         {
             return;
         }
 
-        _target.Engine.Debugger.PauseOnExceptions = IsEnabled ? EnginePauseMode(_pauseOnExceptions) : ExceptionPauseMode.None;
+        _target.Runtime.Engine.Debugger.PauseOnExceptions = IsEnabled ? EnginePauseMode(_pauseOnExceptions) : ExceptionPauseMode.None;
     }
 
     /// <summary>The engine mode that answers a client's state, which the protocol's four map onto one each.</summary>
@@ -329,7 +365,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         ResolvePending(script);
     }
 
-    private static ScriptParsedEvent ScriptParsed(RegisteredScript script) => new()
+    private ScriptParsedEvent ScriptParsed(RegisteredScript script) => new()
     {
         ScriptId = script.ScriptId,
         Url = script.Url,
@@ -354,10 +390,15 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     {
         if (Interlocked.Exchange(ref _handlersSubscribed, 0) != 0)
         {
-            var debugger = _target.Engine.Debugger;
+            var runtime = _target.Runtime;
+            var debugger = runtime.Engine.Debugger;
             debugger.Break -= _onBreak;
             debugger.Step -= _onStep;
-            _target.Scripts!.Parsed -= _onScriptParsed;
+
+            if (runtime.Scripts is { } scripts)
+            {
+                scripts.Parsed -= _onScriptParsed;
+            }
         }
 
         DisarmPause();
@@ -376,7 +417,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     /// <summary>Refuses an engine the host did not build with the debugger switched on.</summary>
     private void RequireDebuggerEngine()
     {
-        if (_target.Scripts is null)
+        if (_target.Runtime.Scripts is null)
         {
             Throw.ServerError(
                 "The engine was not built with the debugger enabled",
@@ -389,7 +430,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     {
         RequireDebuggerEngine();
 
-        return _target.Scripts!.ById(scriptId)
+        return _target.Runtime.Scripts!.ById(scriptId)
             ?? Throw.ServerError<RegisteredScript>("No script with given id");
     }
 
@@ -403,7 +444,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     /// </remarks>
     private string RequireSourceText(RegisteredScript script)
     {
-        if (!_target.Scripts!.TryGetSourceText(script, out var sourceText) || sourceText is null)
+        if (!_target.Runtime.Scripts!.TryGetSourceText(script, out var sourceText) || sourceText is null)
         {
             Throw.ServerError(
                 "No source text was retained for this script; enable Options.RetainFunctionSourceText",
@@ -420,7 +461,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
     private static readonly TimeSpan SearchTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// The one execution context an engine target has, which every location and frame names.
+    /// The identifier of the document's default execution context, which every location and frame names.
     /// </summary>
-    private const int MainExecutionContextId = 1;
+    private int MainExecutionContextId => _target.Runtime.ExecutionContextId;
 }

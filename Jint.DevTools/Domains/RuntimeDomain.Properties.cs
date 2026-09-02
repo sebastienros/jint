@@ -52,7 +52,7 @@ internal sealed partial class RuntimeDomain
     /// <inheritdoc/>
     protected override ValueTask<GetPropertiesResponse> GetPropertiesAsync(GetPropertiesRequest parameters, CommandContext context)
     {
-        var value = _target.RemoteObjects.Resolve(parameters.ObjectId, out var group);
+        var value = _target.Runtime.RemoteObjects.Resolve(parameters.ObjectId, out var group);
 
         var request = new RemoteObjectRequest
         {
@@ -383,7 +383,7 @@ internal sealed partial class RuntimeDomain
             properties.Add(new InternalPropertyDescriptor
             {
                 Name = "[[BoundArgs]]",
-                Value = _objects.Describe(new JsArray(_target.Engine, copy), request),
+                Value = _objects.Describe(new JsArray(_target.Runtime.Engine, copy), request),
             });
 
             return;
@@ -406,7 +406,7 @@ internal sealed partial class RuntimeDomain
     private RemoteObject Location(Node declaration)
     {
         var location = declaration.Location;
-        var script = _target.Scripts?.At(location.SourceFile, location.Start.Line, location.Start.Column);
+        var script = _target.Runtime.Scripts?.At(location.SourceFile, location.Start.Line, location.Start.Column);
 
         var buffer = new ArrayBufferWriter<byte>(96);
         using (var writer = new Utf8JsonWriter(buffer))

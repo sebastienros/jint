@@ -67,17 +67,17 @@ internal sealed class RemoteObjectMapper
         new() { MaxDepth = 0, MaxEntries = 0, MaxStringLength = int.MaxValue, FunctionSourceText = true };
 #pragma warning restore JINT0002
 
-    private readonly EngineTarget _target;
+    private readonly DevToolsTarget _target;
     private readonly object _owner;
 
-    internal RemoteObjectMapper(EngineTarget target, object owner)
+    internal RemoteObjectMapper(DevToolsTarget target, object owner)
     {
         _target = target;
         _owner = owner;
     }
 
     /// <summary>Gets the table this mapper mints handles from.</summary>
-    internal RemoteObjectTable Table => _target.RemoteObjects;
+    internal RemoteObjectTable Table => _target.Runtime.RemoteObjects;
 
     /// <summary>Describes <paramref name="value"/> as the protocol's remote object.</summary>
     /// <param name="value">The value to describe.</param>
@@ -432,7 +432,7 @@ internal sealed class RemoteObjectMapper
     private RemoteObject ThrownValue(JavaScriptException exception)
     {
         var described = Describe(exception.Error, RemoteObjectRequest.Description);
-        return described with { Description = exception.GetJavaScriptErrorString(_target.Engine.Options.ResultLimits) };
+        return described with { Description = exception.GetJavaScriptErrorString(_target.Runtime.Engine.Options.ResultLimits) };
     }
 
     private static RemoteObject Number(JsValue value)
@@ -615,7 +615,7 @@ internal sealed class RemoteObjectMapper
 
         try
         {
-            written = new JsJsonSerializer(_target.Engine).Serialize(value, buffer);
+            written = new JsJsonSerializer(_target.Runtime.Engine).Serialize(value, buffer);
         }
         catch (JavaScriptException exception)
         {

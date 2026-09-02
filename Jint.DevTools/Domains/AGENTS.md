@@ -18,14 +18,16 @@ A client cannot hold a `JsValue`, so it holds an `objectId` and the server holds
 promise — **the value will still be there when you come back** — is the whole of
 `Domains/RemoteObjectTable.cs`, and everything about handles follows from it:
 
-- **The table is on the `EngineTarget`, ownership is per attachment.** The values belong to the engine, so
+- **The table is on the `TargetRuntime`, ownership is per attachment.** The values belong to the engine, so
   two sessions address the same value by the same identifier; each entry remembers which attachment
-  registered it, so detaching releases that attachment's handles and nobody else's.
+  registered it, so detaching releases that attachment's handles and nobody else's. It is on the runtime and
+  not the target because a navigation replaces the engine and every value in it: a client that comes back
+  with a handle from the document before is told the object cannot be found, which is what Chrome tells it.
 - **Strong, never weak, never deduplicated.** A fresh identifier per wrap, which is V8's behaviour and what
   stops a client's release of one handle invalidating another it still holds.
-- **Four endings**: `releaseObject`, `releaseObjectGroup`, the attachment detaching, and the target being
-  disposed. Nothing expires on its own, and a client that leaks handles leaks engine values — the cost of
-  the promise rather than a defect in it.
+- **Five endings**: `releaseObject`, `releaseObjectGroup`, the attachment detaching, the target being
+  closed, and the engine being replaced under it. Nothing expires on its own, and a client that leaks handles
+  leaks engine values — the cost of the promise rather than a defect in it.
 - **A group is inherited on the way in.** `getProperties` and `callFunctionOn` bill the handles they mint to
   the group the receiver already belongs to, so `releaseObjectGroup` frees the tree a client walked rather
   than only its root. A group name is a client's own vocabulary, so a release is scoped to the attachment:
@@ -81,11 +83,22 @@ object's members are listed without their values, for the reason above.
 
 ### What a client hears without asking
 
-Three things reach a domain from *inside* the engine, on the engine thread, with no command to answer: a
-`console` call, an exception that escaped the pump, and a promise rejected with nothing to handle it.
-`ITargetObserver` is the one interface for all three and `EngineTarget` fans out to whoever is attached.
-They go out through `DevToolsDomain.EmitDetached`, which queues rather than writes, so nothing blocks the
-engine and no transport failure erupts out of the host's own pump.
+Five things reach a domain from *inside* the engine, on the engine thread, with no command to answer: a
+`console` call, an exception that escaped the pump, a promise rejected with nothing to handle it, the engine
+being replaced under the target, and an isolated world being minted over it. `ITargetObserver` is the one
+interface for all five and `DevToolsTarget` fans out to whoever is attached. They go out through
+`DevToolsDomain.EmitDetached`, which queues rather than writes, so nothing blocks the engine and no transport
+failure erupts out of the host's own pump.
+
+**`RuntimeReplaced` is the seam a navigation reaches every domain through**, and each of the five answers it
+differently. `Runtime` emits `executionContextsCleared` and then `executionContextCreated` for the new
+default context — Chrome's order, and the handles are already gone with the table. `Debugger` moves its
+`Break`/`Step` subscriptions onto the new engine, forgets where every request was *placed* (those named
+positions of an engine that no longer exists) and keeps the requests themselves, so a breakpoint set by URL
+is resolved again as the next document's scripts are parsed; the client's pause-on-exceptions state, its
+skip-all-pauses flag and its asynchronous stack depth carry over. `Profiler` ends whatever was recording and
+throws it away, because a profile over two engines answers a question nobody asked. `Console` and `Log` do
+nothing: the journal is the runtime's and went with it.
 
 **The console arrives through the sink, and the sink wraps rather than replaces.** `UseDevTools` installs a
 `DevToolsConsoleSink` around whatever `Options.WebApi.Console.Sink` the host had and forwards both overloads
@@ -125,7 +138,8 @@ handling: it writes to whoever is attached and returns.
 
 ### Scripts, breakpoints, and why one pause happened
 
-`Domains/ScriptRegistry.cs` is every program one engine has parsed, and three of its properties are load
+`Domains/ScriptRegistry.cs` is every program one engine has parsed — the *current* engine, since the
+registry is the `TargetRuntime`'s and a navigation starts a fresh one — and three of its properties are load
 bearing rather than incidental:
 
 - **Keyed on the `Program` by reference**, so a cached `Prepared<Script>` run a thousand times is one script

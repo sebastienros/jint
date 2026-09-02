@@ -54,7 +54,7 @@ internal sealed partial class ProfilerDomain
     {
         RequireCoverageEngine();
 
-        _target.Engine.Diagnostics.ResetCoverage();
+        _target.Runtime.Engine.Diagnostics.ResetCoverage();
         _preciseCoverage = true;
         _detailedCoverage = parameters.Detailed == true;
 
@@ -73,7 +73,7 @@ internal sealed partial class ProfilerDomain
         }
 
         var result = Collect(_detailedCoverage);
-        _target.Engine.Diagnostics.ResetCoverage();
+        _target.Runtime.Engine.Diagnostics.ResetCoverage();
 
         return new ValueTask<TakePreciseCoverageResponse>(new TakePreciseCoverageResponse
         {
@@ -111,7 +111,7 @@ internal sealed partial class ProfilerDomain
     /// <summary>Refuses an engine the host did not build with coverage switched on.</summary>
     private void RequireCoverageEngine()
     {
-        if (!_target.Engine.Options.Coverage.Enabled)
+        if (!_target.Runtime.Engine.Options.Coverage.Enabled)
         {
             Throw.ServerError(
                 "The engine was not built with coverage enabled",
@@ -119,12 +119,12 @@ internal sealed partial class ProfilerDomain
         }
     }
 
-    private static double Timestamp() => EngineTarget.UnixMilliseconds() / MillisecondsPerSecond;
+    private static double Timestamp() => DevToolsTarget.UnixMilliseconds() / MillisecondsPerSecond;
 
     /// <summary>Reads the engine's report and answers it in the protocol's shape, script by script.</summary>
     private ScriptCoverage[] Collect(bool detailed)
     {
-        var report = _target.Engine.Diagnostics.GetCoverage();
+        var report = _target.Runtime.Engine.Diagnostics.GetCoverage();
         var scripts = new List<ScriptCoverage>(report.Sources.Count);
 
         foreach (var source in report.Sources)
@@ -133,7 +133,7 @@ internal sealed partial class ProfilerDomain
             // belongs to is a lookup rather than a guess from a name. A source no script claims is still
             // reported, against the unattributable identifier, because a client can do something with
             // ranges it cannot place and nothing with a source that vanished.
-            var script = _target.Scripts?.For(source.Program);
+            var script = _target.Runtime.Scripts?.For(source.Program);
 
             scripts.Add(new ScriptCoverage
             {

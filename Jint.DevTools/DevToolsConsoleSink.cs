@@ -32,7 +32,7 @@ internal sealed class DevToolsConsoleSink : ConsoleSink
     private readonly ConsoleSink _inner;
 
     private Engine? _engine;
-    private EngineTarget? _target;
+    private DevToolsTarget? _target;
 
     internal DevToolsConsoleSink(ConsoleSink? inner)
     {
@@ -40,21 +40,23 @@ internal sealed class DevToolsConsoleSink : ConsoleSink
     }
 
     /// <summary>Binds this sink to <paramref name="target"/>, unless it already speaks for another engine.</summary>
+    /// <param name="target">The target the records reach.</param>
+    /// <param name="engine">The engine this sink was read out of, which is the one it may speak for.</param>
     /// <returns><see langword="true"/> when console records from now on reach <paramref name="target"/>.</returns>
-    internal bool TryBind(EngineTarget target)
+    internal bool TryBind(DevToolsTarget target, Engine engine)
     {
-        if (_engine is not null && !ReferenceEquals(_engine, target.Engine))
+        if (_engine is not null && !ReferenceEquals(_engine, engine))
         {
             return false;
         }
 
-        _engine = target.Engine;
+        _engine = engine;
         _target = target;
         return true;
     }
 
     /// <summary>Stops speaking for <paramref name="target"/>, if it is the one bound.</summary>
-    internal void Unbind(EngineTarget target)
+    internal void Unbind(DevToolsTarget target)
     {
         if (ReferenceEquals(_target, target))
         {

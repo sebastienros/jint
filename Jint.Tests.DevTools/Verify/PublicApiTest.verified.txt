@@ -35,22 +35,23 @@ namespace Jint.DevTools
         public int Port { get; set; }
         public string? Product { get; set; }
     }
-    public sealed class EngineTarget : System.IAsyncDisposable
+    public abstract class DevToolsTarget { }
+    public sealed class EngineTarget : Jint.DevTools.DevToolsTarget, System.IAsyncDisposable
     {
         public EngineTarget(Jint.Engine engine, Jint.DevTools.EngineTargetOptions? options = null) { }
         public Jint.Engine Engine { get; }
-        public bool IsWaitingForDebugger { get; }
-        public string TargetId { get; }
+        public new bool IsWaitingForDebugger { get; }
+        public new string TargetId { get; }
         public Jint.DevTools.ThreadMode ThreadMode { get; }
-        public string Title { get; }
-        public string Type { get; }
-        public string Url { get; }
+        public new string Title { get; }
+        public new string Type { get; }
+        public new string Url { get; }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public void Post(System.Action<Jint.Engine> work) { }
         public System.Threading.Tasks.Task PostAsync(System.Action<Jint.Engine> work) { }
         public System.Threading.Tasks.Task<T> PostAsync<T>(System.Func<Jint.Engine, T> work) { }
         public void Pump() { }
-        public void ReportUncaughtException(Jint.Runtime.JavaScriptException exception) { }
+        public new void ReportUncaughtException(Jint.Runtime.JavaScriptException exception) { }
         public bool WaitForDebugger(System.TimeSpan timeout) { }
     }
     public sealed class EngineTargetOptions

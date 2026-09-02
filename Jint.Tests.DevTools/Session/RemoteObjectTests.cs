@@ -74,10 +74,10 @@ public class RemoteObjectTests
         await using var session = await AttachedSession.CreateAsync();
 
         var objectId = await session.HandleAsync("({ a: 1 })");
-        session.Target.RemoteObjects.Count.Should().Be(1);
+        session.Target.Runtime.RemoteObjects.Count.Should().Be(1);
 
         await session.ResultAsync("Runtime.releaseObject", $$"""{"objectId":"{{objectId}}"}""");
-        session.Target.RemoteObjects.Count.Should().Be(0);
+        session.Target.Runtime.RemoteObjects.Count.Should().Be(0);
 
         // A client tidying up releases what a detach may already have taken, and Chrome answers that with a
         // success rather than an error.
@@ -134,11 +134,11 @@ public class RemoteObjectTests
 
         await session.HandleAsync("({ a: 1 })");
         await session.HandleAsync("({ b: 2 })");
-        session.Target.RemoteObjects.Count.Should().Be(2);
+        session.Target.Runtime.RemoteObjects.Count.Should().Be(2);
 
         await session.Protocol.SendAsync("Target.detachFromTarget", $$"""{"sessionId":"{{session.SessionId}}"}""");
 
-        session.Target.RemoteObjects.Count.Should().Be(0);
+        session.Target.Runtime.RemoteObjects.Count.Should().Be(0);
     }
 
     [Test]
@@ -148,10 +148,10 @@ public class RemoteObjectTests
         try
         {
             await session.HandleAsync("({ a: 1 })");
-            session.Target.RemoteObjects.Count.Should().Be(1);
+            session.Target.Runtime.RemoteObjects.Count.Should().Be(1);
 
             await session.Target.DisposeAsync();
-            session.Target.RemoteObjects.Count.Should().Be(0);
+            session.Target.Runtime.RemoteObjects.Count.Should().Be(0);
         }
         finally
         {

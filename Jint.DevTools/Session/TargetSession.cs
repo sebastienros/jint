@@ -25,23 +25,25 @@ internal sealed class TargetSession
 
     private int _detached;
 
-    private TargetSession(DevToolsSession session, EngineTarget target, BrowserSession? browser)
+    private TargetSession(DevToolsSession session, DevToolsTarget target, BrowserSession? browser)
     {
         Session = session;
         Target = target;
         _browser = browser;
 
         // Everything registered below holds engine state, so every command addressed here crosses to the
-        // engine thread first. That is the whole of the thread rule, in one line.
-        session.UseGateway(target.Dispatcher);
-        _domains = BuiltInDomains.RegisterTargetDomains(session, target, browser);
+        // engine thread first. That is the whole of the thread rule, in one line -- and the gateway is the
+        // target rather than one mailbox, because a page replaces its mailbox with its engine on every
+        // navigation and a session that captured one would queue for a document that has gone.
+        session.UseGateway(target);
+        _domains = target.RegisterDomains(session, browser);
     }
 
     /// <summary>Gets the session node this attachment answers on.</summary>
     internal DevToolsSession Session { get; }
 
     /// <summary>Gets the engine this session speaks to.</summary>
-    internal EngineTarget Target { get; }
+    internal DevToolsTarget Target { get; }
 
     /// <summary>
     /// Gets the identifier a client addresses this session by, or <see langword="null"/> for a direct
@@ -50,13 +52,13 @@ internal sealed class TargetSession
     internal string? SessionId => Session.SessionId;
 
     /// <summary>Attaches to <paramref name="target"/> under a new child of <paramref name="browser"/>.</summary>
-    internal static TargetSession Attach(BrowserSession browser, EngineTarget target, string sessionId)
+    internal static TargetSession Attach(BrowserSession browser, DevToolsTarget target, string sessionId)
     {
         return new TargetSession(browser.Session.CreateChild(sessionId), target, browser);
     }
 
     /// <summary>Builds the session a direct <c>/devtools/page/</c> connection speaks over.</summary>
-    internal static TargetSession Direct(DevToolsSession root, EngineTarget target)
+    internal static TargetSession Direct(DevToolsSession root, DevToolsTarget target)
     {
         return new TargetSession(root, target, browser: null);
     }

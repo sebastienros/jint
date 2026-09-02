@@ -46,7 +46,7 @@ internal sealed class BrowserSession
     /// <c>AddTarget</c> reaching auto-attach -- produce one attachment and one announcement rather than two.
     /// </param>
     /// <returns>The session identifier, new or existing.</returns>
-    internal string Attach(EngineTarget target, out bool created)
+    internal string Attach(DevToolsTarget target, out bool created)
     {
         lock (_attached)
         {
@@ -67,7 +67,7 @@ internal sealed class BrowserSession
     }
 
     /// <summary>Detaches one session, answering the target it was attached to.</summary>
-    internal EngineTarget? Detach(string sessionId)
+    internal DevToolsTarget? Detach(string sessionId)
     {
         TargetSession? attached;
         lock (_attached)
@@ -83,7 +83,7 @@ internal sealed class BrowserSession
     }
 
     /// <summary>Answers whether this session is attached to <paramref name="target"/>, and under which identifier.</summary>
-    internal string? SessionIdOf(EngineTarget target)
+    internal string? SessionIdOf(DevToolsTarget target)
     {
         lock (_attached)
         {
@@ -123,10 +123,14 @@ internal sealed class BrowserSession
     }
 
     /// <summary>Tells this session that a target appeared on the server.</summary>
-    internal ValueTask TargetAddedAsync(EngineTarget target, CancellationToken cancellationToken)
+    internal ValueTask TargetAddedAsync(DevToolsTarget target, CancellationToken cancellationToken)
         => _targets.TargetAddedAsync(target, cancellationToken);
 
+    /// <summary>Tells this session that a target's title or location moved.</summary>
+    internal ValueTask TargetInfoChangedAsync(DevToolsTarget target, CancellationToken cancellationToken)
+        => _targets.TargetInfoChangedAsync(target, cancellationToken);
+
     /// <summary>Tells this session that a target went away.</summary>
-    internal ValueTask TargetRemovedAsync(EngineTarget target, CancellationToken cancellationToken)
+    internal ValueTask TargetRemovedAsync(DevToolsTarget target, CancellationToken cancellationToken)
         => _targets.TargetRemovedAsync(target, cancellationToken);
 }

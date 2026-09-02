@@ -16,15 +16,17 @@ namespace Jint.DevTools.Domains;
 /// one that was told the value by description.
 /// </para>
 /// <para>
-/// <b>The table belongs to the target, not to a session</b>, because the values in it belong to the engine.
-/// Two sessions attached to one engine therefore mint identifiers from the same sequence, and a handle one
+/// <b>The table belongs to the engine, not to a session</b>, because the values in it are that engine's.
+/// Two sessions attached to one target therefore mint identifiers from the same sequence, and a handle one
 /// session minted is resolvable by the other — which is what makes an identifier meaningful in the
 /// <c>Runtime</c> and <c>Debugger</c> domains of both. Ownership is tracked all the same, so that a session
 /// going away releases what it registered and only that.
 /// </para>
 /// <para>
-/// Four ways a handle ends, and the client controls the first three: <c>Runtime.releaseObject</c>,
-/// <c>Runtime.releaseObjectGroup</c>, and detaching. The fourth is the target being disposed.
+/// Five ways a handle ends, and the client controls the first three: <c>Runtime.releaseObject</c>,
+/// <c>Runtime.releaseObjectGroup</c>, and detaching. The other two are the target being closed and the
+/// engine being replaced under it — a navigation, after which the client is told the object cannot be
+/// found rather than answered about a value of the document that replaced it.
 /// </para>
 /// <para>
 /// <b>Threading.</b> Every registration and every resolution happens on the engine thread, because both
@@ -44,14 +46,15 @@ internal sealed class RemoteObjectTable
 
     private int _next;
 
-    /// <summary>Creates the table for the target numbered <paramref name="targetSerial"/>.</summary>
-    /// <param name="targetSerial">
-    /// The target's position among the targets this process has made. It prefixes every identifier so that a
-    /// handle from one target is refused by another rather than resolving to a value of the wrong engine.
+    /// <summary>Creates the table for the runtime numbered <paramref name="runtimeSerial"/>.</summary>
+    /// <param name="runtimeSerial">
+    /// The runtime's position among the runtimes this process has built. It prefixes every identifier so that
+    /// a handle from another target — or from the document before last on this one — is refused rather than
+    /// resolving to a value of the wrong engine.
     /// </param>
-    internal RemoteObjectTable(int targetSerial)
+    internal RemoteObjectTable(int runtimeSerial)
     {
-        _prefix = targetSerial.ToString(CultureInfo.InvariantCulture) + ".";
+        _prefix = runtimeSerial.ToString(CultureInfo.InvariantCulture) + ".";
     }
 
     /// <summary>Gets how many handles are outstanding, which is what a leak test counts.</summary>
@@ -160,7 +163,7 @@ internal sealed class RemoteObjectTable
         Remove(entry => ReferenceEquals(entry.Owner, owner));
     }
 
-    /// <summary>Releases everything, which is what disposing the target means.</summary>
+    /// <summary>Releases everything, which is what replacing or closing the engine means.</summary>
     internal void Clear()
     {
         lock (_gate)

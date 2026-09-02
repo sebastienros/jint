@@ -24,7 +24,7 @@ namespace Jint.DevTools.Domains;
 internal static class CallArguments
 {
     /// <summary>Reads a whole argument list, resolving every handle it names.</summary>
-    internal static JsValue[] Resolve(EngineTarget target, CallArgument[]? arguments)
+    internal static JsValue[] Resolve(DevToolsTarget target, CallArgument[]? arguments)
     {
         if (arguments is null || arguments.Length == 0)
         {
@@ -41,11 +41,11 @@ internal static class CallArguments
     }
 
     /// <summary>Reads one argument.</summary>
-    internal static JsValue Resolve(EngineTarget target, CallArgument argument)
+    internal static JsValue Resolve(DevToolsTarget target, CallArgument argument)
     {
         if (argument.ObjectId is { } objectId)
         {
-            return target.RemoteObjects.Resolve(objectId);
+            return target.Runtime.RemoteObjects.Resolve(objectId);
         }
 
         if (argument.UnserializableValue is { } unserializable)
@@ -60,7 +60,7 @@ internal static class CallArguments
             return JsValue.Undefined;
         }
 
-        return new JsonParser(target.Engine).Parse(value.GetRawText());
+        return new JsonParser(target.Runtime.Engine).Parse(value.GetRawText());
     }
 
     private static JsValue Unserializable(string text) => text switch

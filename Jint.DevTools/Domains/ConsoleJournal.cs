@@ -40,6 +40,25 @@ internal interface ITargetObserver
     void RejectionHandled(JsValue promise)
     {
     }
+
+    /// <summary>
+    /// The engine under the target has been replaced, which is what committing a document means.
+    /// </summary>
+    /// <param name="runtime">The engine a client is evaluating in from now on, and its fresh state.</param>
+    /// <remarks>
+    /// Every handle, script identifier and console entry of the document that is going has already been
+    /// released by the time this runs, so a domain's job here is to tell the client what it now has — a new
+    /// default execution context, a fresh set of parsed scripts — rather than to tidy up after the old one.
+    /// </remarks>
+    void RuntimeReplaced(TargetRuntime runtime)
+    {
+    }
+
+    /// <summary>An isolated world was minted over the current document's realm.</summary>
+    /// <param name="world">The alias, whose identifier a client may then evaluate against.</param>
+    void WorldCreated(TargetWorld world)
+    {
+    }
 }
 
 /// <summary>
@@ -159,8 +178,9 @@ internal sealed class ConsoleEntry
 /// minted for it released.
 /// </para>
 /// <para>
-/// It lives on the <see cref="EngineTarget"/>, because the values in it belong to the engine and every
-/// attachment replays the same history. <c>Runtime.discardConsoleEntries</c> and
+/// It lives on the <see cref="TargetRuntime"/>, because the values in it belong to <i>that</i> engine and
+/// every attachment replays the same history. A navigation therefore ends it: the next document starts with
+/// a console of its own, which is what a browser shows. <c>Runtime.discardConsoleEntries</c> and
 /// <c>Console.clearMessages</c> both empty it — which is what those commands mean, and why they are not the
 /// no-op they were.
 /// </para>

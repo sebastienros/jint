@@ -10,8 +10,8 @@ namespace Jint.DevTools.Domains;
 /// <remarks>
 /// <para>
 /// Two caches rather than one because they end differently. A persisted script is addressed by an
-/// identifier the client holds, so it lives until the target does; a function declaration is addressed by
-/// its own text, so it is a pure cache and evicting one costs a re-parse and nothing else.
+/// identifier the client holds, so it lives as long as the engine it would run in; a function declaration is
+/// addressed by its own text, so it is a pure cache and evicting one costs a re-parse and nothing else.
 /// </para>
 /// <para>
 /// The declaration cache is what makes the client path cheap rather than merely correct: a recorded

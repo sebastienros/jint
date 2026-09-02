@@ -102,9 +102,58 @@ Three decisions worth not relitigating:
 - **`setAutoAttach` on an attached session is a success that attaches nothing.** Clients walk the target
   tree by sending it on every session they are handed; an engine has no children, and a refusal there
   reads as a broken target.
-- **A browser context is not something an engine target has.** `getBrowserContexts` answers an empty list;
-  `createBrowserContext` and `disposeBrowserContext` answer `-32000` with the reason, because minting an
-  identifier that partitions nothing would tell a client its next target was isolated when it is not.
+- **A browser context is not something an engine target has.** With no `ITargetHost` registered,
+  `getBrowserContexts` answers an empty list and `createBrowserContext` / `disposeBrowserContext` answer
+  `-32000` with the reason, because minting an identifier that partitions nothing would tell a client its
+  next target was isolated when it is not.
+
+### A target outlives its engine
+
+`DevToolsTarget` is the identity a client keeps addressing; `TargetRuntime` is one engine and everything that
+dies with it. An `EngineTarget` has one runtime for its whole life. A page has one **per navigation**:
+committing a document builds an engine and hands it to `DevToolsTarget.Replace`, which disposes the previous
+runtime, installs the new one, re-installs the bindings and tells every domain through
+`ITargetObserver.RuntimeReplaced`.
+
+What is on which side is the whole of the split, and putting something on the wrong one is how a client is
+answered about a document that has gone:
+
+- **The target**: `TargetId`, `Type`, `Title`, `Url`, `BrowserContextId`, `OpenerId`, the observer list, the
+  `Describer`, the `BindingRegistry` (a `Runtime.addBinding` name is re-installed into every new engine
+  *before* any script of the new document runs), the `WaitingForDebugger` state, the command and pause
+  timeouts, and the execution-context counter.
+- **The runtime**: the `Engine`, the `EngineDispatcher`, the `RemoteObjectTable`, the `ScriptRegistry`, the
+  `CompiledScriptRegistry`, the `ConsoleJournal`, the console-sink binding, the promise-rejection
+  subscription, and the default execution context's identifier.
+
+Four consequences:
+
+- **A domain holds the target and reads `target.Runtime` per command.** A cached engine, object table or
+  script registry is a domain still answering about the last document.
+- **The gateway is the target, not a mailbox.** `TargetSession` calls `UseGateway(target)` and the target
+  forwards to the current runtime's dispatcher, so a command is queued on the engine that is running now. A
+  command already queued on the engine being replaced is answered `-32000 "Execution context was
+  destroyed."` rather than left to the client's own timeout.
+- **The context counter is the target's**, so the second document's default context is `2` and never `1`
+  again. That is what makes a stale `contextId` distinguishable, and `DevToolsTarget.RequireContext` answers
+  one with `-32000 "Cannot find context with specified id"` — Chrome's text, which the recordings show
+  PuppeteerSharp receiving and coping with. Every table is seeded from a process-wide serial for the same
+  reason: an `objectId` or a `scriptId` from two documents ago must fail to resolve rather than land on a
+  value of the new engine.
+- **Isolated worlds are aliases.** `CreateWorldContext(name)` mints an extra context identifier over the
+  *current* realm and announces it with `auxData: { isDefault: false, type: "isolated", frameId }`. There is
+  one realm per document, so a world is a name for it and not an isolate; it buys a client its own
+  identifier to address and none of the isolation the name promises, and it lasts until the next navigation.
+
+`ITargetHost` is what mints a target when a client asks for one. `DevToolsServer.UseHost` registers it, and
+`Target.createTarget` / `closeTarget` / `createBrowserContext` / `disposeBrowserContext` / `getBrowserContexts`
+route through it; with none registered they behave exactly as they did. A target created while the asking
+session had `setAutoAttach(waitForDebuggerOnStart: true)` is created **waiting** — the flag rides
+`TargetCreationRequest` rather than being applied afterwards, because a host that navigates as it creates
+would otherwise have run the first document before anybody could hold it — and
+`attachedToTarget.waitingForDebugger` tells the client it must send `Runtime.runIfWaitingForDebugger`.
+`DevToolsTarget.RegisterDomains` is virtual so a subclass adds its own domains next to the built-in five, and
+`Describe` is the one `TargetInfo` both `/json/list` and `Target.getTargets` are written from.
 
 ### The pause loop
 
