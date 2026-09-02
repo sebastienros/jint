@@ -140,8 +140,35 @@ namespace Jint.DevTools.Domains
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult>>("Console.enable");
 
         /// <inheritdoc/>
-        internal sealed override global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
-            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<string>>("Console." + method);
+        internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
+        {
+            switch (method)
+            {
+                case "clearMessages":
+                {
+                    var result = await ClearMessagesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "disable":
+                {
+                    var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "enable":
+                {
+                    var result = await EnableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                // A command manifest.json does not list is method-not-found BEFORE its parameters
+                // are looked at, which is the order Chrome answers in: a command a backend does not
+                // implement is not in its dispatch table at all, so its payload is never read.
+                default:
+                    return global::Jint.DevTools.Throw.MethodNotFound<string>("Console." + method);
+            }
+        }
     }
 
     /// <summary>Builds the <c>Console</c> domain's events.</summary>

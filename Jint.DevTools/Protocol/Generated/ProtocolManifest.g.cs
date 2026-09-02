@@ -44,6 +44,14 @@ namespace Jint.DevTools.Protocol
         [
             "Browser.close",
             "Browser.getVersion",
+            "Console.clearMessages",
+            "Console.disable",
+            "Console.enable",
+            "Log.clear",
+            "Log.disable",
+            "Log.enable",
+            "Log.startViolationsReport",
+            "Log.stopViolationsReport",
             "Runtime.addBinding",
             "Runtime.awaitPromise",
             "Runtime.callFunctionOn",
@@ -80,7 +88,12 @@ namespace Jint.DevTools.Protocol
         /// <summary>The events this assembly emits.</summary>
         internal static global::System.Collections.Generic.IReadOnlyList<string> ImplementedEvents { get; } =
         [
+            "Console.messageAdded",
+            "Log.entryAdded",
             "Runtime.bindingCalled",
+            "Runtime.consoleAPICalled",
+            "Runtime.exceptionRevoked",
+            "Runtime.exceptionThrown",
             "Runtime.executionContextCreated",
             "Target.attachedToTarget",
             "Target.detachedFromTarget",
@@ -92,6 +105,8 @@ namespace Jint.DevTools.Protocol
         internal static global::System.Collections.Generic.IReadOnlyList<global::Jint.DevTools.Protocol.Schema.Domain> ReportedDomains { get; } =
         [
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Browser", Version = "1.3" },
+            new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Console", Version = "1.3" },
+            new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Log", Version = "1.3" },
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Runtime", Version = "1.3" },
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Schema", Version = "1.3" },
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Target", Version = "1.3" },

@@ -50,6 +50,7 @@ namespace Jint.DevTools
         public System.Threading.Tasks.Task PostAsync(System.Action<Jint.Engine> work) { }
         public System.Threading.Tasks.Task<T> PostAsync<T>(System.Func<Jint.Engine, T> work) { }
         public void Pump() { }
+        public void ReportUncaughtException(Jint.Runtime.JavaScriptException exception) { }
         public bool WaitForDebugger(System.TimeSpan timeout) { }
     }
     public sealed class EngineTargetOptions

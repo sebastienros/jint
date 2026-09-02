@@ -41,6 +41,16 @@ public static class DevToolsOptionsExtensions
     /// <see cref="DevToolsEngineOptions.Coverage"/> asks for it.
     /// </para>
     /// <para>
+    /// It also wraps <c>Options.WebApi.Console.Sink</c>, so that what a script logs reaches an
+    /// attached client as <c>Runtime.consoleAPICalled</c>. <b>The host's own sink keeps everything it was
+    /// getting</b> — the wrapper forwards both overloads before it does anything else — and an engine that
+    /// never enabled <see cref="WebApiFeatures.Console"/> has no <c>console</c> to log through, so
+    /// this costs it nothing. <b>Call it per engine.</b> The wrapper speaks for the first engine a target is
+    /// built over, because the engine reads its sink out of <see cref="Options"/> on every emit and the
+    /// record carries no engine; two engines built from one <see cref="Options"/> instance therefore report
+    /// console traffic from the first alone.
+    /// </para>
+    /// <para>
     /// <b>All three are construction-time.</b> There is no way to turn them on later, so an engine built
     /// without this can be listed and evaluated in but not paused in, and the domains that need what is
     /// missing say so with an explicit refusal rather than answering something untrue.
@@ -70,6 +80,13 @@ public static class DevToolsOptionsExtensions
         options.Debugger.Enabled = true;
         options.RetainFunctionSourceText = true;
         options.Profiling.Enabled = true;
+
+        // Wrapped rather than replaced, and idempotent: calling UseDevTools twice on one Options must not
+        // build a chain of wrappers each forwarding to the last.
+        if (options.WebApi.Console.Sink is not DevToolsConsoleSink)
+        {
+            options.WebApi.Console.Sink = new DevToolsConsoleSink(options.WebApi.Console.Sink);
+        }
 
         if (devTools.Coverage)
         {

@@ -29,7 +29,7 @@ namespace Jint.DevTools.Domains;
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Runtime/"/>.
 /// </para>
 /// </remarks>
-internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListener
+internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListener, ITargetObserver
 {
     /// <summary>
     /// The one execution context an engine target has. Chrome numbers page contexts from 1 and so does this;
@@ -84,7 +84,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// outlives every session, so a client attaching later would otherwise never hear of it. That is V8's
     /// behaviour too.
     /// </remarks>
-    protected override ValueTask OnEnabledAsync(CommandContext context)
+    protected override async ValueTask OnEnabledAsync(CommandContext context)
     {
         var created = new ExecutionContextCreatedEvent
         {
@@ -101,7 +101,8 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             },
         };
 
-        return EmitAsync(RuntimeEvents.ExecutionContextCreated(created), context.CancellationToken);
+        await EmitAsync(RuntimeEvents.ExecutionContextCreated(created), context.CancellationToken).ConfigureAwait(false);
+        await ReplayConsoleAsync(context).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -112,14 +113,16 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     }
 
     /// <summary>
-    /// Answers nothing, and truthfully: this package keeps no console buffer to discard.
+    /// Empties the journal every attachment replays, and releases the handles minted for what was in it.
     /// </summary>
     /// <remarks>
-    /// Answered rather than refused because clients send it while tidying up and a <c>-32601</c> there is
-    /// noise in a client's log about a state it does not have.
+    /// The journal is the target's, so this discards for every attachment rather than only for the one that
+    /// asked. That is what the command means — Chrome's console history is the page's and not the session's
+    /// — and it is why a client sends it when a user clears the console.
     /// </remarks>
     protected override ValueTask<EmptyResult> DiscardConsoleEntriesAsync(EmptyParameters parameters, CommandContext context)
     {
+        _target.Console.Clear(_target.RemoteObjects);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
