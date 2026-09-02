@@ -2756,6 +2756,26 @@ script's own functions, **Built-in** for Jint's, and **Host interop** for your c
 a CLR method reached through interop, or a `ClrFunction` you built. Seeing script time apart from time
 inside your own callbacks is usually half the diagnosis.
 
+The document is not the only way to read a profile. Its four tables are public, so a host that renders its
+own view — or speaks a protocol of its own — reads them instead of writing JSON and parsing it back:
+
+```csharp
+foreach (var sample in profile.Samples)          // when, and which stack
+{
+    for (var node = sample.Stack; node >= 0; node = profile.Stacks[node].Parent)
+    {
+        var frame = profile.Frames[profile.Stacks[node].Frame];   // executing line/column, category
+        var function = profile.Functions[frame.Function];         // name, file, declaration, Program
+        Console.WriteLine($"{sample.Time}  {function.Name}  {frame.Category}");
+    }
+}
+```
+
+They are views over what the session recorded rather than copies of it, so reading a table costs nothing
+until a row is asked for. A sample's time is measured from the start of the session and the gap to the next
+one is how long that stack was observed — the weight the document writes is that gap over the interval, at
+least one.
+
 Worth knowing before you read a sampled profile:
 
 - **Samples are taken at the engine's check points**, the same once-per-64-statements cadence a timeout

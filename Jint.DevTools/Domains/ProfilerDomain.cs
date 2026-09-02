@@ -37,7 +37,12 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
     private static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(1);
 
     private readonly EngineTarget _target;
-    private readonly IProfileSource _source;
+
+    /// <summary>The source a caller pinned, or <see langword="null"/> to choose one per recording.</summary>
+    private readonly IProfileSource? _fixed;
+
+    /// <summary>The instrument this attachment is recording with, chosen when the recording starts.</summary>
+    private IProfileSource? _source;
 
     private TimeSpan _interval = DefaultInterval;
     private double _startedAtMicroseconds;
@@ -50,15 +55,39 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
     private int _recording;
 
     internal ProfilerDomain(EngineTarget target)
-        : this(target, new EventedProfileSource(target.Engine))
+        : this(target, source: null)
     {
     }
 
     /// <summary>Builds the domain over a source of the caller's choosing, which is what a test needs.</summary>
-    internal ProfilerDomain(EngineTarget target, IProfileSource source)
+    internal ProfilerDomain(EngineTarget target, IProfileSource? source)
     {
         _target = target;
-        _source = source;
+        _fixed = source;
+    }
+
+    /// <summary>
+    /// The instrument to record the next profile with.
+    /// </summary>
+    /// <remarks>
+    /// <b>The sampler, unless the engine is already sampling for somebody else.</b> A CDP <c>Profile</c> is
+    /// what V8's sampling profiler produces and what <c>setSamplingInterval</c> sets the rate of, so that is
+    /// the instrument a front end is asking for. There is one sampling session per engine, though, and it
+    /// may be the host's own — a client that arrives then gets the exact profiler rather than a refusal,
+    /// which costs the run more and misses nothing.
+    /// </remarks>
+    private IProfileSource Choose()
+    {
+        if (_fixed is not null)
+        {
+            return _fixed;
+        }
+
+#pragma warning disable JINT0002 // the sampling profiler is the engine's preview area
+        var sampling = _target.Engine.Diagnostics.IsSampling;
+#pragma warning restore JINT0002
+
+        return sampling ? new EventedProfileSource(_target.Engine) : new SampledProfileSource(_target.Engine);
     }
 
     /// <inheritdoc/>
@@ -107,14 +136,22 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
             return;
         }
 
+        var source = _source;
+        if (source is null)
+        {
+            return;
+        }
+
         try
         {
             _target.Post(_ =>
             {
-                if (_source.IsRecording)
+                if (source.IsRecording)
                 {
-                    _source.Stop();
+                    source.Stop();
                 }
+
+                _source = null;
             });
         }
         catch (ObjectDisposedException)
@@ -148,9 +185,11 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
             return new ValueTask<EmptyResult>(EmptyResult.Instance);
         }
 
+        var source = Choose();
+
         try
         {
-            _source.Start(_interval);
+            source.Start(_interval);
         }
         catch (InvalidOperationException exception)
         {
@@ -158,6 +197,8 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
                 "The engine cannot record a profile",
                 exception.Message);
         }
+
+        _source = source;
 
         _startedAtMicroseconds = EngineTarget.UnixMilliseconds() * MicrosecondsPerMillisecond;
         Volatile.Write(ref _recording, 1);
@@ -182,7 +223,8 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
                 "send Profiler.start first; a profile is the engine's and only one is recorded at a time");
         }
 
-        var recorded = _source.Stop();
+        var recorded = _source!.Stop();
+        _source = null;
 
         return new ValueTask<StopResponse>(new StopResponse
         {

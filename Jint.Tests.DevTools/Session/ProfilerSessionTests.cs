@@ -2,37 +2,51 @@ using System.Text.Json;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Profiler;
 
+#pragma warning disable JINT0002 // the sampling profiler is the engine's preview area
+
 namespace Jint.Tests.DevTools.Session;
 
 /// <summary>
 /// <c>Profiler.start</c> and <c>Profiler.stop</c>: the document a front end's Performance panel loads.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The assertions are about the two halves the panel reads — a tree of nodes, and a series of samples with
 /// the time between them — plus the one property that makes the second half meaningful: the deltas add up to
 /// the recording. A profile whose tree is right and whose deltas are not renders as an empty flame chart.
+/// </para>
+/// <para>
+/// The instrument behind them is the engine's <em>sampler</em>, so the script is written to be sampled: the
+/// call it should be caught in is the one it spends its time in, and every recording asks for the fastest
+/// rate the protocol can name so that a run this short is observed more than once.
+/// </para>
 /// </remarks>
 [NonParallelizable]
 public class ProfilerSessionTests
 {
     private const string Source = """
         function inner(n) {
-            return n * 2;
+            var total = 0;
+            for (var i = 0; i < n; i++) { total += i % 7; }
+            return total;
         }
 
         function outer(n) {
-            return inner(n) + inner(n + 1);
+            return inner(n) + inner(n);
         }
 
         function work(times) {
             var total = 0;
             for (var i = 0; i < times; i++) {
-                total = total + outer(i);
+                total = total + outer(50);
             }
 
             return total;
         }
         """;
+
+    /// <summary>Enough work to be sampled many times over, and short enough to be a unit test.</summary>
+    private const string Workload = "work(200)";
 
     [Test]
     public async Task AProfileHasANodeForEveryFunctionThatRan()
@@ -43,7 +57,7 @@ public class ProfilerSessionTests
 
         var scriptId = (await session.EventAsync("Debugger.scriptParsed")).GetProperty("scriptId").GetString();
 
-        var profile = await RecordAsync(session, "work(50)");
+        var profile = await RecordAsync(session, Workload);
 
         var byName = profile.Nodes.ToDictionary(node => node.CallFrame.FunctionName, node => node);
 
@@ -72,15 +86,16 @@ public class ProfilerSessionTests
         await using var session = await AttachedSession.CreateAsync();
         await session.Target.PostAsync(engine => engine.Execute(Source, "main.js"));
 
-        var profile = await RecordAsync(session, "work(200)");
+        var profile = await RecordAsync(session, Workload);
 
         profile.Samples.Should().NotBeNull();
         profile.TimeDeltas.Should().NotBeNull();
         profile.Samples!.Length.Should().Be(profile.TimeDeltas!.Length, "the panel reads them as one series");
         profile.EndTime.Should().BeGreaterThanOrEqualTo(profile.StartTime);
 
-        // The source records when every call happened rather than sampling for it, so this is an equality
-        // and not an approximation: the only loss is the truncation of each interval to whole microseconds.
+        // The deltas are the intervals between the moments the source observed, so they telescope: whatever
+        // the instrument was, they cover the recording rather than approximating it. The only loss is the
+        // truncation of each interval to whole microseconds.
         var total = profile.TimeDeltas.Sum(delta => (long) delta);
         var recorded = (long) (profile.EndTime - profile.StartTime);
 
@@ -129,7 +144,7 @@ public class ProfilerSessionTests
 
         await session.ResultAsync("Profiler.enable");
         await session.ResultAsync("Profiler.start");
-        await session.Target.PostAsync(engine => engine.Evaluate("work(10)"));
+        await session.Target.PostAsync(engine => engine.Evaluate(Workload));
         await session.ResultAsync("Profiler.start");
 
         var profile = await StopAsync(session);
@@ -137,7 +152,7 @@ public class ProfilerSessionTests
     }
 
     /// <summary>
-    /// The rate a client asks for is accepted, because every front end sends it before every recording.
+    /// The rate a client asks for is what the sampler is armed with, which is what the command is for.
     /// </summary>
     [Test]
     public async Task ASamplingIntervalIsAccepted()
@@ -148,8 +163,55 @@ public class ProfilerSessionTests
         await session.ResultAsync("Profiler.setSamplingInterval", """{"interval":100}""");
         await session.ResultAsync("Profiler.start");
 
+        (await session.Target.PostAsync(engine => engine.Diagnostics.IsSampling)).Should().BeTrue();
+
         var profile = await StopAsync(session);
-        profile.Nodes.Should().NotBeEmpty("the profiler answers whatever rate it was told, having none of its own");
+        profile.Nodes.Should().NotBeEmpty();
+    }
+
+    /// <summary>
+    /// What a Performance panel is opened for: a script that spends its time in one function is a profile
+    /// that says so.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The assertion is on the time deltas rather than on the count of samples, because that is what the
+    /// panel adds up per node — and it is what makes this a statement about where the time went rather than
+    /// about how often the instrument happened to fire.
+    /// </para>
+    /// <para>
+    /// It is about the <em>script's</em> time. A recording is bracketed by two protocol commands, so the
+    /// wall clock between them includes the round trips that carried them, and that time belongs to
+    /// <c>(program)</c> — correctly, and in a proportion no test can pin.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ACpuBoundScriptAttributesMostOfItsTimeToItsHotFunction()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+        await session.Target.PostAsync(engine => engine.Execute(Source, "main.js"));
+
+        var profile = await RecordAsync(session, Workload);
+
+        var byId = profile.Nodes.ToDictionary(node => node.Id, node => node.CallFrame.FunctionName);
+        var byFunction = new Dictionary<string, long>(StringComparer.Ordinal);
+
+        for (var i = 0; i < profile.Samples!.Length; i++)
+        {
+            var name = byId[profile.Samples[i]];
+            byFunction[name] = byFunction.GetValueOrDefault(name) + profile.TimeDeltas![i];
+        }
+
+        var script = byFunction
+            .Where(entry => entry.Key is not "(program)" and not "(root)")
+            .OrderByDescending(entry => entry.Value)
+            .ToList();
+
+        var total = script.Sum(entry => entry.Value);
+        total.Should().BeGreaterThan(0, "the script ran, so some of the recording is its");
+
+        script[0].Key.Should().Be("inner", "that is the function the loop is in");
+        script[0].Value.Should().BeGreaterThan(total / 2, "most of the script's time was spent there");
     }
 
     /// <summary>
@@ -164,16 +226,44 @@ public class ProfilerSessionTests
         await session.ResultAsync("Profiler.start");
         await session.ResultAsync("Profiler.disable");
 
-        (await session.Target.PostAsync(engine => engine.Diagnostics.IsProfiling)).Should().BeFalse();
+        (await session.Target.PostAsync(engine => engine.Diagnostics.IsSampling)).Should().BeFalse();
 
         var error = await session.ErrorAsync("Profiler.stop");
         error.GetProperty("message").GetString().Should().Be("No profile is being recorded");
     }
 
+    /// <summary>
+    /// The engine allows one sampling session, and it may be the host's own — a client that arrives then is
+    /// given the exact profiler rather than a refusal.
+    /// </summary>
+    [Test]
+    public async Task AHostAlreadySamplingLeavesTheClientTheOtherInstrument()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+        await session.Target.PostAsync(engine => engine.Execute(Source, "main.js"));
+        await session.Target.PostAsync(engine => engine.Diagnostics.StartSampling());
+
+        await session.ResultAsync("Profiler.enable");
+        await session.ResultAsync("Profiler.start");
+        await session.Target.PostAsync(engine => engine.Evaluate(Workload));
+
+        var profile = await StopAsync(session);
+        profile.Nodes.Select(node => node.CallFrame.FunctionName).Should().Contain("inner");
+
+        // the host's own session is untouched by the one the client asked for
+        (await session.Target.PostAsync(engine => engine.Diagnostics.IsSampling)).Should().BeTrue();
+        await session.Target.PostAsync(engine => engine.Diagnostics.StopSampling());
+    }
+
     /// <summary>Records <paramref name="expression"/> and hands back the profile of it.</summary>
+    /// <remarks>
+    /// The rate is the fastest the protocol can name — a client's zero means "as fast as you can" — because
+    /// a workload short enough for a unit test has to be observed more than once.
+    /// </remarks>
     private static async Task<Profile> RecordAsync(AttachedSession session, string expression)
     {
         await session.ResultAsync("Profiler.enable").ConfigureAwait(false);
+        await session.ResultAsync("Profiler.setSamplingInterval", """{"interval":0}""").ConfigureAwait(false);
         await session.ResultAsync("Profiler.start").ConfigureAwait(false);
         await session.Target.PostAsync(engine => engine.Evaluate(expression)).ConfigureAwait(false);
 
