@@ -74,6 +74,32 @@ public class UntrustedCodeProfileTests
         engine.Constraints.Find<OperationDeadlineConstraint>().Should().NotBeNull();
     }
 
+    /// <summary>
+    /// Hardening is the first expansion, not the last: it runs before the realm and the host exist, so a
+    /// profile that first appears inside a configuration callback could only half-harden and is refused
+    /// instead. https://github.com/sebastienros/jint/issues/3582
+    /// </summary>
+    [Test]
+    public void ProfileDeclaredFromADeferredCallbackIsRefusedRatherThanHalfApplied()
+    {
+        var options = new Options();
+        options.Configure(_ => options.ForUntrustedCode(Fixture));
+
+        Invoking(() => new Engine(options))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*ForUntrustedCode*before the engine is constructed*");
+    }
+
+    [Test]
+    public void ProfileReplacedFromADeferredCallbackIsRefusedRatherThanHalfApplied()
+    {
+        var options = new Options().ForUntrustedCode(Fixture);
+        options.Configure(engine => engine.Options.ForUntrustedCode(Fixture with { MaxStatements = 1 }));
+
+        Invoking(() => new Engine(options))
+            .Should().Throw<InvalidOperationException>();
+    }
+
     [Test]
     public void ProfileIsReappliedAfterEarlierDeferredConfiguration()
     {
@@ -103,9 +129,14 @@ public class UntrustedCodeProfileTests
             options.Constraints.MaxArraySize = uint.MaxValue;
             options.Constraints.RegexTimeout = TimeSpan.MaxValue;
             options.Constraints.PromiseTimeout = TimeSpan.MaxValue;
-            engine.Constraints.Find<MaxStatementsConstraint>()!.MaxStatements = int.MaxValue;
-            engine.Constraints.Find<OperationDeadlineConstraint>()!.Begin(TimeSpan.MaxValue);
-            engine.Constraints.Find<MemoryLimitConstraint>()!.Begin();
+
+            // The engine's own constraint instances do not exist yet, and reaching for them says so
+            // rather than handing back something a callback could loosen - they are built from the
+            // options below once every callback has run, i.e. after this profile is re-expanded.
+            Invoking(() => engine.Constraints.Find<MaxStatementsConstraint>())
+                .Should().Throw<InvalidOperationException>();
+            Invoking(engine.Constraints.Check).Should().Throw<InvalidOperationException>();
+
             engine.Modules.Add("configured", "export const reachable = true;");
         });
         options.ForUntrustedCode(limits);

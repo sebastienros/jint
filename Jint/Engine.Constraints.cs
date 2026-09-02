@@ -155,6 +155,7 @@ public partial class Engine
         /// </summary>
         public void Check()
         {
+            _engine.ThrowIfConstraintsNotBuilt();
             using var ownership = _engine.EnterHostCall();
             try
             {
@@ -189,6 +190,7 @@ public partial class Engine
         /// <typeparam name="T">The constraint type to look for; base types match too.</typeparam>
         public T? Find<T>() where T : Constraint
         {
+            _engine.ThrowIfConstraintsNotBuilt();
             using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {
@@ -206,6 +208,7 @@ public partial class Engine
         /// </summary>
         public void Reset()
         {
+            _engine.ThrowIfConstraintsNotBuilt();
             using var ownership = _engine.EnterHostCall();
             foreach (var constraint in _engine._constraints)
             {

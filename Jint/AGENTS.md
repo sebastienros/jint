@@ -92,14 +92,26 @@ first (`Engine.TakePrivateWebApiOptions`) — an `Options` is shareable, and for
 keeps process-wide, so a per-tenant client set there used to reach every default-built engine. The copy stays
 frozen; the guard is suspended for it on the calling thread alone.
 
-**Which side of `Options.Apply` a derived field is read on is a decision, not an accident.** `Apply` runs the
-host's `Configure` callbacks, so anything a callback may legitimately set has to be read after it —
-`_maxRecursionDepth`, `_operatorOverloadingAllowed`, `_valueCoercion` and `_interopResolutionProfile` all are.
-The extension-method lookup was not, so `options.Configure(_ => options.AddExtensionMethods(…))` reached
-neither the prototypes nor `TypeResolver`, while the attach beside it read the grown registry and ran anyway
-([#3568](https://github.com/sebastienros/jint/issues/3568)). After `Apply` also means after the
-untrusted-code profile's re-expansion, which clears registries from inside it: a refresh placed before that
-would hand a hardened engine what its own callback registered.
+**Every field derived from an option is read after `Options.Apply`, and the two exceptions are refusals.**
+`Apply` runs the host's `Configure` callbacks and then re-expands an untrusted-code profile over whatever
+they wrote, so it is the first point at which the options are final; a reading taken above it silently
+ignores a callback that writes it, which is what happened to the extension-method lookup
+([#3568](https://github.com/sebastienros/jint/issues/3568)) and then to strict mode, the object converters
+and the constraints ([#3583](https://github.com/sebastienros/jint/issues/3583)). The **one** group taken
+before `Apply` is interop conversion — `_objectConverters`, its type filter, `_immutableCrossingFilter`,
+`_enumsAsStrings`, plus `_extensionMethods` — because a callback's `engine.SetValue(name, clrValue)`
+converts and so must find them built; each is taken *again* after `Apply`
+(`TakeInteropConversionState`, `RefreshExtensionMethods`), unconditionally, so that a callback's
+registration is honoured and a registry the profile cleared is obeyed.
+
+A new field goes below `Apply`; one that must exist earlier joins that group and is re-taken. What cannot be
+re-taken is **refused where it is written**, never ignored — two things are, and both pay for the rule rather
+than costing it. A callback cannot run script ([#3581](https://github.com/sebastienros/jint/issues/3581)),
+because it runs before Jint installs its globals and before the re-expansion, neither of which can move; that
+refusal is what lets `_evaluationContext`, the constraints and the parser sit below `Apply`. And it cannot
+declare an untrusted-code profile ([#3582](https://github.com/sebastienros/jint/issues/3582)): the expansion
+that hardens an engine runs in `CreateEngineOptions`, before `Reset()` builds the realm from
+`Options.Host.Factory`, so a late one could only half-harden.
 
 ### Type co-location
 

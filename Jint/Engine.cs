@@ -69,8 +69,9 @@ public sealed partial class Engine : IDisposable
     /// built for one entry never differed from one already in flight — which is why the sites that
     /// could not find an ambient one simply built their own and threw it away.
     /// <para>
-    /// Built before <see cref="Options.Apply"/>, because a host's <c>options.Configure(e =&gt; …)</c>
-    /// callback runs from there and may execute script.
+    /// Built after <see cref="Options.Apply"/>, with every field it snapshots — debug mode, coverage, the
+    /// constraint partition — read from options the host's <c>options.Configure(e =&gt; …)</c> callbacks have
+    /// finished with. Those callbacks cannot execute script, which is what makes that ordering available.
     /// </para>
     /// </summary>
     internal readonly EvaluationContext _evaluationContext;
@@ -1358,21 +1359,28 @@ public sealed partial class Engine : IDisposable
     // lazy properties
     private DebugHandler? _debugger;
 
-    // cached access
-    internal readonly ObjectConverter[]? _objectConverters;
+    // cached access. Not readonly: this and the three fields below are the interop-conversion group, the
+    // only option-derived state the engine takes before Options.Apply - a configuration callback's
+    // engine.SetValue(name, clrValue) converts, and conversion reads all four. TakeInteropConversionState
+    // runs again after Apply, so what a callback registered (or a hardened profile cleared) is what stands.
+    internal ObjectConverter[]? _objectConverters;
 
     // which declared CLR member types the registered converters can claim, null when none are registered.
     // Lets the compiled interop read lanes stay in play for members no converter can ever be handed.
-    internal readonly ObjectConverterTypeFilter? _objectConverterTypeFilter;
+    internal ObjectConverterTypeFilter? _objectConverterTypeFilter;
 
     // which CLR types the host declared immutable for the crossing, null when none were declared. Lets an
     // ObjectWrapper memoize what it reads through such a target. See Options.Interop.ImmutableCrossingTypes.
-    internal readonly ImmutableCrossingTypeFilter? _immutableCrossingFilter;
+    internal ImmutableCrossingTypeFilter? _immutableCrossingFilter;
 
     // snapshot of Options.Interop.EnumConversion, read on every CLR value crossing into script
-    internal readonly bool _enumsAsStrings;
+    internal bool _enumsAsStrings;
 
-    internal readonly Constraint[] _constraints;
+    // Built after Options.Apply, like every other option-derived field, and empty until then. The three
+    // ConstraintOperations members refuse outright while that is the case rather than answering from an
+    // empty set - a limit a configuration callback is still writing is not "no limit". The initializer is
+    // Array.Empty and exists so that an internal reader added later fails safe instead of dereferencing null.
+    internal readonly Constraint[] _constraints = [];
 
 #if NET8_0_OR_GREATER
     /// <summary>
@@ -1386,8 +1394,8 @@ public sealed partial class Engine : IDisposable
     // _constraints partitioned once at construction (the set is fixed for the engine's lifetime):
     // exact constraints must run before every statement, amortized ones every N statements.
     // See Engine.Constraints.cs for the partitioning rationale.
-    internal readonly Constraint[] _exactConstraints;
-    internal readonly Constraint[] _amortizedConstraints;
+    internal readonly Constraint[] _exactConstraints = [];
+    internal readonly Constraint[] _amortizedConstraints = [];
     internal readonly MemoryLimitConstraint? _memoryLimitConstraint;
     private MemoryLimitConstraint.SegmentToken _implicitMemorySegment;
     private int _implicitMemoryContextDepth;
@@ -1560,6 +1568,23 @@ public sealed partial class Engine : IDisposable
     internal readonly JintCallStack CallStack;
     internal readonly StackGuard _stackGuard;
 
+    /// <summary>
+    /// <see langword="false"/> until the constructor has returned. While it is, this engine cannot run
+    /// script, and the entries that would have are refused by name instead of dereferencing a field that
+    /// is still null.
+    /// </summary>
+    /// <remarks>
+    /// A callback registered with <c>Options.Configure</c> runs from <see cref="Options.Apply"/>, which sits
+    /// where it does deliberately: the host's registrations land before Jint installs its own globals — so a
+    /// global the host wrote is never replaced by ours — and before an untrusted-code profile is re-expanded
+    /// over whatever those callbacks wrote. A script running from there would therefore see a realm without
+    /// <c>System</c>, <c>importNamespace</c>, <c>clrHelper</c>, <c>require</c>, the opt-in web APIs or the
+    /// extension methods on its prototypes, and would run before the profile was re-applied. Moving the
+    /// callbacks after all of that is not available: it is the re-expansion that keeps a callback from
+    /// reopening a hardened setting (sebastienros/jint#3581).
+    /// </remarks>
+    private readonly bool _constructionComplete;
+
     // needed in initial engine setup, for example CLR function construction
     internal Intrinsics _originalIntrinsics = null!;
     internal Host _host = null!;
@@ -1620,7 +1645,29 @@ public sealed partial class Engine : IDisposable
 
         Reset();
 
-        // gather some options as fields for faster checks
+        // The interop-conversion group is the only option-derived state this engine takes before
+        // Options.Apply, and it is taken because a configuration callback can reach it: a callback's
+        // engine.SetValue(name, clrValue) converts, and conversion reads all four fields. It is taken
+        // again below, once Apply has run, so that a converter a callback registered is honoured and a
+        // registry a hardened profile cleared is obeyed - the same two directions RefreshExtensionMethods
+        // settles for the extension-method lookup (sebastienros/jint#3568).
+        TakeInteropConversionState();
+
+        _referencePool = new ReferencePool();
+        _argumentsInstancePool = new ArgumentsInstancePool(this);
+        _jsValueArrayPool = new JsValueArrayPool();
+        _objectTraverseStackPool = new ObjectTraverseStackPool();
+
+        Options.Apply(this);
+
+        ValidateModuleOptions(Options.Modules);
+
+        // Everything from here down is derived from an option, and every one of those readings is taken
+        // here rather than above Options.Apply on purpose. Apply runs the host's Options.Configure
+        // callbacks and then re-expands an untrusted-code profile over whatever they wrote, so this is the
+        // first point at which the options are final; a reading hoisted above it silently ignores a
+        // callback that writes it (sebastienros/jint#3583). See the Options.Configure rule in
+        // Jint/AGENTS.md.
         _isDebugMode = Options.Debugger.Enabled;
         _isStrict = Options.Strict;
 
@@ -1628,12 +1675,7 @@ public sealed partial class Engine : IDisposable
         // per-statement-lane decision, and that lane is the only thing that ever reaches the counters.
         _coverage = Options.Coverage.Enabled ? new CoverageCollector(Options.Coverage.Granularity) : null;
 
-        _objectConverters = Options.Interop.ObjectConverters.Count > 0
-            ? Options.Interop.ObjectConverters.ToArray()
-            : null;
-        _objectConverterTypeFilter = ObjectConverterTypeFilter.Create(_objectConverters);
-        _immutableCrossingFilter = ImmutableCrossingTypeFilter.Create(Options.Interop.ImmutableCrossingTypes);
-        _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
+        TakeInteropConversionState();
 
 #if NET8_0_OR_GREATER
         // Resolved once, here, rather than at each wait: Resolve is what rejects a clock that cannot measure
@@ -1672,10 +1714,8 @@ public sealed partial class Engine : IDisposable
         _memoryLimitConstraint = memoryLimitConstraint;
         memoryLimitConstraint?.Attach(this);
 
-        // Everything the context snapshots is settled by now (debug mode, the constraint partition),
-        // and it must exist before Options.Apply below, whose configuration callbacks may execute
-        // script. That is also why the context does not snapshot operator overloading itself: the
-        // engine takes that reading after Apply and the context reads it from there.
+        // Everything the context snapshots is settled by now: debug mode, coverage and the constraint
+        // partition are all read above, from options Apply has finished with.
         _evaluationContext = new EvaluationContext(this);
 
         _referenceResolver = Options.ReferenceResolver;
@@ -1696,25 +1736,11 @@ public sealed partial class Engine : IDisposable
         _nullishPropagatesInline = _resolverWatchesNullishBase
             && ReferenceEquals(_referenceResolver, NullPropagatingReferenceResolver.Instance);
 
-        _referencePool = new ReferencePool();
-        _argumentsInstancePool = new ArgumentsInstancePool(this);
-        _jsValueArrayPool = new JsValueArrayPool();
-        _objectTraverseStackPool = new ObjectTraverseStackPool();
-
-        Options.Apply(this);
-
-        ValidateModuleOptions(Options.Modules);
-
-        // Read after Options.Apply so the snapshot observes the same value JintCallStack does
-        // (Apply runs the user's configuration callbacks, which can still touch Constraints).
         _maxRecursionDepth = Options.Constraints.EffectiveMaxRecursionDepth;
 
-        // Likewise after Apply: a configuration callback registered with Options.Configure is a
-        // documented place to finish configuring an engine, and enabling operator overloading from
-        // one has to reach the expressions that consult it.
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
 
-        // Likewise after Apply. The installed ClrTypeConverter is deliberately not part of this: the one
+        // The installed ClrTypeConverter is deliberately not part of this: the one
         // question resolution asks it is whether a member name converts to an index key, which only a type
         // carrying a non-int indexer is ever asked, and TypeResolver excludes that type's members from the
         // shared cache in both directions instead - see TypeResolver.IsConverterNeutral. Partitioning on the
@@ -1754,6 +1780,82 @@ public sealed partial class Engine : IDisposable
         // rule can be stated without an exception.
         Options.MakeReadOnly();
         sourceOptions.MakeReadOnly();
+
+        _constructionComplete = true;
+    }
+
+    /// <summary>
+    /// Takes the four fields every CLR value crossing into script is converted through, from the options as
+    /// they stand.
+    /// </summary>
+    /// <remarks>
+    /// Called twice: once before <see cref="Options.Apply"/>, because a configuration callback's
+    /// <c>engine.SetValue(name, clrValue)</c> converts and so must find them built, and once after, because
+    /// what those callbacks left behind is what the engine keeps. Unconditional in both directions, like
+    /// <see cref="RefreshExtensionMethods"/>: a callback that registers a converter is honoured, and a
+    /// registry an untrusted-code profile cleared on its way through <c>Apply</c> is obeyed.
+    /// <para>
+    /// A wrapper the callback itself built keeps the reading it was made with —
+    /// <see cref="Runtime.Interop.ObjectWrapper"/> folds <see cref="_immutableCrossingFilter"/> in at
+    /// construction. The two other filters are consulted per access, so they follow the second reading.
+    /// </para>
+    /// </remarks>
+    private void TakeInteropConversionState()
+    {
+        _objectConverters = Options.Interop.ObjectConverters.Count > 0
+            ? Options.Interop.ObjectConverters.ToArray()
+            : null;
+        _objectConverterTypeFilter = ObjectConverterTypeFilter.Create(_objectConverters);
+        _immutableCrossingFilter = ImmutableCrossingTypeFilter.Create(Options.Interop.ImmutableCrossingTypes);
+        _enumsAsStrings = Options.Interop.EnumConversion == EnumConversionMode.String;
+    }
+
+    /// <summary>
+    /// Refuses a host entry that would run script while this engine is still being constructed.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ThrowIfConstructionInFlight()
+    {
+        if (!_constructionComplete)
+        {
+            ThrowConstructionInFlight();
+        }
+    }
+
+    /// <summary>
+    /// Refuses a host reaching for this engine's constraint instances before they have been built.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ThrowIfConstraintsNotBuilt()
+    {
+        if (!_constructionComplete)
+        {
+            ThrowConstraintsNotBuilt();
+        }
+    }
+
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowConstraintsNotBuilt()
+    {
+        Throw.InvalidOperationException(
+            "This engine's constraints are not built yet. They are built from Options.Constraints once every "
+            + "callback registered with Options.Configure has run, so that a limit one of those callbacks "
+            + "registers or changes is the limit the engine gets. Write it on the options from the callback "
+            + "(Options.LimitStatements and the rest of Options.Constraints), and reach the engine's own "
+            + "constraint instances once the constructor has returned.");
+    }
+
+    [DoesNotReturn]
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void ThrowConstructionInFlight()
+    {
+        Throw.InvalidOperationException(
+            "This engine cannot run script yet, because it is still being constructed. A callback registered "
+            + "with Options.Configure runs from Options.Apply, before the engine's own globals (System, "
+            + "importNamespace, clrHelper, require, the opt-in web APIs) are installed and before an "
+            + "untrusted-code profile is re-applied, so a script run from there would see an incomplete "
+            + "realm. Run it once the constructor has returned instead.");
     }
 
     /// <summary>
@@ -2379,6 +2481,10 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     private Prepared<Script> ParseForExecution(string code, string? source, ScriptParsingOptions? parsingOptions)
     {
+        // Before the bracket below, because the string entries parse first and the default parser is one of
+        // the option-derived fields taken after Options.Apply.
+        ThrowIfConstructionInFlight();
+
         if (parsingOptions is null)
         {
             var defaultParser = GetParserFor(_defaultParserOptions);
@@ -3592,6 +3698,11 @@ public sealed partial class Engine : IDisposable
         TState state,
         HostEntryCallback<TState, TResult> callback)
     {
+        // This is the one bracket every entry that runs script goes through, so it is the one place the
+        // refusal has to be. A configuration callback reaches an engine whose call stack, default parser and
+        // option-derived fields are still being taken (sebastienros/jint#3581).
+        ThrowIfConstructionInFlight();
+
         using var ownership = EnterHostCall();
 
         // A nested call — a host callback inside a running script calling back into the engine —

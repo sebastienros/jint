@@ -333,12 +333,28 @@ public class SecurityConfigurationTests
             diagnostic => diagnostic.Code == SecurityDiagnosticCodes.AgentSuspensionEnabled);
     }
 
+    // The engine takes its option-derived fields after Options.Apply, so a deferred callback's write is
+    // what the engine ends up with - and the report reads the engine, in both directions.
+    // https://github.com/sebastienros/jint/issues/3583
+
     [Test]
-    public void EffectiveEngineReportUsesEngineSnapshotsTakenBeforeDeferredCallbacks()
+    public void EffectiveEngineReportFollowsWhatADeferredCallbackTurnedOff()
     {
         var options = CreateSafeOptions();
         options.Debugger.Enabled = true;
         options.Configure(_ => options.Debugger.Enabled = false);
+
+        var report = new Engine(options).Diagnostics.ValidateSecurityConfiguration();
+
+        report.Diagnostics.Select(static d => d.Code)
+            .Should().NotContain(SecurityDiagnosticCodes.DebuggerEnabled);
+    }
+
+    [Test]
+    public void EffectiveEngineReportFollowsWhatADeferredCallbackTurnedOn()
+    {
+        var options = CreateSafeOptions();
+        options.Configure(_ => options.Debugger.Enabled = true);
 
         var report = new Engine(options).Diagnostics.ValidateSecurityConfiguration();
 
