@@ -170,6 +170,61 @@ rather than answered about a different frame that happens to sit at the same ind
 engine's state other than an assignment in an evaluation: the scope objects a client expands are read-only
 snapshots, so a value changed after one was handed out is not reflected in it.
 
+### Profiles and coverage
+
+The `Profiler` domain answers two questions with two instruments, and neither is the other's fallback.
+
+**A profile comes through `IProfileSource`, and the shipped source is the *exact* profiler.** The engine has
+two: `Engine.Diagnostics.StartProfiling`, which records every call at the call boundary, and the sampling
+profiler of [#3608](https://github.com/sebastienros/jint/pull/3608), which notes what the stack looks like at
+the engine's own check points. Only the first is usable from here, and the reason is a visibility one rather
+than a design one: `SampledProfile` keeps its sample, frame, stack and function tables as `internal` fields
+and publishes a Firefox Profiler document as its only output, so consuming it would mean serializing to JSON
+and parsing it back. **Making those tables public is an engine change**, and when it lands the sampler becomes
+a second `IProfileSource` rather than an edit to the domain — which is why the seam exists before there is a
+second implementation of it. The seam speaks a function table and a balanced stream of enters and leaves,
+deliberately not the engine's own `ScriptProfileFrame`: a seam that names one profiler's type is a seam only
+that profiler fits through.
+
+`ProfileBuilder` turns that stream into the protocol's document, and three things about it are decisions:
+
+- **One sample per interval, not per tick.** The stream says exactly when each call happened, so the top of
+  the stack is known for every instant between two activations, and one weighted sample of that node is what
+  the panel wants. The deltas therefore *add up to* the recording rather than approximating it — the only
+  loss is each interval's truncation to whole microseconds.
+- **A node is a call position, not a function.** One function reached from two places is two nodes, which is
+  what lets the panel say where the time went rather than only in what.
+- **`(root)` and `(program)`, and nothing else synthetic.** `(program)` takes the time no script function was
+  on the stack. `(idle)` is never emitted, because an engine target has no idle state to report: a host that
+  is not running script is not idle, it is doing something this package cannot see. `(garbage collector)`
+  never, because the heap is the CLR's.
+
+**There is no console-driven half.** `console.profile` and `console.profileEnd` are not implemented by the
+engine at all — `ConsoleMethod` has no member for either, and the properties are not installed on `console`
+— so `consoleProfileStarted` and `consoleProfileFinished` are events nothing could raise. Adding them starts
+with the engine.
+
+**Coverage inverts a set.** `Engine.Diagnostics.GetCoverage` reports what *ran*: a construct with no entry
+never executed, so a report built from it alone would say every function it mentions was used and say nothing
+about the rest — which is the opposite of what a Coverage panel is for. The gap is closed from the abstract
+syntax tree the script registry already holds: every function the program declares gets a range, and the ones
+with no entry get `count: 0`. Two things stay approximate and are the domain's to state rather than to fix: a
+statement inside a function that ran but did not itself run is covered by its function's count, so unused code
+is reported at function granularity whatever `detailed` asks for; and a function's name is the syntax's, with
+the same inference the language makes for `Function.prototype.name` when there is none.
+
+**Taking coverage resets it, and that costs the host.** The protocol says `startPreciseCoverage` and
+`takePreciseCoverage` both reset execution counters — which is what makes successive takes incremental — and
+the counters are the engine's one set, so a host reading `GetCoverage` for its own purposes loses its numbers
+to an attached client. That is the protocol's contract rather than a defect here, and it is the reason
+coverage is off unless `UseDevTools` is asked for it. `getBestEffortCoverage` is the read that takes nothing
+away.
+
+**Both halves refuse an engine that was not built for them, by name.** Profiling needs
+`Options.Profiling.Enabled`, which `UseDevTools` always sets; coverage needs `Options.Coverage.Enabled`,
+which it sets only when asked. Both are construction-time, so the refusal names the option rather than
+answering an empty report that reads as a script which never ran.
+
 ### The `Absent` table, and how a command leaves it
 
 `Jint.Tests.DevTools/Protocol/HandshakeReplayTests.cs` replays the recordings in

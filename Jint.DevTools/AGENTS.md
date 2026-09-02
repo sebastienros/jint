@@ -297,6 +297,10 @@ Not oversights, and not to be added without a decision:
   engine reaches; a function object is not one, and the engine has no per-call hook to hang it off.
 - **Source maps.** The protocol carries `sourceMapURL` and the front end resolves it; nothing here reads
   one.
+- **`console.profile`, and the two `Profiler` events it drives.** The engine implements neither
+  `console.profile` nor `console.profileEnd` — `ConsoleMethod` has no member for either — so
+  `consoleProfileStarted` and `consoleProfileFinished` would be events nothing could ever raise. Adding them
+  starts in `Jint/WebApi/Console/`, not here.
 - **`HeapProfiler`.** There is no object graph to walk that would mean anything to a .NET host; memory is
   `engine.Diagnostics` and the constraints, not this protocol.
 - **Per-session debugging.** Breakpoints and the step mode live on the engine's `DebugHandler`, so a second

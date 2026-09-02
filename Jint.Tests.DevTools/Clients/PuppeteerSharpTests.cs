@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Jint.DevTools;
+using Jint.DevTools.Protocol;
 using PuppeteerSharp;
 
 namespace Jint.Tests.DevTools.Clients;
@@ -447,6 +448,65 @@ public class PuppeteerSharpTests
 
         // Reporting a pause is not handling the throw: it carries on to the host that was running the script.
         (await running.WaitAsync(Bound)).Should().Be("over the socket");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// A profile taken over a real socket, in the document a front end's Performance panel loads.
+    /// </summary>
+    /// <remarks>
+    /// The reply is read back through the data transfer objects generated from the pinned
+    /// <c>js_protocol.json</c>, whose <c>required</c> members make a missing one a failure rather than a
+    /// default — so this asserts the shape a client would accept and not merely the shape this server meant
+    /// to send.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerRecordsAProfileOfWhatTheEngineRan()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://profiler", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await target.PostAsync(engine => engine.Execute(
+            """
+            function leaf(n) {
+                return n * n;
+            }
+
+            function busy(times) {
+                var total = 0;
+                for (var i = 0; i < times; i++) {
+                    total = total + leaf(i);
+                }
+
+                return total;
+            }
+            """,
+            "busy.js")).WaitAsync(Bound);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://profiler", target.TargetId);
+
+        await session.SendAsync("Profiler.enable").WaitAsync(Bound);
+        await session.SendAsync("Profiler.setSamplingInterval", new { interval = 100 }).WaitAsync(Bound);
+        await session.SendAsync("Profiler.start").WaitAsync(Bound);
+
+        await session.SendAsync("Runtime.evaluate", new { expression = "busy(500)", returnByValue = true }).WaitAsync(Bound);
+
+        var stopped = await session.SendAsync("Profiler.stop").WaitAsync(Bound);
+        var profile = stopped!.Value.GetProperty("profile").Deserialize(ProtocolJsonContext.Default.ProfilerProfile);
+
+        profile.Should().NotBeNull();
+        profile!.Nodes.Select(node => node.CallFrame.FunctionName).Should().Contain(["(root)", "busy", "leaf"]);
+        profile.Samples.Should().NotBeNullOrEmpty();
+        profile.TimeDeltas!.Length.Should().Be(profile.Samples!.Length);
+        profile.EndTime.Should().BeGreaterThan(profile.StartTime);
 
         await session.DetachAsync().WaitAsync(Bound);
     }

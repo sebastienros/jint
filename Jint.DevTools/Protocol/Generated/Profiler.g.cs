@@ -319,8 +319,71 @@ namespace Jint.DevTools.Domains
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.Profiler.TakePreciseCoverageResponse>>("Profiler.takePreciseCoverage");
 
         /// <inheritdoc/>
-        internal sealed override global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
-            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<string>>("Profiler." + method);
+        internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
+        {
+            switch (method)
+            {
+                case "disable":
+                {
+                    var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "enable":
+                {
+                    var result = await EnableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "getBestEffortCoverage":
+                {
+                    var result = await GetBestEffortCoverageAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerGetBestEffortCoverageResponse);
+                }
+
+                case "setSamplingInterval":
+                {
+                    var result = await SetSamplingIntervalAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerSetSamplingIntervalRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "start":
+                {
+                    var result = await StartAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "startPreciseCoverage":
+                {
+                    var result = await StartPreciseCoverageAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerStartPreciseCoverageRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerStartPreciseCoverageResponse);
+                }
+
+                case "stop":
+                {
+                    var result = await StopAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerStopResponse);
+                }
+
+                case "stopPreciseCoverage":
+                {
+                    var result = await StopPreciseCoverageAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "takePreciseCoverage":
+                {
+                    var result = await TakePreciseCoverageAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.ProfilerTakePreciseCoverageResponse);
+                }
+
+                // A command manifest.json does not list is method-not-found BEFORE its parameters
+                // are looked at, which is the order Chrome answers in: a command a backend does not
+                // implement is not in its dispatch table at all, so its payload is never read.
+                default:
+                    return global::Jint.DevTools.Throw.MethodNotFound<string>("Profiler." + method);
+            }
+        }
     }
 
     /// <summary>Builds the <c>Profiler</c> domain's events.</summary>

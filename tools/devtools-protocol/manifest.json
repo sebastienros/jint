@@ -30,6 +30,10 @@
   // Runtime.getExceptionDetails is absent because nothing yet retains the details of an exception past the
   // command that reported it. Runtime.terminateExecution is absent because a constraint is how execution is
   // bounded here, and a client that could stop a host's script at will is a different security posture.
+  //
+  // Profiler has no console-driven half: console.profile and console.profileEnd are not implemented by the
+  // engine at all - ConsoleMethod has no member for either - so consoleProfileStarted and
+  // consoleProfileFinished would be events nothing could ever raise.
   "implementedMethods": [
     "Browser.close",
     "Browser.getVersion",
@@ -64,6 +68,15 @@
     "Log.enable",
     "Log.startViolationsReport",
     "Log.stopViolationsReport",
+    "Profiler.disable",
+    "Profiler.enable",
+    "Profiler.getBestEffortCoverage",
+    "Profiler.setSamplingInterval",
+    "Profiler.start",
+    "Profiler.startPreciseCoverage",
+    "Profiler.stop",
+    "Profiler.stopPreciseCoverage",
+    "Profiler.takePreciseCoverage",
     "Runtime.addBinding",
     "Runtime.awaitPromise",
     "Runtime.callFunctionOn",
@@ -128,6 +141,7 @@
     { "name": "Console", "version": "1.3" },
     { "name": "Debugger", "version": "1.3" },
     { "name": "Log", "version": "1.3" },
+    { "name": "Profiler", "version": "1.3" },
     { "name": "Runtime", "version": "1.3" },
     { "name": "Schema", "version": "1.3" },
     { "name": "Target", "version": "1.3" }
