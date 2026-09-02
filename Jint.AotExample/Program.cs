@@ -309,10 +309,11 @@ Probe("JS array -> List<int> parameter", static () =>
 });
 
 // DefaultTypeConverter.TryConvertInternal: typeof(List<>).MakeGenericType(long). The parameter is an
-// interface, so nothing in the closed program names List<long> and there is no non-generic value that
-// satisfies IEnumerable<long> to degrade to - an array would need long[] to exist for the same reason,
-// and would hand a host that calls Add a fixed-size collection.
-KnownAotGap("JS array -> IEnumerable<long> parameter", static () =>
+// interface, so for a long time nothing in the closed program named List<long> and this was a gap.
+// The sampling profiler's own buffers (Jint/Profiling) now name long-typed collections, ILC compiles
+// the instantiation, and MakeGenericType finds it - the boundary the Probe above pins, crossed from
+// the other side. The Collection<short> sibling below stays a gap: nothing names List<short>.
+Probe("JS array -> IEnumerable<long> parameter", static () =>
 {
     var engine = new Engine(static cfg => cfg.AllowClr());
     engine.SetValue("taker", new ListTaker());
