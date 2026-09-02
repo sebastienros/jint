@@ -95,6 +95,7 @@ namespace Jint
         public sealed class DiagnosticOperations
         {
             public bool IsProfiling { get; }
+            public bool IsSampling { get; }
             public string StackTrace { get; }
             public Jint.Runtime.Coverage.CoverageReport GetCoverage() { }
             public Jint.InteropConversionDiagnostics GetInteropConversionDiagnostics() { }
@@ -102,7 +103,9 @@ namespace Jint
             public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
             public void ResetCoverage() { }
             public void StartProfiling() { }
+            public void StartSampling(Jint.Profiling.SamplingOptions? options = null) { }
             public Jint.Profiling.ScriptProfile StopProfiling() { }
+            public Jint.Profiling.SampledProfile StopSampling() { }
             public Jint.SecurityConfigurationReport ValidateSecurityConfiguration(Jint.SecurityConfigurationPolicy policy = 0) { }
         }
         public sealed class ModuleOperations
@@ -1707,6 +1710,22 @@ namespace Jint.NodeCompat
 }
 namespace Jint.Profiling
 {
+    public sealed class SampledProfile
+    {
+        public int DroppedSampleCount { get; }
+        public System.TimeSpan Duration { get; }
+        public System.TimeSpan Interval { get; }
+        public int SampleCount { get; }
+        public void WriteTo(System.IO.Stream stream) { }
+        public void WriteTo(System.IO.TextWriter writer) { }
+    }
+    public sealed class SamplingOptions
+    {
+        public const int DefaultMaxSamples = 100000;
+        public SamplingOptions() { }
+        public System.TimeSpan Interval { get; set; }
+        public int MaxSamples { get; set; }
+    }
     public sealed class ScriptProfile
     {
         public System.TimeSpan Duration { get; }

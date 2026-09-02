@@ -1,9 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Jint.Native;
 using Jint.Native.Function;
-using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interpreter;
 
 namespace Jint.Profiling;
@@ -37,14 +35,12 @@ internal sealed class ScriptProfiler
     /// </summary>
     private static readonly double NanosecondsPerTick = 1_000_000_000.0 / Stopwatch.Frequency;
 
-    internal const string AnonymousFrameName = "<anonymous>";
-
     private readonly int _maxEvents;
     private readonly long _startTimestamp;
 
     private readonly List<RecordedEvent> _events = new();
     private readonly List<ScriptProfileFrame> _frames = new();
-    private readonly Dictionary<object, int> _frameIndexes = new(ReferenceComparer.Instance);
+    private readonly Dictionary<object, int> _frameIndexes = new(ProfileFrames.FunctionIdentity);
 
     /// <summary>
     /// The frames currently open, innermost last — the profiler's own mirror of the call stack. It exists
@@ -240,69 +236,9 @@ internal sealed class ScriptProfiler
         }
 
         index = _frames.Count;
-        _frames.Add(Describe(function, definition));
+        _frames.Add(ProfileFrames.Describe(function, definition));
         _frameIndexes.Add(key, index);
         return index;
-    }
-
-    private static ScriptProfileFrame Describe(Function function, JintFunctionDefinition? definition)
-    {
-        var name = ResolveName(function, definition);
-
-        var node = (Node?) definition?.Function;
-        if (node is null)
-        {
-            return new ScriptProfileFrame(name, File: null, Line: null, Column: null);
-        }
-
-        var location = node.Location;
-        if (location == default)
-        {
-            return new ScriptProfileFrame(name, File: null, Line: null, Column: null);
-        }
-
-        var file = string.IsNullOrEmpty(location.SourceFile) ? null : location.SourceFile;
-
-        // Column is reported one-based, matching the column Jint puts in a stack trace; the parser's is an
-        // index.
-        return new ScriptProfileFrame(name, file, location.Start.Line, location.Start.Column + 1);
-    }
-
-    /// <summary>
-    /// The name to show for a function, resolved once when its frame is interned and without running any
-    /// script: the name its declaration carries, else the own <c>name</c> property's stored value when that
-    /// is a plain string (which is where an inferred name such as the <c>f</c> of
-    /// <c>var f = function () {}</c> lives), else <see cref="AnonymousFrameName"/>.
-    /// </summary>
-    /// <remarks>
-    /// Two things decide the order. A frame is interned by definition, so the declared name is the one that
-    /// identifies all of its instances, and reading it first also means a script function's <em>pending</em>
-    /// name descriptor — the shared sentinel whose value accessors throw to make a leak loud — is never
-    /// touched, since that sentinel only stands in for a declared name in the first place. And a descriptor
-    /// carrying <see cref="PropertyFlag.CustomJsValue"/> is declined rather than read: resolving one runs
-    /// host code, which is the profiler's business least of all.
-    /// </remarks>
-    private static string ResolveName(Function function, JintFunctionDefinition? definition)
-    {
-        var declared = definition?.Name;
-        if (!string.IsNullOrEmpty(declared))
-        {
-            return declared!;
-        }
-
-        var descriptor = function._nameDescriptor;
-        if (descriptor is not null
-            && (descriptor.Flags & PropertyFlag.CustomJsValue) == PropertyFlag.None
-            && descriptor.Value is JsString ownName)
-        {
-            var name = ownName.ToString();
-            if (name.Length > 0)
-            {
-                return name;
-            }
-        }
-
-        return AnonymousFrameName;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -317,19 +253,4 @@ internal sealed class ScriptProfiler
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct RecordedEvent(long Timestamp, int EncodedFrame);
-
-    /// <summary>
-    /// Identity comparison for the frame-interning map. Hand-written because
-    /// <c>ReferenceEqualityComparer</c> is .NET 5+ and Jint still targets net472 and netstandard2.0, and
-    /// because the keys — a <see cref="JintFunctionDefinition"/> or a <see cref="Function"/> — must not be
-    /// compared by any <c>Equals</c> override they may have.
-    /// </summary>
-    private sealed class ReferenceComparer : IEqualityComparer<object>
-    {
-        internal static readonly ReferenceComparer Instance = new();
-
-        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
-
-        public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
-    }
 }

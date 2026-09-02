@@ -1432,6 +1432,21 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     internal int _amortizedConstraintCountdown = EvaluationContext.AmortizedConstraintCheckInterval;
 
+    /// <summary>
+    /// The sampling session recording this engine's call stack, or <see langword="null"/> — which it is
+    /// unless a host has called <see cref="DiagnosticOperations.StartSampling"/>. It rides the amortized
+    /// cadence above rather than a timer or a second thread: the stack is thread-affine, so the only thread
+    /// that may read it is the one running it, and the only place that thread reliably passes through is a
+    /// check point.
+    /// </summary>
+    /// <remarks>
+    /// The cost of not sampling is nothing the interpreter can see. The per-statement gate is
+    /// <see cref="EvaluationContext"/>'s single "is there amortized work" flag, which this field is folded
+    /// into when a session opens, so an engine with no constraints and no session runs the same instructions
+    /// it ran before this existed.
+    /// </remarks>
+    internal Profiling.SamplingProfiler? _sampler;
+
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
     internal readonly UntrustedCodeLimits? _untrustedCodeLimits;
@@ -3184,6 +3199,10 @@ public sealed partial class Engine : IDisposable
             // longer debugger expression doesn't trip the countdown either
             return;
         }
+
+        // Before the constraints, so the sample that shows where a script ran out of its budget is taken
+        // rather than lost to the throw.
+        _sampler?.Check(this);
 
         try
         {
