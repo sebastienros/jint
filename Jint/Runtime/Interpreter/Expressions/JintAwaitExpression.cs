@@ -239,6 +239,11 @@ internal sealed class JintAwaitExpression : JintExpression
 
         var context = engine._evaluationContext;
 
+        // Same boundary as AsyncBlockStart: a throw in the resumed body becomes a rejection, so whatever try
+        // blocks the drain happens to be running under do not catch it. See Engine._tryCatchDepth.
+        var previousTryCatchDepth = engine._tryCatchDepth;
+        engine._tryCatchDepth = 0;
+
         Completion result;
         try
         {
@@ -279,6 +284,10 @@ internal sealed class JintAwaitExpression : JintExpression
             // checks, and a leaked frame would satisfy the gate forever
             engine.LeaveExecutionContext();
             throw;
+        }
+        finally
+        {
+            engine._tryCatchDepth = previousTryCatchDepth;
         }
 
         if (asyncInstance._state == AsyncFunctionState.SuspendedAwait)

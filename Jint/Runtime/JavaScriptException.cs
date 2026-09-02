@@ -25,6 +25,19 @@ public class JavaScriptException : JintException
 
     private readonly JavaScriptErrorWrapperException _jsErrorException;
 
+    /// <summary>
+    /// Whether this exception is a Throw completion re-raised so that it can leave a function, generator or
+    /// <c>eval</c> body, rather than a throw being raised for the first time.
+    /// </summary>
+    /// <remarks>
+    /// Set only by <see cref="Throw.JavaScriptException(Engine, JsValue, in Completion)"/>, whose every
+    /// caller is such a boundary. It exists so that the debugger stops once, where the throw happened, and
+    /// not again in every frame the unwind passes through — each of which re-raises the same throw as a new
+    /// instance of this class, so nothing else on the way up can tell the difference.
+    /// <see cref="Debugger.DebugHandler.ExceptionThrown"/> is deliberately not filtered by it.
+    /// </remarks>
+    internal bool _reRaisedAtBodyBoundary;
+
     public string? JavaScriptStackTrace => _jsErrorException.StackTrace;
 
     /// <summary>

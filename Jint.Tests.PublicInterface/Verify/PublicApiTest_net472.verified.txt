@@ -2029,6 +2029,7 @@ namespace Jint.Runtime.Debugger
     {
         public Jint.Runtime.Debugger.BreakPointCollection BreakPoints { get; }
         public Acornima.SourceLocation? CurrentLocation { get; }
+        public Jint.Runtime.Debugger.ExceptionPauseMode PauseOnExceptions { get; set; }
         public event Jint.Runtime.Debugger.DebugHandler.BeforeEvaluateEventHandler? BeforeEvaluate;
         public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Break;
         public event Jint.Runtime.Debugger.DebugHandler.ExceptionThrownEventHandler? ExceptionThrown;
@@ -2053,9 +2054,11 @@ namespace Jint.Runtime.Debugger
         public long CurrentMemoryUsage { get; }
         public Acornima.Ast.Node? CurrentNode { get; }
         public Jint.Runtime.Debugger.DebugScopes CurrentScopeChain { get; }
+        public bool IsUncaught { get; }
         public Acornima.SourceLocation&? Location { get; }
         public Jint.Runtime.Debugger.PauseType PauseType { get; }
         public Jint.Native.JsValue? ReturnValue { get; }
+        public Jint.Native.JsValue? ThrownValue { get; }
     }
     public sealed class DebugScope
     {
@@ -2091,6 +2094,12 @@ namespace Jint.Runtime.Debugger
         Clr = 1,
         Script = 2,
     }
+    public enum ExceptionPauseMode
+    {
+        None = 0,
+        Uncaught = 1,
+        All = 2,
+    }
     public sealed class ExceptionThrownEventArgs : System.EventArgs
     {
         public Jint.Runtime.Debugger.DebugCallStack CallStack { get; }
@@ -2103,6 +2112,7 @@ namespace Jint.Runtime.Debugger
         Step = 1,
         Break = 2,
         DebuggerStatement = 3,
+        Exception = 4,
     }
     public readonly struct StepLocation : System.IEquatable<Jint.Runtime.Debugger.StepLocation>
     {

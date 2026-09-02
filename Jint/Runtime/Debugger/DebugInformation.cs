@@ -19,7 +19,9 @@ public sealed class DebugInformation : EventArgs
         long currentMemoryUsage,
         PauseType pauseType,
         BreakPoint? breakPoint,
-        long generation)
+        long generation,
+        JsValue? thrownValue = null,
+        bool isUncaught = false)
     {
         _engine = engine;
         _generation = generation;
@@ -29,7 +31,29 @@ public sealed class DebugInformation : EventArgs
         CurrentMemoryUsage = currentMemoryUsage;
         PauseType = pauseType;
         BreakPoint = breakPoint;
+        ThrownValue = thrownValue;
+        IsUncaught = isUncaught;
     }
+
+    /// <summary>
+    /// Gets the value that was thrown, or <see langword="null"/> unless this is a
+    /// <see cref="PauseType.Exception"/> pause.
+    /// </summary>
+    /// <remarks>
+    /// It is the thrown value itself, whatever its type — an <c>Error</c> object for a normal throw, but a
+    /// number for <c>throw 42</c> — and never a wrapper around it.
+    /// </remarks>
+    public JsValue? ThrownValue { get; }
+
+    /// <summary>
+    /// Whether no <c>catch</c> clause on the stack will handle the thrown exception.
+    /// </summary>
+    /// <remarks>
+    /// Meaningful only for a <see cref="PauseType.Exception"/> pause; it is
+    /// <see langword="false"/> for every other pause. See
+    /// <see cref="DebugHandler.PauseOnExceptions"/> for what counts as caught.
+    /// </remarks>
+    public bool IsUncaught { get; }
 
     /// <summary>
     /// Indicates the type of pause that resulted in this DebugInformation being generated.

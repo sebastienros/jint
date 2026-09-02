@@ -10,7 +10,12 @@ public enum PauseType
     Skip,
     Step,
     Break,
-    DebuggerStatement
+    DebuggerStatement,
+
+    /// <summary>
+    /// A JavaScript exception was thrown and <see cref="DebugHandler.PauseOnExceptions"/> asked for it.
+    /// </summary>
+    Exception
 }
 
 public class DebugHandler
@@ -101,6 +106,32 @@ public class DebugHandler
     /// Collection of active breakpoints for the engine.
     /// </summary>
     public BreakPointCollection BreakPoints { get; }
+
+    /// <summary>
+    /// Gets or sets which thrown exceptions stop the engine. Defaults to <see cref="ExceptionPauseMode.None"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The engine stops at the throw site, before anything unwinds, so the call stack still holds the frame
+    /// that threw and its scopes and <see cref="Evaluate(string, CallFrame, ScriptParsingOptions)"/> answer
+    /// for it. The pause raises <see cref="Break"/> with <see cref="PauseType.Exception"/>, and
+    /// <see cref="DebugInformation.ThrownValue"/> carries the value that was thrown.
+    /// </para>
+    /// <para>
+    /// <see cref="ExceptionPauseMode.Uncaught"/> means no <c>catch</c> clause is executing on the stack — a
+    /// <c>finally</c>-only <c>try</c> does not count, a <c>catch</c> in a calling function does. Two
+    /// boundaries end that search, because a throw crossing either becomes something other than an exception:
+    /// a host entry, whose caller receives a <see cref="JavaScriptException"/>, and an async function body,
+    /// whose throw becomes a rejection of its own promise. So an async function that throws is uncaught even
+    /// when its caller wrapped the call in <c>try</c>/<c>catch</c>, which is what a user asking to stop on
+    /// uncaught exceptions wants and what a rejection nobody handles turns out to be.
+    /// </para>
+    /// <para>
+    /// A rejection with no throw behind it — <c>Promise.reject(x)</c> — never stops the engine. Nothing here
+    /// replaces <see cref="ExceptionThrown"/>, which still reports every throw whatever this is set to.
+    /// </para>
+    /// </remarks>
+    public ExceptionPauseMode PauseOnExceptions { get; set; }
 
     /// <summary>
     /// Evaluates a script (expression) within the current execution context.
@@ -456,9 +487,20 @@ public class DebugHandler
         return location.Line < line || (location.Line == line && location.Column < column);
     }
 
-    internal void OnExceptionThrown(JsValue thrownValue, in SourceLocation location)
+    /// <summary>
+    /// Reports a thrown JavaScript exception to <see cref="ExceptionThrown"/>, and stops the engine when
+    /// <see cref="PauseOnExceptions"/> asks for it.
+    /// </summary>
+    /// <param name="thrownValue">The value that was thrown.</param>
+    /// <param name="location">Where in the source it was thrown.</param>
+    /// <param name="reRaisedAtBodyBoundary">
+    /// Whether this is the same throw leaving a function, generator or <c>eval</c> body rather than a new
+    /// one. The event fires either way — it always has — but the pause happens only for the throw itself.
+    /// </param>
+    internal void OnExceptionThrown(JsValue thrownValue, in SourceLocation location, bool reRaisedAtBodyBoundary = false)
     {
-        if (ExceptionThrown is null)
+        var pauseMode = reRaisedAtBodyBoundary ? ExceptionPauseMode.None : PauseOnExceptions;
+        if (ExceptionThrown is null && pauseMode == ExceptionPauseMode.None)
         {
             return;
         }
@@ -469,9 +511,32 @@ public class DebugHandler
             return;
         }
 
-        var args = new ExceptionThrownEventArgs(_engine, thrownValue, in location, _generation);
-        ExceptionThrown.Invoke(_engine, args);
+        if (ExceptionThrown is not null)
+        {
+            var args = new ExceptionThrownEventArgs(_engine, thrownValue, in location, _generation);
+            ExceptionThrown.Invoke(_engine, args);
+            _generation++;
+        }
+
+        if (pauseMode == ExceptionPauseMode.None)
+        {
+            return;
+        }
+
+        // Nothing on the CLR stack between the throw and here has popped a call frame, so the engine's
+        // count of executing try-with-catch blocks is still the one the throw was raised under.
+        var uncaught = _engine._tryCatchDepth == 0;
+        if (pauseMode == ExceptionPauseMode.Uncaught && !uncaught)
+        {
+            return;
+        }
+
+        _paused = true;
+
+        Pause(PauseType.Exception, node: null, in location, thrownValue: thrownValue, isUncaught: uncaught);
+
         _generation++;
+        _paused = false;
     }
 
     internal void OnBeforeEvaluate(Program ast)
@@ -556,7 +621,9 @@ public class DebugHandler
         Node? node,
         in SourceLocation location,
         JsValue? returnValue = null,
-        BreakPoint? breakPoint = null)
+        BreakPoint? breakPoint = null,
+        JsValue? thrownValue = null,
+        bool isUncaught = false)
     {
         var info = new DebugInformation(
             engine: _engine,
@@ -566,7 +633,9 @@ public class DebugHandler
             currentMemoryUsage: _engine.CurrentMemoryUsage,
             pauseType: type,
             breakPoint: breakPoint,
-            generation: _generation
+            generation: _generation,
+            thrownValue: thrownValue,
+            isUncaught: isUncaught
         );
 
         StepMode? result = type switch
@@ -576,6 +645,7 @@ public class DebugHandler
             PauseType.Step => Step?.Invoke(_engine, info),
             PauseType.Break => Break?.Invoke(_engine, info),
             PauseType.DebuggerStatement => Break?.Invoke(_engine, info),
+            PauseType.Exception => Break?.Invoke(_engine, info),
             _ => throw new ArgumentException("Invalid pause type", nameof(type))
         };
 
