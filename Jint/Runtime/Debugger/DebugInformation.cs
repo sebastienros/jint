@@ -7,6 +7,7 @@ public sealed class DebugInformation : EventArgs
     private readonly Engine _engine;
     private readonly SourceLocation _currentLocation;
     private readonly JsValue? _returnValue;
+    private readonly long _generation;
 
     private DebugCallStack? _callStack;
 
@@ -17,9 +18,11 @@ public sealed class DebugInformation : EventArgs
         JsValue? returnValue,
         long currentMemoryUsage,
         PauseType pauseType,
-        BreakPoint? breakPoint)
+        BreakPoint? breakPoint,
+        long generation)
     {
         _engine = engine;
+        _generation = generation;
         CurrentNode = currentNode;
         _currentLocation = currentLocation;
         _returnValue = returnValue;
@@ -47,7 +50,7 @@ public sealed class DebugInformation : EventArgs
         get
         {
             using var ownership = _engine.EnterHostCall();
-            return _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue);
+            return _callStack ??= new DebugCallStack(_engine, _currentLocation, _engine.CallStack, _returnValue, _generation);
         }
     }
 

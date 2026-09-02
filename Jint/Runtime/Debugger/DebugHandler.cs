@@ -1,5 +1,7 @@
 using Jint.Native;
+using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
+using Environment = Jint.Runtime.Environments.Environment;
 
 namespace Jint.Runtime.Debugger;
 
@@ -21,6 +23,13 @@ public class DebugHandler
     private bool _paused;
     private int _steppingDepth;
     private SourceLocation? _currentLocation;
+
+    /// <summary>
+    /// Stamped on every <see cref="DebugCallStack"/> this handler hands out and bumped when the
+    /// notification that produced it returns, so that <see cref="Evaluate(string, CallFrame, ScriptParsingOptions)"/>
+    /// can tell a frame of the current pause from one a host kept past it.
+    /// </summary>
+    private long _generation;
 
     /// <summary>
     /// Triggered before the engine executes/evaluates the parsed AST of a script or module.
@@ -100,12 +109,53 @@ public class DebugHandler
     /// Internally, this is used for evaluating breakpoint conditions, but may also be used for e.g. watch lists
     /// in a debugger.
     /// </remarks>
-    public JsValue Evaluate(in Prepared<Script> preparedScript)
+    public JsValue Evaluate(in Prepared<Script> preparedScript) => EvaluateCore(in preparedScript, frame: null);
+
+    /// <summary>
+    /// Evaluates a script (expression) in the environment of <paramref name="frame"/> rather than in the
+    /// innermost one.
+    /// </summary>
+    /// <param name="preparedScript">The prepared expression or statement list to run.</param>
+    /// <param name="frame">A frame of the call stack the debugger is currently stopped in.</param>
+    /// <exception cref="InvalidOperationException">
+    /// <paramref name="frame"/> belongs to another engine, or to a pause this engine has already left.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// The frame's scope chain is what the expression resolves against, so a binding the innermost frame
+    /// shadows is read — and written — as that frame sees it, and <c>this</c> and <c>arguments</c> are the
+    /// frame's own. Passing <see cref="DebugInformation.CurrentCallFrame"/> is exactly
+    /// <see cref="Evaluate(in Prepared{Script})"/>.
+    /// </para>
+    /// <para>
+    /// Frames belong to the pause they were taken in. One kept past the <see cref="Break"/>,
+    /// <see cref="Step"/> or <see cref="ExceptionThrown"/> handler that produced it names environments the
+    /// engine has since left, so it is refused rather than evaluated against.
+    /// </para>
+    /// </remarks>
+    public JsValue Evaluate(in Prepared<Script> preparedScript, CallFrame frame)
+    {
+        if (frame is null)
+        {
+            Throw.ArgumentNullException(nameof(frame));
+        }
+
+        return EvaluateCore(in preparedScript, frame);
+    }
+
+    private JsValue EvaluateCore(in Prepared<Script> preparedScript, CallFrame? frame)
     {
         using var ownership = _engine.EnterHostCall();
         if (!preparedScript.IsValid)
         {
             Throw.InvalidPreparedScriptArgumentException(nameof(preparedScript));
+        }
+
+        // Before the evaluation-context test, so that a frame the engine has moved past is always reported
+        // as the misuse it is, rather than as "no active evaluation context" once the run is over.
+        if (frame is not null)
+        {
+            VerifyFrameBelongsToCurrentPause(frame);
         }
 
         if (!_engine.IsEvaluationInProgress)
@@ -117,20 +167,32 @@ public class DebugHandler
         var callStackSize = _engine.CallStack.Count;
         var parsingConstraints = _engine.GetActiveParsingConstraints().Combine(preparedScript.ParsingConstraints);
         ref readonly var activeContext = ref _engine.ExecutionContext;
+
+        // The top frame IS the active execution context (DebugCallStack builds it from exactly that), so
+        // taking the active one keeps the frame overload observably identical to the frameless one there.
+        var target = frame is null || frame.Index == 0
+            ? new FrameEnvironments(
+                activeContext.LexicalEnvironment,
+                activeContext.VariableEnvironment,
+                activeContext.PrivateEnvironment,
+                activeContext.Realm,
+                activeContext.Strict)
+            : DescribeFrame(frame, in activeContext);
+
         var scriptRecord = new ScriptRecord(
-            activeContext.Realm,
+            target.Realm,
             preparedScript.Program,
             preparedScript.Program.Location.SourceFile,
             parsingConstraints,
             preparedScript.ParserOptions);
         var debuggerExecutionContext = new Environments.ExecutionContext(
             scriptRecord,
-            activeContext.LexicalEnvironment,
-            activeContext.VariableEnvironment,
-            activeContext.PrivateEnvironment,
-            activeContext.Realm,
+            target.LexicalEnvironment,
+            target.VariableEnvironment,
+            target.PrivateEnvironment,
+            target.Realm,
             parserOptions: preparedScript.ParserOptions,
-            strict: activeContext.Strict);
+            strict: target.Strict);
 
         var list = new JintStatementList(null, preparedScript.Program.Body);
         Completion result;
@@ -178,6 +240,23 @@ public class DebugHandler
 
     /// <inheritdoc cref="Evaluate(in Prepared{Script})" />
     public JsValue Evaluate(string sourceText, ScriptParsingOptions? parsingOptions = null)
+        => EvaluateCore(sourceText, frame: null, parsingOptions);
+
+    /// <inheritdoc cref="Evaluate(in Prepared{Script}, CallFrame)" />
+    /// <param name="sourceText">The expression or statement list to parse and run.</param>
+    /// <param name="frame">A frame of the call stack the debugger is currently stopped in.</param>
+    /// <param name="parsingOptions">Parsing options, or <see langword="null"/> for the engine's own.</param>
+    public JsValue Evaluate(string sourceText, CallFrame frame, ScriptParsingOptions? parsingOptions = null)
+    {
+        if (frame is null)
+        {
+            Throw.ArgumentNullException(nameof(frame));
+        }
+
+        return EvaluateCore(sourceText, frame, parsingOptions);
+    }
+
+    private JsValue EvaluateCore(string sourceText, CallFrame? frame, ScriptParsingOptions? parsingOptions)
     {
         using var ownership = _engine.EnterHostCall();
         var parser = parsingOptions is null
@@ -196,7 +275,7 @@ public class DebugHandler
             _engine._parsingConstraintsOverride = parser.Constraints;
             try
             {
-                return Evaluate(in prepared);
+                return EvaluateCore(in prepared, frame);
             }
             finally
             {
@@ -207,6 +286,73 @@ public class DebugHandler
         catch (ParseErrorException ex)
         {
             throw new DebugEvaluationException("An error occurred during debugger expression parsing", ex);
+        }
+    }
+
+    /// <summary>
+    /// The parts of an <see cref="Environments.ExecutionContext"/> a debugger evaluation has to establish
+    /// to run as if it were code of one particular call frame.
+    /// </summary>
+    private readonly record struct FrameEnvironments(
+        Environment LexicalEnvironment,
+        Environment VariableEnvironment,
+        PrivateEnvironment? PrivateEnvironment,
+        Realm Realm,
+        bool Strict);
+
+    /// <summary>
+    /// Reconstructs a non-top frame's execution context. Only the lexical environment is recorded per
+    /// frame; the rest is derived from it and from the frame's function, which is where the caller's
+    /// context took them from in the first place.
+    /// </summary>
+    private static FrameEnvironments DescribeFrame(CallFrame frame, in Environments.ExecutionContext activeContext)
+    {
+        var lexicalEnvironment = frame.LexicalEnvironment;
+        var variableEnvironment = FindVariableEnvironment(lexicalEnvironment);
+        var function = frame.Function;
+
+        // A function's [[PrivateEnvironment]] and [[Realm]] are exactly what PrepareForOrdinaryCall puts
+        // on its execution context. The global frame has no function, so it keeps the running realm, and
+        // its code is strict only when it is a module's.
+        return new FrameEnvironments(
+            lexicalEnvironment,
+            variableEnvironment,
+            function?._privateEnvironment,
+            function?._realm ?? activeContext.Realm,
+            function?._functionDefinition?.Strict ?? variableEnvironment is ModuleEnvironment);
+    }
+
+    /// <summary>
+    /// Walks out of block, <c>catch</c> and <c>with</c> scopes to the environment a <c>var</c> declaration
+    /// of the frame would land in.
+    /// </summary>
+    private static Environment FindVariableEnvironment(Environment lexicalEnvironment)
+    {
+        var environment = lexicalEnvironment;
+        while (environment is not null)
+        {
+            if (environment is FunctionEnvironment or GlobalEnvironment or ModuleEnvironment)
+            {
+                return environment;
+            }
+
+            environment = environment._outerEnv;
+        }
+
+        return lexicalEnvironment;
+    }
+
+    private void VerifyFrameBelongsToCurrentPause(CallFrame frame)
+    {
+        if (!ReferenceEquals(frame.Engine, _engine))
+        {
+            Throw.InvalidOperationException("The call frame belongs to a different engine");
+        }
+
+        if (frame.Generation != _generation)
+        {
+            Throw.InvalidOperationException(
+                "The call frame belongs to an execution point this engine has already left, and the environments it names are no longer on the stack");
         }
     }
 
@@ -323,8 +469,9 @@ public class DebugHandler
             return;
         }
 
-        var args = new ExceptionThrownEventArgs(_engine, thrownValue, in location);
+        var args = new ExceptionThrownEventArgs(_engine, thrownValue, in location, _generation);
         ExceptionThrown.Invoke(_engine, args);
+        _generation++;
     }
 
     internal void OnBeforeEvaluate(Program ast)
@@ -398,6 +545,9 @@ public class DebugHandler
 
         Pause(pauseType, node, in location, returnValue, breakPoint);
 
+        // Whatever the handler kept — a DebugInformation, a CallFrame — names environments that are about
+        // to be left, so a frame handed back later can be told apart from one of the pause still running.
+        _generation++;
         _paused = false;
     }
 
@@ -415,7 +565,8 @@ public class DebugHandler
             returnValue: returnValue,
             currentMemoryUsage: _engine.CurrentMemoryUsage,
             pauseType: type,
-            breakPoint: breakPoint
+            breakPoint: breakPoint,
+            generation: _generation
         );
 
         StepMode? result = type switch

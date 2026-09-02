@@ -8,19 +8,19 @@ public sealed class DebugCallStack : IReadOnlyList<CallFrame>
 {
     private readonly List<CallFrame> _stack;
 
-    internal DebugCallStack(Engine engine, SourceLocation location, JintCallStack callStack, JsValue? returnValue)
+    internal DebugCallStack(Engine engine, SourceLocation location, JintCallStack callStack, JsValue? returnValue, long generation)
     {
         _stack = new List<CallFrame>(callStack.Count + 1);
         var executionContext = new CallStackExecutionContext(engine.ExecutionContext);
         foreach (var element in callStack.Stack)
         {
-            _stack.Add(new CallFrame(element, in executionContext, in location, returnValue));
+            _stack.Add(new CallFrame(element, in executionContext, in location, returnValue, _stack.Count, generation));
             location = element.Location;
             returnValue = null;
             executionContext = element.CallingExecutionContext;
         }
         // Add root location
-        _stack.Add(new CallFrame(null, in executionContext, in location, returnValue: null));
+        _stack.Add(new CallFrame(null, in executionContext, in location, returnValue: null, _stack.Count, generation));
     }
 
     public CallFrame this[int index] => _stack[index];
