@@ -112,7 +112,9 @@ rollback included. A link to follow, a form to submit and a file chooser to open
 item R5) replaces it through `BrowserEventRealm.ActivationHost`. A colour or date picker has nothing to pick
 with and is honestly nothing rather than a guessed value. Focusability is computed from the element's kind and
 its `tabindex` content attribute rather than from AngleSharp's `TabIndex`, which answers 0 for every element
-including a bare `<div>`.
+including a bare `<div>`. **Selector pseudo-classes are deliberately not wired to any of it**: `:focus`,
+`:checked` and `:hover` in a `querySelector` go to AngleSharp's own selector engine, which knows nothing about
+the focus this package tracks, so `el.matches(':focus')` is not an answer about it.
 
 **Handler content attributes need no notification from AngleSharp, and that is a decision.** The attribute's
 text *is* the state: a handler slot records which text it was last reconciled against, and any difference is
