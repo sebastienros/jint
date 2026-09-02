@@ -15,7 +15,7 @@
 # resolving here until somebody re-runs that.
 #
 verified: 2026-09-02
-anchors: 1252
+anchors: 1253
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -179,6 +179,7 @@ ecma262 sec-blockdeclarationinstantiation
 ecma262 sec-boolean-constructor-boolean-value
 ecma262 sec-bound-function-exotic-objects
 ecma262 sec-bound-function-exotic-objects-call-thisargument-argumentslist
+ecma262 sec-bound-function-exotic-objects-construct-argumentslist-newtarget
 ecma262 sec-boundfunctioncreate
 ecma262 sec-built-in-function-objects
 ecma262 sec-canbeheldweakly

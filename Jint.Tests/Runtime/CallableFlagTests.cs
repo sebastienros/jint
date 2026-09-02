@@ -22,7 +22,6 @@ public class CallableFlagTests
         var flagSettingRoots = new[]
         {
             typeof(Function),
-            typeof(BindFunction),
             typeof(NamespaceReference),
             // internal: JsProxy and IsHTMLDDA are resolved by name below
         };
@@ -48,27 +47,50 @@ public class CallableFlagTests
 
     /// <summary>
     /// The call path also decides whether a callee gets a call-stack frame from
-    /// <c>InternalTypes.Function</c> rather than <c>is Function</c>, so the flag must be set by
-    /// <see cref="Function"/> and by nothing else. The other <c>ICallable</c> roots must NOT carry it —
-    /// if one did, it would be reinterpreted as a <see cref="Function"/> and pushed onto the call stack.
+    /// <c>InternalTypes.Function</c> rather than <c>is Function</c>, so the flag must agree with the type
+    /// exactly: every <see cref="Function"/> carries it and every other <c>ICallable</c> root does not —
+    /// if one of those did, it would be reinterpreted as a <see cref="Function"/> and pushed onto the call
+    /// stack.
     /// </summary>
     [Test]
     public void OnlyFunctionCarriesTheFunctionFlag()
     {
         var engine = new Engine(options => options.AllowClr(typeof(System.Collections.Generic.List<>).Assembly));
 
-        // a Function: ordinary script function, and a built-in
+        // a Function: ordinary script function, a built-in, and a bound function, which is one too
         AssertFunctionFlag(engine.Evaluate("(function () {})"), expected: true);
         AssertFunctionFlag(engine.Evaluate("String.prototype.charAt"), expected: true);
+        AssertFunctionFlag(engine.Evaluate("(function () {}).bind(null)"), expected: true);   // BindFunction
 
         // ICallable but NOT Function — these must not be reinterpreted as functions
-        AssertFunctionFlag(engine.Evaluate("(function () {}).bind(null)"), expected: false);   // BindFunction
         AssertFunctionFlag(engine.Evaluate("new Proxy(function () {}, {})"), expected: false); // JsProxy
         AssertFunctionFlag(engine.Evaluate("importNamespace('System.Collections.Generic')"), expected: false); // NamespaceReference
 
-        // and calling each of them still works, i.e. the non-Function branch is exercised
+        // and calling each of them still works, i.e. both branches are exercised
         Assert.That(engine.Evaluate("(function (a, b) { return a + b; }).bind(null, 1)(2)").AsNumber(), Is.EqualTo(3d));
         Assert.That(engine.Evaluate("new Proxy(function (a, b) { return a + b; }, {})(1, 2)").AsNumber(), Is.EqualTo(3d));
+    }
+
+    /// <summary>
+    /// What the flag buys, seen from the other side: a bound call now owns a call-stack frame, where before
+    /// the throw inside the target was attributed to the frame of whoever called the bound function.
+    /// </summary>
+    [Test]
+    public void ABoundCallOwnsACallStackFrame()
+    {
+        var engine = new Engine();
+        engine.Execute(
+            """
+            function inner() { return new Error('x'); }
+            function outer() { return inner.bind(null)(); }
+            """,
+            "app.js");
+
+        var stack = engine.Evaluate("outer()").AsObject().Get("stack").AsString();
+        var frames = stack.Split(['\n'], StringSplitOptions.RemoveEmptyEntries).Select(line => line.Trim()).ToArray();
+
+        frames[0].Should().StartWith("at bound inner (app.js:");
+        frames[1].Should().StartWith("at outer (app.js:");
     }
 
     private static void AssertFunctionFlag(Jint.Native.JsValue value, bool expected)

@@ -180,6 +180,30 @@ public class ValueInspectorTests
     }
 
     [Test]
+    public void ABoundFunctionIsAFunction()
+    {
+        // A bound function has [[Call]], [[Construct]], a name and a length; V8 reports it as a function and
+        // so does this. It used to fall through to the object walk and describe as `{}`.
+        var bound = Describe("function f(a, b) { return 1; }; f.bind(null, 1)");
+
+        bound.Kind.Should().Be(ValueKind.Function);
+        bound.Description.Should().Be("ƒ bound f()");
+        bound.ClassName.Should().Be("Function");
+    }
+
+    [Test]
+    public void ABoundFunctionsSourceTextNamesNothing()
+    {
+        var engine = new Engine(o => o.RetainFunctionSourceText = true);
+        var options = new ValueInspectorOptions { FunctionSourceText = true };
+
+        // What Function.prototype.toString answers for a bound function, in every engine and here: the
+        // placeholder with no name in it, even though the function's own `name` is "bound f".
+        ValueInspector.Describe(engine.Evaluate("function f(a) { return a; }; f.bind(null)"), options)
+            .Description.Should().Be("function () { [native code] }");
+    }
+
+    [Test]
     public void AFunctionCanBeDescribedByItsSourceInstead()
     {
         var options = new ValueInspectorOptions { FunctionSourceText = true };

@@ -244,6 +244,22 @@ public class RemoteObjectTests
         result.TryGetProperty("preview", out _).Should().BeFalse("a function's declaration is already its description");
     }
 
+    /// <summary>
+    /// A bound function is a function to the front end — Chrome sends <c>type: "function"</c> and the
+    /// nameless native placeholder for one, never <c>type: "object"</c>.
+    /// </summary>
+    [Test]
+    public async Task ABoundFunctionIsAFunctionAndNotAnObject()
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        var result = await session.EvaluateAsync("(function named(a) { return a; }).bind(null)");
+
+        result.GetProperty("type").GetString().Should().Be("function");
+        result.GetProperty("className").GetString().Should().Be("Function");
+        result.GetProperty("description").GetString().Should().Be("function () { [native code] }");
+    }
+
     [Test]
     public async Task AFunctionWithNoSourceIsThePlaceholderChromeSends()
     {
