@@ -4643,6 +4643,105 @@ Arabic-Indic digits are now written where Gregorian years and Latin digits were.
 restore the old resolution; a formatter that should stay on the Gregorian calendar in Latin digits asks for
 it, either by dropping the keys from the tag or by passing `calendar` and `numberingSystem` options, which
 supersede the tag's own keywords as they always have.
+### 4.104 What a `Configure` callback writes to the options is what the engine gets ([#3583](https://github.com/sebastienros/jint/issues/3583))
+
+A callback registered with `options.Configure(...)` runs from `Options.Apply`, in the middle of the
+constructor. Some of what the engine derives from an option was read *before* that point, so a callback that
+wrote one of those options was ignored — no exception, no diagnostic, and `Engine.Options` read back exactly
+what the callback had set.
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.Configure(_ =>
+    {
+        options.Strict = true;
+        options.LimitStatements(5);
+        options.AddObjectConverter(new MyConverter());
+    });
+});
+```
+
+```js
+// 5.0                                              5.x
+(function(){ return this === undefined; })();  // false        true
+var i = 0; while (i < 1000) { i++; }           // completes    StatementsCountOverflowException
+```
+
+Every field an engine derives from an option is now taken after `Apply` — after the callbacks and after an
+untrusted-code profile's re-expansion over whatever they wrote. That covers strict mode, debug mode,
+coverage, the object converters and their type filter, the immutable-crossing filter, the enum-conversion
+mode, the reference resolver and its interests, the wait clock and the whole constraint set.
+
+One group is still read before the callbacks, because a callback can reach it: a callback's
+`engine.SetValue(name, clrValue)` converts, so the four interop-conversion fields have to be built for it.
+They are then taken **again** afterwards, exactly as `AddExtensionMethods` already was in
+[§4.100](#4100-addextensionmethods-from-a-configure-callback-reaches-the-engine-3568) — so a converter a
+callback registered is honoured, and a registry a hardened profile cleared is obeyed. A CLR object the
+callback itself wrapped keeps the immutability reading it was wrapped with.
+
+**What could break:** an engine whose `Configure` callback writes an option now behaves the way that option
+says. A host relying on such a write being ignored should stop making it. The two consequences worth naming:
+`engine.Diagnostics.ValidateSecurityConfiguration()` reports what the engine actually does, so a callback
+that turns the debugger *off* no longer produces a `JINTSEC` diagnostic saying it is on; and the engine's
+constraint instances do not exist while a callback runs, so `engine.Constraints.Find<T>()`, `Check()` and
+`Reset()` throw `InvalidOperationException` there instead of handing back a set built from options the
+callback had not finished writing. Write the limit on the options; reach the engine's instances after the
+constructor returns.
+
+### 4.105 A `Configure` callback cannot run script, and says so ([#3581](https://github.com/sebastienros/jint/issues/3581))
+
+`Execute`, `Evaluate`, `Invoke`, `Engine.Call`, `Modules.Import` and the JSON operations threw
+`NullReferenceException` when called from a callback registered with `options.Configure(...)`, or from the
+`new Engine((engine, options) => …)` construction callback — the call stack and the default parser are built
+after `Options.Apply`, and `Options.Apply` is where those callbacks run.
+
+```csharp
+new Engine(options => options.Configure(e => e.Evaluate("1+1")));
+// 5.0: System.NullReferenceException
+// 5.x: System.InvalidOperationException: This engine cannot run script yet, because it is still being
+//      constructed. […] Run it once the constructor has returned instead.
+```
+
+It is a refusal rather than a repair because the callback's position cannot move. It runs before Jint
+installs the engine's own globals — `System`, `importNamespace`, `clrHelper`, `require`, the opt-in web APIs
+— so that a global the host registers itself is never replaced by one of ours, and before an untrusted-code
+profile is re-expanded, which is what stops a callback reopening a hardened setting. A script running from
+there would see an incomplete realm whatever was done to the null fields. That refusal is also what lets
+every other option-derived field move below `Apply`; see §4.104.
+
+**What could break:** nothing that worked. The one shape that did work by accident is a JSON operation with
+no reviver, replacer or `toJSON` to invoke — `new JsonParser(engine).Parse(...)` or
+`new JsonSerializer(engine).Serialize(...)` from a callback — which now throws with the rest of them, since
+either can reach script. Move the work after the constructor:
+
+```csharp
+var engine = new Engine(options => options.Configure(e => e.SetValue("host", host)));
+engine.Execute(polyfill);
+```
+
+### 4.106 `ForUntrustedCode` from a `Configure` callback is refused, not half-applied ([#3582](https://github.com/sebastienros/jint/issues/3582))
+
+`options.ForUntrustedCode(limits)` called from inside a callback registered with `options.Configure(...)`
+threw `NullReferenceException` during construction.
+
+```csharp
+new Engine(options => options.Configure(_ => options.ForUntrustedCode(limits)));
+// 5.0: System.NullReferenceException
+// 5.x: System.InvalidOperationException: Options.ForUntrustedCode must be called before the engine is
+//      constructed, not from a callback registered with Options.Configure […]
+```
+
+Hardening an engine is the first expansion, not the last: `Options.CreateEngineOptions` expands the profile
+onto the engine's private options snapshot before anything is built, and the realm, the host produced by
+`Options.Host.Factory` and every option-derived field are then built from the hardened values. A profile that
+first appears during the callbacks missed that expansion entirely, so honouring it there could only ever
+produce a partly hardened engine — one whose `EngineSecurityConfigurationSnapshot` would additionally report
+it as unhardened. Declaring it before construction is unchanged, including alongside `Configure` callbacks,
+which still cannot reopen what the profile closed.
+
+**What could break:** an engine that declared the profile from a callback did not exist — the construction
+threw. The message names the fix: call `options.ForUntrustedCode(limits)` before `new Engine(options)`.
 
 ## 5. New in v5
 

@@ -639,6 +639,21 @@ public sealed partial class Options
 
         if (UntrustedCodeLimits is { } limits)
         {
+            // The engine expanded the profile onto a private snapshot before it built anything
+            // (CreateEngineOptions), and that expansion is what hardened the realm, the host and every
+            // option-derived field. A profile that appeared during the callbacks above was never expanded
+            // that way, so honouring it here would leave a half-hardened engine - the realm is already
+            // built, and Options.Host.Factory has already produced its host. Refused rather than half-done
+            // (sebastienros/jint#3582).
+            if (!ReferenceEquals(limits, engine._untrustedCodeLimits))
+            {
+                Throw.InvalidOperationException(
+                    "Options.ForUntrustedCode must be called before the engine is constructed, not from a "
+                    + "callback registered with Options.Configure: by the time those callbacks run the realm, "
+                    + "the host and every option-derived field have already been built from the unhardened "
+                    + "options, and the engine would be left only partly hardened.");
+            }
+
             OptionsExtensions.ReapplyUntrustedCodeOptions(this, engine, limits);
         }
 

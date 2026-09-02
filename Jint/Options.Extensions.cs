@@ -72,6 +72,11 @@ public static class OptionsExtensions
     /// The source <see cref="Options"/> remains unchanged and can be shared by concurrently constructed engines.
     /// User callbacks remain visible to security diagnostics but cannot reopen profile-controlled settings.
     /// </para>
+    /// <para>
+    /// Declare it before the engine is constructed. That first expansion is what hardens the realm, the host
+    /// and every option-derived field, so a profile that first appears inside a callback registered with
+    /// <see cref="Configure"/> is refused rather than half-applied.
+    /// </para>
     /// </remarks>
     /// <param name="options">Options to harden.</param>
     /// <param name="limits">Finite limits chosen for the host request and workload.</param>
@@ -164,6 +169,17 @@ public static class OptionsExtensions
         options.AddConstraint(static () => new OperationDeadlineConstraint());
     }
 
+    /// <summary>
+    /// Re-expands the profile over whatever the host's configuration callbacks wrote, and undoes the two
+    /// engine-level installations such a callback can replace.
+    /// </summary>
+    /// <remarks>
+    /// The engine's constraints are not repaired here any more: they are built from
+    /// <see cref="Options.Constraints"/> after <see cref="Options.Apply"/> returns, so they are built from
+    /// the re-expanded options and there is nothing a callback could have reached to mutate. The three
+    /// <c>Find&lt;T&gt;()!</c> calls that used to do the repairing dereferenced null for a profile declared
+    /// from a callback, which is now refused outright (sebastienros/jint#3582).
+    /// </remarks>
     internal static void ReapplyUntrustedCodeOptions(
         Options options,
         Engine engine,
@@ -171,9 +187,6 @@ public static class OptionsExtensions
     {
         ApplyUntrustedCodeOptions(options, limits);
         engine.TypeConverter = new DefaultTypeConverter(engine);
-        engine.Constraints.Find<MaxStatementsConstraint>()!.MaxStatements = limits.MaxStatements;
-        engine.Constraints.Find<MemoryLimitConstraint>()!.End();
-        engine.Constraints.Find<OperationDeadlineConstraint>()!.End();
         engine.Modules = new Engine.ModuleOperations(engine, FailFastModuleLoader.Instance);
     }
 
@@ -760,6 +773,24 @@ public static class OptionsExtensions
     /// Registers some custom logic to apply on an <see cref="Engine"/> instance when the options
     /// are loaded.
     /// </summary>
+    /// <remarks>
+    /// The callback runs from <c>Options.Apply</c>, with the engine mid-construction. Its realm, its module
+    /// operations and CLR conversion are built by then, so registering values, globals and programmatic
+    /// modules is what it is for.
+    /// <para>
+    /// It cannot run script: <c>Execute</c>, <c>Evaluate</c>, <c>Invoke</c> and module import are refused
+    /// while the constructor is in flight, because the engine's own globals (<c>System</c>,
+    /// <c>importNamespace</c>, <c>clrHelper</c>, <c>require</c>, the opt-in web APIs) are installed after
+    /// these callbacks and an untrusted-code profile is re-applied after them. Run the script once the
+    /// constructor has returned.
+    /// </para>
+    /// <para>
+    /// Writing to the options from here <em>is</em> honoured — every field the engine derives from an option
+    /// is taken once these callbacks have run. Two things are refused rather than ignored: declaring an
+    /// untrusted-code profile (<see cref="ForUntrustedCode"/>), which has to be in force before the engine
+    /// starts building, and reaching this engine's own constraint instances, which are built afterwards.
+    /// </para>
+    /// </remarks>
     /// <param name="options">Options to modify</param>
     /// <param name="configuration">The action to register.</param>
     public static Options Configure(this Options options, Action<Engine> configuration)
