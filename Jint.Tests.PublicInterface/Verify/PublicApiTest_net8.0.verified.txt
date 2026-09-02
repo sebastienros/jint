@@ -857,6 +857,78 @@ namespace Jint.Diagnostics
         public int PooledObjectTraverseStacks { get; }
         public int PooledReferences { get; }
     }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ValueDescription
+    {
+        public string? ClassName { get; }
+        public string Description { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.Diagnostics.ValueEntry> Entries { get; }
+        public Jint.Diagnostics.ValueKind Kind { get; }
+        public bool Overflow { get; }
+        public Jint.Diagnostics.ValueDescription? PromiseResult { get; }
+        public Jint.Diagnostics.ValuePromiseState? PromiseState { get; }
+        public override string ToString() { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public readonly struct ValueEntry
+    {
+        public Jint.Diagnostics.ValueDescription? EntryKey { get; }
+        public bool IsAccessor { get; }
+        public string Key { get; }
+        public Jint.Diagnostics.ValueDescription Value { get; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public static class ValueInspector
+    {
+        public static Jint.Diagnostics.ValueDescription Describe(Jint.Native.JsValue value, Jint.Diagnostics.ValueInspectorOptions? options = null) { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class ValueInspectorOptions
+    {
+        public ValueInspectorOptions() { }
+        public int MaxDepth { get; init; }
+        public int MaxEntries { get; init; }
+        public int MaxStringLength { get; init; }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public enum ValueKind
+    {
+        Undefined = 0,
+        Null = 1,
+        Boolean = 2,
+        Number = 3,
+        BigInt = 4,
+        String = 5,
+        Symbol = 6,
+        Function = 7,
+        Array = 8,
+        TypedArray = 9,
+        ArrayBuffer = 10,
+        DataView = 11,
+        Map = 12,
+        Set = 13,
+        WeakMap = 14,
+        WeakSet = 15,
+        WeakRef = 16,
+        Promise = 17,
+        Error = 18,
+        Date = 19,
+        RegExp = 20,
+        Proxy = 21,
+        Generator = 22,
+        Iterator = 23,
+        Arguments = 24,
+        Object = 25,
+        HostObject = 26,
+        Accessor = 27,
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public enum ValuePromiseState
+    {
+        Pending = 0,
+        Fulfilled = 1,
+        Rejected = 2,
+    }
 }
 namespace Jint.Native.Array
 {
@@ -2648,12 +2720,50 @@ namespace Jint.WebApi
         Warn = 3,
         Error = 4,
     }
+    public enum ConsoleMethod
+    {
+        Log = 0,
+        Debug = 1,
+        Info = 2,
+        Warn = 3,
+        Error = 4,
+        Trace = 5,
+        Assert = 6,
+        Dir = 7,
+        Table = 8,
+        Group = 9,
+        GroupCollapsed = 10,
+        GroupEnd = 11,
+        Count = 12,
+        CountReset = 13,
+        Time = 14,
+        TimeLog = 15,
+        TimeEnd = 16,
+        TimeStamp = 17,
+    }
+    public readonly struct ConsoleRecord
+    {
+        public System.Collections.Generic.IReadOnlyList<Jint.Native.JsValue> Arguments { get; }
+        public int GroupDepth { get; }
+        public Jint.WebApi.ConsoleLogLevel Level { get; }
+        public string? Message { get; }
+        public Jint.WebApi.ConsoleMethod Method { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.WebApi.ConsoleStackFrame>? StackTrace { get; }
+    }
     public abstract class ConsoleSink
     {
         protected ConsoleSink() { }
         public static Jint.WebApi.ConsoleSink Null { get; }
+        public virtual void Write(in Jint.WebApi.ConsoleRecord record) { }
         public abstract void Write(Jint.WebApi.ConsoleLogLevel level, string message);
         public static Jint.WebApi.ConsoleSink FromTextWriter(System.IO.TextWriter writer) { }
+    }
+    public readonly struct ConsoleStackFrame
+    {
+        public int Column { get; }
+        public string FunctionName { get; }
+        public int Line { get; }
+        public string Source { get; }
     }
     public enum DiagnosticCallbackSource
     {

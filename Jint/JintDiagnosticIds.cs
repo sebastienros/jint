@@ -27,6 +27,17 @@ namespace Jint;
 /// <c>&lt;NoWarn&gt;$(NoWarn);JINT0001&lt;/NoWarn&gt;</c>.
 /// </para>
 /// <para>
+/// <b>JINT0002 — preview area.</b> A public member carrying <c>[Experimental("JINT0002")]</c> is likewise
+/// reachable and supported to <i>call</i>, but for the other reason: the capability is settled and the
+/// shape of it is not yet. Its types may gain members, its enums may gain values, and the exact text it
+/// produces may change in any release, none of which counts as a breaking change. Today that is
+/// <see cref="Diagnostics.ValueInspector"/> and the description types it answers with.
+/// </para>
+/// <para>
+/// Both are acknowledged the same way — a <c>#pragma warning disable</c> at the call site, or
+/// <c>&lt;NoWarn&gt;$(NoWarn);JINT0002&lt;/NoWarn&gt;</c> once in the project file.
+/// </para>
+/// <para>
 /// The identifier is stable: a member marked <c>JINT0001</c> keeps that identifier for as long as it is
 /// marked at all, so a suppression a host writes today does not have to be revisited. A future
 /// non-contract area gets its own identifier rather than being folded into this one.
@@ -39,4 +50,10 @@ internal static class JintDiagnosticIds
     /// deliberately outside the compatibility contract. See the remarks on <see cref="JintDiagnosticIds"/>.
     /// </summary>
     internal const string NonContractDiagnostic = "JINT0001";
+
+    /// <summary>
+    /// A public member whose capability is settled but whose shape is not, and which may therefore be
+    /// reshaped in any release. See the remarks on <see cref="JintDiagnosticIds"/>.
+    /// </summary>
+    internal const string PreviewDiagnostic = "JINT0002";
 }

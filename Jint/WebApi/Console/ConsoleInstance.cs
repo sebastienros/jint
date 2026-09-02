@@ -6,6 +6,7 @@ using Jint.Native;
 using Jint.Native.Error;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.CallStack;
 using Jint.Runtime.Descriptors;
 
 namespace Jint.WebApi.Console;
@@ -20,10 +21,15 @@ namespace Jint.WebApi.Console;
 /// <para>
 /// The engine does all of the specification's <i>Formatter</i> work and the parts of <i>Printer</i> that a
 /// non-interactive console can do — group indentation, counter and timer labels — and hands
-/// <see cref="ConsoleSink"/> one finished string per record. Exactly one
-/// <see cref="ConsoleSink.Write(ConsoleLogLevel, string)"/> call is made per emitted record; a method that
-/// emits nothing (<c>console.log()</c> with no arguments, <c>groupEnd</c>, <c>countReset</c> on an existing
-/// counter, <c>assert</c> on a truthy condition) makes none.
+/// <see cref="ConsoleSink"/> one <see cref="ConsoleRecord"/> per call. Exactly one
+/// <see cref="ConsoleSink.Write(in ConsoleRecord)"/> call is made per invocation, except for the two the
+/// specification abandons at its first step (a logging method with no arguments,
+/// <see href="https://console.spec.whatwg.org/#logger">Logger</see> step 1, and <c>assert</c> on a truthy
+/// condition), which make none. A method that acts without printing — <c>groupEnd</c>, <c>countReset</c> on
+/// an existing counter, <c>time</c> on a new label — reports a record whose message is
+/// <see langword="null"/>, so the default forwarding never reaches
+/// <see cref="ConsoleSink.Write(ConsoleLogLevel, string)"/> and a string-only sink sees exactly what it saw
+/// before the record overload existed.
 /// </para>
 /// <para>
 /// Counter, timer and group state is per instance, and the instance is per realm, so <c>console === console</c>
@@ -103,7 +109,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "log", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Log(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        Logger(ConsoleLogLevel.Log, data);
+        Logger(ConsoleMethod.Log, ConsoleLogLevel.Log, data);
         return Undefined;
     }
 
@@ -113,7 +119,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "info", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Info(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        Logger(ConsoleLogLevel.Info, data);
+        Logger(ConsoleMethod.Info, ConsoleLogLevel.Info, data);
         return Undefined;
     }
 
@@ -123,7 +129,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "warn", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Warn(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        Logger(ConsoleLogLevel.Warn, data);
+        Logger(ConsoleMethod.Warn, ConsoleLogLevel.Warn, data);
         return Undefined;
     }
 
@@ -133,7 +139,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "error", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Error(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        Logger(ConsoleLogLevel.Error, data);
+        Logger(ConsoleMethod.Error, ConsoleLogLevel.Error, data);
         return Undefined;
     }
 
@@ -143,7 +149,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "debug", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Debug(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        Logger(ConsoleLogLevel.Debug, data);
+        Logger(ConsoleMethod.Debug, ConsoleLogLevel.Debug, data);
         return Undefined;
     }
 
@@ -160,7 +166,12 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
         var capture = ErrorConstructor.BuildStackTraceCapture(_engine, _traceFunction);
         var stack = capture?.Render() ?? string.Empty;
 
-        Emit(ConsoleLogLevel.Error, stack.Length == 0 ? header : header + System.Environment.NewLine + stack);
+        Emit(
+            ConsoleMethod.Trace,
+            ConsoleLogLevel.Error,
+            data,
+            stack.Length == 0 ? header : header + System.Environment.NewLine + stack,
+            StackFrames(capture));
         return Undefined;
     }
 
@@ -177,7 +188,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
 
         if (data.Length == 0)
         {
-            Emit(ConsoleLogLevel.Error, AssertionFailed);
+            Emit(ConsoleMethod.Assert, ConsoleLogLevel.Error, data, AssertionFailed);
             return Undefined;
         }
 
@@ -187,7 +198,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
             var args = new JsValue[data.Length];
             data.CopyTo(args);
             args[0] = JsString.Create(AssertionFailed + ": " + first.ToString());
-            Emit(ConsoleLogLevel.Error, ConsoleFormatter.Format(args));
+            Emit(ConsoleMethod.Assert, ConsoleLogLevel.Error, data, ConsoleFormatter.Format(args));
             return Undefined;
         }
 
@@ -195,7 +206,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
         var prefixed = new JsValue[data.Length + 1];
         prefixed[0] = JsString.Create(AssertionFailed);
         data.CopyTo(prefixed.AsSpan(1));
-        Emit(ConsoleLogLevel.Error, ConsoleFormatter.Format(prefixed));
+        Emit(ConsoleMethod.Assert, ConsoleLogLevel.Error, data, ConsoleFormatter.Format(prefixed));
         return Undefined;
     }
 
@@ -203,10 +214,10 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#dir
     /// </summary>
     [JsFunction(Name = "dir", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue Dir(JsValue thisObject, JsValue item, JsValue options)
+    private JsValue Dir(JsValue thisObject, JsValue item, JsValue options, [ArgCount] int argumentCount)
     {
         // `options` is part of the IDL signature and has no member a string sink could honour.
-        Emit(ConsoleLogLevel.Log, ConsoleFormatter.Inspect(item));
+        Emit(ConsoleMethod.Dir, ConsoleLogLevel.Log, Given(argumentCount, item, options), ConsoleFormatter.Inspect(item));
         return Undefined;
     }
 
@@ -223,19 +234,20 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// group indentation applies to all of them.
     /// </remarks>
     [JsFunction(Name = "table", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue Table(JsValue thisObject, JsValue tabularData, JsValue properties)
+    private JsValue Table(JsValue thisObject, JsValue tabularData, JsValue properties, [ArgCount] int argumentCount)
     {
         // The sequence conversion runs first and can raise a TypeError, exactly as WebIDL specifies, so a
         // non-iterable second argument fails before anything is logged.
         var columns = ReadProperties(properties);
+        var arguments = Given(argumentCount, tabularData, properties);
 
         if (ConsoleFormatter.TryFormatTable(tabularData, columns, out var table))
         {
-            Emit(ConsoleLogLevel.Log, table);
+            Emit(ConsoleMethod.Table, ConsoleLogLevel.Log, arguments, table);
             return Undefined;
         }
 
-        Emit(ConsoleLogLevel.Log, ConsoleFormatter.Format(new[] { tabularData }));
+        Emit(ConsoleMethod.Table, ConsoleLogLevel.Log, arguments, ConsoleFormatter.Format(new[] { tabularData }));
         return Undefined;
     }
 
@@ -256,9 +268,9 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// </para>
     /// </remarks>
     [JsFunction(Name = "timeStamp", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue TimeStamp(JsValue thisObject, JsValue label)
+    private JsValue TimeStamp(JsValue thisObject, JsValue label, [ArgCount] int argumentCount)
     {
-        Emit(ConsoleLogLevel.Log, Label(label));
+        Emit(ConsoleMethod.TimeStamp, ConsoleLogLevel.Log, Given(argumentCount, label), Label(label));
         return Undefined;
     }
 
@@ -268,7 +280,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "group", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue Group(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        return BeginGroup(data);
+        return BeginGroup(ConsoleMethod.Group, data);
     }
 
     /// <summary>
@@ -281,7 +293,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     [JsFunction(Name = "groupCollapsed", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsValue GroupCollapsed(JsValue thisObject, [Rest] ReadOnlySpan<JsValue> data)
     {
-        return BeginGroup(data);
+        return BeginGroup(ConsoleMethod.GroupCollapsed, data);
     }
 
     /// <summary>
@@ -295,6 +307,9 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
             _groupDepth--;
         }
 
+        // Nothing is printed, so no string sink hears it -- but a structured one does, and without it a
+        // consumer tracking the group stack could never close one.
+        Emit(ConsoleMethod.GroupEnd, ConsoleLogLevel.Log, ReadOnlySpan<JsValue>.Empty, message: null);
         return Undefined;
     }
 
@@ -302,7 +317,7 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#count
     /// </summary>
     [JsFunction(Name = "count", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue Count(JsValue thisObject, JsValue label)
+    private JsValue Count(JsValue thisObject, JsValue label, [ArgCount] int argumentCount)
     {
         var key = Label(label);
         _counts ??= new Dictionary<string, int>(StringComparer.Ordinal);
@@ -310,7 +325,11 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
         count++;
         _counts[key] = count;
 
-        Emit(ConsoleLogLevel.Log, key + ": " + count.ToString(CultureInfo.InvariantCulture));
+        Emit(
+            ConsoleMethod.Count,
+            ConsoleLogLevel.Log,
+            Given(argumentCount, label),
+            key + ": " + count.ToString(CultureInfo.InvariantCulture));
         return Undefined;
     }
 
@@ -318,16 +337,18 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#countreset
     /// </summary>
     [JsFunction(Name = "countReset", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue CountReset(JsValue thisObject, JsValue label)
+    private JsValue CountReset(JsValue thisObject, JsValue label, [ArgCount] int argumentCount)
     {
         var key = Label(label);
+        var arguments = Given(argumentCount, label);
         if (_counts is not null && _counts.ContainsKey(key))
         {
             _counts[key] = 0;
+            Emit(ConsoleMethod.CountReset, ConsoleLogLevel.Log, arguments, message: null);
         }
         else
         {
-            Emit(ConsoleLogLevel.Warn, "Count for '" + key + "' does not exist");
+            Emit(ConsoleMethod.CountReset, ConsoleLogLevel.Warn, arguments, "Count for '" + key + "' does not exist");
         }
 
         return Undefined;
@@ -337,17 +358,19 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#time
     /// </summary>
     [JsFunction(Name = "time", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue Time(JsValue thisObject, JsValue label)
+    private JsValue Time(JsValue thisObject, JsValue label, [ArgCount] int argumentCount)
     {
         var key = Label(label);
+        var arguments = Given(argumentCount, label);
         _timers ??= new Dictionary<string, long>(StringComparer.Ordinal);
         if (_timers.ContainsKey(key))
         {
-            Emit(ConsoleLogLevel.Warn, "Timer '" + key + "' already exists");
+            Emit(ConsoleMethod.Time, ConsoleLogLevel.Warn, arguments, "Timer '" + key + "' already exists");
             return Undefined;
         }
 
         _timers[key] = Stopwatch.GetTimestamp();
+        Emit(ConsoleMethod.Time, ConsoleLogLevel.Log, arguments, message: null);
         return Undefined;
     }
 
@@ -355,26 +378,27 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#timelog
     /// </summary>
     [JsFunction(Name = "timeLog", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue TimeLog(JsValue thisObject, JsValue label, [Rest] ReadOnlySpan<JsValue> data)
+    private JsValue TimeLog(JsValue thisObject, JsValue label, [ArgCount] int argumentCount, [Rest] ReadOnlySpan<JsValue> data)
     {
         var key = Label(label);
+        var arguments = Given(argumentCount, label, data);
         if (_timers is null || !_timers.TryGetValue(key, out var start))
         {
-            Emit(ConsoleLogLevel.Warn, "Timer '" + key + "' does not exist");
+            Emit(ConsoleMethod.TimeLog, ConsoleLogLevel.Warn, arguments, "Timer '" + key + "' does not exist");
             return Undefined;
         }
 
         var concat = key + ": " + FormatDuration(start);
         if (data.Length == 0)
         {
-            Emit(ConsoleLogLevel.Log, concat);
+            Emit(ConsoleMethod.TimeLog, ConsoleLogLevel.Log, arguments, concat);
             return Undefined;
         }
 
         var prefixed = new JsValue[data.Length + 1];
         prefixed[0] = JsString.Create(concat);
         data.CopyTo(prefixed.AsSpan(1));
-        Emit(ConsoleLogLevel.Log, ConsoleFormatter.Format(prefixed));
+        Emit(ConsoleMethod.TimeLog, ConsoleLogLevel.Log, arguments, ConsoleFormatter.Format(prefixed));
         return Undefined;
     }
 
@@ -382,26 +406,24 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#timeend
     /// </summary>
     [JsFunction(Name = "timeEnd", Length = 0, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue TimeEnd(JsValue thisObject, JsValue label)
+    private JsValue TimeEnd(JsValue thisObject, JsValue label, [ArgCount] int argumentCount)
     {
         var key = Label(label);
+        var arguments = Given(argumentCount, label);
         if (_timers is null || !_timers.Remove(key, out var start))
         {
-            Emit(ConsoleLogLevel.Warn, "Timer '" + key + "' does not exist");
+            Emit(ConsoleMethod.TimeEnd, ConsoleLogLevel.Warn, arguments, "Timer '" + key + "' does not exist");
             return Undefined;
         }
 
-        Emit(ConsoleLogLevel.Log, key + ": " + FormatDuration(start));
+        Emit(ConsoleMethod.TimeEnd, ConsoleLogLevel.Log, arguments, key + ": " + FormatDuration(start));
         return Undefined;
     }
 
-    private JsValue BeginGroup(ReadOnlySpan<JsValue> data)
+    private JsValue BeginGroup(ConsoleMethod method, ReadOnlySpan<JsValue> data)
     {
         // The label is printed at the current indentation; only what follows it is indented further.
-        if (data.Length > 0)
-        {
-            Emit(ConsoleLogLevel.Log, ConsoleFormatter.Format(data));
-        }
+        Emit(method, ConsoleLogLevel.Log, data, data.Length > 0 ? ConsoleFormatter.Format(data) : null);
 
         _groupDepth++;
         return Undefined;
@@ -411,25 +433,106 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
     /// https://console.spec.whatwg.org/#logger — including step 1, which is why a console method called with
     /// no arguments emits nothing at all rather than an empty line.
     /// </summary>
-    private void Logger(ConsoleLogLevel level, ReadOnlySpan<JsValue> data)
+    private void Logger(ConsoleMethod method, ConsoleLogLevel level, ReadOnlySpan<JsValue> data)
     {
         if (data.Length == 0)
         {
             return;
         }
 
-        Emit(level, ConsoleFormatter.Format(data));
+        Emit(method, level, data, ConsoleFormatter.Format(data));
     }
 
     /// <summary>
     /// The one place a record reaches the host: applies the group indentation and makes exactly one
-    /// <see cref="ConsoleSink.Write(ConsoleLogLevel, string)"/> call. The sink is read afresh every time, so
-    /// a host may swap it between evaluations.
+    /// <see cref="ConsoleSink.Write(in ConsoleRecord)"/> call, whose default implementation forwards a
+    /// printed record on to the string overload. The sink is read afresh every time, so a host may swap it
+    /// between evaluations.
     /// </summary>
-    private void Emit(ConsoleLogLevel level, string message)
+    /// <param name="method">Which console method is reporting.</param>
+    /// <param name="level">The severity that method implies.</param>
+    /// <param name="arguments">The arguments the caller passed, control arguments already removed.</param>
+    /// <param name="message">The finished line, or <see langword="null"/> when the method printed nothing.</param>
+    /// <param name="stackTrace">The captured frames, for <c>console.trace</c> alone.</param>
+    private void Emit(
+        ConsoleMethod method,
+        ConsoleLogLevel level,
+        ReadOnlySpan<JsValue> arguments,
+        string? message,
+        ConsoleStackFrame[]? stackTrace = null)
+    {
+        var materialized = arguments.Length == 0 ? [] : arguments.ToArray();
+        Emit(method, level, materialized, message, stackTrace);
+    }
+
+    /// <inheritdoc cref="Emit(ConsoleMethod, ConsoleLogLevel, ReadOnlySpan{JsValue}, string, ConsoleStackFrame[])"/>
+    private void Emit(
+        ConsoleMethod method,
+        ConsoleLogLevel level,
+        JsValue[] arguments,
+        string? message,
+        ConsoleStackFrame[]? stackTrace = null)
     {
         var sink = _engine.Options.WebApi.Console.Sink ?? ConsoleSink.Null;
-        sink.Write(level, Indent(message));
+        var record = new ConsoleRecord(
+            method,
+            level,
+            arguments,
+            message is null ? null : Indent(message),
+            _groupDepth,
+            stackTrace);
+
+        sink.Write(in record);
+    }
+
+    /// <summary>
+    /// The prefix of <paramref name="candidates"/> the caller actually passed, so an argument nobody wrote
+    /// is absent from a record rather than an <c>undefined</c> that looks written.
+    /// </summary>
+    private static JsValue[] Given(int argumentCount, params JsValue[] candidates)
+    {
+        var given = System.Math.Min(argumentCount, candidates.Length);
+        if (given == candidates.Length)
+        {
+            return candidates;
+        }
+
+        return given <= 0 ? [] : candidates.AsSpan(0, given).ToArray();
+    }
+
+    /// <summary>The label a caller passed, if any, followed by the rest arguments.</summary>
+    private static JsValue[] Given(int argumentCount, JsValue label, ReadOnlySpan<JsValue> data)
+    {
+        if (argumentCount <= 0)
+        {
+            return [];
+        }
+
+        var arguments = new JsValue[data.Length + 1];
+        arguments[0] = label;
+        data.CopyTo(arguments.AsSpan(1));
+        return arguments;
+    }
+
+    /// <summary>
+    /// The captured call stack as frames, taken from the very capture the rendered trace was rendered from.
+    /// </summary>
+    private static ConsoleStackFrame[]? StackFrames(ErrorStackCapture? capture)
+    {
+        if (capture is null)
+        {
+            return null;
+        }
+
+        var collected = capture.CollectFrames();
+        var frames = new ConsoleStackFrame[collected.Count];
+        for (var i = 0; i < frames.Length; i++)
+        {
+            var frame = collected[i];
+            frames[i] = new ConsoleStackFrame(frame.FunctionName, frame.Source, frame.Line, frame.Column);
+        }
+
+        return frames;
     }
 
     private string Indent(string message)

@@ -21,8 +21,11 @@ namespace Jint.WebApi;
 /// <see cref="System.IO.TextWriter.Synchronized"/> when it is not).
 /// </para>
 /// <para>
-/// This is an abstract class rather than a delegate so that later revisions can add richer overloads —
-/// structured arguments, a timestamp — without breaking hosts that implement it today.
+/// <b>A sink may take the record instead of the line.</b> <see cref="Write(in ConsoleRecord)"/> carries the
+/// method that was called, its raw arguments as <see cref="Native.JsValue"/>s, the group depth and, for
+/// <c>console.trace</c>, the captured frames — everything a structured log or a debugger protocol needs and
+/// a finished string has already thrown away. It is what the engine calls, for every invocation including
+/// the ones that print nothing, and it forwards to the string overload by default.
 /// </para>
 /// </remarks>
 public abstract class ConsoleSink
@@ -58,6 +61,35 @@ public abstract class ConsoleSink
     /// <see langword="null"/>.
     /// </param>
     public abstract void Write(ConsoleLogLevel level, string message);
+
+    /// <summary>
+    /// Receives the same record as its structured form, with the method, the raw arguments and the group
+    /// depth the string overload cannot carry.
+    /// </summary>
+    /// <param name="record">
+    /// The call as the engine saw it. Its <see cref="ConsoleRecord.Arguments"/> are only valid for the
+    /// duration of this call; see the remarks on <see cref="ConsoleRecord"/>.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the overload the engine calls</b>, once for every <c>console</c> call the Console Standard
+    /// does not abandon at its first step — the ones that print nothing included, such as <c>groupEnd</c>.
+    /// The default implementation forwards to <see cref="Write(ConsoleLogLevel, string)"/> only when there
+    /// was a line to print, which is what keeps a sink that overrides the string overload alone seeing
+    /// exactly the traffic it always did.
+    /// </para>
+    /// <para>
+    /// A sink that overrides this one receives everything: call <c>base.Write(in record)</c> to keep the
+    /// forwarding, or handle the record outright and leave the string overload unreachable.
+    /// </para>
+    /// </remarks>
+    public virtual void Write(in ConsoleRecord record)
+    {
+        if (record.Message is { } message)
+        {
+            Write(record.Level, message);
+        }
+    }
 
     private sealed class NullConsoleSink : ConsoleSink
     {

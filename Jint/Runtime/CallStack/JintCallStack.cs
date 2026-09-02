@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Jint.Collections;
 using Jint.Native.Function;
@@ -439,4 +440,46 @@ internal sealed class ErrorStackCapture
     }
 
     internal string Render() => JintCallStack.BuildCallStackString(_engine, _location, _frames, _frames.Length);
+
+    /// <summary>
+    /// The same walk <see cref="Render"/> makes, reported as data instead of as text, for a caller that has
+    /// to hand the frames to a protocol rather than to a log.
+    /// </summary>
+    /// <remarks>
+    /// It reads the frames <see cref="Render"/> reads, in the same order and pairing each description with
+    /// the same location, so the two can never disagree about where a call came from. What it does not carry
+    /// is <see cref="Options.InteropOptions.BuildCallStackHandler"/>'s output: a host that rewrites the
+    /// rendered line is rewriting text, and there is no structured equivalent to ask it for.
+    /// </remarks>
+    internal List<CallStackFrameInfo> CollectFrames()
+    {
+        var collected = new List<CallStackFrameInfo>(_frames.Length + 1);
+        var location = _location;
+
+        // The stack is one frame behind function-wise when it is processed from expression level, exactly as
+        // in BuildCallStackString: each element names the callee whose call the PREVIOUS location sits in.
+        for (var index = _frames.Length - 1; index >= -1; index--)
+        {
+            var element = index >= 0 ? _frames[index] : (CallStackElement?) null;
+            collected.Add(new CallStackFrameInfo(
+                element?.ToString() ?? string.Empty,
+                location.SourceFile ?? string.Empty,
+                location.End.Line,
+                location.Start.Column + 1));
+
+            location = element?.Location ?? default;
+        }
+
+        return collected;
+    }
 }
+
+/// <summary>
+/// One frame of a captured call stack, as the pieces the rendered line is assembled from.
+/// </summary>
+/// <param name="FunctionName">What the frame is called, or empty for the top-level program.</param>
+/// <param name="Source">The source file the location belongs to.</param>
+/// <param name="Line">The one-based line number, matching the rendered line.</param>
+/// <param name="Column">The one-based column number, matching the rendered line.</param>
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct CallStackFrameInfo(string FunctionName, string Source, int Line, int Column);
