@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 628
+undocumented: 622
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -56,10 +56,6 @@ F:Jint.Runtime.Debugger.PauseType.Break
 F:Jint.Runtime.Debugger.PauseType.DebuggerStatement
 F:Jint.Runtime.Debugger.PauseType.Skip
 F:Jint.Runtime.Debugger.PauseType.Step
-F:Jint.Runtime.Debugger.StepMode.Into
-F:Jint.Runtime.Debugger.StepMode.None
-F:Jint.Runtime.Debugger.StepMode.Out
-F:Jint.Runtime.Debugger.StepMode.Over
 F:Jint.Runtime.Descriptors.PropertyDescriptor.Undefined
 F:Jint.Runtime.Descriptors.PropertyFlag.AllForbidden
 F:Jint.Runtime.Descriptors.PropertyFlag.Configurable
@@ -608,12 +604,10 @@ T:Jint.Runtime.Debugger.CallFrame
 T:Jint.Runtime.Debugger.DebugCallStack
 T:Jint.Runtime.Debugger.DebugHandler
 T:Jint.Runtime.Debugger.DebugHandler.BeforeEvaluateEventHandler
-T:Jint.Runtime.Debugger.DebugHandler.DebugEventHandler
 T:Jint.Runtime.Debugger.DebugHandler.ExceptionThrownEventHandler
 T:Jint.Runtime.Debugger.DebugInformation
 T:Jint.Runtime.Debugger.DebugScopes
 T:Jint.Runtime.Debugger.PauseType
-T:Jint.Runtime.Debugger.StepMode
 T:Jint.Runtime.DefaultTimeSystem
 T:Jint.Runtime.Descriptors.GetSetPropertyDescriptor
 T:Jint.Runtime.Descriptors.PropertyDescriptor

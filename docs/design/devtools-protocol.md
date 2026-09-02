@@ -126,23 +126,20 @@ the vendored JSON by `ProtocolCitationTests`.
 | Domain | What it maps onto | Engine change |
 | --- | --- | --- |
 | `Runtime` | `engine.Evaluate` (running) or `DebugHandler.Evaluate` (paused); `getProperties` over `GetOwnPropertyKeys` + descriptors, accessors reported and never invoked; `awaitPromise` by reactions; `consoleAPICalled`; `exceptionThrown`/`exceptionRevoked` from `Tasks.PromiseRejectionTracker`; `getHeapUsage` from `Diagnostics.GetMemoryReport` | **E5** ([#3597](https://github.com/sebastienros/jint/pull/3597)) structured `ConsoleRecord` sink overload + public `ValueInspector` (previews that never run script, promoted from `ConsoleFormatter`) |
-| `Debugger` | `ScriptRegistry` on `DebugHandler.BeforeEvaluate` keyed by `Program` identity (a cached `Prepared<Script>` is announced once); breakpoints as `DevToolsBreakPoint : BreakPoint` (the class is unsealed for this); `pause` as a flag checked in `Skip`; scopes from `DebugScopeType` 1:1 | **E1** ([#3587](https://github.com/sebastienros/jint/pull/3587)) `TryGetSourceText(Program)` for `getScriptSource`; **E2** ([#3614](https://github.com/sebastienros/jint/pull/3614)) `GetStepLocations(Program)` for `getPossibleBreakpoints` and column snapping; **E3** ([#3623](https://github.com/sebastienros/jint/pull/3623)) pause on exceptions with caught/uncaught; **E4** ([#3622](https://github.com/sebastienros/jint/pull/3622)) evaluate on any call frame; **E6** ([#3632](https://github.com/sebastienros/jint/issues/3632)) `CallFrame.Program`, a profile frame's `Program` and `CoverageSource.Program`, so a position is matched to a script by identity rather than by source name |
+| `Debugger` | `ScriptRegistry` on `DebugHandler.BeforeEvaluate` keyed by `Program` identity (a cached `Prepared<Script>` is announced once); breakpoints as `DevToolsBreakPoint : BreakPoint` (the class is unsealed for this); `pause` as a flag checked in `Skip`; scopes from `DebugScopeType` 1:1 | **E1** ([#3587](https://github.com/sebastienros/jint/pull/3587)) `TryGetSourceText(Program)` for `getScriptSource`; **E2** ([#3614](https://github.com/sebastienros/jint/pull/3614)) `GetStepLocations(Program)` for `getPossibleBreakpoints` and column snapping; **E3** ([#3623](https://github.com/sebastienros/jint/pull/3623)) pause on exceptions with caught/uncaught; **E4** ([#3622](https://github.com/sebastienros/jint/pull/3622)) evaluate on any call frame; **E6** ([#3632](https://github.com/sebastienros/jint/issues/3632)) `CallFrame.Program`, a profile frame's `Program` and `CoverageSource.Program`, so a position is matched to a script by identity rather than by source name ; **E8** ([#3631](https://github.com/sebastienros/jint/issues/3631)) `ExceptionPauseMode.Caught` and `StepMode.Unchanged`, so the four protocol states are four engine modes and declining a pause cannot cancel a step |
 | `Profiler` | `Profiler.Profile` synthesized behind an `IProfileSource` seam from either of the engine's profilers (`Jint/Profiling/`) — the sampler by default, the evented one when the host is already sampling — one weighted sample per interval between two activations, so the time deltas add up to the recording rather than approximating it; precise/best-effort coverage from `CoverageReport` (`Jint/Runtime/Coverage/`), with the uncovered set derived from the script registry's abstract syntax tree so an unused function is reported with `count: 0` | **E7** ([#3630](https://github.com/sebastienros/jint/issues/3630)) public read-only accessors on `SampledProfile`'s sample, stack, frame and function tables, so the sampler of [#3608](https://github.com/sebastienros/jint/pull/3608) is consumable without writing its document and parsing it back |
 | `Console`, `Log` | the structured record | E5 |
 | `Target`, `Browser`, `Schema` | the session core and the manifest | none |
 
-**All seven engine seams are merged**, and every one is additive and public — so that a third party (AngleSharp.Js,
+**All eight engine seams are merged**, and every one is additive and public — so that a third party (AngleSharp.Js,
 a DAP adapter, a host's own tooling) can build the same thing without `InternalsVisibleTo`. `Jint.DevTools`
 itself consumes only public Jint API; that is deliberate, and it is what proves the seams are reachable.
 
-One seam the build wanted and did not get is an open issue rather than a silent workaround, and it is
-named where it bites:
-
-- [#3631](https://github.com/sebastienros/jint/issues/3631) — **`caught` is not an engine mode.**
-  `ExceptionPauseMode` is `None`/`Uncaught`/`All`, so the client's `caught` asks for `All` and drops the
-  uncaught half in the `Break` handler — and declining a pause there means returning a `StepMode`, whose value
-  *is* the next step mode, so it cancels a step in flight. Harmless only because those frames are about to be
-  unwound; a trap for every other host that filters pauses.
+Every seam the build wanted it now has; the three it was missing at design time are
+[#3630](https://github.com/sebastienros/jint/issues/3630),
+[#3631](https://github.com/sebastienros/jint/issues/3631) and
+[#3632](https://github.com/sebastienros/jint/issues/3632), and each is named in the table above under the
+domain it was blocking.
 
 ## 6. Costs, stated up front
 

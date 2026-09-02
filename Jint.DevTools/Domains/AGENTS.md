@@ -174,13 +174,12 @@ too, and `hitBreakpoints` is what tells a breakpoint apart. The other is `except
 through `Break` with `PauseType.Exception`. The domain reads `DebugInformation.ThrownValue` and
 `IsUncaught` there. Four things about the mapping are decisions:
 
-- **`caught` is not an engine mode.** `ExceptionPauseMode` is `None`, `Uncaught` or `All`, so the client's
-  `caught` asks the engine for `All` and the pause decision drops the uncaught half. Inverting it — asking
-  for `Uncaught` and keeping what it did not raise — cannot work, because the engine does not raise a pause
-  at all for a throw it was not asked about.
-- **Filtering one out cancels a step in flight**, because the delegate's return value *is* the next step mode
-  and there is no way to say "unchanged". It is tolerable in this one case and nowhere else: the throw being
-  filtered is an uncaught one, and the frames a step was walking are about to be unwound by it anyway.
+- **Each of the protocol's four states is one engine mode**, `caught` included since
+  [#3631](https://github.com/sebastienros/jint/issues/3631), so this domain filters nothing: a throw that
+  reaches the `Break` handler is one the client asked to stop on. **Deciding it here instead is what must not
+  come back.** Declining a pause means returning a `StepMode`, and every one of those but
+  `StepMode.Unchanged` *sets* the mode — so a filter here cancels a step the client had in flight. Where a
+  future filter genuinely has no engine mode behind it, `StepMode.Unchanged` is the answer.
 - **`data` is the thrown value's `RemoteObject` with `uncaught` written onto it**, which is V8's shape
   exactly. The front end reads both halves — the object to render, and the flag to choose its wording — and
   the handle is billed to the backtrace group, so it dies with the frames. `hitBreakpoints` is an empty

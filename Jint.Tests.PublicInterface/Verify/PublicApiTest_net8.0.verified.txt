@@ -2321,6 +2321,7 @@ namespace Jint.Runtime.Debugger
         None = 0,
         Uncaught = 1,
         All = 2,
+        Caught = 3,
     }
     public sealed class ExceptionThrownEventArgs : System.EventArgs
     {
@@ -2357,6 +2358,7 @@ namespace Jint.Runtime.Debugger
         Over = 1,
         Into = 2,
         Out = 3,
+        Unchanged = 4,
     }
 }
 namespace Jint.Runtime.Descriptors

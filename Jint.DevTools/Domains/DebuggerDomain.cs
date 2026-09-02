@@ -303,15 +303,12 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         _target.Engine.Debugger.PauseOnExceptions = IsEnabled ? EnginePauseMode(_pauseOnExceptions) : ExceptionPauseMode.None;
     }
 
-    /// <summary>The engine mode that answers a client's state, which for <c>caught</c> is a superset.</summary>
+    /// <summary>The engine mode that answers a client's state, which the protocol's four map onto one each.</summary>
     private static ExceptionPauseMode EnginePauseMode(string state) => state switch
     {
         SetPauseOnExceptionsRequestStateValues.Uncaught => ExceptionPauseMode.Uncaught,
-
-        // `caught` and `all` both need every throw reported; the pause decision keeps the half that was asked
-        // for. Asking for Uncaught and inverting the test would be wrong, not merely inefficient: the engine
-        // does not raise the pause at all for a throw it was not asked about.
-        SetPauseOnExceptionsRequestStateValues.Caught or SetPauseOnExceptionsRequestStateValues.All => ExceptionPauseMode.All,
+        SetPauseOnExceptionsRequestStateValues.Caught => ExceptionPauseMode.Caught,
+        SetPauseOnExceptionsRequestStateValues.All => ExceptionPauseMode.All,
         _ => ExceptionPauseMode.None,
     };
 
