@@ -222,6 +222,12 @@ internal static class WebApiRegistration
             Install(global, engine, "Blob", static e => e.Realm.Intrinsics.Blob, PropertyFlag.NonEnumerable);
             Install(global, engine, "File", static e => e.Realm.Intrinsics.File, PropertyFlag.NonEnumerable);
             Install(global, engine, "FormData", static e => e.Realm.Intrinsics.FormData, PropertyFlag.NonEnumerable);
+            Install(global, engine, "FileReader", static e => e.Realm.Intrinsics.FileReader, PropertyFlag.NonEnumerable);
+
+            // FileReader fires ProgressEvents, which the XHR standard declares and which therefore arrives
+            // with whichever feature brings the first interface that fires one. Installed non-clobbering like
+            // everything else, so an engine that enabled both features installs the one interface object once.
+            Install(global, engine, "ProgressEvent", static e => e.Realm.Intrinsics.ProgressEvent, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Url) != WebApiFeatures.None)
@@ -633,6 +639,15 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.WebSocket) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Files;
+        }
+
+        // FileReader is an EventTarget that fires ProgressEvents, so the File API cannot be had without the
+        // interfaces those are: a script registering `reader.onload` needs `addEventListener` under it, and
+        // `event instanceof ProgressEvent` needs the class to exist. Blob, File and FormData need none of it,
+        // which is why this is a closure and not a merged feature.
+        if ((features & WebApiFeatures.Files) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
         }
 
         // https://w3c.github.io/hr-time/#sec-performance declares `interface Performance : EventTarget`, so

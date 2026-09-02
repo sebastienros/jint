@@ -110,6 +110,7 @@ public sealed partial class Intrinsics
     private FileConstructor? _file;
     private FormDataConstructor? _formData;
     private FormDataIteratorPrototype? _formDataIteratorPrototype;
+    private FileReaderConstructor? _fileReader;
 
     internal BlobConstructor Blob =>
         _blob ??= new BlobConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
@@ -122,6 +123,14 @@ public sealed partial class Intrinsics
 
     internal FormDataIteratorPrototype FormDataIteratorPrototype =>
         _formDataIteratorPrototype ??= new FormDataIteratorPrototype(_engine, _realm, IteratorPrototype);
+
+    /// <summary>
+    /// The <c>FileReader</c> interface object. It inherits from <c>EventTarget</c>, so reaching it builds
+    /// that too — which is what makes <c>reader instanceof EventTarget</c> hold however the two were first
+    /// touched.
+    /// </summary>
+    internal FileReaderConstructor FileReader =>
+        _fileReader ??= new FileReaderConstructor(_engine, _realm, EventTarget);
 
     internal UrlConstructor WebApiUrl =>
         _webApiUrl ??= new UrlConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);

@@ -167,11 +167,13 @@ public class WptTestRunner
         // and arrives with that feature; WebApiFeatures.Default never includes it.
         ("FileAPI/file/send-file-formdata*.any.js", "posts multipart/form-data to wptserve's echo-content.py"),
 
-        // The one file in the FileAPI root that is neither vendored nor a browsing-context test. Jint has no
-        // FileReader — a Blob is read here through text()/arrayBuffer()/bytes()/stream() — and the file is
-        // about the reader's state machine (readyState, abort, the progress events) rather than about a Blob.
-        // Its sibling unicode.any.js needs no reader at all and *is* vendored.
-        ("FileAPI/fileReader.any.js", "FileReader is not implemented"),
+        // FileReaderSync, which FileReaderPrototype documents declining: it is
+        // [Exposed=(DedicatedWorker,SharedWorker)] and exists to let a worker block its thread on I/O a
+        // window may not block on, and a Blob here is already in memory — so the synchronous interface would
+        // be a second spelling of blob.text() and blob.arrayBuffer() whose only distinguishing feature is
+        // being unavailable on the main thread. It is a .worker.js file, so the corpus would not reach it in
+        // any case.
+        ("FileAPI/FileReaderSync.worker.js", "FileReaderSync is declined; see FileReaderPrototype"),
 
         // ---------------------------------------------------------------- workers
         // Twenty-one files that look like the most runnable thing in the directory and are the least: every
@@ -607,6 +609,21 @@ public class WptTestRunner
         ["FileAPI/file/File-constructor.any.js"] = 49,
 
         ["FileAPI/unicode.any.js"] = 4,
+        ["FileAPI/fileReader.any.js"] = 4,
+
+        ["FileAPI/reading-data-section/Determining-Encoding.any.js"] = 6,
+        ["FileAPI/reading-data-section/FileReader-event-handler-attributes.any.js"] = 6,
+        ["FileAPI/reading-data-section/FileReader-multiple-reads.any.js"] = 6,
+        ["FileAPI/reading-data-section/filereader_abort.any.js"] = 3,
+        ["FileAPI/reading-data-section/filereader_error.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_events.any.js"] = 2,
+        ["FileAPI/reading-data-section/filereader_readAsArrayBuffer.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_readAsBinaryString.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_readAsDataURL.any.js"] = 4,
+        ["FileAPI/reading-data-section/filereader_readAsText.any.js"] = 2,
+        ["FileAPI/reading-data-section/filereader_readAsText_blob_type_charset.any.js"] = 3,
+        ["FileAPI/reading-data-section/filereader_readystate.any.js"] = 1,
+        ["FileAPI/reading-data-section/filereader_result.any.js"] = 12,
 
         // Small numbers, because these files are small: the worker corpus asks one question per file about the
         // global it is running in, and the floor is what proves the file reached a worker at all rather than
@@ -1391,6 +1408,7 @@ public class WptTestRunner
         "FileAPI",
         "FileAPI/blob",
         "FileAPI/file",
+        "FileAPI/reading-data-section",
     ];
 
     public static IEnumerable<object[]> FileApiSuiteFiles() => Cases("FileAPI");
@@ -1398,6 +1416,8 @@ public class WptTestRunner
     public static IEnumerable<object[]> FileApiBlobSuiteFiles() => Cases("FileAPI/blob");
 
     public static IEnumerable<object[]> FileApiFileSuiteFiles() => Cases("FileAPI/file");
+
+    public static IEnumerable<object[]> FileApiReadingDataSuiteFiles() => Cases("FileAPI/reading-data-section");
 
     /// <summary>
     /// The three vendored <c>workers/</c> directories. Every file in them runs <b>inside a real module
@@ -1564,6 +1584,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(FileApiFileSuiteFiles))]
     public void RunsTheFileApiFileSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(FileApiReadingDataSuiteFiles))]
+    public void RunsTheFileApiReadingDataSuite(string file) => RunSuiteFile(file);
 
     [TestCaseSource(nameof(WorkersSuiteFiles))]
     public void RunsTheWorkersSuite(string file) => RunSuiteFile(file);

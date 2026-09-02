@@ -235,7 +235,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` / `PerformanceObserver` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
-| `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` | `Files` | ✔ shipped |
+| `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` / `FileReader` | `Files` | ✔ shipped |
 | `navigator.userAgent` / `Navigator` | `Navigator` | ✔ shipped |
 | `ReadableStream` / `WritableStream` / `TransformStream` (all three transferable) / `ByteLengthQueuingStrategy` / `CountQueuingStrategy` | `Streams` | ✔ shipped |
 | `TextEncoderStream` / `TextDecoderStream` | `Encoding` **and** `Streams` | ✔ shipped |
@@ -441,6 +441,7 @@ carries all four, with `onerror` in HTML's legacy five-argument shape.
 | `FormData` | XHR | `Files` |
 | `Blob` | File API | `Files` |
 | `File` | File API | `Files` |
+| `FileReader` | File API | `Files` |
 | `CompressionStream` | Compression | `Compression` **and** `Streams` |
 | `DecompressionStream` | Compression | `Compression` **and** `Streams` |
 | `ByteLengthQueuingStrategy` | Streams | `Streams` |
@@ -1393,6 +1394,24 @@ supplied.
 blob's byte stream piped through a UTF-8 `TextDecoderStream`, so what comes back is an *ordinary* stream
 whose chunks are strings. It always decodes as UTF-8 — the blob's `type` is never consulted, whatever
 `charset` it names, which is the specification's own difference from `FileReader.readAsText()`.
+
+**`FileReader` is there too**, with all four `readAs*` operations, `abort()`, `readyState`, `result`, `error`
+and the six `ProgressEvent`s (`loadstart`, `progress`, `load`, `abort`, `error`, `loadend`) with their `on*`
+handler attributes. A `Blob` here is bytes already in memory, so nothing about a read is I/O and no thread is
+started — but **every event is still a task on the engine's event loop**, which is the thing to know before
+using it: a host that calls `readAsText` and reads `result` without pumping gets `null`.
+
+```js
+const reader = new FileReader();
+reader.onload = () => console.log(reader.result);
+reader.readAsText(blob, 'windows-1252');   // the encoding argument, then the blob type's
+                                           // charset, then a BOM, then UTF-8
+```
+
+`FileReaderSync` is deliberately absent: it is `[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a
+worker block its thread on I/O a window may not block on, and here it would be a second spelling of
+`blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main
+thread.
 
 **All thirteen interface objects are globals**, as they are in a browser: the five a script constructs by
 name, plus `ReadableStreamDefaultReader`, `ReadableStreamBYOBReader`, `WritableStreamDefaultWriter`, the four

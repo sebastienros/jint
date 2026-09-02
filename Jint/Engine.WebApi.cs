@@ -8,6 +8,7 @@ using Jint.WebApi.Abort;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
+using Jint.WebApi.Files;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.Performance;
 using Jint.WebApi;
@@ -280,6 +281,13 @@ internal sealed class WebApiEngineState
     /// <c>performance</c> object paying nothing for the interface.
     /// </summary>
     private PerformanceObserverRegistry? _performanceObservers;
+
+    /// <summary>
+    /// The engine's <i>file reading task source</i>, or <see langword="null"/> until the first
+    /// <c>FileReader.readAs*</c> — which is what keeps an engine that merely has the interface installed
+    /// paying nothing for it.
+    /// </summary>
+    private FileReadQueue? _fileReads;
 
     private const int MessagePortPruneFloor = 16;
 
@@ -934,6 +942,12 @@ internal sealed class WebApiEngineState
     internal PerformanceObserverRegistry PerformanceObservers => _performanceObservers ??= new PerformanceObserverRegistry(_engine);
 
     /// <summary>
+    /// The engine's file reads in flight and the one event-loop job that steps them. One queue for every
+    /// <c>FileReader</c>, which is what <see cref="FileReadQueue"/> explains.
+    /// </summary>
+    internal FileReadQueue FileReads => _fileReads ??= new FileReadQueue(_engine);
+
+    /// <summary>
     /// Registered timers that have not fired and have not been cleared, for
     /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// </summary>
@@ -990,6 +1004,7 @@ internal sealed class WebApiEngineState
         CloseMessagePorts();
         IdleCallbacks?.Clear();
         _performanceObservers?.Clear();
+        _fileReads?.Clear();
 
         // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
         // and nothing outside this class holds a reference to the old one — the three global operations ask

@@ -37,16 +37,17 @@ about those three interfaces and nothing else, which is what let that half of th
 before there was anything for the other half to talk to).
 
 Fourteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
-`user-timing/`, `performance-timeline/` and `xhr/` as one suite each, `FileAPI/` as **three** (its root,
-`blob/` and `file/`), `workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing,
+`user-timing/`, `performance-timeline/` and `xhr/` as one suite each, `FileAPI/` as **four** (its root,
+`blob/`, `file/` and `reading-data-section/`), `workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing,
 structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as **six** (basic, body, headers, redirect,
 request, response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one suite
-per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 363
-theory cases over 41,448 assertions, of which 2,935 do not pass and every one is named in the driver's
+per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 377
+theory cases over 41,500 assertions, of which 2,935 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before `performance-timeline/` arrived were 347 / 41,417 / 2,941, before the
+change moves them; the counts before `FileAPI/reading-data-section/` arrived were 363 / 41,448 / 2,935,
+before `performance-timeline/` 347 / 41,417 / 2,941, before the
 `xhr/` corpus 305 / 41,157 / 2,966, before
 [#3260](https://github.com/sebastienros/jint/issues/3260) stood a wpt server up 273 / 40,657 / 2,889,
 before [#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure 270 / 40,631 /
@@ -386,6 +387,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution, which `WptServer` now performs — but over one origin, and these want a second. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
 | `performance-timeline/droppedentriescount.any.js`, `performance-timeline/case-sensitivity.any.js` | Resource timing. The first opens by calling `setResourceTimingBufferSize(0)` so that a later `fetch` counts as a dropped entry, and all five of its tests then assert a `droppedEntriesCount` only a resource entry can produce; the second wants the resource entry for `testharness.js` itself, and reads `self.location` to name it. The observer's dropped-entry plumbing is exercised by `WebApiPerformanceObserverTests` over a mark buffer driven past its cap, and `user-timing/case-sensitivity.any.js` asserts the same case rule over marks. |
+| `FileAPI/FileReaderSync.worker.js` | `FileReaderSync`, which `FileReaderPrototype` documents declining: it is `[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a worker block its thread on I/O a window may not block on, and a `Blob` here is already in memory — so the synchronous interface would be a second spelling of `blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main thread. It is a `.worker.js` file, so the corpus would not reach it in any case. |
 | `performance-timeline/webtiming-resolution.any.js` | Asserts that two consecutive readings differ by at least five microseconds — that is, that the clock is *coarse*. `PerformancePrototype` records not coarsening as a deliberate divergence: an embedded engine has no cross-origin data to protect, so the resolution is whatever the host's `TimeProvider` gives, and how far apart two readings land would depend on how long an interpreted call happened to take. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
@@ -659,9 +661,21 @@ assertion this change added to the shim.
 
 ## What the File API corpus says about this engine
 
-342 assertions across 14 files (11 in `blob/`, 2 in `file/`, 1 in the root), **all of them passing**. Both
-groups that used to be red are worth an account, because between them they are everything this corpus has
-caught.
+394 assertions across 28 files (11 in `blob/`, 2 in `file/`, 13 in `reading-data-section/`, 2 in the root),
+**all of them passing**. Both groups that used to be red are worth an account, because between them they are
+everything this corpus has caught.
+
+`reading-data-section/` and the root's `fileReader.any.js` arrived with `FileReader` itself, and what they
+found is one thing the specification's text does not say. The read operation queues one task, in which it
+fires `load` and then `loadend`; in a browser the JavaScript stack empties between the two, so a *microtask
+checkpoint* runs there and an `await` resumed by the `load` handler gets to ask for `loadend` before it
+arrives. Jint's event dispatch does not drain the job queue after a listener, so the checkpoint has to come
+from the loop: `loadend` is a task of its own, and with it `filereader_events.any.js` and
+`filereader_result.any.js` pass. `abort()` deliberately keeps its two events in one turn, because there a
+browser has no checkpoint either — script called `abort()`, and the stack is not empty. The same rule is what
+`FileReadQueue` exists for: a checkpoint implemented per read deadlocks the moment two readers are active,
+since each finds the other's job pending and defers forever, so the engine has one pump for every read, as a
+browser has one task queue.
 
 The eight that used to be red were the whole of `Blob-textStream.any.js`, under a `NeedsBlobTextStream`
 category, because [the File API added](https://w3c.github.io/FileAPI/#dom-blob-textstream) `textStream()`
@@ -1387,7 +1401,7 @@ their exclusions without revisiting this table.
 | Web Cryptography | `WebCryptoAPI/` ×8 | 48 | 24,136 | 2,449 |
 | Streams | `streams/` ×7 | 66 | 1,170 | 4 |
 | Compression | `compression/` | 15 | 297 | 22 |
-| File API | `FileAPI/` ×3 | 14 | 342 | 0 |
+| File API | `FileAPI/` ×4 | 28 | 394 | 0 |
 | High Resolution Time | `hr-time/` | 2 | 7 | 0 |
 | User Timing | `user-timing/` | 20 | 81 | 0 |
 | Performance Timeline | `performance-timeline/` | 15 | 28 | 0 |
@@ -1396,7 +1410,7 @@ their exclusions without revisiting this table.
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
 | XMLHttpRequest | `xhr/` | 42 | 260 | 9 |
-| **total** | **41** | **363** | **41,448** | **2,935** |
+| **total** | **42** | **377** | **41,500** | **2,935** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

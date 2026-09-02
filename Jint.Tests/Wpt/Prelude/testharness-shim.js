@@ -1,7 +1,7 @@
 // A shim for the slice of web-platform-tests' testharness.js that the vendored `.any.js` suites use.
 //
 // This file is *not* vendored: upstream's testharness.js is ~2,700 lines of browser plumbing (a reporting
-// DOM table, cross-window `fetch_tests_from_window`, `EventWatcher`, `format_value` over DOM nodes, worker
+// DOM table, cross-window `fetch_tests_from_window`, `format_value` over DOM nodes, worker
 // bootstrapping) whose only job here would be to be switched off again. What the suites in
 // Jint.Tests/Wpt/Vendor actually call is small enough to read in one sitting, and writing it out means the
 // harness can hand results back to the driver as data rather than as rendered HTML.
@@ -776,6 +776,79 @@
         }
     };
 
+    // https://web-platform-tests.org/writing-tests/testharness-api.html#EventWatcher — a promise over an
+    // ordered sequence of events, and an assertion that nothing else arrived in between. Ported from
+    // upstream rather than approximated, because both halves are load-bearing: `FileAPI`'s
+    // `filereader_events.any.js` reads the *order* the six FileReader events arrive in, and its
+    // `filereader_abort.any.js` reads the fact that `abort()` fires two of them synchronously — a watcher
+    // that merely resolved on the next matching event would pass either way.
+    //
+    // The one omission is upstream's `timeoutPromise` fourth argument, which no vendored suite passes: a
+    // browser uses it to turn "the event never arrived" into a named failure before the harness times out,
+    // and here the driver's own deadline is what reports that. `record: 'all'` is kept, since it is one line.
+    function EventWatcher(test, watchedNode, eventTypes) {
+        if (typeof eventTypes === 'string') {
+            eventTypes = [eventTypes];
+        }
+
+        var waitingFor = null;
+
+        // Null unless we are recording all events, in which case it is an Array.
+        var recordedEvents = null;
+
+        var eventHandler = test.step_func(function (evt) {
+            assert_true(!!waitingFor, 'Not expecting event, but got ' + evt.type + ' event');
+            assert_equals(evt.type, waitingFor.types[0],
+                'Expected ' + waitingFor.types[0] + ' event, but got ' + evt.type + ' event instead');
+
+            if (Array.isArray(recordedEvents)) {
+                recordedEvents.push(evt);
+            }
+
+            if (waitingFor.types.length > 1) {
+                waitingFor.types.shift();
+                return;
+            }
+
+            // waitingFor is nulled out before resolving, because a resolve handler may call wait_for() again
+            // and would otherwise be told it is already waiting.
+            var resolveFunc = waitingFor.resolve;
+            waitingFor = null;
+            var result = recordedEvents || evt;
+            recordedEvents = null;
+            resolveFunc(result);
+        });
+
+        for (var i = 0; i < eventTypes.length; i++) {
+            watchedNode.addEventListener(eventTypes[i], eventHandler, false);
+        }
+
+        this.wait_for = function (types, options) {
+            if (waitingFor) {
+                return Promise.reject('Already waiting for an event or events');
+            }
+            if (typeof types === 'string') {
+                types = [types];
+            }
+            if (options && options.record && options.record === 'all') {
+                recordedEvents = [];
+            }
+            return new Promise(function (resolve, reject) {
+                waitingFor = { types: types, resolve: resolve, reject: reject };
+            });
+        };
+
+        this.stop_watching = function () {
+            for (var i = 0; i < eventTypes.length; i++) {
+                watchedNode.removeEventListener(eventTypes[i], eventHandler, false);
+            }
+        };
+
+        test.add_cleanup(this.stop_watching);
+
+        return this;
+    }
+
     function test(func, name) {
         var t = new Test(name);
         t.step(func, t, t);
@@ -1138,6 +1211,7 @@
     global.promise_rejects_js = promise_rejects_js;
     global.promise_rejects_dom = promise_rejects_dom;
     global.promise_rejects_exactly = promise_rejects_exactly;
+    global.EventWatcher = EventWatcher;
 
     // Both of these are the live arrays, and the driver reads them through the object model rather than by
     // evaluating a script. That is not a shortcut: `engine.Evaluate` drains the event loop on its way out,

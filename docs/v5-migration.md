@@ -4889,6 +4889,28 @@ is running in a browser. And the feature closure now brings `WebApiFeatures.Even
 dispatched at `performance` by the engine: the one event the specifications define on the interface is
 `resourcetimingbufferfull`, and there is no resource timing buffer here to fill.
 
+### 4.109 The File API brings the event interfaces with it ([#3631](https://github.com/sebastienros/jint/pull/3631))
+
+`WebApiFeatures.Files` now closes over `WebApiFeatures.Events`, because `FileReader` is an `EventTarget` that
+fires `ProgressEvent`s and a script registering `reader.onload` needs `addEventListener` under it. An engine
+built with the files flag alone additionally carries `Event`, `CustomEvent`, `EventTarget`,
+`AbortController`, `AbortSignal` and `ProgressEvent` as globals. `Blob`, `File` and `FormData` need none of
+it, which is why this is a closure rather than a merged feature.
+
+```js
+// options.UseWebApis(WebApiFeatures.Files)
+typeof EventTarget;      // 5.0: "undefined"  5.x: "function"
+typeof ProgressEvent;    // 5.0: "undefined"  5.x: "function"
+```
+
+`ProgressEvent` in particular moved: it used to arrive only with `WebApiFeatures.XmlHttpRequest`, and it now
+arrives with whichever feature brings the first interface that fires one — which for `WebApiFeatures.Default`
+is the files flag. The install is non-clobbering, so an engine with both features still gets the one
+interface object.
+
+**What could break:** feature detection that reads `typeof EventTarget` or `typeof ProgressEvent` to decide
+whether some other feature is on.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5550,6 +5572,34 @@ binding.
 `DiagnosticCallbackSource` gains a `PerformanceObserver` member: a callback that throws is reported to
 `Options.WebApi.Diagnostics.Sink` and the observers behind it are still delivered to, which is the
 `"report"` exception behaviour the algorithm invokes it with.
+
+### 5.15 `FileReader` ([#3631](https://github.com/sebastienros/jint/pull/3631))
+
+`WebApiFeatures.Files` now installs `FileReader` beside `Blob`, `File` and `FormData`. No new flag.
+
+```js
+const reader = new FileReader();
+reader.onload = () => console.log(reader.result);
+reader.readAsDataURL(blob);
+```
+
+All four operations are there — `readAsArrayBuffer`, `readAsBinaryString`, `readAsText(blob, encoding?)`,
+`readAsDataURL` — with `abort()`, `readyState` and its three constants, `result`, `error`, and the six
+`ProgressEvent`s with their `on*` handler attributes. `readAsText` resolves its encoding the way the File API
+says: the argument if it names one, otherwise the blob type's `charset` parameter, otherwise UTF-8 — and a
+byte order mark overrides all three, which is the Encoding standard's *decode* rather than `TextDecoder`'s
+BOM stripping.
+
+Two things an embedder has to know. **A read is tasks on the event loop**, so `engine.Tasks.ProcessTasks()`
+is what finishes one and a host that reads `result` without pumping gets `null`. There is no thread: a `Blob`
+is bytes already in memory, so "reading" is the event sequence and nothing else. And **a
+`RestoreGlobalSnapshot` drops a read in flight**, leaving its reader in `LOADING` — the contract every other
+piece of pending work has across a restore.
+
+`FileReaderSync` is not implemented, and is absent rather than throwing. It is
+`[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a worker block its thread on I/O a window may
+not block on; here it would be a second spelling of `blob.text()` and `blob.arrayBuffer()` whose only
+distinguishing feature is being unavailable on the main thread.
 
 ## 6. AOT and trimming
 

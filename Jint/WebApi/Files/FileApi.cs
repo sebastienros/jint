@@ -30,6 +30,26 @@ internal static class FileApi
     private const string EndingsNative = "native";
 
     /// <summary>
+    /// The engine's web-API state, which is where the file reading task source lives.
+    /// </summary>
+    /// <remarks>
+    /// Unreachable in the failing direction: <c>FileReader</c> is installed only where
+    /// <c>WebApiRegistration</c> created the state, and the feature closure makes
+    /// <see cref="WebApiFeatures.Files"/> bring <see cref="WebApiFeatures.Events"/>, which is one of the
+    /// features the state is created for.
+    /// </remarks>
+    internal static WebApiEngineState RequireState(Engine engine)
+    {
+        var state = engine._webApi;
+        if (state is null)
+        {
+            Throw.InvalidOperationException("A FileReader was reached on an engine that has no web-API state.");
+        }
+
+        return state;
+    }
+
+    /// <summary>
     /// Processing blob parts, https://w3c.github.io/FileAPI/#process-blob-parts, fused with the WebIDL
     /// conversion of the <c>sequence&lt;BlobPart&gt;</c> argument that feeds it.
     /// </summary>

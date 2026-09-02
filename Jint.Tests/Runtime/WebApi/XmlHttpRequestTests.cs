@@ -128,7 +128,13 @@ public class XmlHttpRequestTests
 
         engine.Evaluate("typeof XMLHttpRequest").AsString().Should().Be("undefined");
         engine.Evaluate("typeof XMLHttpRequestUpload").AsString().Should().Be("undefined");
-        engine.Evaluate("typeof ProgressEvent").AsString().Should().Be("undefined");
+        engine.Evaluate("typeof XMLHttpRequestEventTarget").AsString().Should().Be("undefined");
+
+        // ProgressEvent is not one of them any more: FileReader fires one too, so it arrives with
+        // WebApiFeatures.Files, which WebApiFeatures.Default includes. Whichever feature brings the first
+        // interface that fires one installs it, and the install is non-clobbering, so an engine with both
+        // gets the one interface object.
+        engine.Evaluate("typeof ProgressEvent").AsString().Should().Be("function");
     }
 
     /// <summary>
