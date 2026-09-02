@@ -301,13 +301,19 @@ internal static class EventTargetArguments
     /// WebIDL's arity check: an operation whose required arguments were not all supplied raises a
     /// <c>TypeError</c> before anything else is converted.
     /// </summary>
-    private static void RequireArguments(Realm realm, JsCallArguments arguments, int required, string operationName)
+    internal static void RequireArguments(
+        Realm realm,
+        JsCallArguments arguments,
+        int required,
+        string operationName,
+        string interfaceName = "EventTarget")
     {
         if (arguments.Length < required)
         {
+            var plural = required == 1 ? "argument" : "arguments";
             Throw.TypeError(
                 realm,
-                $"Failed to execute '{operationName}' on 'EventTarget': {required} arguments required, but only {arguments.Length} present.");
+                $"Failed to execute '{operationName}' on '{interfaceName}': {required} {plural} required, but only {arguments.Length} present.");
         }
     }
 

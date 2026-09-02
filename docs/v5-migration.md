@@ -5061,6 +5061,22 @@ built, not when it is declared, so a token registered after it was already lost 
 a cancellation the host had requested. Withdrawing the token still withdraws it (`ObserveCancellation(default)`
 before the profile leaves the engine unobserved), and the profile still clears every other constraint.
 
+### 4.118 `initEvent()` and `initCustomEvent()` require a type ([#3686](https://github.com/sebastienros/jint/issues/3686))
+
+`type` is a required argument of both legacy initializers, so calling one with no arguments is WebIDL's arity
+`TypeError`. It used to re-initialize the event with the type `"undefined"`.
+
+```js
+new Event('a').initEvent();            // 5.0: type becomes "undefined";  5.x: TypeError
+new Event('a').initEvent(undefined);   // both: type becomes "undefined" — the argument is there, and a
+                                       // DOMString stringifies it
+```
+
+The check runs before the "if this's dispatch flag is set, then return" step, because WebIDL raises an arity
+error while it converts the arguments and knows nothing about what the receiver is doing: `initEvent()` throws
+even for an event a dispatch has in flight, where the call would otherwise have been a silent no-op.
+`dispatchEvent()` with no arguments now says "1 argument required" where it said "1 arguments required".
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

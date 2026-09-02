@@ -57,19 +57,22 @@ internal sealed partial class CustomEventPrototype : Prototype
     /// <c>initEvent</c>'s is: only <c>type</c> is required.
     /// </remarks>
     [JsFunction(Name = "initCustomEvent", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue InitCustomEvent(JsValue thisObject, JsValue type, JsValue bubbles, JsValue cancelable, JsValue detail)
+    private JsValue InitCustomEvent(JsValue thisObject, JsCallArguments arguments)
     {
         var ev = Brand(thisObject);
+        EventTargetArguments.RequireArguments(_realm, arguments, 1, "initCustomEvent", "CustomEvent");
+
         if (ev.DispatchFlag)
         {
             return Undefined;
         }
 
         ev.InitializeEvent(
-            TypeConverter.ToJsString(type),
-            TypeConverter.ToBoolean(bubbles),
-            TypeConverter.ToBoolean(cancelable));
+            TypeConverter.ToJsString(arguments.At(0)),
+            TypeConverter.ToBoolean(arguments.At(1)),
+            TypeConverter.ToBoolean(arguments.At(2)));
 
+        var detail = arguments.At(3);
         ev.Detail = detail.IsUndefined() ? Null : detail;
         return Undefined;
     }
