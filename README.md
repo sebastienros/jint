@@ -2281,6 +2281,30 @@ if any trim or AOT analysis diagnostic is attributed to a file in `Jint.DevTools
 serializes goes through a source-generated `System.Text.Json` context, and the first reflective member would
 show up there and nowhere else.
 
+## Jint.Browser (opt-in package, in progress)
+
+`Jint.Browser` is **AngleSharp + Jint**: AngleSharp is the HTML parser, the DOM and (with `AngleSharp.Css`)
+the CSSOM; Jint is the engine, and this package is the layer between them. It is the beginning of a headless
+browser — one that runs a page's scripts against a real DOM without rendering anything — and it is not
+finished. What ships today is the binding layer alone, and this section says so rather than implying more.
+
+**What exists.** Generated bindings for every WebIDL interface AngleSharp describes: one prototype per
+interface built on Jint's own `JsObjectShape`, the interface objects (`Node`, `Element`, `HTMLDivElement`,
+`NodeList`, …) as globals so `instanceof` works, collections that index and iterate through the engine's
+array-like lane, and node wrappers that Jint's tree-aware event dispatcher can walk — so `addEventListener`
+on an element and `dispatchEvent` on a descendant bubble the way the DOM says. Every member is a static
+lambda calling the AngleSharp interface directly; there is no reflection on the path.
+
+**What does not exist yet.** No `window`, no navigation, no `location` or `history`, no HTML parser driver
+(so a `<script>` in parsed markup does not run), no CSSOM beyond what AngleSharp.Css exposes, no
+`XMLHttpRequest` wiring, no rendering or layout, and no Chrome DevTools page domains. Those are the later
+items of the same campaign.
+
+The design, including what a v1 will and will not do, is
+[`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is
+[#3575](https://github.com/sebastienros/jint/issues/3575). The package targets `net8.0` and later and is
+**not** trim- or AOT-compatible in this version, because AngleSharp is not trim-annotated.
+
 ## Performance
 
 - Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast

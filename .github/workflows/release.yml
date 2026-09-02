@@ -88,6 +88,17 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
+    # Jint.Browser ships from the same tag and carries the same version, for the same reason Jint.DevTools
+    # does: it references Jint by project, and its checked-in DOM bindings are only meaningful against the
+    # engine — and the AngleSharp version — they were generated with.
+    - name: Pack Jint.Browser with dotnet
+      run: >
+        dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
     # Kept next to the push: the minted key is short-lived, so it must not be requested
     # before the (slow) test and pack steps.
     - name: NuGet login

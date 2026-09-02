@@ -1,0 +1,195 @@
+{
+  "$comment": [
+    "The curated half of the DOM binding: what AngleSharp's attributes cannot say. Every entry carries a",
+    "reason, and every entry has to name something the pinned assemblies actually have — DomBindingsOverrideTests",
+    "fails on one that does not, so this table can never quietly describe a version of AngleSharp nobody",
+    "references any more. Members left out for a reason the generator worked out for itself (a Task-returning",
+    "member, a delegate parameter, a type the conversion table has no entry for) are NOT listed here: they are",
+    "in the generated report, with the reason the generator gave.",
+    "",
+    "The lists are read by tools/dom-bindings/Jint.Browser.BindingGenerator/Overrides.cs."
+  ],
+
+  "excludedInterfaces": [
+    {
+      "interface": "AngleSharp.Dom.IWindow",
+      "reason": "Window is the browser runtime's, not the binding's: the global object stays Jint's GlobalObject and gains Window.prototype in its chain (campaign item R1). Generating a second Window here would produce an interface object nothing could ever be an instance of. document.defaultView is skipped with it, by the conversion table rather than by name."
+    }
+  ],
+
+  "manual": [
+    {
+      "interface": "AngleSharp.Dom.IHtmlCollection`1",
+      "shape": "DomManualShapes.HtmlCollection",
+      "reason": "AngleSharp's IHtmlCollection<T> is generic and invariant, so a static member body cannot name the receiver type. item() and namedItem() are hand-written against DomCollectionBase's two virtuals instead, and the interface contributes no members to any closure — its refinements inherit them through the prototype chain, which is where a browser has them too."
+    }
+  ],
+
+  "skip": [
+    {
+      "interface": "Document",
+      "member": "createEvent",
+      "reason": "Returns an AngleSharp Event. Every script-visible event in this design is a Jint Event dispatched through the engine's own tree dispatcher (design doc §5), and letting AngleSharp's event objects reach script would create a second event bus with a second brand."
+    },
+    {
+      "interface": "Document",
+      "member": "open",
+      "reason": "document.open() re-enters the parser and replaces the document; the parser driver owns that (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "close",
+      "reason": "The other half of document.open(): it ends the parse the driver is running (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "load",
+      "reason": "A navigation, which the browser runtime owns (campaign item R5). AngleSharp's own load would fetch off the page's loop with none of the page's limits."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "click",
+      "reason": "Activation behaviour: a click is a dispatched event with a default action, not a method call on the element (campaign items R2 and C4). AngleSharp's DoClick runs its own event bus."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "focus",
+      "reason": "Focus is a document-level concept the input model owns (campaign item C4), and it fires focus/blur events."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "blur",
+      "reason": "The other half of focus()."
+    },
+    {
+      "interface": "HTMLFormElement",
+      "member": "reset",
+      "reason": "Form reset fires a reset event whose default action resets the controls; the events bridge owns it (campaign item R2)."
+    },
+    {
+      "interface": "Location",
+      "member": "assign",
+      "reason": "Navigation (campaign item R5)."
+    },
+    {
+      "interface": "Location",
+      "member": "replace",
+      "reason": "Navigation (campaign item R5)."
+    },
+    {
+      "interface": "Location",
+      "member": "reload",
+      "reason": "Navigation (campaign item R5)."
+    },
+    {
+      "interface": "Location",
+      "member": "href",
+      "half": "setter",
+      "reason": "Assigning location.href is a navigation (campaign item R5). The getter stays, because reading the document's URL is not."
+    }
+  ],
+
+  "hooks": [
+    {
+      "interface": "Element",
+      "member": "innerHTML",
+      "half": "setter",
+      "hook": "SetInnerHtml",
+      "reason": "Setting innerHTML parses markup into the tree, and a <script> inserted that way has to reach the script scheduler. Until the parser driver exists (campaign item R3) the hook's default body assigns AngleSharp's property directly, which is exactly today's behaviour; R3 replaces the body and nothing generated changes."
+    },
+    {
+      "interface": "Element",
+      "member": "outerHTML",
+      "half": "setter",
+      "hook": "SetOuterHtml",
+      "reason": "The same parse, replacing the element itself (campaign item R3)."
+    },
+    {
+      "interface": "Element",
+      "member": "insertAdjacentHTML",
+      "half": "operation",
+      "hook": "InsertAdjacentHtml",
+      "reason": "The same parse, at a position relative to the element (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "write",
+      "half": "operation",
+      "hook": "Write",
+      "reason": "document.write during parsing writes into the live text source while the parser is parked, which only the parser driver can do (campaign item R3)."
+    },
+    {
+      "interface": "Document",
+      "member": "writeln",
+      "half": "operation",
+      "hook": "WriteLine",
+      "reason": "document.write with a newline appended (campaign item R3)."
+    }
+  ],
+
+  "nullableStrings": [
+    {
+      "interface": "Element",
+      "member": "getAttribute",
+      "reason": "DOM §4.9: `DOMString? getAttribute(DOMString qualifiedName)` — null when the attribute is absent, and scripts test for it."
+    },
+    {
+      "interface": "Element",
+      "member": "getAttributeNS",
+      "reason": "DOM §4.9: `DOMString? getAttributeNS(DOMString? namespace, DOMString localName)`."
+    },
+    {
+      "interface": "Element",
+      "member": "namespaceURI",
+      "reason": "DOM §4.9: `readonly attribute DOMString? namespaceURI`."
+    },
+    {
+      "interface": "Element",
+      "member": "prefix",
+      "reason": "DOM §4.9: `readonly attribute DOMString? prefix`."
+    },
+    {
+      "interface": "Attr",
+      "member": "namespaceURI",
+      "reason": "DOM §4.9.2: `readonly attribute DOMString? namespaceURI`."
+    },
+    {
+      "interface": "Attr",
+      "member": "prefix",
+      "reason": "DOM §4.9.2: `readonly attribute DOMString? prefix`."
+    },
+    {
+      "interface": "Node",
+      "member": "nodeValue",
+      "reason": "DOM §4.4: `attribute DOMString? nodeValue` — null for every node type but Attr, CharacterData and ProcessingInstruction."
+    },
+    {
+      "interface": "Node",
+      "member": "textContent",
+      "reason": "DOM §4.4: `attribute DOMString? textContent` — null for a document and a doctype."
+    },
+    {
+      "interface": "Node",
+      "member": "lookupPrefix",
+      "reason": "DOM §4.4: `DOMString? lookupPrefix(DOMString? namespace)`."
+    },
+    {
+      "interface": "Node",
+      "member": "lookupNamespaceURI",
+      "reason": "DOM §4.4: `DOMString? lookupNamespaceURI(DOMString? prefix)`."
+    }
+  ],
+
+  "stringEnums": [],
+
+  "constants": {
+    "add": [
+      {
+        "interface": "Range",
+        "enum": "AngleSharp.Dom.RangeType",
+        "reason": "DOM §5.5 puts START_TO_START and its three siblings on Range, but AngleSharp only ever passes the enum as an argument to compareBoundaryPoints, so the returns-it rule does not find them."
+      }
+    ],
+    "skip": []
+  }
+}

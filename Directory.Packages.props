@@ -6,6 +6,12 @@
   <ItemGroup>
     <PackageVersion Include="Acornima" Version="1.8.0" />
     <PackageVersion Include="Acornima.Extras" Version="1.8.0" />
+    <!-- The DOM, the HTML parser and the CSSOM Jint.Browser composes with. These two versions are also the
+         binding generator's pin: tools/dom-bindings/pin.json repeats them, and DomBindingsPinTests fails when
+         the two records disagree, because the checked-in Jint.Browser/Dom/Generated/ is a picture of exactly
+         these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
+    <PackageVersion Include="AngleSharp" Version="1.7.2" />
+    <PackageVersion Include="AngleSharp.Css" Version="1.0.2" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
