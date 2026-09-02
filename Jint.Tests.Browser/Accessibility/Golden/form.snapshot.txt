@@ -1,0 +1,30 @@
+- RootWebArea "Create an account":
+  - main:
+    - heading "Create an account" [level=1]
+    - form "Your details":
+      - heading "Your details" [level=2]
+      - paragraph: Everything marked with an asterisk is required.
+      - group "Name":
+        - textbox "Given name" [required]: Ada
+        - textbox "Family name" [required]
+      - textbox "Email"
+      - text: We only use this to send the receipt.
+      - spinbutton "Age": 36
+      - slider "Notification volume": Loud
+      - combobox "Country":
+        - option "Finland"
+        - option "Ireland" [selected]
+      - listbox "Tags" [multiselectable]:
+        - option "alpha" [selected]
+        - option "beta"
+      - textbox "About you" [readonly]: A short biography.
+      - checkbox "I accept the terms" [checked]
+      - checkbox "Send me the newsletter" [disabled]
+      - group "Plan":
+        - radio "Free" [checked]
+        - radio "Paid"
+      - progressbar: 3
+      - status: Ready
+      - button "Create account"
+      - button "More options"
+      - button "Reset"

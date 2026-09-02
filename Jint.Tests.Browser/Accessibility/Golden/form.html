@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Create an account</title>
+  <style>.visually-hidden { display: none }</style>
+</head>
+<body>
+  <main>
+    <h1>Create an account</h1>
+    <form action="/signup" method="post" aria-labelledby="signup-heading" aria-describedby="signup-help">
+      <h2 id="signup-heading">Your details</h2>
+      <p id="signup-help">Everything marked with an asterisk is required.</p>
+
+      <fieldset>
+        <legend>Name</legend>
+        <label for="given">Given name</label>
+        <input id="given" name="given" required value="Ada">
+        <label for="family">Family name</label>
+        <input id="family" name="family" required placeholder="Lovelace">
+      </fieldset>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@example.com" aria-describedby="email-help">
+      <span id="email-help">We only use this to send the receipt.</span>
+
+      <label for="age">Age</label>
+      <input id="age" type="number" min="13" max="120" value="36">
+
+      <label for="volume">Notification volume</label>
+      <input id="volume" type="range" min="0" max="11" value="7" aria-valuetext="Loud">
+
+      <label for="country">Country</label>
+      <select id="country">
+        <option>Finland</option>
+        <option selected>Ireland</option>
+      </select>
+
+      <label for="tags">Tags</label>
+      <select id="tags" multiple size="4">
+        <option selected>alpha</option>
+        <option>beta</option>
+      </select>
+
+      <label for="bio">About you</label>
+      <textarea id="bio" rows="4" readonly>A short biography.</textarea>
+
+      <input id="terms" type="checkbox" checked>
+      <label for="terms">I accept the terms</label>
+
+      <input id="news" type="checkbox" disabled>
+      <label for="news">Send me the newsletter</label>
+
+      <p role="group" aria-label="Plan">
+        <input id="plan-free" type="radio" name="plan" checked><label for="plan-free">Free</label>
+        <input id="plan-paid" type="radio" name="plan"><label for="plan-paid">Paid</label>
+      </p>
+
+      <p class="visually-hidden"><input id="honeypot" name="website"><label for="honeypot">Leave this empty</label></p>
+      <input type="hidden" name="csrf" value="token">
+
+      <progress id="strength" value="3" max="10"></progress>
+      <output id="summary" aria-live="polite">Ready</output>
+
+      <button type="submit">Create account</button>
+      <button type="button" aria-pressed="false" aria-haspopup="menu">More options</button>
+      <input type="reset">
+    </form>
+  </main>
+</body>
+</html>

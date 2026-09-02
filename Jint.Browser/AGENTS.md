@@ -284,3 +284,54 @@ until the protocol layer has settled what a host actually holds. `DomBindings`, 
 with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is
 why it is named in `InternalsVisibleTo` and why every test of the binding is written against the internal
 surface rather than around it.
+
+### Accessibility and extraction have no layout
+
+`Accessibility/` computes an accessibility tree over AngleSharp's DOM and `Extraction/` renders the same
+document as text or CommonMark. Both are pure C# over `IDocument`/`IElement`; neither touches an engine, and
+that is why they were built before the page runtime existed. The consumers are the CDP `Accessibility` domain,
+the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, and the MCP server's `snapshot`.
+
+**Three things a browser answers from its layout tree are answered from somewhere else, and every one is a
+place where this can be wrong.**
+
+- **Hidden** is `ElementVisibility`: the `hidden` content attribute, `aria-hidden="true"`, and `display:none`
+  / `visibility:hidden|collapse` from the cascade — `IElement.ComputeCurrentStyle()`, which resolves author
+  sheets and the UA sheet — falling back to the `style` content attribute alone when `AngleSharp.Css` is not
+  registered. It cannot know that an element is off screen, clipped, covered or zero-sized. Two asymmetries
+  are deliberate: `display:none` takes its subtree with it while `visibility:hidden` does not (CSS inherits
+  `visibility`, so a `visibility:visible` descendant comes back), and `aria-hidden` removes a node from the
+  accessibility tree while changing nothing about the rendering — so the extractors ask
+  `RenderingReasonFor`, which ignores it, and only the tree asks `ReasonFor`, which does not.
+- **Block-level** is `HtmlDisplay`, HTML's suggested rendering rather than a used display, and it is the
+  table that decides — not the cascade. The cascade only wins where it *differs* from the table, which is
+  what makes `<span style="display:block">` a block and stops AngleSharp's incomplete default sheet from
+  calling every `<section>` inline.
+- **`innerText`** is therefore the text of the document, not the text of a rendering of it: the required
+  line breaks, the `<br>`s, the cell tabs and the white-space processing are all there, but nothing wraps,
+  so a paragraph is one line however wide it would have been.
+
+Three simplifications in the name computation are worth knowing before reading a wrong name as a bug: CSS
+generated content (`::before`, `::after`, `::marker`) contributes nothing, `text-transform` is not applied,
+and SVG `<title>`/`<desc>` children are not read. Everything else of accname 1.2 — 2A through 2I, the
+recursion, the visited guard, the flattening — is the algorithm as written. HTML-AAM's mapping table is
+implemented in full with one blanket simplification: where it names a computed role that is not a WAI-ARIA
+role (`html-abbr`, `html-audio`, `keyboard`, `variable` and their kind) the element maps to `generic`.
+
+`AccessibilityOptions` has three presets and they are not interchangeable: `Default` is the pruned tree,
+`Snapshot` adds the text between the nodes (which is what `AccessibilitySnapshot.Render` needs to say
+anything at all), and `Full` is what `Accessibility.getFullAXTree` answers with. A snapshot states each
+string once — text that is already a node's accessible name is not published again as a text node.
+
+The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rendered three ways each and the
+output is checked in. **`JINT_BROWSER_GOLDEN=update` rewrites them**, the same discipline `JINT_SPEC_ANCHORS`
+and `JINT_DOM_BINDINGS` use: the diff is the artefact, so a change to what an agent reads has to be looked at.
+
+Divergences that are **AngleSharp's**, found by this work, to be reported upstream rather than patched here:
+
+| What | The standard | AngleSharp.Css 1.0.2 |
+| --- | --- | --- |
+| `el.ComputeCurrentStyle()` without the CSS services | an empty declaration, or a documented failure | throws `InvalidOperationException("Sequence contains no elements")`, which is why every call here is guarded and the guard latches |
+| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
+| `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
+| `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Jint • TodoMVC</title>
+  <style>
+    .hidden { display: none }
+    .todo-list li.completed label { text-decoration: line-through }
+  </style>
+</head>
+<body>
+  <section class="todoapp">
+    <header class="header">
+      <h1>todos</h1>
+      <label for="new-todo" class="hidden">What needs to be done?</label>
+      <input id="new-todo" class="new-todo" placeholder="What needs to be done?" autofocus>
+    </header>
+
+    <section class="main">
+      <input id="toggle-all" class="toggle-all" type="checkbox">
+      <label for="toggle-all">Mark all as complete</label>
+
+      <ul class="todo-list">
+        <li class="completed">
+          <input id="todo-1" class="toggle" type="checkbox" checked>
+          <label for="todo-1">Write the accessibility tree</label>
+          <button class="destroy" aria-label="Delete Write the accessibility tree"></button>
+        </li>
+        <li>
+          <input id="todo-2" class="toggle" type="checkbox">
+          <label for="todo-2">Render the page as markdown</label>
+          <button class="destroy" aria-label="Delete Render the page as markdown"></button>
+        </li>
+        <li>
+          <input id="todo-3" class="toggle" type="checkbox">
+          <label for="todo-3">Ship the snapshot</label>
+          <button class="destroy" aria-label="Delete Ship the snapshot"></button>
+        </li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <span class="todo-count"><strong>2</strong> items left</span>
+      <ul class="filters">
+        <li><a href="#/" aria-current="page">All</a></li>
+        <li><a href="#/active">Active</a></li>
+        <li><a href="#/completed">Completed</a></li>
+      </ul>
+      <button class="clear-completed">Clear completed</button>
+    </footer>
+  </section>
+
+  <footer class="info">
+    <p>Double-click a todo to edit it</p>
+    <p>Created by <a href="https://jint.test/">the Jint campaign</a></p>
+  </footer>
+</body>
+</html>

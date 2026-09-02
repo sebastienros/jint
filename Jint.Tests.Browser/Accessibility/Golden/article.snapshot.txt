@@ -1,0 +1,69 @@
+- RootWebArea "A headless browser on Jint":
+  - banner:
+    - paragraph: Jint
+  - article:
+    - heading "A headless browser on Jint" [level=1]
+    - paragraph:
+      - text: Jint already carries the web platform's
+      - strong: non-DOM half
+      - text: . The only missing layer is the
+      - emphasis: document
+      - text: : parsing, the DOM, the CSSOM, and the runtime that ties them to a
+      - link "Window"
+      - text: .
+    - figure "Figure 1: the parser baton.":
+      - image "The parser hands a baton to the page loop"
+    - heading "What v1 delivers" [level=2]
+    - list:
+      - listitem:
+        - text: Full HTML5 parse, with
+        - code: defer
+        - text: and
+        - code: async
+        - text: scripts.
+      - listitem:
+        - text: Generated DOM and CSSOM bindings.
+        - list:
+          - listitem: One shape per interface.
+          - listitem: One wrapper per node.
+      - listitem: Accessibility and markdown snapshots.
+    - heading "What it is not" [level=2]
+    - list:
+      - listitem: A renderer.
+      - listitem: A rival DOM stack.
+    - blockquote:
+      - paragraph: Jint should add value to AngleSharp without competing too much.
+    - heading "Running it" [level=2]
+    - code: dotnet run --project Jint.Repl -c Release -- -f page.js -t 10
+    - table "Comparison":
+      - rowgroup:
+        - row "Engine Memory Wall":
+          - columnheader "Engine"
+          - columnheader "Memory"
+          - columnheader "Wall"
+      - rowgroup:
+        - row "Chromium High 1x":
+          - cell "Chromium"
+          - cell "High"
+          - cell "1x"
+        - row "Jint.Browser Low 1.5-3x":
+          - cell "Jint.Browser"
+          - cell "Low"
+          - cell "1.5-3x"
+    - separator
+    - list:
+      - term: Baton
+      - definition: The token that says which side may touch the DOM.
+      - term: Census
+      - definition: The ceiling a conformance lane may not raise.
+    - group [expanded]:
+      - button "Read the design" [expanded]
+      - paragraph:
+        - text: The whole design is in
+        - link "the design document"
+        - text: .
+    - paragraph:
+      - text: Send corrections
+      - text: to the tracking issue.
+  - contentinfo:
+    - paragraph: © 2026
