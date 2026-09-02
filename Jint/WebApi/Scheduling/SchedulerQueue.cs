@@ -526,7 +526,8 @@ internal sealed class SchedulerTask
             JsValue result;
             try
             {
-                result = _callback.Call(JsValue.Undefined);
+                // Through Engine.Call, so the callback owns a call-stack frame: see TimerEntry.Fire.
+                result = _scheduler.Engine.Call(_callback, JsValue.Undefined, Arguments.Empty, expression: null);
             }
             catch (JavaScriptException ex)
             {

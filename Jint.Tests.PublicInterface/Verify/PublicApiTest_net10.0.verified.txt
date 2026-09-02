@@ -907,6 +907,7 @@ namespace Jint.Diagnostics
     public sealed class ValueInspectorOptions
     {
         public ValueInspectorOptions() { }
+        public bool FunctionSourceText { get; init; }
         public int MaxDepth { get; init; }
         public int MaxEntries { get; init; }
         public int MaxStringLength { get; init; }
@@ -2823,6 +2824,7 @@ namespace Jint.WebApi
     public abstract class ConsoleSink
     {
         protected ConsoleSink() { }
+        public virtual bool WantsStackTrace { get; }
         public static Jint.WebApi.ConsoleSink Null { get; }
         public virtual void Write(in Jint.WebApi.ConsoleRecord record) { }
         public abstract void Write(Jint.WebApi.ConsoleLogLevel level, string message);

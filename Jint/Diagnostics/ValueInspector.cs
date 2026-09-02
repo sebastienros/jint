@@ -75,6 +75,7 @@ public static class ValueInspector
         private readonly int _maxEntries;
         private readonly int _maxDepth;
         private readonly int _maxStringLength;
+        private readonly bool _functionSourceText;
         private List<ObjectInstance>? _path;
 
         internal Walker(ValueInspectorOptions options)
@@ -82,6 +83,7 @@ public static class ValueInspector
             _maxEntries = System.Math.Max(0, options.MaxEntries);
             _maxDepth = System.Math.Clamp(options.MaxDepth, 0, DepthCeiling);
             _maxStringLength = System.Math.Max(0, options.MaxStringLength);
+            _functionSourceText = options.FunctionSourceText;
             _path = null;
         }
 
@@ -134,7 +136,11 @@ public static class ValueInspector
 
             if (obj is Function function)
             {
-                return new ValueDescription(ValueKind.Function, FunctionText(function), ValueSlotReader.ConstructorName(obj));
+                var text = _functionSourceText
+                    ? ValueSlotReader.FunctionSourceText(function)
+                    : FunctionText(function);
+
+                return new ValueDescription(ValueKind.Function, text, ValueSlotReader.ConstructorName(obj));
             }
 
             // Everything below may carry entries, so it takes part in both the cycle and the depth bound.

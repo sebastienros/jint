@@ -609,6 +609,21 @@ public abstract partial class Function : ObjectInstance, ICallable
     }
 
     /// <summary>
+    /// The retained source text of this function's declaration, for a describing path that may not run
+    /// script and may not call the host's <c>FunctionToStringHandler</c>.
+    /// </summary>
+    /// <remarks>
+    /// The same text <see cref="ToString"/> returns when <see cref="Options.RetainFunctionSourceText"/> kept
+    /// it. False for every function the parser did not build one for — a <c>ClrFunction</c>, a bound
+    /// function, anything native — and for a program parsed with retention off.
+    /// </remarks>
+    internal bool TryGetOwnSourceText([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? sourceText)
+    {
+        sourceText = _functionDefinition?.GetSourceText();
+        return sourceText is not null;
+    }
+
+    /// <summary>
     /// The function's own <c>name</c> as a string, or the empty string when it has none. Resolved off the
     /// descriptor field rather than through <c>Get</c> so the answer is the function's
     /// own name and not something inherited, and a pending descriptor stands for the definition's

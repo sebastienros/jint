@@ -78,18 +78,28 @@ public sealed partial class ErrorConstructor : Constructor
     /// </summary>
     internal static ErrorStackCapture? BuildStackTraceCapture(Engine engine, JsValue constructor)
     {
+        var callStack = engine.CallStack;
+        var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
+
+        // If the current function is the error constructor itself (i.e. "throw new Error(...)" was called
+        // from script), exclude it from the stack trace, because the trace should begin at the throw point.
+        return BuildStackTraceCapture(engine, currentFunction == constructor ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Captures a deferred snapshot of the call stack with the top <paramref name="excludeTop"/> frames left
+    /// out, so a dispatcher that is itself on the stack can report the call site rather than itself.
+    /// </summary>
+    /// <remarks>Returns <see langword="null"/> when there is no active script location.</remarks>
+    internal static ErrorStackCapture? BuildStackTraceCapture(Engine engine, int excludeTop)
+    {
         var lastSyntaxNode = engine.GetLastSyntaxElement();
         if (lastSyntaxNode == null)
         {
             return null;
         }
 
-        var callStack = engine.CallStack;
-        var currentFunction = callStack.TryPeek(out var element) ? element.Function : null;
-
-        // If the current function is the error constructor itself (i.e. "throw new Error(...)" was called
-        // from script), exclude it from the stack trace, because the trace should begin at the throw point.
-        var frames = callStack.SnapshotFrames(currentFunction == constructor ? 1 : 0);
+        var frames = engine.CallStack.SnapshotFrames(excludeTop);
         return new ErrorStackCapture(engine, lastSyntaxNode.Location, frames);
     }
 

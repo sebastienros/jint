@@ -22,10 +22,11 @@ namespace Jint.WebApi;
 /// </para>
 /// <para>
 /// <b>A sink may take the record instead of the line.</b> <see cref="Write(in ConsoleRecord)"/> carries the
-/// method that was called, its raw arguments as <see cref="Native.JsValue"/>s, the group depth and, for
-/// <c>console.trace</c>, the captured frames — everything a structured log or a debugger protocol needs and
-/// a finished string has already thrown away. It is what the engine calls, for every invocation including
-/// the ones that print nothing, and it forwards to the string overload by default.
+/// method that was called, its raw arguments as <see cref="Native.JsValue"/>s, the group depth and the
+/// captured frames — everything a structured log or a debugger protocol needs and a finished string has
+/// already thrown away. It is what the engine calls, for every invocation including the ones that print
+/// nothing, and it forwards to the string overload by default. Frames reach a method other than
+/// <c>console.trace</c> only when <see cref="WantsStackTrace"/> asks for them.
 /// </para>
 /// </remarks>
 public abstract class ConsoleSink
@@ -90,6 +91,23 @@ public abstract class ConsoleSink
             Write(record.Level, message);
         }
     }
+
+    /// <summary>
+    /// Whether every record should carry <see cref="ConsoleRecord.StackTrace"/>, not just <c>console.trace</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A call site is what a debugger protocol anchors a console message to, and the frames are only readable
+    /// while the call is still on the stack — so the engine has to capture them before the sink is reached,
+    /// or not at all. Walking the call stack for every <c>console.log</c> is not free, so it is off unless a
+    /// sink says it reads them.
+    /// </para>
+    /// <para>
+    /// The value is read once per record, so a sink may change its mind between calls. A sink that answers
+    /// <see langword="true"/> and never reads <see cref="ConsoleRecord.StackTrace"/> is paying for nothing.
+    /// </para>
+    /// </remarks>
+    public virtual bool WantsStackTrace => false;
 
     private sealed class NullConsoleSink : ConsoleSink
     {

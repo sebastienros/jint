@@ -4771,6 +4771,36 @@ string. There is no option to restore the old output. To write a year beside a m
 year-month, name the fields instead of the style — `{ year: 'numeric', month: 'long', day: 'numeric' }` — and
 supply the value that should stand in the field the type does not have.
 
+### 4.108 A frame the engine was entered at is named, and a timer callback has one ([#3635](https://github.com/sebastienros/jint/pull/3635))
+
+Every frame in a stack trace but one is created by a call expression, and a call expression carries a callee
+the engine can name the frame after. A frame the engine was *entered* at has no such expression — nothing in
+script called it — and two things followed from that. A host `Invoke` of a function with no name of its own
+produced a frame with the empty string for a name, which renders as a frame with no name at all; and a
+`setTimeout`, `setInterval`, `queueMicrotask`, `requestIdleCallback` or `scheduler.postTask` callback reached
+its function through `ICallable.Call`, which pushes nothing, so the callback had no frame in any stack trace,
+in `console.trace`, or in the debugger's call stack.
+
+```js
+setTimeout(function reconcile() {
+    throw new Error('late');
+}, 0);
+// 5.0:  "    at app.js:2:11"
+// 5.x:  "    at reconcile (app.js:2:11)" and the program frame under it
+```
+
+The name is now read from the function's own `name` **as a descriptor**, and only then from the call site,
+and falls back to `(anonymous)` — the word an immediately invoked function expression already produced —
+when neither says anything. Reading it as a descriptor means naming a frame can no longer run script: a
+`name` a script replaced with an accessor leaves the frame anonymous instead of running that accessor while
+an error's stack trace is being built.
+
+**What could break:** a test comparing `Error.prototype.stack`, `JavaScriptException.JavaScriptStackTrace` or
+`DebugInformation.CallStack` against a hard-coded string for code the engine entered from a timer or from a
+host `Invoke`. There is one more frame in the first case and a name where there was none in the second;
+nothing about a frame a call expression created has changed. `Options.Interop.BuildCallStackHandler` is
+handed the same frames the renderer walks, so a host that overrides the rendering sees the new one too.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5343,6 +5373,48 @@ host loop; it holds the thread for as long as `Options.WebApi.Fetch.Timeout` and
 `Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
 type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint
 parses no markup.
+
+### 5.14 A console sink can ask where each message was logged from ([#3635](https://github.com/sebastienros/jint/pull/3635))
+
+`ConsoleRecord.StackTrace` used to carry frames for `console.trace` and nothing else. A sink that overrides
+the new `ConsoleSink.WantsStackTrace` and answers `true` now gets them for every method:
+
+```csharp
+sealed class AnchoringSink : ConsoleSink
+{
+    public override bool WantsStackTrace => true;
+
+    public override void Write(in ConsoleRecord record)
+    {
+        var site = record.StackTrace?[0];   // innermost frame: FunctionName, Source, Line, Column
+        // ...
+    }
+
+    public override void Write(ConsoleLogLevel level, string message) { }
+}
+```
+
+The frames start at the call site — the console method's own frame is left out — and a method that prints
+nothing, such as `groupEnd`, carries them too. **A sink that does not override it is unchanged**, and pays
+nothing: the capture is a call-stack walk per record, so it happens only when a sink says it reads the
+result. The property is read once per record, so a sink may answer differently from one call to the next.
+
+### 5.15 A described function can carry its source instead of a label ([#3635](https://github.com/sebastienros/jint/pull/3635))
+
+`ValueInspector` describes a function as `ƒ name()`, which is what a console prints and what a debugger
+protocol's client cannot parse: the front end reads that field as `Function.prototype.toString` output.
+`ValueInspectorOptions.FunctionSourceText` asks for that instead:
+
+```csharp
+var described = ValueInspector.Describe(value, new ValueInspectorOptions { FunctionSourceText = true });
+// "function computeTotal(items) { … }", or "function max() { [native code] }"
+```
+
+The declaration when `Options.RetainFunctionSourceText` kept it, and the `[native code]` placeholder
+otherwise — the same two answers `Function.prototype.toString` gives, minus the two things a describing path
+may not do: it neither calls the host's `Options.Host.FunctionToStringHandler` nor coerces a `name` a script
+replaced with an accessor. **The default is unchanged**, so a caller that does not name the option gets the
+label it always did.
 
 ## 6. AOT and trimming
 

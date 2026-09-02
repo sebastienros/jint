@@ -145,18 +145,23 @@ public readonly struct ConsoleRecord
     public int GroupDepth { get; }
 
     /// <summary>
-    /// Gets the captured call stack for a <c>console.trace</c> record, or <see langword="null"/> for every
-    /// other method.
+    /// Gets the call stack the console method was called from, innermost frame first, or
+    /// <see langword="null"/> when none was captured.
     /// </summary>
     /// <remarks>
-    /// The frames are the ones rendered into <see cref="Message"/>, innermost first, read from the same
-    /// capture — so the two describe the same call stack.
+    /// <para>
+    /// A <c>console.trace</c> record always carries them, and they are the frames rendered into
+    /// <see cref="Message"/> — read from the same capture, so the two describe one call stack. Every other
+    /// method carries them only when the sink asked, through
+    /// <see cref="ConsoleSink.WantsStackTrace"/>: walking the stack for each call costs something, and a
+    /// host that never reads the frames should not pay it.
+    /// </para>
     /// </remarks>
     public IReadOnlyList<ConsoleStackFrame>? StackTrace { get; }
 }
 
 /// <summary>
-/// One frame of a <c>console.trace</c> record's call stack. Requires .NET 8 or higher.
+/// One frame of a console record's call stack. Requires .NET 8 or higher.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 public readonly struct ConsoleStackFrame
