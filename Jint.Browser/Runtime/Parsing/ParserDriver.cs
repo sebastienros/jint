@@ -67,7 +67,7 @@ internal sealed class ParserDriver : IDisposable
         _maxRedirects = runtime.Options.MaxRedirects;
         _timeout = runtime.Options.SubresourceTimeout;
         _cancellationToken = cancellationToken;
-        _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, cancellationToken);
+        _baton = new ParserBaton(runtime.Engine, runtime.Options.PumpIdle, OnPumpError, cancellationToken);
     }
 
     /// <summary>Parses <paramref name="html"/> as <paramref name="url"/> and runs the document's scripts.</summary>
@@ -216,7 +216,13 @@ internal sealed class ParserDriver : IDisposable
         };
 
         thread.Start();
-        _baton.Serve(completion.Task);
+
+        if (!_baton.Serve(completion.Task))
+        {
+            // The page is closing. The parser thread is a background one and its next hand-off fails, so
+            // there is nothing left to wait for and nothing to show.
+            throw new OperationCanceledException("The page was closed while its document was being parsed.");
+        }
 
         if (failure is not null)
         {
@@ -326,8 +332,12 @@ internal sealed class ParserDriver : IDisposable
             return null;
         }
 
-        var referrer = UrlParser.Parse(_runtime.DocumentUrl);
-        var request = new SubresourceRequest(target, referrer, referrer, _maxBytes, _maxRedirects, RequestInitiator.Subresource);
+        // The same record twice, deliberately: as the referrer it is the URL a `Referer` header carries, and
+        // as the origin it is kept for its origin alone — the transport compares `SerializeOrigin()` and
+        // derives the `Origin` header from it, never the path. `DocumentFetch` and `fetch()` pass the same
+        // shape for the same reason.
+        var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
+        var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects, RequestInitiator.Subresource);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
         timeout.CancelAfter(_timeout);
 
@@ -432,6 +442,19 @@ internal sealed class ParserDriver : IDisposable
         {
             // HTML's "report the exception" step: the script ends, the parse goes on, and the page is told.
             Report(PageErrorKind.ScriptError, PageRecorder.Diagnostics.Describe(exception.Error, exception), location);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Everything else a script can end with, and the ones that matter are the bounds: a per-turn
+            // deadline or a memory budget throws out of Execute, and it arrives here on the *loop* thread
+            // inside a baton hand-off. Letting it out is worse than it looks — AngleSharp's script processor
+            // wraps EvaluateScriptAsync in `catch (Exception) { TrackError }`, so a constraint abort raised
+            // by an inline or deferred script would vanish into AngleSharp's own error list, while one
+            // raised where the resource loader is running would fault the parse and fail the navigation.
+            // Neither is the contract, which is HTML's: recorded, and the page survives its scripts.
+            // `Execute` and `RunModule` are the only two places a script runs, so they are the only two
+            // that owe this.
+            Report(PageErrorKind.ScriptError, exception.Message, location);
         }
         finally
         {
@@ -763,6 +786,18 @@ internal sealed class ParserDriver : IDisposable
 
     private void Report(PageErrorKind kind, string message, string source)
         => _runtime.Recorder.Add(new PageError(kind, message, source));
+
+    /// <summary>
+    /// What erupted out of the baton's pump — a job the diagnostics sink does not cover, or a constraint
+    /// aborting one.
+    /// </summary>
+    /// <remarks>
+    /// It is the same debt <c>PageLoop.Pump</c> pays to its own <c>onPumpError</c>: the pump must not end
+    /// the load, and what it swallows must not vanish. A constraint abort in particular is the whole reason
+    /// this exists — a page bounded by a budget that fires into nothing is a page nobody can debug.
+    /// </remarks>
+    private void OnPumpError(Exception exception)
+        => Report(PageErrorKind.UncaughtCallbackError, exception.Message, "ParserDriver");
 
     /// <summary>The one-based line an inline script's first character is on.</summary>
     /// <remarks>

@@ -256,6 +256,31 @@ public class ScriptLoadingTests
     }
 
     [Test]
+    public async Task AScriptStoppedByAConstraintIsRecordedAndTheParseGoesOn()
+    {
+        await using var loopback = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/", """
+                <!doctype html><html><head>
+                <script>window.before = true;</script>
+                <script>var n = 0; while (true) { n++; }</script>
+                </head><body><p id="p">parsed</p>
+                <script>window.after = true;</script>
+                </body></html>
+                """),
+            configureBrowser: options => options.ConfigureEngine(engine => engine.LimitStatements(5000)));
+
+        await loopback.Page.NavigateAsync(loopback.Url("/"));
+
+        // A constraint does not throw a JavaScriptException, and it reaches the driver on the page loop
+        // inside a baton hand-off — so letting it out would fault AngleSharp's parse and fail the whole
+        // navigation. The contract is the one HTML gives a script that threw: recorded, and the page lives.
+        loopback.Page.Errors.Should().ContainSingle();
+        (await loopback.Page.EvaluateAsync<bool>("window.before === true")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync<bool>("window.after === true")).Should().BeTrue();
+        (await loopback.Page.EvaluateAsync("document.getElementById('p').textContent")).Should().Be("parsed");
+    }
+
+    [Test]
     public async Task DocumentWriteAfterTheParseIsRefusedWithAReason()
     {
         await using var loopback = await LoopbackPage.CreateAsync(server => server

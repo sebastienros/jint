@@ -40,15 +40,18 @@ internal sealed class ParserBaton : IDisposable
     private readonly Engine.TaskOperations _tasks;
     private readonly TimeSpan _idle;
     private readonly CancellationToken _cancellationToken;
+    private readonly Action<Exception> _onPumpError;
 
     private volatile int _parserThreadId;
+    private volatile bool _abandoned;
 
-    internal ParserBaton(Engine engine, TimeSpan idle, CancellationToken cancellationToken)
+    internal ParserBaton(Engine engine, TimeSpan idle, Action<Exception> onPumpError, CancellationToken cancellationToken)
     {
         _engine = engine;
         _tasks = engine.Tasks;
         _idle = idle <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(5) : idle;
         _cancellationToken = cancellationToken;
+        _onPumpError = onPumpError;
     }
 
     /// <summary>The thread the loop runs on, which is the only thread that may touch the engine.</summary>
@@ -83,7 +86,16 @@ internal sealed class ParserBaton : IDisposable
         _arrived.Release();
         _tasks.Post(static () => { });
 
-        request.Done.Wait();
+        // Polled rather than waited outright, so that a parse the loop has given up on cannot leave this
+        // thread parked for ever: the abandoned flag is the only thing that can arrive after the loop stops
+        // serving, and nothing else is watching for it.
+        while (!request.Done.Wait(AbandonPollInterval))
+        {
+            if (_abandoned)
+            {
+                throw new OperationCanceledException("The page stopped serving its parser; the load was abandoned.");
+            }
+        }
 
         if (request.Error is { } error)
         {
@@ -101,9 +113,26 @@ internal sealed class ParserBaton : IDisposable
     });
 
     /// <summary>
-    /// Serves the parser until <paramref name="parse"/> is finished. Runs on the page loop and returns to it.
+    /// Serves the parser until <paramref name="parse"/> is finished, and answers whether it finished.
+    /// Runs on the page loop and returns to it.
     /// </summary>
-    internal void Serve(Task parse)
+    /// <remarks>
+    /// <para>
+    /// <b>This call holds the loop for the whole parse</b>, which is what makes a document load one turn of
+    /// the page loop rather than many. The residual is stated rather than hidden: while the loop sits here
+    /// with the baton in the parser's hands it runs nothing, so an execution constraint cannot fire and a
+    /// parser thread wedged somewhere other than a bounded fetch would hold the page. Every fetch this
+    /// driver makes is bounded by <c>BrowserOptions.SubresourceTimeout</c> and every script runs on this
+    /// thread where the engine's own constraints reach it, which leaves AngleSharp's own tokenizer as the
+    /// only unbounded step.
+    /// </para>
+    /// <para>
+    /// <b>The page's token is the way out.</b> Closing the page ends the wait, abandons the parse and lets
+    /// the parser thread — a background thread — fail its next hand-off rather than park for ever, so
+    /// <c>Page.CloseAsync</c> cannot be held by a parse that will not finish.
+    /// </para>
+    /// </remarks>
+    internal bool Serve(Task parse)
     {
         // The parse completing is itself a wake, so the loop never sits out a poll interval after the last
         // hand-off — and never has to poll at all.
@@ -111,7 +140,15 @@ internal sealed class ParserBaton : IDisposable
 
         while (true)
         {
-            _arrived.Wait();
+            try
+            {
+                _arrived.Wait(_cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Abandon();
+                return false;
+            }
 
             if (_pending.TryDequeue(out var request))
             {
@@ -123,10 +160,24 @@ internal sealed class ParserBaton : IDisposable
             {
                 // A request cannot be in flight here: one implies the parser is blocked, which implies the
                 // parse has not finished. Anything still queued was dequeued above.
-                return;
+                return true;
             }
         }
     }
+
+    /// <summary>Stops serving and releases whatever the parser was waiting for.</summary>
+    private void Abandon()
+    {
+        _abandoned = true;
+
+        while (_pending.TryDequeue(out var request))
+        {
+            request.Abandon();
+        }
+    }
+
+    /// <summary>How often a parked parser thread re-checks whether the loop has given up on it.</summary>
+    private static readonly TimeSpan AbandonPollInterval = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
     /// Waits for <paramref name="task"/> on the loop, running due timers, promise jobs and animation frames
@@ -152,11 +203,12 @@ internal sealed class ParserBaton : IDisposable
             {
                 tasks.ProcessTasks();
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                // A job erupting out of the pump must not abandon the parse: the diagnostics sink already
-                // reports everything a callback throws, and what reaches here is what it does not cover.
-                // Swallowing it here is the same trade PageLoop.Pump makes, for the same reason.
+                // A job erupting out of the pump must not abandon the parse — the same trade PageLoop.Pump
+                // makes — but it must not vanish either. The diagnostics sink covers what a callback throws;
+                // what reaches here is what it does not, and a constraint abort is the case that matters.
+                _onPumpError(exception);
             }
 
             if (task.IsCompleted)
@@ -210,10 +262,11 @@ internal sealed class ParserBaton : IDisposable
             {
                 tasks.ProcessTasks();
             }
-            catch (Exception)
+            catch (Exception exception)
             {
-                // See the remarks on the Task overload: a job erupting out of the pump must not abandon the
-                // load, and the diagnostics sink has already reported everything it covers.
+                // See the Task overload: a job erupting out of the pump must not abandon the load, and must
+                // not vanish either.
+                _onPumpError(exception);
             }
 
             if (completed())
@@ -287,6 +340,13 @@ internal sealed class ParserBaton : IDisposable
             {
                 Done.Set();
             }
+        }
+
+        /// <summary>Releases the parker with a failure, for a hand-off the loop will never run.</summary>
+        internal void Abandon()
+        {
+            Error = new OperationCanceledException("The page stopped serving its parser; the load was abandoned.");
+            Done.Set();
         }
     }
 }

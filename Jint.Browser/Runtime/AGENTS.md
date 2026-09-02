@@ -276,6 +276,26 @@ loop runs nothing, which is right — in a browser the parser *is* the task the 
 loop is fetching a parser-blocking script it holds the baton and pumps `ProcessTasks`, so timers, promise jobs
 and animation frames run while the page waits for the network. `ParserBaton.PumpUntil` is that pump, and
 `DocumentLoadTests.TimersFireWhileAParserBlockingScriptIsOnItsWay` is the proof (it reads zero without it).
+What that pump swallows it reports: a job erupting out of `ProcessTasks` must not end the load, and it must
+not vanish either, so it goes to the page recorder — which is the only way an execution constraint aborting
+a timer mid-parse is visible at all.
+
+**A script that navigates does not cut the parse short.** `location.href = '…'` takes the navigation gate
+the running load still holds and its commit is a mailbox request, and the whole parse is *one* such request
+— so every remaining script of the outgoing document runs, the load finishes, and only then is the engine
+replaced and its token cancelled. Nothing stops a document mid-parse except closing the page, which cancels
+the token every subresource fetch is linked to: the fetch in flight fails, the parse runs out and
+`ParserBaton.Serve` stops serving.
+
+**The residual, stated because it is the one thing a budget does not reach.** `Serve` holds the loop for the
+whole parse, so while the baton is in the parser's hands the loop runs nothing and an execution constraint
+cannot fire. Every fetch is bounded by `BrowserOptions.SubresourceTimeout` and every script runs on the loop
+where the engine's own constraints reach it, which leaves AngleSharp's tokenizer as the only unbounded step.
+There is no total budget on the parse — the navigation timeout is armed outside the loop and the commit does
+not carry it — so what a wedged parser thread costs is bounded by the page's own token instead: closing the
+page ends `Serve`, abandons the parse and fails the parser's next hand-off, so `Page.CloseAsync` is never
+held by a parse that will not finish. Giving the commit a real deadline is the change to make when R6's
+per-turn bracketing lands.
 
 **Every fetch the parser asks for finishes before the loader returns.** `PageResourceLoader.FetchAsync` hands
 the baton over, the loop fetches while pumping, and AngleSharp receives an already-completed `IDownload` — so

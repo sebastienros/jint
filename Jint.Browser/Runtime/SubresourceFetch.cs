@@ -51,7 +51,9 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
 /// <summary>One subresource fetch, as the thing that wants the bytes describes it.</summary>
 /// <param name="Url">The absolute URL to ask for.</param>
 /// <param name="Referrer">The document the reference was found in, or <see langword="null"/>.</param>
-/// <param name="Origin">The document's origin, or <see langword="null"/> for an opaque one.</param>
+/// <param name="Origin">
+/// The document URL, kept for its origin alone, or <see langword="null"/> for an opaque one.
+/// </param>
 /// <param name="MaxResponseBytes">The ceiling on the body.</param>
 /// <param name="MaxRedirects">How many hops the chain may follow.</param>
 /// <param name="Initiator">What the page's network log should call this request.</param>
@@ -138,6 +140,9 @@ internal static class SubresourceFetch
             UrlFilter = network.UrlFilter,
             MaxResponseBytes = request.MaxResponseBytes,
             MaxRedirects = request.MaxRedirects,
+            // Both are URL records the transport reads through SerializeOrigin(): one decides the Origin
+            // header, the other is what a same-origin credentials mode compares a hop against. Neither
+            // compares a path, which is why the document's URL is the right thing to pass.
             Origin = request.Origin,
             SameOriginReference = request.Origin,
             CookieJar = network.CookieJar,

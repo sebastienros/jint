@@ -81,11 +81,12 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
   AngleSharp's: `DocumentExtensions.QueueMutation` already walks a mutated node's inclusive ancestors, matches
   each against the registered observer list, honours `subtree` and `attributeFilter`, and clears `oldValue`
   for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the
-  [parser hop](Runtime/AGENTS.md#the-parse-and-the-parser-hop): its `MutationHost` schedules through an
+  [parser driver](Runtime/AGENTS.md#the-parser-driver-and-the-baton): its `MutationHost` schedules through an
   `IEventLoop` service, **nothing in AngleSharp implements one**, and `EventLoopExtensions.Enqueue` on a null
   loop runs the action *inline* — so out of the box the callback fires synchronously inside `appendChild`.
-  Registering an event loop to fix that is precisely what would make a step of the parse asynchronous and
-  take that fallback. So the inline call is used as the
+  Registering an event loop to fix that would put a second scheduler under a parse whose hand-offs the baton
+  already owns, and every one of its turns would land on whichever thread AngleSharp resumed on. So the
+  inline call is used as the
   **arrival** of a record and nothing else: `JsMutationObserver` parks it and `MutationObserverLane` puts one
   job on the engine's queue per batch. Ordering then falls out of a plain enqueue, and
   `Observers/MutationObserverTests` pins it. Lifetime falls out too, and it is DOM's own rule: a *connected*
