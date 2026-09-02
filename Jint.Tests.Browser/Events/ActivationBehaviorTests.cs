@@ -510,4 +510,68 @@ public sealed class ActivationBehaviorTests
             "Navigation https://example.com/next",
             "FormSubmission /post (b)");
     }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) — step 1 of the
+    /// checkbox and radio activation behaviours is "if the element is not connected, then return", so a
+    /// detached control toggles silently.
+    /// </summary>
+    /// <remarks>
+    /// <b>Connected is the shadow-including root being a document</b>, not the node having a parent, which is
+    /// the half a page cannot get wrong and an implementation can: a control inside a shadow tree of a
+    /// connected host is connected. AngleSharp has no member that answers the question — <c>INode.Owner</c>
+    /// is the node document whether or not the node is in it — so the walk is the package's own and this is
+    /// what holds it to the definition.
+    /// </remarks>
+    [Test]
+    public async Task OnlyAConnectedCheckboxAnnouncesItsToggle()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<div id='host'></div>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const seen = [];
+
+              function watch(name, input) {
+                input.addEventListener('input', () => seen.push(name + ':input'));
+                input.addEventListener('change', () => seen.push(name + ':change'));
+                input.click();
+                seen.push(name + ':checked=' + input.checked);
+              }
+
+              const detached = document.createElement('input');
+              detached.type = 'checkbox';
+              watch('detached', detached);
+
+              // A detached *subtree* is still detached, however deep the control sits in it.
+              const orphanTree = document.createElement('div');
+              const inTree = document.createElement('input');
+              inTree.type = 'checkbox';
+              orphanTree.appendChild(inTree);
+              watch('inOrphanTree', inTree);
+
+              const connected = document.createElement('input');
+              connected.type = 'checkbox';
+              document.body.appendChild(connected);
+              watch('connected', connected);
+
+              // Inside a shadow tree of a connected host: the shadow-including root is the document.
+              const shadow = document.getElementById('host').attachShadow({ mode: 'closed' });
+              const inShadow = document.createElement('input');
+              inShadow.type = 'checkbox';
+              shadow.appendChild(inShadow);
+              watch('inShadow', inShadow);
+
+              return seen.join(',');
+            })()
+            """))
+            .Should().Be(
+                "detached:checked=true,"
+                + "inOrphanTree:checked=true,"
+                + "connected:input,connected:change,connected:checked=true,"
+                + "inShadow:input,inShadow:change,inShadow:checked=true");
+    }
 }

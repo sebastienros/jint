@@ -420,16 +420,6 @@ internal static class WptBrowserExclusions
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 10. a detached control still fires input
-        // https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox): the pre-click
-        // activation steps fire `input` and `change` only for a control that is *connected*. A detached
-        // checkbox or radio fires them here, on `click()` and on a dispatched `MouseEvent` alike. The eight
-        // connected cases of the same file pass.
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached checkbox should not emit input or change events on click().", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached checkbox should not emit input or change events on dispatchEvent(new MouseEvent('click')).", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached radio should not emit input or change events on click().", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached radio should not emit input or change events on dispatchEvent(new MouseEvent('click')).", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- a frame that runs script
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second
         // global with a document in it — a cross-realm listener, a `beforeunload` result coerced in the

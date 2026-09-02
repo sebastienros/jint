@@ -223,8 +223,18 @@ internal static class ActivationBehaviors
                 // The checkedness was already changed by the legacy pre-activation behaviour; the activation
                 // behaviour is only the two events. HTML fires `input` with bubbles and composed both true and
                 // `change` with bubbles true, in that order, and both are plain Events rather than InputEvents.
+                //
+                // Step 1 of the input activation behaviour is "if the element is not connected, then return",
+                // so a detached control toggles silently: the checkedness is the element's own state and the
+                // two events announce a change to a *document*. The snapshot is dropped either way — the
+                // toggle stands, so there is nothing left to roll back.
                 _snapshots.Remove(wrapper);
-                FireInputAndChange(wrapper);
+
+                if (IsConnected(input))
+                {
+                    FireInputAndChange(wrapper);
+                }
+
                 return;
 
             case "file":
@@ -426,6 +436,39 @@ internal static class ActivationBehaviors
         "img" or "object" => element.HasAttribute("usemap"),
         _ => false,
     };
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#connected — whether the node's <i>shadow-including root</i> is a
+    /// document, which is what "connected" means and what the checkbox and radio activation behaviours ask
+    /// before they announce anything.
+    /// </summary>
+    /// <remarks>
+    /// The walk crosses a shadow boundary through the root's host, so a control inside an open or closed
+    /// shadow tree of a connected host is connected — the eight shadow cases of
+    /// <c>Event-dispatch-detached-input-and-change.html</c> are what say so. AngleSharp has no member that
+    /// answers this: <c>INode.Owner</c> is the node document whether or not the node is in it.
+    /// </remarks>
+    private static bool IsConnected(INode node)
+    {
+        var current = node;
+
+        while (true)
+        {
+            if (current.Parent is { } parent)
+            {
+                current = parent;
+                continue;
+            }
+
+            if (current is IShadowRoot { Host: { } host })
+            {
+                current = host;
+                continue;
+            }
+
+            return current is IDocument;
+        }
+    }
 
     private static T? Ancestor<T>(INode node) where T : class
     {
