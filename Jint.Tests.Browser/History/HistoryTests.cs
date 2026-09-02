@@ -105,8 +105,7 @@ public sealed class HistoryTests
 
         await fixture.Page.NavigateAsync(fixture.Url("/app"));
 
-        await fixture.Page.EvaluateAsync("location.hash = '#section'");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(2))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("location.hash = '#section'");
 
         fixture.Page.Url.Should().Be(fixture.Url("/app#section"));
         (await fixture.Page.EvaluateAsync<string>("location.hash")).Should().Be("#section");
@@ -125,14 +124,12 @@ public sealed class HistoryTests
         await fixture.Page.NavigateAsync(fixture.Url("/one"));
         var afterFirst = await fixture.Page.EvaluateAsync<double>("history.length");
 
-        await fixture.Page.EvaluateAsync("location.assign('/two')");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("location.assign('/two')");
 
         (await fixture.Page.TitleAsync()).Should().Be("two");
         (await fixture.Page.EvaluateAsync<double>("history.length")).Should().Be(afterFirst + 1);
 
-        await fixture.Page.EvaluateAsync("location.replace('/three')");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("location.replace('/three')");
 
         (await fixture.Page.TitleAsync()).Should().Be("three");
         (await fixture.Page.EvaluateAsync<double>("history.length"))
@@ -148,8 +145,7 @@ public sealed class HistoryTests
 
         await fixture.Page.NavigateAsync(fixture.Url("/one"));
 
-        await fixture.Page.EvaluateAsync("location.pathname = '/moved'");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("location.pathname = '/moved'");
 
         (await fixture.Page.TitleAsync()).Should().Be("moved");
         fixture.Page.Url.Should().Be(fixture.Url("/moved"));
@@ -180,8 +176,7 @@ public sealed class HistoryTests
         await fixture.Page.NavigateAsync(fixture.Url("/page#section"));
         fixture.Server.Received.Count(r => r.Path == "/page").Should().Be(1);
 
-        await fixture.Page.EvaluateAsync("location.reload()");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("location.reload()");
 
         fixture.Server.Received.Count(r => r.Path == "/page")
             .Should().Be(2, "reload says so outright, so the fragment does not turn it into a no-op");
@@ -226,8 +221,7 @@ public sealed class HistoryTests
         await fixture.Page.NavigateAsync(fixture.Url("/one"));
         await fixture.Page.NavigateAsync(fixture.Url("/two"));
 
-        await fixture.Page.EvaluateAsync("history.back()");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("history.back()");
 
         (await fixture.Page.TitleAsync()).Should().Be("one");
         fixture.Page.Url.Should().Be(fixture.Url("/one"));

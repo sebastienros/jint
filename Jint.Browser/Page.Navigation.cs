@@ -155,10 +155,22 @@ public sealed partial class Page
     /// the page closed first.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// This is what waits for a navigation a <i>script</i> started — a form's <c>submit()</c>, an assignment
     /// to <c>location</c>, a <c>history.back()</c> that crosses documents — because nothing returned that
     /// navigation a task to await. It counts a same-document commit too: a <c>pushState</c> and a fragment
     /// navigation both satisfy it, which is what makes it usable against a client-side router.
+    /// </para>
+    /// <para>
+    /// <b>Start the wait before the thing that triggers it.</b> It waits for the <i>next</i> commit, and a
+    /// navigation a script starts runs off the page's own thread — so one begun after the trigger can miss a
+    /// commit that has already happened and time out instead:
+    /// </para>
+    /// <code>
+    /// var navigated = page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
+    /// await page.EvaluateAsync("document.forms[0].submit()");
+    /// await navigated;
+    /// </code>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public async Task<bool> WaitForNavigationAsync(TimeSpan timeout)

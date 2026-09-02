@@ -230,8 +230,7 @@ public sealed class FormTests
         (await fixture.Page.EvaluateAsync<string>("window.seen.join('|')")).Should().Be("b");
 
         // submit() skips the event entirely, which is the whole difference between the two.
-        await fixture.Page.EvaluateAsync("document.getElementById('f').submit()");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("document.getElementById('f').submit()");
 
         (await fixture.Page.EvaluateAsync<string>("document.getElementById('query').textContent")).Should().Be("a=1");
     }
@@ -262,8 +261,7 @@ public sealed class FormTests
                 + "<button id='b' type='submit' formaction='/other' formmethod='post'>go</button></form>"));
 
         await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
-        await fixture.Page.EvaluateAsync("document.getElementById('f').requestSubmit(document.getElementById('b'))");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("document.getElementById('f').requestSubmit(document.getElementById('b'))");
 
         (await fixture.Page.TitleAsync()).Should().Be("other");
         (await fixture.Page.EvaluateAsync<string>("document.getElementById('m').textContent")).Should().Be("POST");
@@ -282,8 +280,7 @@ public sealed class FormTests
             """));
 
         await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
-        await fixture.Page.EvaluateAsync("document.getElementById('f').requestSubmit(document.getElementById('delete'))");
-        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        await fixture.NavigateByScriptAsync("document.getElementById('f').requestSubmit(document.getElementById('delete'))");
 
         (await fixture.Page.EvaluateAsync<string>("document.getElementById('query').textContent")).Should().Be("action=delete");
     }

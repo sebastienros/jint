@@ -306,8 +306,12 @@ public sealed class WindowTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
+        // The wait is armed before the script that triggers it, which is the only race-free order: a
+        // navigation a script starts runs off the page's thread, so it can commit before a wait registered
+        // afterwards would have seen it.
+        var navigated = page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
         await page.EvaluateAsync("location.assign('data:text/html,<p id=\\'moved\\'>moved</p>')");
-        (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+        (await navigated).Should().BeTrue();
 
         (await page.EvaluateAsync<string>("document.getElementById('moved').textContent")).Should().Be("moved");
     }

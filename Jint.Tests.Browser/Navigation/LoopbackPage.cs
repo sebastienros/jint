@@ -53,6 +53,24 @@ internal sealed class LoopbackPage : IAsyncDisposable
         return new LoopbackPage(server, browser, context, page);
     }
 
+    /// <summary>
+    /// Runs a script that starts a navigation, and waits for that navigation to commit.
+    /// </summary>
+    /// <remarks>
+    /// <b>The wait is armed before the script, and that order is the whole point.</b> A navigation a script
+    /// starts runs off the page's own thread, so one registered afterwards can miss a commit that already
+    /// happened — which is a test that passes on a quiet machine and fails on a busy one. Every caller wants
+    /// this order, so it is here rather than written out nine times.
+    /// </remarks>
+    internal async Task NavigateByScriptAsync(string script)
+    {
+        var navigated = Page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
+        await Page.EvaluateAsync(script).ConfigureAwait(false);
+
+        (await navigated.ConfigureAwait(false))
+            .Should().BeTrue("'" + script + "' should have started a navigation that committed");
+    }
+
     /// <summary>Opens a second page in the same context, which therefore shares its cookies and storage.</summary>
     internal Task<Page> NewPageAsync() => Context.NewPageAsync();
 
