@@ -68,12 +68,12 @@ internal sealed class PageNetwork
     /// <summary>The per-engine client factory a host supplied, or <see langword="null"/>.</summary>
     internal Func<Engine, HttpClient>? ClientFactory => _clientFactory;
 
-    /// <summary>The client a host-driven load — a navigation — goes through.</summary>
+    /// <summary>The client one load goes through: the factory, then the context's client, then the shared one.</summary>
     /// <remarks>
-    /// A document fetch has no engine to hand a factory, because the engine that will show the document does
-    /// not exist yet and the one that does is the document being left. So a context that configured only a
-    /// factory still gets one for its navigations: the factory is asked with the page's <i>current</i>
-    /// engine when there is one, which is the same engine every subresource of the outgoing document used.
+    /// Must be called on the thread that owns <paramref name="engine"/>, because a host's factory is
+    /// documented to run there and to be allowed to read <c>engine.HostDefined</c>. A caller with no engine
+    /// to offer — a worker being built before its own engine exists — passes <see langword="null"/> and gets
+    /// the context's client instead.
     /// </remarks>
     internal HttpClient ClientFor(Engine? engine)
     {

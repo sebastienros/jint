@@ -64,7 +64,7 @@ public sealed partial class Page : IAsyncDisposable
         _recorder = recorder;
         _requests = new PageNetworkRecorder(options.MaxRecordedEvents);
         _network = context.Network;
-        _workers = new ThreadPerWorkerProvider(this, _network, options.PumpIdle);
+        _workers = new ThreadPerWorkerProvider(this, _network, _requests, options.PumpIdle);
         _mainFrame = Frame.Detached(this);
         _loop = new PageLoop(
             "Jint.Browser page loop",

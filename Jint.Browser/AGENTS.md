@@ -308,6 +308,12 @@ document id afterwards, or every step among its siblings would become a reload. 
 **A page starts one entry deep and the first navigation replaces it.** Navigating away from the initial
 `about:blank` is a replace rather than a push, so `history.length` counts what a browser counts.
 
+**One divergence to know before fixing it the wrong way:** `Options.WebApi.Fetch.BaseUrl` is read once when
+an engine is built, so a `fetch('./x')` after a `pushState` resolves against the URL the document *loaded*
+from rather than the pushed one. `location`, `document.URL` and `document.baseURI` all follow the pushed URL —
+only the engine's own API base URL does not, because nothing re-points it per document. The fix is an engine
+seam, not a second URL kept here.
+
 ### The parse, and the parser hop
 
 `Runtime/PageDocument` opens the document through `IBrowsingContext.OpenAsync` on the loop thread and blocks on
@@ -335,9 +341,14 @@ the parse and `Document.ReadyState`'s setter is not reachable from outside its a
 ### The seams promoted later
 
 The package publishes exactly one thing: the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
-`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` — and
-`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a change to it a reviewable
-diff. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
+`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs`, and what a navigation
+takes and answers (`NavigationOptions`, `WaitUntilState`, `NavigationFailedException`, `PageResponse`,
+`PageHeader`, `PageRequest`, `RequestInitiator`, `StoragePartitionProvider`,
+`InMemoryStoragePartitionProvider`) — and `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the
+baseline that makes a change to it a reviewable diff. **Nothing public takes or answers an AngleSharp node**,
+which is why `Page.SubmitFormAsync` takes a selector: a node belongs to the page's own thread, so an overload
+taking one would be an invitation to touch the DOM from the caller's. R2 reaches the same algorithm through
+the internal `FormSubmitter.Submit` from inside the loop. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
 until the protocol layer has settled what a host actually holds. `DomBindings`, `DomRealm`,
 `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, and each would arrive
 with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is

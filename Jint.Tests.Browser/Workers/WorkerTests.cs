@@ -107,6 +107,11 @@ public sealed class WorkerTests
         await WaitFor(fixture, "window.replies.length > 0");
 
         (await fixture.Page.EvaluateAsync<string>("window.replies[0]")).Should().Be("from the worker");
+
+        // The page's network log is what the page fetched, not what its document fetched: a worker's module
+        // and its own requests are in it too.
+        fixture.Page.Requests.Should().Contain(r => r.Url.EndsWith("/worker.js", StringComparison.Ordinal) && r.Status == 200);
+        fixture.Page.Requests.Should().Contain(r => r.Url.EndsWith("/api", StringComparison.Ordinal) && r.Status == 200);
     }
 
     [Test]

@@ -57,15 +57,17 @@ internal static class FormSubmitter
             return;
         }
 
-        if (!fireEvent || Validate(runtime, form, submitter))
+        // Step 6 then step 8, in that order, and `form.submit()` skips both — which is the whole of what
+        // distinguishes it from `requestSubmit()` and from a button.
+        if (fireEvent)
         {
-            if (fireEvent && !FireSubmit(runtime, form, submitter))
+            if (!Validate(form, submitter) || !FireSubmit(runtime, form, submitter))
             {
                 return;
             }
-
-            Navigate(runtime, form, submitter);
         }
+
+        Navigate(runtime, form, submitter);
     }
 
     /// <summary>
@@ -78,7 +80,7 @@ internal static class FormSubmitter
     /// firing only some of them would be worse than firing none. What this does honour is
     /// <c>novalidate</c>/<c>formnovalidate</c> and the abort, which is the half a page's behaviour depends on.
     /// </remarks>
-    private static bool Validate(PageRuntime runtime, IHtmlFormElement form, IElement? submitter)
+    private static bool Validate(IHtmlFormElement form, IElement? submitter)
     {
         if (form.HasAttribute("novalidate") || submitter?.HasAttribute("formnovalidate") == true)
         {

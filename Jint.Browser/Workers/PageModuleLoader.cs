@@ -32,14 +32,22 @@ namespace Jint.Browser.Workers;
 internal sealed class PageModuleLoader : ModuleLoader
 {
     private readonly PageNetwork _network;
+    private readonly PageNetworkRecorder _requests;
     private readonly HttpClient _client;
     private readonly Uri _baseUrl;
     private readonly long _maxBytes;
     private readonly TimeSpan _timeout;
 
-    internal PageModuleLoader(PageNetwork network, HttpClient client, Uri baseUrl, long maxBytes, TimeSpan timeout)
+    internal PageModuleLoader(
+        PageNetwork network,
+        PageNetworkRecorder requests,
+        HttpClient client,
+        Uri baseUrl,
+        long maxBytes,
+        TimeSpan timeout)
     {
         _network = network;
+        _requests = requests;
         _client = client;
         _baseUrl = baseUrl;
         _maxBytes = maxBytes;
@@ -117,26 +125,85 @@ internal sealed class PageModuleLoader : ModuleLoader
 
         using var cancellation = new CancellationTokenSource(_timeout);
 
-        // Blocking, on the worker's own thread; see the class remarks.
-        using var exchange = FetchTransport
-            .SendForStreamAsync(_client, request, policy, cancellation.Token)
-            .GetAwaiter()
-            .GetResult();
+        // The page's own network log sees a worker's module loads too, so Page.Requests is what the page
+        // fetched rather than what its document fetched.
+        var observation = FetchObservation.Create(_requests, FetchInitiator.Script);
 
-        if (!exchange.Response.IsSuccessStatusCode)
+        try
         {
-            throw new InvalidOperationException(
-                "'" + uri + "' answered " + ((int) exchange.Response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
+            // Blocking, on the worker's own thread; see the class remarks.
+            using var exchange = FetchTransport
+                .SendForStreamAsync(_client, request, policy, cancellation.Token, observation)
+                .GetAwaiter()
+                .GetResult();
+
+            var bytes = exchange.Response.Content.ReadAsByteArrayAsync(cancellation.Token).GetAwaiter().GetResult();
+            Report(observation, exchange, bytes.Length);
+
+            if (!exchange.Response.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(
+                    "'" + uri + "' answered " + ((int) exchange.Response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture) + ".");
+            }
+
+            if (bytes.Length > _maxBytes)
+            {
+                throw new InvalidOperationException("'" + uri + "' is larger than a page may load.");
+            }
+
+            var text = Encoding.UTF8.GetString(bytes);
+            return text.Length != 0 && text[0] == '﻿' ? text[1..] : text;
         }
-
-        var bytes = exchange.Response.Content.ReadAsByteArrayAsync(cancellation.Token).GetAwaiter().GetResult();
-
-        if (bytes.Length > _maxBytes)
+        catch (Exception exception)
         {
-            throw new InvalidOperationException("'" + uri + "' is larger than a page may load.");
+            observation?.Failed(exception.Message, exception);
+            throw;
         }
-
-        var text = Encoding.UTF8.GetString(bytes);
-        return text.Length != 0 && text[0] == '﻿' ? text[1..] : text;
     }
+
+#pragma warning disable JINT0002 // The observation types are the engine's preview network seam.
+    /// <summary>
+    /// Hands the final response to the observer, which only <c>FetchTransport.SendAsync</c> does for itself —
+    /// this path reads its own body, so it owes the two calls the redirect loop does not make.
+    /// </summary>
+    private static void Report(FetchObservation? observation, FetchExchange exchange, long bodyLength)
+    {
+        if (observation is null)
+        {
+            return;
+        }
+
+        var response = exchange.Response;
+        var headers = new List<FetchHeader>();
+
+        foreach (var header in response.Headers.NonValidated)
+        {
+            foreach (var value in header.Value)
+            {
+                headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
+            }
+        }
+
+        foreach (var header in response.Content.Headers.NonValidated)
+        {
+            foreach (var value in header.Value)
+            {
+                headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
+            }
+        }
+
+        observation.Response(new ObservedFetchResponse
+        {
+            Id = observation.Id,
+            Url = exchange.RequestUri,
+            Status = (int) response.StatusCode,
+            StatusText = response.ReasonPhrase ?? "",
+            Headers = headers,
+            FromInterception = exchange.FromInterception,
+            IsRedirect = false,
+        });
+
+        observation.Completed(bodyLength);
+    }
+#pragma warning restore JINT0002
 }

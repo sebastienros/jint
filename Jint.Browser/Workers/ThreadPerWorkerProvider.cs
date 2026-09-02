@@ -34,16 +34,18 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 {
     private readonly Page _page;
     private readonly PageNetwork _network;
+    private readonly PageNetworkRecorder _requests;
     private readonly TimeSpan _pumpIdle;
     private readonly System.Threading.Lock _gate = new();
     private readonly List<WorkerConnection> _live = [];
 
     private volatile bool _closed;
 
-    internal ThreadPerWorkerProvider(Page page, PageNetwork network, TimeSpan pumpIdle)
+    internal ThreadPerWorkerProvider(Page page, PageNetwork network, PageNetworkRecorder requests, TimeSpan pumpIdle)
     {
         _page = page;
         _network = network;
+        _requests = requests;
         _pumpIdle = pumpIdle;
     }
 
@@ -77,10 +79,18 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         // out of them.
         options.WebApi.Features |= WebApiFeatures.Fetch;
 
-        var client = _network.ClientFor(engine: null);
+        // On the parent's thread, inside the constructor, so the host's factory sees the engine that asked
+        // for the worker — which is the engine whose HostDefined carries whatever varies per page.
+        var client = _network.ClientFor(request.Parent);
         options.WebApi.Fetch.HttpClient = client;
         options.WebApi.Fetch.UrlFilter = _network.UrlFilter;
         options.WebApi.Fetch.CookieJar = _network.CookieJar;
+
+        // The page's own network log, so what a worker fetches is in Page.Requests beside what the document
+        // did. The observer is called from transport threads and is written for exactly that.
+#pragma warning disable JINT0002 // FetchObserver is the engine's own network seam.
+        options.WebApi.Fetch.Observer = _requests;
+#pragma warning restore JINT0002
 
         if (Uri.TryCreate(_page.Url, UriKind.Absolute, out var baseUrl)
             && (baseUrl.Scheme == Uri.UriSchemeHttp || baseUrl.Scheme == Uri.UriSchemeHttps))
@@ -91,6 +101,7 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
 
             options.Modules.ModuleLoader = new PageModuleLoader(
                 _network,
+                _requests,
                 client,
                 baseUrl,
                 options.WebApi.Fetch.MaxResponseBytes,

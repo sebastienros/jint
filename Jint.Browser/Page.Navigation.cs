@@ -60,6 +60,13 @@ public sealed partial class Page
     /// its engine is disposed on the page's thread. Every value that engine made — every wrapper, every
     /// expando a script left on one — goes with it.
     /// </para>
+    /// <para>
+    /// <b>Except when nothing but the fragment changes.</b> A URL equal to the current one but for its
+    /// fragment, and carrying a fragment of its own, is a fragment navigation: the document, the engine and
+    /// everything on them stay, a history entry is added, and <c>hashchange</c> fires. Navigating to the same
+    /// URL <i>without</i> a fragment is a reload, which is HTML's own rule and the difference a router
+    /// depends on.
+    /// </para>
     /// </remarks>
     /// <exception cref="NavigationFailedException">There was no document to show.</exception>
     /// <exception cref="OperationCanceledException">The page was closed while the navigation ran.</exception>
@@ -77,7 +84,7 @@ public sealed partial class Page
             TraversalIndex: -1,
             Body: null,
             ContentType: null,
-            Reload: true,
+            Reload: false,
             Referrer: settings.Referrer));
     }
 
@@ -186,7 +193,7 @@ public sealed partial class Page
     /// awaited — the document that script is running in is the one being replaced — and a failure becomes a
     /// page error rather than an unobserved faulted task, because there is nobody to hand it to.
     /// </remarks>
-    internal void RequestNavigation(string url, bool replace)
+    internal void RequestNavigation(string url, bool replace, bool reload = false)
         => Start(new NavigationRequest(
             url,
             NavigationOptions.Default,
@@ -194,7 +201,7 @@ public sealed partial class Page
             TraversalIndex: -1,
             Body: null,
             ContentType: null,
-            Reload: false,
+            reload,
             Referrer: null));
 
     /// <summary>The same, for a form submission that ends in a <c>POST</c>.</summary>
@@ -227,7 +234,7 @@ public sealed partial class Page
         if (delta == 0)
         {
             // https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-history-go: go(0) reloads.
-            RequestNavigation(_url, replace: true);
+            RequestNavigation(_url, replace: true, reload: true);
             return;
         }
 
@@ -372,9 +379,12 @@ public sealed partial class Page
 
         var href = target.Serialize();
 
-        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL that differs
-        // from the current one only in its fragment keeps the document, the engine and everything on it.
-        if (!request.Reload && _load is not null && PageUrl.IsSameDocument(current, href))
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 3: a URL equal to the
+        // current one with fragments excluded, and whose own fragment is non-null, keeps the document, the
+        // engine and everything on it. The fragment being non-null is what makes navigating to the same URL
+        // without one a reload rather than a no-op — and `location.reload()` says so outright, because the
+        // URL it re-navigates to may well carry a fragment already.
+        if (!request.Reload && _load is not null && target.Fragment is not null && PageUrl.IsSameDocument(current, href))
         {
             await _loop.PostAsync(engine => FragmentNavigate(engine, href, request.History)).ConfigureAwait(false);
             return _response;
@@ -472,10 +482,16 @@ public sealed partial class Page
             fetchOptions.MaxDocumentBytes,
             fetchOptions.MaxRedirects);
 
+        // Resolved on the page's own thread, because that is where a host's client factory is documented to
+        // be called and where the engine it is handed belongs. The engine it sees is the one the outgoing
+        // document ran in — the engine that will show the new one does not exist yet — which is the same
+        // engine every subresource of that document already went through.
+        var client = await _loop.PostAsync(_network.ClientFor).ConfigureAwait(false);
+
         try
         {
             return await DocumentFetch
-                .LoadAsync(_network, _network.ClientFor(engine: null), documentRequest, _requests, cancellationToken)
+                .LoadAsync(_network, client, documentRequest, _requests, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)

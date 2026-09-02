@@ -106,6 +106,41 @@ public sealed class NavigationTests
     }
 
     [Test]
+    public async Task AMovedPermanentlyTurnsAFormPostIntoAGetToo()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/form.html", "<form id='f' method='post' action='/submit'><input name='a' value='1'></form>")
+            .Map("/submit", _ => LoopbackResponse.Redirect(301, "/moved"))
+            .MapHtml("/moved", "<title>moved</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
+        await fixture.Page.SubmitFormAsync("#f");
+
+        var moved = fixture.Server.Received.Single(r => r.Path == "/moved");
+        moved.Method.Should().Be("GET", "301 and 302 rewrite a POST to a GET");
+        moved.Body.Should().BeEmpty();
+        (await fixture.Page.TitleAsync()).Should().Be("moved");
+    }
+
+    [Test]
+    public async Task BlockPrivateNetworkRefusesALoopbackOrigin()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/index.html", "<title>never</title>"),
+            options =>
+            {
+                // The context's own filter is cleared, so only the private-network rule is deciding.
+                options.UrlFilter = null;
+                options.BlockPrivateNetwork = true;
+            });
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        (await act.Should().ThrowAsync<NavigationFailedException>()).WithMessage("*URL filter*");
+        fixture.Server.Received.Should().BeEmpty();
+    }
+
+    [Test]
     public async Task ATemporaryRedirectKeepsTheMethodAndTheBody()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server

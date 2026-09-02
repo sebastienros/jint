@@ -173,6 +173,50 @@ public sealed class HistoryTests
     }
 
     [Test]
+    public async Task ReloadRefetchesEvenFromAUrlThatCarriesAFragment()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/page", "<title>page</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/page#section"));
+        fixture.Server.Received.Count(r => r.Path == "/page").Should().Be(1);
+
+        await fixture.Page.EvaluateAsync("location.reload()");
+        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
+
+        fixture.Server.Received.Count(r => r.Path == "/page")
+            .Should().Be(2, "reload says so outright, so the fragment does not turn it into a no-op");
+        (await fixture.Page.EvaluateAsync<string>("location.hash")).Should().Be("#section");
+    }
+
+    [Test]
+    public async Task NavigatingToTheSameUrlWithoutAFragmentIsAReload()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/page", "<title>page</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/page"));
+        await fixture.Page.NavigateAsync(fixture.Url("/page"));
+
+        fixture.Server.Received.Count(r => r.Path == "/page")
+            .Should().Be(2, "a URL with a null fragment is never a fragment navigation");
+    }
+
+    [Test]
+    public async Task NavigatingToTheSameUrlWithAFragmentKeepsTheDocument()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(
+            "/page",
+            "<title>page</title><script>window.marker = 'first load'</script>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/page"));
+        await fixture.Page.NavigateAsync(fixture.Url("/page#section"));
+
+        fixture.Server.Received.Count(r => r.Path == "/page").Should().Be(1);
+        (await fixture.Page.EvaluateAsync<string>("window.marker"))
+            .Should().Be("first load", "a fragment navigation keeps the engine, so nothing on it is lost");
+        (await fixture.Page.EvaluateAsync<string>("location.hash")).Should().Be("#section");
+    }
+
+    [Test]
     public async Task GoingBackAcrossDocumentsLoadsTheOldOneAgain()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server

@@ -40,13 +40,6 @@ internal sealed record FetchedDocument(string Html, string Url, PageResponse Res
 /// </remarks>
 internal static class DocumentFetch
 {
-    /// <summary>The status codes that turn a <c>POST</c> into a <c>GET</c> — https://fetch.spec.whatwg.org/#http-redirect-fetch.</summary>
-    /// <remarks>
-    /// Handled inside the transport's redirect loop rather than here; named so that the reader of a form
-    /// submission knows where the rewrite happens.
-    /// </remarks>
-    internal const string RedirectMethodChangeIsInTheTransport = "303, and 301/302 for POST";
-
 #pragma warning disable JINT0002 // The observation types are the engine's preview network seam; a document fetch is a host fetch.
     internal static async Task<FetchedDocument> LoadAsync(
         PageNetwork network,

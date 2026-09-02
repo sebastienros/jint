@@ -89,7 +89,10 @@ internal static class LocationInstaller
                 new ClrFunction(engine, "reload", static (thisObject, _) =>
                 {
                     var runtime = PageRuntime.Of(thisObject, "reload");
-                    runtime.Page.RequestNavigation(runtime.DocumentUrl, replace: true);
+
+                    // reload: the document's URL may already carry a fragment, and re-navigating to it would
+                    // otherwise be recognized as a fragment navigation and reload nothing at all.
+                    runtime.Page.RequestNavigation(runtime.DocumentUrl, replace: true, reload: true);
                     return JsValue.Undefined;
                 }),
                 PropertyFlag.OnlyEnumerable));
