@@ -330,53 +330,23 @@ internal sealed partial class CollatorConstructor : Constructor
         numeric = null;
         caseFirst = null;
 
-        // Only search for -u- before the private-use section (-x-)
-        var xIndex = locale.IndexOf("-x-", StringComparison.OrdinalIgnoreCase);
-        var searchRange = xIndex >= 0 ? locale.Substring(0, xIndex) : locale;
-        var uIndex = searchRange.IndexOf("-u-", StringComparison.Ordinal);
-        if (uIndex < 0)
+        // https://tc39.es/ecma402/#sec-intl-collator-internal-slots lists co, kf and kn as this
+        // constructor's relevant extension keys, and UnicodeExtension answers for all three in one walk.
+        // Duplicate keys are not canonical, and the first occurrence is the one that counts.
+        foreach (var keyword in UnicodeExtension.EnumerateKeywords(locale))
         {
-            return;
-        }
-
-        // Extract the -u- extension content (up to private-use or next singleton)
-        var extensionContent = (xIndex >= 0 ? locale.Substring(uIndex + 3, xIndex - uIndex - 3) : locale.Substring(uIndex + 3));
-        var parts = extensionContent.Split('-');
-        for (var i = 0; i < parts.Length; i++)
-        {
-            var key = parts[i];
-            // Keys are exactly 2 characters, values are 3+ characters (or "true"/"false" which are special)
-            // If the next part is also 2 characters, it's another key, not a value
-            if (key.Length == 2)
+            if (collation is null && keyword.KeyIs("co"))
             {
-                // Check if there's a value (3+ chars or special 2-char values that aren't keys)
-                string? value = null;
-                if (i + 1 < parts.Length && parts[i + 1].Length >= 3)
-                {
-                    value = parts[i + 1];
-                    i++;
-                }
-
-                switch (key)
-                {
-                    case "co":
-                        collation = value;
-                        break;
-                    case "kn":
-                        // -u-kn without value or with any non-false value means true
-                        if (value == null)
-                        {
-                            numeric = true;
-                        }
-                        else
-                        {
-                            numeric = !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
-                        }
-                        break;
-                    case "kf":
-                        caseFirst = value;
-                        break;
-                }
+                collation = keyword.Value.IsEmpty ? null : keyword.Value.ToString();
+            }
+            else if (!numeric.HasValue && keyword.KeyIs("kn"))
+            {
+                // -u-kn without a value, or with any value other than "false", means true.
+                numeric = keyword.Value.IsEmpty || !keyword.Value.Equals("false".AsSpan(), StringComparison.OrdinalIgnoreCase);
+            }
+            else if (caseFirst is null && keyword.KeyIs("kf"))
+            {
+                caseFirst = keyword.Value.IsEmpty ? null : keyword.Value.ToString();
             }
         }
     }

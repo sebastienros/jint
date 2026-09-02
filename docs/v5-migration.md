@@ -4615,6 +4615,35 @@ does not handle gets "no data" where it used to get a wrong answer.
 `japanese` or `roc`. There is no option to restore the number; format with `month: 'numeric'`, which was
 always the numeric format and is unchanged.
 
+### 4.103 A `-u-` extension carrying more than one key is read whole ([#3573](https://github.com/sebastienros/jint/issues/3573))
+
+`Intl.DateTimeFormat` and `Intl.NumberFormat` each scanned the locale's Unicode extension by hand, and each
+consumed the *next* key into the current key's value — so `ca` read back as "buddhist-nu", resolved to no
+calendar at all, and the resolved locale came back bare. Either key alone worked, which is why the defect
+survived. Every relevant key is now read by one scanner, and the resolved values match ICU (and so V8):
+
+```js
+var f = new Intl.DateTimeFormat('en-US-u-ca-buddhist-nu-arab', { hour: 'numeric' }).resolvedOptions();
+f.locale;            // 5.0: "en-US"     5.x: "en-US-u-ca-buddhist-nu-arab"
+f.calendar;          // 5.0: "gregory"   5.x: "buddhist"
+f.numberingSystem;   // 5.0: "latn"      5.x: "arab"
+
+new Intl.NumberFormat('en-US-u-ca-buddhist-nu-arab').resolvedOptions().numberingSystem;
+                     // 5.0: "latn"      5.x: "arab"
+```
+
+`Intl.Collator`, `Intl.RelativeTimeFormat` and `Intl.DurationFormat` route through the same scanner; their
+answers for the tags they already read are unchanged. `Intl.Locale` and `Intl.getCanonicalLocales` always
+read these tags correctly, so the formatters now agree with them rather than resolving a locale the tag
+never asked for.
+
+**What could break:** a script or a `.resolvedOptions()` snapshot that hard-codes the bare locale, `gregory`
+or `latn` for a multi-key tag — including the formatting those produced, since a buddhist year and
+Arabic-Indic digits are now written where Gregorian years and Latin digits were. There is no option to
+restore the old resolution; a formatter that should stay on the Gregorian calendar in Latin digits asks for
+it, either by dropping the keys from the tag or by passing `calendar` and `numberingSystem` options, which
+supersede the tag's own keywords as they always have.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

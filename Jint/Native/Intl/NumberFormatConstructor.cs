@@ -307,7 +307,7 @@ internal sealed partial class NumberFormatConstructor : Constructor
         string? localeNumberingSystem = null;
         foreach (var loc in requestedLocales)
         {
-            localeNumberingSystem = ExtractNumberingSystemFromLocale(loc);
+            localeNumberingSystem = UnicodeExtension.GetKeywordValue(loc, "nu");
             if (localeNumberingSystem != null)
             {
                 break;
@@ -341,17 +341,17 @@ internal sealed partial class NumberFormatConstructor : Constructor
             if (numberingSystemFromOptions && !string.Equals(numberingSystem, localeNumberingSystem, StringComparison.OrdinalIgnoreCase))
             {
                 // Options overrode locale extension - remove nu from resolved locale
-                finalResolvedLocale = RemoveNumberingSystemFromLocale(resolvedLocale);
+                finalResolvedLocale = UnicodeExtension.WithKeyword(resolvedLocale, "nu", null);
             }
             else if (!IsSupportedNumberingSystem(localeNumberingSystem))
             {
                 // Locale extension was invalid - remove it
-                finalResolvedLocale = RemoveNumberingSystemFromLocale(resolvedLocale);
+                finalResolvedLocale = UnicodeExtension.WithKeyword(resolvedLocale, "nu", null);
             }
             else
             {
                 // Locale extension is used - ensure it's in the resolved locale
-                finalResolvedLocale = EnsureNumberingSystemInLocale(resolvedLocale, resolvedNumberingSystem);
+                finalResolvedLocale = UnicodeExtension.WithKeyword(resolvedLocale, "nu", resolvedNumberingSystem);
             }
         }
 
@@ -388,205 +388,11 @@ internal sealed partial class NumberFormatConstructor : Constructor
             culture);
     }
 
-    private static string? ExtractNumberingSystemFromLocale(string locale)
-    {
-        // Look for -u-nu-xxx pattern
-        const string marker = "-u-";
-        var uIndex = locale.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (uIndex == -1)
-        {
-            return null;
-        }
-
-        // Parse the unicode extension to find 'nu' key
-        var extensionStart = uIndex + marker.Length;
-        var i = extensionStart;
-
-        while (i < locale.Length)
-        {
-            // Find the key
-            var keyStart = i;
-            while (i < locale.Length && locale[i] != '-')
-            {
-                i++;
-            }
-            var key = locale.Substring(keyStart, i - keyStart);
-
-            // If we hit another singleton (single char key), we've left the Unicode extension
-            if (key.Length == 1 && key[0] != 'u')
-            {
-                break;
-            }
-
-            // Move past the hyphen
-            if (i < locale.Length && locale[i] == '-')
-            {
-                i++;
-            }
-
-            // Check if this is a 2-letter key (like 'nu', 'ca', etc.)
-            if (key.Length == 2)
-            {
-                // Get the value (continue until we hit a 2-letter key or end)
-                var valueStart = i;
-                var valueEnd = i;
-
-                while (i < locale.Length)
-                {
-                    var partStart = i;
-                    while (i < locale.Length && locale[i] != '-')
-                    {
-                        i++;
-                    }
-                    var part = locale.Substring(partStart, i - partStart);
-
-                    // 2-letter part = next key, single-letter = singleton (end of extension)
-                    if (part.Length == 2 || part.Length == 1)
-                    {
-                        break;
-                    }
-
-                    valueEnd = i;
-                    if (i < locale.Length && locale[i] == '-')
-                    {
-                        i++;
-                    }
-                }
-
-                if (string.Equals(key, "nu", StringComparison.OrdinalIgnoreCase) && valueEnd > valueStart)
-                {
-                    return locale.Substring(valueStart, valueEnd - valueStart).ToLowerInvariant();
-                }
-            }
-        }
-
-        return null;
-    }
-
     private bool IsSupportedNumberingSystem(string numberingSystem)
     {
         // A system is supported when the provider can supply its digits — the embedded table is the
         // default provider's answer, not the engine's own, so a host that adds a system is honoured here.
         return IntlUtilities.IsSupportedNumberingSystem(_engine, numberingSystem);
-    }
-
-    private static string RemoveNumberingSystemFromLocale(string locale)
-    {
-        // Remove the -u-nu-xxx part from the locale
-        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (uIndex == -1)
-        {
-            return locale;
-        }
-
-        // Find and remove the nu key-value pair
-        var extensionStart = uIndex + 3;
-        var result = new ValueStringBuilder();
-        result.Append(locale.AsSpan(0, uIndex));
-        var i = extensionStart;
-        var hasOtherExtensions = false;
-
-        while (i < locale.Length)
-        {
-            var keyStart = i;
-            while (i < locale.Length && locale[i] != '-')
-            {
-                i++;
-            }
-            var key = locale.Substring(keyStart, i - keyStart);
-
-            // Single char means we've hit another singleton extension
-            if (key.Length == 1)
-            {
-                result.Append(locale.AsSpan(keyStart - 1));
-                break;
-            }
-
-            if (i < locale.Length && locale[i] == '-')
-            {
-                i++;
-            }
-
-            if (key.Length == 2)
-            {
-                // Get the value
-                var valueStart = i;
-                while (i < locale.Length)
-                {
-                    var partStart = i;
-                    while (i < locale.Length && locale[i] != '-')
-                    {
-                        i++;
-                    }
-                    var part = locale.Substring(partStart, i - partStart);
-
-                    if (part.Length == 2 || part.Length == 1)
-                    {
-                        break;
-                    }
-
-                    if (i < locale.Length && locale[i] == '-')
-                    {
-                        i++;
-                    }
-                }
-
-                // Skip the nu key, keep others
-                if (!string.Equals(key, "nu", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!hasOtherExtensions)
-                    {
-                        result.Append("-u-");
-                        hasOtherExtensions = true;
-                    }
-                    else
-                    {
-                        result.Append('-');
-                    }
-                    var len = i - keyStart - (i < locale.Length && locale[i - 1] == '-' ? 1 : 0);
-                    result.Append(locale.AsSpan(keyStart, len));
-                }
-            }
-        }
-
-        return result.ToString();
-    }
-
-    private static string EnsureNumberingSystemInLocale(string locale, string numberingSystem)
-    {
-        // Check if locale already has the numbering system extension
-        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (uIndex == -1)
-        {
-            // No Unicode extension - add it
-            return locale + "-u-nu-" + numberingSystem;
-        }
-
-        // Check if nu is already present with the correct value
-        var nuPattern = "-nu-" + numberingSystem;
-        if (locale.Contains(nuPattern, StringComparison.OrdinalIgnoreCase))
-        {
-            return locale;
-        }
-
-        // Has -u- but not nu - add nu
-        var nuIndex = locale.IndexOf("-nu-", StringComparison.OrdinalIgnoreCase);
-        if (nuIndex == -1)
-        {
-            // Insert nu after -u-
-            return locale.Insert(uIndex + 3, "nu-" + numberingSystem + "-");
-        }
-
-        // nu exists with different value - replace it
-        var valueStart = nuIndex + 4;
-        var valueEnd = valueStart;
-        while (valueEnd < locale.Length && locale[valueEnd] != '-')
-        {
-            valueEnd++;
-        }
-#pragma warning disable CA1845
-        return locale.Substring(0, valueStart) + numberingSystem + locale.Substring(valueEnd);
-#pragma warning restore CA1845
     }
 
     private string GetStringOption(ObjectInstance options, string property, string[]? values, string fallback)

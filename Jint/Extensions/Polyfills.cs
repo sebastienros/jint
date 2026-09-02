@@ -29,6 +29,16 @@ internal static class Polyfills
     }
 #endif
 
+#if !NET8_0_OR_GREATER
+    // The span overloads of string.Concat arrived in .NET Core 2.1 and were never exposed by
+    // netstandard2.1, so every target below net8.0 needs them. The fallback materializes both slices,
+    // which is what a call site's own #else branch already did.
+    extension(string)
+    {
+        public static string Concat(ReadOnlySpan<char> str0, ReadOnlySpan<char> str1) => str0.ToString() + str1.ToString();
+    }
+#endif
+
 #if NETFRAMEWORK || NETSTANDARD2_0
     // The span overloads below arrived in .NET Core 2.1 / netstandard2.1. Each forwards to the
     // pointer-based overload that net472 and netstandard2.0 do have, so none of them allocates -- the
