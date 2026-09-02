@@ -20,7 +20,7 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one test case per `.any.js` file, on a fresh engine built with
 `UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and,
-for every file but the seventeen the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
+for every file but the twenty-nine the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
 gets outbound network access — and a `DiagnosticsSink`, which is what makes
 an exception escaping a timer callback, an event listener or a `queueMicrotask` callback report-and-continue
 rather than erupt from the pump. `WptDiagnosticsSink` says why the driver needs one and why it records the
@@ -124,7 +124,7 @@ leave a permanent exemption behind — the run fails until the table is brought 
 
 ## The server lane
 
-A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventeen files —
+A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Twenty-nine files —
 `WptHarness._serverBackedFiles` names every one — run on an engine that has the shipped `fetch`, against
 `WptServer`: an in-process HTTP/1.1 origin on the loopback interface, started once per test run.
 
@@ -167,14 +167,17 @@ is answering a request the corpus itself composed.
   lane is the only place in the driver that grants `WebApiFeatures.Fetch` and is therefore the boundary of
   the promise that no suite can open a socket. The engine's `Options.WebApi.Fetch.UrlFilter` is
   `WptServer.Owns`, re-run on every redirect hop, so even inside the lane nothing can reach the network.
-* **The shim supplies the API base URL the engine deliberately has not got.** Every file in the fetch corpus
-  writes `fetch("../resources/status.py?…")`, and `RequestConstructor` documents declining to resolve a
-  relative URL — there is no document, and a host is told to "resolve it yourself with
-  `new URL(relative, base).href`". The shim does exactly that, against a `location.href` that is the URL the
-  server really serves the file at. It is the harness playing the part of the browsing environment, as it
-  already does by supplying `location` and `GLOBAL` at all. It pointedly does **not** wrap `Request`: a file
-  constructing one from a relative url is asserting about the constructor, and those rows stay excluded under
-  `NeedsApiBaseUrl` rather than being fixed up by the harness.
+* **The lane supplies the API base URL, and it is a setting rather than a shim.** Every file in the fetch
+  corpus writes `fetch("../resources/status.py?…")` or `new Request("")`, and both are resolved "against the
+  entry settings object's API base URL" — a document's URL. The driver sets
+  `Options.WebApi.Fetch.BaseUrl` to the URL its own server really serves the file at, which is the harness
+  playing the part of the browsing environment exactly as it does by supplying `location` and `GLOBAL` at
+  all. It used to be a wrapper the shim put around `fetch`, which could not honestly reach `Request` — a file
+  constructing one from a relative url is asserting about the constructor — and that is why the whole of
+  `fetch/api/request/` was unvendorable until the setting existed. The lane also sets `Fetch.Referrer` and
+  `Fetch.Origin` to the same origin, so `request-referrer.any.js` measures the engine's own "determine
+  request's referrer", and gives each engine its own `CookieContainerCookieJar`, so a file's cookies are its
+  own.
 * **The drive loop had to learn to wait for something with no due time.** Every other lane treats "nothing
   queued and nothing scheduled" as proof that pumping cannot change the answer. A request in flight is
   neither — it is a completion on a thread-pool thread, and `Tasks.TimeUntilNextScheduledWork` has nothing
@@ -232,12 +235,19 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
-| `fetch/api/request/*` | Every file builds its `Request` from a **relative** url — `""`, `"./"`, `"../resources/…"` — and `RequestConstructor` documents why that cannot work: the specification resolves such a string against "the entry settings object's API base URL", which is a document's url, and an embedded engine has no document. Most of them do it at file scope, so there is not even a test to exclude. A host that wants a relative url resolves it itself with `new URL(relative, base).href`. |
+| `fetch/api/request/request-cache*` | An HTTP cache, and the `cache` init member `RequestConstructor` documents accepting and ignoring. |
+| `fetch/api/request/request-bad-port.any.js` | [Port blocking](https://fetch.spec.whatwg.org/#port-blocking), which this implementation does not enforce: the host's `UrlFilter` is where a destination is refused, and it sees the port. |
+| `fetch/api/request/request-headers.any.js` | The forbidden request-header names, which `HeadersGuard` documents declining to enforce — the same reason `fetch/api/basic/request-forbidden-headers.any.js` is out. |
+| `fetch/api/request/request-init-priority.any.js` | The `priority` init member, accepted and ignored like `mode` and `cache`. |
+| `fetch/api/request/request-keepalive*` | The `keepalive` init member, and `get-host-info` substitution at file scope. |
+| `fetch/api/request/destination/*`, `multi-globals/*`, `resources/*`, `*.html`, `*.sub.html` | The fetch destination, several realms with documents in them, and the handlers only those files use. |
 | `fetch/api/crashtests/*` | A crashtest — a regression reproduction rather than an assertion. |
 | `fetch/api/cors/*` | All 21 files are about the CORS request mode: `mode: "cors"`, a preflight, the `Access-Control-*` response headers, an opaque filtered response, and a second origin to be cross-origin *to*. `RequestConstructor` documents that this implementation neither reads nor validates `mode`, `credentials`, `integrity`, `referrer` or `referrerPolicy` — "nothing here pretends to honour a same-origin policy that does not exist" — so there is no origin model for these files to assert against, and [the server](#the-server-lane) would only let them fail more slowly. |
-| `fetch/api/credentials/*` | A cookie jar (`SocketsHttpHandler`'s `UseCookies` is deliberately off — a jar shared by every engine in the process would be a cross-tenant channel), HTTP authentication, and the `credentials` init member above. |
+| `fetch/api/credentials/*` | HTTP authentication, and `credentials.py`/`cookies.py` handlers this server does not reproduce. The `credentials` init member and a cookie jar are no longer the reason: `Options.WebApi.Fetch.CookieJar` exists, the driver gives every server-lane engine its own, and `Request.credentials` is read and validated. |
 | `fetch/api/policies/*` | Not one `.any.js` file: the directory is `.html` documents, their `.headers` sidecars and the `.js` they load. It is Content-Security-Policy and Referrer-Policy applied to a *document*. This row is the clearest example of how much the old "needs a wpt server" glob overstated itself — it was parking nothing runnable at all. |
-| `fetch/api/abort/*` | `general.any.js` is 20 kB of `AbortSignal` against a server, and it opens by including `/common/get-host-info.sub.js` — wptserve's server-side substitution — and `../request/request-error.js`, out of the one fetch directory that has no API base URL. Both are file-scope requirements, so it cannot register a test here at all. `request.any.js` and `cache.https.any.js` construct their `Request`s from relative urls, which is that same story. |
+| `fetch/api/abort/general.any.js` | Opens by including `/common/get-host-info.sub.js` — wptserve's server-side substitution — at file scope, so it cannot register a test here at all. |
+| `fetch/api/abort/cache.https.any.js` | The Cache API, which the driver's engine does not enable. |
+| `fetch/api/abort/request.any.js` | Consuming the body of a request whose signal is already aborted must reject with the abort reason; this engine resolves instead. Five of its rows say so, and it is a candidate once that is fixed — the relative-url reason the whole directory used to give is gone with `Options.WebApi.Fetch.BaseUrl`. |
 | `fetch/api/basic/conditional-get.any.js` | An HTTP cache: `ETag` revalidation through `cache.py`. |
 | `fetch/api/basic/error-after-response.any.js` | `bad-chunk-encoding.py`: a deliberately malformed chunked body, which needs a server writing bytes no framing layer would emit. |
 | `fetch/api/basic/header-value-combining.any.js`, `header-value-null-byte.any.js`, `request-headers-case.any.js` | `/xhr/resources/`: `.asis` files served byte for byte, and two `.py` handlers in a directory nothing else here reaches. |
@@ -245,7 +255,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/basic/request-upload.any.js` | `echo-content.py` plus a streaming upload and a second origin. |
 | `fetch/api/basic/gc.any.js` | `/common/gc.js` and a `garbageCollect()` the engine does not expose. |
 | `fetch/api/basic/mode-same-origin.any.js` | The CORS request mode and a second origin. |
-| `fetch/api/basic/referrer.any.js`, `request-referrer.any.js`, `fetch/api/redirect/redirect-referrer.any.js`, `redirect-referrer-override.any.js` | A `Referer` header, which an engine with no document never sends. |
+| `fetch/api/basic/referrer.any.js`, `fetch/api/redirect/redirect-referrer.any.js`, `redirect-referrer-override.any.js` | `get-host-info` substitution at file scope, for the cross-origin half of the referrer-policy table. `request-referrer.any.js` is vendored: `Options.WebApi.Fetch.Referrer` and `ReferrerPolicy` are what the engine now decides a `Referer` with, and the driver hands every server-lane engine the URL its own server serves the file at. |
 | `fetch/api/basic/request-forbidden-headers.any.js` | The forbidden-header names, which `HeadersGuard` documents declining — the same reason the `headers-forbidden-override` rows are excluded one by one. Here it is the whole file. |
 | `fetch/api/basic/request-headers.any.js` | Asserts the `Accept` and `Accept-Language` a browser adds, over most of its table. The `Accept` half is a real defect and is filed; see `NeedsBrowserRequestHeaders` for why the other half is not. |
 | `fetch/api/basic/scheme-data.any.js`, `fetch/api/redirect/redirect-to-dataurl.any.js` | A `data:` URL fetch, and a `data:` redirect target. |
@@ -1096,8 +1106,8 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×5 | 49 | 714 | 144 |
-| **total** | **38** | **293** | **40,983** | **2,958** |
+| Fetch | `fetch/api/` ×6 | 61 | 888 | 152 |
+| **total** | **39** | **305** | **41,157** | **2,966** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
@@ -1107,7 +1117,7 @@ carrying a number a later fix had already improved. That class of drift is what 
 rows were arithmetic the driver already did, and nothing checked the prose against it.
 
 Three of those rows are worth a caveat. The Fetch row is the only one whose files reach a socket at all — the
-seventeen [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
+twenty-nine [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
 process — so it is the only row whose figures could in principle depend on the machine. They do not: the
 suite was run five times over and reported the same 458 cases every time, and the driver's own idle rule
 is reset by a test settling rather than by a wall clock. The Encoding figure is dominated by
@@ -1128,16 +1138,17 @@ the one corpus that mostly does not run in the driver's own engine —
 `workers/modules/dedicated-worker-import.any.js`, which arrived with
 [#3195](https://github.com/sebastienros/jint/issues/3195), is the exception, because its subject is a page
 creating workers rather than the worker global itself. The rest of `fetch/api/` — `basic/`, `body/` and
-`redirect/` — came last, with [the server](#the-server-lane)
-([#3260](https://github.com/sebastienros/jint/issues/3260)). This file records what each of them says about
-the engine.
+`redirect/` — came next, with [the server](#the-server-lane)
+([#3260](https://github.com/sebastienros/jint/issues/3260)), and `request/` last, once
+`Options.WebApi.Fetch.BaseUrl` gave a relative url something to resolve against. This file records what each
+of them says about the engine.
 
 What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
 above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
 `.sub.html` are all for a browsing context or a classic worker. Of the WHATWG standards Jint implements, the
-directories with no vendored file at all are `fetch/api/request/` (no API base URL), `fetch/api/abort/`,
-`cors/`, `credentials/` and `policies/` (each for the reason its row gives, and none of them for want of a
-server), the parts of the `workers/` tree listed above, the `WebCryptoAPI` directories listed above, and
+directories with no vendored file at all are `fetch/api/abort/`, `cors/`, `credentials/` and `policies/`
+(each for the reason its row gives, and none of them for want of a server), the parts of the `workers/` tree
+listed above, the `WebCryptoAPI` directories listed above, and
 `xhr/` (there is no `XMLHttpRequest` in the engine — the shim's is a vendored-corpus reader for the suites
 that need one, never an implementation).
 

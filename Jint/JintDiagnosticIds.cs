@@ -31,10 +31,11 @@ namespace Jint;
 /// reachable and supported to <i>call</i>, but for the other reason: the capability is settled and the
 /// shape of it is not yet. Its types may gain members, its enums may gain values, and the exact text it
 /// produces may change in any release, none of which counts as a breaking change. Today that is
-/// <see cref="Diagnostics.ValueInspector"/> and the description types it answers with, and the sampling
+/// <see cref="Diagnostics.ValueInspector"/> and the description types it answers with, the sampling
 /// profiler — <c>Engine.Diagnostics.StartSampling</c>, <see cref="Profiling.SamplingOptions"/> and the
 /// <see cref="Profiling.SampledProfile"/> it produces, whose document is a profile format's shape rather
-/// than one Jint chose.
+/// than one Jint chose — and <c>Options.WebApi.Fetch.Observer</c>, whose first real consumer is a
+/// protocol layer that has not been written yet.
 /// </para>
 /// <para>
 /// Both are acknowledged the same way — a <c>#pragma warning disable</c> at the call site, or

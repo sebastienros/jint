@@ -1,5 +1,8 @@
 #if NET8_0_OR_GREATER
+using System.Diagnostics.CodeAnalysis;
+using Jint.Runtime;
 using Jint.WebApi;
+using Jint.WebApi.Fetch;
 
 namespace Jint;
 
@@ -551,6 +554,161 @@ public sealed partial class Options
         /// effectively unbounded; zero or less refuses every request.
         /// </remarks>
         public int MaxConcurrentRequests { get; set { ThrowIfReadOnly(); field = value; } } = 10;
+
+        /// <summary>
+        /// The API base URL a relative URL is resolved against. Defaults to <see langword="null"/>, which
+        /// leaves a relative URL unparsable.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>It is what a document's URL is to a browser.</b> Without one <c>fetch("/api")</c> and
+        /// <c>new Request("./x")</c> raise a <c>TypeError</c>, which is what an engine with no document has
+        /// always done; with one they resolve exactly as https://url.spec.whatwg.org/#concept-basic-url-parser
+        /// says, so <c>new URL(relative, base).href</c> is no longer the caller's job.
+        /// </para>
+        /// <para>
+        /// Redirects are unaffected: a <c>Location</c> is resolved against the URL that answered it, which is
+        /// always absolute already.
+        /// </para>
+        /// <para>
+        /// Must be an absolute URI. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public Uri? BaseUrl
+        {
+            get;
+            set
+            {
+                ThrowIfReadOnly();
+                if (value is { IsAbsoluteUri: false })
+                {
+                    Throw.ArgumentException("Options.WebApi.Fetch.BaseUrl must be an absolute URI.", nameof(value));
+                }
+
+                field = value;
+            }
+        }
+
+        /// <summary>
+        /// The referrer a request inherits when it names none of its own. Defaults to <see langword="null"/>,
+        /// which sends no <c>Referer</c> header at all.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is the environment's referrer of
+        /// https://fetch.spec.whatwg.org/#determine-requests-referrer — what a request whose <c>referrer</c>
+        /// is <c>"about:client"</c>, which is every request by default, resolves to.
+        /// </para>
+        /// <para>
+        /// How much of it travels is <see cref="ReferrerPolicy"/>'s business, and a request that names its own
+        /// <c>referrer</c> or <c>referrerPolicy</c> overrides both. Credentials and the fragment are stripped
+        /// before anything is sent.
+        /// </para>
+        /// <para>
+        /// Must be an absolute URI. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public Uri? Referrer
+        {
+            get;
+            set
+            {
+                ThrowIfReadOnly();
+                if (value is { IsAbsoluteUri: false })
+                {
+                    Throw.ArgumentException("Options.WebApi.Fetch.Referrer must be an absolute URI.", nameof(value));
+                }
+
+                field = value;
+            }
+        }
+
+        /// <summary>
+        /// How much of <see cref="Referrer"/> a request discloses. Defaults to
+        /// <see cref="WebApi.Fetch.ReferrerPolicy.StrictOriginWhenCrossOrigin"/>, which is the standard's own
+        /// default.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Applied per redirect hop against that hop's URL, so a chain that leaves the referrer's origin — or
+        /// downgrades from <c>https</c> to <c>http</c> — narrows or drops the header from that hop on.
+        /// </para>
+        /// <para>
+        /// It also decides whether the <see cref="Origin"/> header is serialized or sent as <c>null</c>, which
+        /// is https://fetch.spec.whatwg.org/#append-a-request-origin-header step 3.1.
+        /// </para>
+        /// <para>
+        /// A request's own <c>referrerPolicy</c> member wins over this. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public ReferrerPolicy ReferrerPolicy { get; set { ThrowIfReadOnly(); field = value; } } = ReferrerPolicy.StrictOriginWhenCrossOrigin;
+
+        /// <summary>
+        /// The origin an <c>Origin</c> header names. Defaults to <see langword="null"/>, which sends no such
+        /// header.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Parsed as a URL and reduced to its origin, so <c>"https://example.org/anything"</c> and
+        /// <c>"https://example.org"</c> mean the same thing. A value that does not parse is ignored.
+        /// </para>
+        /// <para>
+        /// The header is appended to every request whose method is neither <c>GET</c> nor <c>HEAD</c> —
+        /// https://fetch.spec.whatwg.org/#append-a-request-origin-header, whose CORS arms an engine with no
+        /// origin model never reaches — and becomes <c>null</c> where <see cref="ReferrerPolicy"/> says it
+        /// must.
+        /// </para>
+        /// <para>
+        /// It is also what <c>credentials: "same-origin"</c> compares a request against; with no origin set,
+        /// <see cref="BaseUrl"/>'s origin stands in, and with neither, a same-origin request sends no cookies.
+        /// Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public string? Origin { get; set { ThrowIfReadOnly(); field = value; } }
+
+        /// <summary>
+        /// The cookie store requests read a <c>Cookie</c> header from and write <c>Set-Cookie</c> back to.
+        /// Defaults to <see langword="null"/>, which is no cookies at all.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>A jar is an explicit grant.</b> The <c>HttpClientHandler</c> Jint uses still has
+        /// <c>UseCookies</c> off, because a jar shared by every engine in the process would be a cross-tenant
+        /// channel; this one belongs to whatever the host gave it to.
+        /// </para>
+        /// <para>
+        /// Consulted per redirect hop rather than per fetch, and only as far as the request's
+        /// <c>credentials</c> mode allows. <see cref="WebApi.Fetch.CookieContainerCookieJar"/> is the
+        /// in-box implementation.
+        /// </para>
+        /// <para>
+        /// Called from transport threads, so it must be thread-safe and must not touch the
+        /// <see cref="Engine"/>. Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public CookieJar? CookieJar { get; set { ThrowIfReadOnly(); field = value; } }
+
+        /// <summary>
+        /// Watches every request, response and body chunk, and may answer a request itself. Defaults to
+        /// <see langword="null"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Its callbacks run on transport threads and must never touch the <see cref="Engine"/>.</b> See
+        /// <see cref="WebApi.Fetch.FetchObserver"/> for the callback order and for what an observer may do
+        /// with what it is handed.
+        /// </para>
+        /// <para>
+        /// The shape of this seam is a preview: it exists for a protocol layer above Jint that is still being
+        /// written, so it is declared to the compiler as <c>JINT0002</c> and may be reshaped. Setting it is
+        /// safe; acknowledge the diagnostic with <c>#pragma warning disable JINT0002</c>.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        [Experimental(JintDiagnosticIds.PreviewDiagnostic)]
+        public FetchObserver? Observer { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal FetchOptions Clone()
         {

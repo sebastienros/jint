@@ -29,7 +29,10 @@ rather than fixed so that the change which first ran a suite is not also the cha
 non-zero count there means the corpus has found something and somebody still owes the engine a fix. It was
 empty until [#3260](https://github.com/sebastienros/jint/issues/3260) gave the fetch corpus a server, which
 found five things the moment it could make a real request; they were filed as #3279–#3283, they are all fixed,
-and the category is **empty again**, which is the state that makes the next non-zero count mean something.
+and the category went **empty again**, which is the state that makes the next non-zero count mean something.
+It is non-zero now: vendoring `fetch/api/request/` found that `new Request(anotherRequest)` leaves the input
+undisturbed, because `FetchBodyObject.ProxyBody` shares the source for a buffered body where the standard tees
+the stream, so `bodyUsed` stays false on the input. Three rows of `request-disturbed.any.js` name it.
 A row that turns out not to be a defect at all leaves for `AssertsWhatNothingRequires`, the
 analogue of test262's `PERMANENT EXCLUSIONS` banner, earned the same way: a normative citation and an argued
 decision, never a to-do. **The engine supplies its own `setTimeout`** — unlike the test262 harness, which has no web APIs to
@@ -46,13 +49,15 @@ three interfaces and nothing else, which is what let that half of the fetch corp
 there was anything for the other half to talk to. **That other half is `WptServer`** — an in-process HTTP/1.1
 origin on the loopback interface, a raw `TcpListener` on port 0, serving the *vendored* corpus plus a C# port
 of six wptserve `.py` handlers, which `WptServerTests` holds to the upstream source at the pin. Only the
-seventeen files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
+twenty-nine files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
 server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
 list in both directions — so *no suite can reach the network*, which is the promise the driver has always
-made, while the twenty files that could not produce a test report at all now do. Two things about that lane
-are worth knowing before touching it: the shim supplies the API base URL the engine deliberately has not got
-(`new URL(relative, base).href`, which is what `RequestConstructor` tells a host to do, and it pointedly does
-*not* wrap `Request`), and the drive loop polls there rather than treating "nothing scheduled" as stalled,
+made, while the files that could not produce a test report at all now do. Two things about that lane
+are worth knowing before touching it: the driver gives each of its engines the API base URL, the referrer,
+the origin and the cookie jar a browsing environment would supply — `Options.WebApi.Fetch.BaseUrl` is the URL
+the server really serves that file at, and it is what let the whole of `fetch/api/request/` be vendored,
+since the shim's older `fetch` wrapper could resolve a relative url for `fetch()` and never for
+`new Request()` — and the drive loop polls there rather than treating "nothing scheduled" as stalled,
 because a request in flight is a thread-pool completion `TimeUntilNextScheduledWork` cannot report. Last,
 **every engine carries a `DiagnosticsSink`**, because that is what makes an
 exception escaping a timer callback, a `queueMicrotask` callback or an event listener report-and-continue

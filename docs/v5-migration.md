@@ -4792,6 +4792,10 @@ none of it changes an engine that does not.
 | The source text a script or module was parsed from, read back through `engine.Advanced.TryGetSourceText(program, out var text)` | `options.RetainFunctionSourceText = true`, or the same setting on a preparation's parsing options | [§5.8](#58-a-host-thread-can-hand-the-engine-work-and-read-back-the-source-a-program-was-parsed-from-3587) |
 | Structured `console` records — the method, the raw `JsValue` arguments, the group depth, and `console.trace`'s frames | override `ConsoleSink.Write(in ConsoleRecord)` instead of, or as well as, `Write(level, message)` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
 | `ValueInspector.Describe(value)` — a bounded, getter-free `ValueDescription` of any `JsValue`, holding no `JsValue` and running no script | nothing, beyond acknowledging the preview diagnostic: `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [Web APIs (opt-in)](../README.md#web-apis-opt-in) |
+| An API base URL, so a relative url in `fetch()` and `new Request()` resolves instead of throwing | `options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/app/")` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
+| A `Referer` header under a referrer policy, and an `Origin` header | `options.WebApi.Fetch.Referrer`, `.ReferrerPolicy`, `.Origin` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
+| Cookies, in a jar the host owns, consulted per redirect hop under the request's `credentials` mode | `options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar()` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
+| Watching and intercepting every request, response and body chunk | `options.WebApi.Fetch.Observer = …`, plus `<NoWarn>$(NoWarn);JINT0002</NoWarn>` | [§5.10](#510-fetch-can-behave-as-a-documents-fetch-3617) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -5192,6 +5196,50 @@ a prepared program before anything runs it.
 Alongside it, a class field initializer and a class static block now report their real source positions when
 the debugger steps onto them or through their return point. The nodes the engine synthesizes for both carried
 no location at all, so both used to pause at line 0 with no source file — a position no editor can open.
+
+### 5.10 `fetch` can behave as a document's fetch ([#3617](https://github.com/sebastienros/jint/pull/3617))
+
+Five settings under `Options.WebApi.Fetch`, all absent by default. An engine whose host sets none of
+them behaves exactly as it did.
+
+```csharp
+var jar = new CookieContainerCookieJar();
+
+var engine = new Engine(options => options.UseFetch(fetch =>
+{
+    fetch.BaseUrl = new Uri("https://example.org/app/page.html");
+    fetch.Referrer = new Uri("https://example.org/app/page.html");
+    fetch.ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin; // the default
+    fetch.Origin = "https://example.org";
+    fetch.CookieJar = jar;
+}));
+
+engine.Evaluate("fetch('/api/items')"); // resolves against BaseUrl instead of throwing
+```
+
+`BaseUrl` is the API base URL the standard resolves a relative input against; without one a relative
+url is still the `TypeError` it always was. `Referrer` and `ReferrerPolicy` implement
+[determine request's referrer](https://fetch.spec.whatwg.org/#determine-requests-referrer), and
+`Origin` appends the `Origin` header to a request whose method is neither `GET` nor `HEAD`; both are
+re-decided against each redirect hop's own URL, so a chain that leaves the referrer's origin — or
+downgrades to `http` — narrows the header from that hop on.
+
+`CookieJar` is consulted per hop, under the request's `credentials` mode: `omit` never sends or
+stores, `same-origin` only while the hop is same origin with `Origin` (or `BaseUrl`'s origin), and
+`include` always. `CookieContainerCookieJar` is the in-box implementation; **one jar is one cookie
+partition**, so give each tenant, session or page its own. `Set-Cookie` is parsed by Jint rather
+than by `System.Net.CookieContainer`, so `__Secure-` and `__Host-` are enforced. The
+`HttpClientHandler` still has `UseCookies = false`: cookies exist only where a jar was given.
+
+`Observer` is the seam a protocol layer rides — `OnRequestAsync` (which may fulfil, fail or rewrite
+a hop), `OnResponse`, `OnData`, `OnCompleted`, `OnFailed`. **Its callbacks run on transport threads
+and must never touch the `Engine`**, which is why nothing they are handed is a `JsValue`. It is a
+preview surface: `<NoWarn>$(NoWarn);JINT0002</NoWarn>`, or a `#pragma` at the call site.
+
+**`Request` gains three members**, which feature detection can now see: `referrer`,
+`referrerPolicy` and `credentials`. They are read from `RequestInit` and **validated**, so
+`new Request(url, { credentials: "nonsense" })` is a `TypeError` where it used to be ignored.
+`mode`, `cache`, `integrity`, `keepalive` and `priority` are still accepted and ignored.
 
 ## 6. AOT and trimming
 

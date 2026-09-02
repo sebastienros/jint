@@ -936,11 +936,24 @@
     // URL the file is actually served at: `fetch/api/basic/stream-safe-creation.any.js` fetches
     // `location.href` and constructs Requests from it, so a placeholder there would be a suite asserting
     // against the shim rather than against the engine.
+    //
+    // `toString` and `origin` are there because a `Location` has them and the corpus uses them as a
+    // `Location` does: `fetch/api/basic/request-referrer.any.js` writes `new URL("./foo", self.location)`,
+    // which reaches the URL parser's `USVString` conversion of the base and gets `[object Object]` from a
+    // bare object literal.
     global.location = {
         search: '',
         hash: '',
-        href: typeof __wptLocationHref === 'string' ? __wptLocationHref : 'about:blank'
+        href: typeof __wptLocationHref === 'string' ? __wptLocationHref : 'about:blank',
+        toString: function () { return this.href; }
     };
+
+    try {
+        global.location.origin = new global.URL(global.location.href).origin;
+    } catch (e) {
+        // `about:blank` has no tuple origin, which is what a file outside the server lane gets.
+        global.location.origin = 'null';
+    }
 
     // Not the Fetch API: a loader for the vendored `resources/*.json` files a suite reads its corpus from,
     // and the only reason any of these files needs a network verb at all. There is deliberately no failure
@@ -960,37 +973,15 @@
     // `WptHarness._serverBackedFiles` — and overwriting the shipped `fetch` there would replace the very
     // thing those files exist to test. Every other engine has no `fetch` at all, so the reader below is what
     // it gets, exactly as before.
+    //
+    // The server lane's `fetch` is the shipped one and is left exactly as it is. It used to be wrapped here
+    // so that a relative input resolved against `location.href`, because the engine had no API base URL to
+    // resolve one against and the wrapper could not honestly reach `new Request()`. The driver now hands the
+    // engine `Options.WebApi.Fetch.BaseUrl` instead — the same URL, in the place a browser keeps it — so both
+    // `fetch("../resources/status.py")` and `new Request("")` are resolved by the code under test.
     if (typeof global.fetch !== 'function') {
         global.fetch = function (input) {
             return Promise.resolve(new global.Response(__wptReadResource(String(input))));
-        };
-    } else {
-        // The engine's own `fetch`, given the one thing an embedded engine cannot have: an API base URL.
-        //
-        // Fetch resolves a string input in the Request constructor, "against the entry settings object's API
-        // base URL" — a *document's* URL. RequestConstructor documents declining to invent one and tells a
-        // host what to do instead, verbatim: "Pass an absolute URL, or resolve it yourself with
-        // `new URL(relative, base).href`". That is what this does, with `location.href` as the base, which is
-        // the URL the driver's server really serves the file at. It is the harness playing the part of the
-        // browsing environment, exactly as it does by supplying `location` and `GLOBAL` at all — every file in
-        // the fetch corpus writes `fetch("../resources/status.py?…")`, so without it there is nothing for a
-        // server to answer.
-        //
-        // It deliberately does *not* wrap `Request`: a file that constructs one from a relative url is
-        // asserting about the constructor, and those rows stay excluded under NeedsApiBaseUrl rather than
-        // being quietly fixed up by the harness.
-        var __engineFetch = global.fetch;
-        global.fetch = function (input, init) {
-            if (typeof input === 'string') {
-                try {
-                    input = new global.URL(input, global.location.href).href;
-                } catch (e) {
-                    // An input no URL parser can make sense of is a network error the engine must report, not
-                    // something for the harness to throw synchronously in its place.
-                }
-            }
-
-            return __engineFetch(input, init);
         };
     }
 

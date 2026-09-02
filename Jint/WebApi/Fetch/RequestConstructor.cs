@@ -46,18 +46,21 @@ internal sealed class RequestConstructor : Constructor
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>There is no base URL.</b> The specification parses a string input against "the entry settings
-    /// object's API base URL", which is a document's URL; an embedded engine has no document, so a relative
-    /// URL simply does not parse and is a <c>TypeError</c>. Pass an absolute URL, or resolve it yourself with
-    /// <c>new URL(relative, base).href</c>.
+    /// <b>The base URL is <c>Options.WebApi.Fetch.BaseUrl</c>.</b> The specification parses a string input
+    /// against "the entry settings object's API base URL", which is a document's URL; an engine whose host
+    /// named none has no document, and a relative URL then does not parse and is a <c>TypeError</c> exactly
+    /// as it always was.
     /// </para>
     /// <para>
-    /// The <c>RequestInit</c> members this implementation does not act on — <c>cache</c>, <c>credentials</c>,
-    /// <c>integrity</c>, <c>keepalive</c>, <c>mode</c>, <c>priority</c>, <c>referrer</c>,
-    /// <c>referrerPolicy</c>, <c>window</c> — are neither read nor validated, so a getter among them is not
-    /// invoked and a misspelled enumeration value is not refused. Accepting and ignoring them is the Node and
-    /// workerd convention: a script written for a browser keeps working, and nothing here pretends to honour
-    /// a same-origin policy or an HTTP cache that does not exist.
+    /// The <c>RequestInit</c> members this implementation does not act on — <c>cache</c>, <c>integrity</c>,
+    /// <c>keepalive</c>, <c>mode</c>, <c>priority</c>, <c>window</c> — are neither read nor validated, so a
+    /// getter among them is not invoked and a misspelled enumeration value is not refused. Accepting and
+    /// ignoring them is the Node and workerd convention: a script written for a browser keeps working, and
+    /// nothing here pretends to honour a same-origin policy or an HTTP cache that does not exist.
+    /// </para>
+    /// <para>
+    /// <c>credentials</c>, <c>referrer</c> and <c>referrerPolicy</c> are read and validated, because the
+    /// cookie jar, the referrer and the origin they steer are settings a host can now supply.
     /// </para>
     /// </remarks>
     public override ObjectInstance Construct(JsCallArguments arguments, JsValue newTarget)
@@ -67,9 +70,14 @@ internal sealed class RequestConstructor : Constructor
 
         // Step 5/6: the input is either a Request to copy or a URL string to parse.
         var inputRequest = input as JsRequest;
+        var network = _engine._webApi?.FetchNetwork ?? FetchNetworkContext.Empty;
         UrlRecord url;
         var method = "GET";
         var redirect = JsRequest.RedirectFollow;
+        var credentials = JsRequest.CredentialsSameOrigin;
+        var referrerSource = FetchReferrerSource.Client;
+        UrlRecord? referrerUrl = null;
+        ReferrerPolicy? referrerPolicy = null;
         HeaderList headerList;
         JsAbortSignal? signal = null;
 
@@ -78,13 +86,17 @@ internal sealed class RequestConstructor : Constructor
             url = inputRequest.Url;
             method = inputRequest.Method;
             redirect = inputRequest.Redirect;
+            credentials = inputRequest.Credentials;
+            referrerSource = inputRequest.ReferrerSource;
+            referrerUrl = inputRequest.ReferrerUrl;
+            referrerPolicy = inputRequest.ReferrerPolicy;
             headerList = inputRequest.Headers.List.Clone();
             signal = inputRequest.Signal;
         }
         else
         {
             var href = UrlValues.ToUsvString(input);
-            var parsed = UrlParser.Parse(href);
+            var parsed = UrlParser.Parse(href, network.BaseUrl);
             if (parsed is null)
             {
                 Throw.TypeError(_realm, $"Failed to construct 'Request': Failed to parse URL from {href}");
@@ -103,13 +115,17 @@ internal sealed class RequestConstructor : Constructor
         }
 
         // WebIDL converts a dictionary's members in lexicographical order of their identifiers, so a bag whose
-        // members are getters observes body, duplex, headers, method, redirect, signal in that order.
+        // members are getters observes body, credentials, duplex, headers, method, redirect, referrer,
+        // referrerPolicy, signal in that order.
         var initObject = ToInit(init);
         var bodyInit = Member(initObject, "body");
+        var credentialsInit = Member(initObject, "credentials");
         var duplexInit = Member(initObject, "duplex");
         var headersInit = Member(initObject, "headers");
         var methodInit = Member(initObject, "method");
         var redirectInit = Member(initObject, "redirect");
+        var referrerInit = Member(initObject, "referrer");
+        var referrerPolicyInit = Member(initObject, "referrerPolicy");
         var signalInit = Member(initObject, "signal");
 
         if (methodInit is not null)
@@ -141,6 +157,69 @@ internal sealed class RequestConstructor : Constructor
             Throw.TypeError(_realm, "Failed to construct 'Request': The provided value is not a valid enum value of type RequestDuplex.");
         }
 
+        // `enum RequestCredentials { "omit", "same-origin", "include" };` — the mode that decides whether the
+        // host's cookie jar is consulted for a hop.
+        if (credentialsInit is not null)
+        {
+            credentials = FetchValues.ToByteString(_realm, credentialsInit);
+            if (credentials is not (JsRequest.CredentialsOmit or JsRequest.CredentialsSameOrigin or JsRequest.CredentialsInclude))
+            {
+                Throw.TypeError(_realm, $"Failed to construct 'Request': The provided value '{credentials}' is not a valid enum value of type RequestCredentials.");
+            }
+        }
+
+        // Steps 15 and 16 of https://fetch.spec.whatwg.org/#dom-request. The empty string is "no referrer";
+        // a URL that parses is kept only while it is same origin with this engine's own, because a browser
+        // will not let a document name a referrer it could not have been.
+        if (referrerInit is not null)
+        {
+            var referrer = UrlValues.ToUsvString(referrerInit);
+            if (referrer.Length == 0)
+            {
+                referrerSource = FetchReferrerSource.NoReferrer;
+                referrerUrl = null;
+            }
+            else
+            {
+                var parsedReferrer = UrlParser.Parse(referrer, network.BaseUrl);
+                if (parsedReferrer is null)
+                {
+                    Throw.TypeError(_realm, $"Failed to construct 'Request': Failed to parse referrer from {referrer}");
+                }
+
+                var isAboutClient = string.Equals(parsedReferrer!.Scheme, "about", StringComparison.Ordinal)
+                    && string.Equals(parsedReferrer.SerializePath(), "client", StringComparison.Ordinal);
+
+                if (isAboutClient || !IsSameOrigin(parsedReferrer, network.SameOriginReference))
+                {
+                    referrerSource = FetchReferrerSource.Client;
+                    referrerUrl = null;
+                }
+                else
+                {
+                    referrerSource = FetchReferrerSource.Url;
+                    referrerUrl = parsedReferrer;
+                }
+            }
+        }
+
+        if (referrerPolicyInit is not null)
+        {
+            var requested = FetchValues.ToByteString(_realm, referrerPolicyInit);
+            if (requested.Length == 0)
+            {
+                referrerPolicy = null;
+            }
+            else if (FetchReferrer.TryParse(requested, out var parsedPolicy))
+            {
+                referrerPolicy = parsedPolicy;
+            }
+            else
+            {
+                Throw.TypeError(_realm, $"Failed to construct 'Request': The provided value '{requested}' is not a valid enum value of type ReferrerPolicy.");
+            }
+        }
+
         if (signalInit is not null && !signalInit.IsNull())
         {
             signal = signalInit as JsAbortSignal;
@@ -162,6 +241,10 @@ internal sealed class RequestConstructor : Constructor
         request.Method = method;
         request.Url = url;
         request.Redirect = redirect;
+        request.Credentials = credentials;
+        request.ReferrerSource = referrerSource;
+        request.ReferrerUrl = referrerUrl;
+        request.ReferrerPolicy = referrerPolicy;
 
         // Step 35/36: the request's own signal always exists, and follows the one the initializer named.
         request.Signal = signal is null
@@ -216,6 +299,23 @@ internal sealed class RequestConstructor : Constructor
         }
 
         return request;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/browsers.html#same-origin, over the URL records the two sides
+    /// already are. A missing reference — the host named no origin and no base URL — is same origin with
+    /// nothing, which is what an opaque origin means.
+    /// </summary>
+    private static bool IsSameOrigin(UrlRecord url, UrlRecord? reference)
+    {
+        if (reference is null)
+        {
+            return false;
+        }
+
+        var origin = url.SerializeOrigin();
+        return !string.Equals(origin, "null", StringComparison.Ordinal)
+            && string.Equals(origin, reference.SerializeOrigin(), StringComparison.Ordinal);
     }
 
     /// <summary>

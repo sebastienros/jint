@@ -314,12 +314,33 @@ internal enum WptDivergence
     /// The test hands a <b>relative</b> url to <c>Request</c>, <c>Response.redirect()</c> or another member
     /// that parses one. <c>RequestConstructor</c> documents the decision: the specification parses such a
     /// string against "the entry settings object's API base URL", which is a document's url, and an embedded
-    /// engine has no document — so a relative url does not parse and is a <c>TypeError</c>, and a host that
-    /// wants one resolves it itself with <c>new URL(relative, base).href</c>. The whole of
-    /// <c>fetch/api/request/</c> is out for this (see <c>Vendor/README.md</c>); this category is for the rows
-    /// inside a file that is otherwise about something else.
+    /// engine has no document. That is now a <i>setting</i> rather than a refusal —
+    /// <c>Options.WebApi.Fetch.BaseUrl</c>, which the driver hands every server-lane engine, and which is
+    /// what let <c>fetch/api/request/</c> be vendored at all — so what is left here is the rows in a file
+    /// that runs outside that lane, where there is still no document and no base URL to resolve against.
     /// </summary>
     NeedsApiBaseUrl,
+
+    /// <summary>
+    /// <para>
+    /// The test names a <c>Request</c> member this engine deliberately does not have, or asks it to refuse a
+    /// value for one. <c>JsRequest</c> states the rule the surface is chosen by — a member must describe
+    /// something the engine <i>has</i> — and these are the seven that describe a browser concept it has not:
+    /// <c>destination</c> (there are no fetch destinations), <c>mode</c> and the <c>window</c> member (there
+    /// is no same-origin policy and no CORS model, which is also why a redirect is never opaque-filtered),
+    /// <c>cache</c> (there is no HTTP cache), <c>integrity</c> (no subresource integrity),
+    /// <c>isReloadNavigation</c> and <c>isHistoryNavigation</c> (there are no navigations).
+    /// </para>
+    /// <para>
+    /// Accepting and ignoring them is the Node and workerd convention, and the alternative is worse than the
+    /// failure: a <c>mode</c> attribute answering <c>"cors"</c> on an engine with no origin would be a member
+    /// that lies, and feature detection is written against absence. <c>credentials</c>, <c>referrer</c> and
+    /// <c>referrerPolicy</c> used to be in this list and left it when
+    /// <c>Options.WebApi.Fetch.CookieJar</c>, <c>Referrer</c> and <c>Origin</c> gave the engine the things
+    /// they describe, which is the shape of the argument for ever removing an entry here.
+    /// </para>
+    /// </summary>
+    NeedsBrowserRequestModel,
 
     /// <summary>
     /// The test reaches for a real <c>XMLHttpRequest</c>, which Jint does not implement and the driver does

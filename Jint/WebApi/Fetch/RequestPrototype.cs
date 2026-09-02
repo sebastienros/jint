@@ -76,6 +76,41 @@ internal sealed partial class RequestPrototype : Prototype
     private JsString RedirectGet(JsValue thisObject) => JsString.Create(Brand(thisObject).Redirect);
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request-referrer — the empty string for "no referrer",
+    /// <c>about:client</c> for a request that takes <c>Options.WebApi.Fetch.Referrer</c>, and otherwise the
+    /// URL the <c>referrer</c> member named.
+    /// </summary>
+    [JsAccessor("referrer", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString ReferrerGet(JsValue thisObject)
+    {
+        var request = Brand(thisObject);
+        return request.ReferrerSource switch
+        {
+            FetchReferrerSource.NoReferrer => JsString.Empty,
+            FetchReferrerSource.Url => JsString.Create(request.ReferrerUrl!.Serialize()),
+            _ => JsString.Create(JsRequest.ReferrerClient),
+        };
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request-referrerpolicy — the empty string means the request named
+    /// none and takes <c>Options.WebApi.Fetch.ReferrerPolicy</c>.
+    /// </summary>
+    [JsAccessor("referrerPolicy", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString ReferrerPolicyGet(JsValue thisObject)
+    {
+        var policy = Brand(thisObject).ReferrerPolicy;
+        return policy is null ? JsString.Empty : JsString.Create(FetchReferrer.ToWireValue(policy.Value));
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request-credentials — whether
+    /// <c>Options.WebApi.Fetch.CookieJar</c> is consulted for this request, and when.
+    /// </summary>
+    [JsAccessor("credentials", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
+    private JsString CredentialsGet(JsValue thisObject) => JsString.Create(Brand(thisObject).Credentials);
+
+    /// <summary>
     /// https://fetch.spec.whatwg.org/#dom-request-signal — never null, and the handle
     /// <c>fetch</c> links its HTTP request against.
     /// </summary>
