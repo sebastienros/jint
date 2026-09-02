@@ -34,7 +34,7 @@ namespace Jint;
 /// <see cref="Diagnostics.ValueInspector"/> and the description types it answers with, the sampling
 /// profiler — <c>Engine.Diagnostics.StartSampling</c>, <see cref="Profiling.SamplingOptions"/> and the
 /// <see cref="Profiling.SampledProfile"/> it produces, whose document is a profile format's shape rather
-/// than one Jint chose — and <see cref="WebApi.Fetch.FetchObserver"/>, whose first real consumer is a
+/// than one Jint chose — and <c>Options.WebApi.Fetch.Observer</c>, whose first real consumer is a
 /// protocol layer that has not been written yet.
 /// </para>
 /// <para>
