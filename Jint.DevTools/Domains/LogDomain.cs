@@ -94,7 +94,15 @@ internal sealed class LogDomain : LogDomainBase, ITargetObserver
         Report("Uncaught (in promise) " + SafeText(reason), url: null, line: 0);
     }
 
-    private void Report(string text, string? url, int line)
+    /// <summary>
+    /// Writes one entry, if the client asked for them.
+    /// </summary>
+    /// <remarks>
+    /// Internal because the debugger reports through it too: a pause that ended on
+    /// <see cref="DevToolsServerOptions.PauseTimeout"/> rather than on a client's command is a failure of the
+    /// same kind as script that threw, and a client watching one stream should hear about both.
+    /// </remarks>
+    internal void Report(string text, string? url, int line)
     {
         if (!IsEnabled)
         {

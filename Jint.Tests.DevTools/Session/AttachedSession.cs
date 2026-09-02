@@ -38,12 +38,17 @@ internal sealed class AttachedSession : IAsyncDisposable
     /// What the host asked for before <c>UseDevTools</c> ran, which is the order a host writes: its own
     /// console sink, its own web-API features, and then the call that makes the engine attachable.
     /// </param>
+    /// <param name="serverOptions">
+    /// What the server is configured with, or the defaults. The bounds a target reads — the command timeout
+    /// and the pause timeout — are the server's, so a test about either sets them here.
+    /// </param>
     internal static async Task<AttachedSession> CreateAsync(
         Action<Engine>? configure = null,
         EngineTargetOptions? options = null,
-        Action<Options>? configureOptions = null)
+        Action<Options>? configureOptions = null,
+        DevToolsServerOptions? serverOptions = null)
     {
-        var session = ProtocolSession.Create();
+        var session = ProtocolSession.Create(options: serverOptions);
         var engine = new Engine(o =>
         {
             configureOptions?.Invoke(o);
@@ -140,6 +145,42 @@ internal sealed class AttachedSession : IAsyncDisposable
 
     /// <summary>Every event of <paramref name="method"/> the conversation has sent, oldest first.</summary>
     internal IReadOnlyList<JsonElement> EventsOf(string method) => _session.EventsOf(method);
+
+    /// <summary>
+    /// Waits for the event at <paramref name="index"/> of <paramref name="method"/>, failing rather than
+    /// hanging.
+    /// </summary>
+    /// <remarks>
+    /// An event is not a reply, so nothing hands one back: it arrives on the connection whenever the engine
+    /// has something to say, and a test that wants one waits. <b>Every wait here is bounded</b> — a protocol
+    /// test that can hang is a continuous-integration leg that can hang, and a pause that never arrives is
+    /// exactly the defect these tests are looking for.
+    /// </remarks>
+    internal async Task<JsonElement> EventAsync(string method, int index = 0, int timeoutSeconds = 120)
+    {
+        var deadline = Environment.TickCount64 + (timeoutSeconds * 1000L);
+
+        while (Environment.TickCount64 < deadline)
+        {
+            var events = EventsOf(method);
+            if (events.Count > index)
+            {
+                return events[index].GetProperty("params");
+            }
+
+            await Task.Delay(5).ConfigureAwait(false);
+        }
+
+        Assert.Fail($"'{method}' number {index} never arrived within {timeoutSeconds} seconds.");
+        return default;
+    }
+
+    /// <summary>Enables the domains a debugging client enables, in the order a client sends them.</summary>
+    internal async Task EnableDebuggerAsync()
+    {
+        await ResultAsync("Runtime.enable").ConfigureAwait(false);
+        await ResultAsync("Debugger.enable").ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
     public ValueTask DisposeAsync() => _session.DisposeAsync();

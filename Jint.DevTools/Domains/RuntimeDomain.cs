@@ -5,8 +5,8 @@ using Jint.DevTools.Protocol.Runtime;
 using Jint.DevTools.Session;
 using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Jint.Runtime.Interop;
-using JsonParser = Jint.Native.Json.JsonParser;
 
 namespace Jint.DevTools.Domains;
 
@@ -174,7 +174,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         JsValue value;
         try
         {
-            value = _target.Engine.Evaluate(parameters.Expression);
+            value = Evaluate(parameters.Expression);
         }
         catch (JavaScriptException exception)
         {
@@ -217,7 +217,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         JsValue function;
         try
         {
-            function = engine.Evaluate(_target.CompiledScripts.Declaration(parameters.FunctionDeclaration));
+            function = Evaluate(_target.CompiledScripts.Declaration(parameters.FunctionDeclaration));
         }
         catch (ScriptPreparationException exception)
         {
@@ -234,7 +234,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             Throw.ServerError("Given expression does not evaluate to a function");
         }
 
-        var arguments = Arguments(parameters.Arguments);
+        var arguments = CallArguments.Resolve(_target, parameters.Arguments);
 
         JsValue result;
         try
@@ -415,18 +415,99 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     }
 
     /// <summary>
+    /// Evaluates an expression where the engine currently is: at the top of the paused call stack, or at the
+    /// top level when nothing is paused.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A paused engine may not be given a new script to run.</b> <c>Engine.Evaluate</c> is
+    /// a public entry, and the engine is suspended part-way through a statement of something else;
+    /// <c>DebugHandler.Evaluate</c> is the path built for exactly this, running the expression in the active
+    /// execution context — which is what makes a console expression see the locals a client is looking at.
+    /// </para>
+    /// <para>
+    /// The debugger wraps whatever the expression threw in a <c>DebugEvaluationException</c>, and a client
+    /// asked about the JavaScript rather than about the wrapper, so the inner failure is what comes back.
+    /// </para>
+    /// </remarks>
+    private JsValue Evaluate(string expression)
+    {
+        if (!_target.IsPaused)
+        {
+            return _target.Engine.Evaluate(expression);
+        }
+
+        try
+        {
+            return _target.Engine.Debugger.Evaluate(expression);
+        }
+        catch (DebugEvaluationException exception)
+        {
+            throw Unwrap(exception);
+        }
+    }
+
+    /// <inheritdoc cref="Evaluate(System.String)"/>
+    private JsValue Evaluate(in Prepared<Acornima.Ast.Script> prepared)
+    {
+        if (!_target.IsPaused)
+        {
+            return _target.Engine.Evaluate(prepared);
+        }
+
+        try
+        {
+            return _target.Engine.Debugger.Evaluate(prepared);
+        }
+        catch (DebugEvaluationException exception)
+        {
+            throw Unwrap(exception);
+        }
+    }
+
+    /// <summary>
+    /// The failure a client asked about, out of the debugger's wrapper.
+    /// </summary>
+    /// <remarks>
+    /// A parse failure comes out as the parse failure, so <c>Runtime.evaluate</c> of a malformed expression
+    /// answers the same shape whether or not the engine happened to be paused.
+    /// </remarks>
+    private static Exception Unwrap(DebugEvaluationException exception)
+    {
+        return exception.InnerException switch
+        {
+            JavaScriptException javaScript => javaScript,
+            Acornima.ParseErrorException parse => new ProtocolException(parse.Message, parse),
+            _ => new ProtocolException(exception.Message, exception),
+        };
+    }
+
+    /// <summary>
     /// Answers when the promise settles, by attaching reactions to it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Never by draining.</b> This runs inside an event-loop job and the pump's re-entrancy guard forbids
     /// a nested drain, so the command completes from the job that runs the reaction — on this same thread,
     /// with the value still in the engine's hands. What crosses back afterwards is a finished record.
+    /// </para>
+    /// <para>
+    /// <b>A paused engine settles nothing</b>, because settling means running a reaction and the engine is
+    /// stopped inside a statement of something else. Attaching one would answer the command only after the
+    /// resume — long after the client stopped waiting — so the promise is described as it stands, pending,
+    /// and the client can ask again once it has resumed.
+    /// </para>
     /// </remarks>
     private ValueTask<TResponse> Settled<TResponse>(
         JsValue promise,
         RemoteObjectRequest request,
         Func<RemoteObject, ExceptionDetails?, TResponse> build)
     {
+        if (_target.IsPaused)
+        {
+            return new ValueTask<TResponse>(build(_objects.Describe(promise, request), null));
+        }
+
         var engine = _target.Engine;
         var then = promise.Get("then");
         if (!then.IsCallable())
@@ -504,68 +585,6 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         return thrown.IsObject()
             ? request with { ByValue = false, Addressable = true }
             : request;
-    }
-
-    /// <summary>Turns the client's argument list into the engine's, resolving every handle it names.</summary>
-    private JsValue[] Arguments(CallArgument[]? arguments)
-    {
-        if (arguments is null || arguments.Length == 0)
-        {
-            return [];
-        }
-
-        var values = new JsValue[arguments.Length];
-        for (var i = 0; i < arguments.Length; i++)
-        {
-            values[i] = Argument(arguments[i]);
-        }
-
-        return values;
-    }
-
-    private JsValue Argument(CallArgument argument)
-    {
-        if (argument.ObjectId is { } objectId)
-        {
-            return _target.RemoteObjects.Resolve(objectId);
-        }
-
-        if (argument.UnserializableValue is { } unserializable)
-        {
-            return Unserializable(unserializable);
-        }
-
-        if (argument.Value is not { } value)
-        {
-            // All three absent is how a client spells `undefined`, which is the one value the protocol has
-            // no member for.
-            return JsValue.Undefined;
-        }
-
-        // The engine's own JSON reader, which builds native arrays and objects and runs no script: there is
-        // no reviver, so nothing the client sent can execute on the way in.
-        return new JsonParser(_target.Engine).Parse(value.GetRawText());
-    }
-
-    private static JsValue Unserializable(string text) => text switch
-    {
-        "NaN" => double.NaN,
-        "Infinity" => double.PositiveInfinity,
-        "-Infinity" => double.NegativeInfinity,
-        "-0" => JsNumber.Create(-0d),
-        _ => BigIntOrRefusal(text),
-    };
-
-    private static JsValue BigIntOrRefusal(string text)
-    {
-        if (text.Length > 1 && text[^1] == 'n' &&
-            System.Numerics.BigInteger.TryParse(text.AsSpan(0, text.Length - 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value))
-        {
-            return new JsBigInt(value);
-        }
-
-        // Chrome's wording for an unserializableValue it does not recognize.
-        return Throw.ServerError<JsValue>("Invalid CallArgument: " + text);
     }
 
     /// <summary>Refuses a context that is not the one context an engine target has.</summary>

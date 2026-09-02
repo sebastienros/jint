@@ -36,6 +36,28 @@
     "Console.clearMessages",
     "Console.disable",
     "Console.enable",
+    "Debugger.continueToLocation",
+    "Debugger.disable",
+    "Debugger.enable",
+    "Debugger.evaluateOnCallFrame",
+    "Debugger.getPossibleBreakpoints",
+    "Debugger.getScriptSource",
+    "Debugger.pause",
+    "Debugger.removeBreakpoint",
+    "Debugger.resume",
+    "Debugger.setAsyncCallStackDepth",
+    "Debugger.setBlackboxPatterns",
+    "Debugger.setBlackboxedRanges",
+    "Debugger.setBreakpoint",
+    "Debugger.setBreakpointByUrl",
+    "Debugger.setBreakpointsActive",
+    "Debugger.setInstrumentationBreakpoint",
+    "Debugger.setPauseOnExceptions",
+    "Debugger.setSkipAllPauses",
+    "Debugger.setVariableValue",
+    "Debugger.stepInto",
+    "Debugger.stepOut",
+    "Debugger.stepOver",
     "Log.clear",
     "Log.disable",
     "Log.enable",
@@ -78,9 +100,14 @@
   // target's title and location are fixed when the host makes it, so there is nothing that could change
   // and claiming the event would be a claim nothing ever honours. Runtime.executionContextDestroyed and
   // executionContextsCleared are absent for the same reason: an engine target's one context lives as long
-  // as the engine does. The Debugger pause events arrive with the domain that raises them.
+  // as the engine does. Debugger.scriptFailedToParse is absent because the engine raises
+  // BeforeEvaluate only for a program it did parse; a parse failure never reaches this package.
   "implementedEvents": [
     "Console.messageAdded",
+    "Debugger.breakpointResolved",
+    "Debugger.paused",
+    "Debugger.resumed",
+    "Debugger.scriptParsed",
     "Log.entryAdded",
     "Runtime.bindingCalled",
     "Runtime.consoleAPICalled",
@@ -98,6 +125,7 @@
   "reportedDomains": [
     { "name": "Browser", "version": "1.3" },
     { "name": "Console", "version": "1.3" },
+    { "name": "Debugger", "version": "1.3" },
     { "name": "Log", "version": "1.3" },
     { "name": "Runtime", "version": "1.3" },
     { "name": "Schema", "version": "1.3" },

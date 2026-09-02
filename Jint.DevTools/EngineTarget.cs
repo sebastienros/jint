@@ -50,6 +50,7 @@ public sealed class EngineTarget : IAsyncDisposable
     private readonly object _observerLock = new();
 
     private ITargetObserver[] _observers = [];
+    private DebuggerDomain? _debugger;
     private int _disposed;
 
     /// <summary>Creates a target over <paramref name="engine"/>.</summary>
@@ -65,15 +66,27 @@ public sealed class EngineTarget : IAsyncDisposable
 
         options ??= new EngineTargetOptions();
 
+        var serial = Interlocked.Increment(ref _serial);
+
         Engine = engine;
         Title = options.Title;
         Url = options.Url;
         ThreadMode = options.ThreadMode;
         TargetId = Identifiers.New();
         Describer = options.RemoteObjectDescriber;
-        RemoteObjects = new RemoteObjectTable(Interlocked.Increment(ref _serial));
+        RemoteObjects = new RemoteObjectTable(serial);
 
         _dispatcher = new EngineDispatcher(engine, DevToolsServerOptions.DefaultCommandTimeout, options.WaitForDebuggerOnStart);
+
+        // Scripts are registered from the moment the target exists rather than from the moment a client asks,
+        // because Debugger.enable replays what has already been parsed and a front end's Sources panel is
+        // built from that replay. An engine the host did not build with the debugger has no BeforeEvaluate to
+        // subscribe to and no pause to serve, and the domain says so rather than answering something untrue.
+        if (engine.Options.Debugger.Enabled)
+        {
+            Scripts = new ScriptRegistry(engine, serial);
+            Scripts.Start();
+        }
 
         // Console records reach a client only if the engine was built with UseDevTools, which is what
         // installed the sink this binds to. An engine built without it is attachable and evaluable and says
@@ -137,6 +150,29 @@ public sealed class EngineTarget : IAsyncDisposable
     internal EngineDispatcher Dispatcher => _dispatcher;
 
     /// <summary>
+    /// Gets the scripts this engine has parsed, or <see langword="null"/> when it was not built with the
+    /// debugger enabled.
+    /// </summary>
+    internal ScriptRegistry? Scripts { get; }
+
+    /// <summary>
+    /// Gets or sets how long the engine may stay paused with no client saying what to do next.
+    /// </summary>
+    /// <remarks>
+    /// Settable for the same reason <see cref="EngineDispatcher.CommandTimeout"/> is: the bound belongs to
+    /// the server a target is published on, and a target may exist before that server does.
+    /// </remarks>
+    internal TimeSpan PauseTimeout { get; set; } = DevToolsServerOptions.DefaultPauseTimeout;
+
+    /// <summary>Gets the token that is cancelled when a library-owned target stops running.</summary>
+    /// <remarks>
+    /// What the pause loop watches so that disposing a target cannot leave its thread parked inside a pause
+    /// waiting for a client that has gone. A host-owned target has none: the thread inside the pause is the
+    /// host's own, and its lifetime is the host's business.
+    /// </remarks>
+    internal CancellationToken StoppingToken => _stopping?.Token ?? CancellationToken.None;
+
+    /// <summary>
     /// Gets the handles this target has handed out, which live for as long as the client holding one does.
     /// </summary>
     /// <remarks>
@@ -163,6 +199,35 @@ public sealed class EngineTarget : IAsyncDisposable
 
     /// <summary>Gets the last few <c>console</c> calls, which a client enabling after the fact is replayed.</summary>
     internal ConsoleJournal Console { get; } = new();
+
+    /// <summary>Gets the one attachment that has the <c>Debugger</c> domain enabled, if any.</summary>
+    /// <remarks>
+    /// <b>One at a time, which is a documented divergence from Chrome.</b> Breakpoints and the step mode live
+    /// on the engine's own <c>DebugHandler</c> rather than per session, so a second client enabling the domain
+    /// would silently share the first one's breakpoints and steal its pauses. It is refused instead.
+    /// </remarks>
+    internal DebuggerDomain? ActiveDebugger => Volatile.Read(ref _debugger);
+
+    /// <summary>Gets whether the engine is currently stopped inside the debugger.</summary>
+    /// <remarks>
+    /// Asked by the <c>Runtime</c> domain of <i>every</i> attachment, not only the debugging one: a paused
+    /// engine is paused for all of them, and an evaluation has to go through the paused frame's environment
+    /// rather than through a public engine entry whichever client asked for it.
+    /// </remarks>
+    internal bool IsPaused => Volatile.Read(ref _debugger)?.IsPaused == true;
+
+    /// <summary>Claims the debugger for <paramref name="domain"/>, answering whether it now has it.</summary>
+    internal bool TryClaimDebugger(DebuggerDomain domain)
+    {
+        var existing = Interlocked.CompareExchange(ref _debugger, domain, null);
+        return existing is null || ReferenceEquals(existing, domain);
+    }
+
+    /// <summary>Gives the debugger back, if <paramref name="domain"/> is what held it.</summary>
+    internal void ReleaseDebugger(DebuggerDomain domain)
+    {
+        Interlocked.CompareExchange(ref _debugger, null, domain);
+    }
 
     /// <summary>
     /// Reports one exception that escaped the engine, so that every attached client hears about it.
@@ -393,9 +458,11 @@ public sealed class EngineTarget : IAsyncDisposable
         }
 
         // The engine is the host's, before and after: a disposed target stops reaching into it first, so
-        // that nothing arrives after the release below.
+        // that nothing arrives after the release below. A target that is disposed while its engine is paused
+        // has to let go of the pause too, or the thread inside it waits for a client nothing will deliver.
         Engine.Tasks.PromiseRejectionTracker -= OnPromiseRejection;
         _console?.Unbind(this);
+        Volatile.Read(ref _debugger)?.Detach();
 
         // A handle is a promise to keep a value alive until the client releases it, and there is no client
         // left to release one. Dropping the references runs no engine code, so it is safe from here, and so
@@ -413,8 +480,11 @@ public sealed class EngineTarget : IAsyncDisposable
             _thread.Join(TimeSpan.FromSeconds(5));
         }
 
+        Scripts?.Stop();
+
         _stopping?.Dispose();
         _debuggerWaitEnded?.Dispose();
+        _dispatcher.Dispose();
     }
 
     private void RunLoop()

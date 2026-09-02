@@ -36,9 +36,10 @@ public static class DevToolsOptionsExtensions
     /// <remarks>
     /// <para>
     /// Sets <see cref="Options.DebuggerOptions.Enabled"/> so a client can pause,
-    /// <see cref="Options.RetainFunctionSourceText"/> so it can read the source it is paused in, and
-    /// <see cref="Options.ProfilingOptions.Enabled"/> so it can record a profile. Coverage is off unless
-    /// <see cref="DevToolsEngineOptions.Coverage"/> asks for it.
+    /// <see cref="Options.DebuggerOptions.StatementHandling"/> so a <c>debugger</c> statement stops in the
+    /// client rather than in Visual Studio, <see cref="Options.RetainFunctionSourceText"/> so it can read the
+    /// source it is paused in, and <see cref="Options.ProfilingOptions.Enabled"/> so it can record a profile.
+    /// Coverage is off unless <see cref="DevToolsEngineOptions.Coverage"/> asks for it.
     /// </para>
     /// <para>
     /// It also wraps <c>Options.WebApi.Console.Sink</c>, so that what a script logs reaches an
@@ -80,6 +81,12 @@ public static class DevToolsOptionsExtensions
         options.Debugger.Enabled = true;
         options.RetainFunctionSourceText = true;
         options.Profiling.Enabled = true;
+
+        // A `debugger` statement is a breakpoint the script author wrote, and a client that has attached
+        // expects to stop on it. The engine's default is to ignore it, and the Clr setting would break into
+        // Visual Studio rather than into the client. With no session debugging, nothing is subscribed to the
+        // Break event and this costs the engine a null check.
+        options.Debugger.StatementHandling = Runtime.Debugger.DebuggerStatementHandling.Script;
 
         // Wrapped rather than replaced, and idempotent: calling UseDevTools twice on one Options must not
         // build a chain of wrappers each forwarding to the last.

@@ -275,6 +275,94 @@ public class PuppeteerSharpTests
         await session.DetachAsync().WaitAsync(Bound);
     }
 
+    /// <summary>
+    /// A breakpoint, a pause, and a resume, driven by a real client over a real socket.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one test that proves the pause loop against something nobody here wrote. The evaluation that hits
+    /// the breakpoint is deliberately <b>not awaited</b>: it is what pauses, so awaiting it before resuming
+    /// would be waiting for this test to answer itself — which is exactly the deadlock a client would meet if
+    /// the pause loop stopped draining the mailbox.
+    /// </para>
+    /// <para>
+    /// It also proves the part a client cannot see from an in-process test: the socket keeps writing while the
+    /// engine thread is held inside the debugger, so the <c>Debugger.paused</c> event arrives and the
+    /// <c>Debugger.resume</c> command is answered on a thread that is not the engine's.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerSetsABreakpointHearsThePauseAndResumes()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://debugger", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await target.PostAsync(engine => engine.Execute(
+            """
+            function twice(n) {
+                var doubled = n * 2;
+                return doubled;
+            }
+            """,
+            "twice.js")).WaitAsync(Bound);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://debugger", target.TargetId);
+
+        var paused = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        session.MessageReceived += (_, message) =>
+        {
+            if (message.MessageID == "Debugger.paused")
+            {
+                paused.TrySetResult(message.MessageData.Clone());
+            }
+            else if (message.MessageID == "Debugger.resumed")
+            {
+                resumed.TrySetResult(true);
+            }
+        };
+
+        await session.SendAsync("Runtime.enable").WaitAsync(Bound);
+        await session.SendAsync("Debugger.enable").WaitAsync(Bound);
+
+        var set = await session.SendAsync(
+            "Debugger.setBreakpointByUrl",
+            new { url = "twice.js", lineNumber = 2 }).WaitAsync(Bound);
+
+        var breakpointId = set!.Value.GetProperty("breakpointId").GetString();
+        set.Value.GetProperty("locations").GetArrayLength().Should().Be(1, "the script is already parsed, so the breakpoint is placed at once");
+
+        var pending = session.SendAsync("Runtime.evaluate", new { expression = "twice(21)", returnByValue = true });
+
+        var stop = await paused.Task.WaitAsync(Bound);
+        stop.GetProperty("reason").GetString().Should().Be("other");
+        stop.GetProperty("hitBreakpoints").EnumerateArray().Single().GetString().Should().Be(breakpointId);
+
+        var frame = stop.GetProperty("callFrames").EnumerateArray().First();
+        frame.GetProperty("functionName").GetString().Should().Be("twice");
+
+        var read = await session.SendAsync(
+            "Debugger.evaluateOnCallFrame",
+            new { callFrameId = frame.GetProperty("callFrameId").GetString(), expression = "doubled", returnByValue = true }).WaitAsync(Bound);
+
+        read!.Value.GetProperty("result").GetProperty("value").GetInt32().Should().Be(42);
+
+        await session.SendAsync("Debugger.resume").WaitAsync(Bound);
+        await resumed.Task.WaitAsync(Bound);
+
+        Value(await pending.WaitAsync(Bound)).GetInt32().Should().Be(42);
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
     /// <summary>The <c>result.value</c> of a <c>Runtime.evaluate</c> reply the client handed back.</summary>
     private static JsonElement Value(JsonElement? reply) => reply!.Value.GetProperty("result").GetProperty("value");
 

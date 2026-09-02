@@ -1476,8 +1476,149 @@ namespace Jint.DevTools.Domains
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.EmptyResult>>("Debugger.stepOver");
 
         /// <inheritdoc/>
-        internal sealed override global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
-            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<string>>("Debugger." + method);
+        internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
+        {
+            switch (method)
+            {
+                case "continueToLocation":
+                {
+                    var result = await ContinueToLocationAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerContinueToLocationRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "disable":
+                {
+                    var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "enable":
+                {
+                    var result = await EnableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerEnableRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerEnableResponse);
+                }
+
+                case "evaluateOnCallFrame":
+                {
+                    var result = await EvaluateOnCallFrameAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerEvaluateOnCallFrameRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerEvaluateOnCallFrameResponse);
+                }
+
+                case "getPossibleBreakpoints":
+                {
+                    var result = await GetPossibleBreakpointsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerGetPossibleBreakpointsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerGetPossibleBreakpointsResponse);
+                }
+
+                case "getScriptSource":
+                {
+                    var result = await GetScriptSourceAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerGetScriptSourceRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerGetScriptSourceResponse);
+                }
+
+                case "pause":
+                {
+                    var result = await PauseAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "removeBreakpoint":
+                {
+                    var result = await RemoveBreakpointAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerRemoveBreakpointRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "resume":
+                {
+                    var result = await ResumeAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerResumeRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setAsyncCallStackDepth":
+                {
+                    var result = await SetAsyncCallStackDepthAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetAsyncCallStackDepthRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setBlackboxPatterns":
+                {
+                    var result = await SetBlackboxPatternsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBlackboxPatternsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setBlackboxedRanges":
+                {
+                    var result = await SetBlackboxedRangesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBlackboxedRangesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setBreakpoint":
+                {
+                    var result = await SetBreakpointAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBreakpointRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBreakpointResponse);
+                }
+
+                case "setInstrumentationBreakpoint":
+                {
+                    var result = await SetInstrumentationBreakpointAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetInstrumentationBreakpointRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetInstrumentationBreakpointResponse);
+                }
+
+                case "setBreakpointByUrl":
+                {
+                    var result = await SetBreakpointByUrlAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBreakpointByUrlRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBreakpointByUrlResponse);
+                }
+
+                case "setBreakpointsActive":
+                {
+                    var result = await SetBreakpointsActiveAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetBreakpointsActiveRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setPauseOnExceptions":
+                {
+                    var result = await SetPauseOnExceptionsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetPauseOnExceptionsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setSkipAllPauses":
+                {
+                    var result = await SetSkipAllPausesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetSkipAllPausesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setVariableValue":
+                {
+                    var result = await SetVariableValueAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerSetVariableValueRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "stepInto":
+                {
+                    var result = await StepIntoAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerStepIntoRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "stepOut":
+                {
+                    var result = await StepOutAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "stepOver":
+                {
+                    var result = await StepOverAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.DebuggerStepOverRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                // A command manifest.json does not list is method-not-found BEFORE its parameters
+                // are looked at, which is the order Chrome answers in: a command a backend does not
+                // implement is not in its dispatch table at all, so its payload is never read.
+                default:
+                    return global::Jint.DevTools.Throw.MethodNotFound<string>("Debugger." + method);
+            }
+        }
     }
 
     /// <summary>Builds the <c>Debugger</c> domain's events.</summary>

@@ -152,6 +152,33 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
         RaiseClosed();
     }
 
+    /// <summary>
+    /// Watches a message whose handling outlived the read that started it, so nothing it throws becomes an
+    /// unobserved task exception.
+    /// </summary>
+    /// <remarks>
+    /// A session answers every message it can, including with its own last-resort error, so reaching the
+    /// <c>catch</c> here means the connection itself failed — which the read loop is about to find out
+    /// anyway.
+    /// </remarks>
+    private static void Observe(ValueTask pending)
+    {
+        _ = Watch(pending);
+
+        static async Task Watch(ValueTask pending)
+        {
+            try
+            {
+                await pending.ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // an unobserved task exception is worse than a swallowed write failure
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+            }
+        }
+    }
+
     private async Task ReadAsync(CancellationToken cancellationToken)
     {
         var buffer = ArrayPool<byte>.Shared.Rent(8 * 1024);
@@ -202,7 +229,23 @@ internal sealed class WebSocketConnection : IDevToolsConnection, IAsyncDisposabl
 
                 if (MessageReceived is { } handler)
                 {
-                    await handler(text, cancellationToken).ConfigureAwait(false);
+                    var pending = handler(text, cancellationToken);
+                    if (pending.IsCompleted)
+                    {
+                        // Everything answered without crossing to the engine finishes here, and awaiting it
+                        // keeps those replies in the order the client sent them.
+                        await pending.ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // A command still waiting for the engine must not stop the socket being read. The
+                        // case that makes this load-bearing is the debugger: the command that paused the
+                        // engine is still outstanding, and `Debugger.resume` — the only thing that can
+                        // finish it — arrives on this very socket afterwards. Reading is what lets it in.
+                        // Replies may then leave out of order, which is what an `id` is for and what Chrome
+                        // does too.
+                        Observe(pending);
+                    }
                 }
 
                 if (Volatile.Read(ref _closeRequested) != 0)
