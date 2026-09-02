@@ -5869,6 +5869,18 @@ declared to be a `Window`, which no engine the box ships is, so a dispatch on a 
 and writes none. There is no `window.event` global either way: the slot is DOM's, the property is HTML's, and
 `Jint.Browser` is what puts the two together.
 
+### 5.25 An event's initialized flag is real ([#3686](https://github.com/sebastienros/jint/issues/3686))
+
+[DOM's *initialized flag*](https://dom.spec.whatwg.org/#initialized-flag) is what makes
+`document.createEvent("Event")` undispatchable until `initEvent()` has named it: `dispatchEvent` throws an
+`InvalidStateError` for an event whose flag is unset, and `initEvent` sets it. The flag used to be assumed
+rather than stored, because the only algorithm that unsets it is `createEvent` and an engine with no document
+has none.
+
+**Nothing changes for an engine without a DOM.** Every event a constructor makes has the flag set, so the
+guard can only fire for an event a host's own `createEvent` produced — `Jint.Browser`'s — and a re-entrant
+dispatch still reports the message it always did.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

@@ -126,6 +126,19 @@ internal class JsEvent : ObjectInstance
     internal bool InPassiveListenerFlag { get; set; }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#initialized-flag. Set for every event this engine constructs, because a
+    /// constructor sets it and there is only one algorithm in the whole standard that unsets it —
+    /// <c>document.createEvent()</c>, which a host with a document supplies.
+    /// </summary>
+    /// <remarks>
+    /// Read by exactly one algorithm too: <c>dispatchEvent</c>'s <c>InvalidStateError</c> guard, which is what
+    /// makes <c>document.createEvent("Event")</c> undispatchable until <c>initEvent()</c> has named it. Its
+    /// only writer outside <see cref="InitializeEvent"/> is that host <c>createEvent</c>, so no engine the box
+    /// ships can produce an event whose flag is unset and nothing about a dispatch changed for one.
+    /// </remarks>
+    internal bool InitializedFlag { get; set; } = true;
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#dispatch-flag. Set for the duration of one <c>dispatchEvent</c>, which is
     /// what makes a re-entrant dispatch of the same event an <c>InvalidStateError</c> and what
     /// <c>composedPath()</c> answers from.
@@ -191,10 +204,10 @@ internal class JsEvent : ObjectInstance
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Step 1, "set event's initialized flag", has nothing to set. The flag is unset by exactly one algorithm
-    /// in the standard, <c>document.createEvent()</c>, and read by exactly one, <c>dispatchEvent</c>'s
-    /// <c>InvalidStateError</c> guard. There is no <c>document</c> here, so every event Jint can build has the
-    /// flag set from birth and no observation can tell a stored flag from an assumed one.
+    /// Step 1, "set event's initialized flag", is what makes an event a host's <c>document.createEvent()</c>
+    /// built dispatchable: that algorithm is the only one in the standard that unsets the flag, and this is
+    /// the only one that sets it again. Every event the engine constructs has it set from birth, so for an
+    /// engine with no document the assignment is a store nothing can observe.
     /// </para>
     /// <para>
     /// What it deliberately does <b>not</b> touch is the composed flag, which is why the specification notes
@@ -203,6 +216,9 @@ internal class JsEvent : ObjectInstance
     /// </remarks>
     internal void InitializeEvent(JsString type, bool bubbles, bool cancelable)
     {
+        // Step 1.
+        InitializedFlag = true;
+
         // Step 2.
         StopPropagationFlag = false;
         StopImmediatePropagationFlag = false;

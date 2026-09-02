@@ -3,6 +3,7 @@
 
 using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.Events;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -503,6 +504,40 @@ public class EventTargetTests
 
         engine.Evaluate("forced.defaultPrevented").AsBoolean().Should().BeTrue();
         engine.Evaluate("forcedResult").AsBoolean().Should().BeFalse();
+    }
+
+    // https://dom.spec.whatwg.org/#initialized-flag
+
+    /// <summary>
+    /// An event whose initialized flag is unset cannot be dispatched, and <c>initEvent()</c> is what makes it
+    /// dispatchable — DOM's <c>dispatchEvent</c> step 1.
+    /// </summary>
+    /// <remarks>
+    /// The only algorithm that unsets the flag is <c>document.createEvent()</c>, which a host with a document
+    /// supplies, so the test stands in for that host. Every event the engine constructs has the flag set,
+    /// which the first assertion is there to keep true.
+    /// </remarks>
+    [Test]
+    public void AnEventWhoseInitializedFlagIsUnsetCannotBeDispatched()
+    {
+        var engine = WebEngine();
+        var ev = (JsEvent) engine.Evaluate("var e = new Event(''); e");
+
+        ev.InitializedFlag.Should().BeTrue("a constructed event is initialized");
+
+        ev.InitializedFlag = false;
+        var caught = Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))!;
+        caught.Error.Get("name").AsString().Should().Be("InvalidStateError");
+
+        // initEvent is the whole of "initialize an event", step 1 included.
+        engine.Execute("""
+            target.addEventListener('ping', function () { log.push('ran'); });
+            e.initEvent('ping', false, false);
+            """);
+
+        ev.InitializedFlag.Should().BeTrue();
+        engine.Evaluate("target.dispatchEvent(e)").AsBoolean().Should().BeTrue();
+        Log(engine).Should().Be("ran");
     }
 
     // https://dom.spec.whatwg.org/#window-current-event

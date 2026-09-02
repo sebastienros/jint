@@ -177,13 +177,17 @@ internal static class EventTargetArguments
             return false;
         }
 
-        // Step 1. Every event this engine can produce has its initialized flag set from construction, so the
-        // only way here is a re-entrant dispatch of an event that is already being dispatched.
-        if (ev.DispatchFlag)
+        // Step 1, both halves. Every event this engine constructs has its initialized flag set, so on an
+        // engine with no document the second is a re-entrant dispatch of an event already being dispatched
+        // and nothing else; a host with `document.createEvent()` is what can produce the first, and an event
+        // it made is undispatchable until `initEvent()` has named it.
+        if (ev.DispatchFlag || !ev.InitializedFlag)
         {
             var invalidState = realm.Intrinsics.DomException.CreateException(
                 DomExceptionNames.InvalidState,
-                "Failed to execute 'dispatchEvent' on 'EventTarget': the event is already being dispatched.");
+                ev.DispatchFlag
+                    ? "Failed to execute 'dispatchEvent' on 'EventTarget': the event is already being dispatched."
+                    : "Failed to execute 'dispatchEvent' on 'EventTarget': the event has not been initialized.");
 
             var location = engine._lastSyntaxElement?.Location ?? default;
             Throw.JavaScriptException(engine, invalidState, in location);
