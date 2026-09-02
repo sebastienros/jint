@@ -274,6 +274,10 @@ internal static class WptHarness
     /// </remarks>
     private static readonly HashSet<string> _serverBackedFiles = new(StringComparer.Ordinal)
     {
+        // The only vendored file of fetch/api/abort/: it builds its Requests from a relative url, and two of
+        // its four groups hand one to fetch() to have the body consumed.
+        "fetch/api/abort/request.any.js",
+
         "fetch/api/basic/accept-header.any.js",
         "fetch/api/basic/request-head.any.js",
         "fetch/api/basic/request-headers-nonascii.any.js",

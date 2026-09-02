@@ -297,10 +297,11 @@ public class WptTestRunner
 
         // ---- abort/
         // The relative-url reason this directory used to give is gone with Options.WebApi.Fetch.BaseUrl, so
-        // each file now says what it actually needs. All three were run to find out.
+        // each file now says what it actually needs. All three were run to find out, and the third —
+        // request.any.js — is vendored (#3619): the five rows it could not pass were #3618's defect rather
+        // than anything about aborting, and it needs no exclusion now that they are fixed.
         ("fetch/api/abort/general.any.js", "/common/get-host-info.sub.js at file scope: wptserve's server-side substitution"),
         ("fetch/api/abort/cache.https.any.js", "the Cache API, which the driver's engine does not enable"),
-        ("fetch/api/abort/request.any.js", "consuming the body of a request whose signal is already aborted must reject, which this engine does not do"),
         ("fetch/api/abort/*.html", "a document"),
         ("fetch/api/abort/*.window.js", "a browsing context"),
         ("fetch/api/abort/*.sub.any.js", "wptserve substitutes a second origin into the file before serving it"),
@@ -668,6 +669,8 @@ public class WptTestRunner
         ["dom/abort/abort-signal-any.any.js"] = 14,
         ["dom/abort/event.any.js"] = 16,
         ["dom/abort/timeout.any.js"] = 3,
+
+        ["fetch/api/abort/request.any.js"] = 18,
 
         ["fetch/api/basic/accept-header.any.js"] = 4,
         ["fetch/api/basic/historical.any.js"] = 3,
@@ -1431,6 +1434,7 @@ public class WptTestRunner
     /// </summary>
     private static readonly string[] _fetchSuites =
     [
+        "fetch/api/abort",
         "fetch/api/basic",
         "fetch/api/body",
         "fetch/api/headers",
@@ -1452,6 +1456,8 @@ public class WptTestRunner
     public static IEnumerable<object[]> DomEventsSuiteFiles() => Cases("dom/events");
 
     public static IEnumerable<object[]> DomAbortSuiteFiles() => Cases("dom/abort");
+
+    public static IEnumerable<object[]> FetchAbortSuiteFiles() => Cases("fetch/api/abort");
 
     public static IEnumerable<object[]> FetchBasicSuiteFiles() => Cases("fetch/api/basic");
 
@@ -1565,6 +1571,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(DomAbortSuiteFiles))]
     public void RunsTheDomAbortSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(FetchAbortSuiteFiles))]
+    public void RunsTheFetchAbortSuite(string file) => RunSuiteFile(file);
 
     [TestCaseSource(nameof(FetchBasicSuiteFiles))]
     public void RunsTheFetchBasicSuite(string file) => RunSuiteFile(file);

@@ -52,7 +52,7 @@ three interfaces and nothing else, which is what let that half of the fetch corp
 there was anything for the other half to talk to. **That other half is `WptServer`** — an in-process HTTP/1.1
 origin on the loopback interface, a raw `TcpListener` on port 0, serving the *vendored* corpus plus a C# port
 of the wptserve `.py` handlers those suites name, which `WptServerTests` holds to the upstream source at the pin. Only the
-twenty-nine files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
+thirty files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
 server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
 list in both directions — so *no suite can reach the network*, which is the promise the driver has always
 made, while the files that could not produce a test report at all now do. Two things about that lane
