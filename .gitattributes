@@ -42,3 +42,9 @@ Jint.Tests/Wpt/Vendor/** text eol=lf
 tools/devtools-protocol/js_protocol.json text eol=lf
 tools/devtools-protocol/browser_protocol.json text eol=lf
 tools/devtools-protocol/devtools-protocol-LICENSE text eol=lf
+
+# Generated from the vendored protocol JSON and from AngleSharp's [DomName] attributes, checked in on purpose
+# (a pin bump is a diff to read, and the serializer context has to be generated over the DTOs), and
+# collapsed in pull-request review and excluded from language statistics for the same reason.
+Jint.DevTools/Protocol/Generated/*.g.cs linguist-generated=true
+Jint.Browser/Dom/Generated/*.g.cs linguist-generated=true
