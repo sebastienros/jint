@@ -1,3 +1,4 @@
+using Jint.DevTools.Domains;
 using Jint.DevTools.Session;
 
 namespace Jint.DevTools;
@@ -32,6 +33,12 @@ public sealed class EngineTarget : IAsyncDisposable
     /// <summary>The longest a single wait may ask for, which is what the blocking primitives accept.</summary>
     private static readonly TimeSpan MaxWait = TimeSpan.FromMilliseconds(int.MaxValue);
 
+    /// <summary>
+    /// How many targets this process has made, which is what prefixes a target's remote-object identifiers
+    /// so that a handle from one target is refused by another rather than resolving in the wrong engine.
+    /// </summary>
+    private static int _serial;
+
     private readonly EngineDispatcher _dispatcher;
     private readonly CancellationTokenSource? _stopping;
     private readonly Thread? _thread;
@@ -57,6 +64,8 @@ public sealed class EngineTarget : IAsyncDisposable
         Url = options.Url;
         ThreadMode = options.ThreadMode;
         TargetId = Identifiers.New();
+        Describer = options.RemoteObjectDescriber;
+        RemoteObjects = new RemoteObjectTable(Interlocked.Increment(ref _serial));
 
         _dispatcher = new EngineDispatcher(engine, DevToolsServerOptions.DefaultCommandTimeout, options.WaitForDebuggerOnStart);
 
@@ -105,6 +114,31 @@ public sealed class EngineTarget : IAsyncDisposable
 
     /// <summary>Gets the mailbox every protocol command addressed to this target crosses.</summary>
     internal EngineDispatcher Dispatcher => _dispatcher;
+
+    /// <summary>
+    /// Gets the handles this target has handed out, which live for as long as the client holding one does.
+    /// </summary>
+    /// <remarks>
+    /// On the target rather than on a session because the values in it belong to the engine: two sessions
+    /// attached to one engine address the same value by the same identifier, and each releases only what it
+    /// registered.
+    /// </remarks>
+    internal RemoteObjectTable RemoteObjects { get; }
+
+    /// <summary>Gets what names a value this package does not recognize, or <see langword="null"/>.</summary>
+    internal RemoteObjectDescriber? Describer { get; }
+
+    /// <summary>
+    /// Gets the scripts <c>Runtime.compileScript</c> persisted, by the identifier it answered with.
+    /// </summary>
+    /// <remarks>
+    /// On the target for the same reason the object table is: a compiled script belongs to the engine that
+    /// would run it, and the identifier a client is holding has to mean the same thing on every attachment.
+    /// </remarks>
+    internal CompiledScriptRegistry CompiledScripts { get; } = new();
+
+    /// <summary>Gets the global functions <c>Runtime.addBinding</c> installed, and who hears them.</summary>
+    internal BindingRegistry Bindings { get; } = new();
 
     /// <summary>
     /// Gives the engine one turn: answers the protocol commands waiting for it, then runs the event loop.
@@ -265,6 +299,10 @@ public sealed class EngineTarget : IAsyncDisposable
         {
             return;
         }
+
+        // A handle is a promise to keep a value alive until the client releases it, and there is no client
+        // left to release one. Dropping the references runs no engine code, so it is safe from here.
+        RemoteObjects.Clear();
 
         if (_stopping is not null)
         {

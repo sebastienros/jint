@@ -21,6 +21,9 @@ namespace Jint.DevTools.Session;
 internal sealed class TargetSession
 {
     private readonly BrowserSession? _browser;
+    private readonly TargetDomains _domains;
+
+    private int _detached;
 
     private TargetSession(DevToolsSession session, EngineTarget target, BrowserSession? browser)
     {
@@ -31,7 +34,7 @@ internal sealed class TargetSession
         // Everything registered below holds engine state, so every command addressed here crosses to the
         // engine thread first. That is the whole of the thread rule, in one line.
         session.UseGateway(target.Dispatcher);
-        BuiltInDomains.RegisterTargetDomains(session, target, browser);
+        _domains = BuiltInDomains.RegisterTargetDomains(session, target, browser);
     }
 
     /// <summary>Gets the session node this attachment answers on.</summary>
@@ -59,11 +62,24 @@ internal sealed class TargetSession
     }
 
     /// <summary>Releases what this session owns, once.</summary>
+    /// <remarks>
+    /// Runs on a transport thread, and both halves are chosen so that it can: removing a child session
+    /// touches a dictionary, and releasing this attachment's remote-object handles drops references without
+    /// running a line of script. Nothing here reaches the engine, so a detach is answered rather than queued
+    /// behind whatever that engine is busy with — including a target still waiting for a debugger.
+    /// </remarks>
     internal void Detach()
     {
+        if (Interlocked.Exchange(ref _detached, 1) != 0)
+        {
+            return;
+        }
+
         if (SessionId is { } sessionId)
         {
             _browser?.Session.RemoveChild(sessionId);
         }
+
+        _domains.Detach();
     }
 }

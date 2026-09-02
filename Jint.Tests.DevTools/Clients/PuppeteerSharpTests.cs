@@ -141,6 +141,91 @@ public class PuppeteerSharpTests
         }
     }
 
+    /// <summary>
+    /// The handle path, end to end and over a socket: evaluate something that cannot be sent by value, ask
+    /// what is inside it, then let it go.
+    /// </summary>
+    /// <remarks>
+    /// It is the busiest path any recorded client takes —
+    /// <c>tools/devtools-protocol/handshakes/matrix.md</c> counts <c>Runtime.releaseObject</c> 17 times and
+    /// <c>Runtime.getProperties</c> twice for PuppeteerSharp alone — and the one where a handle that dangles
+    /// or a handle that never dies shows up as a client bug rather than as a failed command.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerWalksAnObjectHandleAndThenReleasesIt()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://handles", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://handles", target.TargetId);
+
+        var evaluated = await session.SendAsync(
+            "Runtime.evaluate",
+            new { expression = "({ answer: 42, nested: { deep: 'yes' } })" }).WaitAsync(Bound);
+
+        var objectId = evaluated!.Value.GetProperty("result").GetProperty("objectId").GetString();
+        objectId.Should().NotBeNullOrEmpty();
+
+        var properties = await session.SendAsync(
+            "Runtime.getProperties",
+            new { objectId, ownProperties = true }).WaitAsync(Bound);
+
+        var listed = properties!.Value.GetProperty("result").EnumerateArray().ToArray();
+        listed.Select(property => property.GetProperty("name").GetString()).Should().BeEquivalentTo(["answer", "nested"]);
+        listed.Single(property => property.GetProperty("name").GetString() == "answer")
+            .GetProperty("value").GetProperty("value").GetInt32().Should().Be(42);
+
+        await session.SendAsync("Runtime.releaseObject", new { objectId }).WaitAsync(Bound);
+
+        var afterRelease = async () => await session.SendAsync("Runtime.getProperties", new { objectId, ownProperties = true }).WaitAsync(Bound);
+        (await afterRelease.Should().ThrowAsync<Exception>()).WithMessage("*Could not find object with given id*");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
+    /// The binding path, which is how Puppeteer's <c>exposeFunction</c> gets an answer out of a page: the
+    /// client installs a global, the script calls it, and the client hears about it as an event.
+    /// </summary>
+    [Test]
+    public async Task PuppeteerInstallsABindingAndHearsScriptCallIt()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://bindings", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://bindings", target.TargetId);
+
+        var called = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.MessageReceived += (_, message) =>
+        {
+            if (message.MessageID == "Runtime.bindingCalled")
+            {
+                called.TrySetResult(message.MessageData.GetProperty("payload").GetString()!);
+            }
+        };
+
+        await session.SendAsync("Runtime.addBinding", new { name = "report" }).WaitAsync(Bound);
+        await session.SendAsync("Runtime.evaluate", new { expression = "report('from the script')" }).WaitAsync(Bound);
+
+        (await called.Task.WaitAsync(Bound)).Should().Be("from the script");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
     /// <summary>The <c>result.value</c> of a <c>Runtime.evaluate</c> reply the client handed back.</summary>
     private static JsonElement Value(JsonElement? reply) => reply!.Value.GetProperty("result").GetProperty("value");
 

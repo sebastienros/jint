@@ -16,9 +16,9 @@ public class RuntimeSessionTests
     [Test]
     public async Task EnableReplaysTheOneExecutionContext()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync("Runtime.enable", sessionId: session.SessionId);
+        var reply = await session.SendAsync("Runtime.enable");
         reply.TryGetProperty("error", out _).Should().BeFalse();
 
         var created = session.EventsOf("Runtime.executionContextCreated");
@@ -37,10 +37,10 @@ public class RuntimeSessionTests
     [Test]
     public async Task EnablingTwiceAnnouncesTheContextOnce()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        await session.SendAsync("Runtime.enable", sessionId: session.SessionId);
-        await session.SendAsync("Runtime.enable", sessionId: session.SessionId);
+        await session.SendAsync("Runtime.enable");
+        await session.SendAsync("Runtime.enable");
 
         session.EventsOf("Runtime.executionContextCreated").Should().HaveCount(1);
     }
@@ -48,10 +48,10 @@ public class RuntimeSessionTests
     [Test]
     public async Task DisableSucceedsAndSaysNothing()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        await session.SendAsync("Runtime.enable", sessionId: session.SessionId);
-        var reply = await session.SendAsync("Runtime.disable", sessionId: session.SessionId);
+        await session.SendAsync("Runtime.enable");
+        var reply = await session.SendAsync("Runtime.disable");
 
         reply.GetProperty("result").GetRawText().Should().Be("{}");
     }
@@ -59,7 +59,7 @@ public class RuntimeSessionTests
     [Test]
     public async Task EvaluateAnswersANumber()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync("6 * 7");
 
@@ -82,7 +82,7 @@ public class RuntimeSessionTests
     [TestCase("Promise.resolve(1)", "object", "promise", TestName = "a promise")]
     public async Task EvaluateNamesTheTypeAndSubtypeTheProtocolUses(string expression, string type, string? subtype)
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync(expression);
 
@@ -104,7 +104,7 @@ public class RuntimeSessionTests
     [TestCase("-0", "-0")]
     public async Task ANumberWithNoJsonFormIsUnserializable(string expression, string expected)
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync(expression);
 
@@ -113,23 +113,23 @@ public class RuntimeSessionTests
     }
 
     [Test]
-    public async Task EvaluateWithoutReturnByValueDescribesAnObjectAndHandsOutNoHandle()
+    public async Task EvaluateWithoutReturnByValueDescribesAnObjectAndHandsOutAHandle()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync("({ a: 1, b: [1, 2] })");
 
         result.GetProperty("type").GetString().Should().Be("object");
         result.GetProperty("className").GetString().Should().Be("Object");
         result.GetProperty("description").GetString().Should().Be("Object");
-        result.TryGetProperty("objectId", out _).Should().BeFalse(
-            "a handle is a promise to keep the value alive, and there is no table keeping it yet");
+        result.GetProperty("objectId").GetString().Should().NotBeNullOrEmpty(
+            "a value that cannot be sent by value is addressable, which is what every later command about it needs");
     }
 
     [Test]
     public async Task EvaluateWithReturnByValueSerializesTheValue()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync("({ a: 1, b: [1, 2], c: 'x', d: null, e: undefined, f: function () {} })", returnByValue: true);
 
@@ -147,28 +147,24 @@ public class RuntimeSessionTests
     [Test]
     public async Task ByValueRefusesAValueThatRefersToItself()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var reply = await session.SendAsync(
-            "Runtime.evaluate",
-            """{"expression":"(function () { const a = {}; a.self = a; return a; })()","returnByValue":true}""",
-            session.SessionId);
+            "Runtime.evaluate", """{"expression":"(function () { const a = {}; a.self = a; return a; })()","returnByValue":true}""");
 
         var error = reply.GetProperty("error");
         error.GetProperty("code").GetInt32().Should().Be(-32000);
         error.GetProperty("message").GetString().Should().Be("Object couldn't be returned by value");
-        error.GetProperty("data").GetString().Should().Be("the value refers to itself");
+        error.GetProperty("data").GetString().Should().Contain("Cyclic reference",
+            "the refusal carries what JSON.stringify itself said, which is the whole reason the engine's own serializer does the work");
     }
 
     [Test]
     public async Task AThrownErrorBecomesExceptionDetailsAndNotAProtocolError()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync(
-            "Runtime.evaluate",
-            """{"expression":"\n\nthrow new TypeError('boom')"}""",
-            session.SessionId);
+        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"\n\nthrow new TypeError('boom')"}""");
 
         reply.TryGetProperty("error", out _).Should().BeFalse("the command was answered; it is the expression that failed");
 
@@ -190,9 +186,9 @@ public class RuntimeSessionTests
     [Test]
     public async Task ASyntaxErrorBecomesExceptionDetailsToo()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"function ("}""", session.SessionId);
+        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"function ("}""");
 
         reply.TryGetProperty("error", out _).Should().BeFalse();
 
@@ -209,7 +205,7 @@ public class RuntimeSessionTests
     [Test]
     public async Task AwaitPromiseAnswersWhatThePromiseSettledWith()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync("Promise.resolve(41 + 1)", returnByValue: true, awaitPromise: true);
 
@@ -220,7 +216,7 @@ public class RuntimeSessionTests
     [Test]
     public async Task AwaitPromiseWaitsForOneThatSettlesOnALaterTurn()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync(
             "new Promise(function (resolve) { Promise.resolve().then(function () { resolve('later'); }); })",
@@ -233,12 +229,9 @@ public class RuntimeSessionTests
     [Test]
     public async Task AwaitPromiseReportsARejectionAsExceptionDetails()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync(
-            "Runtime.evaluate",
-            """{"expression":"Promise.reject(new RangeError('nope'))","awaitPromise":true}""",
-            session.SessionId);
+        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"Promise.reject(new RangeError('nope'))","awaitPromise":true}""");
 
         reply.TryGetProperty("error", out _).Should().BeFalse();
 
@@ -251,7 +244,7 @@ public class RuntimeSessionTests
     [Test]
     public async Task WithoutAwaitPromiseAPromiseIsDescribedRatherThanWaitedFor()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
         var result = await session.EvaluateAsync("Promise.resolve(1)");
 
@@ -262,9 +255,9 @@ public class RuntimeSessionTests
     [Test]
     public async Task EvaluateInAContextThatIsNotThereIsRefusedInChromesWording()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"1","contextId":7}""", session.SessionId);
+        var reply = await session.SendAsync("Runtime.evaluate", """{"expression":"1","contextId":7}""");
 
         reply.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32000);
         reply.GetProperty("error").GetProperty("message").GetString().Should().Be("Cannot find context with specified id");
@@ -273,10 +266,7 @@ public class RuntimeSessionTests
     [Test]
     public async Task EvaluateSeesWhatTheHostPutOnTheEngine()
     {
-        await using var session = await AttachedAsync(engine =>
-        {
-            engine.SetValue("answer", 42);
-        });
+        await using var session = await AttachedSession.CreateAsync(engine => engine.SetValue("answer", 42));
 
         var result = await session.EvaluateAsync("answer + 1");
         result.GetProperty("value").GetInt32().Should().Be(43);
@@ -285,10 +275,10 @@ public class RuntimeSessionTests
     [Test]
     public async Task GetIsolateIdIsStableForOneEngine()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var first = (await session.SendAsync("Runtime.getIsolateId", sessionId: session.SessionId)).GetProperty("result").GetProperty("id").GetString();
-        var second = (await session.SendAsync("Runtime.getIsolateId", sessionId: session.SessionId)).GetProperty("result").GetProperty("id").GetString();
+        var first = (await session.SendAsync("Runtime.getIsolateId")).GetProperty("result").GetProperty("id").GetString();
+        var second = (await session.SendAsync("Runtime.getIsolateId")).GetProperty("result").GetProperty("id").GetString();
 
         first.Should().NotBeNullOrEmpty();
         second.Should().Be(first);
@@ -297,70 +287,34 @@ public class RuntimeSessionTests
     [Test]
     public async Task DiscardConsoleEntriesSucceeds()
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var reply = await session.SendAsync("Runtime.discardConsoleEntries", sessionId: session.SessionId);
+        var reply = await session.SendAsync("Runtime.discardConsoleEntries");
         reply.GetProperty("result").GetRawText().Should().Be("{}");
     }
 
     /// <summary>
-    /// The <c>Runtime</c> commands that need the object table are not answered yet, and say so with the one
+    /// The <c>Runtime</c> commands that need engine surface this package cannot reach say so with the one
     /// error a client feature-detects on rather than with a made-up success.
     /// </summary>
-    [TestCase("Runtime.getProperties")]
-    [TestCase("Runtime.callFunctionOn")]
-    [TestCase("Runtime.awaitPromise")]
-    [TestCase("Runtime.releaseObject")]
-    public async Task TheCommandsThatNeedAnObjectTableAreMethodNotFound(string method)
+    /// <remarks>
+    /// <c>globalLexicalScopeNames</c> would need the realm's global declarative record to publish its
+    /// binding <i>names</i>, which it does not — <c>engine.Diagnostics.GetMemoryReport()</c> answers a count
+    /// and nothing else. <c>queryObjects</c> would need the heap enumerated by prototype, which is the CLR's
+    /// heap. <c>getExceptionDetails</c> would need an exception's details retained past the command that
+    /// reported them. <c>terminateExecution</c> would let a client stop a host's script at will, which is a
+    /// different security posture from the one the constraints define.
+    /// </remarks>
+    [TestCase("Runtime.globalLexicalScopeNames")]
+    [TestCase("Runtime.queryObjects")]
+    [TestCase("Runtime.getExceptionDetails")]
+    [TestCase("Runtime.terminateExecution")]
+    public async Task TheCommandsThisPackageCannotAnswerAreMethodNotFound(string method)
     {
-        await using var session = await AttachedAsync();
+        await using var session = await AttachedSession.CreateAsync();
 
-        var error = (await session.SendAsync(method, "{}", session.SessionId)).GetProperty("error");
+        var error = (await session.SendAsync(method, "{}")).GetProperty("error");
         error.GetProperty("code").GetInt32().Should().Be(-32601);
         error.GetProperty("message").GetString().Should().Be($"'{method}' wasn't found");
-    }
-
-    private static async Task<AttachedSession> AttachedAsync(Action<Engine>? configure = null)
-    {
-        var session = ProtocolSession.Create();
-        var engine = new Engine(options => options.UseDevTools());
-        configure?.Invoke(engine);
-
-        var target = session.AddTarget(new EngineTargetOptions { ThreadMode = ThreadMode.LibraryOwned }, engine);
-        var sessionId = await session.AttachAsync(target).ConfigureAwait(false);
-
-        return new AttachedSession(session, target, sessionId);
-    }
-
-    /// <summary>One conversation, one engine, and the identifier that addresses the second through the first.</summary>
-    private sealed class AttachedSession(ProtocolSession session, EngineTarget target, string sessionId) : IAsyncDisposable
-    {
-        internal EngineTarget Target { get; } = target;
-
-        internal string SessionId { get; } = sessionId;
-
-        internal Task<JsonElement> SendAsync(string method, string? parameters = null, string? sessionId = null)
-            => session.SendAsync(method, parameters, sessionId);
-
-        internal IReadOnlyList<JsonElement> EventsOf(string method) => session.EventsOf(method);
-
-        internal async Task<JsonElement> EvaluateAsync(string expression, bool returnByValue = false, bool awaitPromise = false)
-        {
-            var parameters = JsonSerializer.Serialize(new Dictionary<string, object>
-            {
-                ["expression"] = expression,
-                ["returnByValue"] = returnByValue,
-                ["awaitPromise"] = awaitPromise,
-            });
-
-            var reply = await SendAsync("Runtime.evaluate", parameters, SessionId).ConfigureAwait(false);
-            reply.TryGetProperty("error", out var error).Should().BeFalse("evaluating was expected to succeed, and it answered {0}", error);
-
-            var result = reply.GetProperty("result");
-            result.TryGetProperty("exceptionDetails", out var details).Should().BeFalse("the expression was expected to succeed, and it threw {0}", details);
-            return result.GetProperty("result");
-        }
-
-        public ValueTask DisposeAsync() => session.DisposeAsync();
     }
 }
