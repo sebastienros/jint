@@ -209,6 +209,17 @@ covers the common case; implement the abstract class to route records to your ow
 formatter never invokes a script-visible getter — an accessor renders as `[Getter]`, because a console must
 not be a way to run arbitrary script.
 
+Override `Write(in ConsoleRecord)` instead and you get the call rather than the line: which `ConsoleMethod`
+was invoked, its raw arguments as `JsValue`s, the group depth, and for `console.trace` the captured
+`ConsoleStackFrame`s. That overload is the one the engine calls, and it fires for the methods that print
+nothing at all — `groupEnd`, a `console.time` that started a timer — which is what lets a structured
+consumer track the group stack. Its default implementation forwards a printed record to the string
+overload and drops the rest, so a sink that overrides only `Write(level, message)` sees exactly the traffic
+it always did. The arguments belong to the engine and are valid for the duration of the call; for a
+snapshot that outlives it — and that still runs nothing — use
+`Jint.Diagnostics.ValueInspector.Describe(value)`, which answers a bounded, getter-free `ValueDescription`
+for any `JsValue` (a preview API, so it is gated behind the `JINT0002` diagnostic).
+
 A global you registered yourself always wins: the install is non-clobbering, so if your host already exposes
 its own `console` (or any other name in the table below), enabling the feature leaves yours exactly as it is.
 

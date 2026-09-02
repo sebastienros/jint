@@ -19,10 +19,11 @@
 
     <NoWarn>$(NoWarn);1591</NoWarn>
 
-    <!-- JINT0001 is Jint's own [Experimental] marker on the declared non-contract diagnostics
-         (see Jint/JintDiagnosticIds.cs). It is a message to consumers about what they may depend on;
-         the assembly that owns those types has no one to acknowledge it to. -->
-    <NoWarn>$(NoWarn);JINT0001</NoWarn>
+    <!-- JINT0001 and JINT0002 are Jint's own [Experimental] markers on the declared non-contract
+         diagnostics and on the preview area (see Jint/JintDiagnosticIds.cs). They are messages to
+         consumers about what they may depend on; the assembly that owns those types has no one to
+         acknowledge them to. -->
+    <NoWarn>$(NoWarn);JINT0001;JINT0002</NoWarn>
 
     <!--
       Trim and AOT analysis. Read this before assuming it means anything to a consumer: NoWarn is a

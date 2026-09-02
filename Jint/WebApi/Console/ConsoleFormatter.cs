@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using System.Globalization;
 using System.Text;
+using Jint.Diagnostics;
 using Jint.Native;
 using Jint.Native.Date;
 using Jint.Native.Error;
@@ -60,9 +61,6 @@ internal static class ConsoleFormatter
 
     /// <summary>How many array elements or object entries are rendered before the rest are summarized.</summary>
     private const int MaxEntries = 100;
-
-    /// <summary>How many proxies a chain may nest before the walk names it instead of descending further.</summary>
-    private const int MaxProxyHops = 8;
 
     /// <summary>
     /// Turns the arguments of a console method into the single string the printer emits.
@@ -583,7 +581,7 @@ internal static class ConsoleFormatter
         // and a trap is script -- the one thing this class promises never to run.
         if (obj is JsProxy proxy)
         {
-            var target = ProxyTarget(proxy);
+            var target = ValueSlotReader.ProxyTarget(proxy);
             if (target is null)
             {
                 builder.Append("<Revoked Proxy>");
@@ -717,23 +715,6 @@ internal static class ConsoleFormatter
     }
 
     /// <summary>
-    /// The non-proxy object a proxy stands for; <see langword="null"/> when the chain is revoked, and a
-    /// <see cref="JsProxy"/> again when it is longer than <see cref="MaxProxyHops"/>.
-    /// </summary>
-    private static ObjectInstance? ProxyTarget(JsProxy proxy)
-    {
-        // A revoked proxy has no target at all, and that is the one state a renderer has to tell apart:
-        // every trap on it throws, so there is nothing left to show but the fact of it.
-        ObjectInstance? current = proxy._target;
-        for (var hops = 1; hops < MaxProxyHops && current is JsProxy next; hops++)
-        {
-            current = next._target;
-        }
-
-        return current;
-    }
-
-    /// <summary>
     /// The exotics whose whole rendering is decided by their internal slots. Every read below is an
     /// internal-slot read and not a property access: the corresponding prototype accessor -- <c>source</c>,
     /// <c>flags</c>, <c>byteLength</c>, <c>toISOString</c> -- is configurable on every one of them, so by the
@@ -746,19 +727,15 @@ internal static class ConsoleFormatter
             case JsDate date:
                 // [[DateValue]] is NaN for exactly the values toISOString raises a RangeError for, and
                 // "Invalid Date" is what every implementation shows in its place.
-                builder.Append(double.IsNaN(date.DateValue) ? "Invalid Date" : DatePrototype.FormatIsoString(date));
+                builder.Append(ValueSlotReader.DateText(date));
                 return true;
 
             case JsRegExp regExp:
-                builder.Append('/').Append(regExp.Source).Append('/').Append(regExp.Flags);
-                return true;
-
-            case JsSharedArrayBuffer shared:
-                AppendArrayBuffer(builder, shared, "SharedArrayBuffer");
+                builder.Append(ValueSlotReader.RegExpText(regExp));
                 return true;
 
             case JsArrayBuffer buffer:
-                AppendArrayBuffer(builder, buffer, "ArrayBuffer");
+                AppendArrayBuffer(builder, buffer, ValueSlotReader.ArrayBufferTypeName(buffer));
                 return true;
 
             // The weak collections are enumerable by nothing at all, and a WeakRef is deliberately not
@@ -797,19 +774,8 @@ internal static class ConsoleFormatter
 
     private static void AppendBoxedPrimitive(StringBuilder builder, IJsPrimitive boxed)
     {
-        var value = boxed.PrimitiveValue;
-        var name = value switch
-        {
-            JsString => "String",
-            JsNumber => "Number",
-            JsBoolean => "Boolean",
-            JsSymbol => "Symbol",
-            JsBigInt => "BigInt",
-            _ => "Object",
-        };
-
-        builder.Append('[').Append(name).Append(": ");
-        Inspect(builder, value, depth: 0, seen: null);
+        builder.Append('[').Append(ValueSlotReader.BoxedPrimitiveTypeName(boxed)).Append(": ");
+        Inspect(builder, boxed.PrimitiveValue, depth: 0, seen: null);
         builder.Append(']');
     }
 
@@ -822,30 +788,14 @@ internal static class ConsoleFormatter
     {
         var name = function.GetOwnFunctionNameForDisplay();
 
-        if (function is ScriptFunction { _isClassConstructor: true })
+        if (ValueSlotReader.IsClassConstructor(function))
         {
             builder.Append("[class").Append(string.IsNullOrEmpty(name) ? " (anonymous)" : " " + name).Append(']');
             return;
         }
 
-        builder.Append('[').Append(FunctionKindName(function));
+        builder.Append('[').Append(ValueSlotReader.FunctionKindName(function));
         builder.Append(string.IsNullOrEmpty(name) ? " (anonymous)" : ": " + name).Append(']');
-    }
-
-    private static string FunctionKindName(Function function)
-    {
-        var declaration = function.FunctionDeclaration;
-        if (declaration is null)
-        {
-            return "Function";
-        }
-
-        if (declaration.Async)
-        {
-            return declaration.Generator ? "AsyncGeneratorFunction" : "AsyncFunction";
-        }
-
-        return declaration.Generator ? "GeneratorFunction" : "Function";
     }
 
     private static void InspectPromise(StringBuilder builder, JsPromise promise, int depth, List<ObjectInstance> seen)
@@ -1080,9 +1030,7 @@ internal static class ConsoleFormatter
 
         if (descriptor.IsAccessorDescriptor())
         {
-            var hasGet = descriptor.Get is not null && !descriptor.Get.IsUndefined();
-            var hasSet = descriptor.Set is not null && !descriptor.Set.IsUndefined();
-            builder.Append(hasGet && hasSet ? "[Getter/Setter]" : hasGet ? "[Getter]" : "[Setter]");
+            builder.Append(ValueSlotReader.AccessorLabel(descriptor));
             return;
         }
 
