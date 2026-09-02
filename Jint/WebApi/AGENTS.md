@@ -60,48 +60,38 @@ because the observer is asked again for the next one.
 
 **`CookieContainerCookieJar` parses `Set-Cookie` itself and hands `System.Net.CookieContainer` a finished
 `Cookie`.** `CookieContainer.SetCookies(Uri, string)` takes one comma-joined header and has to guess where
-one value ends, which is exactly what an `Expires=Wed, 09 Jun 2021 10:18:14 GMT` breaks; the header list
-keeps the values apart and so does the jar. What the container gets right and is therefore left alone:
-domain matching with or without the leading dot, host-only cookies not matching subdomains, the default-path
-derivation, `Secure` filtering, `HttpOnly` still being *sent* (that attribute is about `document.cookie`,
-never about the wire), longest-path-first ordering, deletion by a past `Expires`, and port-insensitivity —
-which is what lets a loopback test server on an ephemeral port work at all. Four things are patched or
-accepted, and the reasons differ:
-
-- **`Domain` and `Path` are assigned only when the header carried them.** Assigning either at all — `string.Empty`
-  included — clears the container's "implicit" flag for it, and the container then refuses the cookie
-  outright. This cost a whole afternoon: every cookie was silently dropped.
-- **`__Secure-` and `__Host-` are enforced in the parser**, because the container knows nothing about them.
-- **A value the container's own grammar refuses is dropped**, with the `CookieException` swallowed —
-  the specification's answer to a `Domain` the request host does not match is "ignore the cookie", and the
-  container raises instead. The one real loss is a value containing a comma, which RFC 6265's `cookie-octet`
-  grammar excludes anyway; quoting it would change the bytes the server sent.
-- **`Version` is never set**, because a non-zero one makes the container emit an RFC 2965 header
-  (`$Version=1; k=v; $Path=/`) that no modern server reads.
-
-The container's caps (300 cookies, 20 per domain, 4096 bytes each) are kept as a bound rather than raised,
-and the absence of a public suffix list is left as it is: the container is *stricter* than 6265bis there —
-it refuses `Domain=com`, which the RFC's own domain-match would accept — so this is one place to leave alone.
-Same-site is decided nowhere, and cannot be: there is no top-level site and no PSL, so the jar takes a `Uri`
-and nothing else, and a host that does know its own browsing context enforces `SameSite` inside its own jar.
+one value ends, which an `Expires=Wed, 09 Jun 2021 10:18:14 GMT` breaks. What the container gets right and is
+left alone: domain matching with or without the leading dot, host-only cookies not matching subdomains, the
+default-path derivation, `Secure` filtering, `HttpOnly` still being *sent* (that attribute is about
+`document.cookie`, never the wire), longest-path-first ordering, deletion by a past `Expires`, and
+port-insensitivity. Four things are patched or accepted, for different reasons. **`Domain` and `Path` are
+assigned only when the header carried them**: assigning either at all — `string.Empty` included — clears the
+container's "implicit" flag and it then refuses the cookie outright, which silently dropped every one.
+**`__Secure-` and `__Host-` are enforced in the parser**, since the container knows nothing about them.
+**A value its own grammar refuses is dropped** with the `CookieException` swallowed, because 6265bis's answer
+to a `Domain` the host does not match is "ignore the cookie"; the one real loss is a value containing a
+comma, which RFC 6265's `cookie-octet` grammar excludes anyway. And **`Version` is never set**, because a
+non-zero one emits an RFC 2965 header no modern server reads. The caps (300 cookies, 20 per domain, 4096
+bytes) are kept as a bound, and the missing public suffix list is left alone: the container is *stricter*
+than 6265bis there, refusing a `Domain=com` the RFC's own domain-match would accept. Same-site is decided
+nowhere and cannot be — no top-level site, no PSL — so the jar takes a `Uri` and a host that knows its own
+browsing context enforces `SameSite` inside its own.
 
 **`FetchObserver` is a preview surface, and its whole point is that it is engine-free.** Every callback may
 run on a transport thread — the same rule `Options.WebApi.Fetch.UrlFilter` already carries, and for the same
-reason: the engine is not thread-safe and the script that started the fetch is still running. Nothing it is
-handed is a `JsValue`, an `Engine` or a realm, and `WebApiFetchDocumentTests.TheObserverSurfaceMentionsNoEngineType`
-walks the whole surface to keep it that way. Terminality is enforced in `FetchObservation` rather than
-trusted to the call sites, because a request can fail in the redirect loop, in the body stream *and* in
-`FetchOperation`'s own classification; the compare-and-swap is what makes `OnCompleted`/`OnFailed` fire
-exactly once between them. A notification that throws is ignored — there is no engine thread to report it to
-— while a throw from `OnRequestAsync` fails the fetch, because that is the callback that was asked to decide.
-Two ordering facts are worth knowing before mapping it onto a protocol: **a refusal that happens before the
-transport** (a `UrlFilter` denial, the concurrency cap, an already-aborted signal) reports `OnFailed` with no
-`OnRequest` before it, because `fetch`'s synchronous half cannot await one; and **a response body nobody
-reads never completes**, because the body is only pulled when script consumes it.
-
-`EventSource` and `WebSocket` reach `FetchTransport` too and are deliberately **not** observed: `EventSource`
-reads its own stream, so it would produce `OnResponse` and then silence, and partial observation is worse
-than none. Wiring them is a follow-up, not an oversight.
+reason. Nothing it is handed is a `JsValue`, an `Engine` or a realm, and
+`WebApiFetchDocumentTests.TheObserverSurfaceMentionsNoEngineType` walks the whole surface to keep it so.
+Terminality is enforced in `FetchObservation` rather than trusted to the call sites, because a request can
+fail in the redirect loop, in the body stream *and* in `FetchOperation`'s own classification; the
+compare-and-swap is what makes `OnCompleted`/`OnFailed` fire exactly once between them. A notification that
+throws is ignored — there is no engine thread to report it to — while a throw from `OnRequestAsync` fails the
+fetch, because that is the callback that was asked to decide. Two ordering facts matter before mapping it
+onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
+already-aborted signal) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
+cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes
+it. `EventSource` and `WebSocket` reach `FetchTransport` too and are deliberately **not** observed:
+`EventSource` reads its own stream, so it would produce `OnResponse` and then silence, and partial
+observation is worse than none.
 
 #### Diagnostics and reportError
 
