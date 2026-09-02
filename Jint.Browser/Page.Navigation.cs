@@ -29,6 +29,12 @@ public sealed partial class Page
     private NavigationRequest? _capturedNavigation;
     private bool _capturingNavigation;
 
+    /// <summary>
+    /// Whether the document showing is still the <c>about:blank</c> the page opened on, which the first
+    /// navigation replaces rather than pushes past. Loop thread only.
+    /// </summary>
+    private bool _isInitialAboutBlank = true;
+
     /// <summary>Loads <paramref name="url"/>, replacing the document and the engine behind it.</summary>
     /// <param name="url">The URL to load: <c>http</c>, <c>https</c>, <c>about:</c> or <c>data:</c>.</param>
     /// <param name="options">How far to wait and how long to allow; the defaults when omitted.</param>
@@ -391,7 +397,11 @@ public sealed partial class Page
         {
             var fetched = await FetchDocumentAsync(target, request, current, timeout, cancellationToken).ConfigureAwait(false);
             html = fetched.Html;
-            finalUrl = fetched.Url;
+
+            // https://html.spec.whatwg.org/multipage/browsing-the-web.html#create-navigation-params-by-fetching:
+            // the document's URL is the response's, and its fragment is the request's when the response
+            // carried none — which is what makes navigating to `page#section` leave `location.hash` set.
+            finalUrl = WithFragmentOf(fetched.Url, target);
             response = fetched.Response;
         }
         else
@@ -482,8 +492,20 @@ public sealed partial class Page
         Unload(current);
 
         var documentId = _history.NextDocumentId();
+        var history = request.History;
 
-        switch (request.History)
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate step 20: navigating away from
+        // the initial about:blank replaces its entry rather than pushing one. Without it every page would
+        // start one entry deep and `history.length` would be one more than a browser answers for the same
+        // sequence — which is exactly what a router's own back button counts.
+        if (history == HistoryMode.Push && _isInitialAboutBlank)
+        {
+            history = HistoryMode.Replace;
+        }
+
+        _isInitialAboutBlank = false;
+
+        switch (history)
         {
             case HistoryMode.Replace:
                 _history.Replace(request.Url, documentId);
@@ -509,7 +531,7 @@ public sealed partial class Page
         var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
         LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase);
 
-        if (request.History == HistoryMode.Traverse)
+        if (history == HistoryMode.Traverse)
         {
             FirePopState(engine);
         }
@@ -680,6 +702,26 @@ public sealed partial class Page
         PageEvents.Member(ev, "oldURL", JsString.Create(oldUrl));
         PageEvents.Member(ev, "newURL", JsString.Create(newUrl));
         PageEvents.Dispatch(runtime, window, ev);
+    }
+
+    /// <summary>
+    /// The response's URL carrying the request's fragment, when the response answered with none of its own.
+    /// </summary>
+    private static string WithFragmentOf(string responseUrl, UrlRecord requested)
+    {
+        if (string.IsNullOrEmpty(requested.Fragment))
+        {
+            return responseUrl;
+        }
+
+        var final = UrlParser.Parse(responseUrl);
+        if (final is null || !string.IsNullOrEmpty(final.Fragment))
+        {
+            return responseUrl;
+        }
+
+        final.Fragment = requested.Fragment;
+        return final.Serialize();
     }
 
     /// <summary>What <c>document.referrer</c> and the <c>Referer</c> header report for the next document.</summary>

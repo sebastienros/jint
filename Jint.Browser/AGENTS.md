@@ -87,7 +87,7 @@ version of AngleSharp nobody references.
 | `excludedInterfaces` | An interface the runtime owns instead. Today: `IWindow` (campaign item R1). |
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
 | `skip` | A member a later campaign item owns: navigation (`location.assign`, `location.href`'s setter), activation (`click`, `focus`, `blur`, `form.reset`), the parser (`document.open`/`close`/`load`), and `document.createEvent`, whose AngleSharp `Event` must never reach script. `half: "setter"` skips the write half only. |
-| `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. |
+| `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper. |
 | `nullableStrings` | The members whose IDL type is `DOMString?` rather than `DOMString`. See the conversion table below. |
 | `stringEnums`, `constants` | The two enum decisions the heuristics above cannot make. |
 
@@ -138,7 +138,7 @@ here:
 | `insertAdjacentHTML`'s position | a WebIDL enumeration | `AdjacentPosition` carries no `[DomLiterals]`; the lower-case-field heuristic is what catches it |
 | `matchMedia(q).matches` | evaluates the query against the viewport | `CssMediaQueryList.ComputeMatched` is `return false`, so **every** query answers `false` — a page asking whether it is on a narrow screen is always told no. `Runtime/MediaQuery` answers the subset a page branches on instead |
 | `document.currentScript` | HTML §4.12.1: the script whose text is running | the head of the *deferred* script queue, so it is `null` for exactly the case a page uses it in |
-| `location.host = …` (and `pathname`, `port`, `protocol`, `search`) | a navigation the page can observe | raises `Location.Changed`, which `Document.LocationChanged` handles in a fire-and-forget `async void` calling `IBrowsingContext.OpenAsync` — on whatever thread the setter ran on. It is inert here only because no `IRequester` is registered, so every navigation handler declines the protocol and the call answers `null`. Registering a document loader without a navigation handler of our own would put a second thread in the DOM |
+| `location.host = …` (and `pathname`, `port`, `protocol`, `search`) | a navigation the page can observe | raises `Location.Changed`, which `Document.LocationChanged` handles in a fire-and-forget `async void` calling `IBrowsingContext.OpenAsync` — on whatever thread the setter ran on. **Unreachable from script**, because `Runtime/LocationInstaller` shadows every `Location` member with an own property over the page's own URL; AngleSharp's location is never written |
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
@@ -240,14 +240,73 @@ the engine** (`WindowInstaller.Operation`), and only an operation that needs not
 `getSelection` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`,
 and fails `foo()`.
 
-Two members are own properties of their object rather than accessors on a shaped prototype, and both say why in
-place: `document.defaultView` (the binding excludes AngleSharp's `IWindow`, so nothing generates it) and
-`document.currentScript` (AngleSharp answers the wrong thing — see the divergence table). `Location`'s `href`
-setter, `assign`, `replace`, `reload` and `toString` are own properties of the location wrapper for the same
-reason, and they call `Page.RequestNavigation`, which starts a navigation for a URL this version can load and
-records a page error for one it cannot. **A member installed this way shadows the prototype and is visible to
-`Object.getOwnPropertyNames`**; it is the right tool for one object and the wrong one for a class, because a
-shaped prototype that takes an undeclared property loses its shape and its inline caching with it.
+Several members are own properties of their object rather than accessors on a shaped prototype, and each says
+why in place. On `document`: `defaultView` (the binding excludes AngleSharp's `IWindow`, so nothing generates
+it), `currentScript` (AngleSharp answers the wrong thing — see the divergence table), `cookie` (the jar is the
+context's, and `HttpOnly` has to be enforced against script) and `URL`/`documentURI`/`baseURI`/`referrer`
+(the URL is the page's, not AngleSharp's — see the next section). On a **form wrapper**: `submit` and
+`requestSubmit`, installed by `DomHostHooks.WrapperCreated`, because neither is generated and neither could
+be — AngleSharp's `Submit()` returns a `Task` and has no `requestSubmit` at all, and its own submission
+navigates on the calling thread through its own event bus. And the whole of **`Location`**, which
+`Runtime/LocationInstaller` owns outright. **A member installed this way shadows the prototype and is visible
+to `Object.getOwnPropertyNames`**; it is the right tool for one object and the wrong one for a class, because
+a shaped prototype that takes an undeclared property loses its shape and its inline caching with it.
+
+### Navigation is a fetch and a new engine
+
+`Page.NavigateAsync` runs off the page loop and commits onto it, and the split is the whole design:
+
+- **The fetch is `FetchTransport`, the engine-free layer.** It takes a request snapshot and a policy and
+  answers plain CLR data, so the page's thread goes on pumping timers, answering calls and obeying a close
+  while the response is on its way — and the engine the new document will run in does not exist yet, so
+  there is no engine for it to be on. `Runtime/DocumentFetch` is the one caller: it drives
+  `SendForStreamAsync` (which owns the redirect loop and the per-hop policy re-check) and reads the body
+  itself under `BrowserOptions.MaxDocumentBytes`, because a document is bytes rather than a `ReadableStream`.
+  It also owes the observer the final `OnResponse`/`OnCompleted`, which only `SendAsync` does for itself.
+- **The commit is one mailbox request**, and it does four things in order: unload the outgoing document
+  (`beforeunload`, `pagehide`, `unload`), cancel that engine's `CancellationTokenSource` so everything it had
+  in flight is abandoned, `PageLoop.ReplaceEngine` (which disposes the old one), and parse. **The token is
+  what makes abandonment real**: `FetchOperation` and `XhrOperation` both read
+  `Constraints.Find<CancellationConstraint>()`, so a document's requests die with its engine only because
+  `BrowserEngineFactory` registered one linked to the page's own.
+- **`WaitUntil` is three signals, not three implementations.** `PageDocument.Load` reports
+  `NavigationPhase.Committed`, `DomContentLoaded` and `Loaded`, and the caller awaits whichever it asked for
+  racing the whole request. The parse is synchronous today so all three arrive in one turn; they are separate
+  because the parser driver makes them separate moments and a caller written against `Commit` should not have
+  to change then.
+- **One navigation at a time**, behind a `SemaphoreSlim` the page owns. A script assigning `location` while a
+  host's `NavigateAsync` is in flight queues rather than racing the engine swap, and a script-initiated
+  navigation is `Task.Run` + a page error on failure, because the document that script is running in is the
+  one being replaced and there is nobody to hand an exception to.
+
+**Everything the network touches is the context's, not the page's or the engine's** — `Runtime/PageNetwork`,
+one instance per `BrowserContext`: the `HttpClient`, the composed `UrlFilter`
+(`BrowserContextOptions.UrlFilter` and `BlockPrivateNetwork` combined once), the `CookieJar` and the
+`StoragePartitionProvider`. That is what makes two pages of a site share a session and two contexts two
+visitors, and it is why one filter bounds the document, every subresource, `fetch`, `XMLHttpRequest` and a
+worker's module loads alike. The `UrlFilter` for the **first hop of a document fetch is run by the page**, not
+by the transport, which deliberately never runs a host filter twice for one request.
+
+**The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and every relative
+resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
+`ILocation` instead would raise its own `Location.Changed`, which `Document.LocationChanged` answers with a
+fire-and-forget `IBrowsingContext.OpenAsync` on whatever thread the setter ran on — the second thread in the
+DOM the divergence table warns about. So `LocationInstaller` shadows the *whole* interface, AngleSharp's
+location is never written, and the hazard is gone rather than dormant. AngleSharp's document address stays at
+what the parse was given, which is what the parse resolved against and is right for that; two consequences
+follow, and both are deliberate: `document.baseURI` is recomputed here from `<base href>` against the page's
+URL, and `PageDocument` states `Content-Type: text/html` on the virtual response so AngleSharp does not guess
+a plain-text document from a `.txt` address and wrap the markup a second time.
+
+**The history entry is not the document.** `SessionHistory` gives each loaded document an id and every entry
+carries one, so a traversal within a cluster (`pushState` siblings, a fragment) is same-document — `popstate`
+and `hashchange`, no fetch — and one across clusters is a navigation. There is no back/forward cache, so
+going back to a previous document loads it again and its scripts run again; the cluster is rebound to the new
+document id afterwards, or every step among its siblings would become a reload. A traversal is always queued
+(`engine.Tasks.Post`, or a navigation) and never inline, which is HTML's own model and what a router expects.
+
+**A page starts one entry deep and the first navigation replaces it.** Navigating away from the initial
+`about:blank` is a replace rather than a push, so `history.length` counts what a browser counts.
 
 ### The parse, and the parser hop
 

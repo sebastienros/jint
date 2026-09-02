@@ -2286,16 +2286,17 @@ show up there and nowhere else.
 `Jint.Browser` is **AngleSharp + Jint**: AngleSharp is the HTML parser, the DOM and (with `AngleSharp.Css`)
 the CSSOM; Jint is the engine, and this package is the layer between them. It is the beginning of a headless
 browser — one that runs a page's scripts against a real DOM without rendering anything — and it is not
-finished. What ships today is a page runtime for static content, and this section says so rather than
-implying more.
+finished. What ships today is a page runtime that navigates, submits forms, keeps cookies and storage and
+runs workers; what it still cannot do is listed below rather than left to be discovered.
 
 ```c#
 await using var browser = new Browser();
 var page = await browser.NewPageAsync();
 
-await page.SetContentAsync("<p id='greeting'></p><script>greeting.textContent = 'hello'</script>");
+var response = await page.NavigateAsync("https://example.org/login");
+await page.SubmitFormAsync("#login");
 
-var text = await page.EvaluateAsync<string>("document.querySelector('#greeting').textContent");
+var user = await page.EvaluateAsync<string>("document.querySelector('#user').textContent");
 ```
 
 **What exists.** Generated bindings for every WebIDL interface AngleSharp describes: one prototype per
@@ -2307,13 +2308,22 @@ prototype the global object inherits (so `window === globalThis`, `window instan
 `addEventListener` on the window is on a bubbling event's path), `document`, `location`, `screen`,
 `getComputedStyle`, `matchMedia`, `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
 that fire because the page's thread pumps the engine, and console output and script errors recorded on the
-page. Static content from `SetContentAsync`, `about:blank` and `data:text/html` loads, with classic inline
-scripts run in document order as the parse reaches them, then `readystatechange`, `DOMContentLoaded` and
-`load`.
+page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, with classic inline scripts run in
+document order as the parse reaches them, then `readystatechange`, `DOMContentLoaded`, `load` and `pageshow`.
 
-**What does not exist yet.** No network, so no external `<script src>`, no subresources, no `fetch` or
-`XMLHttpRequest` traffic and no navigation to `http(s)` — a page names what it could not run in
-`Page.UnsupportedScripts`. No ES modules or import maps, no `history`, no `document.write` during a parse, no
+**And the network half.** `Page.NavigateAsync` loads an `http(s)` URL through Jint's own fetch pipeline and
+parses the result into a new engine — the document being left gets `beforeunload`, `pagehide` and `unload`,
+its pending requests are abandoned and its engine is disposed. Forms run HTML's submission algorithm
+(`submit` and `formdata` events, the entry list, `GET` query strings and `POST` in all three encodings);
+`history` and `location` travel a real session history with `popstate` and `hashchange`; `document.cookie`
+and every request share one jar per browser context; `localStorage` is partitioned by origin and
+`sessionStorage` by page, and a document with an opaque origin gets the `SecurityError` a browser gives;
+`Worker` runs on a thread the package starts, with its modules fetched over the page's own network. One
+`BrowserContextOptions.UrlFilter` bounds every load a page makes, on the first hop and on every redirect, and
+`Page.Requests` is the network log of what it made.
+
+**What does not exist yet.** No external `<script src>` and no module scripts in a document — a page names
+what it could not run in `Page.UnsupportedScripts` — no import maps, no `document.write` during a parse, no
 `MutationObserver`, no iframe scripting (frames are parsed and listed; `contentWindow` is absent), no
 rendering or layout, and no Chrome DevTools page domains. Those are the later items of the same campaign.
 
