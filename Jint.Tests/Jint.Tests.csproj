@@ -27,7 +27,13 @@
     already contain, and "wpt.url.url-constructor.any.js" cannot be turned back into a path.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="Wpt\Vendor\**\*.js;Wpt\Vendor\**\*.json;Wpt\Vendor\**\*.txt;Wpt\Vendor\**\*.xml;Wpt\Vendor\**\*.asis">
+    <!--
+      Text extensions only, and that is a property the corpus has rather than an oversight: WptCorpus hands
+      every file back as a string, so a .png or a .webm could not survive the round trip. wptserve's own
+      content-type table names those types and WptServer answers with them, but nothing binary is vendored -
+      a suite that needs one is a not-vendored row in Vendor/README.md with that as its reason.
+    -->
+    <EmbeddedResource Include="Wpt\Vendor\**\*.js;Wpt\Vendor\**\*.mjs;Wpt\Vendor\**\*.json;Wpt\Vendor\**\*.txt;Wpt\Vendor\**\*.xml;Wpt\Vendor\**\*.asis;Wpt\Vendor\**\*.html;Wpt\Vendor\**\*.htm;Wpt\Vendor\**\*.xhtml;Wpt\Vendor\**\*.xht;Wpt\Vendor\**\*.css;Wpt\Vendor\**\*.svg;Wpt\Vendor\**\*.headers">
       <LogicalName>wpt/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Wpt\Prelude\*.js">

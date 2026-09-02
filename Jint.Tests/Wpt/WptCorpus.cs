@@ -23,6 +23,7 @@ internal static class WptCorpus
 {
     private const string ResourcePrefix = "wpt/";
     private const string PreludeResourceName = "wpt-prelude/testharness-shim.js";
+    private const string HarnessReportResourceName = "wpt-prelude/testharnessreport.js";
 
     private static readonly FrozenDictionary<string, string> _resourceNames = BuildResourceIndex();
 
@@ -33,16 +34,64 @@ internal static class WptCorpus
     internal static string Prelude { get; } = ReadResource(PreludeResourceName);
 
     /// <summary>
+    /// The <c>resources/testharnessreport.js</c> the server answers with, which is Jint's own file rather
+    /// than a vendored one: it is the slot the browser lane overlays to get results out of a page.
+    /// </summary>
+    internal static string HarnessReport { get; } = ReadResource(HarnessReportResourceName);
+
+    /// <summary>
+    /// The two roots of the wpt tree that hold helpers rather than tests: <c>resources/</c>, which is the
+    /// harness itself, and <c>common/</c>, which is what every standard's suites share.
+    /// </summary>
+    /// <remarks>
+    /// Neither is ever a suite. A directory becomes a suite by being named in one of
+    /// <c>WptTestRunner</c>'s suite arrays and reached by a <c>[TestCaseSource]</c>, and these two hold no
+    /// <c>.any.js</c> at all — but "holds none today" is a property of the corpus rather than a rule, and a
+    /// re-vendor that brought one in would otherwise turn the harness's own source into a test case with no
+    /// subject. So <see cref="TestFiles"/> refuses to be asked about them and
+    /// <c>WptTestRunner.EveryVendoredFileIsAccountedFor</c> fails if one ever holds a <c>.any.js</c>.
+    /// </remarks>
+    internal static readonly string[] SharedDirectories = ["common", "resources"];
+
+    /// <summary>
     /// Every vendored path, normalised to forward slashes: <c>url/url-constructor.any.js</c>,
     /// <c>encoding/resources/encodings.js</c>, and so on.
     /// </summary>
     internal static IEnumerable<string> Paths => _resourceNames.Keys;
 
     /// <summary>
+    /// Whether <paramref name="path"/> lives under one of the <see cref="SharedDirectories"/>.
+    /// </summary>
+    internal static bool IsShared(string path)
+    {
+        foreach (var shared in SharedDirectories)
+        {
+            if (path.Length > shared.Length
+                && path.StartsWith(shared, StringComparison.Ordinal)
+                && path[shared.Length] == '/')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The <c>.any.js</c> files of one suite directory, ordered by path so the theory's cases are stable.
     /// </summary>
     internal static IReadOnlyList<string> TestFiles(string suite)
     {
+        foreach (var shared in SharedDirectories)
+        {
+            if (string.Equals(suite, shared, StringComparison.Ordinal)
+                || suite.StartsWith(shared + "/", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"\"{suite}\" is a shared helper directory of the wpt tree, not a suite — see WptCorpus.SharedDirectories.");
+            }
+        }
+
         var prefix = suite + "/";
         var files = new List<string>();
         foreach (var path in _resourceNames.Keys)
@@ -77,6 +126,13 @@ internal static class WptCorpus
 
         return ReadResource(resourceName);
     }
+
+    /// <summary>
+    /// Reads a vendored file, or answers <see langword="null"/> when the corpus does not hold it — which is
+    /// what a <c>.headers</c> sidecar lookup needs, since most files have none.
+    /// </summary>
+    internal static string? TryRead(string path)
+        => _resourceNames.TryGetValue(path, out var resourceName) ? ReadResource(resourceName) : null;
 
     /// <summary>
     /// Resolves a reference made from inside <paramref name="fromDirectory"/> — a <c>// META: script=</c>

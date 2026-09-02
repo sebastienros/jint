@@ -196,11 +196,12 @@ public class WptTestRunner
         // beside it is global=sharedworker.
         ("workers/examples/*", "upstream's tutorial: asserts the wpt server's own generated glue, and a SharedWorker"),
 
-        // `.sub.` is server-side substitution: wptserve rewrites {{host}}/{{ports[…]}} into a real origin
-        // before serving the file. Nothing here serves anything, so a vendored copy would carry the
-        // placeholders verbatim. Worker-location.sub.any.js additionally asserts every member of a
-        // WorkerLocation, which is the declined feature below.
-        ("workers/Worker-location.sub.any.js", "needs wptserve substitution and a WorkerLocation"),
+        // `.sub.` is server-side substitution: wptserve rewrites {{host}}/{{ports[…]}} into a *second* origin
+        // before serving the file. WptServer performs the substitution now — see WptServerFiles — but it has
+        // one loopback origin to substitute, so these read as same-origin and assert nothing.
+        // Worker-location.sub.any.js additionally asserts every member of a WorkerLocation, which is the
+        // declined feature below.
+        ("workers/Worker-location.sub.any.js", "needs a second origin substituted into it, and a WorkerLocation"),
         ("workers/interfaces/WorkerUtils/importScripts/*", "classic-worker importScripts, most of it .sub. as well"),
         ("workers/importscripts_mime*.any.js", "classic-worker importScripts, over server-chosen MIME types"),
 
@@ -337,9 +338,10 @@ public class WptTestRunner
         ("fetch/api/redirect/redirect-to-dataurl.any.js", "a data: URL redirect target"),
 
         // ---- what the ".sub." and ".h2." spellings mean, wherever they appear under fetch/
-        // `.sub.` is wptserve rewriting {{host}} and {{ports[…]}} into a real origin before serving the file;
-        // a vendored copy carries the placeholders verbatim. `.h2.` needs an HTTP/2 server, which this one is
-        // not — it speaks HTTP/1.1 on a raw socket, which is what lets it trickle a body.
+        // `.sub.` is wptserve rewriting {{host}} and {{ports[…]}} into a *second* origin before serving the
+        // file, and one origin is all this server has however faithfully it substitutes. `.h2.` needs an
+        // HTTP/2 server, which this one is not — it speaks HTTP/1.1 on a raw socket, which is what lets it
+        // trickle a body.
         ("fetch/api/*/*.sub.any.js", "wptserve substitutes a second origin into the file before serving it"),
         ("fetch/api/*/*.h2.any.js", "needs an HTTP/2 server"),
         ("fetch/api/*/*keepalive*", "the keepalive init member, and a window creating iframes"),
@@ -363,6 +365,18 @@ public class WptTestRunner
         ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
         ("xhr/xhr-timeout-longtask.any.js", "its outcome depends on the machine: a browser's timeout timer is a task and cannot fire during the 200 ms busy-wait the file runs, while this one is a wall-clock deadline on a cancellation token — see XhrOperation on why it is CLR-side — so a body read the runner is too busy to finish inside 150 ms times out where the file asserts it must not"),
+
+        // ---------------------------------------------------------------- resources/ and common/
+        // The two shared roots hold helpers rather than tests, and the rule for them is the rule for every
+        // other directory: vendor what something references, and say why for the rest. What is vendored is
+        // the harness a page loads (testharness.js, testdriver.js and its two companions), the host-info
+        // helper 68 of the browser lane's files include, and three fixtures. These are the referenced files
+        // that are still out.
+        ("resources/idlharness.js", "the WebIDL conformance harness, out for the reason its .any.js files are"),
+        ("common/*.py", "a wptserve handler — slow.py and redirect.py are Python, not files to serve"),
+        ("common/reftest-wait.js", "a reftest's rendering handshake; there is nothing to render"),
+        ("common/dispatcher/*", "a cross-context message bus built on a wptserve stash handler"),
+        ("common/security-features/*", "the referrer-policy and mixed-content generators, and a second origin"),
     ];
 
     /// <summary>
@@ -1596,6 +1610,15 @@ public class WptTestRunner
             if (path.EndsWith(".any.js", StringComparison.Ordinal) && !_minimumTests.ContainsKey(path))
             {
                 problems.Add($"{path} is vendored but has no entry in the minimum-test table, so nothing runs it");
+            }
+
+            // resources/ is the harness itself and common/ is what every standard shares, so neither is ever
+            // a suite — a .any.js under one would be the harness testing itself, and WptCorpus.TestFiles
+            // refuses to be asked about them at all. Checked here rather than left to that refusal because
+            // nothing asks: a corpus bump that dropped one in would simply never run it.
+            if (WptCorpus.IsShared(path) && path.EndsWith(".any.js", StringComparison.Ordinal))
+            {
+                problems.Add($"{path} is under a shared helper root, which is never a suite — see WptCorpus.SharedDirectories");
             }
         }
 

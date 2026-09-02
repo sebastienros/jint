@@ -221,6 +221,134 @@ filed separately (see `WptDivergence.NeedsTriage`) and the fifth of which is not
 that transport limit — see [what the fetch *network* corpus says](#what-the-fetch-network-corpus-says-about-this-engine)
 below for the arithmetic.
 
+## Serving a file: content types, `.headers` sidecars and `.sub.` substitution
+
+The server lane above is a set of `.py` handler ports and a static reader that knew four extensions. That is
+all an `.any.js` file ever asks for, because the driver hands it to an engine directly and the server is only
+there to answer its `fetch`. A **`.html`** test is different: a page is *loaded* from the server, and everything
+about how wptserve turns a file on disk into a response then matters — its media type, the `.headers` sidecar
+beside it, and the `{{…}}` substitution its name may ask for. This section is that half, added ahead of the
+browser lane by [the headless-browser campaign](https://github.com/sebastienros/jint/issues/3575) so that the
+lane can be about the lane. Nothing script-side changed with it: no vendored file was a `.sub.` file, had a
+sidecar or passed a `?pipe=` before, so the corpus's own results are byte-identical either side.
+
+`WptServerFiles` is the port, and `WptServerTests` holds it to `tools/wptserve/wptserve/` at the pin the same
+way the handler tests hold the `.py` ports.
+
+**Content types come from `constants.py`'s own table**, reproduced entire rather than trimmed to what is
+vendored, because a trimmed copy would quietly stop being a copy. The fallback is
+`application/octet-stream`, upstream's, where the old reader's was `text/plain`; only one vendored file
+changed type as a result, `xhr/resources/well-formed.xml`, from `text/plain` to `application/xml`, and the
+census is identical across that change. **wptserve adds no charset anywhere** — nothing under `tools/wptserve`
+appends one to a guessed type — so the `charset=utf-8` a browser sees on `testharness.js` is not the table's
+doing at all. It comes from a sidecar.
+
+**`.headers` sidecars** are `load_headers` followed by `FileHandler.get_headers`, and four of their rules are
+easy to get subtly wrong, so each has a case: the directory's `__dir__.headers` is applied *before* the file's
+own; a repeated name is kept rather than overwritten and takes the position of its first appearance
+(`ResponseHeaders.update` appends); a `Content-Type` in either sidecar suppresses the guess, which is
+otherwise inserted *first* rather than appended; and a `.sub.headers` wins outright over a plain `.headers` of
+the same base name and is substituted with escaping off. Three headers are the server's own framing and a
+sidecar naming one is dropped — `Content-Length`, `Connection` and `Transfer-Encoding` — because every
+response here writes its own and is delimited by its close. A file whose subject *is* a wrong framing uses
+`.asis` instead, which bypasses all of this and puts the response on the wire byte for byte; that is what the
+six the xhr corpus vendors are for.
+
+**`.sub.` substitution** is `pipes.py`'s `template`, tokenizer included. Its grammar is four patterns tried in
+order at each position with a *stop* — not a skip — at the first character none of them match, which is why
+`{{ host }}` is a 500 upstream and is one here: a tokenizer that skipped whitespace would accept a spelling
+wptserve rejects, and a corpus file written against it would then only work here. The extension picks the
+escaping, exactly as `wrap_pipeline` does: `.html`, `.htm`, `.xht`, `.xhtml`, `.xml` and `.svg` get
+`html.escape(…, quote=True)` — five characters and no more, which is why it is written by hand rather than
+handed to `WebUtility.HtmlEncode` — and everything else, a `.sub.js` included, gets none.
+
+**There is exactly one origin, and that is the whole of what substitution cannot reproduce.** wptserve runs on
+two http ports and two https ports across several hostnames because a large part of the corpus is about what
+happens *between* origins. This is one `TcpListener` on one loopback port with no TLS, so:
+
+| Token | What it answers here |
+| --- | --- |
+| `{{host}}`, `{{domains[www]}}`, `{{domains[]}}`, `{{hosts[alt][www2]}}` | `127.0.0.1` — every host-shaped spelling, because there is one host |
+| `{{ports[http][0]}}`, `{{ports[http][1]}}`, `{{ports[https][0]}}`, `{{ports[ws][0]}}` | the one port the listener bound, for every protocol and every index |
+| `{{location[…]}}` | `server`, `scheme`, `host`, `hostname`, `port`, `path`/`pathname`, `query` — the request's own, undecoded |
+| `{{GET[name]}}` | the first value for that parameter, or the empty string; the one lookup here that does not fail on a miss |
+| `{{headers[name]}}` | the request header, and a 500 for a name the request did not send |
+| `{{header_or_default(name, default)}}` | the header, or the default |
+| `{{uuid()}}`, `{{$id:uuid()}}` … `{{$id}}` | a fresh UUID, and the variable form that lets a file use the same one twice |
+| `{{url_base}}` | `/` |
+| `{{file_hash(…)}}`, `{{fs_path(…)}}` | nothing: a 500 naming the variable. Both read the document root, and there is no document root — the corpus is embedded resources |
+
+A file whose subject is a *second* origin therefore reads as same-origin here, which makes it un-runnable
+rather than merely different: it belongs in the exclusion table or in the table above when a lane brings it
+in, and never in a green run. Substitution is still faithful for the many files that only want *an* origin,
+and `common/get-host-info.sub.js` — which 68 files of the browser lane's suites include — is the reason this
+exists at all.
+
+**`?pipe=` is parsed and exactly one pipe is implemented.** wptserve has fourteen; only `sub` is needed to
+load an `.html` test, and an unknown one is a **500 naming itself** rather than a file served as though the
+query were not there. That is the difference between a server that says it cannot do something and a test that
+fails an assertion about the engine: `xhr/abort-after-timeout.any.js` is a not-vendored row precisely because
+it asks for `?pipe=trickle(d1)`, and with this it would say so on the wire.
+
+Three smaller things the browser lane needs and the `.any.js` lane never did. The query and the fragment take
+no part in finding a file — `filesystem_path` reads `url_parts.path` alone — and a percent-escape in the path
+is decoded before the lookup, as `unquote` does. A `HEAD` carries the headers a `GET` would, `Content-Length`
+included, and no body. And a path the corpus does not hold is a 404 with the same status line, content type
+and empty body whatever its extension, so a missing `.html` fails the way a missing `.txt` always has.
+
+## The harness itself, and the one file that is not vendored
+
+`resources/` and `common/` are the wpt tree's two shared roots: the harness a page loads, and what every
+standard's suites share. Neither is ever a **suite** — `WptCorpus.TestFiles` refuses to be asked about them
+and `EveryVendoredFileIsAccountedFor` fails if either ever holds a `.any.js` — because a test case there
+would be the harness testing itself. The rule for what lives in them is the rule for every other directory:
+vendor what something references, and say why for the rest.
+
+What the browser lane's five target directories (`dom/`, `html/dom/`,
+`html/semantics/scripting-1/the-script-element/`, `xhr/`, `html/webappapis/`) reference, and which of it is
+here:
+
+| Vendored | Referrers at the pin | What it is |
+| --- | --- | --- |
+| `resources/testharness.js` (+ `.headers`) | 1764 | The real upstream harness — see the two-file note below |
+| `resources/testdriver.js` (+ `.headers`) | 98 | The automation API a test drives input through |
+| `resources/testdriver-vendor.js` (+ `.headers`) | 98 | Upstream's **empty** vendor hook, which `testdriver.js` expects to be replaced |
+| `resources/testdriver-actions.js` (+ `.headers`) | 85 | The action-sequence builder `testdriver.js` layers on top |
+| `common/get-host-info.sub.js` | 68 | The origins helper, and the corpus's most-used `.sub.` file |
+| `common/utils.js` | 37 | Already vendored: `token()`, the stash key generator |
+| `common/blank.html` | 26 | An empty document, navigated to and framed |
+| `common/subset-tests-by-key.js`, `common/subset-tests.js`, `common/gc.js`, `common/sab.js` | — | Already vendored for the `.any.js` lane |
+| `common/dummy.xml`, `common/dummy.xhtml` | 6 | Two-line XML fixtures the parsing tests load |
+
+The four `.headers` files are upstream's own, vendored beside the files they belong to, and they are what
+gives the harness `Content-Type: text/javascript; charset=utf-8` — the answer to "where does wptserve add a
+charset": in a sidecar, for those files, and nowhere else.
+
+**`resources/testharness.css` is not here because it does not exist**: the pin has no such file, and
+`testharness.js` loads no stylesheet. It is named in older wpt documentation and in a good deal of prose about
+the harness, which is the only reason it is worth a sentence.
+
+### Two harnesses, on purpose
+
+There are now two implementations of `testharness.js` in this directory tree and they do not compete.
+
+* `Prelude/testharness-shim.js` is **Jint's own**, and it stays. It implements the slice of upstream's harness
+  the `.any.js` lane uses, runs in an engine with no DOM, and `WptHarnessTests` exercises every assertion in it
+  from both sides. Nothing about that lane changes.
+* `Vendor/resources/testharness.js` is **upstream's, verbatim**, and it is what a `.html` test loads through a
+  `<script src>` when the browser lane arrives. A page has a document, a `<div id=log>` and an `onload`, so it
+  can run the real thing, and running the real thing is most of what makes a browser lane's result mean
+  something.
+
+The file that bridges them is `resources/testharnessreport.js`, and it is **the one harness file deliberately
+not vendored**. Upstream's is a stub whose whole purpose is to be replaced — *"intended for vendors to
+implement code needed to integrate testharness.js tests with their own test systems"* — so vendoring it would
+put bytes in this tree that the server never sends, which is the one thing the vendored-and-byte-verified
+model is for. Jint's copy is `Prelude/testharnessreport.js`, beside the shim, and `WptServer` takes an overlay
+string per instance and answers `/resources/testharnessreport.js` with it. The browser lane fills that slot
+with the script that posts a page's results back to the driver; until then what a page gets is what upstream's
+stub does, which in an engine with no `window.opener` is nothing at all.
+
 ## Deliberately not vendored
 
 The driver enforces this list (`WptTestRunner._notVendored`): a re-vendor that brings one of these back
@@ -254,7 +382,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/modules/dedicated-worker-import-blob-url.any.js`, `workers/modules/dedicated-worker-import-data-url.any.js`, `workers/modules/resources/*data-url*`, `workers/modules/resources/*block-cross-origin*` | Need `URL.createObjectURL`, a `data:` module loader, and a second origin. |
 | `workers/SharedWorker-*.any.js`, `workers/semantics/interface-objects/*` | `SharedWorker` and `SharedWorkerGlobalScope`, which Jint does not have — the design records it as still open, needing a cross-engine name registry of the shape `BroadcastChannelBroker` has. A `global=sharedworker` file cannot even be run in the worker lane: there is no shared worker to be the global of. |
 | `workers/examples/*` | Upstream's own tutorial for writing worker tests, and it teaches wpt rather than testing an engine: `general.any.js` is two tests, the second asserting `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the wpt server generates for a `.any.js` file. There is no server here to generate one. `onconnect.any.js` beside it is `global=sharedworker`. |
-| `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution: it rewrites `{{host}}` and `{{ports[…]}}` into a real origin before serving the file, so a vendored copy carries the placeholders verbatim. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
+| `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution, which `WptServer` now performs — but over one origin, and these want a second. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
 | `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
@@ -286,12 +414,17 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/body/textstream.any.js` | `Response.prototype.textStream`, a Fetch pull the standard has not merged. The directory's other two files are vendored: they build their own `Request` and `Response` and never ask for a URL, which is what made the old glob wrong about them. |
 | `fetch/api/redirect/redirect-back-to-original-origin.any.js`, `redirect-mode.any.js`, `redirect-origin.any.js` | A second origin, and for `redirect-mode` the opaque filtered response as well. |
 | `fetch/api/redirect/redirect-schemes.any.js` | Redirects to `blob:` and other schemes, and `get-host-info` substitution. |
-| `fetch/api/*/*.sub.any.js` | `.sub.` is wptserve rewriting `{{host}}` and `{{ports[…]}}` into a real origin before serving the file, so a vendored copy carries the placeholders verbatim. |
+| `fetch/api/*/*.sub.any.js` | `.sub.` is wptserve rewriting `{{host}}` and `{{ports[…]}}` into a **second** origin before serving the file. `WptServer` substitutes now — see [serving a file](#serving-a-file-content-types-headers-sidecars-and-sub-substitution) — but it has one origin to substitute, so every one of these would read as same-origin and assert nothing. |
 | `fetch/api/*/*.h2.any.js` | Needs an HTTP/2 server. `WptServer` speaks HTTP/1.1 on a raw socket, which is what lets it trickle a body. |
 | `fetch/api/*/*keepalive*` | The `keepalive` init member, and a window creating iframes. |
 | `fetch/api/headers/headers-no-cors.any.js` | The `"no-cors"` request mode. The rest of that directory is vendored. |
 | `fetch/api/response/json.any.js` | Fetches a `data:` url and `/xhr/resources/utf16-bom.json`. |
 | `fetch/api/response/response-blob-realm.any.js` | Needs a document and a second realm: it builds an `iframe` to obtain one. |
+| `resources/idlharness.js` | The WebIDL conformance harness, out for the reason its `.any.js` files are. Its three companions (`webidl2/`, `test-only-api.js`, `sriharness.js`) are out with it. |
+| `common/slow.py`, `common/redirect.py` | wptserve handlers, which are Python and not files to serve. Port them the way the seven above were ported if a lane needs one. |
+| `common/reftest-wait.js` | A reftest's rendering handshake, and there is nothing here to render. |
+| `common/dispatcher/*` | A cross-context message bus built on a wptserve stash handler. |
+| `common/security-features/*` | The referrer-policy and mixed-content generators, and a second origin to be insecure from. |
 
 Every vendored file was timed at the pin; the slowest is
 `derive_bits_keys/pbkdf2.https.any.js` at ~20 s for 8,632 cases (it is `// META: timeout=long` and sharded

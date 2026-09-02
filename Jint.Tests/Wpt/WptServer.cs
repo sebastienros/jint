@@ -30,6 +30,13 @@ namespace Jint.Tests.Wpt;
 /// changes, and the only divergence is the handlers, which are documented one by one on the methods below.
 /// </para>
 /// <para>
+/// <b>There are two halves, and this file is one of them.</b> Everything here answers a named <c>.py</c>
+/// file; <see cref="WptServerFiles"/> is what applies to <i>every</i> file — the content-type table, the
+/// <c>.headers</c> sidecars, the <c>.sub.</c> template language. The split is what the two lanes need: an
+/// <c>.any.js</c> file is handed to an engine directly and only ever asks this server for a <c>fetch</c>,
+/// while a <c>.html</c> test is <i>loaded</i> from it and so meets all of the second half at once.
+/// </para>
+/// <para>
 /// <b>Why a raw <see cref="TcpListener"/> rather than <c>HttpListener</c> or Kestrel.</b> Three reasons, and
 /// each of them is a property the suites actually need. It binds port <b>0</b> and is told which port it got,
 /// so a run can never collide with anything else on the machine — <c>HttpListener</c> takes a URL prefix and
@@ -67,8 +74,24 @@ internal sealed class WptServer : IDisposable
     /// </summary>
     private readonly ConcurrentDictionary<string, int> _stash = new(StringComparer.Ordinal);
 
-    private WptServer()
+    /// <summary>
+    /// What <c>/resources/testharnessreport.js</c> answers with. It is Jint's own file rather than a
+    /// vendored one — see <c>Prelude/testharnessreport.js</c> for why — and it is a constructor parameter so
+    /// that the browser lane can overlay it per server without a vendored file changing.
+    /// </summary>
+    private readonly string _harnessReport;
+
+    /// <summary>
+    /// Starts a server on an ephemeral loopback port.
+    /// </summary>
+    /// <param name="harnessReportOverlay">
+    /// What to answer <c>/resources/testharnessreport.js</c> with, or <see langword="null"/> for the stub in
+    /// <c>Prelude/</c>. The browser lane passes the script that posts a page's results back to its driver;
+    /// upstream's own file exists to be replaced exactly this way.
+    /// </param>
+    internal WptServer(string? harnessReportOverlay = null)
     {
+        _harnessReport = harnessReportOverlay ?? WptCorpus.HarnessReport;
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         Port = ((IPEndPoint) _listener.LocalEndpoint).Port;
@@ -212,8 +235,22 @@ internal sealed class WptServer : IDisposable
         // absolute path, and upstream keeps the same handler in both places.
         "fetch/api/resources/bad-chunk-encoding.py" => BadChunkEncoding(stream, request, token),
 
+        // The one harness file that does not come out of Vendor/. Upstream's is a stub whose whole purpose
+        // is to be replaced by whoever is running the tests, so vendoring it would put bytes in the tree
+        // that the server never sends; Jint's copy lives in Prelude/ beside the shim, and a caller can pass
+        // an overlay per server. Answered here rather than in the static path because there is no corpus
+        // entry to find.
+        "resources/testharnessreport.js" => WriteAsync(stream, HarnessReport(), request, token),
+
         _ => StaticAsync(stream, request, token),
     };
+
+    /// <summary>
+    /// <c>resources/testharnessreport.js</c>, with the content type upstream's own
+    /// <c>testharnessreport.js.headers</c> sidecar gives it.
+    /// </summary>
+    private WptServerResponse HarnessReport()
+        => new(200, "OK", [("Content-Type", "text/javascript; charset=utf-8")], Encoding.UTF8.GetBytes(_harnessReport));
 
     // ------------------------------------------------------------------ handlers
 
@@ -536,7 +573,7 @@ internal sealed class WptServer : IDisposable
     /// <see cref="WriteAsync"/> at all — that method frames a response, and this one <i>is</i> the
     /// framing.
     /// </remarks>
-    private static Task StaticAsync(Stream stream, WptServerRequest request, CancellationToken token)
+    private Task StaticAsync(Stream stream, WptServerRequest request, CancellationToken token)
     {
         if (request.Path.EndsWith(".asis", StringComparison.Ordinal) && WptCorpus.Contains(request.Path))
         {
@@ -558,28 +595,114 @@ internal sealed class WptServer : IDisposable
             return WriteRawAsync(stream, raw.Replace("\n", "\r\n", StringComparison.Ordinal), token);
         }
 
-        return WriteAsync(stream, StaticFile(request), request, token);
+        WptServerResponse response;
+        try
+        {
+            response = StaticFile(request, Port);
+        }
+        catch (WptServerFileException e)
+        {
+            // wptserve turns a raise inside a pipe into a 500, and so does this. The alternative — serving
+            // the file with its placeholders intact, or with a pipe silently skipped — fails a test
+            // somewhere far away from the cause, which is the failure mode this whole port exists to avoid.
+            response = new WptServerResponse(500, "Internal Server Error",
+                [("content-type", "text/plain")], Bytes(e.Message));
+        }
+
+        return WriteAsync(stream, response, request, token);
     }
 
-    private static WptServerResponse StaticFile(WptServerRequest request)
+    /// <summary>
+    /// wptserve's <c>FileHandler</c>: the file's bytes, the headers its <c>.headers</c> sidecars ask for,
+    /// and the <c>sub</c> pipe where the name or the query calls for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The query and the fragment take no part in finding the file — <c>filesystem_path</c> reads
+    /// <c>url_parts.path</c> alone — which is what lets <c>?pipe=</c> and <c>{{GET[…]}}</c> exist at all,
+    /// and it is why <see cref="WptServerRequest.Path"/> is already stripped of both.
+    /// </para>
+    /// <para>
+    /// A path the corpus does not hold is a 404 rather than a CLR exception, because unlike the shim's
+    /// resource reader this one is answering a request the corpus itself composed, and several suites fetch
+    /// a URL precisely to see it fail.
+    /// </para>
+    /// </remarks>
+    private static WptServerResponse StaticFile(WptServerRequest request, int port)
     {
         if (!WptCorpus.Contains(request.Path))
         {
             return new WptServerResponse(404, "Not Found", [("content-type", "text/plain")], []);
         }
 
-        var extension = request.Path.AsSpan(request.Path.LastIndexOf('.') + 1);
-        var type = extension switch
-        {
-            "js" => "text/javascript",
-            "json" => "application/json",
-            "html" => "text/html",
-            _ => "text/plain",
-        };
+        var context = new WptSubstitutionContext(port, request);
+        var headers = WptServerFiles.LoadHeaders(request.Path, context, WptCorpus.TryRead);
 
-        // The corpus is held as text, so its bytes are the UTF-8 of that text — which is how it was vendored.
-        return new WptServerResponse(200, "OK", [("content-type", type)],
-            Encoding.UTF8.GetBytes(WptCorpus.Read(request.Path)));
+        // The corpus is held as text, so its bytes are the UTF-8 of that text — which is how it was
+        // vendored, and why nothing binary is in the tree.
+        var content = WptCorpus.Read(request.Path);
+
+        if (WptServerFiles.WantsSubstitution(request.Path))
+        {
+            content = WptServerFiles.Substitute(context, content, WptServerFiles.EscapesAsHtml(request.Path));
+        }
+
+        content = ApplyQueryPipes(request, context, content);
+
+        return new WptServerResponse(200, "OK", headers, Encoding.UTF8.GetBytes(content));
+    }
+
+    /// <summary>
+    /// The <c>?pipe=</c> half of <c>wrap_pipeline</c>, of which one pipe is implemented and every other one
+    /// is refused out loud.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// wptserve has fourteen pipes: <c>status</c>, <c>header</c>, <c>slice</c>, <c>trickle</c>, <c>sub</c>,
+    /// <c>gzip</c> and the rest. Implementing them on demand is right; implementing <i>none</i> of them and
+    /// ignoring the query is not, because a file that asks for <c>?pipe=status(404)</c> and gets a 200 fails
+    /// an assertion about the engine instead of reporting that the server does not do that yet. So an
+    /// unknown pipe is a 500 naming itself, which is the same shape as an unknown substitution.
+    /// </para>
+    /// <para>
+    /// Nothing in the vendored corpus passes <c>?pipe=</c> today. This exists because the browser lane's
+    /// suites do, and because the decision of what happens when they do should not be made by whichever
+    /// file gets there first.
+    /// </para>
+    /// </remarks>
+    private static string ApplyQueryPipes(WptServerRequest request, in WptSubstitutionContext context, string content)
+    {
+        if (!request.TryGetLastQuery("pipe", out var pipes) || pipes.Length == 0)
+        {
+            return content;
+        }
+
+        foreach (var pipe in pipes.Split('|'))
+        {
+            var open = pipe.IndexOf('(');
+            var name = (open < 0 ? pipe : pipe.Substring(0, open)).Trim();
+            var arguments = open < 0
+                ? ""
+                : pipe.Substring(open + 1).TrimEnd().TrimEnd(')');
+
+            if (!string.Equals(name, "sub", StringComparison.Ordinal))
+            {
+                throw new WptServerFileException(
+                    $"the wptserve pipe \"{name}\" is not implemented by this server; see WptServer.ApplyQueryPipes");
+            }
+
+            var escaping = arguments.Trim();
+            var escapeAsHtml = escaping switch
+            {
+                "" or "html" => true,
+                "none" => false,
+                _ => throw new WptServerFileException($"\"{escaping}\" is not an escape type the sub pipe takes"),
+            };
+
+            content = WptServerFiles.Substitute(context, content, escapeAsHtml);
+        }
+
+        return content;
     }
 
     // ------------------------------------------------------------------ wire
@@ -701,8 +824,20 @@ internal sealed class WptServerRequest
 
     internal string Method { get; }
 
-    /// <summary>The request target with its leading slash and its query removed: <c>fetch/api/resources/top.txt</c>.</summary>
+    /// <summary>
+    /// The request target with its leading slash and its query removed, percent-decoded:
+    /// <c>fetch/api/resources/top.txt</c>. This is the key the corpus is looked up by, which is why it is
+    /// decoded — <c>filesystem_path</c> unquotes before it joins the document root, so
+    /// <c>/common/blank%2Ehtml</c> is the same file as <c>/common/blank.html</c>.
+    /// </summary>
     internal string Path { get; }
+
+    /// <summary>
+    /// The path component of the request target exactly as it arrived — leading slash, percent-escapes and
+    /// all. wptserve's <c>request.url_parts.path</c>, which is what <c>{{location[path]}}</c> substitutes
+    /// and which <see cref="Path"/> is the decoded form of.
+    /// </summary>
+    internal string RawPath { get; private set; } = "/";
 
     internal IReadOnlyDictionary<string, string> Query { get; }
 
@@ -736,6 +871,28 @@ internal sealed class WptServerRequest
     /// none — wptserve's <c>request.url_parts.query</c>.
     /// </summary>
     internal string RawQuery { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The <b>last</b> value given for a query parameter, which is what <c>wrap_pipeline</c> reads
+    /// <c>?pipe=</c> with (<c>query["pipe"][-1]</c>) — the one place upstream deliberately does not take the
+    /// first.
+    /// </summary>
+    internal bool TryGetLastQuery(string name, out string value)
+    {
+        value = "";
+        var found = false;
+
+        foreach (var (candidate, candidateValue) in _queryPairs)
+        {
+            if (string.Equals(candidate, name, StringComparison.Ordinal))
+            {
+                value = candidateValue;
+                found = true;
+            }
+        }
+
+        return found;
+    }
 
     /// <summary>
     /// wptserve's <c>request.POST</c>, reduced to the two forms the corpus posts: an urlencoded body and
@@ -935,12 +1092,24 @@ internal sealed class WptServerRequest
 
         var body = await ReadBodyAsync(stream, headers, token).ConfigureAwait(false);
 
+        // A fragment never reaches a server — a client strips it before it writes the request line — so
+        // this is defence rather than a rule of HTTP. It is here because the browser lane composes its own
+        // URLs and a "#frag" that leaked through would look like a file the corpus does not hold, which is
+        // a 404 several layers away from the mistake.
+        var hash = target.IndexOf('#');
+        if (hash >= 0)
+        {
+            target = target.Substring(0, hash);
+        }
+
         var question = target.IndexOf('?');
-        var path = (question < 0 ? target : target.Substring(0, question)).TrimStart('/');
+        var rawPath = question < 0 ? target : target.Substring(0, question);
+        var path = DecodePath(rawPath.TrimStart('/'));
         var queryPairs = ParseQuery(question < 0 ? "" : target.Substring(question + 1));
 
         return new WptServerRequest(method, path, queryPairs, headers, body)
         {
+            RawPath = rawPath.Length == 0 ? "/" : rawPath,
             RawQuery = question < 0 ? string.Empty : target.Substring(question + 1),
         };
     }
@@ -1098,6 +1267,41 @@ internal sealed class WptServerRequest
         }
 
         return decoded.ToString();
+    }
+
+    /// <summary>
+    /// Percent-decoding for the <i>path</i>, which is a different job from <see cref="Decode"/> in two ways
+    /// and both matter. A <c>+</c> is a plus and not a space — that rule belongs to the query string's
+    /// urlencoded form and to nothing else — and the decoded bytes are text rather than a byte string,
+    /// because what they become is a key into the corpus and the corpus is keyed by UTF-8 paths.
+    /// </summary>
+    private static string DecodePath(string value)
+    {
+        if (value.IndexOf('%') < 0)
+        {
+            return value;
+        }
+
+        var bytes = new List<byte>(value.Length);
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+
+            if (c == '%' && i + 2 < value.Length
+                && Uri.IsHexDigit(value[i + 1]) && Uri.IsHexDigit(value[i + 2]))
+            {
+                bytes.Add((byte) int.Parse(value.AsSpan(i + 1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture));
+                i += 2;
+            }
+            else
+            {
+                // The request line arrived as Latin-1, one char to one byte, so this is that byte back.
+                bytes.Add((byte) c);
+            }
+        }
+
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 }
 
