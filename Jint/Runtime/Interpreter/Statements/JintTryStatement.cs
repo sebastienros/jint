@@ -21,9 +21,16 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
     private readonly Key[]? _catchSlotNames;
     private DeclarativeEnvironment? _cachedCatchEnv;
 
+    /// <summary>
+    /// Whether this statement has a <c>catch</c> clause, and so whether a throw raised inside its block is
+    /// one the debugger reports as caught. A <c>finally</c>-only <c>try</c> does not catch anything.
+    /// </summary>
+    private readonly bool _handlesExceptions;
+
     public JintTryStatement(TryStatement statement) : base(statement)
     {
         _block = new JintBlockStatement(statement.Block);
+        _handlesExceptions = statement.Handler is not null;
         if (statement.Finalizer != null)
         {
             _finalizer = new JintBlockStatement(statement.Finalizer);
@@ -66,7 +73,12 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
             return ExecuteFinallyResume(context, suspendable!);
         }
 
-        var b = _block.Execute(context);
+        // The counted form is entered only with a debugger attached; see ExecuteProtectedBlock. Note that
+        // the catch and finally blocks run outside it, which is what makes a rethrow from a catch clause
+        // uncaught unless an OUTER try holds it.
+        var b = engine._isDebugMode && _handlesExceptions
+            ? ExecuteProtectedBlock(context, engine)
+            : _block.Execute(context);
 
         if (b.Type == CompletionType.Throw)
         {
@@ -81,6 +93,31 @@ internal sealed class JintTryStatement : JintStatement<TryStatement>
         }
 
         return ExecuteFinalizer(context, b, engine, suspendable);
+    }
+
+    /// <summary>
+    /// Runs the <c>try</c> block with <see cref="Engine._tryCatchDepth"/> raised, so that a throw raised
+    /// anywhere below it — in this block, in a function it calls — can be told to be caught.
+    /// </summary>
+    /// <remarks>
+    /// Split out, and reached only through the <c>_isDebugMode</c> test at the one call site, so that an
+    /// engine with no debugger attached executes the same instructions it did before: the counter costs a
+    /// predicted branch on a field the statement is already loading, and the <c>finally</c> this needs never
+    /// enters its method. Nothing saves the count across a generator's or an async function's suspension:
+    /// resuming inside a <c>try</c> block re-enters this statement and walks back through here, so the
+    /// count is rebuilt.
+    /// </remarks>
+    private Completion ExecuteProtectedBlock(EvaluationContext context, Engine engine)
+    {
+        engine._tryCatchDepth++;
+        try
+        {
+            return _block.Execute(context);
+        }
+        finally
+        {
+            engine._tryCatchDepth--;
+        }
     }
 
     private Completion ExecuteCatchResume(EvaluationContext context)

@@ -317,7 +317,11 @@ internal sealed class JintStatementList
 
         if (context.DebugMode)
         {
-            context.Engine.Debugger.OnExceptionThrown(completion.Value, completion.Location);
+            // A throw that unwinds through several frames arrives here once per frame, as a fresh
+            // JavaScriptException each time. Only the first of them is the throw; the rest are the same
+            // throw leaving a body, and the debugger must not stop again for them.
+            var reRaised = exception is JavaScriptException { _reRaisedAtBodyBoundary: true };
+            context.Engine.Debugger.OnExceptionThrown(completion.Value, completion.Location, reRaised);
         }
 
         return completion;

@@ -310,10 +310,21 @@ internal static class Throw
         throw new PromiseRejectedException(error);
     }
 
+    /// <summary>
+    /// Re-raises a Throw completion as a CLR exception so that it can leave a function, generator,
+    /// <c>eval</c> or disposal body.
+    /// </summary>
+    /// <remarks>
+    /// The throw has already happened and, with a debugger attached, has already been reported where it
+    /// happened, so the exception is marked as a re-raise; see
+    /// <see cref="Jint.Runtime.JavaScriptException._reRaisedAtBodyBoundary"/>.
+    /// </remarks>
     [DoesNotReturn]
     public static void JavaScriptException(Engine engine, JsValue value, in Completion result)
     {
-        throw new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
+        var exception = new JavaScriptException(value).SetJavaScriptCallstack(engine, result.Location);
+        exception._reRaisedAtBodyBoundary = true;
+        throw exception;
     }
 
     [DoesNotReturn]

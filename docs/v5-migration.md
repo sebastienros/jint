@@ -5272,6 +5272,43 @@ A frame belongs to the pause it was taken in. One kept past the `Break`, `Step` 
 that produced it names environments the engine has since left, and so does one from another engine; both are
 refused with `InvalidOperationException` rather than evaluated against.
 
+### 5.12 A debugger can stop where an exception is thrown ([#3623](https://github.com/sebastienros/jint/pull/3623))
+
+`DebugHandler.ExceptionThrown` reported a throw after the fact, with nothing a host could do about it but
+take notes: by the time a handler could act the engine was already unwinding. `DebugHandler.PauseOnExceptions`
+stops it at the throw instead:
+
+```csharp
+engine.Debugger.PauseOnExceptions = ExceptionPauseMode.Uncaught; // or All; None is the default
+
+engine.Debugger.Break += (sender, info) =>
+{
+    if (info.PauseType == PauseType.Exception)
+    {
+        var thrown = info.ThrownValue;        // the value itself, unwrapped
+        var uncaught = info.IsUncaught;
+        var where = info.CallStack[0];        // the frame that threw, still standing
+        var local = engine.Debugger.Evaluate("someLocal", where);
+    }
+
+    return StepMode.None;
+};
+```
+
+The stop happens before anything unwinds, so the throwing frame's scopes, `this` and bindings all answer, and
+it happens **once** per throw however many frames it goes on to unwind through. It raises `Break` with the new
+`PauseType.Exception`; `DebugInformation.CurrentNode` is `null` there, as it already is at a return point.
+
+`Uncaught` means no `catch` clause is executing anywhere on the stack — a `finally`-only `try` does not count,
+a `catch` in a calling function does. Two boundaries end that search, because a throw crossing either stops
+being an exception: a **host entry**, whose caller receives a `JavaScriptException` instead, and an **async
+function body**, whose throw becomes a rejection of its own promise. So `async function f() { throw x; }`
+called inside `try { f(); } catch {}` is reported uncaught, which is what a user asking to stop on uncaught
+exceptions means by it. A rejection with no throw behind it — `Promise.reject(x)` — never stops the engine.
+
+`ExceptionThrown` is unchanged and still fires for every throw whatever the mode is, including once per frame
+an unwind passes through. `ExceptionPauseMode.None`, the default, leaves the engine byte-identical to before.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

@@ -285,6 +285,12 @@ internal sealed class JintFunctionDefinition
     {
         var engine = context.Engine;
 
+        // A throw in an async function body never reaches a `catch` outside it - it becomes a rejection of
+        // the function's own promise - so the caller's try blocks are not on the way out for the debugger's
+        // caught/uncaught answer either. See Engine._tryCatchDepth.
+        var previousTryCatchDepth = engine._tryCatchDepth;
+        engine._tryCatchDepth = 0;
+
         Completion result;
         try
         {
@@ -312,6 +318,10 @@ internal sealed class JintFunctionDefinition
                     asyncInstance._capability.Reject(final.Value);
                 });
             return;
+        }
+        finally
+        {
+            engine._tryCatchDepth = previousTryCatchDepth;
         }
 
         // Check if we suspended at an await

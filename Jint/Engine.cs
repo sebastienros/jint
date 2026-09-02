@@ -1447,6 +1447,19 @@ public sealed partial class Engine : IDisposable
     /// </remarks>
     internal Profiling.SamplingProfiler? _sampler;
 
+    /// <summary>
+    /// How many <c>try</c> blocks that have a <c>catch</c> clause are executing on this engine's stack, so
+    /// that a throw can be told to be caught or uncaught at the point it is raised. Maintained by
+    /// <see cref="Runtime.Interpreter.Statements.JintTryStatement"/>, and only while
+    /// <see cref="_isDebugMode"/> is set — nothing but <see cref="DebugHandler.PauseOnExceptions"/> reads it.
+    /// </summary>
+    /// <remarks>
+    /// It is reset for the duration of a host entry and of an async function body, because a throw crossing
+    /// either boundary does not reach a <c>catch</c> below it: the host entry hands the CLR exception to its
+    /// caller, and the async function turns it into a promise rejection.
+    /// </remarks>
+    internal int _tryCatchDepth;
+
     internal readonly bool _isDebugMode;
     internal readonly bool _isStrict;
     internal readonly UntrustedCodeLimits? _untrustedCodeLimits;
@@ -3751,12 +3764,18 @@ public sealed partial class Engine : IDisposable
         // handling in Invoke, or the base global context itself). The base context pushed at
         // realm init is never popped, so a top context is always present.
         var previousStrict = strict && ReplaceTopStrict(true);
+
+        // A throw inside this entry leaves it as a CLR exception for whoever called in, so a `catch` in the
+        // script that called the host is not on its way out; see the field's own remarks.
+        var previousTryCatchDepth = _tryCatchDepth;
+        _tryCatchDepth = 0;
         try
         {
             return callback(source, state);
         }
         finally
         {
+            _tryCatchDepth = previousTryCatchDepth;
             if (strict)
             {
                 ReplaceTopStrict(previousStrict);
@@ -3789,6 +3808,10 @@ public sealed partial class Engine : IDisposable
         _hostEntryDepth++;
 
         var previousStrict = strict && ReplaceTopStrict(true);
+
+        // Same host-entry boundary as the constraint-only path above.
+        var previousTryCatchDepth = _tryCatchDepth;
+        _tryCatchDepth = 0;
         try
         {
             memoryLimit.Check();
@@ -3803,6 +3826,7 @@ public sealed partial class Engine : IDisposable
         }
         finally
         {
+            _tryCatchDepth = previousTryCatchDepth;
             if (strict)
             {
                 ReplaceTopStrict(previousStrict);
