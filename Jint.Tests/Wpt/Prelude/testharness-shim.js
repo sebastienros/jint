@@ -35,6 +35,8 @@
 //     vendored tree, `load` dispatched on the engine's own timer. Anything else — another method, a path the
 //     corpus does not hold, a wptserve `.py` endpoint — is refused with a throw naming what was asked for, so
 //     a test that needs a server fails saying so instead of silently passing or hanging.
+//     Only on a lane that has no server: one with a server has the shipped XMLHttpRequest, and this file
+//     leaves it alone.
 //   * Timers are the engine's own: this file installs no `setTimeout`, and its `step_timeout` is a thin
 //     forwarder onto the engine's, so a scheduled callback rides the shipped TimerQueue. See WptHarness.cs.
 //   * `setup({single_test: true})` is upstream's file-is-one-test mode, and the one test it creates is named
@@ -606,10 +608,25 @@
 
     // ---------------------------------------------------------------- test objects
 
+    // Upstream's `next_default_test_name`: a test registered with no name at all is named after the
+    // document title, and the second and later ones get a counter suffix. The driver reports by test name
+    // and the exclusion table keys on it, so without this a file that names none of its tests would
+    // contribute a row called "undefined" — twenty of the xhr corpus do exactly that. The title is the
+    // file's own `// META: title=` line, which WptHarness passes in, falling back to the file path.
+    var defaultNameCounter = 0;
+
+    function nextDefaultTestName() {
+        var title = typeof __wptTestTitle === 'string' ? __wptTestTitle
+            : (typeof __wptTestFile === 'string' ? __wptTestFile : 'Untitled');
+        var suffix = defaultNameCounter > 0 ? ' ' + defaultNameCounter : '';
+        defaultNameCounter++;
+        return title + suffix;
+    }
+
     function Test(name) {
         // Coerced, because a name is whatever the suite passed and the driver reads these back as JSON:
         // an absent name has to arrive as a string rather than as a missing property.
-        this.name = String(name);
+        this.name = name === undefined ? nextDefaultTestName() : String(name);
         this.phase = 'started';
         this.status = 'PASS';
         this.message = null;
@@ -1067,7 +1084,15 @@
         }
     };
 
-    global.XMLHttpRequest = XMLHttpRequest;
+    // Only when the engine has not got the real one. A file in the driver's server lane runs on an engine
+    // built with `WebApiFeatures.XmlHttpRequest` and an `Options.WebApi.Fetch.BaseUrl` pointing at the URL
+    // the driver's server really serves that file at, so `open("GET", "resources/content.py")` resolves
+    // there exactly as it does upstream, and the reader above would replace the very thing the xhr corpus
+    // exists to test. Every other engine has no XMLHttpRequest at all, so the reader is what it gets,
+    // exactly as before.
+    if (typeof global.XMLHttpRequest !== 'function') {
+        global.XMLHttpRequest = XMLHttpRequest;
+    }
 
     global.test = test;
     global.async_test = async_test;

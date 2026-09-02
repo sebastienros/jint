@@ -298,5 +298,178 @@ public class WptServerTests
             }
         }
     }
+
+    // ---- the xhr corpus's own handlers ----
+
+    /// <summary>
+    /// <c>xhr/resources/content.py</c> answers with the request body, and reports four facts about the
+    /// request as headers — each falling back to the literal string <c>NO</c>, which is what the suites
+    /// assert against.
+    /// </summary>
+    [Test]
+    public async Task ContentEchoesTheBodyAndReportsTheRequest()
+    {
+        using var post = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/xhr/resources/content.py?a=1")
+        {
+            Content = new StringContent("hello", Encoding.UTF8, "text/x-probe"),
+        };
+
+        using var response = await _client.SendAsync(post);
+
+        (await response.Content.ReadAsStringAsync()).Should().Be("hello");
+        response.Headers.GetValues("x-request-method").Should().ContainSingle().Which.Should().Be("POST");
+        response.Headers.GetValues("x-request-query").Should().ContainSingle().Which.Should().Be("a=1");
+        response.Headers.GetValues("x-request-content-length").Should().ContainSingle().Which.Should().Be("5");
+        response.Headers.GetValues("x-request-content-type").Should().ContainSingle().Which.Should().Be("text/x-probe; charset=utf-8");
+
+        // A GET with no body, no query and no content type: three of the four report the literal NO rather
+        // than being absent, which is upstream's `request.headers.get(name, b"NO")`.
+        using var bare = await GetAsync("/xhr/resources/content.py");
+
+        (await bare.Content.ReadAsStringAsync()).Should().BeEmpty();
+        bare.Headers.GetValues("x-request-query").Should().ContainSingle().Which.Should().Be("NO");
+        bare.Headers.GetValues("x-request-content-length").Should().ContainSingle().Which.Should().Be("NO");
+        bare.Headers.GetValues("x-request-content-type").Should().ContainSingle().Which.Should().Be("NO");
+    }
+
+    /// <summary>
+    /// The <c>content</c> parameter wins over the body, and <c>response_charset_label</c> names the charset
+    /// the answer is typed with.
+    /// </summary>
+    [Test]
+    public async Task ContentPrefersTheQueryAndCarriesTheCharsetItWasGiven()
+    {
+        using var response = await GetAsync("/xhr/resources/content.py?content=hi&response_charset_label=shift_jis");
+
+        // Read as bytes: the charset in that header is one no .NET encoding provider is registered for,
+        // which is the whole point of the parameter — the suite that passes it is asking the engine to
+        // decode it, not the test client.
+        Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync()).Should().Be("hi");
+        response.Content.Headers.NonValidated.TryGetValues("Content-Type", out var contentType).Should().BeTrue();
+        contentType.ToString().Should().Be("text/plain;charset=shift_jis");
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/delay.py</c> sleeps for <c>ms</c> milliseconds and then answers <c>TEST_DELAY</c>.
+    /// </summary>
+    [Test]
+    public async Task DelayWaitsAndThenAnswers()
+    {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        using var response = await GetAsync("/xhr/resources/delay.py?ms=120");
+
+        (await response.Content.ReadAsStringAsync()).Should().Be("TEST_DELAY");
+
+        // A floor rather than a window: what is being asserted is that the handler waits at all.
+        System.Diagnostics.Stopwatch.GetElapsedTime(started).Should().BeGreaterThan(TimeSpan.FromMilliseconds(100));
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/echo-content-type.py</c> answers with the request's own <c>Content-Type</c>, and
+    /// <c>echo-headers.py</c> with the header block it read.
+    /// </summary>
+    [Test]
+    public async Task TheTwoEchoHandlersAnswerWithWhatTheRequestCarried()
+    {
+        using var typed = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/xhr/resources/echo-content-type.py")
+        {
+            Content = new StringContent("x", Encoding.UTF8, "application/x-probe"),
+        };
+
+        using var typedResponse = await _client.SendAsync(typed);
+        (await typedResponse.Content.ReadAsStringAsync()).Should().Be("application/x-probe; charset=utf-8");
+
+        using var headed = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/xhr/resources/echo-headers.py")
+        {
+            Content = new StringContent("22 bytes worth of body"),
+        };
+
+        using var headedResponse = await _client.SendAsync(headed);
+        var block = await headedResponse.Content.ReadAsStringAsync();
+
+        // One `Name: value` per line, which is the shape xhr/request-content-length.any.js reads: it asks
+        // whether `Content-Length: 22` is in there.
+        block.Should().Contain("Content-Length: 22");
+        block.Should().Contain("Host: ");
+    }
+
+    /// <summary>
+    /// <c>xhr/resources/form.py</c> answers <c>id:&lt;id&gt;;value:&lt;value&gt;;</c> out of the posted form,
+    /// whether it arrived urlencoded or as multipart.
+    /// </summary>
+    [Test]
+    public async Task FormReadsBothPostEncodings()
+    {
+        using var urlencoded = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/xhr/resources/form.py")
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>("id", "1"),
+                new KeyValuePair<string, string>("value", "a b"),
+            ]),
+        };
+
+        using var first = await _client.SendAsync(urlencoded);
+        (await first.Content.ReadAsStringAsync()).Should().Be("id:1;value:a b;");
+
+        var multipart = new MultipartFormDataContent("BOUNDARY");
+        multipart.Add(new StringContent("2"), "id");
+        multipart.Add(new StringContent("b"), "value");
+
+        using var second = new HttpRequestMessage(HttpMethod.Post, WptServer.Instance.Origin + "/xhr/resources/form.py") { Content = multipart };
+        using var secondResponse = await _client.SendAsync(second);
+
+        (await secondResponse.Content.ReadAsStringAsync()).Should().Be("id:2;value:b;");
+    }
+
+    /// <summary>
+    /// <c>fetch/api/resources/bad-chunk-encoding.py</c> writes <c>count</c> well-formed chunks and then the
+    /// literal bytes <c>garbage</c>, so a client has to report the body as failed rather than as finished.
+    /// </summary>
+    [Test]
+    public async Task BadChunkEncodingBreaksTheBodyRatherThanEndingIt()
+    {
+        using var response = await _client.GetAsync(
+            WptServer.Instance.Origin + "/fetch/api/resources/bad-chunk-encoding.py?ms=1&count=2",
+            HttpCompletionOption.ResponseHeadersRead);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var read = async () => await response.Content.ReadAsStringAsync();
+        await read.Should().ThrowAsync<Exception>("the chunk framing stops being valid part-way through");
+    }
+
+    /// <summary>
+    /// An <c>.asis</c> file is the whole response: the status line and reason phrase are the file's, and so
+    /// are the repeated headers a composed response would have combined.
+    /// </summary>
+    [Test]
+    public async Task AnAsisFileIsServedAsTheWholeResponse()
+    {
+        using var basic = await GetAsync("/xhr/resources/headers-basic.asis");
+
+        ((int) basic.StatusCode).Should().Be(280);
+        basic.ReasonPhrase.Should().Be("HELLO");
+        basic.Headers.GetValues("foo-test").Should().BeEquivalentTo(["1", "2", "3"]);
+
+        // HTTP/1.0, and a header value holding a vertical tab and a form feed — the two things the line-ending
+        // normalization must not touch.
+        using var empty = await GetAsync("/xhr/resources/headers-some-are-empty.asis");
+
+        empty.Version.Should().Be(new Version(1, 0));
+        empty.Headers.GetValues("heya").Should().Contain("\u000b\u000c");
+    }
+
+    /// <summary>
+    /// The root answers a non-empty 200, which is what xhr/responsetype.any.js reads before it gets to the
+    /// rules it is really about.
+    /// </summary>
+    [Test]
+    public async Task TheRootAnswersSomething()
+    {
+        using var response = await GetAsync("/");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().NotBeEmpty();
+    }
 }
 #endif

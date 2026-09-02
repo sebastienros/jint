@@ -5308,6 +5308,41 @@ exceptions means by it. A rejection with no throw behind it — `Promise.reject(
 
 `ExceptionThrown` is unchanged and still fires for every throw whatever the mode is, including once per frame
 an unwind passes through. `ExceptionPauseMode.None`, the default, leaves the engine byte-identical to before.
+### 5.13 `XMLHttpRequest`, opt-in and without a network grant of its own ([#3626](https://github.com/sebastienros/jint/pull/3626))
+
+A new feature flag, a new extension method and one new options group. An engine that names none of
+them is unchanged.
+
+```csharp
+var engine = new Engine(options => options
+    .UseFetch()                    // the network grant
+    .UseXmlHttpRequest(net =>      // the interface, plus the settings it shares with fetch
+    {
+        net.BaseUrl = new Uri("https://api.example.org/");
+    }));
+```
+
+`WebApiFeatures.XmlHttpRequest` installs `XMLHttpRequest`, `XMLHttpRequestUpload`,
+`XMLHttpRequestEventTarget` and `ProgressEvent`, and brings the fetch object model (`Headers`,
+`Request`, `Response`, `Blob`) with it. **It is not a network grant**: without
+`WebApiFeatures.Fetch`, an `Options.WebApi.Fetch.HttpClient` or an `HttpClientFactory`, `send()`
+fails the way a `fetch` your policy refused does — an `error` event asynchronously, a
+`NetworkError` `DOMException` synchronously. It is never part of `WebApiFeatures.Default`.
+
+Everything else it answers to is `Options.WebApi.Fetch`: `AllowedSchemes`, `UrlFilter`,
+`MaxRedirects`, `MaxResponseBytes`, `Timeout`, `MaxConcurrentRequests` (counted separately from the
+fetches in flight), `BaseUrl` for a relative `open()`, and `CookieJar`, which `withCredentials = true`
+is what selects.
+
+**`open(url, method, false)` is supported and blocks the calling thread.** The wait is on the HTTP
+transport, which never touches the engine, so it needs no `ProcessTasks` and cannot deadlock with a
+host loop; it holds the thread for as long as `Options.WebApi.Fetch.Timeout` and the request's own
+`timeout` allow, both enforced CLR-side.
+
+`Options.WebApi.Xhr.DocumentParser` is the one new options group: a
+`Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
+type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint
+parses no markup.
 
 ## 6. AOT and trimming
 

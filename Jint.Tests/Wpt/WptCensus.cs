@@ -105,6 +105,7 @@ internal static class WptCensus
         ("HTML — timers, microtasks, structured clone", "html/webappapis/"),
         ("DOM", "dom/"),
         ("Fetch", "fetch/api/"),
+        ("XMLHttpRequest", "xhr/"),
     ];
 
     private static readonly ConcurrentDictionary<string, Counts> _observed = new(StringComparer.Ordinal);

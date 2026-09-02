@@ -348,6 +348,21 @@ public class WptTestRunner
         ("fetch/api/headers/headers-no-cors.any.js", "the \"no-cors\" request mode, which this implementation has no model for"),
         ("fetch/api/response/json.any.js", "fetches a data: url"),
         ("fetch/api/response/response-blob-realm.any.js", "needs a document and a second realm"),
+
+        // The xhr corpus. Nineteen of its files are about CORS and one is about credentials across
+        // origins; an engine has one origin and no CORS model, so there is nothing in them to run. The
+        // other five each fail to produce a report at all rather than failing a test, which is the line
+        // between this table and the exclusion table.
+        ("xhr/access-control-*", "cross-origin: every one of them fetches get_host_info().HTTP_REMOTE_ORIGIN"),
+        ("xhr/cors-*", "cross-origin, and preflight besides"),
+        ("xhr/event-upload-progress*", "cross-origin: it uploads to a second origin to see the progress events"),
+        ("xhr/xhr-authorization-redirect.any.js", "cross-origin: it follows a redirect to a second origin with an Authorization header"),
+        ("xhr/idlharness.any.js", "needs idlharness.js and a WebIDL parser, which the harness shim does not have"),
+        ("xhr/blob-range.any.js", "needs URL.createObjectURL and Range requests over a blob: URL"),
+        ("xhr/send-data-sharedarraybuffer.any.js", "needs WebAssembly.Memory, which Jint declines by design"),
+        ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
+        ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
+        ("xhr/xhr-timeout-longtask.any.js", "its outcome depends on the machine: a browser's timeout timer is a task and cannot fire during the 200 ms busy-wait the file runs, while this one is a wall-clock deadline on a cancellation token — see XhrOperation on why it is CLR-side — so a body read the runner is too busy to finish inside 150 ms times out where the file asserts it must not"),
     ];
 
     /// <summary>
@@ -706,6 +721,49 @@ public class WptTestRunner
         ["fetch/api/response/response-stream-disturbed-6.any.js"] = 5,
         ["fetch/api/response/response-stream-disturbed-by-pipe.any.js"] = 2,
         ["fetch/api/response/response-stream-with-broken-then.any.js"] = 6,
+        ["xhr/XMLHttpRequest-withCredentials.any.js"] = 5,
+        ["xhr/abort-after-receive.any.js"] = 1,
+        ["xhr/abort-after-send.any.js"] = 1,
+        ["xhr/abort-during-open.any.js"] = 1,
+        ["xhr/abort-during-readystatechange.any.js"] = 1,
+        ["xhr/abort-during-unsent.any.js"] = 1,
+        ["xhr/abort-during-upload.any.js"] = 1,
+        ["xhr/abort-event-abort.any.js"] = 1,
+        ["xhr/abort-event-listeners.any.js"] = 1,
+        ["xhr/abort-event-loadend.any.js"] = 1,
+        ["xhr/abort-progress-events.any.js"] = 2,
+        ["xhr/abort-upload-event-abort.any.js"] = 1,
+        ["xhr/abort-upload-event-loadend.any.js"] = 1,
+        ["xhr/abort-with-error.any.js"] = 1,
+        ["xhr/content-type-unmodified.any.js"] = 1,
+        ["xhr/event-abort.any.js"] = 1,
+        ["xhr/event-load.any.js"] = 1,
+        ["xhr/event-loadend.any.js"] = 1,
+        ["xhr/event-loadstart-upload.any.js"] = 1,
+        ["xhr/event-loadstart.any.js"] = 1,
+        ["xhr/event-progress.any.js"] = 1,
+        ["xhr/event-readystate-sync-open.any.js"] = 2,
+        ["xhr/event-readystatechange-loaded.any.js"] = 1,
+        ["xhr/event-timeout-order.any.js"] = 1,
+        ["xhr/event-timeout.any.js"] = 1,
+        ["xhr/getresponseheader.any.js"] = 6,
+        ["xhr/over-1-meg.any.js"] = 1,
+        ["xhr/overridemimetype-done-state.any.js"] = 1,
+        ["xhr/overridemimetype-unsent-state-force-shiftjis.any.js"] = 1,
+        ["xhr/request-content-length.any.js"] = 2,
+        ["xhr/response-body-errors.any.js"] = 2,
+        ["xhr/responsetype.any.js"] = 50,
+        ["xhr/responseurl-after-abort.any.js"] = 5,
+        ["xhr/send-data-arraybuffer.any.js"] = 1,
+        ["xhr/send-data-arraybufferview.any.js"] = 1,
+        ["xhr/send-data-es-object.any.js"] = 11,
+        ["xhr/send-data-formdata.any.js"] = 1,
+        ["xhr/send-data-string-invalid-unicode.any.js"] = 9,
+        ["xhr/send-send.any.js"] = 1,
+        ["xhr/send-usp.any.js"] = 135,
+        ["xhr/sync-no-progress.any.js"] = 1,
+        ["xhr/sync-no-timeout.any.js"] = 1,
+
     };
 
     /// <summary>
@@ -1137,18 +1195,46 @@ public class WptTestRunner
         new("fetch/api/redirect/redirect-empty-location.any.js",
             "redirect response with empty Location, manual mode", WptDivergence.NeedsOpaqueRedirect),
 
-        // Both header-values files run their whole table twice, once through XMLHttpRequest and once through
-        // fetch. Only the fetch half is about anything Jint has; the driver's XHR is a corpus reader and says
-        // so — see WptDivergence.NeedsXmlHttpRequest.
-        new("fetch/api/headers/header-values.any.js", "XMLHttpRequest with *", WptDivergence.NeedsXmlHttpRequest),
-        new("fetch/api/headers/header-values-normalize.any.js", "XMLHttpRequest with *", WptDivergence.NeedsXmlHttpRequest),
 
-        // The two rows the .NET HTTP stack does not carry rather than the engine getting wrong: a header
+        // The three rows the .NET HTTP stack does not carry rather than the engine getting wrong: a header
         // value with a byte above ASCII. WptServerTests.AHeaderValueAboveAsciiDoesNotSurviveTheHttpStack is
-        // the evidence, measured with no engine in the picture.
+        // the evidence, measured with no engine in the picture. The XMLHttpRequest row is the same table run
+        // a second way — the file sends every value through setRequestHeader as well as through fetch — and
+        // it began to fail the moment the server lane got the shipped interface instead of the shim's
+        // corpus reader, which is what retired this file's two NeedsXmlHttpRequest rows.
         new("fetch/api/headers/header-values.any.js", "fetch() with all valid values", WptDivergence.NeedsPermissiveHeaderTransport),
+        new("fetch/api/headers/header-values.any.js", "XMLHttpRequest with all valid values", WptDivergence.NeedsPermissiveHeaderTransport),
         new("fetch/api/basic/request-headers-nonascii.any.js",
             "Non-ascii bytes in request headers", WptDivergence.NeedsPermissiveHeaderTransport),
+
+        // ---- xhr/ ----
+
+        // Six rows of one file, all the same rule: `open(…, false)` then a `responseType` is an
+        // InvalidAccessError only "if the current global object is a Window object", and this one is not.
+        // Named one by one rather than globbed, because the seventh row of that same shape — the one that
+        // assigns "nosuchtype" — passes: WebIDL discards a value the enumeration does not name before the
+        // setter runs, so there is nothing left to refuse. The file's other thirty-six rows pass too.
+        new("xhr/responsetype.any.js", "Set responseType to \"\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+        new("xhr/responsetype.any.js", "Set responseType to \"json\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+        new("xhr/responsetype.any.js", "Set responseType to \"document\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+        new("xhr/responsetype.any.js", "Set responseType to \"arraybuffer\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+        new("xhr/responsetype.any.js", "Set responseType to \"blob\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+        new("xhr/responsetype.any.js", "Set responseType to \"text\" when readyState is OPENED and the sync flag is set.", WptDivergence.NeedsWindowGlobal),
+
+        // One row of two: it builds a Document to send, and there is no document to build one from. The
+        // file's point — that send() stringifies an ordinary object — is the row that passes.
+        new("xhr/send-data-es-object.any.js", "object whose toString() returns a document, expected to throw",
+            WptDivergence.NeedsWindowGlobal),
+
+        // One row of two: the other asserts the Content-Length an upload sets, and passes.
+        new("xhr/request-content-length.any.js", "Fetched blob: URLs set the Content-Length header",
+            WptDivergence.NeedsBlobUrls),
+
+        // The file's one test decodes a Shift_JIS body, which is one of the seven encodings the label
+        // table names and refuses.
+        new("xhr/overridemimetype-unsent-state-force-shiftjis.any.js",
+            "XMLHttpRequest: overrideMimeType() in unsent state, enforcing Shift-JIS encoding",
+            WptDivergence.NeedsLegacyMultiByteEncodings),
 
         // Ten rows of text-utf8.any.js build a Request from the empty string to get at Request.text(); the
         // ten that go through fetch and read a real response pass.
@@ -1359,6 +1445,8 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> FetchResponseSuiteFiles() => Cases("fetch/api/response");
 
+    public static IEnumerable<object[]> XhrSuiteFiles() => Cases("xhr");
+
     [TestCaseSource(nameof(UrlSuiteFiles))]
     public void RunsTheUrlSuite(string file) => RunSuiteFile(file);
 
@@ -1472,6 +1560,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(FetchResponseSuiteFiles))]
     public void RunsTheFetchResponseSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(XhrSuiteFiles))]
+    public void RunsTheXhrSuite(string file) => RunSuiteFile(file);
 
     [TestCaseSource(nameof(FetchRequestSuiteFiles))]
     public void RunsTheFetchRequestSuite(string file) => RunSuiteFile(file);
@@ -1748,10 +1839,12 @@ public class WptTestRunner
             }
         }
 
-        // Every server-backed file must be one a theory reaches, which for these is the fetch group.
+        // Every server-backed file must be one a theory reaches, which for these is the fetch group and the
+        // xhr one — the second arrived whole, because every file in it opens a URL.
         foreach (var file in named)
         {
-            file.Should().StartWith("fetch/api/", "the server lane exists for the fetch corpus");
+            (file.StartsWith("fetch/api/", StringComparison.Ordinal) || file.StartsWith("xhr/", StringComparison.Ordinal))
+                .Should().BeTrue($"{file} is in the server lane, which exists for the fetch and xhr corpora");
         }
     }
 

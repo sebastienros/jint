@@ -297,7 +297,7 @@ internal enum WptDivergence
     /// server</b>. <see cref="WptServer"/> now stands in for wptserve, but only for the files
     /// <c>WptHarness._serverBackedFiles</c> names: every other engine the driver builds still has no
     /// <c>fetch</c> at all, and the shim's <c>XMLHttpRequest</c> is a reader over the vendored tree on every
-    /// lane there is (<see cref="NeedsXmlHttpRequest"/> is the category for a row that wants the real one).
+    /// lane that has no server; the server lane itself carries the shipped <c>XMLHttpRequest</c>.
     /// Whole files whose every test does this are not vendored; these entries are the rows
     /// that sit inside a file which is otherwise about something else — the <c>(XMLHttpRequest)</c> half of
     /// <c>encoding/single-byte-decoder.any.js</c>, whose <c>(TextDecoder)</c> half tests the same decoders and
@@ -342,17 +342,6 @@ internal enum WptDivergence
     /// </summary>
     NeedsBrowserRequestModel,
 
-    /// <summary>
-    /// The test reaches for a real <c>XMLHttpRequest</c>, which Jint does not implement and the driver does
-    /// not pretend to: the shim's is a synchronous GET reader over the vendored corpus and refuses anything
-    /// else by name, deliberately, so that a row asking for one fails saying what it wanted rather than
-    /// hanging or quietly passing against a stub. The two <c>fetch/api/headers/header-values*</c> files are
-    /// where this shows up in bulk — each runs its whole table of header values twice, once through
-    /// <c>XMLHttpRequest.setRequestHeader</c> and once through <c>fetch</c>, and only the second half is
-    /// about anything Jint has. <see cref="NeedsWptServer"/> is the neighbouring category and a different
-    /// fact: that one is a row wanting a <i>server</i> from a lane that has none.
-    /// </summary>
-    NeedsXmlHttpRequest,
 
     /// <summary>
     /// <para>
@@ -405,6 +394,25 @@ internal enum WptDivergence
     /// guards themselves are tracked, so the two objects the standard makes immutable really are.
     /// </summary>
     NeedsForbiddenHeaderNames,
+
+    /// <summary>
+    /// The test asserts a rule the standard applies <b>only when the global object is a <c>Window</c></b>, or
+    /// reaches for that window's <c>document</c>. Jint's global is neither: it is in the position a worker is
+    /// in, where the same standard allows the opposite. Six rows of <c>xhr/responsetype.any.js</c> are the
+    /// bulk of it — <c>open(…, false)</c> followed by a <c>responseType</c> is an <c>InvalidAccessError</c> in
+    /// a window and legal in a worker — and one row of <c>xhr/send-data-es-object.any.js</c> builds a
+    /// <c>Document</c> to send. The harness cannot say which of the two a Jint engine is, because it is
+    /// honestly neither: <c>GLOBAL.isWindow()</c> and <c>GLOBAL.isWorker()</c> both answer false, so a file
+    /// that branches on them takes the window arm.
+    /// </summary>
+    NeedsWindowGlobal,
+
+    /// <summary>
+    /// The test fetches a <c>blob:</c> URL, which needs <c>URL.createObjectURL</c> and the per-engine blob
+    /// store behind it. Neither exists yet; the File API surface Jint has stops at <c>Blob</c>,
+    /// <c>File</c> and <c>FormData</c>.
+    /// </summary>
+    NeedsBlobUrls,
 
     /// <summary>
     /// The test clones an <c>ImageBitmap</c> or an <c>OffscreenCanvas</c>. Both are browser graphics objects

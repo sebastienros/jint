@@ -53,6 +53,75 @@ internal sealed class MimeType
     }
 
     /// <summary>
+    /// Sets the parameter named <paramref name="name"/>, which must already be lowercased, replacing any
+    /// value it already had.
+    /// </summary>
+    /// <remarks>
+    /// The one mutation the record allows, and it exists for one algorithm: <c>XMLHttpRequest</c>'s
+    /// <c>send()</c> rewrites an author <c>Content-Type</c> whose charset is not UTF-8 —
+    /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send step 5.
+    /// </remarks>
+    internal void SetParameter(string name, string value)
+    {
+        for (var i = 0; i < _parameters.Count; i++)
+        {
+            if (string.Equals(_parameters[i].Key, name, StringComparison.Ordinal))
+            {
+                _parameters[i] = new KeyValuePair<string, string>(name, value);
+                return;
+            }
+        }
+
+        _parameters.Add(new KeyValuePair<string, string>(name, value));
+    }
+
+    /// <summary>
+    /// Serialize a MIME type, https://mimesniff.spec.whatwg.org/#serializing-a-mime-type — the essence
+    /// followed by each parameter, quoting a value that is not an HTTP token.
+    /// </summary>
+    internal string Serialize()
+    {
+        if (_parameters.Count == 0)
+        {
+            return Essence;
+        }
+
+        var builder = new System.Text.StringBuilder(Essence);
+        foreach (var parameter in _parameters)
+        {
+            builder.Append(';').Append(parameter.Key).Append('=');
+
+            var value = parameter.Value;
+            if (IsToken(value))
+            {
+                builder.Append(value);
+                continue;
+            }
+
+            builder.Append('"');
+            foreach (var c in value)
+            {
+                if (c is '"' or '\\')
+                {
+                    builder.Append('\\');
+                }
+
+                builder.Append(c);
+            }
+
+            builder.Append('"');
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Whether every code point is an RFC 9110 <c>tchar</c> and the value is non-empty, which is what
+    /// decides between the bare and the quoted serialization of a parameter value.
+    /// </summary>
+    private static bool IsToken(string value) => HeaderList.IsName(value);
+
+    /// <summary>
     /// Parse a MIME type, https://mimesniff.spec.whatwg.org/#parsing-a-mime-type — <see langword="null"/> is
     /// the specification's failure.
     /// </summary>

@@ -137,6 +137,31 @@ internal sealed class HeaderList
     internal void Append(string name, string value) => _entries.Add(new HeaderEntry(Lowercase(name), value));
 
     /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-header-list-combine — set the value of the first header
+    /// with this name to its own value, U+002C (,), U+0020 (SP) and the new one, or append a header when
+    /// the list holds none.
+    /// </summary>
+    /// <remarks>
+    /// The one algorithm <c>append</c> is not: it is what <c>XMLHttpRequest</c>'s <c>setRequestHeader</c>
+    /// does, so calling that twice with one name sends a single joined header rather than two.
+    /// </remarks>
+    internal void Combine(string name, string value)
+    {
+        var lowered = Lowercase(name);
+
+        for (var i = 0; i < _entries.Count; i++)
+        {
+            if (string.Equals(_entries[i].LowerName, lowered, StringComparison.Ordinal))
+            {
+                _entries[i] = new HeaderEntry(lowered, _entries[i].Value + ", " + value);
+                return;
+            }
+        }
+
+        _entries.Add(new HeaderEntry(lowered, value));
+    }
+
+    /// <summary>
     /// https://fetch.spec.whatwg.org/#concept-header-list-contains
     /// </summary>
     internal bool Contains(string name)

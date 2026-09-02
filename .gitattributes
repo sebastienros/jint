@@ -9,6 +9,11 @@ Jint.Tests.Test262/** linguist-vendored
 # Verify snapshot files must use LF line endings on all platforms.
 # Verify (31.21.0+) rejects carriage returns in verified files, which otherwise
 # break on Windows checkouts where autocrlf converts LF to CRLF.
+# The vendored .asis files are whole HTTP responses, byte for byte as upstream stores them — LF line
+# endings included. A Windows checkout that rewrote them would change what the driver puts on the wire, so
+# they are not text as far as git is concerned; WptServer normalizes the framing when it serves one.
+Jint.Tests/Wpt/Vendor/**/*.asis -text
+
 *.verified.cs text eol=lf
 *.verified.txt text eol=lf
 *.received.cs text eol=lf
