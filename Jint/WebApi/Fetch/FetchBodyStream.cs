@@ -67,6 +67,13 @@ internal sealed class FetchBodyStream : IDisposable
     private readonly long _maxBytes;
 
     /// <summary>
+    /// The host's observer for this request, or <see langword="null"/> when there is none. Every call to it
+    /// is made from the read loop, on a thread pool thread, which is the contract a <c>FetchObserver</c> is
+    /// documented under.
+    /// </summary>
+    private readonly FetchObservation? _observation;
+
+    /// <summary>
     /// Released once per <c>pull</c>. Never more than one release is outstanding, because the standard's own
     /// <c>[[pulling]]</c> guard admits one pull at a time.
     /// </summary>
@@ -84,11 +91,12 @@ internal sealed class FetchBodyStream : IDisposable
     private PromiseCapability? _pull;
     private bool _finished;
 
-    internal FetchBodyStream(HttpResponseMessage message, Stream content, long maxBytes)
+    internal FetchBodyStream(HttpResponseMessage message, Stream content, long maxBytes, FetchObservation? observation = null)
     {
         _message = message;
         _content = content;
         _maxBytes = maxBytes;
+        _observation = observation;
     }
 
     /// <summary>
@@ -245,12 +253,14 @@ internal sealed class FetchBodyStream : IDisposable
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    _observation?.Failed("Reading the response body failed: " + ex.Message, ex);
                     Post(null, new FetchFailureException(FetchFailureKind.Network, "Reading the response body failed: " + ex.Message, ex));
                     return;
                 }
 
                 if (read == 0)
                 {
+                    _observation?.Completed(_total);
                     Post(null, null);
                     return;
                 }
@@ -260,11 +270,15 @@ internal sealed class FetchBodyStream : IDisposable
                 _total += read;
                 if (_total > _maxBytes)
                 {
-                    Post(null, new FetchFailureException(
-                        FetchFailureKind.ResponseTooLarge,
-                        $"The response body exceeded the {_maxBytes} byte limit set by Options.WebApi.Fetch.MaxResponseBytes."));
+                    var message = $"The response body exceeded the {_maxBytes} byte limit set by Options.WebApi.Fetch.MaxResponseBytes.";
+                    _observation?.Failed(message, null);
+                    Post(null, new FetchFailureException(FetchFailureKind.ResponseTooLarge, message));
                     return;
                 }
+
+                // The observer sees the chunk before the engine does, and sees it as a window onto the
+                // pooled buffer: one that keeps the bytes copies them, which is what its contract says.
+                _observation?.Data(buffer.AsSpan(0, read));
 
                 Post(buffer.AsSpan(0, read).ToArray(), null);
             }
@@ -272,7 +286,10 @@ internal sealed class FetchBodyStream : IDisposable
         catch (OperationCanceledException)
         {
             // The stream was cancelled, the request aborted, the deadline blown or the engine's cycle ended.
-            // Each of those has already settled the engine half; there is nothing to report back.
+            // Each of those has already settled the engine half; there is nothing to report back — except to
+            // the observer, for which this is the only notice that the body ended early. The fetch promise
+            // resolved when the headers arrived, so nothing else is left to tell it.
+            _observation?.Failed("The response body was not read to its end.", null);
         }
         finally
         {

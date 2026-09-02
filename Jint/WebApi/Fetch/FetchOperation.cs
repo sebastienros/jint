@@ -73,6 +73,13 @@ internal sealed class FetchOperation
     private readonly TimeSpan _timeout;
 
     /// <summary>
+    /// The host's observer for this request, or <see langword="null"/> when it set none. Held here as well
+    /// as passed to the transport, because the failures this class classifies — an abort, a blown deadline,
+    /// an abandoned evaluation cycle — are ones the transport never sees as failures of its own.
+    /// </summary>
+    private readonly FetchObservation? _observation;
+
+    /// <summary>
     /// When the deadline started, so that the body half of the request can be given what is left of it. The
     /// documented contract is that <c>Options.WebApi.Fetch.Timeout</c> bounds the whole call "from the call
     /// to the last byte of the body", and the body no longer shares the header phase's token source.
@@ -94,7 +101,7 @@ internal sealed class FetchOperation
     /// </summary>
     private FetchRequestBodyStream? _requestBody;
 
-    private FetchOperation(Engine engine, Realm realm, PromiseCapability capability, JsAbortSignal signal, TimeSpan timeout)
+    private FetchOperation(Engine engine, Realm realm, PromiseCapability capability, JsAbortSignal signal, TimeSpan timeout, FetchObservation? observation)
     {
         _engine = engine;
         _realm = realm;
@@ -102,6 +109,7 @@ internal sealed class FetchOperation
         _registration = engine.CaptureEventLoopRegistration();
         _timeout = timeout;
         _signal = signal;
+        _observation = observation;
 
         _signalToken = signal.CancellationToken;
         _engineToken = engine.Constraints.Find<CancellationConstraint>()?.Token ?? CancellationToken.None;
@@ -143,15 +151,21 @@ internal sealed class FetchOperation
             return capability.PromiseInstance;
         }
 
+        var options = state.FetchOptions!;
+        var network = state.FetchNetwork;
+
+        // Created before the first thing that can refuse the request, so that every refusal is reported — a
+        // request the transport never sees still reaches OnFailed, with no OnRequest before it.
+        var observation = FetchObservation.Create(network.Observer, FetchInitiator.Script);
+
         // Step 6: an already-aborted signal ends the fetch before anything is sent, with the signal's own
         // reason — https://fetch.spec.whatwg.org/#abort-fetch.
         if (request.Signal.Aborted)
         {
+            observation?.Failed("The request was aborted before it was sent.", null);
             capability.Reject(request.Signal.Reason);
             return capability.PromiseInstance;
         }
-
-        var options = state.FetchOptions!;
 
         var urlFilter = options.UrlFilter;
         if (urlFilter is null)
@@ -165,6 +179,9 @@ internal sealed class FetchOperation
             UrlFilter = urlFilter,
             MaxResponseBytes = options.MaxResponseBytes,
             MaxRedirects = options.MaxRedirects,
+            Origin = network.Origin,
+            SameOriginReference = network.SameOriginReference,
+            CookieJar = network.CookieJar,
         };
 
         // The first hop's policy check runs here, on the engine thread, so a refused URL never reaches a
@@ -172,12 +189,14 @@ internal sealed class FetchOperation
         if (!policy.Allows(request.Url, out _))
         {
             var denial = new FetchFailureException(FetchFailureKind.PolicyDenied, $"The fetch policy refused '{request.Url.Serialize()}'.");
+            observation?.Failed(denial.Message, denial);
             capability.Reject(NetworkError(realm, denial));
             return capability.PromiseInstance;
         }
 
         if (state.ActiveFetchCount >= options.MaxConcurrentRequests)
         {
+            observation?.Failed($"The engine already has {options.MaxConcurrentRequests} requests in flight.", null);
             // Not a specified failure mode — the standard assumes a browser's connection manager — but an
             // engine embedded in a server cannot let a script hold sockets without bound. Rejecting rather
             // than queueing is the honest answer: a queue would turn a burst into an unbounded backlog.
@@ -200,12 +219,22 @@ internal sealed class FetchOperation
         {
             // A host HttpClientFactory that threw. Its failure belongs to the fetch, not to the statement
             // that happened to call it.
+            observation?.Failed("The HttpClient factory failed: " + ex.Message, ex);
             capability.Reject(NetworkError(realm, ex));
             return capability.PromiseInstance;
         }
 
-        var operation = new FetchOperation(engine, realm, capability, request.Signal, options.Timeout);
+        var operation = new FetchOperation(engine, realm, capability, request.Signal, options.Timeout, observation);
         state.RegisterFetch(operation);
+
+        // https://fetch.spec.whatwg.org/#concept-request-referrer: "client" is resolved here, on the engine
+        // thread, because it names a setting the transport is not allowed to read.
+        var referrer = request.ReferrerSource switch
+        {
+            FetchReferrerSource.NoReferrer => null,
+            FetchReferrerSource.Url => request.ReferrerUrl,
+            _ => network.Referrer,
+        };
 
         FetchRequestSnapshot Snapshot(ReadOnlyMemory<byte>? body, HttpContent? content = null) => new()
         {
@@ -215,6 +244,9 @@ internal sealed class FetchOperation
             Body = body,
             BodyContent = content,
             Redirect = request.Redirect,
+            Credentials = request.Credentials,
+            Referrer = referrer,
+            ReferrerPolicy = request.ReferrerPolicy ?? network.ReferrerPolicy,
         };
 
         // A request body given as a ReadableStream has no bytes to snapshot: it is streamed to the wire as
@@ -225,6 +257,7 @@ internal sealed class FetchOperation
             if (request.IsUnusable)
             {
                 state.UnregisterFetch(operation);
+                observation?.Failed("The request body has already been consumed.", null);
                 operation.RejectBeforeSending(realm.Intrinsics.TypeError.Construct("Body has already been consumed"));
                 return capability.PromiseInstance;
             }
@@ -287,7 +320,7 @@ internal sealed class FetchOperation
         Task<FetchResponseSnapshot> task;
         try
         {
-            task = FetchTransport.SendAsync(client, snapshot, policy, _cancellation.Token);
+            task = FetchTransport.SendAsync(client, snapshot, policy, _cancellation.Token, _observation);
         }
         catch (Exception ex)
         {
@@ -333,18 +366,21 @@ internal sealed class FetchOperation
             // constraint, and the constraint is what must not become a rejection.
             if (_engineToken.IsCancellationRequested)
             {
+                _observation?.Failed("The engine's execution was cancelled.", null);
                 Enqueue(null);
                 return;
             }
 
             if (_signalToken.IsCancellationRequested)
             {
+                _observation?.Failed("The request was aborted.", null);
                 Enqueue(RejectWithAbortReason);
                 return;
             }
 
             // Neither token fired, so either the deadline did or the engine abandoned the request at a
             // global-snapshot restore — and the restore's own generation fence discards the job below.
+            _observation?.Failed($"The request exceeded the {_timeout} timeout set by Options.WebApi.Fetch.Timeout.", null);
             Enqueue(RejectWithTimeout);
             return;
         }
@@ -352,6 +388,7 @@ internal sealed class FetchOperation
         if (task.IsFaulted)
         {
             var failure = Unwrap(task.Exception);
+            _observation?.Failed(failure.Message, failure);
             Enqueue(() => RejectWithNetworkError(failure));
             return;
         }
@@ -532,6 +569,8 @@ internal sealed class FetchOperation
     internal void Abandon()
     {
         Interlocked.Exchange(ref _settled, 1);
+
+        _observation?.Failed("The engine's globals were restored while the request was in flight.", null);
 
         try
         {

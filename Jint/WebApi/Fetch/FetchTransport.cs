@@ -75,6 +75,21 @@ internal sealed class FetchRequestSnapshot
 
     /// <summary>One of <c>follow</c>, <c>error</c> or <c>manual</c>.</summary>
     internal required string Redirect { get; init; }
+
+    /// <summary>
+    /// One of <c>omit</c>, <c>same-origin</c> or <c>include</c> — how far the host's cookie jar may be
+    /// consulted for this request. Defaults to the mode a bare <c>new Request()</c> has.
+    /// </summary>
+    internal string Credentials { get; init; } = JsRequest.CredentialsSameOrigin;
+
+    /// <summary>
+    /// The referrer this request starts from, already resolved through "client" to
+    /// <c>Options.WebApi.Fetch.Referrer</c>, or <see langword="null"/> for no referrer at all.
+    /// </summary>
+    internal UrlRecord? Referrer { get; init; }
+
+    /// <summary>The policy that decides how much of <see cref="Referrer"/> each hop discloses.</summary>
+    internal ReferrerPolicy ReferrerPolicy { get; init; } = ReferrerPolicy.StrictOriginWhenCrossOrigin;
 }
 
 /// <summary>
@@ -90,6 +105,21 @@ internal sealed class FetchPolicy
     internal required long MaxResponseBytes { get; init; }
 
     internal required int MaxRedirects { get; init; }
+
+    /// <summary>
+    /// The URL <c>Options.WebApi.Fetch.Origin</c> named, kept for its origin alone, or
+    /// <see langword="null"/> when no <c>Origin</c> header is to be sent.
+    /// </summary>
+    internal UrlRecord? Origin { get; init; }
+
+    /// <summary>
+    /// What a <c>same-origin</c> credentials mode compares a hop against — the configured origin, or the
+    /// base URL's, or nothing.
+    /// </summary>
+    internal UrlRecord? SameOriginReference { get; init; }
+
+    /// <summary>The host's cookie store, or <see langword="null"/> when it granted none.</summary>
+    internal CookieJar? CookieJar { get; init; }
 
     /// <summary>
     /// The whole check one hop passes: the scheme list, the <see cref="Uri"/> grammar and the host's filter.
@@ -157,7 +187,16 @@ internal sealed class FetchExchange : IDisposable
     /// <summary>The URL that produced this response, i.e. the last hop of the redirect chain.</summary>
     internal required UrlRecord Url { get; init; }
 
+    /// <summary>
+    /// The same URL as a <see cref="Uri"/>, which is what the host-facing cookie jar and observer are given
+    /// and what the policy check already had to produce.
+    /// </summary>
+    internal required Uri RequestUri { get; init; }
+
     internal required bool Redirected { get; init; }
+
+    /// <summary>Whether a <see cref="FetchObserver"/> answered this hop instead of the network.</summary>
+    internal bool FromInterception { get; init; }
 
     public void Dispose() => Response.Dispose();
 }
@@ -291,13 +330,14 @@ internal static class FetchTransport
         HttpClient client,
         FetchRequestSnapshot request,
         FetchPolicy policy,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FetchObservation? observation = null)
     {
-        var exchange = await SendForStreamAsync(client, request, policy, cancellationToken).ConfigureAwait(false);
+        var exchange = await SendForStreamAsync(client, request, policy, cancellationToken, observation).ConfigureAwait(false);
         var handedOver = false;
         try
         {
-            var snapshot = await BeginResponseAsync(exchange.Response, exchange.Method, exchange.Url, exchange.Redirected, policy, cancellationToken).ConfigureAwait(false);
+            var snapshot = await BeginResponseAsync(exchange, policy, observation, cancellationToken).ConfigureAwait(false);
             handedOver = snapshot.Body is not null;
             return snapshot;
         }
@@ -325,7 +365,8 @@ internal static class FetchTransport
         HttpClient client,
         FetchRequestSnapshot request,
         FetchPolicy policy,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        FetchObservation? observation = null)
     {
         var url = request.Url;
         var method = request.Method;
@@ -334,6 +375,12 @@ internal static class FetchTransport
         var headers = new List<HeaderEntry>(request.Headers);
         AppendDefaultAccept(headers);
         var redirectCount = 0;
+
+        // https://fetch.spec.whatwg.org/#concept-main-fetch step 6 is re-run per hop, because a redirect
+        // re-enters main fetch: what a hop discloses is computed from what the previous hop settled on, so a
+        // policy that has already narrowed the referrer to an origin never widens it again.
+        var referrer = request.Referrer;
+        ObservedFetchResponse? redirectResponse = null;
 
         while (true)
         {
@@ -346,10 +393,68 @@ internal static class FetchTransport
                 throw new FetchFailureException(FetchFailureKind.PolicyDenied, $"The fetch policy refused '{url.Serialize()}'.");
             }
 
+            // The headers the engine appends for this hop and this hop alone. They are recomputed against the
+            // hop's own URL rather than carried forward, which is what makes a cross-origin redirect narrow
+            // the Referer, re-decide the Origin, and ask the jar for the new host's cookies instead.
+            var effective = new List<HeaderEntry>(headers);
+            var computedReferrer = Append(effective, request, policy, referrer, url, uri, method);
+
+            if (observation is not null)
+            {
+                var interception = await Observe(observation, request, effective, method, uri, body, content, redirectCount, redirectResponse, cancellationToken).ConfigureAwait(false);
+                if (interception is not null)
+                {
+                    if (interception.Kind == FetchInterceptionKind.Fail)
+                    {
+                        throw new FetchFailureException(FetchFailureKind.PolicyDenied, interception.Reason ?? "A fetch observer failed the request.");
+                    }
+
+                    if (interception.Kind == FetchInterceptionKind.Fulfill)
+                    {
+                        return Fulfil(interception, method, url, uri, redirectCount);
+                    }
+
+                    // Continue: the rewrites apply to the hop that was answered, and the next hop is computed
+                    // from the request as it was — a redirect is offered to the observer again.
+                    if (interception.Method is { } rewrittenMethod)
+                    {
+                        method = rewrittenMethod;
+                    }
+
+                    if (interception.Headers is { } rewrittenHeaders)
+                    {
+                        effective.Clear();
+                        foreach (var header in rewrittenHeaders)
+                        {
+                            effective.Add(new HeaderEntry(HeaderList.Lowercase(header.Name), header.Value));
+                        }
+                    }
+
+                    if (interception.HasBody)
+                    {
+                        body = interception.Body;
+                        content = null;
+                    }
+
+                    if (interception.Url is { } rewrittenUrl)
+                    {
+                        // Re-checked exactly as a redirect target is: an observer decides what a request
+                        // says, never where the host's own policy lets it go.
+                        var parsed = UrlParser.Parse(rewrittenUrl.AbsoluteUri);
+                        if (parsed is null || !policy.Allows(parsed, out uri))
+                        {
+                            throw new FetchFailureException(FetchFailureKind.PolicyDenied, $"The fetch policy refused '{rewrittenUrl}'.");
+                        }
+
+                        url = parsed;
+                    }
+                }
+            }
+
             HttpResponseMessage response;
             try
             {
-                using var message = BuildRequest(method, uri, headers, body, content);
+                using var message = BuildRequest(method, uri, effective, body, content);
                 response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
@@ -362,6 +467,10 @@ internal static class FetchTransport
             var handedOver = false;
             try
             {
+                // Every response stores its cookies, a redirect's included: a login that answers 302 with a
+                // Set-Cookie is the shape this exists for.
+                StoreCookies(request, policy, url, uri, response);
+
                 // https://fetch.spec.whatwg.org/#concept-http-fetch step 6, the three redirect modes. "manual"
                 // is Node's reading of it: the redirect response itself is handed to the script, Location and
                 // all, rather than a browser's opaque-redirect filtered response — which exists to hide a
@@ -371,7 +480,7 @@ internal static class FetchTransport
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0 };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -385,7 +494,15 @@ internal static class FetchTransport
                 if (location is null)
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0 };
+                }
+
+                // The redirect reaches the observer before the hop it causes does, and again on that hop's
+                // own snapshot, so a protocol layer can pair the two without holding state of its own.
+                if (observation is not null)
+                {
+                    redirectResponse = Observed(observation, response, uri, isRedirect: true, fromInterception: false);
+                    observation.Response(redirectResponse);
                 }
 
                 // https://fetch.spec.whatwg.org/#http-redirect-fetch step 12: "If internalResponse's status
@@ -407,6 +524,10 @@ internal static class FetchTransport
                 }
 
                 Rewrite(status, ref method, ref body, ref content, headers, url, location);
+
+                // "Set request's referrer to the result of invoking determine request's referrer" — the value
+                // this hop computed becomes the next hop's source, which is what makes the narrowing stick.
+                referrer = computedReferrer is null ? null : UrlParser.Parse(computedReferrer);
                 url = location;
             }
             finally
@@ -417,6 +538,247 @@ internal static class FetchTransport
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The three headers the engine adds for one hop — <c>Referer</c>, <c>Origin</c> and <c>Cookie</c> —
+    /// answering the referrer it computed so the next hop can start from it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Each is appended only when the script did not set one itself.</b> The Fetch Standard appends all
+    /// three unconditionally, because its forbidden request-header list has already stopped a script setting
+    /// them; this implementation deliberately does not enforce that list (see <see cref="HeadersGuard"/>), so
+    /// appending unconditionally would send two of the same header instead of honouring the script's.
+    /// </para>
+    /// <para>
+    /// A cookie jar that throws is not caught here: a host store that fails is reported as the fetch's
+    /// failure, with the exception on the error value, rather than silently sending no cookies.
+    /// </para>
+    /// </remarks>
+    private static string? Append(
+        List<HeaderEntry> headers,
+        FetchRequestSnapshot request,
+        FetchPolicy policy,
+        UrlRecord? referrer,
+        UrlRecord url,
+        Uri uri,
+        string method)
+    {
+        var computed = FetchReferrer.Determine(referrer, url, request.ReferrerPolicy);
+        if (computed is not null && !Contains(headers, "referer"))
+        {
+            headers.Add(new HeaderEntry("referer", computed));
+        }
+
+        var origin = FetchReferrer.DetermineOrigin(policy.Origin, url, method, request.ReferrerPolicy);
+        if (origin is not null && !Contains(headers, "origin"))
+        {
+            headers.Add(new HeaderEntry("origin", origin));
+        }
+
+        if (policy.CookieJar is { } jar && CredentialsAllow(request.Credentials, policy, url) && !Contains(headers, "cookie"))
+        {
+            var cookies = jar.GetCookieHeader(uri);
+            if (!string.IsNullOrEmpty(cookies))
+            {
+                headers.Add(new HeaderEntry("cookie", cookies!));
+            }
+        }
+
+        return computed;
+    }
+
+    private static bool Contains(List<HeaderEntry> headers, string lowerName)
+    {
+        foreach (var header in headers)
+        {
+            if (string.Equals(header.LowerName, lowerName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Hands every <c>Set-Cookie</c> a hop answered to the host's jar, under the same credentials rule that
+    /// decides whether one is sent.
+    /// </summary>
+    private static void StoreCookies(FetchRequestSnapshot request, FetchPolicy policy, UrlRecord url, Uri uri, HttpResponseMessage response)
+    {
+        if (policy.CookieJar is not { } jar || !CredentialsAllow(request.Credentials, policy, url))
+        {
+            return;
+        }
+
+        if (!response.Headers.TryGetValues(HeaderList.SetCookieName, out var values))
+        {
+            return;
+        }
+
+        var list = new List<string>();
+        foreach (var value in values)
+        {
+            list.Add(value);
+        }
+
+        if (list.Count != 0)
+        {
+            jar.StoreResponseCookies(uri, list);
+        }
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#concept-request-credentials-mode, as far as it can be answered without
+    /// an origin: <c>same-origin</c> needs one, and an engine whose host named none sends no cookies for it.
+    /// </summary>
+    private static bool CredentialsAllow(string credentials, FetchPolicy policy, UrlRecord url)
+    {
+        if (string.Equals(credentials, JsRequest.CredentialsOmit, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(credentials, JsRequest.CredentialsInclude, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (policy.SameOriginReference is not { } reference)
+        {
+            return false;
+        }
+
+        var origin = url.SerializeOrigin();
+        return !string.Equals(origin, "null", StringComparison.Ordinal)
+            && string.Equals(origin, reference.SerializeOrigin(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Asks the observer about one hop. A throw is turned into a network failure rather than swallowed: this
+    /// is the one callback that was asked to decide, and a decision that failed cannot mean "continue".
+    /// </summary>
+    private static async Task<FetchInterception?> Observe(
+        FetchObservation observation,
+        FetchRequestSnapshot request,
+        List<HeaderEntry> headers,
+        string method,
+        Uri uri,
+        ReadOnlyMemory<byte>? body,
+        HttpContent? content,
+        int redirectCount,
+        ObservedFetchResponse? redirectResponse,
+        CancellationToken cancellationToken)
+    {
+        var preview = ReadOnlyMemory<byte>.Empty;
+        if (body is { } bytes && observation.RequestBodyPreviewBytes > 0)
+        {
+            preview = bytes.Length <= observation.RequestBodyPreviewBytes
+                ? bytes.ToArray()
+                : bytes.Slice(0, observation.RequestBodyPreviewBytes).ToArray();
+        }
+
+        var snapshot = new ObservedFetchRequest
+        {
+            Id = observation.Id,
+            Initiator = observation.Initiator,
+            Url = uri,
+            Method = method,
+            Headers = ToFetchHeaders(headers),
+            HasBody = body is not null || content is not null,
+            BodyPreview = preview,
+            RedirectCount = redirectCount,
+            RedirectResponse = redirectResponse,
+        };
+
+        try
+        {
+            return await observation.RequestAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not FetchFailureException)
+        {
+            throw new FetchFailureException(FetchFailureKind.Network, "A fetch observer failed to answer the request: " + ex.Message, ex);
+        }
+    }
+
+    private static List<FetchHeader> ToFetchHeaders(List<HeaderEntry> headers)
+    {
+        var result = new List<FetchHeader>(headers.Count);
+        foreach (var header in headers)
+        {
+            result.Add(new FetchHeader(header.LowerName, header.Value));
+        }
+
+        return result;
+    }
+
+    private static ObservedFetchResponse Observed(
+        FetchObservation observation,
+        HttpResponseMessage response,
+        Uri uri,
+        bool isRedirect,
+        bool fromInterception)
+    {
+        var headers = new List<HeaderEntry>();
+        Collect(headers, response.Headers);
+        Collect(headers, response.Content.Headers);
+
+        return new ObservedFetchResponse
+        {
+            Id = observation.Id,
+            Url = uri,
+            Status = (int) response.StatusCode,
+            StatusText = response.ReasonPhrase ?? string.Empty,
+            Headers = ToFetchHeaders(headers),
+            FromInterception = fromInterception,
+            IsRedirect = isRedirect,
+        };
+    }
+
+    /// <summary>
+    /// Builds the response an observer answered a hop with, so that everything downstream — the body stream,
+    /// the size cap, the <c>Response</c> object — is the same code a network answer goes through.
+    /// </summary>
+    /// <remarks>
+    /// A fulfilled response ends the chain whatever its status: the redirect loop follows what the network
+    /// said, and an observer that wants a redirect followed answers the hop after it too.
+    /// </remarks>
+    private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount)
+    {
+        var response = new HttpResponseMessage((System.Net.HttpStatusCode) interception.Status)
+        {
+            Content = new ReadOnlyMemoryContent(interception.Body),
+        };
+
+        if (interception.StatusText is { } statusText)
+        {
+            response.ReasonPhrase = statusText;
+        }
+
+        response.Content.Headers.ContentType = null;
+
+        if (interception.Headers is { } headers)
+        {
+            foreach (var header in headers)
+            {
+                if (!response.Headers.TryAddWithoutValidation(header.Name, header.Value))
+                {
+                    response.Content.Headers.TryAddWithoutValidation(header.Name, header.Value);
+                }
+            }
+        }
+
+        return new FetchExchange
+        {
+            Response = response,
+            Method = method,
+            Url = url,
+            RequestUri = uri,
+            Redirected = redirectCount > 0,
+            FromInterception = true,
+        };
     }
 
     /// <summary>
@@ -671,13 +1033,15 @@ internal static class FetchTransport
     /// </para>
     /// </remarks>
     private static async Task<FetchResponseSnapshot> BeginResponseAsync(
-        HttpResponseMessage response,
-        string method,
-        UrlRecord url,
-        bool redirected,
+        FetchExchange exchange,
         FetchPolicy policy,
+        FetchObservation? observation,
         CancellationToken cancellationToken)
     {
+        var response = exchange.Response;
+        var method = exchange.Method;
+        var url = exchange.Url;
+
         // Read before the headers are collected, and not only for the cap below: a response a host's own
         // handler built in memory computes its length on first access and only then carries the header, so
         // this read is also what puts Content-Length in the list.
@@ -688,6 +1052,19 @@ internal static class FetchTransport
         Collect(headers, response.Content.Headers);
 
         var status = (int) response.StatusCode;
+
+        // The final response reaches the observer here rather than in the loop, so that what it is told is
+        // the header list the Response object will carry — the two collections already merged into one.
+        observation?.Response(new ObservedFetchResponse
+        {
+            Id = observation.Id,
+            Url = exchange.RequestUri,
+            Status = status,
+            StatusText = response.ReasonPhrase ?? string.Empty,
+            Headers = ToFetchHeaders(headers),
+            FromInterception = exchange.FromInterception,
+            IsRedirect = false,
+        });
 
         // https://fetch.spec.whatwg.org/#concept-main-fetch step 22: "If response is not a network error and
         // either request's method is `HEAD` or `CONNECT`, or internalResponse's status is a null body status,
@@ -720,7 +1097,13 @@ internal static class FetchTransport
 
             // From here the connection belongs to the body stream: the caller sees a non-null body and stops
             // disposing the message underneath it.
-            body = new FetchBodyStream(response, content, policy.MaxResponseBytes);
+            body = new FetchBodyStream(response, content, policy.MaxResponseBytes, observation);
+        }
+        else
+        {
+            // Nothing will ever be read, so the request is over here: a 204 and a HEAD complete with a body
+            // length of zero rather than waiting for bytes that are not coming.
+            observation?.Completed(0);
         }
 
         return new FetchResponseSnapshot
@@ -730,7 +1113,7 @@ internal static class FetchTransport
             Headers = headers,
             Body = body,
             Url = url.Serialize(excludeFragment: true),
-            Redirected = redirected,
+            Redirected = exchange.Redirected,
         };
     }
 

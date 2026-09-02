@@ -374,6 +374,14 @@ internal sealed class WebApiEngineState
     internal Options.FetchOptions? FetchOptions { get; private set; }
 
     /// <summary>
+    /// The base URL, referrer, origin, cookie jar and observer of <see cref="FetchOptions"/>, parsed once and
+    /// rebuilt whenever those settings are attached or re-pointed.
+    /// </summary>
+    internal FetchNetworkContext FetchNetwork => _fetchNetwork ??= FetchNetworkContext.From(FetchOptions);
+
+    private FetchNetworkContext? _fetchNetwork;
+
+    /// <summary>
     /// Where the <c>caches</c> object keeps what a script stored, or <see langword="null"/> when the Cache
     /// API is off. Resolved once, when the engine is built — either the host's provider or a private
     /// in-memory one — so two engines built from one shared <see cref="Options"/> do not share a cache
@@ -601,6 +609,7 @@ internal sealed class WebApiEngineState
     {
         Debug.Assert(FetchOptions is null, "the network settings must never be replaced on a live engine");
         FetchOptions = fetchOptions;
+        _fetchNetwork = null;
     }
 
     /// <summary>
@@ -616,6 +625,7 @@ internal sealed class WebApiEngineState
     {
         Debug.Assert(FetchOptions is not null, "there is nothing to re-point before the settings are attached");
         FetchOptions = fetchOptions;
+        _fetchNetwork = null;
     }
 
     /// <inheritdoc cref="AttachTimers" />
