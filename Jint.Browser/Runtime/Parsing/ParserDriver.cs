@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Acornima;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -404,17 +405,26 @@ internal sealed class ParserDriver : IDisposable
         }
 
         string text;
+        string source;
         string location;
+        var line = 1;
 
         if (external)
         {
             text = Read(response, element);
-            location = response.Address?.Href ?? element.Source!;
+            source = response.Address?.Href ?? element.Source!;
+            location = source;
         }
         else
         {
+            // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception: an inline script's
+            // *filename* is the document's URL, so that is what the engine is given as the source name, and
+            // the line the script starts on is a parsing offset rather than part of the name. The page's own
+            // error recorder still gets the `url:line` string it always did, which is the one a host reads.
             text = element.Text ?? "";
-            location = _url + ":" + LineOf(element, text);
+            source = _url;
+            line = LineOf(element, text);
+            location = _url + ":" + line;
         }
 
         if (string.IsNullOrWhiteSpace(text))
@@ -425,6 +435,17 @@ internal sealed class ParserDriver : IDisposable
             }
 
             return;
+        }
+
+        // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes: a handler
+        // content attribute becomes the handler when the attribute is *set*, which for `<body onerror>` is
+        // when the body element is parsed — before this script and before any listener it could add. The
+        // body's handlers are the window's, so nothing else would build that wrapper; doing it here is what
+        // lets `<body onerror>` hear an exception from a script that follows it in the document. After the
+        // first script it is one lookup in the wrapper cache.
+        if (element.Owner is { } owner)
+        {
+            Events.EventHandlerContentAttributes.InstallBodyHandlers(_runtime.Dom, owner);
         }
 
         var previous = _runtime.CurrentScript;
@@ -441,13 +462,15 @@ internal sealed class ParserDriver : IDisposable
             // each script is bounded and a document is not failed for containing many. See PageBudget.
             using (_runtime.Budget.BeginTurn())
             {
-                _runtime.Engine.Execute(text, location);
+                _runtime.Engine.Execute(text, source, ParsingFrom(line));
             }
         }
         catch (JavaScriptException exception)
         {
-            // HTML's "report the exception" step: the script ends, the parse goes on, and the page is told.
-            Report(PageErrorKind.ScriptError, PageRecorder.Diagnostics.Describe(exception.Error, exception), location);
+            // HTML's "report the exception" step, both halves: the `error` event at the global scope, which
+            // is what `window.onerror` and `<body onerror>` hear, and then the page's own recorder. The
+            // script ends and the parse goes on either way.
+            ReportException(exception, location);
         }
         catch (Exception exception) when (PageBudget.IsBudgetFailure(exception))
         {
@@ -808,6 +831,75 @@ internal sealed class ParserDriver : IDisposable
         IHtmlLinkElement link => "a <link rel=\"" + (link.Relation ?? "") + "\"> is not fetched: only a stylesheet is",
         _ => source.LocalName + " resources are not fetched: there is no rendering to need them",
     };
+
+    /// <summary>
+    /// The parsing options an inline script gets: the engine's own, plus the position in the document its
+    /// text begins at, so a syntax error and a stack frame both name a line of the <i>document</i>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>window-onerror-parse-error.html</c> is what asks for this by name — it asserts line 34, which is
+    /// the line of the document its unparsable <c>&lt;script&gt;</c> sits on. The column is deliberately not
+    /// offset: AngleSharp exposes the parser's index just past the closing tag and not the index the text
+    /// began at, so the only honest column is the one within the script's own line.
+    /// </para>
+    /// <para>
+    /// A script on line 1 takes the engine's cached default parser instead, because an offset of nothing is
+    /// what <c>Execute(text, source)</c> already does and building a parser per script is not free.
+    /// </para>
+    /// </remarks>
+    private ScriptParsingOptions? ParsingFrom(int line)
+    {
+        if (line <= 1)
+        {
+            return null;
+        }
+
+        var defaults = _runtime.Engine.Options.RetainFunctionSourceText
+            ? ScriptParsingOptions.RetainingDefault
+            : ScriptParsingOptions.Default;
+
+        return defaults with { SourceOffset = Position.From(line, 0) };
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception, for an exception that
+    /// escaped a script this driver ran.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Step 5 before step 6.</b> The <c>error</c> event fires at the global scope first — that is what
+    /// reaches <c>window.onerror</c>, a global <c>error</c> listener and <c>&lt;body onerror&gt;</c>, and it
+    /// is a no-op on a page whose script registered none of them — and only then is the page's recorder told.
+    /// The order is observable: a handler that reads <c>page.Errors</c> through a host binding sees the entry
+    /// added after it ran, not before.
+    /// </para>
+    /// <para>
+    /// It runs a listener, so it takes a turn of its own for the reason each script does: a page whose
+    /// <c>onerror</c> loops is bounded by its own budget and not by what is left of the enclosing document's.
+    /// A budget it exhausts becomes a page error rather than ending the load, which is the same promise
+    /// <c>Execute</c> makes for the script that failed in the first place.
+    /// </para>
+    /// </remarks>
+    private void ReportException(JavaScriptException exception, string location)
+    {
+        try
+        {
+            using (_runtime.Budget.BeginTurn())
+            {
+                _runtime.Engine._webApi?.FireGlobalErrorEvent(exception);
+            }
+        }
+        catch (Exception nested) when (nested is not OperationCanceledException)
+        {
+            Report(
+                PageBudget.IsBudgetFailure(nested) ? PageErrorKind.BudgetExceeded : PageErrorKind.ScriptError,
+                nested.Message,
+                location);
+        }
+
+        Report(PageErrorKind.ScriptError, PageRecorder.Diagnostics.Describe(exception.Error, exception), location);
+    }
 
     private void Report(PageErrorKind kind, string message, string source)
         => _runtime.Recorder.Add(new PageError(kind, message, source));

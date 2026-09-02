@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Acornima.Ast;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
@@ -6,6 +7,8 @@ using Jint.Native;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.Runtime.Environments;
+using Jint.Runtime.Interpreter;
 using Jint.WebApi;
 using Jint.WebApi.Events;
 
@@ -114,6 +117,8 @@ internal static class EventHandlerContentAttributes
 
     private static readonly HashSet<string> _bodyHandlerLookup = new(BodyHandlersOwnedByTheWindow, StringComparer.Ordinal);
 
+    private static readonly HashSet<string> _elementHandlerLookup = BuildElementHandlerLookup();
+
     private static readonly HashSet<string> _handlerLookup = BuildHandlerLookup();
 
     /// <summary>
@@ -126,10 +131,27 @@ internal static class EventHandlerContentAttributes
     /// </remarks>
     internal static bool IsHandlerType(string type) => _handlerLookup.Contains(type);
 
-    private static HashSet<string> BuildHandlerLookup()
+    /// <summary>
+    /// The same question for an <b>element</b>, which is a smaller set: <c>onreadystatechange</c> and
+    /// <c>onvisibilitychange</c> are a <c>Document</c>'s IDL attributes and content attributes of nothing.
+    /// </summary>
+    /// <remarks>
+    /// <c>&lt;div onreadystatechange="…"&gt;</c> is an ordinary attribute, which
+    /// <c>event-handler-non-content-document-idl-attributes.html</c> checks by dispatching the event and
+    /// asserting nothing ran.
+    /// </remarks>
+    private static bool IsElementHandlerType(string type) => _elementHandlerLookup.Contains(type);
+
+    private static HashSet<string> BuildElementHandlerLookup()
     {
         var names = new HashSet<string>(ElementHandlers, StringComparer.Ordinal);
         names.UnionWith(BodyHandlersOwnedByTheWindow);
+        return names;
+    }
+
+    private static HashSet<string> BuildHandlerLookup()
+    {
+        var names = new HashSet<string>(_elementHandlerLookup, StringComparer.Ordinal);
         names.Add("readystatechange");
         names.Add("visibilitychange");
         return names;
@@ -151,7 +173,7 @@ internal static class EventHandlerContentAttributes
         foreach (var attribute in element.Attributes)
         {
             var name = attribute.Name;
-            if (name.Length > 2 && name[0] == 'o' && name[1] == 'n' && IsHandlerType(name.Substring(2)))
+            if (name.Length > 2 && name[0] == 'o' && name[1] == 'n' && IsElementHandlerType(name.Substring(2)))
             {
                 Reconcile(wrapper, name.Substring(2));
             }
@@ -193,8 +215,9 @@ internal static class EventHandlerContentAttributes
         }
 
         // A document carries no content attributes, so its handler slot has only the IDL half; the null here
-        // removes a handler the markup no longer declares, and for a document there never was one.
-        var attribute = element?.GetAttribute("on" + type);
+        // removes a handler the markup no longer declares, and for a document there never was one. An
+        // element's attribute is read only for a type an element can carry it for.
+        var attribute = element is not null && IsElementHandlerType(type) ? element.GetAttribute("on" + type) : null;
         var sources = _sources.GetOrCreateValue(target);
         var known = sources.TryGetLast(type, out var last);
 
@@ -217,20 +240,35 @@ internal static class EventHandlerContentAttributes
             return target;
         }
 
-        // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes — setting the
-        // attribute sets the handler to an internal raw uncompiled handler, and removing it sets the handler to
-        // null. Either way whatever was there, compiled or assigned by script, is replaced.
-        if (target.FindEventHandler(type) is { } existing)
-        {
-            target.RemoveListener(existing);
-        }
+        // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes — setting
+        // the attribute sets the handler to an internal raw uncompiled handler, and removing it sets the
+        // handler to null. Either way whatever was there, compiled or assigned by script, is replaced.
+        var existing = target.FindEventHandler(type);
 
         if (attribute is null)
         {
+            // "Deactivate an event handler": the handler is null, so the listener goes with it.
+            if (existing is not null)
+            {
+                target.RemoveListener(existing);
+            }
+
             return target;
         }
 
-        target.AddListener(new EventListenerRegistration(type, new UncompiledHandler(wrapper, target, type, attribute))
+        var handler = new UncompiledHandler(wrapper, target, type, attribute);
+
+        // **In place**, because an event handler's position in the listener list is fixed when the handler is
+        // first activated and a later value does not move it. Removing and re-adding would put every handler
+        // a page rewrites after the listeners registered since, which `inline-event-handler-ordering.html`
+        // measures by dispatching.
+        if (existing is not null)
+        {
+            existing.Callback = handler;
+            return target;
+        }
+
+        target.AddListener(new EventListenerRegistration(type, handler)
         {
             IsEventHandler = true,
         });
@@ -239,32 +277,83 @@ internal static class EventHandlerContentAttributes
     }
 
     /// <summary>
+    /// The one write of an attribute this package can see, and what makes a handler's <b>position</b> in the
+    /// listener list the one HTML gives it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// HTML activates an event handler when its content attribute is <i>set</i>, and the listener it creates
+    /// then keeps its place among the <c>addEventListener</c> listeners for ever. Reconciling only at a
+    /// dispatch or an IDL read would create it at the wrong moment — after every listener registered in
+    /// between — and no later reconciliation could recover the order.
+    /// </para>
+    /// <para>
+    /// It is reached from <c>DomHostHooks.SetAttribute</c> and <c>RemoveAttribute</c>, which is the seam the
+    /// override table already has for a member whose body this package owns. The two are the whole of what a
+    /// page uses; <c>setAttributeNS</c>, <c>toggleAttribute</c>, an <c>Attr</c>'s <c>value</c> and
+    /// <c>NamedNodeMap</c> write to the same attribute without passing here, and a handler written that way
+    /// is still reconciled at the next dispatch or IDL read — it merely takes its position then.
+    /// </para>
+    /// </remarks>
+    internal static void AttributeChanged(DomRealm realm, IElement element, string name)
+    {
+        if (name.Length <= 2 || (name[0] | 0x20) != 'o' || (name[1] | 0x20) != 'n')
+        {
+            return;
+        }
+
+        var type = name.Substring(2).ToLowerInvariant();
+        if (!IsElementHandlerType(type))
+        {
+            return;
+        }
+
+        if (realm.WrapNode(element) is DomNodeObject wrapper)
+        {
+            Reconcile(wrapper, type);
+        }
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes — the getter, which
     /// compiles the content attribute if that is what the slot still holds.
     /// </summary>
     internal static JsValue Get(DomNodeObject wrapper, string type)
+        => CurrentValue(Reconcile(wrapper, type), type);
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+    /// over a target whose content attribute has already been reconciled — or that has none, which is the
+    /// <b>window</b>'s case.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every read of an event handler IDL attribute goes through here, and that is the point: the compile-on-
+    /// read placeholder must never escape into script, and a <c>&lt;body onload&gt;</c> is read through
+    /// <c>window.onload</c> as often as through <c>body.onload</c>. Reading it as
+    /// <c>function onload() { [native code] }</c> is what <c>Body-FrameSet-Event-Handlers.html</c> caught.
+    /// </para>
+    /// <para>
+    /// A body that does not parse sets the handler to null and <b>leaves the registration where it is</b>:
+    /// HTML fixes an event handler's position in the listener list when the handler is first set, and a null
+    /// callback is skipped rather than removed. Removing it instead would move a later handler up, which
+    /// <c>inline-event-handler-ordering.html</c> measures by dispatching.
+    /// </para>
+    /// </remarks>
+    internal static JsValue CurrentValue(JsEventTarget? target, string type)
     {
-        var target = Reconcile(wrapper, type);
         if (target?.FindEventHandler(type) is not { } registration)
         {
             return JsValue.Null;
         }
 
-        if (registration.Callback is UncompiledHandler uncompiled)
+        if (registration.Callback is not UncompiledHandler uncompiled)
         {
-            // "Get the current value of the event handler" compiles on read, so el.onclick answers the
-            // function object rather than the placeholder — and answers null when the body would not parse.
-            var compiled = uncompiled.Compile();
-            if (compiled is null)
-            {
-                target.RemoveListener(registration);
-                return JsValue.Null;
-            }
-
-            registration.Callback = compiled;
-            return compiled;
+            return registration.Callback;
         }
 
+        var compiled = uncompiled.Compile();
+        registration.Callback = compiled is null ? JsValue.Null : compiled;
         return registration.Callback;
     }
 
@@ -366,20 +455,27 @@ internal static class EventHandlerContentAttributes
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The scope is HTML's, emulated the way every implementation emulates it: the body runs inside
-        /// <c>with (document) { with (this) { … } }</c>, so an unqualified name resolves against the document
-        /// and then against the element before it reaches the global — which is what lets
-        /// <c>&lt;a onclick="return false"&gt;</c> and <c>&lt;input onchange="form.submit()"&gt;</c> work.
+        /// <b>The function is exactly the one HTML describes</b>: named for the attribute, taking one
+        /// parameter called <c>event</c> — five for a <c>Window</c>'s <c>error</c> handler — and with the
+        /// attribute's text as its body between two newlines. That is observable, because
+        /// <c>toString()</c> of it is, and the source text is parsed as such rather than assembled by
+        /// <c>Function</c>'s constructor.
         /// </para>
         /// <para>
-        /// <b>One level of HTML's scope is missing</b>: the form owner, which HTML puts between the document
-        /// and the element for a form-associated element. A handler naming a sibling control by its <c>name</c>
-        /// without going through <c>this.form</c> resolves here where a browser resolves it there.
+        /// <b>The scope chain is the function's, not its body's</b>, which is the half that cannot be
+        /// emulated with a <c>with</c> statement inside the source. HTML's chain is the realm's global
+        /// environment, then an object environment over the node document, then one over the form owner, then
+        /// one over the element — each with the <i>withEnvironment</i> flag, so <c>Symbol.unscopables</c>
+        /// applies to every one of them. Putting that inside the body instead would make the objects shadow
+        /// the function's own <b>parameters</b>: a <c>&lt;body onerror&gt;</c> whose first parameter is named
+        /// <c>event</c> would read <c>window.event</c> rather than the message, which is precisely what
+        /// <c>body-onerror-runtime-error.html</c> catches.
         /// </para>
         /// <para>
-        /// The function is built through <c>Function</c>'s own constructor rather than by evaluating source,
-        /// so the compilation is not a nested script execution and cannot re-arm the engine's per-entry
-        /// constraints. Its body is sloppy-mode, which is what makes <c>with</c> legal.
+        /// Nothing here executes a script. The parse goes through the engine's own parser, so the host's
+        /// parsing limits apply, and the function object is created directly — so the compilation is still
+        /// not a nested script execution and still cannot re-arm the engine's per-entry constraints. The body
+        /// is sloppy-mode, which is what lets an unqualified name reach the object environments at all.
         /// </para>
         /// </remarks>
         internal ObjectInstance? Compile()
@@ -392,31 +488,157 @@ internal static class EventHandlerContentAttributes
             var engine = _wrapper.Engine;
             var realm = _wrapper.DomRealm.PrincipalRealm;
 
+            // "If scripting is disabled for eventTarget, then return null." A document this package did not
+            // load — a `DOMParser` result, `createHTMLDocument`, `new Document()` — has a browsing context
+            // with no scripting service, so its handler attributes are text and nothing else. It is not a
+            // failure: nothing is reported and the slot is untouched, so the attribute compiles if the node
+            // is ever adopted into a document that does script.
+            if (!IsScriptingEnabled())
+            {
+                return null;
+            }
+
             try
             {
                 // HTML's special error event handling: a window `onerror` takes five parameters rather than
                 // the event. Everything else, including an element's own `onerror`, takes the event.
                 var parameters = _target.IsGlobalScope && string.Equals(_handlerType, "error", StringComparison.Ordinal)
-                    ? new JsValue[]
-                    {
-                        JsString.Create("event"), JsString.Create("source"), JsString.Create("lineno"),
-                        JsString.Create("colno"), JsString.Create("error"),
-                        JsString.Create("with (document) { with (this) { " + _body + "\n} }"),
-                    }
-                    : [JsString.Create("event"), JsString.Create("with (document) { with (this) { " + _body + "\n} }")];
+                    ? "event, source, lineno, colno, error"
+                    : "event";
 
-                return realm.Intrinsics.Function.Construct(parameters, realm.Intrinsics.Function);
+                var sourceText = "function on" + _handlerType + "(" + parameters + ") {\n" + _body + "\n}";
+
+                // Retained deliberately and per handler, whatever the engine's own setting: `toString()` of a
+                // handler is what HTML specifies, and the text is one attribute long.
+                var parser = engine.GetParserFor(ScriptParsingOptions.RetainingDefault);
+                var script = parser.ParseScriptGuarded(realm, sourceText, source: SourceName(), strict: false);
+
+                if (script.Body.Count != 1 || script.Body[0] is not FunctionDeclaration declaration)
+                {
+                    return Failed(engine, null);
+                }
+
+                var definition = new JintFunctionDefinition(declaration);
+                return realm.Intrinsics.Function.OrdinaryFunctionCreate(
+                    realm.Intrinsics.Function.PrototypeObject,
+                    definition,
+                    definition.ThisMode,
+                    ScopeChain(engine, realm),
+                    privateScope: null);
             }
             catch (JavaScriptException exception)
             {
-                // HTML: a body that does not parse reports the error and leaves the handler null. Reported
-                // through the same sink an uncaught listener error uses, so a page runtime sees it as a page
-                // error rather than losing it.
-                _failed = true;
+                return Failed(engine, exception);
+            }
+        }
+
+        /// <summary>
+        /// The document's URL, so that an exception escaping the handler is reported against the document the
+        /// attribute is in — which is what HTML's <c>filename</c> is for an inline handler.
+        /// </summary>
+        private string SourceName() => _wrapper.Node.Owner?.Url ?? "";
+
+        /// <summary>
+        /// https://html.spec.whatwg.org/multipage/webappapis.html#concept-n-noscript — whether scripting is
+        /// enabled for the node's document.
+        /// </summary>
+        /// <remarks>
+        /// The page's own document is the only one with a browsing context that scripts; every other document
+        /// an engine here can reach was parsed by <c>DOMParser</c>, built by <c>createHTMLDocument</c> or
+        /// constructed outright, and each of those gets a context with no scripting service on purpose. A
+        /// binding installed with no page runtime behind it has no such distinction to make — the host handed
+        /// the binding its document — so it answers true.
+        /// </remarks>
+        private bool IsScriptingEnabled()
+        {
+            if (Runtime.PageRuntime.Find(_wrapper.Engine) is not { } runtime)
+            {
+                return true;
+            }
+
+            var document = _wrapper.Node as IDocument ?? _wrapper.Node.Owner;
+            return ReferenceEquals(document, runtime.Document);
+        }
+
+        /// <summary>
+        /// https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler
+        /// steps 10 and 11 — the environments an unqualified name in the body resolves through, outermost
+        /// first: the global environment, the node document, the form owner and the element.
+        /// </summary>
+        private Jint.Runtime.Environments.Environment ScopeChain(Engine engine, Realm realm)
+        {
+            Jint.Runtime.Environments.Environment scope = realm.GlobalEnv;
+            var dom = _wrapper.DomRealm;
+
+            if (_wrapper.Node is not IElement element)
+            {
+                // A document's own handler: the document is the target, so it is the only object environment.
+                return _wrapper.Node is IDocument document
+                    ? Wrap(engine, dom.WrapNode(document), scope)
+                    : scope;
+            }
+
+            if (element.Owner is { } owner)
+            {
+                scope = Wrap(engine, dom.WrapNode(owner), scope);
+            }
+
+            if (FormOwner(element) is { } form)
+            {
+                scope = Wrap(engine, dom.WrapNode(form), scope);
+            }
+
+            return Wrap(engine, _wrapper, scope);
+        }
+
+        private static ObjectEnvironment Wrap(Engine engine, ObjectInstance binding, Jint.Runtime.Environments.Environment outer)
+            => JintEnvironment.NewObjectEnvironment(engine, binding, outer, provideThis: true, withEnvironment: true);
+
+        /// <summary>
+        /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#form-owner — the form the
+        /// <c>form</c> content attribute names when the element is connected, and otherwise the nearest
+        /// ancestor form.
+        /// </summary>
+        /// <remarks>
+        /// Computed rather than read off AngleSharp, whose <c>Form</c> property is declared separately on
+        /// each of the eight form-control interfaces and on no common one, so there is nothing to ask an
+        /// <c>IElement</c> for.
+        /// </remarks>
+        private static IHtmlFormElement? FormOwner(IElement element)
+        {
+            if (element.GetAttribute("form") is { Length: > 0 } id)
+            {
+                return element.Owner?.GetElementById(id) as IHtmlFormElement;
+            }
+
+            for (var current = element.ParentElement; current is not null; current = current.ParentElement)
+            {
+                if (current is IHtmlFormElement form)
+                {
+                    return form;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// HTML: a body that does not parse reports the error and leaves the handler null. Reporting is
+        /// <i>report an exception</i>, so it fires the global <c>error</c> event before it reaches the sink —
+        /// which is what lets <c>window.onerror</c> hear a syntax error in an <c>onclick</c> attribute.
+        /// </summary>
+        private ObjectInstance? Failed(Engine engine, JavaScriptException? exception)
+        {
+            _failed = true;
+
+            if (exception is not null)
+            {
+                engine._webApi?.FireGlobalErrorEvent(exception);
                 engine._webApi?.Diagnostics?.Report(
                     DiagnosticEvent.ForUncaughtCallbackError(exception, DiagnosticCallbackSource.EventListener));
-                return null;
             }
+
+            return null;
         }
     }
 }

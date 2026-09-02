@@ -67,6 +67,29 @@ internal class DomHostHooks
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml</summary>
     internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup) => element.OuterHtml = markup;
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-element-setattribute, hooked so that a handler content attribute a
+    /// script writes activates its handler <i>then</i> — which is what fixes the handler's position in the
+    /// element's listener list. See <c>Events.EventHandlerContentAttributes.AttributeChanged</c>.
+    /// </summary>
+    internal virtual void SetAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    {
+        var name = DomConvert.RequiredText(arguments, 0, "Element.setAttribute");
+        element.SetAttribute(name, DomConvert.RequiredText(arguments, 1, "Element.setAttribute"));
+        Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
+    }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-element-removeattribute, the other half: removing the attribute
+    /// deactivates the handler, and the listener goes with it.
+    /// </summary>
+    internal virtual void RemoveAttribute(DomRealm realm, IElement element, JsValue[] arguments)
+    {
+        var name = DomConvert.RequiredText(arguments, 0, "Element.removeAttribute");
+        element.RemoveAttribute(name);
+        Events.EventHandlerContentAttributes.AttributeChanged(realm, element, name);
+    }
+
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     internal virtual void InsertAdjacentHtml(DomRealm realm, IElement element, JsValue[] arguments)
     {

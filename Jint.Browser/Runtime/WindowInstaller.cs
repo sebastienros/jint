@@ -579,8 +579,14 @@ internal static class WindowInstaller
             _type = type;
         }
 
+        /// <summary>
+        /// Read through the content-attribute path rather than <c>EventHandlerAttributes</c>, because the
+        /// window's handler slot may hold a <c>&lt;body onload&gt;</c> that has not been compiled yet: the
+        /// compile-on-read placeholder must never reach script, whichever of the two names it is read
+        /// through.
+        /// </summary>
         internal JsValue Get(JsValue thisObject, JsValue[] arguments)
-            => EventHandlerAttributes.Get(WindowTargetOf(thisObject, "on" + _type, "read"), _type);
+            => EventHandlerContentAttributes.CurrentValue(WindowTargetOf(thisObject, "on" + _type, "read"), _type);
 
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
             => EventHandlerAttributes.Set(WindowTargetOf(thisObject, "on" + _type, "set"), _type, arguments.At(0));

@@ -168,7 +168,7 @@ internal static class WptBrowserExclusions
         ["dom/events/AddEventListenerOptions-once.any.html"] = 4,
         ["dom/events/AddEventListenerOptions-passive.any.html"] = 5,
         ["dom/events/AddEventListenerOptions-signal.any.html"] = 11,
-        ["dom/events/Body-FrameSet-Event-Handlers.html"] = 5,
+        ["dom/events/Body-FrameSet-Event-Handlers.html"] = 48,
         ["dom/events/CustomEvent.html"] = 3,
         ["dom/events/Event-cancelBubble.html"] = 8,
         ["dom/events/Event-constructors.any.html"] = 14,
@@ -293,66 +293,47 @@ internal static class WptBrowserExclusions
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
         new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
 
-        // ---------------------------------------------------------------- 3. a script's exception is not reported
-        // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. An exception escaping a
-        // classic `<script>` — a parse error, a runtime error, an external script's either — must be reported
-        // at the global scope, which fires `error` and reaches `window.onerror` and `<body onerror>`. Here it
-        // becomes a PageErrorKind.ScriptError on the page's recorder and nothing else: every one of these
-        // documents fails on `assert_true: ran expected true got false`. The engine fires that event for a
-        // timer callback, a listener and a microtask (GlobalEventTarget), so what is missing is the parser
-        // driver's own report and not the mechanism.
-        new("html/webappapis/scripting/processing-model-2/addEventListener.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 2. a `data:` URL subresource
+        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
+        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
+        // says here. The report site these documents are about works; what is missing is the scheme, and
+        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
         new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error.html", "*", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-body-onerror.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-window-onerror.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-parse-error.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-runtime-error.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-runtime-error-throw.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error.html", "<body onerror> - compile error in <script>", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-runtime-error.html", "<body onerror> - runtime error in <script>", WptDivergence.NeedsTriage),
 
-        // The same defect met through a handler *content attribute* rather than a <script>. The runtime half
-        // of it is reported — an exception escaping a compiled handler is an exception escaping a listener,
-        // which the engine already reports — so what these two rows say is narrower: the compile error is
-        // not reported at all, and the report the runtime error does make names no file, because the handler
-        // is compiled through `Function` and a dynamic function has no source URL.
-        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute (column)", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 3. `script.src` does not reflect a URL
+        // HTML: the `src` IDL attribute of a `<script>` reflects the content attribute **as a URL**, so it
+        // answers the resolved absolute URL. AngleSharp's `IHtmlScriptElement.Source` answers the raw
+        // attribute value, so the four rows below compare the report's filename — which is correct, and
+        // absolute — against the unresolved string the document wrote. It is AngleSharp's divergence and it
+        // is recorded in `Jint.Browser/Dom/AGENTS.md`; working around it in the binding is the thing that
+        // file says not to do.
+        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin.html", "window.onerror - compile error in <script src=...>", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin.html", "window.onerror - runtime error in <script src=...>", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 5. the compiled handler is not HTML's
-        // https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler.
-        // The function a handler content attribute compiles to must be named for the attribute and have the
-        // attribute's text as its body: `function onclick(event) {\nfoo\n}`. It is
-        // `function anonymous(event\n) {\nwith (document) …`, which is the scope chain leaking into the
-        // source text. `event-handler-sourcetext` asserts the text; the unscopables and cancellation
-        // documents assert what the chain does; `-non-content-document-idl-attributes` asserts which members
-        // are handlers at all; `inline-event-handler-ordering` asserts that an invalid one keeps its slot;
-        // `-lexical-scopes-form-owner` asserts the form owner is in the chain (and needs custom elements for
-        // its fourth test); and `uncompiled_event_handler_with_scripting_disabled` asserts that a document
-        // with scripting disabled compiles none of them.
-        new("html/webappapis/scripting/events/event-handler-sourcetext.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/event-handler-non-content-document-idl-attributes.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/inline-event-handler-ordering.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 4. a DOM prototype has no @@unscopables
+        // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
+        // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
+        // among them — and this binding emits none, because AngleSharp's metadata does not say which members
+        // are unscopable. The three rows below never reach their subject: they *write* to
+        // `document[Symbol.unscopables]`, which is undefined here.
         new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/uncompiled_event_handler_with_scripting_disabled.html", "*", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- 4b. named access on the window
+        // `compile-event-handler-lexical-scopes-form-owner.html` reaches its own `<form id=form>` as the bare
+        // identifier `form`, which is HTML's named access on the Window object — the eleventh defect this
+        // corpus found. Its subject, the form owner in a handler's scope chain, is implemented; the file
+        // cannot say so until the name resolves. Its fourth row needs custom elements as well.
         new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 6. two names HTML gives a body and a frameset
-        // `<body>`'s handler attributes that HTML redirects to the Window are reflected as an object rather
-        // than a function, and `HTMLFrameSetElement` — which owns the other half of that table — is not an
-        // interface object at all.
-        new("dom/events/Body-FrameSet-Event-Handlers.html", "Forward HTMLBodyElement.onblur to Window", WptDivergence.NeedsTriage),
-        new("dom/events/Body-FrameSet-Event-Handlers.html", "Set HTMLFrameSetElement.onblur", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 5. a frame that runs script
+        // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window; a
+        // page here parses child frames and gives none of them an engine. It is the NeedsIframeScripting
+        // group below by cause, and is here only because the file is in another suite.
+        new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
         // ---------------------------------------------------------------- 7. the legacy init methods of the UI events
         // `initUIEvent`, `initMouseEvent` and `initKeyboardEvent`: deprecated, still in the UI Events
