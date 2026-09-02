@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>A headless browser on Jint</title>
+</head>
+<body>
+  <header>
+    <p>Jint</p>
+  </header>
+
+  <article>
+    <h1>A headless browser on Jint</h1>
+    <p>Jint already carries the web platform's <strong>non-DOM half</strong>. The only missing layer is
+      the <em>document</em>: parsing, the DOM, the CSSOM, and the runtime that ties them to a
+      <a href="/docs/window">Window</a>.</p>
+
+    <figure>
+      <img src="diagram.png" alt="The parser hands a baton to the page loop">
+      <figcaption>Figure 1: the parser baton.</figcaption>
+    </figure>
+
+    <h2>What v1 delivers</h2>
+    <ul>
+      <li>Full HTML5 parse, with <code>defer</code> and <code>async</code> scripts.</li>
+      <li>Generated DOM and CSSOM bindings.
+        <ul>
+          <li>One shape per interface.</li>
+          <li>One wrapper per node.</li>
+        </ul>
+      </li>
+      <li>Accessibility and markdown snapshots.</li>
+    </ul>
+
+    <h2>What it is not</h2>
+    <ol start="1">
+      <li>A renderer.</li>
+      <li>A rival DOM stack.</li>
+    </ol>
+
+    <blockquote>
+      <p>Jint should add value to AngleSharp without competing too much.</p>
+    </blockquote>
+
+    <h2>Running it</h2>
+    <pre><code class="language-bash">dotnet run --project Jint.Repl -c Release -- -f page.js -t 10</code></pre>
+
+    <table>
+      <caption>Comparison</caption>
+      <thead><tr><th scope="col">Engine</th><th scope="col">Memory</th><th scope="col">Wall</th></tr></thead>
+      <tbody>
+        <tr><td>Chromium</td><td>High</td><td>1x</td></tr>
+        <tr><td>Jint.Browser</td><td>Low</td><td>1.5-3x</td></tr>
+      </tbody>
+    </table>
+
+    <hr>
+
+    <dl>
+      <dt>Baton</dt>
+      <dd>The token that says which side may touch the DOM.</dd>
+      <dt>Census</dt>
+      <dd>The ceiling a conformance lane may not raise.</dd>
+    </dl>
+
+    <details open>
+      <summary>Read the design</summary>
+      <p>The whole design is in <a href="/docs/design">the design document</a>.</p>
+    </details>
+
+    <p>Send corrections<br>to the tracking issue.</p>
+    <p aria-hidden="true">Decorative footnote marker.</p>
+  </article>
+
+  <footer>
+    <p>&copy; 2026</p>
+  </footer>
+</body>
+</html>

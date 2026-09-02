@@ -1,0 +1,14 @@
+todos
+Mark all as complete
+Write the accessibility tree
+Render the page as markdown
+Ship the snapshot
+2 items left
+All
+Active
+Completed
+Clear completed
+
+Double-click a todo to edit it
+
+Created by the Jint campaign

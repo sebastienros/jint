@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Documentation</title>
+  <style>
+    .sr-only { position: absolute }
+    [aria-current="page"] { font-weight: 700 }
+    .collapsed > ul { display: none }
+  </style>
+</head>
+<body>
+  <a href="#content" class="sr-only">Skip to content</a>
+
+  <header>
+    <a href="/" aria-label="Jint home"><img src="logo.svg" alt=""></a>
+
+    <nav aria-label="Primary">
+      <ul>
+        <li><a href="/docs" aria-current="page">Docs</a></li>
+        <li><a href="/api">API</a></li>
+        <li>
+          <button aria-expanded="false" aria-controls="more-menu" aria-haspopup="menu">More</button>
+          <ul id="more-menu" hidden>
+            <li><a href="/blog">Blog</a></li>
+            <li><a href="/talks">Talks</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <form role="search" action="/search">
+      <label for="q">Search the docs</label>
+      <input id="q" type="search" placeholder="Type to search">
+      <button type="submit"><img src="search.svg" alt="Search"></button>
+    </form>
+  </header>
+
+  <nav aria-label="Section" class="collapsed">
+    <h2>On this page</h2>
+    <ul>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#use">Use</a></li>
+    </ul>
+  </nav>
+
+  <main id="content">
+    <h1>Documentation</h1>
+  </main>
+
+  <footer>
+    <nav aria-label="Legal">
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+  </footer>
+</body>
+</html>

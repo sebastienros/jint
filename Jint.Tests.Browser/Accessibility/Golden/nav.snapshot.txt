@@ -1,0 +1,24 @@
+- RootWebArea "Documentation":
+  - link "Skip to content"
+  - banner:
+    - link "Jint home"
+    - navigation "Primary":
+      - list:
+        - listitem:
+          - link "Docs"
+        - listitem:
+          - link "API"
+        - listitem:
+          - button "More"
+    - search:
+      - searchbox "Search the docs"
+      - button "Search":
+        - image "Search"
+  - navigation "Section":
+    - heading "On this page" [level=2]
+  - main:
+    - heading "Documentation" [level=1]
+  - contentinfo:
+    - navigation "Legal":
+      - link "Terms"
+      - link "Privacy"

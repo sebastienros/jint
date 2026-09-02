@@ -1,0 +1,39 @@
+Jint
+
+A headless browser on Jint
+
+Jint already carries the web platform's non-DOM half. The only missing layer is the document: parsing, the DOM, the CSSOM, and the runtime that ties them to a Window.
+
+Figure 1: the parser baton.
+What v1 delivers
+Full HTML5 parse, with defer and async scripts.
+Generated DOM and CSSOM bindings.
+One shape per interface.
+One wrapper per node.
+Accessibility and markdown snapshots.
+What it is not
+A renderer.
+A rival DOM stack.
+
+Jint should add value to AngleSharp without competing too much.
+
+Running it
+dotnet run --project Jint.Repl -c Release -- -f page.js -t 10
+Comparison
+Engine	Memory	Wall
+Chromium	High	1x
+Jint.Browser	Low	1.5-3x
+Baton
+The token that says which side may touch the DOM.
+Census
+The ceiling a conformance lane may not raise.
+Read the design
+
+The whole design is in the design document.
+
+Send corrections
+to the tracking issue.
+
+Decorative footnote marker.
+
+© 2026

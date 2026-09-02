@@ -1,0 +1,31 @@
+- RootWebArea "Jint • TodoMVC":
+  - sectionheader:
+    - heading "todos" [level=1]
+    - textbox "What needs to be done?"
+  - checkbox "Mark all as complete"
+  - list:
+    - listitem:
+      - checkbox "Write the accessibility tree" [checked]
+      - button "Delete Write the accessibility tree"
+    - listitem:
+      - checkbox "Render the page as markdown"
+      - button "Delete Render the page as markdown"
+    - listitem:
+      - checkbox "Ship the snapshot"
+      - button "Delete Ship the snapshot"
+  - sectionfooter:
+    - strong: 2
+    - text: items left
+    - list:
+      - listitem:
+        - link "All"
+      - listitem:
+        - link "Active"
+      - listitem:
+        - link "Completed"
+    - button "Clear completed"
+  - contentinfo:
+    - paragraph: Double-click a todo to edit it
+    - paragraph:
+      - text: Created by
+      - link "the Jint campaign"
