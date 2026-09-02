@@ -1444,15 +1444,10 @@ internal static class IntlUtilities
                 {
                     var part = parts[j];
 
-                    // ukey is exactly 2 chars, both alpha
-                    if (part.Length == 2 && char.IsLetter(part[0]) && char.IsLetter(part[1]) && currentKey == null && keywords.Count == 0 && attributes.Count == 0 && j == 1)
+                    // UnicodeExtension owns what a ukey looks like, so canonicalization and the readers the
+                    // formatters use cannot drift apart about where one keyword ends and the next begins.
+                    if (UnicodeExtension.IsKey(part.AsSpan()))
                     {
-                        // Could be first keyword key
-                        currentKey = part;
-                    }
-                    else if (part.Length == 2 && char.IsLetter(part[0]) && char.IsLetter(part[1]))
-                    {
-                        // This is a ukey
                         if (currentKey != null)
                         {
                             keywords.Add(new KeyValueParts { Key = currentKey, Values = currentValues });
@@ -1656,7 +1651,7 @@ internal static class IntlUtilities
             // c. If availableLocale is not undefined, return the Record { [[locale]]: availableLocale, [[extension]]: extension }.
             if (availableLocale != null)
             {
-                return new MatcherResult(availableLocale, ExtractUnicodeExtension(locale));
+                return new MatcherResult(availableLocale, UnicodeExtension.GetSequence(locale));
             }
         }
 
@@ -1761,62 +1756,7 @@ internal static class IntlUtilities
     /// <summary>
     /// Removes Unicode locale extension sequences from a language tag.
     /// </summary>
-    private static string RemoveUnicodeExtensions(string locale)
-    {
-        // Unicode extensions start with "-u-"
-        var extensionIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (extensionIndex == -1)
-        {
-            return locale;
-        }
-
-        // Find end of extension (next singleton or end of string)
-        var endIndex = locale.Length;
-        for (var i = extensionIndex + 3; i < locale.Length - 1; i++)
-        {
-            if (locale[i] == '-' && i + 2 < locale.Length && locale[i + 2] == '-')
-            {
-                // Found another singleton
-                endIndex = i;
-                break;
-            }
-        }
-
-        if (endIndex < locale.Length)
-        {
-#if NET8_0_OR_GREATER
-            return string.Concat(locale.AsSpan(0, extensionIndex), locale.AsSpan(endIndex));
-#else
-            return locale.Substring(0, extensionIndex) + locale.Substring(endIndex);
-#endif
-        }
-
-        return locale.Substring(0, extensionIndex);
-    }
-
-    /// <summary>
-    /// Extracts the Unicode extension from a locale tag.
-    /// </summary>
-    private static string? ExtractUnicodeExtension(string locale)
-    {
-        var extensionIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (extensionIndex == -1)
-        {
-            return null;
-        }
-
-        var endIndex = locale.Length;
-        for (var i = extensionIndex + 3; i < locale.Length - 1; i++)
-        {
-            if (locale[i] == '-' && i + 2 < locale.Length && locale[i + 2] == '-')
-            {
-                endIndex = i;
-                break;
-            }
-        }
-
-        return locale.Substring(extensionIndex + 1, endIndex - extensionIndex - 1);
-    }
+    private static string RemoveUnicodeExtensions(string locale) => UnicodeExtension.RemoveSequence(locale);
 
     /// <summary>
     /// Converts a BCP 47 language tag to a .NET CultureInfo.

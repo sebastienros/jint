@@ -591,11 +591,7 @@ public sealed class DefaultCldrProvider : ICldrProvider
         return locale.StartsWith("en", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string RemoveExtensions(string locale)
-    {
-        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        return uIndex >= 0 ? locale.Substring(0, uIndex) : locale;
-    }
+    private static string RemoveExtensions(string locale) => UnicodeExtension.RemoveSequence(locale);
 
     private static string GetUnitName(string unit, string style, bool plural)
     {

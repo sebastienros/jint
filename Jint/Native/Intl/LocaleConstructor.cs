@@ -617,14 +617,12 @@ internal sealed class LocaleConstructor : Constructor
                     // Unicode extension
                     index++;
 
-                    // First, collect any attributes (3-8 alphanumeric parts before any 2-char key)
-                    while (index < parts.Length && parts[index].Length >= 3 && parts[index].Length <= 8 && parts[index].Length != 1)
+                    // First, collect any attributes (3-8 alphanumeric parts before any key)
+                    while (index < parts.Length
+                           && !UnicodeExtension.IsKey(parts[index].AsSpan())
+                           && parts[index].Length >= 3
+                           && parts[index].Length <= 8)
                     {
-                        // If this is a 2-char part, it's a key, not an attribute
-                        if (parts[index].Length == 2)
-                        {
-                            break;
-                        }
                         result.Attributes.Add(parts[index].ToLowerInvariant());
                         index++;
                     }
@@ -632,8 +630,9 @@ internal sealed class LocaleConstructor : Constructor
                     // Then process key-value pairs
                     while (index < parts.Length && parts[index].Length != 1)
                     {
-                        // Keys are exactly 2 characters
-                        if (parts[index].Length != 2)
+                        // UnicodeExtension owns what a key looks like, so this parser and the readers the
+                        // formatters use cannot drift apart about where one keyword ends and the next begins.
+                        if (!UnicodeExtension.IsKey(parts[index].AsSpan()))
                         {
                             // Unexpected format - skip
                             index++;

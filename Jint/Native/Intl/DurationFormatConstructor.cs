@@ -77,7 +77,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         string? extensionNu = null;
         if (requestedLocales.Count > 0)
         {
-            extensionNu = ParseNumberingSystemExtension(requestedLocales[0]);
+            extensionNu = UnicodeExtension.GetKeywordValue(requestedLocales[0], "nu");
         }
 
         // Resolve numbering system: option overrides extension; validate both
@@ -87,7 +87,7 @@ internal sealed partial class DurationFormatConstructor : Constructor
         var resolvedLocale = resolved.Locale;
         if (extensionNu != null && string.Equals(numberingSystem, extensionNu, StringComparison.Ordinal))
         {
-            resolvedLocale = resolved.Locale + "-u-nu-" + numberingSystem;
+            resolvedLocale = UnicodeExtension.WithKeyword(resolved.Locale, "nu", numberingSystem);
         }
 
         // Determine base style based on overall style (for date units)
@@ -289,30 +289,11 @@ internal sealed partial class DurationFormatConstructor : Constructor
         return IntlUtilities.CanonicalizeUValue("nu", stringValue);
     }
 
-    private static string? ParseNumberingSystemExtension(string locale)
-    {
-        // Only search for -u- before the private-use section (-x-)
-        var xIndex = locale.IndexOf("-x-", StringComparison.OrdinalIgnoreCase);
-        var searchRange = xIndex >= 0 ? locale.Substring(0, xIndex) : locale;
-        var uIndex = searchRange.IndexOf("-u-", StringComparison.Ordinal);
-        if (uIndex < 0)
-        {
-            return null;
-        }
-
-        var extensionContent = xIndex >= 0 ? locale.Substring(uIndex + 3, xIndex - uIndex - 3) : locale.Substring(uIndex + 3);
-        var parts = extensionContent.Split('-');
-        for (var i = 0; i < parts.Length; i++)
-        {
-            if (string.Equals(parts[i], "nu", StringComparison.Ordinal) && i + 1 < parts.Length && parts[i + 1].Length >= 3)
-            {
-                return parts[i + 1];
-            }
-        }
-
-        return null;
-    }
-
+    /// <summary>
+    /// https://tc39.es/ecma402/#sec-resolvelocale (9.2.7) step 13 for <c>nu</c>, which
+    /// https://tc39.es/proposal-intl-duration-format/#sec-Intl.DurationFormat-internal-slots lists as a
+    /// relevant extension key: the option wins, then the locale's <c>-u-nu-</c> extension, then Latin.
+    /// </summary>
     private static string ResolveNumberingSystem(string? optionValue, string? extensionValue)
     {
         // Options override extension
