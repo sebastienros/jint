@@ -48,7 +48,7 @@ without. `url/urlencoded-parser.any.js` reaches the urlencoded parser through `R
 three interfaces and nothing else, which is what let that half of the fetch corpus be vendored years before
 there was anything for the other half to talk to. **That other half is `WptServer`** — an in-process HTTP/1.1
 origin on the loopback interface, a raw `TcpListener` on port 0, serving the *vendored* corpus plus a C# port
-of six wptserve `.py` handlers, which `WptServerTests` holds to the upstream source at the pin. Only the
+of the wptserve `.py` handlers those suites name, which `WptServerTests` holds to the upstream source at the pin. Only the
 twenty-nine files in that list get `WebApiFeatures.Fetch`, their `Options.WebApi.Fetch.UrlFilter` is the
 server's own port re-checked on every redirect hop, and `TheServerLaneHoldsExactlyTheFilesItNames` pins the
 list in both directions — so *no suite can reach the network*, which is the promise the driver has always
@@ -94,3 +94,21 @@ the answer is the regression — an engine defect, or a corpus entry whose outco
 never re-censusing, which is what
 [#3339](https://github.com/sebastienros/jint/issues/3339) records three unrelated pull requests being invited
 to do. The other four columns are equalities in both directions, because none of them counts an outcome.
+
+A ninth, which nothing in the `.any.js` lane can reach and which every `.html` test will. `WptServer` has a
+second half, `WptServerFiles`: wptserve's content-type table, its `.headers` sidecars and its `.sub.` template
+language, ported from `tools/wptserve/wptserve/` at the pin and held to it by `WptServerTests` the same way
+the `.py` handlers are. Three things about it decide where a divergence goes. **There is one origin** — one
+loopback host, one port, no TLS — so every host-shaped token (`{{host}}`, `{{domains[www2]}}`,
+`{{hosts[alt][]}}`) answers the same address and every `{{ports[…][…]}}` the same port; a file whose subject
+is a *second* origin therefore reads as same-origin, which makes it un-runnable rather than merely different
+and puts it in `_notVendored` or the exclusion table, never in a green run. **Anything unresolvable is a 500,
+never a placeholder left in place**: an undefined variable, a `?pipe=` other than `sub`, a `{{ host }}` whose
+spaces wptserve's own tokenizer rejects. Serving the file as though the query were not there is how a server
+limitation becomes a failing assertion about the engine three layers away — which is exactly what
+`xhr/abort-after-timeout.any.js`'s `?pipe=trickle(d1)` was. And **`resources/` and `common/` are helper roots,
+never suites**: `WptCorpus.TestFiles` refuses to be asked about them, because a `.any.js` under one would be
+the harness testing itself. `Vendor/resources/testharness.js` is upstream's real harness for a page to load,
+`Prelude/testharness-shim.js` remains Jint's own for the `.any.js` lane, and `resources/testharnessreport.js`
+is deliberately **not** vendored — upstream's is a stub that exists to be replaced, so Jint's lives in
+`Prelude/` and `WptServer` takes an overlay for it per instance.

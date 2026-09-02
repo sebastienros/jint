@@ -1,8 +1,10 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using System.Globalization;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
 
 namespace Jint.Tests.Wpt;
@@ -470,6 +472,516 @@ public class WptServerTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         (await response.Content.ReadAsStringAsync()).Should().NotBeEmpty();
+    }
+
+    // ================================================================ the static-file half
+
+    /// <summary>
+    /// <c>handlers.py</c>'s <c>guess_content_type</c> over <c>constants.py</c>'s <c>content_types</c>, one
+    /// case per extension the table names.
+    /// </summary>
+    /// <remarks>
+    /// The whole table, not the part the corpus exercises. Only a handful of these extensions are vendored —
+    /// nothing binary is, because <c>WptCorpus</c> hands every file back as a string — so the rows that
+    /// cannot be served are here precisely so that a corpus bump which changes one of them fails against
+    /// upstream's source rather than going unnoticed until a lane needs it.
+    /// </remarks>
+    [TestCase("x.json", "application/json")]
+    [TestCase("x.wasm", "application/wasm")]
+    [TestCase("x.xht", "application/xhtml+xml")]
+    [TestCase("x.xhtm", "application/xhtml+xml")]
+    [TestCase("x.xhtml", "application/xhtml+xml")]
+    [TestCase("x.xml", "application/xml")]
+    [TestCase("x.xpi", "application/x-xpinstall")]
+    [TestCase("x.m4a", "audio/mp4")]
+    [TestCase("x.mp3", "audio/mpeg")]
+    [TestCase("x.oga", "audio/ogg")]
+    [TestCase("x.weba", "audio/webm")]
+    [TestCase("x.wav", "audio/x-wav")]
+    [TestCase("x.avif", "image/avif")]
+    [TestCase("x.bmp", "image/bmp")]
+    [TestCase("x.gif", "image/gif")]
+    [TestCase("x.jpg", "image/jpeg")]
+    [TestCase("x.jpeg", "image/jpeg")]
+    [TestCase("x.jxl", "image/jxl")]
+    [TestCase("x.png", "image/png")]
+    [TestCase("x.svg", "image/svg+xml")]
+    [TestCase("x.manifest", "text/cache-manifest")]
+    [TestCase("x.css", "text/css")]
+    [TestCase("x.event_stream", "text/event-stream")]
+    [TestCase("x.htm", "text/html")]
+    [TestCase("x.html", "text/html")]
+    [TestCase("x.js", "text/javascript")]
+    [TestCase("x.mjs", "text/javascript")]
+    [TestCase("x.txt", "text/plain")]
+    [TestCase("x.md", "text/plain")]
+    [TestCase("x.vtt", "text/vtt")]
+    [TestCase("x.mp4", "video/mp4")]
+    [TestCase("x.m4v", "video/mp4")]
+    [TestCase("x.webm", "video/webm")]
+    // The fallback, and the two rules `os.path.splitext` and a dictionary lookup impose on top of the table:
+    // the last extension only, and no case folding.
+    [TestCase("x.asis", "application/octet-stream")]
+    [TestCase("x.headers", "application/octet-stream")]
+    [TestCase("x", "application/octet-stream")]
+    [TestCase("a/b.c/x", "application/octet-stream")]
+    [TestCase("x.HTML", "application/octet-stream")]
+    [TestCase("get-host-info.sub.js", "text/javascript")]
+    [TestCase("x.tar.gz", "application/octet-stream")]
+    public void TheContentTypeIsTheOneWptservesTableNames(string path, string expected)
+        => WptServerFiles.GuessContentType(path).Should().Be(expected);
+
+    /// <summary>
+    /// And a real file really is served with it. wptserve adds <b>no</b> charset here: nothing in
+    /// <c>tools/wptserve/</c> appends one to a guessed type, so a <c>.js</c> is <c>text/javascript</c> flat
+    /// and the <c>charset=utf-8</c> a browser sees on the harness comes from a <c>.headers</c> sidecar
+    /// instead — see <see cref="AHeadersSidecarReplacesTheGuessedContentType"/>.
+    /// </summary>
+    [TestCase("/common/utils.js", "text/javascript")]
+    [TestCase("/common/blank.html", "text/html")]
+    [TestCase("/common/dummy.xml", "application/xml")]
+    [TestCase("/common/dummy.xhtml", "application/xhtml+xml")]
+    [TestCase("/fetch/api/resources/top.txt", "text/plain")]
+    [TestCase("/url/resources/urltestdata.json", "application/json")]
+    public async Task AStaticFileCarriesTheTypeItsExtensionNames(string path, string expected)
+    {
+        using var response = await GetAsync(path);
+
+        ((int) response.StatusCode).Should().Be(200);
+        response.Content.Headers.ContentType!.ToString().Should().Be(expected);
+    }
+
+    /// <summary>
+    /// <c>handlers.py</c>'s <c>load_headers</c>: a file's <c>.headers</c> sidecar is applied to the response,
+    /// and a <c>Content-Type</c> in it replaces the guess rather than joining it.
+    /// </summary>
+    /// <remarks>
+    /// <c>resources/testharness.js.headers</c> is upstream's own, vendored beside the file it belongs to, and
+    /// it is two lines: the content type <i>with</i> a charset, and a cache directive. It is the answer to
+    /// "where does wptserve add <c>charset=utf-8</c>" — in a sidecar, for six files, and nowhere else.
+    /// </remarks>
+    [Test]
+    public async Task AHeadersSidecarReplacesTheGuessedContentType()
+    {
+        using var response = await GetAsync("/resources/testharness.js");
+
+        ((int) response.StatusCode).Should().Be(200);
+        response.Content.Headers.ContentType!.ToString().Should().Be("text/javascript; charset=utf-8");
+        response.Headers.CacheControl!.MaxAge.Should().Be(TimeSpan.FromHours(1));
+        (await response.Content.ReadAsStringAsync()).Should().Be(WptCorpus.Read("resources/testharness.js"));
+    }
+
+    /// <summary>
+    /// The four rules <c>load_headers</c> and <c>get_headers</c> impose between them, checked against a
+    /// synthetic tree because the vendored one has one sidecar shape and there are four.
+    /// </summary>
+    /// <remarks>
+    /// In order: the directory's <c>__dir__.headers</c> comes before the file's own; a repeated name is kept
+    /// rather than overwritten, and takes the position of its first appearance; a <c>Content-Type</c> in
+    /// either sidecar suppresses the guess, which is otherwise inserted <i>first</i>; and a
+    /// <c>.sub.headers</c> wins over a plain <c>.headers</c> of the same base name and is substituted with
+    /// escaping off.
+    /// </remarks>
+    [Test]
+    public void SidecarHeadersAreAppliedInWptservesOrder()
+    {
+        var context = new WptSubstitutionContext(8080, null);
+
+        // The guess goes in front of whatever the sidecars said, and __dir__ comes before the file.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/__dir__.headers"] = "X-Dir: one\n",
+            ["a/b.txt.headers"] = "X-File: two\n",
+        }).Should().Equal(("Content-Type", "text/plain"), ("X-Dir", "one"), ("X-File", "two"));
+
+        // A content type anywhere in the sidecars suppresses the guess entirely — even in __dir__, and even
+        // spelled in another case, because `get_headers` compares lowered.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/__dir__.headers"] = "content-type: text/x-dir\n",
+            ["a/b.txt.headers"] = "X-File: two\n",
+        }).Should().Equal(("content-type", "text/x-dir"), ("X-File", "two"));
+
+        // A repeated name is two headers, and they sit where the first one did.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/b.txt.headers"] = "Set-Cookie: a=1\nX-Other: x\nSet-Cookie: b=2\n",
+        }).Should().Equal(
+            ("Content-Type", "text/plain"),
+            ("Set-Cookie", "a=1"),
+            ("Set-Cookie", "b=2"),
+            ("X-Other", "x"));
+
+        // The .sub. spelling wins outright over the plain one, and its values are substituted.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/b.txt.headers"] = "X-Which: plain\n",
+            ["a/b.txt.sub.headers"] = "X-Which: {{host}}:{{ports[http][0]}}\n",
+        }).Should().Equal(("Content-Type", "text/plain"), ("X-Which", "127.0.0.1:8080"));
+
+        // Content-Length, Connection and Transfer-Encoding are this server's framing rather than the file's,
+        // so a sidecar naming one is dropped: two Content-Lengths on the wire is a client reading the wrong
+        // body length. A file whose subject *is* a wrong framing uses .asis, which bypasses all of this.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/b.txt.headers"] = "Content-Length: 99\nConnection: keep-alive\nTransfer-Encoding: chunked\nX-Kept: yes\n",
+        }).Should().Equal(("Content-Type", "text/plain"), ("X-Kept", "yes"));
+
+        // Blank lines are skipped, values are stripped, and CRLF is a line ending like any other.
+        Load("a/b.txt", context, new Dictionary<string, string>
+        {
+            ["a/b.txt.headers"] = "\r\nX-Space:   padded  \r\n\r\n",
+        }).Should().Equal(("Content-Type", "text/plain"), ("X-Space", "padded"));
+
+        static List<(string Name, string Value)> Load(
+            string path,
+            in WptSubstitutionContext context,
+            Dictionary<string, string> tree)
+            => WptServerFiles.LoadHeaders(path, context, name => tree.GetValueOrDefault(name));
+    }
+
+    /// <summary>
+    /// <c>pipes.py</c>'s <c>ReplacementTokenizer</c>: four patterns tried in order at each position, and a
+    /// <b>stop</b> — not a skip — at the first character none of them match.
+    /// </summary>
+    /// <remarks>
+    /// The stop is the half a reimplementation gets wrong. <c>{{ host }}</c> tokenizes to nothing upstream
+    /// and is a 500; a tokenizer that skipped the spaces would accept a spelling wptserve rejects, and a
+    /// corpus file written against it would then only work here.
+    /// </remarks>
+    [Test]
+    public void TheTemplateGrammarIsTheOneUpstreamsScannerAccepts()
+    {
+        Kinds("host").Should().Equal("Identifier:host");
+        Kinds("ports[http][0]").Should().Equal("Identifier:ports", "Index:http", "Index:0");
+        Kinds("domains[]").Should().Equal("Identifier:domains", "Index:");
+        Kinds("uuid()").Should().Equal("Identifier:uuid", "Arguments:");
+        Kinds("header_or_default(X-Test, fallback)")
+            .Should().Equal("Identifier:header_or_default", "Arguments:X-Test, fallback");
+
+        // The $ stays in both the assignment's name and a later reference's, which is the only reason the
+        // two ever meet.
+        Kinds("$id:uuid()").Should().Equal("Variable:$id", "Identifier:uuid", "Arguments:");
+        Kinds("$id").Should().Equal("Identifier:$id");
+
+        // And the scanner stops rather than skipping: a space, a stray brace, an unterminated index.
+        Kinds(" host").Should().BeEmpty();
+        Kinds("host ports").Should().Equal("Identifier:host");
+        Kinds("ports[http").Should().Equal("Identifier:ports");
+
+        // `re.split(r",\s*", …)`: the whitespace after a comma is consumed and the whitespace before it is
+        // not, which is a difference a Trim() would erase.
+        Arguments("(a, b)").Should().Equal("a", "b");
+        Arguments("(a ,b)").Should().Equal("a ", "b");
+        Arguments("()").Should().BeEmpty();
+
+        static List<string> Kinds(string body)
+        {
+            var kinds = new List<string>();
+            foreach (var token in WptServerFiles.Tokenize(body))
+            {
+                kinds.Add(token.Kind + ":" + token.Text);
+            }
+
+            return kinds;
+        }
+
+        static string[] Arguments(string body) => WptServerFiles.Tokenize(body)[0].Arguments!;
+    }
+
+    /// <summary>
+    /// Every substitution the corpus spells, as a <c>.sub.html</c> gets it — one case per token, which is
+    /// what the browser lane's files are made of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The values say what this server is: one loopback host and one port, so <c>{{host}}</c>,
+    /// <c>{{domains[www]}}</c> and <c>{{hosts[alt][www2]}}</c> all answer <c>127.0.0.1</c>, and every
+    /// protocol and index of <c>{{ports[…][…]}}</c> answers the one port <see cref="WptServer"/> bound.
+    /// <c>{{ports[https][0]}}</c> included: there is no TLS here, so a file that composes an
+    /// <c>https://</c> origin out of it composes one that cannot be reached — which is the honest answer,
+    /// and a reason such a file is un-runnable rather than merely different.
+    /// </para>
+    /// <para>
+    /// <c>{{GET[…]}}</c> is the one lookup that answers the empty string for something absent instead of
+    /// failing; <c>FirstWrapper.__getitem__</c> catches its own <c>KeyError</c>, and nothing else here does.
+    /// </para>
+    /// </remarks>
+    [TestCase("{{host}}", "127.0.0.1")]
+    [TestCase("{{domains[www]}}", "127.0.0.1")]
+    [TestCase("{{domains[]}}", "127.0.0.1")]
+    [TestCase("{{domains[www2]}}", "127.0.0.1")]
+    [TestCase("{{hosts[alt][]}}", "127.0.0.1")]
+    [TestCase("{{hosts[alt][www2]}}", "127.0.0.1")]
+    [TestCase("{{ports[http][0]}}", "8080")]
+    [TestCase("{{ports[http][1]}}", "8080")]
+    [TestCase("{{ports[https][0]}}", "8080")]
+    [TestCase("{{ports[ws][0]}}", "8080")]
+    [TestCase("{{url_base}}", "/")]
+    [TestCase("{{location[server]}}", "http://127.0.0.1:8080")]
+    [TestCase("{{location[scheme]}}", "http")]
+    [TestCase("{{location[host]}}", "127.0.0.1:8080")]
+    [TestCase("{{location[hostname]}}", "127.0.0.1")]
+    [TestCase("{{location[port]}}", "8080")]
+    [TestCase("{{location[path]}}", "/a/page.sub.html")]
+    [TestCase("{{location[pathname]}}", "/a/page.sub.html")]
+    // Escaped, because these cases are a .sub.html's: the "&" between two query parameters is a "&"
+    // in the source and "&amp;" in the markup, and upstream escapes it for exactly the same reason.
+    [TestCase("{{location[query]}}", "?name=v%20alue&amp;empty=")]
+    [TestCase("{{GET[name]}}", "v alue")]
+    [TestCase("{{GET[empty]}}", "")]
+    [TestCase("{{GET[absent]}}", "")]
+    [TestCase("{{headers[x-probe]}}", "probed")]
+    [TestCase("{{header_or_default(x-probe, fallback)}}", "probed")]
+    [TestCase("{{header_or_default(x-absent, fallback)}}", "fallback")]
+    // Text either side of a token is untouched, and two tokens in one line both resolve.
+    [TestCase("http://{{host}}:{{ports[http][0]}}/x", "http://127.0.0.1:8080/x")]
+    public async Task EverySubstitutionTokenTheCorpusUsesResolves(string template, string expected)
+    {
+        var request = await RequestAsync("GET /a/page.sub.html?name=v%20alue&empty= HTTP/1.1\r\nx-probe: probed\r\n\r\n");
+
+        WptServerFiles.Substitute(new WptSubstitutionContext(8080, request), template, escapeAsHtml: true)
+            .Should().Be(expected);
+    }
+
+    /// <summary>
+    /// <c>wrap_pipeline</c> picks the escaping from the extension: markup gets
+    /// <c>html.escape(…, quote=True)</c> and everything else — a <c>.sub.js</c>, a <c>.sub.headers</c> — gets
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// Python's escape is five characters and stops there. <c>WebUtility.HtmlEncode</c> would also turn every
+    /// non-ASCII character into a numeric entity, so a substituted value carrying one would differ from what
+    /// a browser running the real server sees — which is why this is written by hand.
+    /// </remarks>
+    [Test]
+    public async Task AMarkupFileEscapesWhatItSubstitutesAndAScriptDoesNot()
+    {
+        var request = await RequestAsync("GET /a/page.sub.html?v=%3Cb%26%22%27%C3%A5 HTTP/1.1\r\n\r\n");
+        var context = new WptSubstitutionContext(8080, request);
+
+        WptServerFiles.Substitute(context, "{{GET[v]}}", escapeAsHtml: true)
+            .Should().Be("&lt;b&amp;&quot;&#x27;Ã¥", "the five characters and no more");
+        WptServerFiles.Substitute(context, "{{GET[v]}}", escapeAsHtml: false)
+            .Should().Be("<b&\"'Ã¥");
+
+        WptServerFiles.WantsSubstitution("a/page.sub.html").Should().BeTrue();
+        WptServerFiles.WantsSubstitution("a/page.html").Should().BeFalse();
+        WptServerFiles.EscapesAsHtml("a/page.sub.html").Should().BeTrue();
+        WptServerFiles.EscapesAsHtml("a/page.sub.xhtml").Should().BeTrue();
+        WptServerFiles.EscapesAsHtml("a/page.sub.svg").Should().BeTrue();
+        WptServerFiles.EscapesAsHtml("a/page.sub.xml").Should().BeTrue();
+        WptServerFiles.EscapesAsHtml("a/page.sub.js").Should().BeFalse();
+    }
+
+    /// <summary>
+    /// <c>{{uuid()}}</c> is fresh per call, and <c>{{$name:…}}</c> is how a file uses the same one twice.
+    /// </summary>
+    [Test]
+    public async Task AUuidIsFreshAndAVariableRemembersOne()
+    {
+        var request = await RequestAsync("GET /a/page.sub.js HTTP/1.1\r\n\r\n");
+        var context = new WptSubstitutionContext(8080, request);
+
+        var pair = WptServerFiles.Substitute(context, "{{uuid()}}|{{uuid()}}", escapeAsHtml: false).Split('|');
+        pair[0].Should().NotBe(pair[1]);
+        Guid.TryParse(pair[0], out _).Should().BeTrue();
+
+        var remembered = WptServerFiles.Substitute(context, "{{$id:uuid()}}|{{$id}}", escapeAsHtml: false).Split('|');
+        remembered[0].Should().Be(remembered[1]);
+    }
+
+    /// <summary>
+    /// A substitution this server cannot make is a failure and never a placeholder left in place.
+    /// </summary>
+    /// <remarks>
+    /// Upstream raises and wptserve answers 500. The alternative — serving <c>{{file_hash(md5, x)}}</c>
+    /// verbatim — puts the failure in the test's assertions, several layers from the cause, which is exactly
+    /// how the corpus's own unrunnable files used to be discovered.
+    /// </remarks>
+    [TestCase("{{nonesuch}}", "undefined template variable")]
+    [TestCase("{{file_hash(md5, dom/interfaces.html)}}", "undefined template variable")]
+    [TestCase("{{fs_path(x)}}", "undefined template variable")]
+    [TestCase("{{ host }}", "nothing to substitute")]
+    [TestCase("{{host[0]}}", "unexpected trailing token")]
+    [TestCase("{{ports[http]}}", "expected an index")]
+    [TestCase("{{location[nonesuch]}}", "not a part of the request URL")]
+    [TestCase("{{headers[x-absent]}}", "has no \"x-absent\" header")]
+    [TestCase("{{uuid}}", "expected a call")]
+    [TestCase("{{header_or_default(only-one)}}", "expected 2 arguments")]
+    public async Task AnUnresolvableSubstitutionFailsLoudly(string template, string expected)
+    {
+        var request = await RequestAsync("GET /a/page.sub.html HTTP/1.1\r\n\r\n");
+
+        Invoking(() => WptServerFiles.Substitute(new WptSubstitutionContext(8080, request), template, escapeAsHtml: true))
+            .Should().Throw<WptServerFileException>()
+            .WithMessage("*" + expected + "*");
+    }
+
+    /// <summary>
+    /// And the vendored <c>.sub.</c> file really is substituted on its way out: 68 files of the browser
+    /// lane's suites include <c>common/get-host-info.sub.js</c>, and it is the reason the template language
+    /// is here at all.
+    /// </summary>
+    [Test]
+    public async Task TheVendoredSubstitutionFileIsServedSubstituted()
+    {
+        using var response = await GetAsync("/common/get-host-info.sub.js");
+
+        ((int) response.StatusCode).Should().Be(200);
+        var body = await response.Content.ReadAsStringAsync();
+
+        body.Should().NotContain("{{", "every placeholder is resolved before the file is written");
+        body.Should().Contain("var ORIGINAL_HOST = '127.0.0.1';");
+        body.Should().Contain(
+            "var HTTP_PORT = '" + WptServer.Instance.Port.ToString(CultureInfo.InvariantCulture) + "';");
+
+        // Escaping is off for a .sub.js, so the quotes the file writes around each value stay quotes.
+        body.Should().NotContain("&#x27;");
+    }
+
+    /// <summary>
+    /// A <c>?pipe=</c> this server does not implement is a 500 that names itself, not a file served as if
+    /// the query were not there.
+    /// </summary>
+    /// <remarks>
+    /// wptserve has fourteen pipes. Only <c>sub</c> is ported, because only <c>sub</c> is needed to load an
+    /// <c>.html</c> test — but a file asking for <c>?pipe=status(404)</c> and getting a 200 would fail an
+    /// assertion about the engine, and one asking for <c>?pipe=trickle(d1)</c> is why
+    /// <c>xhr/abort-after-timeout.any.js</c> is a not-vendored row. Both should say so.
+    /// </remarks>
+    [Test]
+    public async Task AnUnimplementedPipeIsA500ThatNamesIt()
+    {
+        using var response = await GetAsync("/common/blank.html?pipe=trickle(d1)");
+
+        ((int) response.StatusCode).Should().Be(500);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("trickle");
+
+        using var supported = await GetAsync("/common/utils.js?pipe=sub(none)");
+        ((int) supported.StatusCode).Should().Be(200);
+    }
+
+    /// <summary>
+    /// The query and the fragment take no part in finding the file, and a percent-escape in the path is
+    /// decoded before the lookup — all three of which the browser lane needs and none of which the
+    /// <c>.any.js</c> lane ever asked for.
+    /// </summary>
+    /// <remarks>
+    /// A fragment never reaches a real server, so the one here is written straight onto the socket:
+    /// <c>HttpClient</c> strips it, which is the correct behaviour and the reason it cannot be the thing
+    /// under test.
+    /// </remarks>
+    [Test]
+    public async Task AQueryAFragmentAndAPercentEscapeAllResolveToTheSameFile()
+    {
+        var expected = WptCorpus.Read("common/utils.js");
+
+        using var withQuery = await GetAsync("/common/utils.js?some=thing");
+        (await withQuery.Content.ReadAsStringAsync()).Should().Be(expected);
+
+        using var withEscape = await GetAsync("/common/utils%2Ejs");
+        (await withEscape.Content.ReadAsStringAsync()).Should().Be(expected);
+
+        var raw = await RawAsync("GET /common/utils.js?some=thing#fragment HTTP/1.1\r\nhost: x\r\n\r\n");
+        raw.Should().StartWith("HTTP/1.1 200 OK");
+        raw.Should().Contain(expected);
+    }
+
+    /// <summary>
+    /// <c>HEAD</c> of a static file is the headers a <c>GET</c> would have carried, <c>Content-Length</c>
+    /// included, and no body.
+    /// </summary>
+    [Test]
+    public async Task HeadOfAStaticFileIsItsHeadersWithNoBody()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Head, WptServer.Instance.Origin + "/resources/testharness.js");
+        using var response = await _client.SendAsync(request);
+
+        ((int) response.StatusCode).Should().Be(200);
+        response.Content.Headers.ContentType!.ToString().Should().Be("text/javascript; charset=utf-8");
+        response.Content.Headers.ContentLength
+            .Should().Be(Encoding.UTF8.GetByteCount(WptCorpus.Read("resources/testharness.js")));
+        (await response.Content.ReadAsByteArrayAsync()).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A path the corpus does not hold is a 404 whatever it looks like, with the status line and the content
+    /// type every other answer here has.
+    /// </summary>
+    [TestCase("/dom/nodes/there-is-no-such-file.html")]
+    [TestCase("/resources/testharness.css")]
+    [TestCase("/common/nothing.sub.html")]
+    public async Task APathTheCorpusDoesNotHoldIsA404WhateverItsExtension(string path)
+    {
+        using var response = await GetAsync(path);
+
+        ((int) response.StatusCode).Should().Be(404);
+        response.ReasonPhrase.Should().Be("Not Found");
+        response.Content.Headers.ContentType!.ToString().Should().Be("text/plain");
+        response.Content.Headers.ContentLength.Should().Be(0);
+    }
+
+    /// <summary>
+    /// <c>/resources/testharnessreport.js</c> comes from <c>Prelude/</c> rather than from <c>Vendor/</c>, and
+    /// a server can be given an overlay to answer with instead.
+    /// </summary>
+    /// <remarks>
+    /// Upstream's file is a stub that exists to be replaced — "intended for vendors to implement code needed
+    /// to integrate testharness.js tests with their own test systems" — so vendoring it would put bytes in
+    /// the tree the server never sends. The overlay is the slot the browser lane fills with the script that
+    /// posts a page's results back to the driver; nothing supplies one yet, which is why this test starts
+    /// its own server.
+    /// </remarks>
+    [Test]
+    public async Task TheHarnessReportComesFromThePreludeAndCanBeOverlaid()
+    {
+        using var response = await GetAsync("/resources/testharnessreport.js");
+
+        ((int) response.StatusCode).Should().Be(200);
+        response.Content.Headers.ContentType!.ToString().Should().Be("text/javascript; charset=utf-8");
+        (await response.Content.ReadAsStringAsync()).Should().Be(WptCorpus.HarnessReport);
+
+        // It is Jint's file, and it says so; and it is not in the vendored tree at all.
+        WptCorpus.HarnessReport.Should().Contain("Jint's `resources/testharnessreport.js`");
+        WptCorpus.Contains("resources/testharnessreport.js").Should().BeFalse();
+
+        using var overlaid = new WptServer("window.__jintReport = true;");
+        using var fromOverlay = await _client.GetAsync(overlaid.Origin + "/resources/testharnessreport.js");
+        (await fromOverlay.Content.ReadAsStringAsync()).Should().Be("window.__jintReport = true;");
+
+        // And the overlay is per server: the shared one is untouched.
+        using var again = await GetAsync("/resources/testharnessreport.js");
+        (await again.Content.ReadAsStringAsync()).Should().Be(WptCorpus.HarnessReport);
+    }
+
+    /// <summary>
+    /// Parses one request off a raw byte stream, which is how the substitution cases get a
+    /// <see cref="WptServerRequest"/> to resolve <c>{{GET[…]}}</c> and <c>{{location[…]}}</c> against.
+    /// </summary>
+    private static async Task<WptServerRequest> RequestAsync(string raw)
+    {
+        using var stream = new MemoryStream(Encoding.Latin1.GetBytes(raw));
+        return (await WptServerRequest.ReadAsync(stream, CancellationToken.None))!;
+    }
+
+    /// <summary>
+    /// Writes a request onto the socket verbatim and reads the whole answer back, for the shapes an
+    /// <see cref="HttpClient"/> corrects on the way out.
+    /// </summary>
+    private static async Task<string> RawAsync(string request)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, WptServer.Instance.Port);
+        await using var stream = client.GetStream();
+
+        var bytes = Encoding.Latin1.GetBytes(request);
+        await stream.WriteAsync(bytes);
+        await stream.FlushAsync();
+
+        using var answer = new MemoryStream();
+        await stream.CopyToAsync(answer);
+        return Encoding.UTF8.GetString(answer.ToArray());
     }
 }
 #endif

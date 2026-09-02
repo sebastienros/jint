@@ -26,6 +26,40 @@ public class WptCorpusTests
     public void AReferenceResolvesToAPathInTheTree(string directory, string reference, string expected)
         => WptCorpus.ResolveReference(directory, reference).Should().Be(expected);
 
+    /// <summary>
+    /// <c>resources/</c> and <c>common/</c> are helpers, never suites — asking for their test files is a
+    /// mistake loud enough to throw rather than an empty list.
+    /// </summary>
+    /// <remarks>
+    /// The empty list is what makes this worth pinning. Before the harness files were vendored the two
+    /// directories held four helper scripts between them and <see cref="WptCorpus.TestFiles"/> answered
+    /// nothing for either, so a suite array that named one would have been green and empty — which is the
+    /// exact shape of failure the inventory check exists to catch everywhere else. Now that
+    /// <c>resources/testharness.js</c> is in the tree the mistake would be worse, not better: the harness
+    /// would become a test case with no subject.
+    /// </remarks>
+    [TestCase("resources")]
+    [TestCase("common")]
+    [TestCase("common/dispatcher")]
+    public void ASharedHelperDirectoryIsNeverASuite(string directory)
+    {
+        Invoking(() => WptCorpus.TestFiles(directory))
+            .Should().Throw<InvalidOperationException>()
+            .WithMessage("*shared helper directory*");
+
+        WptCorpus.IsShared(directory + "/anything.js").Should().BeTrue();
+    }
+
+    /// <summary>And a suite whose name merely starts with those letters is not one of them.</summary>
+    [TestCase("url")]
+    [TestCase("commonwealth")]
+    [TestCase("fetch/api/resources")]
+    public void ADirectoryThatOnlyLooksSharedIsNot(string directory)
+    {
+        Invoking(() => WptCorpus.TestFiles(directory)).Should().NotThrow();
+        WptCorpus.IsShared(directory + "/anything.js").Should().BeFalse();
+    }
+
     [Test]
     public void AReferenceCannotClimbOutOfTheVendoredTree()
     {
