@@ -88,6 +88,7 @@ version of AngleSharp nobody references.
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
 | `skip` | A member a later campaign item owns: navigation (`location.assign`, `location.href`'s setter), activation (`click`, `focus`, `blur`, `form.reset`), the parser (`document.open`/`close`/`load`), and `document.createEvent`, whose AngleSharp `Event` must never reach script. `half: "setter"` skips the write half only. |
 | `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper. |
+| `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter (`createTreeWalker`, `createNodeIterator`), a stringifier with no `[DomName]` (`Range.toString`), a member AngleSharp spells by its Shadow DOM v0 name (`slot.assignedNodes`), a member whose `[DomName]` is simply missing (`ShadowRoot.mode`), and the two CSSOM View rectangles a page with no layout still calls. The body is one line calling `Dom/Views/DomViewMembers`, and it is the **only** list whose entries name something the pinned assemblies do not have — what is checked is the opposite, that the interface exists and that the member does not, so an addition can never quietly shadow a member AngleSharp grew. An addition whose member AngleSharp *skipped* replaces that skip and removes it from the report. |
 | `nullableStrings` | The members whose IDL type is `DOMString?` rather than `DOMString`. See the conversion table below. |
 | `stringEnums`, `constants` | The two enum decisions the heuristics above cannot make. |
 
@@ -139,6 +140,14 @@ here:
 | `matchMedia(q).matches` | evaluates the query against the viewport | `CssMediaQueryList.ComputeMatched` is `return false`, so **every** query answers `false` — a page asking whether it is on a narrow screen is always told no. `Runtime/MediaQuery` answers the subset a page branches on instead |
 | `document.currentScript` | HTML §4.12.1: the script whose text is running | the head of the *deferred* script queue, so it is `null` for exactly the case a page uses it in |
 | `location.host = …` (and `pathname`, `port`, `protocol`, `search`) | a navigation the page can observe | raises `Location.Changed`, which `Document.LocationChanged` handles in a fire-and-forget `async void` calling `IBrowsingContext.OpenAsync` — on whatever thread the setter ran on. **Unreachable from script**, because `Runtime/LocationInstaller` shadows every `Location` member with an own property over the page's own URL; AngleSharp's location is never written |
+| `observer.disconnect()` | DOM §4.3.3 empties the observer's registered-node list | `MutationObserver.Disconnect` unregisters it from the document but leaves that list populated, so the **next** `observe()` of any node silently re-registers every node it used to watch |
+| `observer.observe(document, …)` | observes the document node | `Connect` silently retargets a `Document` to its `documentElement`, so a `childList` mutation of the document itself is never reported. With `subtree: true` — how nearly every page writes it — nothing else changes |
+| `observe(…)` with bad options | a `TypeError` | a `DomException` (`TypeMismatchError` / `SyntaxError`), and its resolution of the dictionary's optional members differs from the standard's: `{ attributeOldValue: false }` alone is valid in DOM and invalid there |
+| `record.addedNodes` on an attribute record | an empty `NodeList` | `null`, for both `Added` and `Removed` |
+| `IShadowRoot.Mode` | `ShadowRoot.mode` | the one member of the interface with no `[DomName]`, so nothing says it is projected |
+| `slot.assignedNodes()` | DOM §4.2.5 | named `getDistributedNodes`, the Shadow DOM v0 spelling |
+| `getComputedStyle(span).display` | `inline` | the empty string: the cascade reports only what a stylesheet *declared*, and `display: inline` is CSS's initial value, so the user-agent sheet does not declare it. A declared one (`div` → `block`) resolves |
+| the computed style is writable | CSSOM's computed flag makes every write a `NoModificationAllowedError` | an ordinary writable declaration, and a detached one, so a write neither throws nor changes anything readable — see `Dom/Views/ReadOnlyStyleDeclaration` |
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
@@ -194,6 +203,56 @@ way, and it is the mistake a generator makes by default.
 and workers are [`Runtime/AGENTS.md`](Runtime/AGENTS.md). The one rule to carry across the boundary without
 opening it: **one thread owns a page's engine and its DOM**, every public `Page` member is a mailbox request,
 and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may be in the task it answers.
+
+### The observers, and when each of them delivers
+
+`Observers/` holds three. **Each delivers on a different lane, and the lane is the design.**
+
+- **`MutationObserver` delivers on the engine's job queue — the microtask checkpoint.** The *records* are
+  AngleSharp's: `DocumentExtensions.QueueMutation` already walks a mutated node's inclusive ancestors, matches
+  each against the registered observer list, honours `subtree` and `attributeFilter`, and clears `oldValue`
+  for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the parser
+  hop above: its `MutationHost` schedules through an `IEventLoop` service, **nothing in AngleSharp implements
+  one**, and `EventLoopExtensions.Enqueue` on a null loop runs the action *inline* — so out of the box the
+  callback fires synchronously inside `appendChild`. Registering an event loop to fix that is precisely what
+  would make a step of the parse asynchronous and take the fallback. So the inline call is used as the
+  **arrival** of a record and nothing else: `JsMutationObserver` parks it and `MutationObserverLane` puts one
+  job on the engine's queue per batch. Ordering then falls out of a plain enqueue, and
+  `Observers/MutationObserverTests` pins it. The notify set is also the only strong reference this package
+  keeps to an observer, which is DOM's own rule that one with a non-empty record queue is reachable.
+- **`IntersectionObserver` and `ResizeObserver` deliver as a *task*** — a zero-delay timer entry
+  (`ObserverTask`) — because both belong to update-the-rendering and a microtask would run before the promises
+  of the same turn. It also makes the delivery visible to `Page.WaitForIdleAsync`.
+- **Both are stubs, and the shape of the lie is the point.** Each observed target is reported exactly once,
+  fully intersecting or at zero size, and never again, because with no layout nothing can change. "Never
+  intersecting" would stop every lazy list and reveal-on-scroll animation dead, and the initial resize
+  notification is the one a component uses to measure itself when it mounts. `root`, `rootMargin` and
+  `thresholds` are parsed, validated and reflected exactly as the specification says and change nothing.
+  Rectangles are `ObserverGeometry` zeros and are **plain objects, not `DOMRectReadOnly`**: there is no
+  rectangle interface in this package yet, and one whose every instance is zeros would be worse than none.
+  The flat-box model (campaign item C4) turns all of it into real numbers.
+
+None of the five interface objects is generated, so they are hand-written `JsObjectShape`s behind
+`HostInterfaceObject`, and `Views/HostInterfaceDisciplineTests` holds them to the same two rules
+`DomPrototypeTests` and `WebIdlPropertyAttributeTests` hold the generated ones to.
+
+`Dom/Views/` is the same story for the interfaces a *browser* supplies rather than the DOM — `DOMParser`,
+`XMLSerializer`, `Selection`, `MediaQueryListEvent` — plus the members that make the generated `Range`,
+`TreeWalker` and `NodeIterator` usable. Three things there are worth knowing:
+
+- **`DOMParser`'s XML half is `AngleSharp.Xml`**, referenced for that and nothing else; writing an XML parser
+  here instead is the one thing this package is not for. It is deliberately **not** in `pin.json` — the
+  generator reads two assemblies and projects no interface from this one. A failed parse answers the
+  `parsererror` document the standard prescribes, which is what a page tests for.
+- **A parsed document cannot run anything**: its parser gets a browsing context of its own with no scripting
+  service and `IsScripting` false, so a `<script>` in the input is an element with text and nothing more.
+- **`Selection` has no direction**, because direction comes from which end a user dragged from: the anchor is
+  always the range's start.
+
+`matchMedia` gained its other half. `PageRuntime.SetViewport` is the seam device emulation (campaign item C5)
+drives, and every `MediaQueryList` the page holds recomputes and fires `change` — a real
+`MediaQueryListEvent`, because `e => e.matches` is how the listener is written — only if its own answer moved.
+No `resize` event fires at the window: HTML fires that from update-the-rendering, and there is none.
 
 ### The seams promoted later
 

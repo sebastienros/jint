@@ -2361,10 +2361,18 @@ array-like lane, and node wrappers that Jint's tree-aware event dispatcher can w
 runtime: a `Browser` / `BrowserContext` / `Page` API, one engine and one thread per page, a `Window` whose
 prototype the global object inherits (so `window === globalThis`, `window instanceof EventTarget`, and
 `addEventListener` on the window is on a bubbling event's path), `document`, `location`, `screen`,
-`getComputedStyle`, `matchMedia`, `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
+`getComputedStyle` (read-only, from the cascade, with no layout behind it), `matchMedia` (with `change`
+fired when the viewport moves), `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
 that fire because the page's thread pumps the engine, and console output and script errors recorded on the
 page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, with classic inline scripts run in
 document order as the parse reaches them, then `readystatechange`, `DOMContentLoaded`, `load` and `pageshow`.
+
+**And the observers and views a page written this decade expects.** A `MutationObserver` whose records come
+from AngleSharp and are delivered at Jint's microtask checkpoint; `IntersectionObserver` and `ResizeObserver`
+as documented stubs that report every observed target once, since there is no layout for either to measure;
+`DOMParser` (HTML, and XML through `AngleSharp.Xml`) and `XMLSerializer`, `Range`, `TreeWalker`,
+`NodeIterator`, `getSelection()`, `<template>` content and `attachShadow`, with events crossing a shadow
+boundary the way the DOM says.
 
 **And the network half.** `Page.NavigateAsync` loads an `http(s)` URL through Jint's own fetch pipeline and
 parses the result into a new engine — the document being left gets `beforeunload`, `pagehide` and `unload`,
@@ -2379,8 +2387,9 @@ and every request share one jar per browser context; `localStorage` is partition
 
 **What does not exist yet.** No external `<script src>` and no module scripts in a document — a page names
 what it could not run in `Page.UnsupportedScripts` — no import maps, no `document.write` during a parse, no
-`MutationObserver`, no iframe scripting (frames are parsed and listed; `contentWindow` is absent), no
-rendering or layout, and no Chrome DevTools page domains. Those are the later items of the same campaign.
+iframe scripting (frames are parsed and listed; `contentWindow` is absent), no rendering or layout — so every
+rectangle is zeros and `getBoundingClientRect` does not exist — and no Chrome DevTools page domains. Those
+are the later items of the same campaign.
 
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is

@@ -75,9 +75,15 @@ internal sealed class Conversions
 
         if (type.IsEnum)
         {
+            // A numeric enum crosses as its value, cast through a CLR type wide enough to hold it. That
+            // matters for exactly one enum today: FilterSettings is a ulong whose SHOW_ALL is 0xFFFFFFFF, and
+            // an int cast would make TreeWalker.whatToShow answer -1 where DOM says 4294967295.
+            var underlying = type.GetEnumUnderlyingType().Name;
+            var cast = underlying is "Int64" or "UInt64" or "UInt32" ? "long" : "int";
+
             code = _isStringEnum(type)
                 ? "global::Jint.Browser.Dom.DomEnums.From" + type.Name + "(" + value + ")"
-                : "global::Jint.Browser.Dom.DomConvert.Number((int) (" + value + "))";
+                : "global::Jint.Browser.Dom.DomConvert.Number((" + cast + ") (" + value + "))";
             return true;
         }
 

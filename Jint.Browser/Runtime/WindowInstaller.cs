@@ -129,6 +129,11 @@ internal static class WindowInstaller
         // global names has to be the one the prototype's `constructor` slot already holds.
         engine.AddLazyGlobal("Window", windowInterface, static (_, value) => value, PropertyFlag.NonEnumerable);
         engine.AddLazyGlobal("MediaQueryList", mediaQueryListInterface, static (_, value) => value, PropertyFlag.NonEnumerable);
+
+        // The observers and the views the window carries, each as lazy globals of their own so that a page
+        // touching none of them builds none of their prototypes.
+        Observers.ObserverInstaller.Install(runtime);
+        Dom.Views.ViewInstaller.Install(runtime);
     }
 
     /// <summary>
@@ -312,7 +317,7 @@ internal static class WindowInstaller
             .Method("blur", static (_, _) => JsValue.Undefined)
             .Method("close", static (_, _) => JsValue.Undefined)
             .Method("open", static (_, _) => JsValue.Null, length: 3)
-            .Method("getSelection", static (_, _) => JsValue.Null)
+            .PerRealmSlot("getSelection", Operation("getSelection", 0, static (runtime, _) => runtime.Views.Selection), enumerable: true)
             .PerRealmSlot("alert", Operation("alert", 1, static (runtime, args) =>
             {
                 runtime.Page.RaiseDialog(DialogKind.Alert, Text(args, 0), "");
@@ -447,7 +452,11 @@ internal static class WindowInstaller
         // anything that would need a box — used values, offsetWidth's kind — does not. The pseudo-element
         // argument is ignored, because the extension that takes one needs an AngleSharp IWindow and the
         // window here is Jint's.
-        return runtime.Dom.Wrap(element.ComputeCurrentStyle());
+        //
+        // Wrapped read-only, because CSSOM gives the result a computed flag and AngleSharp's declaration is
+        // an ordinary writable one that is also detached — so an unwrapped write would neither throw nor
+        // change anything a page can read. See Dom/Views/ReadOnlyStyleDeclaration.
+        return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime.Engine, element.ComputeCurrentStyle()));
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)

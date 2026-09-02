@@ -233,15 +233,18 @@ public sealed class WindowTests
     }
 
     [Test]
-    public async Task WindowOpenAnswersNullAndGetSelectionIsAStub()
+    public async Task WindowOpenAnswersNull()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
         (await page.EvaluateAsync("window.open('/other')")).Should().BeNull();
-        (await page.EvaluateAsync("window.getSelection()")).Should().BeNull();
         (await page.EvaluateAsync("window.event")).Should().BeNull();
         (await page.EvaluateAsync<bool>("window.closed")).Should().BeFalse();
+
+        // getSelection() answered null while nothing owned a Selection; campaign item R4 gave the document
+        // one, and Views/SelectionTests is where its behaviour lives.
+        (await page.EvaluateAsync<bool>("window.getSelection() instanceof Selection")).Should().BeTrue();
     }
 
     [Test]

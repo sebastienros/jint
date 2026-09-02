@@ -3846,6 +3846,20 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("HTMLSlotElement")
             .PerRealmSlot("constructor", enumerable: false)
+            .Method("assignedElements",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.assignedElements");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedElements(self.Realm, self.Target);
+                },
+                length: 0)
+            .Method("assignedNodes",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlSlotElement>(thisObj, "HTMLSlotElement.assignedNodes");
+                    return global::Jint.Browser.Dom.Views.DomViewMembers.AssignedNodes(self.Realm, self.Target);
+                },
+                length: 0)
             .Method("getDistributedNodes",
                 static (thisObj, args) =>
                 {

@@ -30,6 +30,9 @@ internal sealed class PageRuntime
 
     private readonly long _started;
     private IDocument? _document;
+    private Observers.ObserverRealm? _observers;
+    private Dom.Views.ViewRealm? _views;
+    private List<JsMediaQueryList>? _mediaQueryLists;
 
     private PageRuntime(Engine engine, Page page, BrowserOptions options, PageRecorder recorder, string documentUrl, string referrer)
     {
@@ -42,6 +45,7 @@ internal sealed class PageRuntime
         AnimationFrames = new AnimationFrameLane(this);
         DocumentUrl = documentUrl;
         Referrer = referrer;
+        MutationObservers = new Observers.MutationObserverLane(this);
         _started = System.Diagnostics.Stopwatch.GetTimestamp();
     }
 
@@ -58,13 +62,26 @@ internal sealed class PageRuntime
     internal PageRecorder Recorder { get; }
 
     /// <summary>The viewport this page answers dimension and media queries from.</summary>
-    internal Viewport Viewport { get; }
+    /// <remarks>
+    /// Settable through <see cref="SetViewport"/> only, because a change has to be announced: every
+    /// <c>MediaQueryList</c> the page is holding recomputes and fires <c>change</c> if its answer moved.
+    /// </remarks>
+    internal Viewport Viewport { get; private set; }
 
     /// <summary>The DOM binding state of this engine.</summary>
     internal DomRealm Dom { get; }
 
     /// <summary>The <c>requestAnimationFrame</c> lane, run as a batch on the engine's timer queue.</summary>
     internal AnimationFrameLane AnimationFrames { get; }
+
+    /// <summary>Where mutation records wait for the microtask checkpoint that delivers them.</summary>
+    internal Observers.MutationObserverLane MutationObservers { get; }
+
+    /// <summary>The observer interface objects of this engine, built on first use.</summary>
+    internal Observers.ObserverRealm Observers => _observers ??= new Observers.ObserverRealm(this);
+
+    /// <summary>The DOM views of this engine — <c>DOMParser</c>, <c>XMLSerializer</c>, <c>Selection</c>.</summary>
+    internal Dom.Views.ViewRealm Views => _views ??= new Dom.Views.ViewRealm(this);
 
     /// <summary>The document this engine is showing, or <see langword="null"/> before the first parse.</summary>
     /// <remarks>
@@ -149,6 +166,58 @@ internal sealed class PageRuntime
     /// the engine's timer queue either way.
     /// </remarks>
     internal double Now => System.Diagnostics.Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
+
+    /// <summary>
+    /// Replaces the viewport and tells every <c>MediaQueryList</c> the page is holding.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the seam device emulation drives (campaign item C5): the viewport is the only thing a page can
+    /// observe about its window's size, so changing it is the whole of "the window resized" in a browser with
+    /// no window. <a href="https://drafts.csswg.org/cssom-view/#dom-mediaquerylist-onchange">CSSOM View</a>
+    /// fires <c>change</c> at a list whose answer moved and at no other, which is what a page listens for
+    /// rather than polling.
+    /// </para>
+    /// <para>
+    /// It runs on the page loop, like everything else here, and it dispatches synchronously — a listener runs
+    /// before this returns, exactly as it does for any other dispatch. A <c>resize</c> event at the window is
+    /// deliberately not fired yet: HTML fires it from the "run the resize steps" of update-the-rendering, and
+    /// this package has no rendering step to hang it on.
+    /// </para>
+    /// </remarks>
+    internal void SetViewport(Viewport viewport)
+    {
+        if (Viewport == viewport)
+        {
+            return;
+        }
+
+        Viewport = viewport;
+
+        if (_mediaQueryLists is null)
+        {
+            return;
+        }
+
+        // A copy, because a listener may call matchMedia and append to the list being walked; a list created
+        // during the notification cannot have a stale answer to report.
+        foreach (var list in _mediaQueryLists.ToArray())
+        {
+            list.ViewportChanged();
+        }
+    }
+
+    /// <summary>
+    /// Remembers a <c>MediaQueryList</c> so that a viewport change can reach it.
+    /// </summary>
+    /// <remarks>
+    /// A strong reference, held for the life of the engine — which is the life of the document. CSSOM View
+    /// keeps a list alive while it has a listener and this keeps every one alive, so a page calling
+    /// <c>matchMedia</c> in a loop accumulates them. That is bounded by the document rather than unbounded,
+    /// and the alternative — a weak reference per list — would cost a resurrection check on every viewport
+    /// change to save a few objects per page.
+    /// </remarks>
+    internal void Track(JsMediaQueryList list) => (_mediaQueryLists ??= []).Add(list);
 
     /// <summary>Attaches a runtime to a freshly built engine. Called once, on the page loop.</summary>
     internal static PageRuntime Attach(

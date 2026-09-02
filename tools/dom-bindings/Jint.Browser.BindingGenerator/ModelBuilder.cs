@@ -430,6 +430,40 @@ internal sealed class ModelBuilder
             }
         }
 
+        // The curated additions last, and against what was actually emitted rather than against what was
+        // seen: half of them name a member AngleSharp does declare and the generator skipped, which is
+        // exactly the case an addition exists for. A collision with an *emitted* member is a real one — the
+        // pinned assemblies grew a member the table is now shadowing — and is reported.
+        foreach (var addition in _overrides.Additions)
+        {
+            if (addition.Interface != model.DomName)
+            {
+                continue;
+            }
+
+            if (model.Members.Any(m => m.DomName == addition.Member))
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json adds " + model.DomName + "." + addition.Member + " (" + addition.Reason
+                    + "), but the pinned assemblies already project it; the addition is ignored.");
+                continue;
+            }
+
+            // The skip this replaces is no longer a consequence, so it leaves the report: a reader looking
+            // for members that do not cross should not find one that does.
+            _model.Skipped.RemoveAll(s => s.Interface == model.DomName && s.Member == addition.Member);
+
+            model.Members.Add(new MemberModel
+            {
+                DomName = addition.Member,
+                Kind = addition.Kind == "attribute" ? MemberKind.Attribute : MemberKind.Operation,
+                Body = string.Join("\n", addition.Body),
+                SetterBody = addition.Setter is { Count: > 0 } setter ? string.Join("\n", setter) : null,
+                Length = addition.Length,
+                Origin = "overrides.json",
+            });
+        }
+
         model.Members.Sort((a, b) => string.CompareOrdinal(a.DomName, b.DomName));
     }
 
@@ -1136,6 +1170,18 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableStrings)
         {
             Check("nullableStrings", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        // The additions are checked the other way round: the interface has to exist, and the member has to
+        // be one AngleSharp does not have — a member it grew is reported by BuildMembers as a collision.
+        foreach (var entry in _overrides.Additions)
+        {
+            if (!_byClrName.Values.Any(m => m.DomName == entry.Interface))
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json's addition '" + entry.Interface + "." + entry.Member + "' (" + entry.Reason
+                    + ") names an interface the pinned assemblies do not project.");
+            }
         }
 
         foreach (var entry in _overrides.ExcludedInterfaces)

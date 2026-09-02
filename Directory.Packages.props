@@ -12,6 +12,11 @@
          these assemblies' [DomName] surface. Bump both together, regenerate, and read the diff. -->
     <PackageVersion Include="AngleSharp" Version="1.7.2" />
     <PackageVersion Include="AngleSharp.Css" Version="1.0.2" />
+    <!-- AngleSharp.Xml is deliberately NOT in the binding generator's pin: the generator reads AngleSharp and
+         AngleSharp.Css and nothing else, and this package contributes no [DomName] interface to the binding.
+         It is referenced for one thing only — DOMParser's XML content types, which need an XML parser and
+         which this package's own principle says must not be written here. -->
+    <PackageVersion Include="AngleSharp.Xml" Version="1.2.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="BenchmarkDotNet.TestAdapter" Version="0.15.8" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
