@@ -403,7 +403,9 @@ internal sealed partial class DebuggerDomain
     {
         ByScriptId or DebugCommand => string.Equals(selector.Text, script.ScriptId, StringComparison.Ordinal),
         ByScriptHash => string.Equals(selector.Text, script.Hash, StringComparison.Ordinal),
-        _ => selector.Pattern is { } pattern ? IsMatch(pattern, script.Url) : string.Equals(selector.Text, script.Url, StringComparison.Ordinal),
+        // A client sends back the URL it read off scriptParsed; a host driving the protocol itself has only
+        // ever seen the source name it passed. ScriptUrl.Same accepts either.
+        _ => selector.Pattern is { } pattern ? IsMatch(pattern, script.Url) : ScriptUrl.Same(selector.Text, script.Url),
     };
 
     private static bool IsMatch(Regex pattern, string url)

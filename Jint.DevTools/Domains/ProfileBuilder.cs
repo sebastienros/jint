@@ -187,7 +187,7 @@ internal sealed class ProfileBuilder
         {
             FunctionName = function.Name,
             ScriptId = script?.ScriptId ?? UnknownScriptId,
-            Url = script?.Url ?? file,
+            Url = script?.Url ?? ScriptUrl.From(file),
             LineNumber = Math.Max(0, line - 1),
             ColumnNumber = Math.Max(0, column - 1),
         };

@@ -115,6 +115,42 @@ public class ConsoleSessionTests
     }
 
     /// <summary>
+    /// Every console call carries its call site, not just <c>console.trace</c>: it is the source anchor a
+    /// front end prints on the right of each line, and without it a message links to nothing.
+    /// </summary>
+    [Test]
+    public async Task EveryConsoleCallCarriesItsCallSite()
+    {
+        await using var session = await ConsoleSessionAsync();
+
+        await session.ResultAsync("Runtime.enable");
+        await session.EnableDebuggerAsync();
+        await session.Target.PostAsync(engine => engine.Execute(
+            """
+            function speak() {
+                console.log('spoken');
+            }
+            speak();
+            """,
+            "app.js"));
+
+        var parameters = session.EventsOf("Runtime.consoleAPICalled")
+            .Select(call => call.GetProperty("params"))
+            .Single(call => call.GetProperty("type").GetString() == "log");
+
+        var frames = parameters.GetProperty("stackTrace").GetProperty("callFrames").EnumerateArray().ToArray();
+
+        // The console method's own frame is not one of them: the anchor is where the script called it.
+        frames[0].GetProperty("functionName").GetString().Should().Be("speak");
+        frames[0].GetProperty("url").GetString().Should().Be("app.js");
+        frames[0].GetProperty("lineNumber").GetInt32().Should().Be(1);
+
+        // Resolved back to the script, so the front end can make the anchor clickable rather than printing
+        // a URL it cannot open.
+        frames[0].GetProperty("scriptId").GetString().Should().NotBe("0");
+    }
+
+    /// <summary>
     /// A client that enables the domain after the fact is replayed the journal, which is what makes a front
     /// end opened halfway through a run useful rather than empty. V8 does the same.
     /// </summary>

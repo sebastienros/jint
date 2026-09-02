@@ -27,9 +27,8 @@
   // Runtime.globalLexicalScopeNames and Runtime.queryObjects are absent for one reason each, and both are
   // missing engine surface rather than missing work here: the realm's global declarative record publishes
   // a binding *count* and no names, and there is no way to enumerate the objects of a heap the CLR owns.
-  // Runtime.getExceptionDetails is absent because nothing yet retains the details of an exception past the
-  // command that reported it. Runtime.terminateExecution is absent because a constraint is how execution is
-  // bounded here, and a client that could stop a host's script at will is a different security posture.
+  // Runtime.terminateExecution is absent because a constraint is how execution is bounded here, and a
+  // client that could stop a host's script at will is a different security posture.
   //
   // Profiler has no console-driven half: console.profile and console.profileEnd are not implemented by the
   // engine at all - ConsoleMethod has no member for either - so consoleProfileStarted and
@@ -85,6 +84,7 @@
     "Runtime.discardConsoleEntries",
     "Runtime.enable",
     "Runtime.evaluate",
+    "Runtime.getExceptionDetails",
     "Runtime.getHeapUsage",
     "Runtime.getIsolateId",
     "Runtime.getProperties",

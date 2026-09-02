@@ -117,7 +117,9 @@ internal sealed class ScriptRegistry
     /// </remarks>
     internal RegisteredScript? At(string? sourceFile, int line, int column)
     {
-        var url = sourceFile ?? "";
+        // A location carries the host's source name and a script is registered under the URL that maps to,
+        // so the lookup maps too.
+        var url = ScriptUrl.From(sourceFile);
 
         lock (_gate)
         {
@@ -177,7 +179,11 @@ internal sealed class ScriptRegistry
     {
         var scriptId = _prefix + (++_next).ToString(CultureInfo.InvariantCulture);
         var location = ast.Location;
-        var url = location.SourceFile ?? "";
+
+        // The name the host parsed under, published as a URL: an absolute filesystem path becomes a file://
+        // one, so a front end's navigator files it under a domain instead of under "(no domain)". See
+        // ScriptUrl; every other name is unchanged.
+        var url = ScriptUrl.From(location.SourceFile);
         var hasText = _engine.Advanced.TryGetSourceText(ast, out var sourceText);
 
         // The engine counts lines from one and the protocol counts them from zero; columns are 0-based in

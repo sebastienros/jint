@@ -30,6 +30,9 @@ internal sealed partial class RuntimeDomain
     /// </summary>
     private const string ConsoleObjectGroup = "console";
 
+    /// <summary>Chrome's own sentinel for a location no script can be found for.</summary>
+    private const string UnattributedScriptId = "0";
+
     /// <summary>
     /// How many unhandled rejections are remembered so that a later handler can revoke the right one. A
     /// rejection older than this is never revoked, which shows in a client as an error that stays on screen.
@@ -184,29 +187,40 @@ internal sealed partial class RuntimeDomain
     };
 
     /// <summary>
-    /// The frames a <c>console.trace</c> captured, in the protocol's own counting.
+    /// The frames a console call was made from, in the protocol's own counting.
     /// </summary>
     /// <remarks>
-    /// The engine counts lines and columns from one and the protocol counts both from zero. The script
-    /// identifier is empty, because scripts are not registered until the <c>Debugger</c> domain arrives; a
-    /// front end falls back to the URL, which is what an engine target has.
+    /// <para>
+    /// This is the source anchor a front end prints on the right of every console line, and the reason
+    /// <see cref="DevToolsConsoleSink.WantsStackTrace"/> asks the engine for frames on every method rather
+    /// than on <c>console.trace</c> alone.
+    /// </para>
+    /// <para>
+    /// The engine counts lines and columns from one and the protocol counts both from zero. Each frame is
+    /// matched back to a registered script so the anchor is clickable; a location no script claims is
+    /// reported against the identifier <c>0</c>, which is Chrome's own sentinel, and the front end falls
+    /// back to the URL.
+    /// </para>
     /// </remarks>
-    private static StackTrace? StackTraceOf(ConsoleStackFrame[]? frames)
+    private StackTrace? StackTraceOf(ConsoleStackFrame[]? frames)
     {
         if (frames is null || frames.Length == 0)
         {
             return null;
         }
 
+        var registry = _target.Scripts;
         var callFrames = new CallFrame[frames.Length];
         for (var i = 0; i < frames.Length; i++)
         {
             var frame = frames[i];
+            var script = registry?.At(frame.Source, frame.Line, Math.Max(0, frame.Column - 1));
+
             callFrames[i] = new CallFrame
             {
                 FunctionName = frame.FunctionName,
-                ScriptId = "",
-                Url = frame.Source,
+                ScriptId = script?.ScriptId ?? UnattributedScriptId,
+                Url = script?.Url ?? ScriptUrl.From(frame.Source),
                 LineNumber = Math.Max(0, frame.Line - 1),
                 ColumnNumber = Math.Max(0, frame.Column - 1),
             };

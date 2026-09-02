@@ -20,7 +20,8 @@ public sealed class EngineTargetOptions
     /// <summary>Gets or sets the location a client shows for the target. Defaults to the empty string.</summary>
     /// <remarks>
     /// An engine target has no document, so there is nothing honest to put here; a host that runs one named
-    /// script per engine is the one that has something worth showing.
+    /// script per engine is the one that has something worth showing. An absolute filesystem path is
+    /// published as a <c>file://</c> URL, which is the same mapping a script's source name goes through.
     /// </remarks>
     public string Url { get; set; } = "";
 

@@ -26,6 +26,13 @@ function lineTotal(order) {
 
 function computeTotal(items) {
     var total = 0;
+
+    // A function-valued local, so the Scope pane of the paused frame has a script function of its own to
+    // render: a native one would only prove the `[native code]` half of Function.prototype.toString.
+    var describe = function describeLine(order) {
+        return order.sku + ' x' + order.quantity;
+    };
+
     for (var i = 0; i < items.length; i++) {
         total += lineTotal(items[i]);
     }

@@ -137,7 +137,7 @@ internal sealed partial class ProfilerDomain
             scripts.Add(new ScriptCoverage
             {
                 ScriptId = script?.ScriptId ?? UnknownScriptId,
-                Url = script?.Url ?? source.Name,
+                Url = script?.Url ?? ScriptUrl.From(source.Name),
                 Functions = Functions(source, script?.Program, detailed),
             });
         }

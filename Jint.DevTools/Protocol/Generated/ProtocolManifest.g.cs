@@ -92,6 +92,7 @@ namespace Jint.DevTools.Protocol
             "Runtime.discardConsoleEntries",
             "Runtime.enable",
             "Runtime.evaluate",
+            "Runtime.getExceptionDetails",
             "Runtime.getHeapUsage",
             "Runtime.getIsolateId",
             "Runtime.getProperties",

@@ -57,6 +57,14 @@ internal sealed class RemoteObjectMapper
     /// invented here: a hundred entries, two levels, a hundred characters of any one string.
     /// </summary>
     private static readonly ValueInspectorOptions PreviewBounds = new();
+
+    /// <summary>
+    /// A function's declaration, which is what the front end parses <c>description</c> as. Unbounded in
+    /// length on purpose — a truncated declaration is one the client cannot read the signature out of — and
+    /// entry-free, because a function has none.
+    /// </summary>
+    private static readonly ValueInspectorOptions FunctionSource =
+        new() { MaxDepth = 0, MaxEntries = 0, MaxStringLength = int.MaxValue, FunctionSourceText = true };
 #pragma warning restore JINT0002
 
     private readonly EngineTarget _target;
@@ -163,10 +171,200 @@ internal sealed class RemoteObjectMapper
             // already zero-based. A location the engine never filled in reads as the start of the script.
             LineNumber = Math.Max(0, location.Start.Line - 1),
             ColumnNumber = Math.Max(0, location.Start.Column),
-            Url = string.IsNullOrEmpty(location.SourceFile) ? null : location.SourceFile,
+            Url = ScriptUrl.From(location.SourceFile) is { Length: > 0 } url ? url : null,
             ExecutionContextId = executionContextId,
             Exception = ThrownValue(exception),
         };
+    }
+
+    /// <summary>
+    /// Describes an error <i>object</i> — one nobody threw here — the way <c>Runtime.getExceptionDetails</c>
+    /// answers for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The front end asks this of any handle whose subtype is <c>error</c>, which is how it draws an
+    /// expandable stack under a value that was logged rather than thrown. So the details are reconstructed
+    /// from the object rather than remembered from a report: <c>text</c> is the error's
+    /// <c>name: message</c>, read as descriptors, and the frames come from its own <c>stack</c>.
+    /// </para>
+    /// <para>
+    /// Reading <c>stack</c> is the same deliberate exception <see cref="ThrownValue"/> makes and is asked for
+    /// under the same <see cref="ResultLimits"/>. An error whose stack a host's
+    /// <c>Options.Interop.BuildCallStackHandler</c> renders in some other shape produces no
+    /// <c>stackTrace</c> rather than a wrong one; the rendered text is in <c>exception.description</c>
+    /// either way, which is where the front end reads it from when there are no frames.
+    /// </para>
+    /// </remarks>
+    /// <param name="error">The value the client's <c>errorObjectId</c> resolved to.</param>
+    /// <param name="exceptionId">The identifier this report is given.</param>
+    /// <param name="executionContextId">The context the error belongs to.</param>
+    /// <param name="scripts">The registry a frame's script identifier is resolved against, if there is one.</param>
+    internal ExceptionDetails ErrorDetails(
+        JsValue error,
+        int exceptionId,
+        int executionContextId,
+        ScriptRegistry? scripts)
+    {
+#pragma warning disable JINT0002 // ValueInspector is the engine's preview describer; this is what it is for
+        var described = ValueInspector.Describe(error, DescribeOnly);
+#pragma warning restore JINT0002
+
+        var frames = StackFrames(error, scripts);
+        var top = frames is { Length: > 0 } ? frames[0] : null;
+
+        return new ExceptionDetails
+        {
+            ExceptionId = exceptionId,
+
+            // Chrome answers the error's own "Error: boom" here rather than the "Uncaught" it prefixes a
+            // thrown one with: nothing was thrown, and the client is asking about a value it is holding.
+            Text = described.Description,
+            LineNumber = top?.LineNumber ?? 0,
+            ColumnNumber = top?.ColumnNumber ?? 0,
+            ScriptId = top?.ScriptId,
+            Url = top is { Url.Length: > 0 } ? top.Url : null,
+            StackTrace = frames is { Length: > 0 } ? new StackTrace { CallFrames = frames } : null,
+            ExecutionContextId = executionContextId,
+            Exception = ErrorValue(error),
+        };
+    }
+
+    /// <summary>Whether a value is a JavaScript error object, which is what <c>getExceptionDetails</c> takes.</summary>
+    internal static bool IsError(JsValue value)
+    {
+#pragma warning disable JINT0002 // ValueInspector is the engine's preview describer; this is what it is for
+        return value.IsObject() && ValueInspector.Describe(value, DescribeOnly).Kind == ValueKind.Error;
+#pragma warning restore JINT0002
+    }
+
+    /// <summary>
+    /// The error's own <c>stack</c>, parsed into the protocol's frames, or <see langword="null"/> when there
+    /// is nothing there this can read.
+    /// </summary>
+    /// <remarks>
+    /// The engine renders a frame as <c>    at name (source:line:column)</c>, or without the name and its
+    /// parentheses for one it cannot name. A line in any other shape ends the parse rather than being
+    /// guessed at, so a host that replaced the rendering gets no frames instead of wrong ones.
+    /// </remarks>
+    private static CallFrame[]? StackFrames(JsValue error, ScriptRegistry? scripts)
+    {
+        string stack;
+        try
+        {
+            var text = error.AsObject().Get("stack");
+            if (!text.IsString())
+            {
+                return null;
+            }
+
+            stack = text.AsString();
+        }
+        catch (JavaScriptException)
+        {
+            // A script's own `stack` accessor that threw. The client still gets the error and its text.
+            return null;
+        }
+
+        var frames = new List<CallFrame>();
+        foreach (var line in stack.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0)
+            {
+                continue;
+            }
+
+            if (!TryReadFrame(trimmed, scripts, out var frame))
+            {
+                return null;
+            }
+
+            frames.Add(frame);
+        }
+
+        return frames.Count == 0 ? null : [.. frames];
+    }
+
+    private static bool TryReadFrame(string line, ScriptRegistry? scripts, out CallFrame frame)
+    {
+        frame = null!;
+
+        if (!line.StartsWith("at ", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var rest = line.Substring(3);
+        var name = "";
+
+        if (rest.EndsWith(')'))
+        {
+            var open = rest.IndexOf(" (", StringComparison.Ordinal);
+            if (open < 0)
+            {
+                return false;
+            }
+
+            name = rest.Substring(0, open);
+            rest = rest.Substring(open + 2, rest.Length - open - 3);
+        }
+
+        // "source:line:column", where the source may itself hold colons — a Windows drive letter does.
+        var lastColon = rest.LastIndexOf(':');
+        if (lastColon <= 0)
+        {
+            return false;
+        }
+
+        var previousColon = rest.LastIndexOf(':', lastColon - 1);
+        if (previousColon < 0)
+        {
+            return false;
+        }
+
+        if (!int.TryParse(rest.AsSpan(previousColon + 1, lastColon - previousColon - 1), NumberStyles.None, CultureInfo.InvariantCulture, out var lineNumber)
+            || !int.TryParse(rest.AsSpan(lastColon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var column))
+        {
+            return false;
+        }
+
+        var source = rest.Substring(0, previousColon);
+        var script = scripts?.At(source, lineNumber, Math.Max(0, column - 1));
+
+        frame = new CallFrame
+        {
+            FunctionName = name,
+            ScriptId = script?.ScriptId ?? "0",
+            Url = script?.Url ?? ScriptUrl.From(source),
+
+            // The engine counts both from one here; the protocol counts both from zero.
+            LineNumber = Math.Max(0, lineNumber - 1),
+            ColumnNumber = Math.Max(0, column - 1),
+        };
+
+        return true;
+    }
+
+    /// <summary>The error object itself, described with the message-and-stack text a front end prints.</summary>
+    private RemoteObject ErrorValue(JsValue error)
+    {
+        var described = Describe(error, RemoteObjectRequest.Description);
+
+        try
+        {
+            var stack = error.AsObject().Get("stack");
+            if (stack.IsString() && stack.AsString().Length > 0)
+            {
+                return described with { Description = described.Description + System.Environment.NewLine + stack.AsString() };
+            }
+        }
+        catch (JavaScriptException)
+        {
+            // The one-liner stands.
+        }
+
+        return described;
     }
 
     /// <summary>
@@ -288,6 +486,16 @@ internal sealed class RemoteObjectMapper
         var className = description.ClassName;
         var text = description.Description;
 
+        if (description.Kind == ValueKind.Function)
+        {
+            // The front end reads this field as Function.prototype.toString output and parses the name back
+            // out of it, so a short label makes every function in a Scope pane render as "ƒ undefined()".
+            // A second describe rather than one option set for both, because a function carries no entries:
+            // the walk above already stopped, and asking every *nested* function in a preview for its
+            // declaration would be building strings nothing sends.
+            text = ValueInspector.Describe(value, FunctionSource).Description;
+        }
+
         if (_target.Describer is { } describer && describer.TryDescribe(value, out var hint))
         {
             subtype = hint.Subtype ?? subtype;
@@ -372,7 +580,11 @@ internal sealed class RemoteObjectMapper
             Name = entry.Key,
             Type = type,
             Subtype = subtype,
-            Value = value.Description,
+
+            // A function's preview value is the empty string, which is what Chrome sends: the front end
+            // draws the ƒ from the type, and putting a declaration here would be a whole function body
+            // inside an inline preview. Recorded from a real Chrome, not assumed.
+            Value = value.Kind == ValueKind.Function ? "" : value.Description,
             ValuePreview = value.Entries.Count > 0 ? Nested(value) : null,
         };
     }

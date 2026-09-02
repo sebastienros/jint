@@ -5416,6 +5416,22 @@ may not do: it neither calls the host's `Options.Host.FunctionToStringHandler` n
 replaced with an accessor. **The default is unchanged**, so a caller that does not name the option gets the
 label it always did.
 
+### 5.16 `EngineTargetOptions.Url` accepts a path and publishes a URL ([#3640](https://github.com/sebastienros/jint/pull/3640))
+
+`Jint.DevTools` publishes a script's source name as a URL, and a name that *is* an absolute filesystem path
+becomes a `file://` one — otherwise Chrome's navigator has no origin to group it under and files it under
+"(no domain)" with the whole path for a name. `EngineTargetOptions.Url` goes through the same mapping, so a
+host that names its target after the file it runs writes the path and gets one URL in both documents:
+
+```csharp
+new EngineTargetOptions { Url = Path.GetFullPath("app.js") }   // /json/list says file:///…/app.js
+```
+
+**The engine's own source names are untouched.** They are what `Error.prototype.stack` prints and what
+`Options.Interop.BuildCallStackHandler` is handed, and they stay exactly what the host passed;
+`Debugger.setBreakpointByUrl` accepts either form. A `Url` that is not a path — `jint://repl`,
+`https://…`, the empty string — is unchanged.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

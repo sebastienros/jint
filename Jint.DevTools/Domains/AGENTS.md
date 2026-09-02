@@ -39,6 +39,15 @@ accessor is reported rather than called, a proxy named by its kind, a CLR value 
 `getProperties` keeps the same promise by reading descriptors — so a proxy answers *no* properties, because
 `ownKeys` and `getOwnPropertyDescriptor` are script, and a CLR property arrives as an accessor descriptor.
 
+**A function's `description` is its source text, and the label belongs to nothing.** The front end reads that
+field as `Function.prototype.toString` output and parses the name back out of it, so `ƒ computeTotal()` made
+every function in a Scope pane render as **`ƒ undefined()`**. It comes from
+`ValueInspectorOptions.FunctionSourceText`, which is the engine computing what `toString` would answer
+*without* running any of it — no host `FunctionToStringHandler`, no coercion of a `name` a script replaced
+with an accessor. A `PropertyPreview` of a function carries `value: ""` and not the label either: that is
+what Chrome sends, recorded rather than assumed, and the front end draws the `ƒ` from the type. There is no
+place left that sends `ƒ name()`; the console's own printer is `ConsoleFormatter`, and it is not this.
+
 **`returnByValue` is the deliberate exception, and it runs script.** It is `Jint.Native.Json.JsonSerializer`
 — `JSON.stringify`'s own contract, `toJSON` hooks and getters both — because a client that asked for the
 value itself asked for exactly that, and V8 does the same. A cycle, a `toJSON` that threw and a value with
@@ -78,6 +87,14 @@ a handle does, so evicting one releases every handle any attachment minted for i
 the group `"console"`, which a client's "clear console" releases; `Runtime.discardConsoleEntries` and
 `Console.clearMessages` empty the journal, which is the target's because the history is the engine's.
 
+**Every console call carries its call site, which is why the sink asks for one.** `ConsoleRecord.StackTrace`
+used to be `console.trace`'s alone, and a message with no frames is a message a front end anchors nowhere —
+V8 prints `app.js:44` on the right of every line. `DevToolsConsoleSink.WantsStackTrace` is `true`, which is
+the engine seam that turns the capture on; the frames are only readable while the call is still on the stack,
+so it is asked *before* the sink is reached or not at all, and every other host still pays nothing. Each
+frame is matched back to a registered script through `ScriptRegistry.At`, so the anchor is clickable rather
+than a URL the front end cannot open; a location no script claims reports the identifier `0`.
+
 **`Console` is the flat half, `Log` the failure half.** `Console.messageAdded` carries the finished line the
 engine's printer produced and no handles, so a call that printed nothing — `groupEnd`, a `time` that started
 a timer — is absent there and present in `Runtime.consoleAPICalled`, which a front end draws a group from.
@@ -112,6 +129,28 @@ bearing rather than incidental:
   one answer, and a location nothing claims is reported against the identifier `0`, which is Chrome's own
   sentinel for a location it cannot attribute. This is the one place a frame can name the wrong script, and
   closing it needs an engine seam that puts the program on the frame.
+
+**A source name becomes a URL here, and nowhere else.** The engine's source names stay exactly what the host
+passed — a stack trace prints them, and `Options.Interop.BuildCallStackHandler` is handed them — so
+`Domains/ScriptUrl.cs` is the protocol's own vocabulary over the top: a name that *is* an absolute filesystem
+path (a drive letter, a UNC share, a leading slash) is published as a `file://` URL, and every other name is
+unchanged. Without it Chrome's navigator files a script under "(no domain)" with its whole path for a name,
+because a bare path has no origin. Two consequences: `ScriptRegistry.At` maps before it matches, since a
+location carries the source name and a script is registered under the URL; and `setBreakpointByUrl` accepts
+either form through `ScriptUrl.Same`, because a client sends back what it read off `scriptParsed` while a
+host driving the protocol has only ever seen the name it passed. `EngineTargetOptions.Url` goes through the
+same mapping, so `/json/list` and `scriptParsed` name one location rather than two. The shapes are recognized
+without asking the operating system: a source name reaches an engine from wherever the host got it.
+
+**`Runtime.getExceptionDetails` reconstructs, it does not remember.** The front end sends it once per error
+object it renders, which is how it draws the expandable stack under a console message — so nothing retaining
+an exception past the report that carried it is not the obstacle it looked like. `text` is the error's
+`name: message` read as descriptors; the frames come from parsing its own `stack`, which is the one thing on
+this path besides `returnByValue` and a thrown error's render that may run script, and is asked for under the
+same `ResultLimits`. A `stack` in any other shape — a host's `BuildCallStackHandler`, a script's own string —
+produces *no* `stackTrace` rather than a guessed one, and the rendered text is in `exception.description`
+either way. A handle that is not an error is `-32000 "errorObjectId is not a JS error object"`, Chrome's
+wording.
 
 A breakpoint is a `DevToolsBreakPoint : BreakPoint` — the engine's class is unsealed exactly so that
 `DebugInformation.BreakPoint` hands the instance straight back and `hitBreakpoints` can name it. Two

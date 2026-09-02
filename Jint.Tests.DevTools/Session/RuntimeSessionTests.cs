@@ -301,13 +301,11 @@ public class RuntimeSessionTests
     /// <c>globalLexicalScopeNames</c> would need the realm's global declarative record to publish its
     /// binding <i>names</i>, which it does not — <c>engine.Diagnostics.GetMemoryReport()</c> answers a count
     /// and nothing else. <c>queryObjects</c> would need the heap enumerated by prototype, which is the CLR's
-    /// heap. <c>getExceptionDetails</c> would need an exception's details retained past the command that
-    /// reported them. <c>terminateExecution</c> would let a client stop a host's script at will, which is a
+    /// heap. <c>terminateExecution</c> would let a client stop a host's script at will, which is a
     /// different security posture from the one the constraints define.
     /// </remarks>
     [TestCase("Runtime.globalLexicalScopeNames")]
     [TestCase("Runtime.queryObjects")]
-    [TestCase("Runtime.getExceptionDetails")]
     [TestCase("Runtime.terminateExecution")]
     public async Task TheCommandsThisPackageCannotAnswerAreMethodNotFound(string method)
     {

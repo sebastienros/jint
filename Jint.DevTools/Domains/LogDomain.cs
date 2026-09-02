@@ -83,7 +83,7 @@ internal sealed class LogDomain : LogDomainBase, ITargetObserver
             ? exception.GetJavaScriptErrorString()
             : exception.GetJavaScriptErrorString(limits);
 
-        Report(text, location.SourceFile, location.Start.Line);
+        Report(text, ScriptUrl.From(location.SourceFile), location.Start.Line);
     }
 
     /// <inheritdoc/>

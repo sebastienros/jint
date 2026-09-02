@@ -270,6 +270,30 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The front end sends this once per error object it is asked to render — an uncaught exception, an
+    /// <c>Error</c> a script logged — to get the frames it draws an expandable stack from. Nothing here
+    /// remembers an exception past the command that reported it, and nothing needs to: the details are
+    /// reconstructed from the object the handle names, which is also what makes the command work for an
+    /// error this server never reported at all.
+    /// </remarks>
+    protected override ValueTask<GetExceptionDetailsResponse> GetExceptionDetailsAsync(
+        GetExceptionDetailsRequest parameters,
+        CommandContext context)
+    {
+        var error = _target.RemoteObjects.Resolve(parameters.ErrorObjectId, out _);
+        if (!RemoteObjectMapper.IsError(error))
+        {
+            // Chrome's wording, verbatim: a client feature-detects nothing on it, but a host debugging a
+            // handle mix-up reads it.
+            Throw.ServerError("errorObjectId is not a JS error object");
+        }
+
+        var details = _objects.ErrorDetails(error, NextExceptionId(), MainExecutionContextId, _target.Scripts);
+        return new ValueTask<GetExceptionDetailsResponse>(new GetExceptionDetailsResponse { ExceptionDetails = details });
+    }
+
+    /// <inheritdoc/>
     protected override ValueTask<EmptyResult> ReleaseObjectAsync(ReleaseObjectRequest parameters, CommandContext context)
     {
         // A handle nothing knows about is not an error: a client releasing what it already released, or what

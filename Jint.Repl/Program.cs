@@ -167,7 +167,9 @@ if (inspect)
     inspected = new EngineTarget(engine, new EngineTargetOptions
     {
         Title = inputFile is null ? "Jint REPL" : Path.GetFileName(inputFile),
-        Url = inputFile is null ? "jint://repl" : new Uri(Path.GetFullPath(inputFile)).AbsoluteUri,
+        // The absolute path, which the target publishes as the same file:// URL it publishes the script's
+        // own source name as — so /json/list and Debugger.scriptParsed name one location, not two.
+        Url = inputFile is null ? "jint://repl" : Path.GetFullPath(inputFile),
 
         // The REPL owns its loop: it evaluates on this thread, so this thread is also the one that answers
         // the protocol. A LibraryOwned target would be a second thread in the same engine.

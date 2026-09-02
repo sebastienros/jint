@@ -43,6 +43,51 @@ public class DebuggerScriptTests
         parsed.GetProperty("scriptLanguage").GetString().Should().Be("JavaScript");
     }
 
+    /// <summary>
+    /// A source name that is an absolute filesystem path is announced as a <c>file://</c> URL, so a front
+    /// end's navigator files the script under a domain rather than under "(no domain)" with its whole path
+    /// for a name. The engine's own source names are untouched: they are what a stack trace prints.
+    /// </summary>
+    [TestCase(@"D:\Work\fixture\app.js", "file:///D:/Work/fixture/app.js")]
+    [TestCase("/srv/fixture/app.js", "file:///srv/fixture/app.js")]
+    public async Task AnAbsolutePathIsAnnouncedAsAFileUrl(string sourceName, string url)
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        await session.Target.PostAsync(engine => engine.Execute("function boom() { throw new Error('x'); }", sourceName));
+        await session.EnableDebuggerAsync();
+
+        var parsed = await session.EventAsync("Debugger.scriptParsed");
+        parsed.GetProperty("url").GetString().Should().Be(url);
+
+        // The engine still knows the script by the name the host passed, and a stack trace still prints
+        // that: source names are the host's, and this mapping is the protocol's own vocabulary over them.
+        var thrown = await session.EvaluateAsync(
+            "(function () { try { boom(); } catch (e) { return e.stack; } })()",
+            returnByValue: true);
+        thrown.GetProperty("value").GetString().Should().Contain(sourceName);
+    }
+
+    /// <summary>
+    /// A breakpoint may name either form: a client sends back the URL it read off <c>scriptParsed</c>, and a
+    /// host driving the protocol itself has only ever seen the source name it passed.
+    /// </summary>
+    [TestCase(@"D:\Work\fixture\app.js")]
+    [TestCase("file:///D:/Work/fixture/app.js")]
+    public async Task ABreakpointResolvesUnderEitherFormOfTheUrl(string requested)
+    {
+        await using var session = await AttachedSession.CreateAsync();
+
+        await session.Target.PostAsync(engine => engine.Execute(Source, @"D:\Work\fixture\app.js"));
+        await session.EnableDebuggerAsync();
+
+        var result = await session.ResultAsync(
+            "Debugger.setBreakpointByUrl",
+            $$"""{"lineNumber":1,"url":{{System.Text.Json.JsonSerializer.Serialize(requested)}}}""");
+
+        result.GetProperty("locations").EnumerateArray().Should().NotBeEmpty();
+    }
+
     [Test]
     public async Task AScriptRunAfterEnableIsAnnouncedOnce()
     {

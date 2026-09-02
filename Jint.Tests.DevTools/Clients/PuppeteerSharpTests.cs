@@ -194,6 +194,64 @@ public class PuppeteerSharpTests
     }
 
     /// <summary>
+    /// The two things the front end reads off a value that is not a number: a function's declaration, which
+    /// it parses as <c>Function.prototype.toString</c> output, and an error's frames, which it asks for by
+    /// handle with <c>Runtime.getExceptionDetails</c>.
+    /// </summary>
+    /// <remarks>
+    /// Through a client nobody here wrote, because the shape of both is what a client is entitled to assume:
+    /// a <c>description</c> that is a label makes every function render as <c>ƒ undefined()</c>, and a
+    /// <c>getExceptionDetails</c> that is not answered costs a console message its expandable stack.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerReadsAFunctionsSourceAndAnErrorsFrames()
+    {
+        await using var server = new DevToolsServer();
+        await server.StartAsync();
+
+        await using var target = new EngineTarget(
+            new Engine(options => options.UseDevTools()),
+            new EngineTargetOptions { Url = "jint://describing", ThreadMode = ThreadMode.LibraryOwned });
+
+        server.AddTarget(target);
+        await target.PostAsync(engine => engine.Execute(
+            """
+            function computeTotal(items) { return items.length; }
+            function thrower() { return new Error('boom'); }
+            var failure = thrower();
+            """,
+            "app.js"));
+
+        await using var browser = await ConnectAsync(new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+        var session = await SessionForAsync(browser, "jint://describing", target.TargetId);
+
+        await session.SendAsync("Debugger.enable").WaitAsync(Bound);
+
+        var described = await session.SendAsync(
+            "Runtime.evaluate",
+            new { expression = "computeTotal" }).WaitAsync(Bound);
+
+        var function = described!.Value.GetProperty("result");
+        function.GetProperty("type").GetString().Should().Be("function");
+        function.GetProperty("description").GetString().Should().Be("function computeTotal(items) { return items.length; }");
+
+        var error = await session.SendAsync("Runtime.evaluate", new { expression = "failure" }).WaitAsync(Bound);
+        var errorObjectId = error!.Value.GetProperty("result").GetProperty("objectId").GetString();
+
+        var details = (await session.SendAsync(
+            "Runtime.getExceptionDetails",
+            new { errorObjectId }).WaitAsync(Bound))!.Value.GetProperty("exceptionDetails");
+
+        details.GetProperty("text").GetString().Should().Be("Error: boom");
+        details.GetProperty("scriptId").GetString().Should().NotBe("0");
+        details.GetProperty("stackTrace").GetProperty("callFrames").EnumerateArray()
+            .Select(frame => frame.GetProperty("functionName").GetString())
+            .Should().Contain("thrower");
+
+        await session.DetachAsync().WaitAsync(Bound);
+    }
+
+    /// <summary>
     /// The binding path, which is how Puppeteer's <c>exposeFunction</c> gets an answer out of a page: the
     /// client installs a global, the script calls it, and the client hears about it as an event.
     /// </summary>

@@ -62,6 +62,18 @@ internal sealed class DevToolsConsoleSink : ConsoleSink
         }
     }
 
+    /// <summary>
+    /// Always, because <c>Runtime.consoleAPICalled</c> carries a stack trace and a front end draws every
+    /// message's source anchor from it.
+    /// </summary>
+    /// <remarks>
+    /// The host's own sink is asked nothing: it is handed the record either way, and a sink that ignores
+    /// <see cref="ConsoleRecord.StackTrace"/> is unaffected by its being there. The cost is one call-stack
+    /// walk per console call on an engine a client is attached to, which is the engine that is already
+    /// paying for debug mode.
+    /// </remarks>
+    public override bool WantsStackTrace => true;
+
     /// <inheritdoc/>
     public override void Write(ConsoleLogLevel level, string message) => _inner.Write(level, message);
 
