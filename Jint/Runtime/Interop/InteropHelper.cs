@@ -456,7 +456,14 @@ internal sealed class InteropHelper
         Func<MethodDescriptor, TState, JsValue[]> argumentProvider,
         TState state)
     {
+        // The first surviving candidate is held here rather than in a list, because there is nothing to sort
+        // until a second one survives — and one survivor is the usual outcome, not an edge case. It matters
+        // most on the operator lane, where scoring runs on every evaluation (JintBinaryExpression's candidate
+        // set is cached; which of them applies is not, since the argument values decide it).
+        MethodMatch survivor = default;
+        var haveSurvivor = false;
         List<MethodMatch>? matchingByParameterCount = null;
+
         foreach (var method in methods)
         {
             var parameterInfos = method.Parameters;
@@ -477,21 +484,30 @@ internal sealed class InteropHelper
                     continue;
                 }
 
-                matchingByParameterCount ??= [];
-                matchingByParameterCount.Add(new MethodMatch(method, arguments, score));
+                var match = new MethodMatch(method, arguments, score);
+                if (!haveSurvivor)
+                {
+                    survivor = match;
+                    haveSurvivor = true;
+                    continue;
+                }
+
+                matchingByParameterCount ??= [survivor];
+                matchingByParameterCount.Add(match);
             }
         }
 
-        if (matchingByParameterCount == null)
+        if (!haveSurvivor)
         {
             return MethodMatches.Empty;
         }
 
-        if (matchingByParameterCount.Count > 1)
+        if (matchingByParameterCount is null)
         {
-            matchingByParameterCount.Sort();
+            return MethodMatches.Single(in survivor);
         }
 
+        matchingByParameterCount.Sort();
         return MethodMatches.Sorted(matchingByParameterCount);
     }
 }

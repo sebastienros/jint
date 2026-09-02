@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -16,20 +15,18 @@ namespace Jint.Runtime.Interpreter.Expressions;
 internal abstract class JintBinaryExpression : JintExpression
 {
     /// <summary>
-    /// Identifies one operator-overload resolution. <see cref="Coercion"/> is part of it because
-    /// <c>InteropHelper.CalculateMethodParameterScore</c>'s gray-zone rule reads it, so two engines
-    /// configured differently can rank the same candidates differently - and, with a single candidate, can
-    /// disagree about whether it survives scoring at all.
+    /// Identifies the set of operator methods a pair of CLR operand types offers under one operator name.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right, ValueCoercionType Coercion);
+    internal readonly record struct OperatorKey(string? OperatorName, Type Left, Type Right);
 
     /// <summary>
-    /// Resolutions every engine agrees on, and therefore the ones that may be remembered for the process.
-    /// Only an engine running the stock <see cref="DefaultTypeConverter"/> reads or writes this; see
-    /// <see cref="TryOperatorOverloading"/> for why, and for where the others keep theirs.
+    /// The candidates each key offers, which is what a reflection scan of the two types answers and nothing
+    /// more - no engine, no configuration and no argument value takes part in building one, so it is the same
+    /// answer for every engine in the process. Choosing between them is <see cref="TryOperatorOverloading"/>'s
+    /// job, per evaluation.
     /// </summary>
-    private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
+    internal static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor[]> _operatorCandidates = new();
 
     private protected readonly JintExpression _left;
     private protected readonly JintExpression _right;
@@ -763,24 +760,33 @@ internal abstract class JintBinaryExpression : JintExpression
     private readonly record struct MethodResolverState(JsCallArguments Arguments);
 
     /// <summary>
-    /// The operator this pair of CLR operand types selects, resolved once and remembered.
+    /// Calls the CLR operator this pair of operands selects, if there is one.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The resolution runs <see cref="InteropHelper.FindBestMatch"/>, which reads two things the embedder
-    /// configures: <c>Options.Interop.ValueCoercion</c>, which the gray-zone scoring rule consults, and the
-    /// installed <see cref="ITypeConverter"/>, whose answer is the last rule outright - a conversion it
-    /// confirms keeps the candidate, one it refuses scores -1 and discards it. So the answer is not a
-    /// property of the operator name and the two types alone, and a process-wide cache keyed on those let
-    /// whichever engine evaluated first decide for every engine after it (#3424).
+    /// What is remembered is the <em>candidate set</em> - the operator methods the two types declare under
+    /// this name - and choosing between them runs on every evaluation. Selection is
+    /// <see cref="InteropHelper.FindBestMatch"/>, which scores each candidate against the actual arguments,
+    /// and several of its rules read the argument's <em>value</em>: a number is a perfect fit for a
+    /// <c>byte</c> parameter when it lands inside that range and no match at all when it does not. Every
+    /// JavaScript number reaches a cache key as <see cref="double"/>, so a resolution keyed on the two CLR
+    /// types answered <c>m + 300</c> with whatever <c>m + 5</c> had selected - an
+    /// <see cref="OverflowException"/> out of <c>Execute</c> in one order and the wrong overload, silently,
+    /// in the other (#3567).
     /// </para>
     /// <para>
-    /// The coercion setting is a value, so it goes in the key and engines that share it share their entries.
-    /// The converter is an object a host builds - <c>Options.SetTypeConverter</c> hands its factory the
-    /// <see cref="Engine"/> - so keying a process-lived static on it would pin every such converter, and any
-    /// engine it captured, for the life of the process. It gates the choice of cache instead: an engine
-    /// running the stock converter resolves what every other stock engine would and shares the static one,
-    /// and an engine with a converter of its own keeps its resolutions on itself, where they die with it.
+    /// Scoring also reads two things the embedder configures - <c>Options.Interop.ValueCoercion</c>, which
+    /// the gray-zone rule consults, and the installed <see cref="ITypeConverter"/>, whose answer is the
+    /// last rule outright - so neither belongs to a shared cache either (#3424). Running selection per
+    /// evaluation is what keeps all three out of it: the candidate set is a pure function of the operator
+    /// name and the two types, so one process-wide table serves every engine, and nothing an engine or an
+    /// argument decides is stored anywhere.
+    /// </para>
+    /// <para>
+    /// The scan the table saves is the expensive half; scoring one or two candidates is not. A pair with no
+    /// operator at all - the common case for a binary expression over host objects - leaves through the
+    /// empty candidate set without allocating the argument array, and a single candidate is scored without
+    /// allocating a candidate list.
     /// </para>
     /// </remarks>
     internal static bool TryOperatorOverloading(
@@ -795,46 +801,38 @@ internal abstract class JintBinaryExpression : JintExpression
 
         if (left != null && right != null)
         {
-            var leftType = left.GetType();
-            var rightType = right.GetType();
-            var arguments = new[] { leftValue, rightValue };
-
-            var engine = context.Engine;
-            var key = new OperatorKey(clrName, leftType, rightType, engine._valueCoercion);
-            var cache = engine._typeConverterIsDefault
-                ? _knownOperators
-                : engine._engineOperatorOverloads ??= new ConcurrentDictionary<OperatorKey, MethodDescriptor?>();
-
-            if (!cache.TryGetValue(key, out var method))
+            var candidates = GetOperatorCandidates(clrName, left.GetType(), right.GetType());
+            if (candidates.Length > 0)
             {
-                method = ResolveOperatorOverload(engine, clrName, leftType, rightType, arguments);
+                var engine = context.Engine;
+                var arguments = new[] { leftValue, rightValue };
+                var method = InteropHelper
+                    .FindBestMatch(engine, candidates, static (_, state) => state.Arguments, new MethodResolverState(arguments))
+                    .FirstOrDefault().Method;
 
-                // racy, we don't care: both racers resolved the same operator the same way
-                cache.TryAdd(key, method);
-            }
-
-            if (method != null)
-            {
-                try
+                if (method != null)
                 {
-                    result = method.Call(context.Engine, null, arguments);
-                }
-                catch (Exception e)
-                {
-                    // The same normalization every other interop call site uses. Wrapping e.InnerException
-                    // instead reported the wrong exception twice over: MethodDescriptor.Call has already
-                    // unwrapped the invoke, so `e` is the host's own exception and its InnerException is
-                    // that exception's cause - null for the common case, which left MeaningfulException
-                    // with a contentless TargetInvocationException to report.
-                    Throw.MeaningfulException(context.Engine, e as TargetInvocationException ?? new TargetInvocationException(e));
-                    result = null;
-                    return false;
-                }
+                    try
+                    {
+                        result = method.Call(engine, null, arguments);
+                    }
+                    catch (Exception e)
+                    {
+                        // The same normalization every other interop call site uses. Wrapping e.InnerException
+                        // instead reported the wrong exception twice over: MethodDescriptor.Call has already
+                        // unwrapped the invoke, so `e` is the host's own exception and its InnerException is
+                        // that exception's cause - null for the common case, which left MeaningfulException
+                        // with a contentless TargetInvocationException to report.
+                        Throw.MeaningfulException(engine, e as TargetInvocationException ?? new TargetInvocationException(e));
+                        result = null;
+                        return false;
+                    }
 
-                // outside the catch-all above so a constraint exception is not laundered into
-                // a TargetInvocationException
-                context.Engine.CheckAmortizedConstraintsAtHostBoundary();
-                return true;
+                    // outside the catch-all above so a constraint exception is not laundered into
+                    // a TargetInvocationException
+                    engine.CheckAmortizedConstraintsAtHostBoundary();
+                    return true;
+                }
             }
         }
 
@@ -842,20 +840,58 @@ internal abstract class JintBinaryExpression : JintExpression
         return false;
     }
 
-    private static MethodDescriptor? ResolveOperatorOverload(
-        Engine engine,
+    /// <summary>
+    /// The two-parameter operator methods named <paramref name="clrName"/> that either operand type declares,
+    /// scanned once per triple and shared by every engine in the process.
+    /// </summary>
+    private static MethodDescriptor[] GetOperatorCandidates(
         string? clrName,
-        Type leftType,
-        Type rightType,
-        JsCallArguments arguments)
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type leftType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type rightType)
     {
-        var leftMethods = leftType.GetOperatorOverloadMethods();
-        var rightMethods = rightType.GetOperatorOverloadMethods();
+        var key = new OperatorKey(clrName, leftType, rightType);
+        if (_operatorCandidates.TryGetValue(key, out var candidates))
+        {
+            return candidates;
+        }
 
-        var methods = leftMethods.Concat(rightMethods).Where(x => string.Equals(x.Name, clrName, StringComparison.Ordinal) && x.GetParameters().Length == 2);
-        var methodDescriptors = MethodDescriptor.Build(methods.ToArray());
+        // Written out rather than passed to GetOrAdd's factory because a lambda parameter cannot carry
+        // [DynamicallyAccessedMembers]: the annotation the caller already promised would be dropped on the
+        // way into the closure and every trimming build would report the scan as unannotated.
+        List<MethodInfo>? matching = null;
+        CollectOperatorMethods(leftType, clrName, ref matching);
+        CollectOperatorMethods(rightType, clrName, ref matching);
 
-        return InteropHelper.FindBestMatch(engine, methodDescriptors, static (_, state) => state.Arguments, new MethodResolverState(arguments)).FirstOrDefault().Method;
+        candidates = matching is null ? [] : MethodDescriptor.Build(matching);
+
+        // racy, we don't care: both racers scanned the same two types for the same name
+        _operatorCandidates.TryAdd(key, candidates);
+        return candidates;
+    }
+
+    private static void CollectOperatorMethods(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] Type type,
+        string? clrName,
+        ref List<MethodInfo>? matching)
+    {
+        foreach (var method in type.GetOperatorOverloadMethods())
+        {
+            if (string.Equals(method.Name, clrName, StringComparison.Ordinal) && method.GetParameters().Length == 2)
+            {
+                matching ??= [];
+
+                // The two operand types are scanned separately and the same operator can be on both lists -
+                // `T + T`, or a derived operand whose FlattenHierarchy scan reports the base's operator
+                // alongside the base itself. A duplicate candidate is scored a second time on every
+                // evaluation and, being a second survivor, costs the single-candidate lane its list-free
+                // path. The lists are two or three entries long, so the linear scan is the cheap way to say
+                // it, and it is paid once per key.
+                if (!matching.Contains(method))
+                {
+                    matching.Add(method);
+                }
+            }
+        }
     }
 
     internal static JintExpression Build(NonLogicalBinaryExpression expression)

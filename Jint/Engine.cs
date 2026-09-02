@@ -347,24 +347,6 @@ public sealed partial class Engine : IDisposable
     // one Options instance be shared by engines that are already running.
     internal readonly bool _operatorOverloadingAllowed;
 
-    // Snapshot of Options.Interop.ValueCoercion, read the same way and for the same reason. It steers
-    // overload scoring's gray-zone rule, so it is part of the key JintBinaryExpression remembers an
-    // operator-overload resolution under: two engines that coerce differently can rank the same candidates
-    // differently, and must not answer from one another's entries.
-    internal readonly ValueCoercionType _valueCoercion;
-
-    /// <summary>
-    /// Operator-overload resolutions belonging to this engine alone, created on first use and only by an
-    /// engine whose <see cref="TypeConverter"/> is not the stock one.
-    /// </summary>
-    /// <remarks>
-    /// Such an engine's converter answers overload scoring's last rule, so its resolutions are not the ones a
-    /// stock engine would reach and cannot go in the process-wide table - nor could that table be keyed on the
-    /// converter, which is a host object handed this engine by its factory and would pin both for the life of
-    /// the process. The <see cref="TypeConverter"/> setter drops these when the converter changes.
-    /// </remarks>
-    internal ConcurrentDictionary<JintBinaryExpression.OperatorKey, MethodDescriptor?>? _engineOperatorOverloads;
-
     internal readonly ReferencePool _referencePool;
     internal readonly ArgumentsInstancePool _argumentsInstancePool;
     internal readonly JsValueArrayPool _jsValueArrayPool;
@@ -385,11 +367,6 @@ public sealed partial class Engine : IDisposable
         {
             _typeConverter = value;
             _typeConverterIsDefault = value.GetType() == typeof(DefaultTypeConverter);
-
-            // Every operator-overload resolution this engine remembered was scored against the converter
-            // being replaced, and the stock table it may now be entitled to was not. Nothing is resolved
-            // before the first assignment, so this is a no-op during construction.
-            _engineOperatorOverloads?.Clear();
         }
     }
 
@@ -535,7 +512,6 @@ public sealed partial class Engine : IDisposable
         // documented place to finish configuring an engine, and enabling operator overloading from
         // one has to reach the expressions that consult it.
         _operatorOverloadingAllowed = Options.Interop.AllowOperatorOverloading;
-        _valueCoercion = Options.Interop.ValueCoercion;
 
         // likewise after Apply, which is where a custom ITypeConverter gets installed
         _interopResolutionProfile = new InteropResolutionProfile(

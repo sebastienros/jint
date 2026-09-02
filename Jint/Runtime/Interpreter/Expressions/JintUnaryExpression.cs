@@ -20,10 +20,11 @@ internal sealed class JintUnaryExpression : JintExpression
     /// <see cref="Jint.Runtime.Interop.ITypeConverter"/> is consulted.
     /// </summary>
     /// <remarks>
-    /// That is what makes it different from <see cref="JintBinaryExpression"/>'s table, whose key carries the
-    /// coercion setting and whose choice of table carries the converter (#3424). Anything that gives this one
-    /// a scoring step - a second candidate to choose between, <see cref="Jint.Runtime.Interop.InteropHelper.FindBestMatch"/>
-    /// - inherits those rules with it.
+    /// That is what makes it different from <see cref="JintBinaryExpression"/>, which remembers the candidate
+    /// set alone and scores it on every evaluation, because the argument values and those two embedder inputs
+    /// all take part in choosing (#3424, #3567). Anything that gives this one a scoring step - a second
+    /// candidate to choose between, <see cref="Jint.Runtime.Interop.InteropHelper.FindBestMatch"/> - inherits
+    /// those rules with it, and this table would have to become a candidate set too.
     /// </remarks>
     private readonly record struct OperatorKey(string OperatorName, Type Operand);
     private static readonly ConcurrentDictionary<OperatorKey, MethodDescriptor?> _knownOperators = new();
