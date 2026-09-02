@@ -26,6 +26,16 @@ internal static class Polyfills
     }
 #endif
 
+#if !NET8_0_OR_GREATER
+    // The span overloads of string.Concat arrived in .NET Core 2.1 and were never exposed by
+    // netstandard2.1, so every target below net8.0 needs them. The fallback materializes both slices,
+    // which is what a call site's own #else branch already did.
+    extension(string)
+    {
+        public static string Concat(ReadOnlySpan<char> str0, ReadOnlySpan<char> str1) => str0.ToString() + str1.ToString();
+    }
+#endif
+
 #if NETFRAMEWORK
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     internal static bool Contains(this ReadOnlySpan<string> source, string c) => source.IndexOf(c) != -1;

@@ -116,11 +116,34 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         var resolved = IntlUtilities.ResolveLocale(_engine, availableLocales, requestedLocales, localeMatcher, []);
         var resolvedLocale = resolved.Locale;
 
-        // Extract unicode extension values from the requested locale
+        // Extract unicode extension values from the requested locale. One walk answers for all three
+        // keys, and UnicodeExtension is the only thing in the engine that knows where a value ends —
+        // reading a key at a time by hand is what cost every tag carrying more than one of them.
         var requestedLocale = requestedLocales.Count > 0 ? requestedLocales[0] : "";
-        var extCalendar = ExtractUnicodeExtensionFromLocale(requestedLocale, "ca");
-        var extHourCycle = ExtractUnicodeExtensionFromLocale(requestedLocale, "hc");
-        var extNumberingSystem = ExtractUnicodeExtensionFromLocale(requestedLocale, "nu");
+        string? extCalendar = null;
+        string? extHourCycle = null;
+        string? extNumberingSystem = null;
+        foreach (var keyword in UnicodeExtension.EnumerateKeywords(requestedLocale))
+        {
+            if (keyword.Value.IsEmpty)
+            {
+                continue;
+            }
+
+            // Duplicate keys are not canonical, and the first occurrence is the one that counts.
+            if (extCalendar is null && keyword.KeyIs("ca"))
+            {
+                extCalendar = keyword.Value.ToString();
+            }
+            else if (extHourCycle is null && keyword.KeyIs("hc"))
+            {
+                extHourCycle = keyword.Value.ToString();
+            }
+            else if (extNumberingSystem is null && keyword.KeyIs("nu"))
+            {
+                extNumberingSystem = keyword.Value.ToString();
+            }
+        }
 
         // Track which extensions should be preserved in the resolved locale
         var preserveCalendarExt = false;
@@ -317,7 +340,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
         }
 
         // Build the resolved locale with only preserved extensions
-        resolvedLocale = BuildResolvedLocale(resolvedLocale, requestedLocale,
+        resolvedLocale = BuildResolvedLocale(resolvedLocale,
             preserveCalendarExt ? extCalendar : null,
             preserveHourCycleExt ? extHourCycle : null,
             preserveNumberingSystemExt ? extNumberingSystem : null);
@@ -755,7 +778,7 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
     /// <summary>
     /// Builds the resolved locale string, including only the unicode extensions that should be preserved.
     /// </summary>
-    private static string BuildResolvedLocale(string baseLocale, string requestedLocale,
+    private static string BuildResolvedLocale(string baseLocale,
         string? calendar, string? hourCycle, string? numberingSystem)
     {
         // If no extensions to preserve, return base locale (without any extensions)
@@ -813,83 +836,5 @@ internal sealed partial class DateTimeFormatConstructor : Constructor
             "islamic-rgsa" => "islamic-civil",
             _ => calendar.ToLowerInvariant()
         };
-    }
-
-    /// <summary>
-    /// Extracts a specific unicode extension value from a single locale string.
-    /// </summary>
-    private static string? ExtractUnicodeExtensionFromLocale(string locale, string key)
-    {
-        // Look for -u- marker
-        var uIndex = locale.IndexOf("-u-", StringComparison.OrdinalIgnoreCase);
-        if (uIndex == -1)
-        {
-            return null;
-        }
-
-        // Parse the unicode extension looking for the key
-        var extensionStart = uIndex + 3;
-        var i = extensionStart;
-
-        while (i < locale.Length)
-        {
-            // Find the key (2 characters)
-            var keyStart = i;
-            while (i < locale.Length && locale[i] != '-')
-            {
-                i++;
-            }
-
-            var currentKey = locale.Substring(keyStart, i - keyStart);
-
-            // Move past the '-' if present
-            if (i < locale.Length && locale[i] == '-')
-            {
-                i++;
-            }
-
-            // Check if this is a 2-character key (not a singleton for next extension)
-            if (currentKey.Length == 2)
-            {
-                // Find the value(s) - collect until next key or end
-                var valueStart = i;
-                while (i < locale.Length)
-                {
-                    var partStart = i;
-                    while (i < locale.Length && locale[i] != '-')
-                    {
-                        i++;
-                    }
-
-                    var part = locale.Substring(partStart, i - partStart);
-
-                    // If this part is a 2-char key or 1-char singleton, stop
-                    if (part.Length == 2 || part.Length == 1)
-                    {
-                        break;
-                    }
-
-                    // Move past '-' if present
-                    if (i < locale.Length && locale[i] == '-')
-                    {
-                        i++;
-                    }
-                }
-
-                var value = locale.Substring(valueStart, i - valueStart).TrimEnd('-');
-
-                if (string.Equals(currentKey, key, StringComparison.OrdinalIgnoreCase) && value.Length > 0)
-                {
-                    return value.ToLowerInvariant();
-                }
-            }
-            else if (currentKey.Length == 1)
-            {
-                // This is a singleton starting a new extension type, stop parsing unicode extension
-                break;
-            }
-        }
-
-        return null;
     }
 }
