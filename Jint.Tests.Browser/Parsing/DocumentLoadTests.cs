@@ -63,6 +63,9 @@ public class DocumentLoadTests
         // interval ran — which is exactly what a browser does and what a blocking parse could not.
         (await loopback.Page.EvaluateAsync<int>("window.ticksWhenSlowRan"))
             .Should().BeGreaterThan(0, "the page loop must keep running timers while a script is fetched");
+
+        // And the parse never hopped threads while it waited, which is the other half of the invariant.
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -85,6 +88,10 @@ public class DocumentLoadTests
         // Jint.Browser/AGENTS.md. What matters here is that the sheet was fetched and cascaded at all.
         (await loopback.Page.EvaluateAsync<string>("getComputedStyle(document.getElementById('p')).color"))
             .Should().Contain("1, 2, 3");
+
+        // A style sheet's own parse happens on the parser thread after the baton went back, so this is also
+        // where a genuinely asynchronous step in AngleSharp.Css would show up as a reported parser hop.
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -107,6 +114,7 @@ public class DocumentLoadTests
 
         var requests = loopback.Page.Requests;
 
+        loopback.Page.Errors.Should().BeEmpty();
         requests.Should().ContainSingle(r => r.Url.EndsWith("/", StringComparison.Ordinal) && r.Initiator == RequestInitiator.Document);
         requests.Should().ContainSingle(r => r.Url.EndsWith("/app.js", StringComparison.Ordinal)
             && r.Initiator == RequestInitiator.Subresource
@@ -144,6 +152,7 @@ public class DocumentLoadTests
         // HTML's order, pinned: DOMContentLoaded fires after every deferred script, so a caller that waited
         // for it can read what they did.
         (await loopback.Page.EvaluateAsync<bool>("window.deferred === true")).Should().BeTrue();
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]

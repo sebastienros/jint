@@ -283,7 +283,9 @@ the parse never suspends and the thread it runs on never changes. `ParserBaton.P
 rather than the belief: a change of parser thread means a step suspended where none was expected, and it
 becomes a page error. **A fetch a *script* triggered blocks instead of pumping**, because pumping from inside
 a running script would run the page's jobs in the middle of one; that is the price of an inserted
-`<script src>`, and it is stated in `ParserDriver.Fetch`.
+`<script src>`, and it is stated in `ParserDriver.Fetch`. One shape of inserted script does not run at all:
+AngleSharp prepares one when it is *inserted*, so `el.src = '…'` **after** `appendChild` is never fetched —
+set the source first, which is what a page does anyway.
 
 **Who runs what.** A classic script — inline, external, `defer`, `async` — is prepared and ordered by
 AngleSharp, which is what buys parser-blocking, document order, the deferred queue and the `document.write`

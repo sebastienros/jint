@@ -65,6 +65,7 @@ public class ScriptLoadingTests
 
         (await loopback.Page.EvaluateAsync<string>("window.log.join(',')"))
             .Should().Be("blocking,inline,defer1,defer2,DOMContentLoaded,load");
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]
@@ -231,6 +232,7 @@ public class ScriptLoadingTests
 
         (await loopback.Page.EvaluateAsync<string>("window.ran.join(',')"))
             .Should().Be("inline-inserted,external-inserted");
+        loopback.Page.Errors.Should().BeEmpty();
     }
 
     [Test]
