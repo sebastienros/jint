@@ -66,6 +66,20 @@ internal static class Throw
         throw new ProtocolException(ProtocolErrorCodes.ServerError, message, details);
     }
 
+    /// <inheritdoc cref="ServerError(string, string?)"/>
+    [DoesNotReturn]
+    internal static T ServerError<T>(string message, string? details = null)
+    {
+        throw new ProtocolException(ProtocolErrorCodes.ServerError, message, details);
+    }
+
+    /// <summary>Raises the protocol's session-not-found error, <c>-32001</c>, in Chrome's own wording.</summary>
+    [DoesNotReturn]
+    internal static T SessionNotFound<T>()
+    {
+        throw new ProtocolException(ProtocolErrorCodes.SessionNotFound, "Session with given id not found.");
+    }
+
     /// <summary>Raises <see cref="ArgumentNullException"/> for a host-supplied argument.</summary>
     [DoesNotReturn]
     internal static void ArgumentNull(string parameterName)

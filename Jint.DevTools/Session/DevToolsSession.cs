@@ -6,26 +6,39 @@ using Jint.DevTools.Transport;
 namespace Jint.DevTools.Session;
 
 /// <summary>
-/// One client's conversation: a connection, the domains it may address, and the envelope discipline between
-/// them.
+/// One addressable set of domains on one connection: the connection's own, or one attachment's, told apart
+/// by the <c>sessionId</c> a client puts on the message.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A session reads one message, answers it, and writes one response — always exactly one, whatever went
-/// wrong. A client waiting on an <c>id</c> that never comes back is a hang rather than an error, so every
-/// path out of <see cref="HandleMessageAsync"/> writes something.
+/// A session is a node. The <b>root</b> owns the connection, parses every envelope and writes every reply;
+/// a <b>child</b> is what one <c>Target.attachToTarget</c> minted, carries the <c>sessionId</c> that reaches
+/// it, and writes through its root. A message with no <c>sessionId</c> is answered by the root, one naming a
+/// child by that child, and one naming nothing by <c>-32001</c>.
 /// </para>
 /// <para>
-/// Nothing here touches an engine, and by design: the session is what a transport thread hands text to, and
-/// bringing that text to the engine thread is the dispatcher's job, which arrives with the WebSocket
-/// transport. Until then a session runs wherever it was pumped from.
+/// A session answers every message with exactly one reply, whatever went wrong. A client waiting on an
+/// <c>id</c> that never comes back is a hang rather than an error, so every path out of
+/// <see cref="HandleMessageAsync"/> writes something.
+/// </para>
+/// <para>
+/// <b>Where a command runs is the gateway's decision, not the session's.</b> A session whose domains hold
+/// engine state is given an <see cref="ICommandGateway"/> — <see cref="EngineDispatcher"/> — and every
+/// command addressed to it crosses to the engine thread through that gateway before a domain sees it. A
+/// session with no gateway (the browser session: <c>Schema</c>, <c>Browser</c>, <c>Target</c>) answers on
+/// the transport thread, because none of it touches an engine.
 /// </para>
 /// </remarks>
 internal sealed class DevToolsSession
 {
-    private readonly IDevToolsConnection _connection;
+    private readonly IDevToolsConnection? _connection;
+    private readonly DevToolsSession _root;
     private readonly CommandRouter _router = new();
+    private readonly object _childLock;
+    private Dictionary<string, DevToolsSession>? _children;
+    private ICommandGateway? _gateway;
 
+    /// <summary>Creates the root session of <paramref name="connection"/>.</summary>
     internal DevToolsSession(IDevToolsConnection connection)
     {
         if (connection is null)
@@ -34,8 +47,23 @@ internal sealed class DevToolsSession
         }
 
         _connection = connection;
+        _root = this;
+        _childLock = new object();
         _connection.MessageReceived = HandleMessageAsync;
     }
+
+    private DevToolsSession(DevToolsSession root, string sessionId)
+    {
+        _root = root;
+        _childLock = root._childLock;
+        SessionId = sessionId;
+    }
+
+    /// <summary>
+    /// Gets the identifier a client addresses this session by, or <see langword="null"/> for a root session
+    /// — which is both the browser endpoint and a direct <c>/devtools/page/</c> connection.
+    /// </summary>
+    internal string? SessionId { get; }
 
     /// <summary>Gets the domains registered on this session.</summary>
     internal IReadOnlyCollection<DevToolsDomain> Domains => _router.Domains;
@@ -46,6 +74,52 @@ internal sealed class DevToolsSession
         _router.Add(domain);
         domain.Attach(this);
         return this;
+    }
+
+    /// <summary>
+    /// Sets what brings a command addressed to this session to the thread that may answer it.
+    /// </summary>
+    internal void UseGateway(ICommandGateway gateway)
+    {
+        _gateway = gateway;
+    }
+
+    /// <summary>Mints a child session under <paramref name="sessionId"/>, which must be unused.</summary>
+    internal DevToolsSession CreateChild(string sessionId)
+    {
+        var child = new DevToolsSession(_root, sessionId);
+
+        lock (_childLock)
+        {
+            var children = _root._children ??= new Dictionary<string, DevToolsSession>(StringComparer.Ordinal);
+            if (!children.TryAdd(sessionId, child))
+            {
+                Throw.InvalidOperation($"The session '{sessionId}' is already attached to this connection.");
+            }
+        }
+
+        return child;
+    }
+
+    /// <summary>Removes a child session, answering whether there was one.</summary>
+    internal bool RemoveChild(string sessionId)
+    {
+        lock (_childLock)
+        {
+            return _root._children?.Remove(sessionId) == true;
+        }
+    }
+
+    /// <summary>
+    /// Answers one command against this session's own domains, on whichever thread calls it.
+    /// </summary>
+    /// <remarks>
+    /// A gateway calls this once it has reached the thread the domains may be touched from; a session with
+    /// no gateway is called straight from <see cref="HandleMessageAsync"/>.
+    /// </remarks>
+    internal ValueTask<string> DispatchAsync(in ProtocolRequest request, CommandContext context)
+    {
+        return _router.DispatchAsync(in request, context);
     }
 
     /// <summary>
@@ -75,10 +149,14 @@ internal sealed class DevToolsSession
             var request = ProtocolMessage.Read(document.RootElement, id.Value);
             sessionId = request.SessionId;
 
-            var context = new CommandContext(this, request.SessionId, cancellationToken);
-            var result = await _router.DispatchAsync(in request, context).ConfigureAwait(false);
+            var session = Resolve(sessionId);
+            var context = new CommandContext(session, sessionId, cancellationToken);
 
-            await _connection.SendAsync(ProtocolMessage.WriteResponse(id.Value, result, sessionId), cancellationToken).ConfigureAwait(false);
+            var result = session._gateway is { } gateway
+                ? await gateway.DispatchAsync(session, request, context).ConfigureAwait(false)
+                : await session.DispatchAsync(in request, context).ConfigureAwait(false);
+
+            await SendAsync(ProtocolMessage.WriteResponse(id.Value, result, sessionId), cancellationToken).ConfigureAwait(false);
         }
         catch (ProtocolException exception)
         {
@@ -97,13 +175,41 @@ internal sealed class DevToolsSession
     }
 
     /// <summary>Sends one event, which no client is waiting on and which carries no identifier.</summary>
-    internal ValueTask SendEventAsync(in ProtocolEvent @event, string? sessionId, CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// The <c>sessionId</c> is this session's own rather than a caller's: an event belongs to the session
+    /// that raised it, and a domain never has to remember which attachment it is part of.
+    /// </remarks>
+    internal ValueTask SendEventAsync(in ProtocolEvent @event, CancellationToken cancellationToken = default)
     {
-        return _connection.SendAsync(ProtocolMessage.WriteEvent(in @event, sessionId), cancellationToken);
+        return SendAsync(ProtocolMessage.WriteEvent(in @event, SessionId), cancellationToken);
+    }
+
+    /// <summary>Writes one finished message to the connection this session belongs to.</summary>
+    internal ValueTask SendAsync(string message, CancellationToken cancellationToken = default)
+    {
+        return _root._connection!.SendAsync(message, cancellationToken);
+    }
+
+    private DevToolsSession Resolve(string? sessionId)
+    {
+        if (sessionId is null)
+        {
+            return this;
+        }
+
+        lock (_childLock)
+        {
+            if (_root._children?.TryGetValue(sessionId, out var child) == true)
+            {
+                return child;
+            }
+        }
+
+        return Throw.SessionNotFound<DevToolsSession>();
     }
 
     private ValueTask FailAsync(long? id, int code, string message, string? details, string? sessionId, CancellationToken cancellationToken)
     {
-        return _connection.SendAsync(ProtocolMessage.WriteError(id, code, message, details, sessionId), cancellationToken);
+        return SendAsync(ProtocolMessage.WriteError(id, code, message, details, sessionId), cancellationToken);
     }
 }

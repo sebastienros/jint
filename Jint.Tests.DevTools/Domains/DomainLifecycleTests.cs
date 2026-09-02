@@ -13,9 +13,9 @@ namespace Jint.Tests.DevTools.Domains;
 /// </summary>
 /// <remarks>
 /// <para>
-/// No shipped domain uses either yet — the two implemented commands answer straight away — so the shape is
-/// exercised here through a domain of this suite's own, derived from a generated base exactly as a real one
-/// would be. That is deliberate: an untested extension point is a design nobody has tried.
+/// Exercised through a domain of this suite's own, derived from a generated base exactly as a real one is.
+/// That is deliberate: an untested extension point is a design nobody has tried, and the domains this
+/// package ships do not between them use every part of it.
 /// </para>
 /// <para>
 /// The commands are invoked directly rather than over the wire, and that is not a shortcut: dispatch is
@@ -29,7 +29,7 @@ public class DomainLifecycleTests
     public async Task EnablingTwiceRunsTheHookOnce()
     {
         var (session, domain, _) = Create();
-        var context = new CommandContext(session, sessionId: null, CancellationToken.None);
+        var context = new CommandContext(session, session.SessionId, CancellationToken.None);
 
         await domain.HandleEnableAsync(context);
         await domain.HandleEnableAsync(context);
@@ -42,7 +42,7 @@ public class DomainLifecycleTests
     public async Task DisablingRunsTheHookOnlyWhenItWasEnabled()
     {
         var (session, domain, _) = Create();
-        var context = new CommandContext(session, sessionId: null, CancellationToken.None);
+        var context = new CommandContext(session, session.SessionId, CancellationToken.None);
 
         await domain.HandleDisableAsync(context);
         domain.Disables.Should().Be(0);
@@ -54,12 +54,19 @@ public class DomainLifecycleTests
         domain.IsEnabled.Should().BeFalse();
     }
 
+    /// <summary>
+    /// An event carries the identifier of the session that raised it, which is what lets a domain on an
+    /// attached session emit without knowing which attachment it is part of.
+    /// </summary>
     [Test]
-    public async Task AnEventCarriesNoIdentifierAndReachesTheConnection()
+    public async Task AnEventCarriesTheRaisingSessionsIdentifierAndNoRequestIdentifier()
     {
-        var (session, domain, connection) = Create();
+        var (root, _, connection) = Create();
+        var child = root.CreateChild("S1");
+        var domain = new CountingLogDomain();
+        child.Register(domain);
 
-        await domain.RaiseAsync(new CommandContext(session, "S1", CancellationToken.None));
+        await domain.RaiseAsync();
 
         using var document = JsonDocument.Parse(connection.Sent[^1]);
         var message = document.RootElement;
@@ -78,16 +85,16 @@ public class DomainLifecycleTests
     [Test]
     public async Task AnUnsetOptionalMemberIsNotWritten()
     {
-        var (session, domain, connection) = Create();
+        var (_, domain, connection) = Create();
 
-        await domain.RaiseAsync(new CommandContext(session, sessionId: null, CancellationToken.None));
+        await domain.RaiseAsync();
 
         using var document = JsonDocument.Parse(connection.Sent[^1]);
         var entry = document.RootElement.GetProperty("params").GetProperty("entry");
 
         entry.TryGetProperty("url", out _).Should().BeFalse();
         entry.TryGetProperty("stackTrace", out _).Should().BeFalse();
-        document.RootElement.TryGetProperty("sessionId", out _).Should().BeFalse();
+        document.RootElement.TryGetProperty("sessionId", out _).Should().BeFalse("the root session has no identifier to put on its events");
     }
 
     private static (DevToolsSession Session, CountingLogDomain Domain, InProcessConnection Connection) Create()
@@ -113,7 +120,7 @@ public class DomainLifecycleTests
 
         internal ValueTask<EmptyResult> HandleDisableAsync(CommandContext context) => DisableAsync(EmptyParameters.Instance, context);
 
-        internal ValueTask RaiseAsync(CommandContext context)
+        internal ValueTask RaiseAsync()
         {
             var entry = new LogEntry
             {
@@ -123,7 +130,7 @@ public class DomainLifecycleTests
                 Timestamp = 1,
             };
 
-            return EmitAsync(LogEvents.EntryAdded(new EntryAddedEvent { Entry = entry }), context);
+            return EmitAsync(LogEvents.EntryAdded(new EntryAddedEvent { Entry = entry }));
         }
 
         protected override async ValueTask<EmptyResult> EnableAsync(EmptyParameters parameters, CommandContext context)

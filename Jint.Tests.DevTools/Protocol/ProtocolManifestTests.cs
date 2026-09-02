@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using Jint.DevTools;
 using Jint.DevTools.Domains;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Session;
@@ -27,7 +28,30 @@ namespace Jint.Tests.DevTools.Protocol;
 /// </remarks>
 public class ProtocolManifestTests
 {
-    private static readonly DevToolsSession _session = BuiltInDomains.RegisterOn(new DevToolsSession(new InProcessConnection()));
+    /// <summary>
+    /// Every domain a client can reach, across both kinds of session.
+    /// </summary>
+    /// <remarks>
+    /// There are two kinds and the manifest covers both: the browser conversation answers about the server,
+    /// and an attachment answers about one engine. Reading only one of them would let half the manifest go
+    /// unchecked -- which is exactly the shape of the mistake these tests exist to catch.
+    /// </remarks>
+    private static readonly IReadOnlyCollection<DevToolsDomain> _domains = RegisteredDomains();
+
+    private static IReadOnlyCollection<DevToolsDomain> RegisteredDomains()
+    {
+        var server = new DevToolsServer();
+        var target = new EngineTarget(new Engine());
+        server.AddTarget(target);
+
+        var browser = server.OpenBrowserSession(new InProcessConnection());
+        var attachment = browser.Session.CreateChild("S1");
+        BuiltInDomains.RegisterTargetDomains(attachment, target, browser);
+
+        var domains = new List<DevToolsDomain>(browser.Session.Domains);
+        domains.AddRange(attachment.Domains);
+        return domains;
+    }
 
     [Test]
     public void EveryImplementedMethodTheManifestNamesIsOverridden()
@@ -51,7 +75,8 @@ public class ProtocolManifestTests
     {
         var undeclared = new List<string>();
 
-        foreach (var domain in _session.Domains)
+
+        foreach (var domain in _domains)
         {
             foreach (var method in domain.GetType().GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
@@ -91,7 +116,7 @@ public class ProtocolManifestTests
     {
         foreach (var reported in ProtocolManifest.ReportedDomains)
         {
-            _session.Domains.Should().Contain(
+            _domains.Should().Contain(
                 domain => domain.Name == reported.Name,
                 "Schema.getDomains reports '{0}', so a session has to have it registered",
                 reported.Name);
@@ -109,14 +134,21 @@ public class ProtocolManifestTests
         var domainName = qualified.Substring(0, separator);
         var expected = Naming(qualified.Substring(separator + 1)) + "Async";
 
-        var domain = _session.Domains.FirstOrDefault(candidate => string.Equals(candidate.Name, domainName, StringComparison.Ordinal));
-        if (domain is null)
+        foreach (var domain in _domains)
         {
-            return false;
+            if (!string.Equals(domain.Name, domainName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var method = domain.GetType().GetMethod(expected, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            if (method is not null && method.GetBaseDefinition() != method)
+            {
+                return true;
+            }
         }
 
-        var method = domain.GetType().GetMethod(expected, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-        return method is not null && method.GetBaseDefinition() != method;
+        return false;
     }
 
     private static string Command(string domainName, string methodName)

@@ -1,1 +1,68 @@
 ﻿[assembly: System.Resources.NeutralResourcesLanguage("en-US")]
+namespace Jint.DevTools
+{
+    public sealed class DevToolsEngineOptions
+    {
+        public DevToolsEngineOptions() { }
+        public bool Coverage { get; set; }
+    }
+    public static class DevToolsOptionsExtensions
+    {
+        public static Jint.Options UseDevTools(this Jint.Options options, System.Action<Jint.DevTools.DevToolsEngineOptions>? configure = null) { }
+    }
+    public sealed class DevToolsServer : System.IAsyncDisposable
+    {
+        public DevToolsServer(Jint.DevTools.DevToolsServerOptions? options = null) { }
+        public int BoundPort { get; }
+        public string BrowserId { get; }
+        public string BrowserWebSocketUrl { get; }
+        public System.Collections.Generic.IReadOnlyList<Jint.DevTools.EngineTarget> Targets { get; }
+        public void AddTarget(Jint.DevTools.EngineTarget target) { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public bool RemoveTarget(Jint.DevTools.EngineTarget target) { }
+        public void Start() { }
+        public System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken = default) { }
+    }
+    public sealed class DevToolsServerOptions
+    {
+        public DevToolsServerOptions() { }
+        public bool CloseIsDisconnect { get; set; }
+        public System.TimeSpan CommandTimeout { get; set; }
+        public System.Func<Jint.Engine>? EngineFactory { get; set; }
+        public string Host { get; set; }
+        public int MaxMessageBytes { get; set; }
+        public System.TimeSpan PauseTimeout { get; set; }
+        public int Port { get; set; }
+        public string? Product { get; set; }
+    }
+    public sealed class EngineTarget : System.IAsyncDisposable
+    {
+        public EngineTarget(Jint.Engine engine, Jint.DevTools.EngineTargetOptions? options = null) { }
+        public Jint.Engine Engine { get; }
+        public bool IsWaitingForDebugger { get; }
+        public string TargetId { get; }
+        public Jint.DevTools.ThreadMode ThreadMode { get; }
+        public string Title { get; }
+        public string Type { get; }
+        public string Url { get; }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public void Post(System.Action<Jint.Engine> work) { }
+        public System.Threading.Tasks.Task PostAsync(System.Action<Jint.Engine> work) { }
+        public System.Threading.Tasks.Task<T> PostAsync<T>(System.Func<Jint.Engine, T> work) { }
+        public void Pump() { }
+        public bool WaitForDebugger(System.TimeSpan timeout) { }
+    }
+    public sealed class EngineTargetOptions
+    {
+        public EngineTargetOptions() { }
+        public Jint.DevTools.ThreadMode ThreadMode { get; set; }
+        public string Title { get; set; }
+        public string Url { get; set; }
+        public bool WaitForDebuggerOnStart { get; set; }
+    }
+    public enum ThreadMode
+    {
+        HostOwned = 0,
+        LibraryOwned = 1,
+    }
+}

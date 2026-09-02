@@ -740,8 +740,89 @@ namespace Jint.DevTools.Domains
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.Target.OpenDevToolsResponse>>("Target.openDevTools");
 
         /// <inheritdoc/>
-        internal sealed override global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
-            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<string>>("Target." + method);
+        internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
+        {
+            switch (method)
+            {
+                case "activateTarget":
+                {
+                    var result = await ActivateTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetActivateTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "attachToTarget":
+                {
+                    var result = await AttachToTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetAttachToTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetAttachToTargetResponse);
+                }
+
+                case "closeTarget":
+                {
+                    var result = await CloseTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCloseTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCloseTargetResponse);
+                }
+
+                case "createBrowserContext":
+                {
+                    var result = await CreateBrowserContextAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCreateBrowserContextRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCreateBrowserContextResponse);
+                }
+
+                case "getBrowserContexts":
+                {
+                    var result = await GetBrowserContextsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetGetBrowserContextsResponse);
+                }
+
+                case "createTarget":
+                {
+                    var result = await CreateTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCreateTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetCreateTargetResponse);
+                }
+
+                case "detachFromTarget":
+                {
+                    var result = await DetachFromTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetDetachFromTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "disposeBrowserContext":
+                {
+                    var result = await DisposeBrowserContextAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetDisposeBrowserContextRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "getTargetInfo":
+                {
+                    var result = await GetTargetInfoAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetGetTargetInfoRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetGetTargetInfoResponse);
+                }
+
+                case "getTargets":
+                {
+                    var result = await GetTargetsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetGetTargetsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetGetTargetsResponse);
+                }
+
+                case "setAutoAttach":
+                {
+                    var result = await SetAutoAttachAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetSetAutoAttachRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setDiscoverTargets":
+                {
+                    var result = await SetDiscoverTargetsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.TargetSetDiscoverTargetsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                // A command manifest.json does not list is method-not-found BEFORE its parameters
+                // are looked at, which is the order Chrome answers in: a command a backend does not
+                // implement is not in its dispatch table at all, so its payload is never read.
+                default:
+                    return global::Jint.DevTools.Throw.MethodNotFound<string>("Target." + method);
+            }
+        }
     }
 
     /// <summary>Builds the <c>Target</c> domain's events.</summary>

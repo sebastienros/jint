@@ -10,14 +10,16 @@ namespace Jint.DevTools.Domains;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>getVersion</c> is the first command every client sends, and what it answers is what the client then
+/// <c>getVersion</c> is the first command most clients send, and what it answers is what the client then
 /// believes it is driving. So the product string says Jint and its version rather than impersonating a
 /// Chrome build: a client that branches on the product name should take its "unknown browser" path, and one
 /// that only reports it should report the truth.
 /// </para>
 /// <para>
-/// <c>close</c> is the host's decision, not this package's. Without a callback it succeeds and does nothing,
-/// which is what keeps a client that closes on the way out from failing.
+/// <c>close</c> is the host's decision, not this package's. Every client sends it on the way out and a
+/// browser would exit; Jint is embedded in somebody's process, so what the server does with it is
+/// <see cref="DevToolsServerOptions.CloseIsDisconnect"/>. Without a callback at all it succeeds and does
+/// nothing, which is what keeps a client that closes on the way out from failing.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Browser/#method-getVersion"/> and
@@ -26,34 +28,44 @@ namespace Jint.DevTools.Domains;
 /// </remarks>
 internal sealed class BrowserDomain : BrowserDomainBase
 {
-    private static readonly string _version = ReadJintVersion();
-
-    private static readonly GetVersionResponse _versionResponse = new()
-    {
-        ProtocolVersion = ProtocolManifest.ProtocolVersion,
-        Product = "Jint/" + _version,
-        Revision = "",
-        UserAgent = "Jint/" + _version,
-
-        // V8 reports its own engine version here. Jint's is the honest answer, and it parses as a version
-        // for the clients that read it as one.
-        JsVersion = _version,
-    };
-
+    private readonly GetVersionResponse _version;
     private readonly Action? _closeRequested;
 
     /// <summary>
-    /// Creates the domain, optionally with what to run when a client asks the browser to close.
+    /// Creates the domain over what the server calls itself, and what to run when a client asks it to close.
     /// </summary>
-    internal BrowserDomain(Action? closeRequested = null)
+    internal BrowserDomain(GetVersionResponse version, Action? closeRequested = null)
     {
+        _version = version;
         _closeRequested = closeRequested;
+    }
+
+    /// <summary>Jint's own version, with the source-link commit suffix removed because a client renders it.</summary>
+    internal static string JintVersion { get; } = ReadJintVersion();
+
+    /// <summary>Builds the answer to <c>getVersion</c>, taking the product string a host chose.</summary>
+    /// <param name="product">What the server calls itself, or <see langword="null"/> for Jint and its version.</param>
+    internal static GetVersionResponse Version(string? product)
+    {
+        var name = string.IsNullOrEmpty(product) ? "Jint/" + JintVersion : product;
+
+        return new GetVersionResponse
+        {
+            ProtocolVersion = ProtocolManifest.ProtocolVersion,
+            Product = name,
+            Revision = "",
+            UserAgent = name,
+
+            // V8 reports its own engine version here. Jint's is the honest answer, and it parses as a
+            // version for the clients that read it as one.
+            JsVersion = JintVersion,
+        };
     }
 
     /// <inheritdoc/>
     protected override ValueTask<GetVersionResponse> GetVersionAsync(EmptyParameters parameters, CommandContext context)
     {
-        return new ValueTask<GetVersionResponse>(_versionResponse);
+        return new ValueTask<GetVersionResponse>(_version);
     }
 
     /// <inheritdoc/>
@@ -63,10 +75,6 @@ internal sealed class BrowserDomain : BrowserDomainBase
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
-    /// <summary>
-    /// Jint's informational version with the source-link commit suffix removed, because a client renders
-    /// this string.
-    /// </summary>
     private static string ReadJintVersion()
     {
         var assembly = typeof(Engine).Assembly;

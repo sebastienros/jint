@@ -44,19 +44,44 @@ namespace Jint.DevTools.Protocol
         [
             "Browser.close",
             "Browser.getVersion",
+            "Runtime.disable",
+            "Runtime.discardConsoleEntries",
+            "Runtime.enable",
+            "Runtime.evaluate",
+            "Runtime.getIsolateId",
+            "Runtime.runIfWaitingForDebugger",
             "Schema.getDomains",
+            "Target.activateTarget",
+            "Target.attachToTarget",
+            "Target.closeTarget",
+            "Target.createBrowserContext",
+            "Target.createTarget",
+            "Target.detachFromTarget",
+            "Target.disposeBrowserContext",
+            "Target.getBrowserContexts",
+            "Target.getTargetInfo",
+            "Target.getTargets",
+            "Target.setAutoAttach",
+            "Target.setDiscoverTargets",
         ];
 
         /// <summary>The events this assembly emits.</summary>
         internal static global::System.Collections.Generic.IReadOnlyList<string> ImplementedEvents { get; } =
         [
+            "Runtime.executionContextCreated",
+            "Target.attachedToTarget",
+            "Target.detachedFromTarget",
+            "Target.targetCreated",
+            "Target.targetDestroyed",
         ];
 
         /// <summary>What <c>Schema.getDomains</c> answers.</summary>
         internal static global::System.Collections.Generic.IReadOnlyList<global::Jint.DevTools.Protocol.Schema.Domain> ReportedDomains { get; } =
         [
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Browser", Version = "1.3" },
+            new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Runtime", Version = "1.3" },
             new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Schema", Version = "1.3" },
+            new global::Jint.DevTools.Protocol.Schema.Domain { Name = "Target", Version = "1.3" },
         ];
     }
 }

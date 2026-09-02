@@ -41,12 +41,69 @@ Everything downstream of that follows:
   the repository-root [`AGENTS.md`](../AGENTS.md#gotchas); this package must never be the thing that breaks
   them.
 
-The **dispatcher** that brings a transport thread's message to the engine thread arrives with the WebSocket
-transport (campaign P2): a mailbox the engine drains, in the two thread modes a host can be in —
-`HostOwned`, where the host already pumps the engine and the dispatcher only enqueues, and `LibraryOwned`,
-where the package owns a loop. Until it lands, a session runs on whichever thread pumped it, and
-`InProcessConnection` is the only transport. **State the rule in code you write now**; do not write
-something a dispatcher will have to undo.
+### The mailbox, which is how a command reaches the engine
+
+`Session/EngineDispatcher.cs` is **the only path from a transport thread to the engine**, and every domain
+that holds engine state is registered on a session that goes through it (`DevToolsSession.UseGateway`). The
+mechanism, in order:
+
+1. A transport thread parses the envelope, resolves the session, and — because that session has a gateway —
+   hands the request to `EngineDispatcher.DispatchAsync`, which enqueues it and waits.
+2. The enqueue calls `engine.Tasks.Post(Drain)`, the one engine entry a thread that does not own the engine
+   may call. It wakes whichever thread is pumping.
+3. `Drain` runs **on the engine thread, inside an ordinary event-loop job**, answers the command, and
+   completes the waiting task with the finished JSON.
+4. The transport thread writes that string. **No `JsValue` ever crosses.**
+
+Four consequences that are not negotiable:
+
+- **A command runs inside a job, so it may not drain.** `WaitForScheduledWork` and any promise unwrap that
+  pumps are forbidden — the pump's re-entrancy guard refuses them. `Runtime.evaluate` with `awaitPromise`
+  attaches reactions and completes from the job that runs them, which is V8's shape too.
+- **The drain must never throw.** It is a job on the host's own pump; an exception there erupts out of
+  `ProcessTasks` into the host. Every item catches everything and answers with it.
+- **A command that times out is answered, not cancelled.** `CommandTimeout` bounds the *client's* wait; the
+  item stays queued and still runs when the engine is next pumped. The two timeout messages are told apart
+  deliberately — an item nothing dequeued says `Engine is not being pumped`, one that started and did not
+  finish says `Command timed out` — because a host debugging the wrong one wastes an afternoon.
+- **Host work and protocol commands share the queue**, so a host's `target.Post` runs in order with the
+  commands around it. The single exception is `WaitForDebuggerOnStart`: host work is held and protocol
+  commands are not, because otherwise the command that ends the wait could never be answered.
+
+The two thread modes are `EngineTargetOptions.ThreadMode`. `HostOwned` (the default) is the host's own loop;
+`EngineTarget.Pump` is a convenience over `engine.Tasks.ProcessTasks()`, not a second mechanism.
+`LibraryOwned` starts one thread running drain → `ProcessTasks` → `WaitForScheduledWork`, and the host
+submits work with `Post`/`PostAsync`. A host-owned target that has to wait for a debugger waits by
+*pumping* (`WaitForDebugger`), because the command that releases it is answered on that very thread.
+
+### Targets and sessions
+
+A `DevToolsSession` is a node. The **root** owns the connection and parses every envelope; a **child** is
+what one attachment minted, carries the `sessionId` that reaches it, and writes through its root. A message
+naming a `sessionId` nothing answers to is `-32001 "Session with given id not found."` — Chrome's wording,
+pinned by test, and a different thing from `-32000`.
+
+Two paths open a conversation, and `Transport/WebSocketServerTransport.cs` decides between them *before* the
+upgrade, so a client that guessed is told rather than left holding a socket:
+
+- `/devtools/browser/<browserId>` is a `BrowserSession`: `Schema`, `Browser`, `Target`. **None of it touches
+  an engine**, so it has no gateway and answers on the transport thread.
+- `/devtools/page/<targetId>` is a `TargetSession` on the root node itself — no `sessionId` on any message —
+  carrying `Runtime` and no `Target` domain at all, because one engine has no target tree.
+
+Three decisions worth not relitigating:
+
+- **Flattened sessions only.** `Target.attachToTarget` and `Target.setAutoAttach` refuse `flatten: false`
+  with `-32000 "Only flatten protocol is supported"`. The wrapped model routes every message through
+  `Target.sendMessageToTarget`, and **no client in `tools/devtools-protocol/handshakes/` sends it** — so
+  that command stays unimplemented (`-32601`) rather than buying a second routing path for nobody.
+- **`setAutoAttach` on an attached session is a success that attaches nothing.** Clients walk down the
+  target tree by sending it on every session they are handed; an engine target has no children, and a
+  refusal there reads to a client as a broken target.
+- **A browser context is not something an engine target has.** `getBrowserContexts` answers an empty list;
+  `createBrowserContext` and `disposeBrowserContext` answer `-32000` with the reason. Minting an identifier
+  that partitions nothing would tell a client its next target was isolated when it is not. The page package
+  is where contexts start meaning something.
 
 ### The pause loop
 
@@ -133,7 +190,10 @@ method is overridden on a registered domain, and nothing else is. So the workflo
 exactly three steps — add the manifest entry, regenerate, override the virtual — and skipping any of them
 fails.
 
-Registration lives in one place, `Domains/BuiltInDomains.RegisterOn`, which is what those tests read.
+Registration lives in one place, `Domains/BuiltInDomains`, which is what those tests read. There are two
+lists there rather than one because there are two kinds of session — a browser conversation answers about
+the server, an attachment answers about one engine — and `ProtocolManifestTests` reads both. A domain
+registered on only one of them and checked against only the other is a manifest entry nothing verifies.
 
 ### The envelope and the error codes
 
@@ -181,14 +241,22 @@ this is public.
 
 ### Visibility, and what is public
 
-**Everything in this package is `internal` today, and the public API baseline is empty on purpose.** The
-first member promoted out of that is a diff somebody reads — see
+**The public surface is the host's door and nothing else**: `DevToolsServer`, `DevToolsServerOptions`,
+`EngineTarget`, `EngineTargetOptions`, `ThreadMode`, and the `UseDevTools` extension with its
+`DevToolsEngineOptions`. Everything else — every protocol type, every dispatch base, every session class —
+is `internal`, and the baseline in `Jint.Tests.DevTools/Verify/` is the diff somebody reads when that
+changes; see
 [`Jint.Tests.PublicInterface/AGENTS.md`](../Jint.Tests.PublicInterface/AGENTS.md#the-public-api-baselines)
-for how a baseline is accepted. When something is promoted it carries
-`[Experimental(DevToolsDiagnosticIds.ProtocolExtensionPoint)]`, i.e. `JINTDT001`, which says its shape
-follows a living upstream document rather than this repository's compatibility contract. That is a separate
-identifier from Jint's `JINT0001` because the two say different things, and a host suppressing one has
-decided nothing about the other.
+for how one is accepted.
+
+**None of that surface carries `[Experimental]`, and that is a decision.** `JINTDT001` says *the shape of
+this member follows a living upstream document rather than this repository's compatibility contract*, which
+is true of a generated data transfer object and false of a server, a target and an options bag: those are
+Jint's own shapes and keep Jint's own contract, with a `docs/v5-migration.md` row when they change. The
+first member that really does publish a protocol shape is the one that carries the attribute — putting it
+on the entry point instead would make every host write a `#pragma` to use the package at all, and would
+leave the identifier meaning nothing in particular. It is a separate identifier from Jint's `JINT0001`
+because those two also say different things, and a host suppressing one has decided nothing about the other.
 
 **There is deliberately no `InternalsVisibleTo` grant from `Jint` to this package.** It consumes the
 published engine API and nothing else, which is the whole point: a protocol server that could only be
@@ -212,8 +280,19 @@ Not oversights, and not to be added without a decision:
   questions are `engine.Diagnostics` and the constraints, not this protocol.
 - **Per-session breakpoint state.** Breakpoints live on the engine's `DebugHandler`, so two sessions
   attached to one engine share them. Making them per-session means a filter on every pause.
-- **Sockets, in the skeleton.** The WebSocket transport and `/json/*` discovery arrive with the session
-  core; `InProcessConnection` is the whole transport until then.
+- **Remote-object handles.** `Runtime.evaluate` describes what it cannot send by value — type, subtype,
+  class name, one-line description — and mints no `objectId`. A handle is a promise to keep a value alive
+  until the client releases it, and half a table is worse than none: a client handed an identifier nothing
+  keeps alive is worse off than one told the value by description. `getProperties`, `callFunctionOn`,
+  `releaseObject`, `addBinding` and the `Runtime.awaitPromise` *command* all wait for that table; the
+  `awaitPromise` **parameter** of `Runtime.evaluate` is answered today, because it needs no handle.
+- **Previews.** For the same reason, and because a bounded preview is the same walk the table's describer
+  will do.
+- **The full protocol description at `/json/protocol`.** It answers what this server implements, derived
+  from the manifest. The pinned document is two megabytes of mostly commands answered here with `-32601`,
+  and a client reading it would be told it can call them.
+- **HTTP beyond the handful of `/json` documents.** `Transport/HttpRequestHead.cs` is not an HTTP server and
+  must not become one: no bodies, no chunked encoding, no keep-alive.
 
 ### Test strategy
 
@@ -229,6 +308,21 @@ everything it tests is `internal`.
 - **An extension point nothing ships yet is exercised by a domain the suite declares itself.**
   `DomainLifecycleTests` derives from a generated base exactly as a real domain would; an untested
   extension point is a design nobody has tried.
-- **What is not here yet**: the PuppeteerSharp end-to-end suite over a real WebSocket, and the manual
-  checklist for attaching `devtools://devtools/bundled/js_app.html?ws=`. Both arrive with the session core,
-  and both are how a claim about *client compatibility* is made — no in-process test can make one.
+- **The socket tests are not a duplicate of the in-process ones.** The envelope and the state machine are
+  the same code either way; the upgrade handshake, the frame handling, the single writer and the close
+  ordering are exercised by nothing without a socket, and that is where a protocol server goes wrong.
+  `Transport/DevToolsClient.cs` is the one helper, and **every wait in it is bounded** — a protocol test
+  that can hang is a CI leg that can hang, and the thing most likely to be wrong here is the thing that
+  makes a reply never arrive.
+- **`Clients/PuppeteerSharpTests.cs` is the only test that can claim client compatibility.** Everything
+  else asserts what this server answers; that one asserts that a library nobody here wrote is satisfied by
+  it. It launches no browser — `ConnectAsync` speaks to an endpoint that already exists — and it is pinned
+  to the version the recorded handshake came from.
+- **`Protocol/HandshakeReplayTests.cs` replays the recordings** in
+  `tools/devtools-protocol/handshakes/`: every method a real client was seen sending is sent here, a
+  manifest method must be answered, and every other must be *exactly* `-32601`. Its `Absent` table names
+  each unimplemented method and why, so the tolerance stays a decision — a re-recording or a client release
+  then arrives as a diff somebody reads rather than as a silently widened test.
+- **What is not here yet**: the manual checklist for attaching
+  `devtools://devtools/bundled/js_app.html?v8only=true&ws=`, which is how the front end's own behaviour is
+  claimed and which no automated test replaces.

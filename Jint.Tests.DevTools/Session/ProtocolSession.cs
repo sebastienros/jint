@@ -1,31 +1,71 @@
 using System.Text.Json;
-using Jint.DevTools.Domains;
+using Jint.DevTools;
 using Jint.DevTools.Session;
 using Jint.DevTools.Transport;
 
 namespace Jint.Tests.DevTools.Session;
 
 /// <summary>
-/// A session with the built-in domains on an in-process connection, plus the one operation every protocol
-/// test performs: send a message, read what came back.
+/// A conversation with the browser endpoint over an in-process connection, plus the one operation every
+/// protocol test performs: send a message, read what came back.
 /// </summary>
-internal sealed class ProtocolSession
+/// <remarks>
+/// The server is real and simply never started, which is what makes these tests worth writing: they drive
+/// exactly the code a socket drives, minus the socket.
+/// </remarks>
+internal sealed class ProtocolSession : IAsyncDisposable
 {
     private readonly InProcessConnection _connection = new();
+    private readonly DevToolsServer _server;
+    private int _nextId = 1000;
 
-    private ProtocolSession(Action? closeRequested)
+    private ProtocolSession(DevToolsServerOptions options, Action? closeRequested)
     {
-        Session = BuiltInDomains.RegisterOn(new DevToolsSession(_connection), closeRequested);
+        _server = new DevToolsServer(options);
+        Browser = _server.OpenBrowserSession(_connection, closeRequested);
     }
 
-    /// <summary>The session under test.</summary>
-    internal DevToolsSession Session { get; }
+    /// <summary>The conversation under test.</summary>
+    internal BrowserSession Browser { get; }
+
+    /// <summary>The server whose targets the conversation sees.</summary>
+    internal DevToolsServer Server => _server;
 
     /// <summary>Every message the session has sent, oldest first.</summary>
     internal IReadOnlyList<string> Sent => _connection.Sent;
 
-    /// <summary>Builds a session carrying the domains this package answers.</summary>
-    internal static ProtocolSession Create(Action? closeRequested = null) => new(closeRequested);
+    /// <summary>Builds a session carrying the domains a browser endpoint answers.</summary>
+    internal static ProtocolSession Create(Action? closeRequested = null, DevToolsServerOptions? options = null)
+        => new(options ?? new DevToolsServerOptions(), closeRequested);
+
+    /// <summary>Publishes a host-pumped engine target on the server.</summary>
+    internal EngineTarget AddTarget(EngineTargetOptions? options = null, Engine? engine = null)
+    {
+        var target = new EngineTarget(engine ?? new Engine(), options);
+        _server.AddTarget(target);
+        return target;
+    }
+
+    /// <summary>Sends one command, addressed to a session or to the conversation itself.</summary>
+    internal Task<JsonElement> SendAsync(string method, string? parameters = null, string? sessionId = null)
+    {
+        var identifier = Interlocked.Increment(ref _nextId);
+        var payload = parameters is null ? "" : ",\"params\":" + parameters;
+        var session = sessionId is null ? "" : ",\"sessionId\":\"" + sessionId + "\"";
+
+        return RoundTripAsync($$"""{"id":{{identifier}},"method":"{{method}}"{{payload}}{{session}}}""");
+    }
+
+    /// <summary>Attaches to <paramref name="target"/> the way a client does, and hands back the session identifier.</summary>
+    internal async Task<string> AttachAsync(EngineTarget target)
+    {
+        var reply = await SendAsync(
+            "Target.attachToTarget",
+            $$"""{"targetId":"{{target.TargetId}}","flatten":true}""").ConfigureAwait(false);
+
+        reply.TryGetProperty("error", out var error).Should().BeFalse("attaching was expected to succeed, and it answered {0}", error);
+        return reply.GetProperty("result").GetProperty("sessionId").GetString()!;
+    }
 
     /// <summary>Sends one message and hands back the reply, parsed.</summary>
     internal async Task<JsonElement> RoundTripAsync(string message)
@@ -34,10 +74,19 @@ internal sealed class ProtocolSession
         await _connection.PostAsync(message).ConfigureAwait(false);
 
         var sent = _connection.Sent;
-        sent.Count.Should().Be(before + 1, "a session answers every message with exactly one reply, or the client hangs");
+        sent.Count.Should().BeGreaterThan(before, "a session answers every message with exactly one reply, or the client hangs");
 
-        // Parsed into a JsonDocument that outlives this call: the whole document is cloned so the caller can
-        // read it after the document is disposed.
+        var identifier = Identifier(message);
+        for (var i = sent.Count - 1; i >= before; i--)
+        {
+            using var candidate = JsonDocument.Parse(sent[i]);
+            if (candidate.RootElement.TryGetProperty("id", out var id) && id.GetInt64() == identifier)
+            {
+                return candidate.RootElement.Clone();
+            }
+        }
+
+        // A message with no readable identifier is answered with an error notification, which carries none.
         using var document = JsonDocument.Parse(sent[^1]);
         return document.RootElement.Clone();
     }
@@ -56,5 +105,50 @@ internal sealed class ProtocolSession
         var reply = await RoundTripAsync(message).ConfigureAwait(false);
         reply.TryGetProperty("error", out var error).Should().BeTrue("the command was expected to fail, and it answered {0}", reply);
         return error;
+    }
+
+    /// <summary>Every event of <paramref name="method"/> the session has sent, oldest first.</summary>
+    internal IReadOnlyList<JsonElement> EventsOf(string method)
+    {
+        var events = new List<JsonElement>();
+        foreach (var message in _connection.Sent)
+        {
+            using var document = JsonDocument.Parse(message);
+            if (document.RootElement.TryGetProperty("method", out var name) && name.GetString() == method)
+            {
+                events.Add(document.RootElement.Clone());
+            }
+        }
+
+        return events;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var target in _server.Targets)
+        {
+            await target.DisposeAsync().ConfigureAwait(false);
+        }
+
+        await _server.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private static long Identifier(string message)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(message);
+            return document.RootElement.ValueKind == JsonValueKind.Object &&
+                   document.RootElement.TryGetProperty("id", out var id) &&
+                   id.ValueKind == JsonValueKind.Number &&
+                   id.TryGetInt64(out var value)
+                ? value
+                : long.MinValue;
+        }
+        catch (JsonException)
+        {
+            return long.MinValue;
+        }
     }
 }
