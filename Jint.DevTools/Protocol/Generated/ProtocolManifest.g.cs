@@ -132,10 +132,12 @@ namespace Jint.DevTools.Protocol
             "Runtime.exceptionRevoked",
             "Runtime.exceptionThrown",
             "Runtime.executionContextCreated",
+            "Runtime.executionContextsCleared",
             "Target.attachedToTarget",
             "Target.detachedFromTarget",
             "Target.targetCreated",
             "Target.targetDestroyed",
+            "Target.targetInfoChanged",
         ];
 
         /// <summary>What <c>Schema.getDomains</c> answers.</summary>

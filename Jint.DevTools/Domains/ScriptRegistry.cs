@@ -17,10 +17,11 @@ namespace Jint.DevTools.Domains;
 /// registered answers the identifier the first one minted.
 /// </para>
 /// <para>
-/// <b>It is the target's, not a session's.</b> Scripts belong to the engine, so two attachments name the same
+/// <b>It is the engine's, not a session's.</b> Scripts belong to the engine, so two attachments name the same
 /// program by the same identifier and a client that attaches after a run is replayed everything already
 /// parsed — which is what the front end's Sources panel is built from and why the subscription is taken when
-/// the target is made rather than when a client enables the domain.
+/// the runtime is built rather than when a client enables the domain. A navigation starts a fresh one, and
+/// the identifiers of the document that is going stop resolving with it.
 /// </para>
 /// <para>
 /// <b>It is bounded, and that is a memory decision.</b> A registry that never forgets holds every abstract
@@ -47,11 +48,15 @@ internal sealed class ScriptRegistry
     private int _next;
     private int _subscribed;
 
-    /// <summary>Creates the registry of the target numbered <paramref name="targetSerial"/>.</summary>
-    internal ScriptRegistry(Engine engine, int targetSerial)
+    /// <summary>Creates the registry of the runtime numbered <paramref name="runtimeSerial"/>.</summary>
+    /// <remarks>
+    /// The serial prefixes every script identifier, so that one from the document before last fails to
+    /// resolve rather than naming a program of the engine that replaced it.
+    /// </remarks>
+    internal ScriptRegistry(Engine engine, int runtimeSerial)
     {
         _engine = engine;
-        _prefix = targetSerial.ToString(CultureInfo.InvariantCulture) + ".";
+        _prefix = runtimeSerial.ToString(CultureInfo.InvariantCulture) + ".";
         _beforeEvaluate = OnBeforeEvaluate;
     }
 
@@ -69,7 +74,7 @@ internal sealed class ScriptRegistry
         _engine.Debugger.BeforeEvaluate += _beforeEvaluate;
     }
 
-    /// <summary>Stops listening and forgets everything, which is what disposing the target means.</summary>
+    /// <summary>Stops listening and forgets everything, which is what replacing the engine means.</summary>
     internal void Stop()
     {
         if (Interlocked.Exchange(ref _subscribed, 0) == 0)

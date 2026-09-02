@@ -31,12 +31,12 @@ namespace Jint.DevTools.Domains;
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Profiler/"/>.
 /// </para>
 /// </remarks>
-internal sealed partial class ProfilerDomain : ProfilerDomainBase
+internal sealed partial class ProfilerDomain : ProfilerDomainBase, ITargetObserver
 {
     /// <summary>What the protocol's interval means, which is a rate rather than a duration.</summary>
     private static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(1);
 
-    private readonly EngineTarget _target;
+    private readonly DevToolsTarget _target;
 
     /// <summary>The source a caller pinned, or <see langword="null"/> to choose one per recording.</summary>
     private readonly IProfileSource? _fixed;
@@ -54,13 +54,13 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
     /// </remarks>
     private int _recording;
 
-    internal ProfilerDomain(EngineTarget target)
+    internal ProfilerDomain(DevToolsTarget target)
         : this(target, source: null)
     {
     }
 
     /// <summary>Builds the domain over a source of the caller's choosing, which is what a test needs.</summary>
-    internal ProfilerDomain(EngineTarget target, IProfileSource? source)
+    internal ProfilerDomain(DevToolsTarget target, IProfileSource? source)
     {
         _target = target;
         _fixed = source;
@@ -84,10 +84,10 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
         }
 
 #pragma warning disable JINT0002 // the sampling profiler is the engine's preview area
-        var sampling = _target.Engine.Diagnostics.IsSampling;
+        var sampling = _target.Runtime.Engine.Diagnostics.IsSampling;
 #pragma warning restore JINT0002
 
-        return sampling ? new EventedProfileSource(_target.Engine) : new SampledProfileSource(_target.Engine);
+        return sampling ? new EventedProfileSource(_target.Runtime.Engine) : new SampledProfileSource(_target.Runtime.Engine);
     }
 
     /// <inheritdoc/>
@@ -117,6 +117,21 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
         return default;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <b>A recording ends at the swap, and what it had is thrown away.</b> A profile is a call tree over one
+    /// engine's stacks and a coverage report is one engine's counters; neither has a meaning that spans two,
+    /// and stitching a document's samples onto the next document's would answer a question nobody asked. A
+    /// client whose <c>Profiler.stop</c> arrives after a navigation is told there is no recording running,
+    /// which is the truth rather than a partial profile it would read as the whole run.
+    /// </remarks>
+    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime)
+    {
+        // Nothing is posted: the engine that was being recorded is gone, so there is no thread left to stop
+        // its instrument on and the instrument dies with it.
+        Stop(post: false);
+    }
+
     /// <summary>Releases everything this attachment holds of the engine's profiler and coverage.</summary>
     /// <remarks>
     /// <b>Called from a transport thread when the client goes away, so the stop is queued rather than
@@ -125,7 +140,15 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
     /// the rest of the package is built on. A target already being disposed takes its engine with it, and
     /// there is then nothing left to stop.
     /// </remarks>
-    internal void Detach()
+    internal void Detach() => Stop(post: true);
+
+    /// <summary>Ends whatever this attachment had running, on the engine thread or not at all.</summary>
+    /// <param name="post">
+    /// Whether the engine that is recording is still there to be asked. It is not after a navigation: the
+    /// instrument belonged to an engine that has been replaced, and posting the stop would run it against
+    /// the next document's.
+    /// </param>
+    private void Stop(bool post)
     {
         _preciseCoverage = false;
         _detailedCoverage = false;
@@ -137,21 +160,21 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
         }
 
         var source = _source;
-        if (source is null)
+        _source = null;
+
+        if (!post || source is null)
         {
             return;
         }
 
         try
         {
-            _target.Post(_ =>
+            _target.Runtime.Dispatcher.Post(_ =>
             {
                 if (source.IsRecording)
                 {
                     source.Stop();
                 }
-
-                _source = null;
             });
         }
         catch (ObjectDisposedException)
@@ -200,7 +223,7 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
 
         _source = source;
 
-        _startedAtMicroseconds = EngineTarget.UnixMilliseconds() * MicrosecondsPerMillisecond;
+        _startedAtMicroseconds = DevToolsTarget.UnixMilliseconds() * MicrosecondsPerMillisecond;
         Volatile.Write(ref _recording, 1);
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
@@ -228,7 +251,7 @@ internal sealed partial class ProfilerDomain : ProfilerDomainBase
 
         return new ValueTask<StopResponse>(new StopResponse
         {
-            Profile = ProfileBuilder.Build(recorded, _target.Scripts, _startedAtMicroseconds),
+            Profile = ProfileBuilder.Build(recorded, _target.Runtime.Scripts, _startedAtMicroseconds),
         });
     }
 

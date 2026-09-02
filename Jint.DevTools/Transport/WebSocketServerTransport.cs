@@ -302,7 +302,7 @@ internal sealed class WebSocketServerTransport : IAsyncDisposable
         return () => _server.CloseBrowserSession(session);
     }
 
-    private static Action? OpenTarget(WebSocketConnection connection, EngineTarget target)
+    private static Action? OpenTarget(WebSocketConnection connection, DevToolsTarget target)
     {
         // There is no browser conversation to forget, but the session itself holds engine state — the
         // handles it minted, the bindings it installed, the debugger it may have paused — and a connection
@@ -321,7 +321,7 @@ internal sealed class WebSocketServerTransport : IAsyncDisposable
     /// for anything else — including a stale identifier, so a client holding one is told the browser or the
     /// target is gone rather than silently attached to a different one.
     /// </returns>
-    private (RouteKind Kind, EngineTarget? Target) Route(string path)
+    private (RouteKind Kind, DevToolsTarget? Target) Route(string path)
     {
         var query = path.IndexOf('?', StringComparison.Ordinal);
         if (query >= 0)

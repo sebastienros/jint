@@ -179,11 +179,11 @@ public class ConsoleSessionTests
         await session.ResultAsync("Runtime.enable");
         await session.EvaluateAsync("console.log({ a: 1 })");
 
-        session.Target.RemoteObjects.Count.Should().BeGreaterThan(0);
+        session.Target.Runtime.RemoteObjects.Count.Should().BeGreaterThan(0);
 
         await session.ResultAsync("Runtime.discardConsoleEntries");
 
-        session.Target.RemoteObjects.Count.Should().Be(0, "the handles the journal minted go with it");
+        session.Target.Runtime.RemoteObjects.Count.Should().Be(0, "the handles the journal minted go with it");
 
         // And a client enabling now is replayed nothing.
         await session.ResultAsync("Runtime.disable");
@@ -210,7 +210,7 @@ public class ConsoleSessionTests
 
         await session.EvaluateAsync("for (var i = 0; i < 200; i++) { console.log({ i: i }); }");
 
-        session.Target.RemoteObjects.Count.Should().BeLessThan(
+        session.Target.Runtime.RemoteObjects.Count.Should().BeLessThan(
             201,
             "a page that logs an object every turn must not keep every one of them alive for as long as a client stays attached");
 

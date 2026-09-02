@@ -116,7 +116,7 @@ internal sealed class LogDomain : LogDomainBase, ITargetObserver
                 Source = LogEntrySourceValues.Javascript,
                 Level = LogEntryLevelValues.Error,
                 Text = text,
-                Timestamp = EngineTarget.UnixMilliseconds(),
+                Timestamp = DevToolsTarget.UnixMilliseconds(),
                 Url = string.IsNullOrEmpty(url) ? null : url,
 
                 // The protocol counts a log entry's line from one, unlike a call frame's; a location the

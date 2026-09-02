@@ -37,7 +37,7 @@ namespace Jint.DevTools.Domains;
 /// removed.
 /// </para>
 /// <para>
-/// <b>Host work waits.</b> A host's <c>EngineTarget.Post</c> is work for a running engine; the paused drain
+/// <b>Host work waits.</b> A host's <c>Post</c> is work for a running engine; the paused drain
 /// does not touch it, so it runs in order once the engine resumes.
 /// </para>
 /// </remarks>
@@ -162,7 +162,7 @@ internal sealed partial class DebuggerDomain
 
         try
         {
-            var value = _target.Engine.Debugger.Evaluate(parameters.Expression, frame);
+            var value = _target.Runtime.Engine.Debugger.Evaluate(parameters.Expression, frame);
             return new ValueTask<EvaluateOnCallFrameResponse>(new EvaluateOnCallFrameResponse
             {
                 Result = _objects.Describe(value, request),
@@ -239,7 +239,7 @@ internal sealed partial class DebuggerDomain
     private void RequestResume(StepMode mode)
     {
         Interlocked.Exchange(ref _resumeMode, (int) mode);
-        _target.Dispatcher.Wake();
+        _target.Runtime.Dispatcher.Wake();
     }
 
     private ValueTask<EmptyResult> Resuming(StepMode mode)
@@ -263,7 +263,7 @@ internal sealed partial class DebuggerDomain
 
         if (Interlocked.Exchange(ref _skipSubscribed, 1) == 0)
         {
-            _target.Engine.Debugger.Skip += _onSkip;
+            _target.Runtime.Engine.Debugger.Skip += _onSkip;
         }
     }
 
@@ -276,9 +276,9 @@ internal sealed partial class DebuggerDomain
 
     private void UnsubscribeSkip()
     {
-        if (Interlocked.Exchange(ref _skipSubscribed, 0) != 0 && _target.Scripts is not null)
+        if (Interlocked.Exchange(ref _skipSubscribed, 0) != 0 && _target.Runtime.Scripts is not null)
         {
-            _target.Engine.Debugger.Skip -= _onSkip;
+            _target.Runtime.Engine.Debugger.Skip -= _onSkip;
         }
     }
 
@@ -388,7 +388,7 @@ internal sealed partial class DebuggerDomain
     /// </summary>
     private StepMode RunPauseLoop(DebugInformation information, in PauseCause cause)
     {
-        var dispatcher = _target.Dispatcher;
+        var dispatcher = _target.Runtime.Dispatcher;
         var serial = Interlocked.Increment(ref _pauseSerial);
 
         // A pause a client asked for is satisfied by any pause, not only by the one the Skip subscription
@@ -517,7 +517,7 @@ internal sealed partial class DebuggerDomain
     private ProtocolCallFrame Frame(int serial, int index, EngineCallFrame frame)
     {
         var location = frame.Location;
-        var script = _target.Scripts!.For(frame.Program);
+        var script = _target.Runtime.Scripts!.For(frame.Program);
 
         return new ProtocolCallFrame
         {
@@ -583,7 +583,7 @@ internal sealed partial class DebuggerDomain
             }
         }
 
-        return JsObject.CreateFromEntries(_target.Engine, entries);
+        return JsObject.CreateFromEntries(_target.Runtime.Engine, entries);
     }
 
     /// <summary>The value of <c>this</c>, or nothing when the frame has none to give yet.</summary>
@@ -614,7 +614,7 @@ internal sealed partial class DebuggerDomain
             return null;
         }
 
-        return At(_target.Scripts!.For(frame.Program), location.Start.Line, location.Start.Column);
+        return At(_target.Runtime.Scripts!.For(frame.Program), location.Start.Line, location.Start.Column);
     }
 
     /// <summary>

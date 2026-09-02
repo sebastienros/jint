@@ -43,39 +43,37 @@ namespace Jint.DevTools.Session;
 internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 {
     private readonly Engine _engine;
+    private readonly DevToolsTarget _target;
     private readonly Action _drain;
     private readonly ConcurrentQueue<CommandItem> _commands = new();
     private readonly ConcurrentQueue<Action<Engine>> _hostWork = new();
     private readonly ManualResetEventSlim _arrivals = new(initialState: false);
 
-    private int _waitingForDebugger;
     private int _draining;
+    private int _abandoned;
 
-    internal EngineDispatcher(Engine engine, TimeSpan commandTimeout, bool waitForDebuggerOnStart)
+    internal EngineDispatcher(Engine engine, DevToolsTarget target)
     {
         _engine = engine;
+        _target = target;
         _drain = Drain;
-        CommandTimeout = commandTimeout;
-        _waitingForDebugger = waitForDebuggerOnStart ? 1 : 0;
     }
 
     /// <summary>
-    /// Gets or sets how long a client waits for one command before it is told the engine is not pumped.
+    /// Gets how long a client waits for one command before it is told the engine is not pumped.
     /// </summary>
     /// <remarks>
-    /// Settable because a target may exist before the server it is added to, and the bound is the server's
-    /// configuration rather than the target's.
+    /// The target's, not the mailbox's: the bound is the server's configuration, a target may exist before
+    /// the server it is added to, and the mailbox is replaced with the engine while the bound is not.
     /// </remarks>
-    internal TimeSpan CommandTimeout { get; set; }
+    internal TimeSpan CommandTimeout => _target.CommandTimeout;
 
     /// <summary>Gets whether host work is still held for a client that has not said to run it.</summary>
-    internal bool IsWaitingForDebugger => Volatile.Read(ref _waitingForDebugger) != 0;
-
-    /// <summary>
-    /// Raised on the engine thread the first time the wait for a debugger ends, so a host-owned target can
-    /// stop pumping for it.
-    /// </summary>
-    internal event Action? DebuggerWaitEnded;
+    /// <remarks>
+    /// The state is the target's, because it survives a navigation: a page held for a debugger is held
+    /// across the engine that runs its first document.
+    /// </remarks>
+    internal bool IsWaitingForDebugger => _target.IsWaitingForDebugger;
 
     /// <inheritdoc/>
     public async ValueTask<string> DispatchAsync(DevToolsSession session, ProtocolRequest request, CommandContext context)
@@ -87,6 +85,13 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         var item = new CommandItem(session, request with { Parameters = request.Parameters?.Clone() }, context);
         _commands.Enqueue(item);
         ScheduleDrain();
+
+        if (Volatile.Read(ref _abandoned) != 0)
+        {
+            // The engine behind this mailbox was replaced between the gateway reading it and the enqueue.
+            // Answering here rather than leaving the item to the client's own timeout.
+            Abandon();
+        }
 
         try
         {
@@ -115,18 +120,36 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     }
 
     /// <summary>
-    /// Ends the wait for a debugger, releasing whatever host work was held. Idempotent, and a no-op on a
-    /// target that was never waiting.
+    /// Answers everything still queued, because the engine behind this mailbox is going away.
     /// </summary>
-    internal void ReleaseDebuggerWait()
+    /// <remarks>
+    /// <para>
+    /// A navigation replaces the engine under its target, and a command queued for the engine that is going
+    /// would otherwise sit there until the client's own timeout — which reads to the client as a server that
+    /// stopped answering rather than as a context that was destroyed. Chrome's wording for exactly this, and
+    /// what several clients match on to decide a navigation raced their command.
+    /// </para>
+    /// <para>
+    /// Idempotent, and it drains on every call rather than only the first: the flag is what a command
+    /// arriving <i>after</i> the swap reads, and that command still has to be answered.
+    /// </para>
+    /// </remarks>
+    internal void Abandon()
     {
-        if (Interlocked.Exchange(ref _waitingForDebugger, 0) == 0)
+        Volatile.Write(ref _abandoned, 1);
+
+        while (_commands.TryDequeue(out var item))
         {
-            return;
+            item.Abandon();
         }
 
-        DebuggerWaitEnded?.Invoke();
-        ScheduleDrain();
+        while (_hostWork.TryDequeue(out _))
+        {
+            // Host work for an engine that will never run again. It is dropped rather than answered: the
+            // queue carries an Action<Engine> and nothing else, so there is no completion to fail -- a host
+            // awaiting one is in exactly the position it was in before, which is why PostAsync is documented
+            // as work for a running target.
+        }
     }
 
     /// <summary>
@@ -282,9 +305,24 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     /// mailbox for a host that pumps through <see cref="Engine.TaskOperations.ProcessTasks"/> alone. Protocol
     /// traffic is human-scale; a concurrent enqueue per message is not worth that.
     /// </remarks>
-    private void ScheduleDrain()
+    internal void ScheduleDrain()
     {
-        _engine.Tasks.Post(_drain);
+        if (Volatile.Read(ref _abandoned) != 0)
+        {
+            // The engine is gone; posting to its loop would be reaching into something the host disposed.
+            Set();
+            return;
+        }
+
+        try
+        {
+            _engine.Tasks.Post(_drain);
+        }
+#pragma warning disable CA1031 // the engine may be disposed underneath us; the arrival flag still has to be set
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
 
         // The post above wakes whichever thread pumps the engine, and a paused engine has no such thread:
         // it is inside the debugger's handler, running a loop of its own. This is what that loop waits on.
@@ -320,6 +358,16 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 
         /// <summary>Gets the qualified method the client asked for, which is what a paused drain filters on.</summary>
         internal string Method => _request.Method;
+
+        /// <summary>Answers a command whose engine is being replaced under it.</summary>
+        internal void Abandon()
+        {
+            Volatile.Write(ref _started, 1);
+            Completion.TrySetException(new ProtocolException(
+                ProtocolErrorCodes.ServerError,
+                "Execution context was destroyed.",
+                "the document this command was addressed to was replaced before the engine reached it"));
+        }
 
         /// <summary>Answers a command the engine may not run in the state it is in.</summary>
         internal void Refuse()

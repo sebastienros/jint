@@ -28,9 +28,9 @@ namespace Jint.DevTools.Domains;
 /// </remarks>
 internal sealed class ConsoleDomain : ConsoleDomainBase, ITargetObserver
 {
-    private readonly EngineTarget _target;
+    private readonly DevToolsTarget _target;
 
-    internal ConsoleDomain(EngineTarget target)
+    internal ConsoleDomain(DevToolsTarget target)
     {
         _target = target;
     }
@@ -52,14 +52,14 @@ internal sealed class ConsoleDomain : ConsoleDomainBase, ITargetObserver
     /// <summary>Empties the journal, which is the same history <c>Runtime.discardConsoleEntries</c> discards.</summary>
     protected override ValueTask<EmptyResult> ClearMessagesAsync(EmptyParameters parameters, CommandContext context)
     {
-        _target.Console.Clear(_target.RemoteObjects);
+        _target.Runtime.Console.Clear(_target.Runtime.RemoteObjects);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
     /// <summary>Sends what was logged before the client asked, which is what the command promises.</summary>
     protected override async ValueTask OnEnabledAsync(CommandContext context)
     {
-        foreach (var entry in _target.Console.Snapshot())
+        foreach (var entry in _target.Runtime.Console.Snapshot())
         {
             if (Message(entry) is { } message)
             {

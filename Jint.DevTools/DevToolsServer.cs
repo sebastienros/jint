@@ -44,12 +44,13 @@ namespace Jint.DevTools;
 /// </example>
 public sealed class DevToolsServer : IAsyncDisposable
 {
-    private readonly List<EngineTarget> _targets = [];
-    private readonly List<EngineTarget> _owned = [];
+    private readonly List<DevToolsTarget> _targets = [];
+    private readonly List<DevToolsTarget> _owned = [];
     private readonly List<BrowserSession> _browserSessions = [];
     private readonly object _lock = new();
 
     private WebSocketServerTransport? _transport;
+    private ITargetHost? _host;
     private int _disposed;
 
     /// <summary>Creates a server over <paramref name="options"/>.</summary>
@@ -86,8 +87,25 @@ public sealed class DevToolsServer : IAsyncDisposable
         }
     }
 
-    /// <summary>Gets the targets a client can list and attach to, oldest first.</summary>
+    /// <summary>Gets the engine targets a client can list and attach to, oldest first.</summary>
+    /// <remarks>
+    /// The engine targets only. A package layered on this one publishes targets of its own — a page is one —
+    /// and those are not <see cref="EngineTarget"/>s; a host that wants the whole list asks the package that
+    /// added them, which is the one that knows what they are.
+    /// </remarks>
     public IReadOnlyList<EngineTarget> Targets
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return [.. _targets.OfType<EngineTarget>()];
+            }
+        }
+    }
+
+    /// <summary>Gets every published target, whatever kind, oldest first.</summary>
+    internal IReadOnlyList<DevToolsTarget> AllTargets
     {
         get
         {
@@ -97,6 +115,9 @@ public sealed class DevToolsServer : IAsyncDisposable
             }
         }
     }
+
+    /// <summary>Gets what mints targets and browser contexts at a client's request, or <see langword="null"/>.</summary>
+    internal ITargetHost? Host => _host;
 
     /// <summary>Gets how this server is configured.</summary>
     internal DevToolsServerOptions Options { get; }
@@ -147,7 +168,10 @@ public sealed class DevToolsServer : IAsyncDisposable
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The server has been disposed.</exception>
-    public void AddTarget(EngineTarget target)
+    public void AddTarget(EngineTarget target) => AddTarget((DevToolsTarget?) target);
+
+    /// <inheritdoc cref="AddTarget(EngineTarget)"/>
+    internal void AddTarget(DevToolsTarget? target)
     {
         if (target is null)
         {
@@ -168,15 +192,37 @@ public sealed class DevToolsServer : IAsyncDisposable
             sessions = _browserSessions.ToArray();
         }
 
-        // The bound is the server's rather than the target's: a target may well have been built before the
+        // The bounds are the server's rather than the target's: a target may well have been built before the
         // server it ends up on.
-        target.Dispatcher.CommandTimeout = Options.CommandTimeout;
+        target.CommandTimeout = Options.CommandTimeout;
         target.PauseTimeout = Options.PauseTimeout;
+        target.InfoChanged = OnTargetInfoChanged;
 
         foreach (var session in sessions)
         {
             Complete(session.TargetAddedAsync(target, CancellationToken.None));
         }
+    }
+
+    /// <summary>Registers what mints targets and browser contexts when a client asks for one.</summary>
+    /// <param name="host">The package that owns them.</param>
+    /// <remarks>
+    /// One host per server, and registering one changes what <c>Target.createTarget</c>,
+    /// <c>Target.closeTarget</c> and the two browser-context commands mean and nothing else.
+    /// </remarks>
+    internal void UseHost(ITargetHost host)
+    {
+        if (host is null)
+        {
+            Throw.ArgumentNull(nameof(host));
+        }
+
+        if (_host is not null && !ReferenceEquals(_host, host))
+        {
+            Throw.InvalidOperation("The server already has a target host; one server mints targets one way.");
+        }
+
+        _host = host;
     }
 
     /// <summary>Removes a target, telling every connected client that it went away.</summary>
@@ -187,7 +233,10 @@ public sealed class DevToolsServer : IAsyncDisposable
     /// told the target did. The <see cref="EngineTarget"/> itself is not disposed: it is the host's.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is <see langword="null"/>.</exception>
-    public bool RemoveTarget(EngineTarget target)
+    public bool RemoveTarget(EngineTarget target) => RemoveTarget((DevToolsTarget?) target);
+
+    /// <inheritdoc cref="RemoveTarget(EngineTarget)"/>
+    internal bool RemoveTarget(DevToolsTarget? target)
     {
         if (target is null)
         {
@@ -205,12 +254,29 @@ public sealed class DevToolsServer : IAsyncDisposable
             sessions = _browserSessions.ToArray();
         }
 
+        target.InfoChanged = null;
+
         foreach (var session in sessions)
         {
             Complete(session.TargetRemovedAsync(target, CancellationToken.None));
         }
 
         return true;
+    }
+
+    /// <summary>Tells every conversation that a target's title or location moved.</summary>
+    private void OnTargetInfoChanged(DevToolsTarget target)
+    {
+        BrowserSession[] sessions;
+        lock (_lock)
+        {
+            sessions = _browserSessions.ToArray();
+        }
+
+        foreach (var session in sessions)
+        {
+            Complete(session.TargetInfoChangedAsync(target, CancellationToken.None));
+        }
     }
 
     /// <inheritdoc/>
@@ -226,7 +292,7 @@ public sealed class DevToolsServer : IAsyncDisposable
             await transport.DisposeAsync().ConfigureAwait(false);
         }
 
-        EngineTarget[] owned;
+        DevToolsTarget[] owned;
         lock (_lock)
         {
             owned = _owned.ToArray();
@@ -239,12 +305,12 @@ public sealed class DevToolsServer : IAsyncDisposable
         // stopping its thread would be this package deciding the lifetime of something it does not own.
         foreach (var target in owned)
         {
-            await target.DisposeAsync().ConfigureAwait(false);
+            await target.CloseAsync().ConfigureAwait(false);
         }
     }
 
     /// <summary>Finds a published target by the identifier a client addresses it with.</summary>
-    internal EngineTarget? FindTarget(string targetId)
+    internal DevToolsTarget? FindTarget(string targetId)
     {
         lock (_lock)
         {
@@ -287,8 +353,12 @@ public sealed class DevToolsServer : IAsyncDisposable
         return target;
     }
 
-    /// <summary>Removes a target at a client's request, disposing it when the server made it.</summary>
-    internal async ValueTask CloseTargetAsync(EngineTarget target)
+    /// <summary>Removes a target at a client's request, closing it when this server is what made it.</summary>
+    /// <remarks>
+    /// A target a host registered goes back to that host to close, because the host is what knows how: a page
+    /// has a loop to stop and a document to release, and the server knows about neither.
+    /// </remarks>
+    internal async ValueTask CloseTargetAsync(DevToolsTarget target, CancellationToken cancellationToken = default)
     {
         RemoveTarget(target);
 
@@ -300,7 +370,13 @@ public sealed class DevToolsServer : IAsyncDisposable
 
         if (owned)
         {
-            await target.DisposeAsync().ConfigureAwait(false);
+            await target.CloseAsync().ConfigureAwait(false);
+            return;
+        }
+
+        if (_host is { } host)
+        {
+            await host.CloseTargetAsync(target, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -321,7 +397,7 @@ public sealed class DevToolsServer : IAsyncDisposable
     }
 
     /// <summary>Opens a conversation with one target over <paramref name="connection"/>, with no sessions in it.</summary>
-    internal static TargetSession OpenTargetSession(IDevToolsConnection connection, EngineTarget target)
+    internal static TargetSession OpenTargetSession(IDevToolsConnection connection, DevToolsTarget target)
     {
         return TargetSession.Direct(new DevToolsSession(connection), target);
     }

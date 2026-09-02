@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Buffers;
 using System.Text.Json;
 using Jint.DevTools.Protocol;
 using Jint.DevTools.Protocol.Runtime;
@@ -31,22 +31,27 @@ namespace Jint.DevTools.Domains;
 /// </remarks>
 internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListener, ITargetObserver
 {
-    /// <summary>
-    /// The one execution context an engine target has. Chrome numbers page contexts from 1 and so does this;
-    /// there is no second realm to number, because a <c>ShadowRealm</c> is not something a client can address.
-    /// </summary>
-    private const int MainExecutionContextId = 1;
-
-    private readonly EngineTarget _target;
+    private readonly DevToolsTarget _target;
     private readonly RemoteObjectMapper _objects;
 
     private int _exceptionId;
 
-    internal RuntimeDomain(EngineTarget target)
+    internal RuntimeDomain(DevToolsTarget target)
     {
         _target = target;
         _objects = new RemoteObjectMapper(target, this);
     }
+
+    /// <summary>
+    /// Gets the identifier of the document's default execution context.
+    /// </summary>
+    /// <remarks>
+    /// Chrome numbers page contexts from 1 and so does this -- but the counter is the <i>target's</i>, so a
+    /// second document's default context is 2 and never 1 again. That is what makes a client sending back an
+    /// identifier from before a navigation distinguishable from one sending the current one, which is the
+    /// whole reason the number is not a constant.
+    /// </remarks>
+    private int MainExecutionContextId => _target.Runtime.ExecutionContextId;
 
     /// <summary>
     /// Releases everything this attachment holds of the engine: its handles, and its share of every binding.
@@ -86,29 +91,22 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// </remarks>
     protected override async ValueTask OnEnabledAsync(CommandContext context)
     {
-        var created = new ExecutionContextCreatedEvent
+        await EmitAsync(RuntimeEvents.ExecutionContextCreated(DefaultContext()), context.CancellationToken).ConfigureAwait(false);
+
+        // Every alias minted over the document that is running, so a client that enabled after
+        // Page.createIsolatedWorld still knows the identifier it was handed is live.
+        foreach (var world in _target.Worlds)
         {
-            Context = new ExecutionContextDescription
-            {
-                Id = MainExecutionContextId,
+            await EmitAsync(RuntimeEvents.ExecutionContextCreated(WorldContext(world)), context.CancellationToken).ConfigureAwait(false);
+        }
 
-                // An engine target has no document, so it has no origin and no name to give. Chrome sends
-                // the empty string for both on a Node target and clients read them as opaque.
-                Origin = "",
-                Name = "",
-                UniqueId = _target.TargetId + "." + MainExecutionContextId.ToString(CultureInfo.InvariantCulture),
-                AuxData = AuxData,
-            },
-        };
-
-        await EmitAsync(RuntimeEvents.ExecutionContextCreated(created), context.CancellationToken).ConfigureAwait(false);
         await ReplayConsoleAsync(context).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> RunIfWaitingForDebuggerAsync(EmptyParameters parameters, CommandContext context)
     {
-        _target.Dispatcher.ReleaseDebuggerWait();
+        _target.ReleaseDebuggerWait();
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -122,7 +120,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// </remarks>
     protected override ValueTask<EmptyResult> DiscardConsoleEntriesAsync(EmptyParameters parameters, CommandContext context)
     {
-        _target.Console.Clear(_target.RemoteObjects);
+        _target.Runtime.Console.Clear(_target.Runtime.RemoteObjects);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -166,7 +164,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<EvaluateResponse> EvaluateAsync(EvaluateRequest parameters, CommandContext context)
     {
-        RequireMainContext(parameters.ContextId);
+        _target.RequireContext(parameters.ContextId);
         RefuseSideEffectFreeEvaluation(parameters.ThrowOnSideEffect);
 
         var request = RemoteObjectRequest.From(parameters.ReturnByValue, parameters.GeneratePreview, parameters.ObjectGroup);
@@ -195,10 +193,10 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<CallFunctionOnResponse> CallFunctionOnAsync(CallFunctionOnRequest parameters, CommandContext context)
     {
-        RequireMainContext(parameters.ExecutionContextId);
+        _target.RequireContext(parameters.ExecutionContextId);
         RefuseSideEffectFreeEvaluation(parameters.ThrowOnSideEffect);
 
-        var engine = _target.Engine;
+        var engine = _target.Runtime.Engine;
 
         // The group a client asked for, or the one the receiver already belongs to. Inheriting it is what
         // makes releaseObjectGroup free the handles a client walked to rather than only the one it started
@@ -208,7 +206,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
 
         if (parameters.ObjectId is { } objectId)
         {
-            thisValue = _target.RemoteObjects.Resolve(objectId, out var owningGroup);
+            thisValue = _target.Runtime.RemoteObjects.Resolve(objectId, out var owningGroup);
             group ??= owningGroup;
         }
 
@@ -217,7 +215,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         JsValue function;
         try
         {
-            function = Evaluate(_target.CompiledScripts.Declaration(parameters.FunctionDeclaration));
+            function = Evaluate(_target.Runtime.CompiledScripts.Declaration(parameters.FunctionDeclaration));
         }
         catch (ScriptPreparationException exception)
         {
@@ -257,7 +255,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<AwaitPromiseResponse> AwaitPromiseAsync(AwaitPromiseRequest parameters, CommandContext context)
     {
-        var promise = _target.RemoteObjects.Resolve(parameters.PromiseObjectId, out var group);
+        var promise = _target.Runtime.RemoteObjects.Resolve(parameters.PromiseObjectId, out var group);
         if (!promise.IsPromise())
         {
             // Chrome's wording. A client sends this only for a handle it was told is a promise, so getting
@@ -281,7 +279,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         GetExceptionDetailsRequest parameters,
         CommandContext context)
     {
-        var error = _target.RemoteObjects.Resolve(parameters.ErrorObjectId, out _);
+        var error = _target.Runtime.RemoteObjects.Resolve(parameters.ErrorObjectId, out _);
         if (!RemoteObjectMapper.IsError(error))
         {
             // Chrome's wording, verbatim: a client feature-detects nothing on it, but a host debugging a
@@ -289,7 +287,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             Throw.ServerError("errorObjectId is not a JS error object");
         }
 
-        var details = _objects.ErrorDetails(error, NextExceptionId(), MainExecutionContextId, _target.Scripts);
+        var details = _objects.ErrorDetails(error, NextExceptionId(), MainExecutionContextId, _target.Runtime.Scripts);
         return new ValueTask<GetExceptionDetailsResponse>(new GetExceptionDetailsResponse { ExceptionDetails = details });
     }
 
@@ -298,7 +296,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     {
         // A handle nothing knows about is not an error: a client releasing what it already released, or what
         // a detach took with it, is tidying up, and Chrome answers that with a success too.
-        _target.RemoteObjects.Release(parameters.ObjectId);
+        _target.Runtime.RemoteObjects.Release(parameters.ObjectId);
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 
@@ -312,7 +310,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<CompileScriptResponse> CompileScriptAsync(CompileScriptRequest parameters, CommandContext context)
     {
-        RequireMainContext(parameters.ExecutionContextId);
+        _target.RequireContext(parameters.ExecutionContextId);
 
         Prepared<Acornima.Ast.Script> prepared;
         try
@@ -346,16 +344,16 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         {
             // Not persisting is a compile-only syntax check, which is what a client sends it for; Chrome
             // answers that with no identifier rather than with one that addresses nothing.
-            ScriptId = parameters.PersistScript ? _target.CompiledScripts.Persist(prepared) : null,
+            ScriptId = parameters.PersistScript ? _target.Runtime.CompiledScripts.Persist(prepared) : null,
         });
     }
 
     /// <inheritdoc/>
     protected override ValueTask<RunScriptResponse> RunScriptAsync(RunScriptRequest parameters, CommandContext context)
     {
-        RequireMainContext(parameters.ExecutionContextId);
+        _target.RequireContext(parameters.ExecutionContextId);
 
-        if (!_target.CompiledScripts.TryGetPersisted(parameters.ScriptId, out var prepared))
+        if (!_target.Runtime.CompiledScripts.TryGetPersisted(parameters.ScriptId, out var prepared))
         {
             // Chrome's wording for a script identifier that names nothing.
             Throw.ServerError("No script with given id");
@@ -366,7 +364,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         JsValue value;
         try
         {
-            value = _target.Engine.Evaluate(prepared);
+            value = _target.Runtime.Engine.Evaluate(prepared);
         }
         catch (JavaScriptException exception)
         {
@@ -388,12 +386,12 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> AddBindingAsync(AddBindingRequest parameters, CommandContext context)
     {
-        RequireMainContext(parameters.ExecutionContextId);
+        _target.RequireContext(parameters.ExecutionContextId);
 
         // executionContextName is deliberately not checked against anything. It names an isolated world, and
         // an engine target has one context and no worlds; a client that asked for a named one gets the one
         // there is, because a binding it cannot call would fail silently in the page rather than loudly here.
-        _target.Bindings.Add(_target.Engine, parameters.Name, this);
+        _target.Bindings.Add(_target.Runtime.Engine, parameters.Name, this);
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -401,7 +399,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     /// <inheritdoc/>
     protected override ValueTask<EmptyResult> RemoveBindingAsync(RemoveBindingRequest parameters, CommandContext context)
     {
-        _target.Bindings.Remove(_target.Engine, parameters.Name, this);
+        _target.Bindings.Remove(_target.Runtime.Engine, parameters.Name, this);
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
@@ -462,12 +460,12 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     {
         if (!_target.IsPaused)
         {
-            return _target.Engine.Evaluate(expression);
+            return _target.Runtime.Engine.Evaluate(expression);
         }
 
         try
         {
-            return _target.Engine.Debugger.Evaluate(expression);
+            return _target.Runtime.Engine.Debugger.Evaluate(expression);
         }
         catch (DebugEvaluationException exception)
         {
@@ -480,12 +478,12 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
     {
         if (!_target.IsPaused)
         {
-            return _target.Engine.Evaluate(prepared);
+            return _target.Runtime.Engine.Evaluate(prepared);
         }
 
         try
         {
-            return _target.Engine.Debugger.Evaluate(prepared);
+            return _target.Runtime.Engine.Debugger.Evaluate(prepared);
         }
         catch (DebugEvaluationException exception)
         {
@@ -536,7 +534,7 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             return new ValueTask<TResponse>(build(_objects.Describe(promise, request), null));
         }
 
-        var engine = _target.Engine;
+        var engine = _target.Runtime.Engine;
         var then = promise.Get("then");
         if (!then.IsCallable())
         {
@@ -615,25 +613,66 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
             : request;
     }
 
-    /// <summary>Refuses a context that is not the one context an engine target has.</summary>
-    private static void RequireMainContext(int? contextId)
-    {
-        if (contextId is { } id && id != MainExecutionContextId)
-        {
-            // Chrome's wording, which several clients match on to decide a context went away rather than
-            // that the call was wrong.
-            Throw.ServerError("Cannot find context with specified id");
-        }
-    }
-
     private int NextExceptionId() => ++_exceptionId;
 
-    private static JsonElement AuxData
+    /// <summary>The document's own context, as every client waits to be told about it.</summary>
+    /// <remarks>
+    /// <c>frameId</c> is the target's own identifier, which is what a page target's main frame is named by:
+    /// a client matches the frame it navigated against the context it evaluates in, and the two have to be
+    /// the same string. An engine target has no document, so it has no name to give -- Chrome sends the
+    /// empty string on a Node target and clients read it as opaque.
+    /// </remarks>
+    private ExecutionContextCreatedEvent DefaultContext() => new()
     {
-        get
+        Context = new ExecutionContextDescription
         {
-            using var document = JsonDocument.Parse("""{"isDefault":true,"type":"default"}""");
-            return document.RootElement.Clone();
+            Id = MainExecutionContextId,
+            Origin = _target.Url,
+            Name = "",
+            UniqueId = _target.Runtime.UniqueContextId,
+            AuxData = AuxData(isDefault: true, "default", _target.TargetId, name: null),
+        },
+    };
+
+    /// <summary>One isolated world, which is an alias for the document's own realm under a name.</summary>
+    private ExecutionContextCreatedEvent WorldContext(TargetWorld world) => new()
+    {
+        Context = new ExecutionContextDescription
+        {
+            Id = world.Id,
+            Origin = _target.Url,
+            Name = world.Name,
+            UniqueId = world.UniqueId,
+            AuxData = AuxData(isDefault: false, "isolated", _target.TargetId, world.Name),
+        },
+    };
+
+    /// <summary>
+    /// The <c>auxData</c> a client reads to tell a page's own context from a world it asked for.
+    /// </summary>
+    /// <remarks>
+    /// Written rather than serialized from a record because the protocol types it as <c>any</c>: it is a bag
+    /// whose shape is the embedder's, and Chrome's shape is the one every client parses.
+    /// </remarks>
+    private static JsonElement AuxData(bool isDefault, string type, string frameId, string? name)
+    {
+        var buffer = new ArrayBufferWriter<byte>(128);
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteBoolean("isDefault", isDefault);
+            writer.WriteString("type", type);
+            writer.WriteString("frameId", frameId);
+
+            if (!string.IsNullOrEmpty(name))
+            {
+                writer.WriteString("name", name);
+            }
+
+            writer.WriteEndObject();
         }
+
+        using var document = JsonDocument.Parse(buffer.WrittenMemory);
+        return document.RootElement.Clone();
     }
 }

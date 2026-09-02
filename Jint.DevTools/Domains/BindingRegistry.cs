@@ -53,6 +53,37 @@ internal sealed class BindingRegistry
     private readonly object _gate = new();
     private readonly Dictionary<string, List<IBindingListener>> _listeners = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Installs every registered binding on <paramref name="engine"/>, which a navigation owes them.
+    /// </summary>
+    /// <param name="engine">The engine of the document about to run. Called on that engine's thread.</param>
+    /// <remarks>
+    /// <b>Before any script of the new document runs.</b> A client adds a binding and then expects the page
+    /// it is about to load to be able to call it — that is what <c>Runtime.addBinding</c> is for, and it is
+    /// how Puppeteer's <c>exposeFunction</c> survives a navigation. The registry is the target's, so this is
+    /// the one place where the two halves meet.
+    /// </remarks>
+    internal void Reinstall(Engine engine)
+    {
+        string[] names;
+
+        lock (_gate)
+        {
+            if (_listeners.Count == 0)
+            {
+                return;
+            }
+
+            names = new string[_listeners.Count];
+            _listeners.Keys.CopyTo(names, 0);
+        }
+
+        foreach (var name in names)
+        {
+            Install(engine, name);
+        }
+    }
+
     /// <summary>Installs the binding <paramref name="name"/> if it is not there, and subscribes <paramref name="listener"/>.</summary>
     /// <param name="engine">The engine whose global carries the function. Called on that engine's thread.</param>
     /// <param name="name">The function's name.</param>
@@ -76,11 +107,15 @@ internal sealed class BindingRegistry
             }
         }
 
-        if (!install)
+        if (install)
         {
-            return;
+            Install(engine, name);
         }
+    }
 
+    /// <summary>Puts one binding's function on <paramref name="engine"/>'s global.</summary>
+    private void Install(Engine engine, string name)
+    {
         engine.SetValue(name, new ClrFunction(engine, name, (_, arguments) =>
         {
             // Chrome refuses anything but one string here. This coerces instead: minting the realm's own

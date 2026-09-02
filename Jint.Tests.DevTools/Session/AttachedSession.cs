@@ -156,24 +156,8 @@ internal sealed class AttachedSession : IAsyncDisposable
     /// test that can hang is a continuous-integration leg that can hang, and a pause that never arrives is
     /// exactly the defect these tests are looking for.
     /// </remarks>
-    internal async Task<JsonElement> EventAsync(string method, int index = 0, int timeoutSeconds = 120)
-    {
-        var deadline = Environment.TickCount64 + (timeoutSeconds * 1000L);
-
-        while (Environment.TickCount64 < deadline)
-        {
-            var events = EventsOf(method);
-            if (events.Count > index)
-            {
-                return events[index].GetProperty("params");
-            }
-
-            await Task.Delay(5).ConfigureAwait(false);
-        }
-
-        Assert.Fail($"'{method}' number {index} never arrived within {timeoutSeconds} seconds.");
-        return default;
-    }
+    internal Task<JsonElement> EventAsync(string method, int index = 0, int timeoutSeconds = 120)
+        => _session.EventAsync(method, index, timeoutSeconds);
 
     /// <summary>Enables the domains a debugging client enables, in the order a client sends them.</summary>
     internal async Task EnableDebuggerAsync()

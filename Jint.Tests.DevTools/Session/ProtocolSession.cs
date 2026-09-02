@@ -76,7 +76,7 @@ internal sealed class ProtocolSession : IAsyncDisposable
     }
 
     /// <summary>Attaches to <paramref name="target"/> the way a client does, and hands back the session identifier.</summary>
-    internal async Task<string> AttachAsync(EngineTarget target)
+    internal async Task<string> AttachAsync(DevToolsTarget target)
     {
         var reply = await SendAsync(
             "Target.attachToTarget",
@@ -126,6 +126,49 @@ internal sealed class ProtocolSession : IAsyncDisposable
         return error;
     }
 
+    /// <summary>Sends one command on an attachment and hands back its <c>result</c>, asserting success.</summary>
+    internal async Task<JsonElement> ResultAsync(string method, string? parameters, string sessionId)
+    {
+        var reply = await SendAsync(method, parameters, sessionId).ConfigureAwait(false);
+        reply.TryGetProperty("error", out var error).Should().BeFalse("'{0}' was expected to succeed, and it answered {1}", method, error);
+        return reply.GetProperty("result");
+    }
+
+    /// <summary>Sends one command on an attachment and hands back its <c>error</c>, asserting failure.</summary>
+    internal async Task<JsonElement> ErrorAsync(string method, string? parameters, string sessionId)
+    {
+        var reply = await SendAsync(method, parameters, sessionId).ConfigureAwait(false);
+        reply.TryGetProperty("error", out var error).Should().BeTrue("'{0}' was expected to fail, and it answered {1}", method, reply);
+        return error;
+    }
+
+    /// <summary>
+    /// Waits for the event at <paramref name="index"/> of <paramref name="method"/>, failing rather than
+    /// hanging.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every wait here is bounded.</b> A protocol test that can hang is a continuous-integration leg that
+    /// can hang, and an event that never arrives is exactly the defect these tests are looking for.
+    /// </remarks>
+    internal async Task<JsonElement> EventAsync(string method, int index = 0, int timeoutSeconds = 60)
+    {
+        var deadline = Environment.TickCount64 + (timeoutSeconds * 1000L);
+
+        while (Environment.TickCount64 < deadline)
+        {
+            var events = EventsOf(method);
+            if (events.Count > index)
+            {
+                return events[index].GetProperty("params");
+            }
+
+            await Task.Delay(5).ConfigureAwait(false);
+        }
+
+        Assert.Fail($"'{method}' number {index} never arrived within {timeoutSeconds} seconds.");
+        return default;
+    }
+
     /// <summary>Every event of <paramref name="method"/> the session has sent, oldest first.</summary>
     internal IReadOnlyList<JsonElement> EventsOf(string method)
     {
@@ -151,9 +194,9 @@ internal sealed class ProtocolSession : IAsyncDisposable
             return;
         }
 
-        foreach (var target in _server.Targets)
+        foreach (var target in _server.AllTargets)
         {
-            await target.DisposeAsync().ConfigureAwait(false);
+            await target.CloseAsync().ConfigureAwait(false);
         }
 
         await _server.DisposeAsync().ConfigureAwait(false);

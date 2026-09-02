@@ -1,8 +1,4 @@
-using Jint.DevTools.Domains;
-using Jint.DevTools.Session;
-using Jint.Native.Promise;
 using Jint.Runtime;
-using Jint.WebApi;
 
 namespace Jint.DevTools;
 
@@ -21,11 +17,15 @@ namespace Jint.DevTools;
 /// JavaScript-only layout and never asks the target for a page. Page targets belong to the browser package.
 /// </para>
 /// <para>
+/// <b>One engine, for the target's whole life.</b> A page replaces its engine on every navigation; an engine
+/// target never does, which is why every identifier it hands out stays valid until it is disposed.
+/// </para>
+/// <para>
 /// <b>The target does not own the engine's lifetime.</b> Disposing it stops the thread it started, if it
 /// started one, and stops answering commands; the <see cref="Engine"/> is the host's, before and after.
 /// </para>
 /// </remarks>
-public sealed class EngineTarget : IAsyncDisposable
+public sealed class EngineTarget : DevToolsTarget, IAsyncDisposable
 {
     /// <summary>
     /// How long the library-owned loop parks before looking again. It is woken by every arrival, so this
@@ -36,21 +36,10 @@ public sealed class EngineTarget : IAsyncDisposable
     /// <summary>The longest a single wait may ask for, which is what the blocking primitives accept.</summary>
     private static readonly TimeSpan MaxWait = TimeSpan.FromMilliseconds(int.MaxValue);
 
-    /// <summary>
-    /// How many targets this process has made, which is what prefixes a target's remote-object identifiers
-    /// so that a handle from one target is refused by another rather than resolving in the wrong engine.
-    /// </summary>
-    private static int _serial;
-
-    private readonly EngineDispatcher _dispatcher;
     private readonly CancellationTokenSource? _stopping;
     private readonly Thread? _thread;
     private readonly ManualResetEventSlim? _debuggerWaitEnded;
-    private readonly DevToolsConsoleSink? _console;
-    private readonly object _observerLock = new();
 
-    private ITargetObserver[] _observers = [];
-    private DebuggerDomain? _debugger;
     private int _disposed;
 
     /// <summary>Creates a target over <paramref name="engine"/>.</summary>
@@ -58,59 +47,40 @@ public sealed class EngineTarget : IAsyncDisposable
     /// <param name="options">How the target presents itself and which thread runs it, or the defaults.</param>
     /// <exception cref="ArgumentNullException"><paramref name="engine"/> is <see langword="null"/>.</exception>
     public EngineTarget(Engine engine, EngineTargetOptions? options = null)
+        : this(options ?? new EngineTargetOptions(), engine)
+    {
+    }
+
+    /// <summary>Builds the target once the options are known to be there, so each is read exactly once.</summary>
+    /// <remarks>
+    /// The URL goes through the same mapping a script's own source name does, so a host that names its
+    /// target after the file it runs sees one URL in <c>/json/list</c> and in <c>Debugger.scriptParsed</c>
+    /// rather than two spellings of one location.
+    /// </remarks>
+    private EngineTarget(EngineTargetOptions options, Engine engine)
+        : base(
+            type: "node",
+            title: options.Title,
+            url: Domains.ScriptUrl.From(options.Url),
+            browserContextId: null,
+            openerId: null,
+            describer: options.RemoteObjectDescriber,
+            waitForDebuggerOnStart: options.WaitForDebuggerOnStart)
     {
         if (engine is null)
         {
             Throw.ArgumentNull(nameof(engine));
         }
 
-        options ??= new EngineTargetOptions();
-
-        var serial = Interlocked.Increment(ref _serial);
-
         Engine = engine;
-        Title = options.Title;
-
-        // Through the same mapping a script's own name goes through, so a host that names its target after
-        // the file it runs sees one URL in /json/list and in Debugger.scriptParsed rather than two.
-        Url = Domains.ScriptUrl.From(options.Url);
         ThreadMode = options.ThreadMode;
-        TargetId = Identifiers.New();
-        Describer = options.RemoteObjectDescriber;
-        RemoteObjects = new RemoteObjectTable(serial);
-
-        _dispatcher = new EngineDispatcher(engine, DevToolsServerOptions.DefaultCommandTimeout, options.WaitForDebuggerOnStart);
-
-        // Scripts are registered from the moment the target exists rather than from the moment a client asks,
-        // because Debugger.enable replays what has already been parsed and a front end's Sources panel is
-        // built from that replay. An engine the host did not build with the debugger has no BeforeEvaluate to
-        // subscribe to and no pause to serve, and the domain says so rather than answering something untrue.
-        if (engine.Options.Debugger.Enabled)
-        {
-            Scripts = new ScriptRegistry(engine, serial);
-            Scripts.Start();
-        }
-
-        // Console records reach a client only if the engine was built with UseDevTools, which is what
-        // installed the sink this binds to. An engine built without it is attachable and evaluable and says
-        // nothing about what its scripts logged, which is stated rather than silently half-true.
-        _console = engine.Options.WebApi.Console.Sink as DevToolsConsoleSink;
-        if (_console?.TryBind(this) == false)
-        {
-            // A second engine built from one Options instance. The first target speaks for that sink; this
-            // one keeps everything else and reports no console traffic.
-            _console = null;
-        }
-
-        // An unhandled rejection is an event rather than a command, so the subscription is the target's and
-        // outlives every attachment. It is taken before the loop thread starts, so nothing is missed.
-        engine.Tasks.PromiseRejectionTracker += OnPromiseRejection;
+        InstallRuntime(engine);
 
         if (options.WaitForDebuggerOnStart)
         {
             var released = new ManualResetEventSlim(initialState: false);
             _debuggerWaitEnded = released;
-            _dispatcher.DebuggerWaitEnded += released.Set;
+            DebuggerWaitEnded += released.Set;
         }
 
         if (ThreadMode != ThreadMode.LibraryOwned)
@@ -132,105 +102,33 @@ public sealed class EngineTarget : IAsyncDisposable
     public Engine Engine { get; }
 
     /// <summary>Gets the opaque identifier a client addresses this target by.</summary>
-    public string TargetId { get; }
+    /// <remarks>
+    /// Declared here as well as on the base so that the surface an embedder compiles against stays declared
+    /// on the type an embedder holds; the base class is internal, and its members are the package's own.
+    /// </remarks>
+    public new string TargetId => base.TargetId;
 
     /// <summary>Gets the target's protocol type, which is always <c>node</c> for an engine target.</summary>
-    public string Type { get; } = "node";
+    /// <inheritdoc cref="TargetId" path="/remarks"/>
+    public new string Type => base.Type;
 
     /// <summary>Gets the name a client lists the target under.</summary>
-    public string Title { get; }
+    /// <inheritdoc cref="TargetId" path="/remarks"/>
+    public new string Title => base.Title;
 
     /// <summary>Gets the location a client shows for the target.</summary>
-    public string Url { get; }
+    /// <inheritdoc cref="TargetId" path="/remarks"/>
+    public new string Url => base.Url;
 
     /// <summary>Gets which thread runs the engine and answers commands addressed to this target.</summary>
     public ThreadMode ThreadMode { get; }
 
     /// <summary>Gets whether work posted to the target is still held for a client that has not released it.</summary>
-    public bool IsWaitingForDebugger => _dispatcher.IsWaitingForDebugger;
+    /// <inheritdoc cref="TargetId" path="/remarks"/>
+    public new bool IsWaitingForDebugger => base.IsWaitingForDebugger;
 
-    /// <summary>Gets the mailbox every protocol command addressed to this target crosses.</summary>
-    internal EngineDispatcher Dispatcher => _dispatcher;
-
-    /// <summary>
-    /// Gets the scripts this engine has parsed, or <see langword="null"/> when it was not built with the
-    /// debugger enabled.
-    /// </summary>
-    internal ScriptRegistry? Scripts { get; }
-
-    /// <summary>
-    /// Gets or sets how long the engine may stay paused with no client saying what to do next.
-    /// </summary>
-    /// <remarks>
-    /// Settable for the same reason <see cref="EngineDispatcher.CommandTimeout"/> is: the bound belongs to
-    /// the server a target is published on, and a target may exist before that server does.
-    /// </remarks>
-    internal TimeSpan PauseTimeout { get; set; } = DevToolsServerOptions.DefaultPauseTimeout;
-
-    /// <summary>Gets the token that is cancelled when a library-owned target stops running.</summary>
-    /// <remarks>
-    /// What the pause loop watches so that disposing a target cannot leave its thread parked inside a pause
-    /// waiting for a client that has gone. A host-owned target has none: the thread inside the pause is the
-    /// host's own, and its lifetime is the host's business.
-    /// </remarks>
-    internal CancellationToken StoppingToken => _stopping?.Token ?? CancellationToken.None;
-
-    /// <summary>
-    /// Gets the handles this target has handed out, which live for as long as the client holding one does.
-    /// </summary>
-    /// <remarks>
-    /// On the target rather than on a session because the values in it belong to the engine: two sessions
-    /// attached to one engine address the same value by the same identifier, and each releases only what it
-    /// registered.
-    /// </remarks>
-    internal RemoteObjectTable RemoteObjects { get; }
-
-    /// <summary>Gets what names a value this package does not recognize, or <see langword="null"/>.</summary>
-    internal RemoteObjectDescriber? Describer { get; }
-
-    /// <summary>
-    /// Gets the scripts <c>Runtime.compileScript</c> persisted, by the identifier it answered with.
-    /// </summary>
-    /// <remarks>
-    /// On the target for the same reason the object table is: a compiled script belongs to the engine that
-    /// would run it, and the identifier a client is holding has to mean the same thing on every attachment.
-    /// </remarks>
-    internal CompiledScriptRegistry CompiledScripts { get; } = new();
-
-    /// <summary>Gets the global functions <c>Runtime.addBinding</c> installed, and who hears them.</summary>
-    internal BindingRegistry Bindings { get; } = new();
-
-    /// <summary>Gets the last few <c>console</c> calls, which a client enabling after the fact is replayed.</summary>
-    internal ConsoleJournal Console { get; } = new();
-
-    /// <summary>Gets the one attachment that has the <c>Debugger</c> domain enabled, if any.</summary>
-    /// <remarks>
-    /// <b>One at a time, which is a documented divergence from Chrome.</b> Breakpoints and the step mode live
-    /// on the engine's own <c>DebugHandler</c> rather than per session, so a second client enabling the domain
-    /// would silently share the first one's breakpoints and steal its pauses. It is refused instead.
-    /// </remarks>
-    internal DebuggerDomain? ActiveDebugger => Volatile.Read(ref _debugger);
-
-    /// <summary>Gets whether the engine is currently stopped inside the debugger.</summary>
-    /// <remarks>
-    /// Asked by the <c>Runtime</c> domain of <i>every</i> attachment, not only the debugging one: a paused
-    /// engine is paused for all of them, and an evaluation has to go through the paused frame's environment
-    /// rather than through a public engine entry whichever client asked for it.
-    /// </remarks>
-    internal bool IsPaused => Volatile.Read(ref _debugger)?.IsPaused == true;
-
-    /// <summary>Claims the debugger for <paramref name="domain"/>, answering whether it now has it.</summary>
-    internal bool TryClaimDebugger(DebuggerDomain domain)
-    {
-        var existing = Interlocked.CompareExchange(ref _debugger, domain, null);
-        return existing is null || ReferenceEquals(existing, domain);
-    }
-
-    /// <summary>Gives the debugger back, if <paramref name="domain"/> is what held it.</summary>
-    internal void ReleaseDebugger(DebuggerDomain domain)
-    {
-        Interlocked.CompareExchange(ref _debugger, null, domain);
-    }
+    /// <inheritdoc/>
+    internal override CancellationToken StoppingToken => _stopping?.Token ?? CancellationToken.None;
 
     /// <summary>
     /// Reports one exception that escaped the engine, so that every attached client hears about it.
@@ -255,50 +153,7 @@ public sealed class EngineTarget : IAsyncDisposable
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="exception"/> is <see langword="null"/>.</exception>
-    public void ReportUncaughtException(JavaScriptException exception)
-    {
-        if (exception is null)
-        {
-            Throw.ArgumentNull(nameof(exception));
-        }
-
-        foreach (var observer in Volatile.Read(ref _observers))
-        {
-            observer.ExceptionThrown(exception);
-        }
-    }
-
-    /// <summary>Registers what hears the engine's own events, from the attachment that owns them.</summary>
-    internal void Observe(ITargetObserver observer)
-    {
-        lock (_observerLock)
-        {
-            _observers = [.. _observers, observer];
-        }
-    }
-
-    /// <summary>Stops telling <paramref name="observer"/> anything, which is what detaching means.</summary>
-    internal void Unobserve(ITargetObserver observer)
-    {
-        lock (_observerLock)
-        {
-            _observers = [.. _observers.Where(candidate => !ReferenceEquals(candidate, observer))];
-        }
-    }
-
-    /// <summary>Journals one <c>console</c> call and tells everyone attached, on the engine thread.</summary>
-    internal void Record(in ConsoleRecord record)
-    {
-        var entry = Console.Add(in record, UnixMilliseconds(), RemoteObjects);
-
-        foreach (var observer in Volatile.Read(ref _observers))
-        {
-            observer.ConsoleRecorded(entry);
-        }
-    }
-
-    /// <summary>The protocol's timestamp: milliseconds since the Unix epoch, as a double.</summary>
-    internal static double UnixMilliseconds() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    public new void ReportUncaughtException(JavaScriptException exception) => base.ReportUncaughtException(exception);
 
     /// <summary>
     /// Gives the engine one turn: answers the protocol commands waiting for it, then runs the event loop.
@@ -320,7 +175,7 @@ public sealed class EngineTarget : IAsyncDisposable
             Throw.InvalidOperation("A LibraryOwned target pumps itself; calling Pump on it from another thread is what the engine's single-drainer guard refuses.");
         }
 
-        _dispatcher.Drain();
+        Runtime.Dispatcher.Drain();
         Engine.Tasks.ProcessTasks();
     }
 
@@ -342,7 +197,7 @@ public sealed class EngineTarget : IAsyncDisposable
         }
 
         ThrowIfDisposed();
-        _dispatcher.Post(work);
+        Runtime.Dispatcher.Post(work);
     }
 
     /// <summary>Queues host work and answers when it has run.</summary>
@@ -384,7 +239,7 @@ public sealed class EngineTarget : IAsyncDisposable
         ThrowIfDisposed();
 
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _dispatcher.Post(engine =>
+        Runtime.Dispatcher.Post(engine =>
         {
             try
             {
@@ -463,15 +318,7 @@ public sealed class EngineTarget : IAsyncDisposable
         // The engine is the host's, before and after: a disposed target stops reaching into it first, so
         // that nothing arrives after the release below. A target that is disposed while its engine is paused
         // has to let go of the pause too, or the thread inside it waits for a client nothing will deliver.
-        Engine.Tasks.PromiseRejectionTracker -= OnPromiseRejection;
-        _console?.Unbind(this);
-        Volatile.Read(ref _debugger)?.Detach();
-
-        // A handle is a promise to keep a value alive until the client releases it, and there is no client
-        // left to release one. Dropping the references runs no engine code, so it is safe from here, and so
-        // is letting go of the journal that was holding the arguments of the last hundred console calls.
-        Console.Clear(RemoteObjects);
-        RemoteObjects.Clear();
+        ActiveDebugger?.Detach();
 
         if (_stopping is not null)
         {
@@ -483,12 +330,15 @@ public sealed class EngineTarget : IAsyncDisposable
             _thread.Join(TimeSpan.FromSeconds(5));
         }
 
-        Scripts?.Stop();
+        // The subscriptions, the handles and the journal, all of them the runtime's.
+        DisposeRuntime();
 
         _stopping?.Dispose();
         _debuggerWaitEnded?.Dispose();
-        _dispatcher.Dispose();
     }
+
+    /// <inheritdoc/>
+    internal override ValueTask CloseAsync() => DisposeAsync();
 
     private void RunLoop()
     {
@@ -498,7 +348,7 @@ public sealed class EngineTarget : IAsyncDisposable
         {
             try
             {
-                _dispatcher.Drain();
+                Runtime.Dispatcher.Drain();
                 Engine.Tasks.ProcessTasks();
                 Engine.Tasks.WaitForScheduledWork(IdleInterval, token);
             }
@@ -537,41 +387,8 @@ public sealed class EngineTarget : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// The engine's own unhandled-rejection channel, which is where <c>Runtime.exceptionThrown</c> and
-    /// <c>Runtime.exceptionRevoked</c> come from.
-    /// </summary>
-    /// <remarks>
-    /// The engine raises <c>Reject</c> the moment a promise is rejected with nothing to handle it, and
-    /// <c>Handle</c> if something handles it afterwards. V8 waits for the end of the microtask checkpoint
-    /// before deciding, so a rejection handled on the very next line produces a throw and a revoke here
-    /// where Chrome produces neither — which is exactly the pair <c>exceptionRevoked</c> exists for, and is
-    /// why the identifier is remembered rather than the event delayed.
-    /// </remarks>
-    private void OnPromiseRejection(object? sender, PromiseRejectionTrackerEventArgs arguments)
-    {
-        var observers = Volatile.Read(ref _observers);
-        if (observers.Length == 0)
-        {
-            return;
-        }
-
-        foreach (var observer in observers)
-        {
-            if (arguments.Operation == PromiseRejectionOperation.Reject)
-            {
-                observer.RejectionThrown(arguments.Promise, arguments.Value ?? Native.JsValue.Undefined);
-            }
-            else
-            {
-                observer.RejectionHandled(arguments.Promise);
-            }
-        }
-    }
-
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
     }
-
 }

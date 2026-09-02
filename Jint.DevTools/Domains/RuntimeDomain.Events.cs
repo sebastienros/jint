@@ -65,7 +65,7 @@ internal sealed partial class RuntimeDomain
 
         EmitDetached(RuntimeEvents.ExceptionThrown(new ExceptionThrownEvent
         {
-            Timestamp = EngineTarget.UnixMilliseconds(),
+            Timestamp = DevToolsTarget.UnixMilliseconds(),
             ExceptionDetails = _objects.Exception(exception, NextExceptionId(), MainExecutionContextId),
         }));
     }
@@ -83,7 +83,7 @@ internal sealed partial class RuntimeDomain
 
         EmitDetached(RuntimeEvents.ExceptionThrown(new ExceptionThrownEvent
         {
-            Timestamp = EngineTarget.UnixMilliseconds(),
+            Timestamp = DevToolsTarget.UnixMilliseconds(),
             ExceptionDetails = _objects.Rejection(reason, exceptionId, MainExecutionContextId),
         }));
     }
@@ -103,6 +103,44 @@ internal sealed partial class RuntimeDomain
         }));
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// The pair every client is written against: <c>executionContextsCleared</c> says every identifier it
+    /// holds has stopped meaning anything, and <c>executionContextCreated</c> gives it the one that now
+    /// does. Chrome sends them in that order on a cross-document navigation and so does this.
+    /// </para>
+    /// <para>
+    /// The handles are already gone -- the table belonged to the engine that has been replaced -- so a
+    /// client that comes back with one is told the object cannot be found, which is what Chrome tells it.
+    /// The rejections this domain was tracking go with them: they name promises of a realm that no longer
+    /// exists, and revoking one afterwards would be revoking against a document nobody is looking at.
+    /// </para>
+    /// </remarks>
+    void ITargetObserver.RuntimeReplaced(TargetRuntime runtime)
+    {
+        _rejections.Clear();
+
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(RuntimeEvents.ExecutionContextsCleared());
+        EmitDetached(RuntimeEvents.ExecutionContextCreated(DefaultContext()));
+    }
+
+    /// <inheritdoc/>
+    void ITargetObserver.WorldCreated(TargetWorld world)
+    {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
+        EmitDetached(RuntimeEvents.ExecutionContextCreated(WorldContext(world)));
+    }
+
     /// <summary>Replays the journal to a client that enabled the domain after the fact.</summary>
     /// <remarks>
     /// V8 does the same, and it is what makes a front end opened halfway through a run useful rather than
@@ -110,7 +148,7 @@ internal sealed partial class RuntimeDomain
     /// </remarks>
     private async ValueTask ReplayConsoleAsync(CommandContext context)
     {
-        foreach (var entry in _target.Console.Snapshot())
+        foreach (var entry in _target.Runtime.Console.Snapshot())
         {
             await EmitAsync(RuntimeEvents.ConsoleAPICalled(ConsoleCall(entry)), context.CancellationToken).ConfigureAwait(false);
         }
@@ -209,7 +247,7 @@ internal sealed partial class RuntimeDomain
             return null;
         }
 
-        var registry = _target.Scripts;
+        var registry = _target.Runtime.Scripts;
         var callFrames = new CallFrame[frames.Length];
         for (var i = 0; i < frames.Length; i++)
         {
