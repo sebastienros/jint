@@ -91,6 +91,28 @@ internal static class ValueSlotReader
         return declaration.Generator ? "GeneratorFunction" : "Function";
     }
 
+    /// <summary>
+    /// What <c>Function.prototype.toString</c> answers for a function, produced without running script.
+    /// </summary>
+    /// <remarks>
+    /// The declaration itself when the parser retained the source text, and
+    /// <c>function name() { [native code] }</c> otherwise — the same two answers
+    /// <see cref="Function.ToString"/> gives, minus the two things a describing path may not do: it neither
+    /// calls the host's <c>FunctionToStringHandler</c> nor coerces a <c>name</c> a script replaced with an
+    /// accessor. A name that cannot be read that way is left out, which is what
+    /// <c>Function.prototype.bind</c>'s own result already looks like.
+    /// </remarks>
+    internal static string FunctionSourceText(Function function)
+    {
+        if (function.TryGetOwnSourceText(out var sourceText))
+        {
+            return sourceText;
+        }
+
+        var name = function.GetOwnFunctionNameForDisplay()?.TrimStart('#') ?? "";
+        return "function " + name + "() { [native code] }";
+    }
+
     /// <summary>The half of an accessor property a renderer may report, since it may call neither.</summary>
     internal static string AccessorLabel(PropertyDescriptor descriptor)
     {

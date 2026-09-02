@@ -266,4 +266,25 @@ public sealed class ValueInspectorOptions
 
     /// <summary>Gets how long a string may be before it is truncated with an ellipsis. Defaults to 100.</summary>
     public int MaxStringLength { get; init; } = 100;
+
+    /// <summary>
+    /// Gets whether a function is described by its source text rather than by a short label. Defaults to
+    /// <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The short label is <c>ƒ name()</c>, which is what a console prints. The source text is what
+    /// <c>Function.prototype.toString</c> returns — the declaration itself when
+    /// <see cref="Options.RetainFunctionSourceText"/> kept it, and
+    /// <c>function name() { [native code] }</c> otherwise — which is what a debugger protocol's client
+    /// parses a function out of.
+    /// </para>
+    /// <para>
+    /// Either way the answer is produced without running script: a <c>name</c> a script replaced with an
+    /// accessor is reported as absent rather than read, so a function described while the engine is paused
+    /// stays exactly as it was. The host's <c>Options.Host.FunctionToStringHandler</c> is not consulted
+    /// either, for the same reason.
+    /// </para>
+    /// </remarks>
+    public bool FunctionSourceText { get; init; }
 }

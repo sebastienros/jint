@@ -44,6 +44,26 @@ public class WebApiConsoleRecordTests
         public override void Write(ConsoleLogLevel level, string message) => Lines.Add(message);
     }
 
+    /// <summary>A sink that asks for the call site of every record, not just <c>console.trace</c>'s.</summary>
+    private sealed class FrameHungrySink : ConsoleSink
+    {
+        internal List<ConsoleRecordSnapshot> Records { get; } = new();
+
+        public override bool WantsStackTrace => true;
+
+        public override void Write(ConsoleLogLevel level, string message)
+        {
+        }
+
+        public override void Write(in ConsoleRecord record)
+        {
+            Records.Add(new ConsoleRecordSnapshot(record.Method, record.StackTrace));
+        }
+    }
+
+    /// <summary>What a sink may keep of a record, since the record itself is only valid during the call.</summary>
+    private sealed record ConsoleRecordSnapshot(ConsoleMethod Method, IReadOnlyList<ConsoleStackFrame>? StackTrace);
+
     /// <summary>A sink written before the record overload existed, which must not notice that it does.</summary>
     private sealed class StringOnlySink : ConsoleSink
     {
@@ -198,9 +218,25 @@ public class WebApiConsoleRecordTests
     }
 
     [Test]
-    public void OnlyTraceCarriesFrames()
+    public void ASinkThatDoesNotAskForFramesGetsThemForTraceAlone()
     {
         Run("console.log('x')").Records.Should().ContainSingle().Which.StackTrace.Should().BeNull();
+    }
+
+    [Test]
+    public void ASinkThatAsksForFramesGetsTheCallSiteOfEveryMethod()
+    {
+        var sink = new FrameHungrySink();
+        var engine = new Engine(options => options.UseConsole(sink));
+        engine.Execute("function speak() { console.log('x'); } speak();", "app.js");
+
+        var frames = sink.Records.Should().ContainSingle().Which.StackTrace;
+        frames.Should().NotBeNull();
+
+        // The console method's own frame is not one of them: the trace starts where the script called it.
+        frames![0].FunctionName.Should().Be("speak");
+        frames[0].Source.Should().Be("app.js");
+        frames[0].Line.Should().Be(1);
     }
 
     [Test]

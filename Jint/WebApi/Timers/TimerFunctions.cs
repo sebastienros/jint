@@ -203,7 +203,8 @@ internal sealed class TimerFunctions
     {
         try
         {
-            callback.Call(JsValue.Undefined);
+            // Through Engine.Call, so the callback owns a call-stack frame: see TimerEntry.Fire.
+            _engine.Call(callback, JsValue.Undefined, Arguments.Empty, expression: null);
         }
         catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
         {

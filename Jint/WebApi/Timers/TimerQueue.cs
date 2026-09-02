@@ -52,9 +52,10 @@ internal sealed class TimerQueue
     }
 
     /// <summary>
-    /// The engine these timers belong to. Reached from <see cref="TimerEntry.Fire"/> alone, and only on the
-    /// path where a callback threw — the web-API state it leads to is where HTML's <i>report an exception</i>
-    /// finds a global <c>error</c> listener, if there is one.
+    /// The engine these timers belong to. Reached from <see cref="TimerEntry.Fire"/> alone: to call the
+    /// callback through <c>Engine.Call</c>, so it gets a call-stack frame of its own, and — where one threw
+    /// — to reach the web-API state where HTML's <i>report an exception</i> finds a global <c>error</c>
+    /// listener, if there is one.
     /// </summary>
     internal Engine Engine { get; }
 
@@ -366,7 +367,11 @@ internal sealed class TimerEntry
             // Step 8.4: "If handler is a Function, then invoke handler given arguments and "report"". WebIDL's
             // "report" exception behavior is to report the exception and return undefined, which is what the
             // catch below does whenever the host gave the engine somewhere to report to.
-            _callback.Call(JsValue.Undefined, _arguments);
+            //
+            // Through Engine.Call rather than ICallable.Call, so the callback gets a call-stack frame of its
+            // own: this is where the engine is entered, and a frame nothing pushed is a frame absent from
+            // every stack trace, from console.trace and from the debugger's call stack.
+            _queue.Engine.Call(_callback, JsValue.Undefined, _arguments, expression: null);
         }
         catch (JavaScriptException exception) when (_queue.Diagnostics is { } diagnostics)
         {

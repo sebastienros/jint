@@ -474,6 +474,15 @@ internal sealed partial class ConsoleInstance : BuiltinShapeObject
         ConsoleStackFrame[]? stackTrace = null)
     {
         var sink = _engine.Options.WebApi.Console.Sink ?? ConsoleSink.Null;
+
+        if (stackTrace is null && sink.WantsStackTrace)
+        {
+            // The frame on top of the stack is the console method the script called, and a trace has to
+            // start at the call site below it — which is what console.trace gets by naming its own function
+            // object, and what every other method reaches here without one to name.
+            stackTrace = StackFrames(ErrorConstructor.BuildStackTraceCapture(_engine, excludeTop: 1));
+        }
+
         var record = new ConsoleRecord(
             method,
             level,

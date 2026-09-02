@@ -338,7 +338,8 @@ internal sealed class IdleCallbackQueue
     {
         try
         {
-            entry.Callback.Call(JsValue.Undefined, [deadline]);
+            // Through Engine.Call, so the callback owns a call-stack frame: see TimerEntry.Fire.
+            _engine.Call(entry.Callback, JsValue.Undefined, [deadline], expression: null);
         }
         catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
         {

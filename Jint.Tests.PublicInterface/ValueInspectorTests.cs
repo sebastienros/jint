@@ -180,6 +180,55 @@ public class ValueInspectorTests
     }
 
     [Test]
+    public void AFunctionCanBeDescribedByItsSourceInstead()
+    {
+        var options = new ValueInspectorOptions { FunctionSourceText = true };
+        var engine = new Engine(o => o.RetainFunctionSourceText = true);
+
+        // What Function.prototype.toString returns, which is what a debugger protocol's client parses.
+        ValueInspector.Describe(engine.Evaluate("function f(a, b) { return 1; }; f"), options)
+            .Description.Should().Be("function f(a, b) { return 1; }");
+        ValueInspector.Describe(engine.Evaluate("(function () {})"), options)
+            .Description.Should().Be("function () {}");
+        ValueInspector.Describe(engine.Evaluate("class C { m() {} }; C"), options)
+            .Description.Should().Be("class C { m() {} }");
+
+        // Nothing the parser built a declaration for falls back to the placeholder, exactly as toString does.
+        ValueInspector.Describe(engine.Evaluate("Math.max"), options)
+            .Description.Should().Be("function max() { [native code] }");
+    }
+
+    [Test]
+    public void ASourceTextDescriptionStillRunsNothing()
+    {
+        var engine = new Engine(o => o.RetainFunctionSourceText = true);
+        var value = engine.Evaluate(
+            """
+            (function () {
+                var f = Math.min;
+                Object.defineProperty(f, 'name', { get: function () { throw new Error('read'); } });
+                return f;
+            })()
+            """);
+
+        // A native function whose name a script replaced with an accessor: the name is left out rather
+        // than read, which is the same answer bind's own result gives.
+        ValueInspector.Describe(value, new ValueInspectorOptions { FunctionSourceText = true })
+            .Description.Should().Be("function () { [native code] }");
+    }
+
+    [Test]
+    public void WithoutSourceTextRetainedEvenAScriptFunctionIsThePlaceholder()
+    {
+        var engine = new Engine();
+
+        ValueInspector.Describe(
+                engine.Evaluate("function f(a) { return a; }; f"),
+                new ValueInspectorOptions { FunctionSourceText = true })
+            .Description.Should().Be("function f() { [native code] }");
+    }
+
+    [Test]
     public void ThePlainCollectionsCarryTheirSizeAndTheirEntries()
     {
         var array = Describe("[1, 'x', null]");

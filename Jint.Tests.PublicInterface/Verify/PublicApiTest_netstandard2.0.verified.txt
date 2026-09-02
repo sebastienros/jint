@@ -733,6 +733,7 @@ namespace Jint.Diagnostics
     public sealed class ValueInspectorOptions
     {
         public ValueInspectorOptions() { }
+        public bool FunctionSourceText { get; init; }
         public int MaxDepth { get; init; }
         public int MaxEntries { get; init; }
         public int MaxStringLength { get; init; }
