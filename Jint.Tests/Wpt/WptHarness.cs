@@ -8,6 +8,7 @@ using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.WebApi;
+using Jint.WebApi.Fetch;
 
 namespace Jint.Tests.Wpt;
 
@@ -276,6 +277,7 @@ internal static class WptHarness
         "fetch/api/basic/accept-header.any.js",
         "fetch/api/basic/request-head.any.js",
         "fetch/api/basic/request-headers-nonascii.any.js",
+        "fetch/api/basic/request-referrer.any.js",
         "fetch/api/basic/response-null-body.any.js",
         "fetch/api/basic/scheme-about.any.js",
         "fetch/api/basic/stream-response.any.js",
@@ -290,6 +292,20 @@ internal static class WptHarness
         "fetch/api/response/response-cancel-stream.any.js",
         "fetch/api/response/response-clone.any.js",
         "fetch/api/response/response-headers-guard.any.js",
+
+        // The whole of fetch/api/request/ builds its Requests from relative urls, so every file in it needs
+        // the API base URL the lane supplies — see BuildEngine.
+        "fetch/api/request/forbidden-method.any.js",
+        "fetch/api/request/request-clone-readable-stream-body.any.js",
+        "fetch/api/request/request-constructor-init-body-override.any.js",
+        "fetch/api/request/request-consume-empty.any.js",
+        "fetch/api/request/request-consume.any.js",
+        "fetch/api/request/request-disturbed.any.js",
+        "fetch/api/request/request-error.any.js",
+        "fetch/api/request/request-init-002.any.js",
+        "fetch/api/request/request-init-contenttype.any.js",
+        "fetch/api/request/request-init-stream.any.js",
+        "fetch/api/request/request-structure.any.js",
     };
 
     /// <summary>Whether a file runs in the server lane. Read by the runner's inventory checks as well.</summary>
@@ -593,7 +609,7 @@ internal static class WptHarness
             ? new WptWorkerProvider(moduleSource: null, directory, sink)
             : null;
 
-        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName));
+        var engine = BuildEngine(directory, sink, workers, IsServerBacked(sourceName), sourceName);
 
         try
         {
@@ -695,7 +711,8 @@ internal static class WptHarness
         string directory,
         WptDiagnosticsSink sink,
         WptWorkerProvider? workers = null,
-        bool serverBacked = false)
+        bool serverBacked = false,
+        string? sourceName = null)
     {
         var engine = new Engine(options =>
         {
@@ -714,6 +731,27 @@ internal static class WptHarness
                 // Well inside the drive loop's own grace period, so a request the server never answers is
                 // reported as a failing test rather than as a stalled file. See _fetchTimeout.
                 options.WebApi.Fetch.Timeout = _fetchTimeout;
+
+                // The API base URL a browser would take from the document: the URL the driver's server really
+                // serves this file at. It is the harness playing the part of the browsing environment,
+                // exactly as `location` and `GLOBAL` are — and it is what lets `fetch("../resources/status.py")`
+                // and `new Request("")` mean the same thing here as they do upstream. Before
+                // `Options.WebApi.Fetch.BaseUrl` existed the shim resolved the first of those itself and
+                // pointedly not the second, which is why the whole of `fetch/api/request/` was unvendorable.
+                if (sourceName is not null)
+                {
+                    options.WebApi.Fetch.BaseUrl = new Uri(WptServer.Instance.UrlFor(sourceName));
+                }
+
+                // The referrer a browser would take from the same document, under the default policy. Without
+                // one the referrer suites have nothing to assert against; with it, `fetch/api/basic/request-referrer.any.js`
+                // measures the engine's own "determine request's referrer" rather than the harness's.
+                options.WebApi.Fetch.Referrer = new Uri(WptServer.Instance.UrlFor(sourceName ?? string.Empty));
+                options.WebApi.Fetch.Origin = WptServer.Instance.Origin;
+
+                // One jar per engine, so a file's cookies are its own and a suite cannot see the one before
+                // it — the same partitioning rule the option's own documentation states.
+                options.WebApi.Fetch.CookieJar = new CookieContainerCookieJar();
             }
 
             // What makes an exception escaping a timer callback, an event listener or a queueMicrotask

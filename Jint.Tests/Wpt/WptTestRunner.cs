@@ -250,11 +250,23 @@ public class WptTestRunner
             "setTimeout's string handler, which TimerFunctions declines"),
 
         // ---------------------------------------------------------------- fetch
-        // Every file in request/ builds its Request from a *relative* url — "", "./", "../resources/…" — and
-        // RequestConstructor documents why that cannot work: the specification resolves such a string against
-        // "the entry settings object's API base URL", which is a document's url, and an embedded engine has no
-        // document. Most of them do it at file scope, so there is not even a test to exclude.
-        ("fetch/api/request/*", "constructs a Request from a relative url; there is no API base URL here"),
+        // request/ used to be out in its entirety, for one reason: every file in it builds its Request from a
+        // *relative* url — "", "./", "../resources/…" — and there was no API base URL to resolve one against.
+        // Options.WebApi.Fetch.BaseUrl is that URL, the driver hands every server-lane engine the one its own
+        // server really serves the file at, and eleven of the directory's files are now vendored. What is left
+        // is out for the feature each one is actually about.
+        ("fetch/api/request/request-cache*", "an HTTP cache, and the `cache` init member RequestConstructor documents accepting and ignoring"),
+        ("fetch/api/request/request-bad-port.any.js", "https://fetch.spec.whatwg.org/#port-blocking, which this implementation does not enforce"),
+        ("fetch/api/request/request-headers.any.js", "the forbidden request-header names, which HeadersGuard documents declining to enforce"),
+        ("fetch/api/request/request-init-priority.any.js", "the `priority` init member, accepted and ignored like `mode` and `cache`"),
+        ("fetch/api/request/request-keepalive*", "the `keepalive` init member, and get-host-info substitution at file scope"),
+        ("fetch/api/request/request-reset-attributes.https.html", "a document, and the browser request members this engine has not"),
+        ("fetch/api/request/url-encoding.html", "a document"),
+        ("fetch/api/request/*.sub.html", "wptserve substitutes a second origin into the file before serving it"),
+        ("fetch/api/request/destination/*", "the fetch destination, which this implementation has no model for"),
+        ("fetch/api/request/multi-globals/*", "several realms with documents in them"),
+        ("fetch/api/request/resources/*", "the handlers and helpers only the files above use"),
+        ("fetch/api/request/WEB_FEATURES.yml", "upstream metadata, not a test"),
 
         // The rest of fetch/api/ used to be one sentence — "a client talking to wptserve" — over seven
         // directory globs. WptServer is that client's server now (see its class remarks), so the sentence no
@@ -303,8 +315,7 @@ public class WptTestRunner
         // Engine features rather than endpoints.
         ("fetch/api/basic/gc.any.js", "/common/gc.js and a garbageCollect() the engine does not expose"),
         ("fetch/api/basic/mode-same-origin.any.js", "the CORS request mode and a second origin"),
-        ("fetch/api/basic/referrer.any.js", "a Referer header, which an engine with no document never sends"),
-        ("fetch/api/basic/request-referrer.any.js", "a Referer header, which an engine with no document never sends"),
+        ("fetch/api/basic/referrer.any.js", "get-host-info substitution at file scope, for the cross-origin half of the referrer policy table"),
         ("fetch/api/basic/request-forbidden-headers.any.js", "the forbidden-header names, which this implementation does not filter"),
         ("fetch/api/basic/request-headers.any.js", "asserts the Accept and Accept-Language a browser adds; see NeedsBrowserRequestHeaders"),
         ("fetch/api/basic/scheme-data.any.js", "a data: URL fetch"),
@@ -631,6 +642,7 @@ public class WptTestRunner
         ["fetch/api/basic/historical.any.js"] = 3,
         ["fetch/api/basic/request-head.any.js"] = 1,
         ["fetch/api/basic/request-headers-nonascii.any.js"] = 1,
+        ["fetch/api/basic/request-referrer.any.js"] = 2,
         ["fetch/api/basic/response-null-body.any.js"] = 11,
         ["fetch/api/basic/scheme-about.any.js"] = 7,
         ["fetch/api/basic/stream-response.any.js"] = 2,
@@ -660,6 +672,18 @@ public class WptTestRunner
         ["fetch/api/response/response-cancel-stream.any.js"] = 4,
         ["fetch/api/response/response-clone.any.js"] = 10,
         ["fetch/api/response/response-headers-guard.any.js"] = 1,
+
+        ["fetch/api/request/forbidden-method.any.js"] = 6,
+        ["fetch/api/request/request-clone-readable-stream-body.any.js"] = 1,
+        ["fetch/api/request/request-constructor-init-body-override.any.js"] = 2,
+        ["fetch/api/request/request-consume-empty.any.js"] = 14,
+        ["fetch/api/request/request-consume.any.js"] = 45,
+        ["fetch/api/request/request-disturbed.any.js"] = 9,
+        ["fetch/api/request/request-error.any.js"] = 22,
+        ["fetch/api/request/request-init-002.any.js"] = 8,
+        ["fetch/api/request/request-init-contenttype.any.js"] = 18,
+        ["fetch/api/request/request-init-stream.any.js"] = 23,
+        ["fetch/api/request/request-structure.any.js"] = 24,
         ["fetch/api/response/response-consume-empty.any.js"] = 14,
         ["fetch/api/response/response-consume-stream.any.js"] = 15,
         ["fetch/api/response/response-error-from-stream.any.js"] = 14,
@@ -1063,6 +1087,33 @@ public class WptTestRunner
 
         new("fetch/api/response/response-consume-stream.any.js", "Getting a redirect Response stream", WptDivergence.NeedsApiBaseUrl),
 
+        // The seven members of the browser request model this engine deliberately has not — see the category.
+        new("fetch/api/request/request-structure.any.js", "Check destination attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-structure.any.js", "Check mode attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-structure.any.js", "Check cache attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-structure.any.js", "Check integrity attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-structure.any.js", "Check isReloadNavigation attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-structure.any.js", "Check isHistoryNavigation attribute", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "RequestInit's window is not null", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "RequestInit's mode is *", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "RequestInit's cache mode is only-if-cached and mode is not same-origin", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "Request with cache mode: only-if-cached and fetch mode *", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "Bad mode init parameter value", WptDivergence.NeedsBrowserRequestModel),
+        new("fetch/api/request/request-error.any.js", "Bad cache init parameter value", WptDivergence.NeedsBrowserRequestModel),
+
+        // Constructing a Request from another one must leave the input disturbed. Jint's proxy shares the
+        // source for a buffered body instead of teeing it, so the input's bodyUsed stays false — a defect the
+        // corpus found the moment this file could run, recorded rather than fixed in the same change.
+        new("fetch/api/request/request-disturbed.any.js", "Input request used for creating new request became disturbed", WptDivergence.NeedsTriage),
+        new("fetch/api/request/request-disturbed.any.js", "Input request used for creating new request became disturbed even if body is not used", WptDivergence.NeedsTriage),
+        new("fetch/api/request/request-disturbed.any.js", "Request construction failure should not set \"bodyUsed\"", WptDivergence.NeedsTriage),
+
+        // https://fetch.spec.whatwg.org/#concept-bodyinit-extract runs the multipart/form-data encoding
+        // algorithm over an empty entry list, which is the closing boundary and not nothing. The file says so
+        // itself, in a comment above the row: "This test assumes that the empty string be returned but it is
+        // not clear whether that is right. See https://github.com/web-platform-tests/wpt/pull/3950."
+        new("fetch/api/request/request-consume-empty.any.js", "Consume empty FormData request body as text", WptDivergence.AssertsWhatNothingRequires),
+
         // ---- what the server lane found. WptServer (issue #3260) is what let these files make a real
         // request for the first time; WptHarness._serverBackedFiles is the list of the files it runs.
         //
@@ -1099,8 +1150,6 @@ public class WptTestRunner
 
         // Ten rows of text-utf8.any.js build a Request from the empty string to get at Request.text(); the
         // ten that go through fetch and read a real response pass.
-        new("fetch/api/basic/text-utf8.any.js", "* with Request.text()", WptDivergence.NeedsApiBaseUrl),
-        new("fetch/api/basic/text-utf8.any.js", "* (Request object)", WptDivergence.NeedsApiBaseUrl),
 
         // The one row this corpus still names, and it is not a defect: an empty FormData body is asked to
         // serialize to nothing, where HTML's encoding algorithm delegates the framing to RFC 7578 and RFC
@@ -1266,12 +1315,11 @@ public class WptTestRunner
     ];
 
     /// <summary>
-    /// The Fetch corpus, in five directories. Two of them — <c>headers</c> and <c>response</c> — were vendored
-    /// for the files that build their own <c>Headers</c> and their own body; the other three arrived with
-    /// <see cref="WptServer"/>, which is what a file asking for a URL now has to talk to.
-    /// <c>fetch/api/request</c> is still not among them — see <see cref="_notVendored"/> — because every file
-    /// in it builds a <c>Request</c> from a relative url, and there is no API base URL here to resolve one
-    /// against.
+    /// The Fetch corpus, in six directories. Two of them — <c>headers</c> and <c>response</c> — were vendored
+    /// for the files that build their own <c>Headers</c> and their own body; three more arrived with
+    /// <see cref="WptServer"/>, which is what a file asking for a URL now has to talk to; and
+    /// <c>fetch/api/request</c> arrived with <c>Options.WebApi.Fetch.BaseUrl</c>, which is the API base URL
+    /// every file in it resolves its relative url against.
     /// </summary>
     private static readonly string[] _fetchSuites =
     [
@@ -1279,6 +1327,7 @@ public class WptTestRunner
         "fetch/api/body",
         "fetch/api/headers",
         "fetch/api/redirect",
+        "fetch/api/request",
         "fetch/api/response",
     ];
 
@@ -1303,6 +1352,8 @@ public class WptTestRunner
     public static IEnumerable<object[]> FetchHeadersSuiteFiles() => Cases("fetch/api/headers");
 
     public static IEnumerable<object[]> FetchRedirectSuiteFiles() => Cases("fetch/api/redirect");
+
+    public static IEnumerable<object[]> FetchRequestSuiteFiles() => Cases("fetch/api/request");
 
     public static IEnumerable<object[]> FetchResponseSuiteFiles() => Cases("fetch/api/response");
 
@@ -1419,6 +1470,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(FetchResponseSuiteFiles))]
     public void RunsTheFetchResponseSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(FetchRequestSuiteFiles))]
+    public void RunsTheFetchRequestSuite(string file) => RunSuiteFile(file);
 
     /// <summary>
     /// The inventory check: what is vendored, what is run, and what is deliberately absent must all agree.
