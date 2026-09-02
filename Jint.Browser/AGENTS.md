@@ -211,11 +211,12 @@ and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may b
 - **`MutationObserver` delivers on the engine's job queue — the microtask checkpoint.** The *records* are
   AngleSharp's: `DocumentExtensions.QueueMutation` already walks a mutated node's inclusive ancestors, matches
   each against the registered observer list, honours `subtree` and `attributeFilter`, and clears `oldValue`
-  for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the parser
-  hop above: its `MutationHost` schedules through an `IEventLoop` service, **nothing in AngleSharp implements
-  one**, and `EventLoopExtensions.Enqueue` on a null loop runs the action *inline* — so out of the box the
-  callback fires synchronously inside `appendChild`. Registering an event loop to fix that is precisely what
-  would make a step of the parse asynchronous and take the fallback. So the inline call is used as the
+  for an observer that did not ask for it. What it has no answer for is *when*, and the reason is the
+  [parser hop](Runtime/AGENTS.md#the-parse-and-the-parser-hop): its `MutationHost` schedules through an
+  `IEventLoop` service, **nothing in AngleSharp implements one**, and `EventLoopExtensions.Enqueue` on a null
+  loop runs the action *inline* — so out of the box the callback fires synchronously inside `appendChild`.
+  Registering an event loop to fix that is precisely what would make a step of the parse asynchronous and
+  take that fallback. So the inline call is used as the
   **arrival** of a record and nothing else: `JsMutationObserver` parks it and `MutationObserverLane` puts one
   job on the engine's queue per batch. Ordering then falls out of a plain enqueue, and
   `Observers/MutationObserverTests` pins it. Lifetime falls out too, and it is DOM's own rule: a *connected*
