@@ -20,7 +20,7 @@ output by inflating it with pako rather than with the engine's own `Decompressio
 
 `Jint.Tests/Wpt/WptTestRunner.cs`, one test case per `.any.js` file, on a fresh engine built with
 `UseWebApis(WebApiFeatures.Default)` plus the fetch object model — `Headers`, `Request` and `Response`, and,
-for every file but the twenty-nine the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
+for every file but the thirty the [server lane](#the-server-lane) names, pointedly not `fetch`, so no suite
 gets outbound network access — and a `DiagnosticsSink`, which is what makes
 an exception escaping a timer callback, an event listener or a `queueMicrotask` callback report-and-continue
 rather than erupt from the pump. `WptDiagnosticsSink` says why the driver needs one and why it records the
@@ -39,11 +39,11 @@ before there was anything for the other half to talk to).
 Thirteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
 `user-timing/` and `xhr/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`),
 `workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone),
-`dom/` as **two** (events, abort), `fetch/api/` as **six** (basic, body, headers, redirect, request,
-response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one suite per
-sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 347
-theory cases over 41,417 assertions, of which 2,939 do not pass and every one is named in the driver's
-table; the whole driver runs in about two minutes.
+`dom/` as **two** (events, abort), `fetch/api/` as **seven** (abort, basic, body, headers, redirect,
+request, response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one
+suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends.
+That is 348 theory cases over 41,435 assertions, of which 2,939 do not pass and every one is named in the
+driver's table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
 change moves them; the counts before the `xhr/` corpus arrived were 305 / 41,157 / 2,966, before
@@ -124,8 +124,8 @@ leave a permanent exemption behind — the run fails until the table is brought 
 
 ## The server lane
 
-A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventy-one files —
-`WptHarness._serverBackedFiles` names twenty-nine and the whole of `xhr/` is the rest — run on an engine
+A third lane, added by [#3260](https://github.com/sebastienros/jint/issues/3260). Seventy-two files —
+`WptHarness._serverBackedFiles` names thirty and the whole of `xhr/` is the rest — run on an engine
 that has the shipped `fetch` and the shipped `XMLHttpRequest`, against `WptServer`: an in-process
 HTTP/1.1 origin on the loopback interface, started once per test run.
 
@@ -399,7 +399,6 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `fetch/api/policies/*` | Not one `.any.js` file: the directory is `.html` documents, their `.headers` sidecars and the `.js` they load. It is Content-Security-Policy and Referrer-Policy applied to a *document*. This row is the clearest example of how much the old "needs a wpt server" glob overstated itself — it was parking nothing runnable at all. |
 | `fetch/api/abort/general.any.js` | Opens by including `/common/get-host-info.sub.js` — wptserve's server-side substitution — at file scope, so it cannot register a test here at all. |
 | `fetch/api/abort/cache.https.any.js` | The Cache API, which the driver's engine does not enable. |
-| `fetch/api/abort/request.any.js` | Consuming the body of a request whose signal is already aborted must reject with the abort reason; this engine resolves instead. Five of its rows say so, and it is a candidate once that is fixed — the relative-url reason the whole directory used to give is gone with `Options.WebApi.Fetch.BaseUrl`. |
 | `fetch/api/basic/conditional-get.any.js` | An HTTP cache: `ETag` revalidation through `cache.py`. |
 | `fetch/api/basic/error-after-response.any.js` | `bad-chunk-encoding.py`: a deliberately malformed chunked body, which needs a server writing bytes no framing layer would emit. |
 | `fetch/api/basic/header-value-combining.any.js`, `header-value-null-byte.any.js`, `request-headers-case.any.js` | `/xhr/resources/`: `.asis` files served byte for byte, and two `.py` handlers in a directory nothing else here reaches. |
@@ -1198,6 +1197,31 @@ it in place. Firefox's expectation metadata marks four rows of the file `FAIL`, 
 `AssertsWhatNothingRequires` rather than debt: no change to this engine that keeps step 42's condition would
 move it, and abandoning the condition would mean disturbing a body the constructor never reads.
 
+### The same defect again, in `abort/`
+
+`fetch/api/abort/request.any.js` was in the not-vendored table above with a reason of its own — *"consuming
+the body of a request whose signal is already aborted must reject with the abort reason; this engine resolves
+instead. Five of its rows say so"* — filed as
+[#3619](https://github.com/sebastienros/jint/issues/3619). The reason was wrong twice over, and the file is
+vendored now with **no exclusion at all**.
+
+Wrong about the standard first. There is no step anywhere in
+[the `Request` constructor](https://fetch.spec.whatwg.org/#dom-request) that errors a body stream with a
+signal's abort reason; the only algorithm that touches a body because of an abort is
+[the `fetch()` method](https://fetch.spec.whatwg.org/#dom-global-fetch)'s *abort the `fetch()` call*, which
+cancels the body of the request **`fetch` itself built**. The file says as much: ten of its eighteen rows
+assert that consuming an aborted request's body **resolves**, so an engine that had implemented the reason as
+written would have turned five red rows into ten.
+
+Wrong about the defect second. The five rows that really did fail are the *"Calling …() on an aborted consumed
+nonempty request"* group, and what each of them does is `fetch(request)` — with the comment *"consuming
+happens synchronously, so don't wait"* — and then require `request.text()` to reject. That is
+[#3618](https://github.com/sebastienros/jint/issues/3618), the very defect the `request/` corpus found:
+`fetch(request)` runs the `Request` constructor, and the constructor was not disturbing its input. Measured
+both ways on the same tree — with the proxy fix reverted the same five rows fail with *"Should have rejected"*
+and nothing else does; with it in place the file passes whole. The abort in those rows is not what makes the
+body unusable; being consumed is.
+
 ## What the fetch *network* corpus says about this engine
 
 326 assertions across the twenty files [the server lane](#the-server-lane) added, of which **69 do not pass**,
@@ -1348,9 +1372,9 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×6 | 61 | 888 | 116 |
+| Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
 | XMLHttpRequest | `xhr/` | 42 | 260 | 9 |
-| **total** | **40** | **347** | **41,417** | **2,939** |
+| **total** | **41** | **348** | **41,435** | **2,939** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
@@ -1360,7 +1384,7 @@ carrying a number a later fix had already improved. That class of drift is what 
 rows were arithmetic the driver already did, and nothing checked the prose against it.
 
 Three of those rows are worth a caveat. The Fetch row is the only one whose files reach a socket at all — the
-twenty-nine [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
+thirty [server-lane](#the-server-lane) files, over the loopback interface to a server in this same
 process — so it is the only row whose figures could in principle depend on the machine. They do not: the
 suite was run five times over and reported the same 458 cases every time, and the driver's own idle rule
 is reset by a test settling rather than by a wall clock. The Encoding figure is dominated by
@@ -1382,14 +1406,16 @@ the one corpus that mostly does not run in the driver's own engine —
 [#3195](https://github.com/sebastienros/jint/issues/3195), is the exception, because its subject is a page
 creating workers rather than the worker global itself. The rest of `fetch/api/` — `basic/`, `body/` and
 `redirect/` — came next, with [the server](#the-server-lane)
-([#3260](https://github.com/sebastienros/jint/issues/3260)), and `request/` last, once
-`Options.WebApi.Fetch.BaseUrl` gave a relative url something to resolve against. This file records what each
-of them says about the engine.
+([#3260](https://github.com/sebastienros/jint/issues/3260)), then `request/`, once
+`Options.WebApi.Fetch.BaseUrl` gave a relative url something to resolve against, and last the one file of
+`abort/` that neither wptserve substitution nor the Cache API keeps out
+([#3619](https://github.com/sebastienros/jint/issues/3619)). This file records what each of them says about
+the engine.
 
 What remains deliberately unvendored, in one place: everything in the "Deliberately not vendored" table
 above, plus every upstream file that is not a `.any.js` — `.window.js`, `.html`, `.xhtml`, `.worker.js` and
 `.sub.html` are all for a browsing context or a classic worker. Of the WHATWG standards Jint implements, the
-directories with no vendored file at all are `fetch/api/abort/`, `cors/`, `credentials/` and `policies/`
+directories with no vendored file at all are `fetch/api/cors/`, `credentials/` and `policies/`
 (each for the reason its row gives, and none of them for want of a server), the parts of the `workers/` tree
 listed above, the `WebCryptoAPI` directories listed above, and
 `xhr/` (there is no `XMLHttpRequest` in the engine — the shim's is a vendored-corpus reader for the suites
