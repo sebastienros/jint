@@ -170,9 +170,11 @@ internal static class NumberParser
             long scanned = 0;
             while (i < length && IsDigit(text[i]))
             {
-                // Past a million the exponent has already decided the answer and the digits left only
-                // make an infinity more infinite, so stop accumulating rather than overflow on a long run.
-                if (scanned < 1000000)
+                // Keep accumulating until the exponent is so large that no digit count could pull the
+                // value back into range: compensation would need a digit string longer than 10^17
+                // characters, a scale no real input reaches, and 10^17 also keeps the long accumulator
+                // well clear of overflow on a long run of exponent digits.
+                if (scanned < 100_000_000_000_000_000L)
                 {
                     scanned = scanned * 10 + (text[i] - '0');
                 }

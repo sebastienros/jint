@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Numerics;
 using System.Text;
+using Jint.Extensions;
 
 namespace Jint.Tests.Runtime;
 
@@ -388,5 +389,41 @@ public class NumericLiteralPrecisionTests
             var source = exact.ToString(CultureInfo.InvariantCulture);
             engine.Evaluate(source).AsNumber().Should().Be(exact, source);
         }
+    }
+
+    /// <summary>
+    /// The literal-exponent scan stops accumulating past a cap so that a long run of exponent digits cannot
+    /// overflow its accumulator. At the old cap of a million an eight-digit exponent lost its low digits, and
+    /// a value whose digit count compensated the exponent back into range came out as an infinity or a zero
+    /// instead of the double it denotes. https://github.com/sebastienros/jint/issues/3584
+    /// </summary>
+    [Test]
+    public void AnExponentPastSevenDigitsKeepsEveryDigit()
+    {
+        // 0.(ten million zeros)1 x 10^10000308 = 10^307: the only shape that reaches an eight-digit exponent
+        // with a finite, non-zero value, and cheap to scan because every digit the scanner skips is a zero.
+        var text = "0." + new string('0', 10_000_000) + "1e10000308";
+        NumberParser.TryParseDouble(text.AsSpan(), out var parsed).Should().BeTrue();
+        parsed.Should().Be(1e307);
+
+        var engine = new Engine();
+        engine.SetValue("text", text);
+        engine.Evaluate("Number(text)").AsNumber().Should().Be(1e307);
+        engine.Evaluate("parseFloat(text)").AsNumber().Should().Be(1e307);
+        engine.Evaluate("JSON.parse(text)").AsNumber().Should().Be(1e307);
+    }
+
+    /// <summary>
+    /// The wider cap still cannot overflow: an exponent longer than the accumulator holds is decided by its
+    /// sign alone, because no digit string a machine can hold compensates it.
+    /// </summary>
+    [TestCase("1e123456789012345678901234567890", double.PositiveInfinity)]
+    [TestCase("1e-123456789012345678901234567890", 0.0)]
+    [TestCase("1e99999999999999999", double.PositiveInfinity)]
+    [TestCase("1e-99999999999999999", 0.0)]
+    public void AnExponentLongerThanTheAccumulatorIsDecidedByItsSign(string text, double expected)
+    {
+        NumberParser.TryParseDouble(text.AsSpan(), out var parsed).Should().BeTrue();
+        parsed.Should().Be(expected);
     }
 }
