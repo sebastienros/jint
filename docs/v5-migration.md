@@ -4837,6 +4837,34 @@ promised, but a host that wants the old answer for loader-loaded modules can say
 `new ModuleParsingOptions { RetainFunctionSourceText = false }` to
 `ModuleFactory.BuildSourceTextModule`.
 
+### 4.111 A coverage source is one parse, not one name ([#3632](https://github.com/sebastienros/jint/issues/3632))
+
+`CoverageReport.Sources` used to hold one `CoverageSource` per source *name*, folding the counts of every
+parse that shared one — so a host calling `Execute(text)` twice read one source whose hit counts were the
+sum. It holds one source per parsed program now, told apart by the new `CoverageSource.Program`, because a
+name cannot tell two scripts apart and every `Execute` given no source is named `<anonymous>`.
+
+```csharp
+engine.Execute("var a = 1;");
+engine.Execute("var a = 1;");
+// 5.0:  Sources = [ <anonymous> ], one entry, HitCount 2
+// 5.x:  Sources = [ <anonymous>, <anonymous> ], one entry each, HitCount 1
+```
+
+**What could break:** a reader that indexes `Sources` by name — `Sources.Single(s => s.Name == "app.js")`
+throws where it used to answer. Group and add up to restore the old shape:
+
+```csharp
+var total = report.Sources.Where(s => s.Name == "app.js")
+    .SelectMany(s => s.Entries)
+    .GroupBy(e => (e.Start.Index, e.End.Index, e.Kind))
+    .Select(g => (g.Key, Hits: g.Sum(e => e.HitCount)));
+```
+
+A host that caches a `Prepared<Script>` — which it should — never had several parses in the first place and
+reads exactly what it read before. Entries of a program the engine cannot name (`eval`, the `Function`
+constructor) are still folded together by name and position.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5467,6 +5495,25 @@ new EngineTargetOptions { Url = Path.GetFullPath("app.js") }   // /json/list say
 `Options.Interop.BuildCallStackHandler` is handed, and they stay exactly what the host passed;
 `Debugger.setBreakpointByUrl` accepts either form. A `Url` that is not a path — `jint://repl`,
 `https://…`, the empty string — is unchanged.
+
+### 5.17 A frame, a profile frame and a coverage source name the program they belong to ([#3632](https://github.com/sebastienros/jint/issues/3632))
+
+A `SourceLocation` carries a source *name*, and every `Execute` given no source is named `<anonymous>`, so a
+host mapping a position back to the script it announced through `DebugHandler.BeforeEvaluate` had to guess.
+Three types now carry the program itself — the same reference `BeforeEvaluate` hands over and
+`Engine.Advanced.TryGetSourceText` is keyed by:
+
+```csharp
+CallFrame frame = information.CallStack[0];
+Program? running = frame.Program;                       // the program this frame executes
+Program? declared = profile.Frames[0].Program;          // where a profiled function was parsed
+Program? covered = report.Sources[0].Program;           // which parse a coverage source is of
+```
+
+All three are `null` for code the engine reached another way — `eval` and the `Function` constructor are
+programs no execution context names, and a built-in or host callable has no source at all — rather than
+being attributed to whichever script was running. `ScriptProfileFrame`'s primary constructor gained the
+optional parameter that carries it, so a profile a host keeps now retains the abstract syntax trees it names.
 
 ## 6. AOT and trimming
 

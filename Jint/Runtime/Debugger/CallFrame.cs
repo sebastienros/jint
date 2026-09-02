@@ -72,6 +72,23 @@ public sealed class CallFrame
     public string FunctionName => _element?.ToString() ?? "(anonymous)";
 
     /// <summary>
+    /// Gets the program this frame's code was parsed from, or <see langword="null"/> when the engine knows
+    /// of none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same reference <see cref="DebugHandler.BeforeEvaluate"/> hands over and
+    /// <see cref="Engine.AdvancedOperations.TryGetSourceText"/> is keyed by, so a host maps a frame to the
+    /// script it announced by reference rather than by matching <see cref="Location"/>'s source name.
+    /// </para>
+    /// <para>
+    /// Null for code the engine reached another way: a frame inside <c>eval</c> or a <c>Function</c>
+    /// constructor body, a host callable, and a module record with no source of its own.
+    /// </para>
+    /// </remarks>
+    public Program? Program => _context.ScriptOrModule?.Program;
+
+    /// <summary>
     /// Source location of function of this call frame.
     /// </summary>
     /// <remarks>For top level (global) call frames, as well as functions not defined in script, this will be null.</remarks>

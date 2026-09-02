@@ -1751,11 +1751,12 @@ namespace Jint.Profiling
     }
     public readonly struct ScriptProfileFrame : System.IEquatable<Jint.Profiling.ScriptProfileFrame>
     {
-        public ScriptProfileFrame(string Name, string? File, int? Line, int? Column) { }
+        public ScriptProfileFrame(string Name, string? File, int? Line, int? Column, Acornima.Ast.Program? Program = null) { }
         public int? Column { get; init; }
         public string? File { get; init; }
         public int? Line { get; init; }
         public string Name { get; init; }
+        public Acornima.Ast.Program? Program { get; init; }
     }
 }
 namespace Jint.Runtime
@@ -1974,6 +1975,7 @@ namespace Jint.Runtime.Coverage
     {
         public System.Collections.Generic.IReadOnlyList<Jint.Runtime.Coverage.CoverageEntry> Entries { get; }
         public string Name { get; }
+        public Acornima.Ast.Program? Program { get; }
     }
 }
 namespace Jint.Runtime.Debugger
@@ -2011,6 +2013,7 @@ namespace Jint.Runtime.Debugger
         public string FunctionName { get; }
         public int Index { get; }
         public Acornima.SourceLocation& Location { get; }
+        public Acornima.Ast.Program? Program { get; }
         public Jint.Native.JsValue? ReturnValue { get; }
         public Jint.Runtime.Debugger.DebugScopes ScopeChain { get; }
         public Jint.Native.JsValue This { get; }

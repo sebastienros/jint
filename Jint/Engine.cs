@@ -3196,7 +3196,7 @@ public sealed partial class Engine : IDisposable
         // After the constraints on purpose: a statement a constraint refused is a statement that never ran.
         if (_coverage is not null && statement is not null)
         {
-            _coverage.Record(statement);
+            _coverage.Record(statement, this);
         }
 
         if (_isDebugMode && statement != null && statement.Type != NodeType.BlockStatement)

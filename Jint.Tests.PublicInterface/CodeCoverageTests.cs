@@ -29,10 +29,17 @@ public class CodeCoverageTests
     private static string Text(string code, CoverageEntry entry)
         => code.Substring(entry.Start.Index, entry.End.Index - entry.Start.Index);
 
+    /// <summary>
+    /// Every entry counted under the one source name, totalled by construct. A source is one parse, so a
+    /// host that runs the same text twice reads two of them and adds them up exactly like this.
+    /// </summary>
     private static List<(string Text, CoverageEntryKind Kind, long Hits)> Rows(string code, CoverageReport report)
         => report.Sources
-            .Single(s => s.Name == Source).Entries
-            .Select(e => (Text(code, e), e.Kind, e.HitCount))
+            .Where(s => s.Name == Source)
+            .SelectMany(s => s.Entries)
+            .GroupBy(e => (Start: e.Start.Index, End: e.End.Index, e.Kind))
+            .OrderBy(g => g.Key.Start).ThenBy(g => g.Key.End).ThenBy(g => g.Key.Kind)
+            .Select(g => (Text(code, g.First()), g.Key.Kind, g.Sum(e => e.HitCount)))
             .ToList();
 
     // ---- reachability ----
@@ -165,6 +172,50 @@ public class CodeCoverageTests
 
         engine.Diagnostics.GetCoverage().Sources.Select(s => s.Name)
             .Should().Equal("<anonymous>", "alpha.js", "beta.js");
+    }
+
+    /// <summary>
+    /// A source is one parse, named by the program it came from — which is what a coverage tool maps back to
+    /// the script it prepared, and what a source name cannot answer once two parses share one.
+    /// </summary>
+    [Test]
+    public void EachParseIsASourceOfItsOwnNamingItsProgram()
+    {
+        const string Code = "var a = 1;";
+
+        var engine = CreateEngine();
+        engine.Execute(Code);
+        engine.Execute(Code);
+
+        var sources = engine.Diagnostics.GetCoverage().Sources;
+
+        sources.Should().HaveCount(2);
+        sources.Select(s => s.Name).Should().AllBe("<anonymous>");
+        sources.Select(s => s.Program).Should().OnlyHaveUniqueItems();
+        sources.Should().AllSatisfy(s => s.Program.Should().NotBeNull());
+
+        // and the total under one name is the reader's to add up
+        sources.SelectMany(s => s.Entries).Sum(e => e.HitCount).Should().Be(2L);
+    }
+
+    /// <summary>
+    /// A prepared script is one program however often a host runs it, which is the shape an embedder that
+    /// caches its scripts actually reads.
+    /// </summary>
+    [Test]
+    public void APreparedScriptIsOneSourceHoweverOftenItRuns()
+    {
+        var prepared = Engine.PrepareScript("var a = 1;", Source);
+
+        var engine = CreateEngine();
+        engine.Execute(prepared);
+        engine.Execute(prepared);
+
+        var sources = engine.Diagnostics.GetCoverage().Sources;
+
+        sources.Should().ContainSingle();
+        sources[0].Program.Should().BeSameAs(prepared.Program);
+        sources[0].Entries.Single().HitCount.Should().Be(2L);
     }
 
     // ---- engine isolation, which is what makes the feature usable at all ----

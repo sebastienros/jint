@@ -2782,9 +2782,9 @@ profile.WriteSpeedscopeJson(file);
 
 Drop the file onto [speedscope.app](https://www.speedscope.app) — it is written in that tool's
 [evented profile format](https://www.speedscope.app/file-format-schema.json), in nanoseconds. The
-`ScriptProfile` is also readable directly: `Frames` (name, file, line, column), `Events` (open/close plus a
-timestamp), `Truncated` and `Duration`. It holds strings and numbers only, so keeping a profile does not keep
-the engine that produced it alive.
+`ScriptProfile` is also readable directly: `Frames` (name, file, line, column, and the `Program` the function
+was parsed from), `Events` (open/close plus a timestamp), `Truncated` and `Duration`. It holds no `JsValue`
+and no engine, so keeping a profile does not keep the engine that produced it alive.
 
 Worth knowing before you read a profile:
 
@@ -4135,6 +4135,11 @@ engine.Diagnostics.ResetCoverage(); // start a fresh measurement
   them are.
 - Counters are per engine, so a `Prepared<Script>` shared across a pool of engines keeps a separate count per
   engine and the shared AST is untouched. `Options` stays shareable.
+- A source is one *parse*, not one name: `source.Program` is the abstract syntax tree it was counted from —
+  the same reference `DebugHandler.BeforeEvaluate` hands over — so two `Execute(text)` calls under one name
+  are two sources. Add them up if you want the name's total; a host that caches a `Prepared<Script>` reads
+  one source either way. It is `null` for code reached through `eval` or the `Function` constructor, whose
+  entries are grouped by name.
 - `GetCoverage()` and `ResetCoverage()` throw `InvalidOperationException` on an engine that did not enable
   collection, rather than reporting an empty result that looks like a script which never ran.
 
