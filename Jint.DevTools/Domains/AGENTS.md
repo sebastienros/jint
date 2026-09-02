@@ -219,24 +219,28 @@ snapshots, so a value changed after one was handed out is not reflected in it.
 
 The `Profiler` domain answers two questions with two instruments, and neither is the other's fallback.
 
-**A profile comes through `IProfileSource`, and the shipped source is the *exact* profiler.** The engine has
-two: `Engine.Diagnostics.StartProfiling`, which records every call at the call boundary, and the sampling
-profiler of [#3608](https://github.com/sebastienros/jint/pull/3608), which notes what the stack looks like at
-the engine's own check points. Only the first is usable from here, and the reason is a visibility one rather
-than a design one: `SampledProfile` keeps its sample, frame, stack and function tables as `internal` fields
-and publishes a Firefox Profiler document as its only output, so consuming it would mean serializing to JSON
-and parsing it back. **Making those tables public is an engine change**, and when it lands the sampler becomes
-a second `IProfileSource` rather than an edit to the domain — which is why the seam exists before there is a
-second implementation of it. The seam speaks a function table and a balanced stream of enters and leaves,
-deliberately not the engine's own `ScriptProfileFrame`: a seam that names one profiler's type is a seam only
-that profiler fits through.
+**A profile comes through `IProfileSource`, and both of the engine's profilers fit through it.**
+`SampledProfileSource` notes what the stack looks like at the engine's own check points
+([#3608](https://github.com/sebastienros/jint/pull/3608), readable since
+[#3630](https://github.com/sebastienros/jint/issues/3630)); `EventedProfileSource` records every call at the
+call boundary. The seam speaks a function table and a balanced stream of enters and leaves, deliberately not
+either profiler's own type: a seam that names one instrument is a seam only that instrument fits through. A
+sampler converts into that shape losslessly, because two consecutive samples differ by a suffix of the stack
+and that difference is a run of leaves and enters.
+
+**The sampler is what a recording uses, and the choice is made when it starts.** A CDP `Profile` is what
+V8's sampling profiler produces and what `setSamplingInterval` sets the rate of, so it is the instrument a
+front end is asking for; and unlike the exact one it costs the run nothing per call. There is one sampling
+session per engine, though, and it may be the host's own — a client that arrives then is given the exact
+profiler rather than a refusal. What the sampler cannot show is a call it never sampled: a function entered
+and left between two check points is not in the profile at all.
 
 `ProfileBuilder` turns that stream into the protocol's document, and three things about it are decisions:
 
-- **One sample per interval, not per tick.** The stream says exactly when each call happened, so the top of
-  the stack is known for every instant between two activations, and one weighted sample of that node is what
-  the panel wants. The deltas therefore *add up to* the recording rather than approximating it — the only
-  loss is each interval's truncation to whole microseconds.
+- **One sample per interval, not per tick.** The stream says when each activation happened, so the top of the
+  stack is known for every instant between two of them, and one weighted sample of that node is what the
+  panel wants. The deltas therefore *add up to* the recording rather than approximating it, whichever
+  instrument filled the stream in — the only loss is each interval's truncation to whole microseconds.
 - **A node is a call position, not a function.** One function reached from two places is two nodes, which is
   what lets the panel say where the time went rather than only in what.
 - **`(root)` and `(program)`, and nothing else synthetic.** `(program)` takes the time no script function was
