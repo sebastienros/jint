@@ -956,6 +956,120 @@ public class WptServerTests
     }
 
     /// <summary>
+    /// <c>AnyHtmlHandler</c>: a <c>.any.html</c> is the document upstream manufactures for a <c>.any.js</c>
+    /// file, and it is served although no such file exists.
+    /// </summary>
+    /// <remarks>
+    /// The whole wrapper is asserted rather than a line of it, because it is a copy of upstream's template and
+    /// a copy that has quietly stopped matching is a document no browser serves. What a reader should notice
+    /// is the order: the <c>self.GLOBAL</c> shim before the harness, the harness before the report file, and
+    /// the file itself last, after the <c>&lt;div id=log&gt;</c> it will write into.
+    /// </remarks>
+    [Test]
+    public async Task AnAnyHtmlWrapperIsGeneratedForAVendoredScript()
+    {
+        using var response = await GetAsync("/dom/events/Event-isTrusted.any.html");
+
+        ((int) response.StatusCode).Should().Be(200);
+        response.Content.Headers.ContentType!.ToString().Should().Be("text/html");
+
+        // No sidecar, and no guess from the .any.js suffix either: `load_headers` alone, so a document is not
+        // served as text/javascript because the file behind it is one.
+        WptCorpus.Contains("dom/events/Event-isTrusted.any.html").Should().BeFalse("nothing on disk is this");
+
+        (await response.Content.ReadAsStringAsync()).Should().Be(
+            """
+            <!doctype html>
+            <meta charset=utf-8>
+
+            <script>
+            self.GLOBAL = {
+              isWindow: function() { return true; },
+              isWorker: function() { return false; },
+              isShadowRealm: function() { return false; },
+            };
+            </script>
+            <script src="/resources/testharness.js"></script>
+            <script src="/resources/testharnessreport.js"></script>
+
+            <div id=log></div>
+            <script src="/dom/events/Event-isTrusted.any.js"></script>
+
+            """.Replace("\r\n", "\n", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <c>_meta_replacement</c> and <c>_script_replacement</c>: a <c>// META: title=</c> becomes a
+    /// <c>&lt;title&gt;</c> and a <c>// META: script=</c> becomes a <c>&lt;script src&gt;</c>, in the two
+    /// slots the template has for them.
+    /// </summary>
+    [Test]
+    public async Task AWrapperCarriesTheFilesMetaTitleAndScripts()
+    {
+        using var response = await GetAsync("/dom/events/AddEventListenerOptions-once.any.html");
+
+        var document = await response.Content.ReadAsStringAsync();
+        document.Should().Contain("<title>AddEventListenerOptions.once</title>");
+
+        // The title goes above the GLOBAL shim and the scripts go below the two harness files, which is what
+        // makes a `// META: script=` helper load before the file that names it.
+        document.IndexOf("<title>", StringComparison.Ordinal)
+            .Should().BeLessThan(document.IndexOf("self.GLOBAL", StringComparison.Ordinal));
+
+        var withHelper = await (await GetAsync("/dom/abort/abort-signal-any.any.html")).Content.ReadAsStringAsync();
+        withHelper.Should().Contain("<script src=\"./resources/abort-signal-any-tests.js\"></script>");
+        withHelper.IndexOf("abort-signal-any-tests.js", StringComparison.Ordinal)
+            .Should().BeGreaterThan(withHelper.IndexOf("testharnessreport.js", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// <c>check_exposure</c>: a file whose <c>// META: global=</c> does not name the window is a 404, and a
+    /// wrapper for a file that is not vendored is a 404 as well.
+    /// </summary>
+    /// <remarks>
+    /// The first is what stops the browser lane silently running a worker-only suite in a window, where it
+    /// would assert nothing about the global it is named for and stay green — the most expensive kind of
+    /// silence a conformance driver can have.
+    /// </remarks>
+    [Test]
+    public async Task AWrapperIsRefusedForAFileThatDoesNotDeclareTheWindowGlobal()
+    {
+        // `// META: global=worker`, so upstream generates .any.worker.html for it and no .any.html at all.
+        WptCorpus.Read("workers/Worker-custom-event.any.js").Should().Contain("global=worker");
+
+        using var refused = await GetAsync("/workers/Worker-custom-event.any.html");
+        ((int) refused.StatusCode).Should().Be(404);
+        (await refused.Content.ReadAsStringAsync()).Should().Contain("window mode");
+
+        using var missing = await GetAsync("/dom/events/no-such-file.any.html");
+        ((int) missing.StatusCode).Should().Be(404);
+    }
+
+    /// <summary>
+    /// <c>read_script_metadata</c> stops at the first line that is not a <c>// META:</c> comment, and
+    /// <c>parse_variants</c> answers window-plus-dedicated-worker for a file that declares none.
+    /// </summary>
+    [Test]
+    public void ScriptMetadataIsWhatTheFileOpensWith()
+    {
+        var metadata = WptServerWrappers.ReadScriptMetadata(
+            "// META: title=A\n// META: script=/x.js\n\n// META: title=B\ntest(() => {});\n");
+
+        metadata.Should().Equal(("title", "A"), ("script", "/x.js"));
+
+        WptServerWrappers.ParseVariants("").Should().BeEquivalentTo(["window", "dedicatedworker"]);
+        WptServerWrappers.ParseVariants("worker").Should().BeEquivalentTo(["dedicatedworker", "sharedworker", "serviceworker"]);
+        WptServerWrappers.ParseVariants("window,worker").Should().Contain("window");
+        WptServerWrappers.ParseVariants("dedicatedworker").Should().NotContain("window");
+
+        WptServerWrappers.IsExposedTo("window", []).Should().BeTrue("a file with no key takes the default variants");
+        WptServerWrappers.IsExposedTo("window", [("global", "worker")]).Should().BeFalse();
+
+        // The first `global=` decides, which is upstream's `break` and not a merge of every line.
+        WptServerWrappers.IsExposedTo("window", [("global", "worker"), ("global", "window")]).Should().BeFalse();
+    }
+
+    /// <summary>
     /// Parses one request off a raw byte stream, which is how the substitution cases get a
     /// <see cref="WptServerRequest"/> to resolve <c>{{GET[…]}}</c> and <c>{{location[…]}}</c> against.
     /// </summary>

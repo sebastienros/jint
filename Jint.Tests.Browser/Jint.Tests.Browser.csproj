@@ -17,6 +17,14 @@
   <ItemGroup>
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
     <!--
+      The web-platform-tests corpus, its server and its exclusion vocabulary, which Wpt/ runs the browser lane
+      on. One corpus and one pin: copying WptCorpus, WptServer and WptExclusion here would give the two lanes
+      two of each, and nothing would say when they drifted. Jint.Tests targets net8.0/net10.0 (plus net472 on
+      Windows, which this reference does not ask for) and grants InternalsVisibleTo to this assembly; the
+      dependency is one way, and nothing in Jint.Tests may reference Jint.Browser.
+    -->
+    <ProjectReference Include="..\Jint.Tests\Jint.Tests.csproj" />
+    <!--
       The emitter, referenced as a library so DomBindingsStalenessTests can run it in memory against the
       pinned assemblies and diff its output with what is checked in. That is the whole reason the generator
       targets net8.0 rather than net10.0: this suite runs on both legs, and a net10.0-only emitter would be
@@ -75,6 +83,20 @@
       package is verified against its siblings on every read under it.
     -->
     <Compile Include="..\Jint.Tests\HostContractVerificationSwitch.cs" Link="HostContractVerificationSwitch.cs" />
+  </ItemGroup>
+
+  <!--
+    The browser lane's `resources/testharnessreport.js`, which is the slot upstream ships a stub for so that a
+    vendor can replace it. WptServer takes it as a per-instance overlay, so neither Jint.Tests/Wpt/Vendor/ nor
+    the engine lane's own copy in Jint.Tests/Wpt/Prelude/ changes. Its logical name is the lane's rather than
+    `wpt-prelude/`: the two files answer the same URL for two different drivers.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Wpt\Prelude\*.js">
+      <LogicalName>wpt-browser-prelude/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <!-- The lane's census table lives in this README, and WptBrowserCensus holds it to what the run measured. -->
+    <EmbeddedResource Include="Wpt\README.md" LogicalName="wpt-browser-readme.md" />
   </ItemGroup>
 
   <ItemGroup>

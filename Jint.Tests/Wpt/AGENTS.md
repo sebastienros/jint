@@ -119,3 +119,21 @@ the harness testing itself. `Vendor/resources/testharness.js` is upstream's real
 `Prelude/testharness-shim.js` remains Jint's own for the `.any.js` lane, and `resources/testharnessreport.js`
 is deliberately **not** vendored — upstream's is a stub that exists to be replaced, so Jint's lives in
 `Prelude/` and `WptServer` takes an overlay for it per instance.
+
+A tenth, because the file that used to be about one driver is now the corpus two of them share.
+**`Jint.Tests.Browser/Wpt/` is the browser lane**, and everything above applies to it — one corpus, one pin,
+the exclusion table as the artefact, `NeedsTriage` as the debt, the census as a ceiling — while it lives in
+another project because it loads a `.html` into a real `Page` and this one may not reference `Jint.Browser`.
+That project references *this* one and reaches `WptCorpus`, `WptServer` and `WptExclusion` through
+`InternalsVisibleTo`; the dependency is one way, and copying any of the three would give the two lanes two
+pins that nothing would say had drifted. Three consequences reach back into this directory and are the reason
+this paragraph is here rather than only there. A vendored **document** — `.html`, `.htm`, `.xhtml`, `.xht` —
+must be under a directory `WptCorpus.BrowserSuites` names or under a shared helper root, and
+`EveryVendoredFileIsAccountedFor` fails otherwise, because a document no lane claims would be embedded,
+byte-verified and run by nothing. `WptServer` **synthesizes** `<name>.any.html` for a `.any.js` file, which is
+`WptServerWrappers`, a port of upstream's `AnyHtmlHandler` held to `tools/serve/serve.py` at the pin the same
+way `WptServerFiles` is held to `tools/wptserve/`; the dedicated-worker wrapper is deliberately not generated,
+for the reason `workers/*.worker.js` is a not-vendored row. And `_notVendored` here covers `.any.js` while the
+lane's own table covers documents, so a directory both lanes touch has a row in each and neither may name a
+file the other vendors. [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) is the
+rest of it.

@@ -527,6 +527,73 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
+    /// <b>The browser lane's.</b> The test asks a question only a layout answers: where a box is, how large it
+    /// is, what is under a point, whether an element scrolled. <c>Jint.Browser</c> renders nothing — that is
+    /// the second sentence of its own README — and campaign item C4's flat renderer gives every element a
+    /// deterministic synthetic box rather than a computed one, so a co-ordinate here is a convention and never
+    /// a measurement.
+    /// </para>
+    /// <para>
+    /// It is the browser lane's analogue of <see cref="NeedsWebAssembly"/>: the corpus meeting an environment
+    /// it was not written for rather than a gap somebody is meant to close. What distinguishes it from
+    /// <see cref="NeedsTriage"/> is that no fix inside this package could move the row.
+    /// </para>
+    /// </summary>
+    NeedsLayout,
+
+    /// <summary>
+    /// <para>
+    /// <b>The browser lane's.</b> The test needs a nested browsing context that <i>runs script</i> — an
+    /// <c>&lt;iframe&gt;</c>, an <c>&lt;object&gt;</c>, a <c>&lt;frameset&gt;</c>, or a window it opened. A
+    /// page here parses child frames and lists them (<c>Frame.IsScripted</c> is the property that says so) and
+    /// gives none of them an engine, because one engine per top-level navigation is what lets "per document"
+    /// and "per engine" coincide and needs no <c>WindowProxy</c> —
+    /// <c>Jint.Browser/Runtime/BrowserEngineFactory.cs</c> argues it.
+    /// </para>
+    /// <para>
+    /// So a file whose subject is a second realm — an event dispatched across two documents, a cross-realm
+    /// <c>handleEvent</c>, an <c>onerror</c> that must fire in the frame's global and not the parent's — has
+    /// nothing to be the second half of. It is a design decision rather than an unimplemented feature, which
+    /// is why it is a category and not debt.
+    /// </para>
+    /// </summary>
+    NeedsIframeScripting,
+
+    /// <summary>
+    /// <para>
+    /// <b>The browser lane's.</b> The test needs <c>IndexedDB</c>, which neither the engine's web APIs nor
+    /// this package has. It is a category rather than a not-vendored row because a file that uses a database
+    /// for one of its subtests and asserts something else in the rest is a file worth running.
+    /// </para>
+    /// <para>
+    /// <b>No entry uses it at the suites vendored today</b>, and it is here for the reason
+    /// <see cref="NeedsMessageChannel"/> is: the vocabulary is shared between the two lanes, and a suite that
+    /// meets a storage API this environment does not grant should have a name to be recorded under rather
+    /// than reaching for <see cref="NeedsTriage"/>, which means something else entirely.
+    /// </para>
+    /// </summary>
+    NeedsIndexedDb,
+
+    /// <summary>
+    /// <para>
+    /// <b>The browser lane's.</b> The test drives input through <c>/resources/testdriver.js</c> —
+    /// <c>test_driver.click()</c>, <c>send_keys()</c>, <c>Actions()</c>, <c>bless()</c> — which is wpt's
+    /// automation API and is deliberately not wired to anything yet. The harness file <i>is</i> vendored, and
+    /// upstream's own <c>testdriver-vendor.js</c> is the empty hook a vendor replaces, so every call rejects
+    /// and the test times out or fails rather than erupting.
+    /// </para>
+    /// <para>
+    /// This one is <b>debt with an owner</b>, unlike the three above it: campaign item C4 maps
+    /// <c>testdriver.js</c> onto the same <c>InputDispatcher</c> that <c>Input.dispatchMouseEvent</c> and
+    /// <c>Input.dispatchKeyEvent</c> already reach (design doc §8), so every entry in this category is a row
+    /// that change is expected to move. Recording them under their own name is what will make that change's
+    /// effect countable.
+    /// </para>
+    /// </summary>
+    NeedsTestDriver,
+
+    /// <summary>
+    /// <para>
     /// The test asserts behaviour <b>nothing requires of anybody</b> — not of Jint, and not of any
     /// implementation. This is the corpus's analogue of test262's <c>=== PERMANENT EXCLUSIONS ===</c> banner
     /// and it is earned the same way: only when the standard the test claims to be about does not ask for

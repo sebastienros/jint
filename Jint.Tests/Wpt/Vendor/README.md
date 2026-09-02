@@ -356,8 +356,42 @@ implement code needed to integrate testharness.js tests with their own test syst
 put bytes in this tree that the server never sends, which is the one thing the vendored-and-byte-verified
 model is for. Jint's copy is `Prelude/testharnessreport.js`, beside the shim, and `WptServer` takes an overlay
 string per instance and answers `/resources/testharnessreport.js` with it. The browser lane fills that slot
-with the script that posts a page's results back to the driver; until then what a page gets is what upstream's
-stub does, which in an engine with no `window.opener` is nothing at all.
+with the script that posts a page's results back to the driver, which it now does; what a page gets from any
+other caller is what upstream's stub does, which in an engine with no `window.opener` is nothing at all.
+
+## The browser lane
+
+A fourth lane, and the first that is not in `Jint.Tests` at all. `Jint.Tests.Browser/Wpt/` loads a **document**
+— a vendored `.html` served by `WptServer` at a real URL, navigated to in a real `Page`, running upstream's
+real `resources/testharness.js` pulled in by a `<script src>`. It runs on **this** corpus at **this** pin,
+reaching `WptCorpus`, `WptServer` and `WptExclusion` through `InternalsVisibleTo`; the dependency is one way,
+and nothing in `Jint.Tests` references `Jint.Browser`. What the lane is, how the results come back and where a
+divergence goes are [`Jint.Tests.Browser/Wpt/AGENTS.md`](../../../Jint.Tests.Browser/Wpt/AGENTS.md), and what
+it *found* is `Jint.Tests.Browser/Wpt/README.md`. Three things about it belong here, in the file that owns the
+corpus.
+
+**What is vendored for it**, at this pin:
+
+| Directory | Files | What they are |
+| --- | --- | --- |
+| `dom/events/` | 50 `.html` | The `.html` half of the DOM events suite, which used to be a single not-vendored row |
+| `dom/events/resources/` | 2 `.html` | An empty document and a `beforeunload` frame, loaded by two of them |
+| `html/webappapis/scripting/events/` | 12 `.html` | HTML's event-handler attributes: compilation, ordering, source text |
+| `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |
+| `html/webappapis/scripting/processing-model-2/support/` | 2 `.js` | The two failing scripts those documents load |
+| `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — vendored alone, because without it that document silently reported **one** of its twenty-five tests |
+
+**Nine more cases exist that are not files here.** wptserve manufactures a `<name>.any.html` document for each
+`.any.js`, and `WptServerWrappers` is the port of that handler — so `dom/events/`'s nine `.any.js` files run a
+second time in the browser lane, in a real `Window` realm, without being vendored twice. Only the *window*
+wrapper is generated: upstream's dedicated-worker one builds a classic worker whose body opens with
+`importScripts`, which is the same reason `workers/*.worker.js` is a row below.
+
+**The `.any.js` rules did not change.** A `.html`, `.htm`, `.xhtml` or `.xht` file belongs to the browser lane
+and is accounted for there; `WptCorpus.BrowserSuites` is the list of directories that claim one, and
+`EveryVendoredFileIsAccountedFor` fails on a document vendored under no lane at all — which would otherwise be
+embedded, byte-verified and run by nothing. `common/blank.html` and `common/dummy.xhtml` are exempt for the
+reason everything under the shared roots is: they are fixtures a test frames or navigates to, never tests.
 
 ## Deliberately not vendored
 
@@ -399,7 +433,7 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `FileAPI/FileReaderSync.worker.js` | `FileReaderSync`, which `FileReaderPrototype` documents declining: it is `[Exposed=(DedicatedWorker,SharedWorker)]` and exists to let a worker block its thread on I/O a window may not block on, and a `Blob` here is already in memory — so the synchronous interface would be a second spelling of `blob.text()` and `blob.arrayBuffer()` whose only distinguishing feature is being unavailable on the main thread. It is a `.worker.js` file, so the corpus would not reach it in any case. |
 | `performance-timeline/webtiming-resolution.any.js` | Asserts that two consecutive readings differ by at least five microseconds — that is, that the clock is *coarse*. `PerformancePrototype` records not coarsening as a deliberate divergence: an embedded engine has no cross-origin data to protect, so the resolution is whatever the host's `TimeProvider` gives, and how far apart two readings land would depend on how long an interpreted call happened to take. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
-| `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
+| `dom/events/*.window.js`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. `dom/events/*.html` used to sit in this row and no longer does: those documents are vendored for [the browser lane](#the-browser-lane), which has a browsing context — the ones it still cannot run are named there, one reason each. |
 | `fetch/api/request/request-cache*` | An HTTP cache, and the `cache` init member `RequestConstructor` documents accepting and ignoring. |
 | `fetch/api/request/request-bad-port.any.js` | [Port blocking](https://fetch.spec.whatwg.org/#port-blocking), which this implementation does not enforce: the host's `UrlFilter` is where a destination is refused, and it sees the port. |
 | `fetch/api/request/request-headers.any.js` | The forbidden request-header names, which `HeadersGuard` documents declining to enforce — the same reason `fetch/api/basic/request-forbidden-headers.any.js` is out. |
@@ -465,12 +499,15 @@ come to **7.6 s** of the driver's run; the two encoding files are the largest si
 7,504 assertions. `dom/events/Event-constructors.any.js`, added afterwards, is fourteen synchronous
 constructor assertions and does not register.
 
-Everything else upstream that is not a `.any.js` file is out of scope by construction: `.window.js`, `.html`,
-`.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what excludes
-`WebCryptoAPI/algorithm-discards-context.https.window.js`, `FileAPI/blob/Blob-constructor-dom.window.js`,
-`FileAPI/blob/Blob-in-worker.worker.js` and `FileAPI/file/Worker-read-file-constructor.worker.js`. Jint now
-*has* a worker, so `.worker.js` needed its own row above rather than resting on that sentence: those files are
-out for what they are — classic-worker scripts — and not for want of somewhere to run them.
+Everything else upstream that is not a `.any.js` file is out of **this driver's** scope by construction:
+`.window.js`, `.html`, `.worker.js` and `.xhtml` tests are for a browsing context or a worker — which is what
+excludes `WebCryptoAPI/algorithm-discards-context.https.window.js`,
+`FileAPI/blob/Blob-constructor-dom.window.js`, `FileAPI/blob/Blob-in-worker.worker.js` and
+`FileAPI/file/Worker-read-file-constructor.worker.js`. Two of those four spellings have since found somewhere
+to run and needed a row of their own rather than resting on that sentence. Jint has a worker, so `.worker.js`
+is out for what it *is* — a classic-worker script — and not for want of a lane. And there is now a browsing
+context: a `.html` under a directory [the browser lane](#the-browser-lane) claims is vendored and run, and one
+under any other directory is still out for this reason.
 
 ## Two copies of `urltestdata.json`
 
@@ -1553,13 +1590,15 @@ directory to `text eol=lf` precisely so a Windows checkout cannot make the two d
 cd Jint.Tests/Wpt/Vendor
 SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 
-# one call per directory that holds a vendored file (48 at this pin)
-for d in $(find . -type f \( -name '*.js' -o -name '*.json' \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
+TYPES='-name *.js -o -name *.json -o -name *.html -o -name *.htm -o -name *.xhtml'
+
+# one call per directory that holds a vendored file (65 at this pin)
+for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
 done > /tmp/upstream.txt
 
-find . -type f \( -name '*.js' -o -name '*.json' \) | sort | while read -r f; do
+find . -type f \( $TYPES \) | sort | while read -r f; do
   rel="${f#./}"
   up=$(grep -m1 " ${rel}$" /tmp/upstream.txt | cut -d' ' -f1)
   [ -z "$up" ] && { echo "NOT-IN-UPSTREAM: $rel"; continue; }
@@ -1567,4 +1606,5 @@ find . -type f \( -name '*.js' -o -name '*.json' \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus. Verified at this pin: 359 files, no drift, no file absent upstream.
+Silence is a clean corpus. Verified at this pin: 573 files, no drift, no file absent upstream — 101 of them
+the documents and helpers [the browser lane](#the-browser-lane) added, checked the same way.
