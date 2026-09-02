@@ -33,6 +33,26 @@
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>
 
+  <!--
+    The public API baseline runs on one leg, the way Jint.Tests.DevTools' does and for the same reasons:
+    which runtime reads a file on disk changes nothing, and a second leg is a second process reading
+    artifacts/ while the first leg's build is still writing it.
+
+    One baseline rather than one per target framework, because Jint.Browser has no conditional compilation:
+    its two assets are compiled from the same sources, so their surfaces cannot differ.
+    NoSourceFileIsGatedByTargetFramework is what keeps that claim true rather than assumed.
+  -->
+  <PropertyGroup>
+    <RunsPublicApiBaselines Condition="'$(TargetFramework)' == 'net10.0'">true</RunsPublicApiBaselines>
+    <DefineConstants Condition="'$(RunsPublicApiBaselines)' == 'true'">$(DefineConstants);PUBLIC_API_BASELINES</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RunsPublicApiBaselines)' == 'true'">
+    <PackageReference Include="PublicApiGenerator" />
+    <PackageReference Include="Verify.DiffPlex" />
+    <PackageReference Include="Verify.NUnit" />
+  </ItemGroup>
+
   <ItemGroup>
     <!--
       Shared so that this suite runs under the same NUnit contract as the others: one fixture instance per

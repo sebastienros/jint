@@ -1,4 +1,4 @@
-# Agent instructions: the DOM bindings
+# Agent instructions: the browser package
 
 > **Read this when:** You are touching anything under `Jint.Browser/`, the binding generator under
 > `tools/dom-bindings/`, or its override table.
@@ -6,7 +6,8 @@
 > This is one of the co-located instruction files indexed from the repository-root
 > [`AGENTS.md`](../AGENTS.md). Read that first — it carries the build and test commands, the branch to
 > target, and the conventions that apply to every file in the repository. Nothing below is repeated there.
-> The design this implements is [`docs/design/headless-browser.md`](../docs/design/headless-browser.md) §4.
+> The design this implements is [`docs/design/headless-browser.md`](../docs/design/headless-browser.md):
+> §4 for the bindings, §3 for the page runtime, §5 for events, §6 for the parse.
 
 ### The principle this package is checked against
 
@@ -135,6 +136,9 @@ here:
 | `el.children === el.children` | one `HTMLCollection` per element | a fresh collection per call, so the wrapper cache has nothing to key identity on |
 | `el.id` when the attribute is absent | `""` | `null`, which is why the conversion table's default is the empty string |
 | `insertAdjacentHTML`'s position | a WebIDL enumeration | `AdjacentPosition` carries no `[DomLiterals]`; the lower-case-field heuristic is what catches it |
+| `matchMedia(q).matches` | evaluates the query against the viewport | `CssMediaQueryList.ComputeMatched` is `return false`, so **every** query answers `false` — a page asking whether it is on a narrow screen is always told no. `Runtime/MediaQuery` answers the subset a page branches on instead |
+| `document.currentScript` | HTML §4.12.1: the script whose text is running | the head of the *deferred* script queue, so it is `null` for exactly the case a page uses it in |
+| `location.host = …` (and `pathname`, `port`, `protocol`, `search`) | a navigation the page can observe | raises `Location.Changed`, which `Document.LocationChanged` handles in a fire-and-forget `async void` calling `IBrowsingContext.OpenAsync` — on whatever thread the setter ran on. It is inert here only because no `IRequester` is registered, so every navigation handler declines the protocol and the call answers `null`. Registering a document loader without a navigation handler of our own would put a second thread in the DOM |
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
@@ -184,11 +188,99 @@ declared — the sanctioned in-place slot replacement, and the only kind a shape
 ECMAScript's: an operation is **enumerable**. The same rule `Jint/WebApi/AGENTS.md` states, checked the same
 way, and it is the mistake a generator makes by default.
 
+### The page loop, and the thread rule
+
+**One thread per page owns its engine and its DOM, and nothing else may touch either.** `Runtime/PageLoop`
+is that thread: it drains a `Channel<Action<Engine?>>` mailbox, calls `Tasks.ProcessTasks()`, and parks in
+`Tasks.WaitForScheduledWork` for the shorter of `BrowserOptions.PumpIdle` and
+`Tasks.TimeUntilNextScheduledWork`. The engine is built on it and disposed on it, because both are
+engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
+outside. Jint starts no thread of its own; this is what makes a page's timers fire at all.
+
+Four rules follow, and each of them is a way to break the package silently:
+
+- **Every public `Page` member is a mailbox request, and the request is what holds the engine.** A new member
+  is `_loop.PostAsync(engine => …)`, never a field read that reaches into the runtime. A caller is on some
+  other thread by definition.
+- **Nothing that belongs to an engine may be in the returned task.** A `JsValue` belongs to the engine that
+  made it *and* to the thread that owns it, and an AngleSharp node is safe to read only while the loop is not
+  mutating the tree. Convert inside the request — `JsValue.ToObject()`, a `string`, a `PageError` rendered by
+  `ValueInspector` — and let the task carry the conversion. `PageTests` pins that what comes back is not from
+  Jint's assembly, which is the cheapest possible check and worth keeping.
+- **Posting wakes the park.** `PostAsync` writes to the mailbox and then calls `engine.Tasks.Post` with an
+  empty action, purely for its documented side effect of ending a `WaitForScheduledWork`. Without it a request
+  waits out `PumpIdle`; the channel write happens first, so the wake can never be lost.
+- **A request that arrives after the loop stopped fails with `ObjectDisposedException`.** It is never left to
+  hang, and the pending queue is failed the same way on the way down.
+- **Teardown is not a request.** `PageLoop.CloseAsync` takes the action that releases the document and the
+  browsing context and runs it in the loop's own shutdown, because a request would queue behind whatever is
+  running — and what is running may be the very wait the close is ending. Posting it instead deadlocks.
+
+`WaitForIdleAsync` runs its whole wait *inside* one request rather than polling from outside, because the wake
+poke is itself an engine job: a probe posted from another thread would find the queue non-empty and never see
+idle. Idle is `TimeUntilNextScheduledWork is null`. It holds the loop for its whole duration, so it takes the
+page's cancellation token: a wait that closing could not end would make closing wait out its ceiling.
+
+### The window: why the global stays `GlobalObject`, and the trap in it
+
+`Runtime/WindowInstaller` sets the global object's `[[Prototype]]` to
+`Window.prototype → EventTarget.prototype → Object.prototype` and installs the per-document singletons
+(`window`, `self`, `frames`, `top`, `parent`, `document`, `location`, `screen`) as own lazy globals through the
+public `Engine.AddLazyGlobal`. Substituting a host global would forfeit the global-identifier inline cache and
+mean re-installing every intrinsic; the prototype swap costs nothing, and
+`GlobalEnvironment.HasBindingOnGlobalPrototype` already resolves a prototype member as a global.
+
+**The trap: a shape *method* on `Window.prototype` cannot find its page.** A page calls `alert(…)` and
+`requestAnimationFrame(…)` unqualified, and an unqualified call to a member of the global object passes
+`undefined` as the receiver — the global environment record has no `with` base object — so a member body
+reading `thisObject` has no engine to reach the runtime through and can only answer `Illegal invocation`.
+Accessors are unaffected, because a bare identifier *read* goes through the global object's `[[Get]]` with the
+global as receiver. So: **an operation that needs its page is a `PerRealmSlot` holding a `ClrFunction` bound to
+the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `scrollTo`,
+`getSelection` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`,
+and fails `foo()`.
+
+Two members are own properties of their object rather than accessors on a shaped prototype, and both say why in
+place: `document.defaultView` (the binding excludes AngleSharp's `IWindow`, so nothing generates it) and
+`document.currentScript` (AngleSharp answers the wrong thing — see the divergence table). `Location`'s `href`
+setter, `assign`, `replace`, `reload` and `toString` are own properties of the location wrapper for the same
+reason, and they call `Page.RequestNavigation`, which starts a navigation for a URL this version can load and
+records a page error for one it cannot. **A member installed this way shadows the prototype and is visible to
+`Object.getOwnPropertyNames`**; it is the right tool for one object and the wrong one for a class, because a
+shaped prototype that takes an undeclared property loses its shape and its inline caching with it.
+
+### The parse, and the parser hop
+
+`Runtime/PageDocument` opens the document through `IBrowsingContext.OpenAsync` on the loop thread and blocks on
+it. AngleSharp's parse is an asynchronous method whose every `await` carries `ConfigureAwait(false)`, so a
+genuinely asynchronous step anywhere in it would resume the parse — and the scripting hook with it — on a pool
+thread while the loop sat blocked, and the engine would be entered from two threads with nothing to say so.
+**Nothing in this configuration is asynchronous** (the source is in memory, no `IResourceLoader` is registered,
+no `IEventLoop` is registered so `Document.QueueTaskAsync` completes inline, and the scripting hook answers
+`Task.CompletedTask`), so the whole parse including script execution happens on the one thread. That is
+checked, not believed: `PageScriptingService.ObservedThreadId` records the thread it was called on, and a
+mismatch becomes a page error naming the fallback the design specifies — a fully synchronous parse on the loop
+with blocking script fetches. **Anything that makes a step of the parse genuinely asynchronous — a resource
+loader, an event loop service, a scripting hook that awaits — takes the fallback with it.**
+
+What runs: a classic inline `<script>`, synchronously at its own `</script>`, in document order. What does not:
+an external `src` (no network yet), a module, an import map. `SupportsType` answering `false` is what stops
+AngleSharp preparing a module at all, and `PageDocument.Survey` walks the parsed document afterwards so that
+every skipped script is named in `Page.UnsupportedScripts` rather than silently doing nothing.
+
+`readystatechange`, `DOMContentLoaded` (bubbling) and `load` (at the window) are dispatched afterwards through
+Jint's own dispatcher, because AngleSharp's own firing goes into its own listener lists, which hold nothing a
+script registered. `document.readyState` already reads `"complete"` at all three: AngleSharp advances it during
+the parse and `Document.ReadyState`'s setter is not reachable from outside its assembly.
+
 ### The seams promoted later
 
-Nothing in this package is public, and that is a decision with a date on it: the binding is a working surface
-until the runtime that consumes it (campaign phase 2) has settled what a host actually holds. `DomBindings`,
-`DomRealm`, `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted, and each
-would arrive with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only
-consumer, which is why it is named in `InternalsVisibleTo` and why every test here is written against the
-internal surface rather than around it.
+The package publishes exactly one thing: the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
+`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` — and
+`Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a change to it a reviewable
+diff. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
+until the protocol layer has settled what a host actually holds. `DomBindings`, `DomRealm`,
+`DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, and each would arrive
+with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is
+why it is named in `InternalsVisibleTo` and why every test of the binding is written against the internal
+surface rather than around it.

@@ -13,6 +13,9 @@ internal static class RepositoryPaths
     /// <summary>The repository root.</summary>
     internal static string Root { get; } = FindRoot();
 
+    /// <summary>The package's own sources, which the public-API baseline scans for conditional compilation.</summary>
+    internal static string SourceDirectory => Path.Combine(Root, "Jint.Browser");
+
     /// <summary>The generator, its pin and its override table.</summary>
     internal static string GeneratorDirectory => Path.Combine(Root, "tools", "dom-bindings");
 

@@ -64,11 +64,15 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
     /// directly is its own root, so the reduction holds there too.
     /// </para>
     /// <para>
-    /// Two clauses are deliberately absent. A slottable's parent is its assigned slot, and
+    /// One clause is deliberately absent: a slottable's parent is its assigned slot, and
     /// <see cref="JsEventTarget.AssignedSlot"/> answers <see langword="null"/> until R2 has a flat tree to
-    /// answer from. A document's parent is the window for every event but <c>load</c>, and that step arrives
-    /// with the <c>Window</c> object (R1); until then a document is the root of every path, which is exactly
-    /// what a document with no browsing context is.
+    /// answer from.
+    /// </para>
+    /// <para>
+    /// A document's parent is the window for every event but <c>load</c>, which is what puts a window listener
+    /// on a bubbling event's path and keeps <c>load</c> off it. The window is
+    /// <see cref="Dom.DomRealm.WindowTarget"/>, published by the runtime that installs one; with no runtime
+    /// the document is the root of every path, which is what a document with no browsing context is.
     /// </para>
     /// </remarks>
     internal override JsEventTarget? GetParent(JsEvent ev)
@@ -76,6 +80,11 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
         if (Node is IShadowRoot shadowRoot)
         {
             return !ev.Composed || shadowRoot.Host is not { } host ? null : DomRealm.WrapNode(host);
+        }
+
+        if (Node is IDocument)
+        {
+            return string.Equals(ev.EventType.ToString(), "load", StringComparison.Ordinal) ? null : DomRealm.WindowTarget;
         }
 
         return TreeParent;
