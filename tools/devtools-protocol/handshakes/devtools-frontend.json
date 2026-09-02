@@ -1,0 +1,228 @@
+{
+  "client": "devtools-frontend",
+  "clientVersion": "hosted devtools-frontend @6efd6eb1d85f, loaded in Chrome/148.0.7778.97",
+  "entryStyle": "hosted js_app.html?v8only=true&panel=sources&ws=<proxy>/<node inspector uuid>",
+  "chromeVersion": "node 24.19.0 inspector (not Chrome)",
+  "recordedAt": "2026-09-02",
+  "scenario": "connect, newContext, newPage, goto, $, $$, evaluate x2, click, waitForSelector, type, checkbox, select, content, title, cookies, setCookie, localStorage, console, goto page2, goBack, screenshot, pdf, request interception, close",
+  "counts": {
+    "distinctMethods": 13,
+    "distinctEvents": 2,
+    "domains": [
+      "Debugger",
+      "Network",
+      "Profiler",
+      "Runtime"
+    ]
+  },
+  "sessionModel": {
+    "flattened": false,
+    "setAutoAttachParams": null,
+    "attachToTargetParams": null,
+    "sessionCount": 0
+  },
+  "scenarioSteps": [
+    {
+      "step": "connect",
+      "methods": [
+        {
+          "method": "Network.enable",
+          "count": 1,
+          "paramsKeys": [
+            "maxPostDataSize",
+            "maxTotalBufferSize",
+            "reportDirectSocketTraffic"
+          ]
+        },
+        {
+          "method": "Network.setAttachDebugStack",
+          "count": 1,
+          "paramsKeys": [
+            "enabled"
+          ],
+          "errors": [
+            "-32601: 'Network.setAttachDebugStack' wasn't found"
+          ]
+        },
+        {
+          "method": "Runtime.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Debugger.enable",
+          "count": 1,
+          "paramsKeys": [
+            "maxScriptsCacheSize"
+          ],
+          "resultKeys": [
+            "debuggerId"
+          ]
+        },
+        {
+          "method": "Debugger.setPauseOnExceptions",
+          "count": 1,
+          "paramsKeys": [
+            "state"
+          ],
+          "paramsValues": {
+            "state": "none"
+          }
+        },
+        {
+          "method": "Debugger.setAsyncCallStackDepth",
+          "count": 1,
+          "paramsKeys": [
+            "maxDepth"
+          ],
+          "paramsValues": {
+            "maxDepth": 32
+          }
+        },
+        {
+          "method": "Profiler.enable",
+          "count": 1,
+          "paramsKeys": []
+        },
+        {
+          "method": "Network.setBlockedURLs",
+          "count": 1,
+          "paramsKeys": [
+            "urlPatterns"
+          ],
+          "errors": [
+            "-32601: 'Network.setBlockedURLs' wasn't found"
+          ]
+        },
+        {
+          "method": "Network.emulateNetworkConditionsByRule",
+          "count": 1,
+          "paramsKeys": [
+            "offline",
+            "matchedNetworkConditions"
+          ],
+          "errors": [
+            "-32601: 'Network.emulateNetworkConditionsByRule' wasn't found"
+          ]
+        },
+        {
+          "method": "Network.overrideNetworkState",
+          "count": 1,
+          "paramsKeys": [
+            "offline",
+            "latency",
+            "downloadThroughput",
+            "uploadThroughput",
+            "connectionType"
+          ],
+          "errors": [
+            "-32601: 'Network.overrideNetworkState' wasn't found"
+          ]
+        },
+        {
+          "method": "Network.clearAcceptedEncodingsOverride",
+          "count": 1,
+          "paramsKeys": [],
+          "errors": [
+            "-32601: 'Network.clearAcceptedEncodingsOverride' wasn't found"
+          ]
+        },
+        {
+          "method": "Debugger.setBlackboxPatterns",
+          "count": 1,
+          "paramsKeys": [
+            "patterns",
+            "skipAnonymous"
+          ]
+        },
+        {
+          "method": "Runtime.runIfWaitingForDebugger",
+          "count": 1,
+          "paramsKeys": []
+        }
+      ],
+      "events": [
+        {
+          "method": "Runtime.executionContextCreated",
+          "count": 1,
+          "paramsKeys": [
+            "context"
+          ]
+        },
+        {
+          "method": "Debugger.scriptParsed",
+          "count": 86,
+          "paramsKeys": [
+            "scriptId",
+            "url",
+            "startLine",
+            "startColumn",
+            "endLine",
+            "endColumn",
+            "executionContextId",
+            "hash",
+            "buildId",
+            "isLiveEdit",
+            "sourceMapURL",
+            "hasSourceURL",
+            "isModule",
+            "length",
+            "scriptLanguage",
+            "embedderName",
+            "executionContextAuxData"
+          ]
+        }
+      ]
+    }
+  ],
+  "allMethods": [
+    "Network.enable",
+    "Network.setAttachDebugStack",
+    "Runtime.enable",
+    "Debugger.enable",
+    "Debugger.setPauseOnExceptions",
+    "Debugger.setAsyncCallStackDepth",
+    "Profiler.enable",
+    "Network.setBlockedURLs",
+    "Network.emulateNetworkConditionsByRule",
+    "Network.overrideNetworkState",
+    "Network.clearAcceptedEncodingsOverride",
+    "Debugger.setBlackboxPatterns",
+    "Runtime.runIfWaitingForDebugger"
+  ],
+  "allEvents": [
+    "Runtime.executionContextCreated",
+    "Debugger.scriptParsed"
+  ],
+  "errors": [
+    {
+      "method": "Network.setAttachDebugStack",
+      "error": "-32601: 'Network.setAttachDebugStack' wasn't found"
+    },
+    {
+      "method": "Network.setBlockedURLs",
+      "error": "-32601: 'Network.setBlockedURLs' wasn't found"
+    },
+    {
+      "method": "Network.emulateNetworkConditionsByRule",
+      "error": "-32601: 'Network.emulateNetworkConditionsByRule' wasn't found"
+    },
+    {
+      "method": "Network.overrideNetworkState",
+      "error": "-32601: 'Network.overrideNetworkState' wasn't found"
+    },
+    {
+      "method": "Network.clearAcceptedEncodingsOverride",
+      "error": "-32601: 'Network.clearAcceptedEncodingsOverride' wasn't found"
+    }
+  ],
+  "notes": {
+    "frontendRevision": "6efd6eb1d85fd67fdcc2385c54fa56c524bec3f7",
+    "howChosen": "devtools_frontend_revision from Chromium DEPS at tag 148.0.7778.97",
+    "hostBrowser": "Chrome/148.0.7778.97",
+    "frontendPageTitle": "DevTools",
+    "frontendConsoleErrors": "Failed to load resource: the server responded with a status of 404 () | Request Network.setAttachDebugStack failed. {\"code\":-32601,\"message\":\"'Network.setAttachDebugStack' wasn't found\"} | Request Network.setBlockedURLs failed. {\"code\":-32601,\"message\":\"'Network.setBlockedURLs' wasn't found\"} | Request Network.emulateNetworkConditionsByRule failed. {\"code\":-32601,\"message\":\"'Network.emulateNetworkConditionsByRule' wasn't found\"} | Request Network.overrideNetworkState failed. {\"code\":-32601,\"message\":\"'Network.overrideNetworkState' wasn't found\"} | Request Network.clearAcceptedEncodingsOverride failed. {\"code\":-32601,\"message\":\"'Network.clearAcceptedEncodingsOverride' wasn't found\"}"
+  },
+  "bestEffort": true,
+  "bestEffortNote": "Not the canonical scenario: the DevTools frontend has no automation API, and its target here is a Node inspector, not a page. This is its passive handshake plus what the Sources panel asks for, obtained by loading the hosted frontend with &panel=sources. No UI was driven and no breakpoint was set."
+}

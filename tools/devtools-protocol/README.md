@@ -65,3 +65,11 @@ read.
 The generator fails rather than emitting broken code when an entry names something the vendored protocol
 does not have, and when a `$ref` crosses into a domain that is not generated and does not resolve to a
 primitive alias.
+
+## The handshake recordings
+
+`handshakes/` is what the described protocol looks like from the *client* side: every CDP method and event
+Puppeteer, PuppeteerSharp, Playwright, Playwright for .NET and the Chrome DevTools frontend actually send
+and receive while driving one Chrome build through one canonical scenario, one file per client plus
+`matrix.md`. `manifest.json` decides what is answered; the matrix says what has to be. It is recorded, not
+written, by [`tools/cdp-histogram`](../cdp-histogram/README.md).

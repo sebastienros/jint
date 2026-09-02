@@ -1,0 +1,15 @@
+{
+  "name": "cdp-histogram",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Records every Chrome DevTools Protocol method and event each automation client sends and receives while driving a real Chrome through one canonical scenario.",
+  "scripts": {
+    "start": "node run-all.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.56.1",
+    "puppeteer": "^24.29.0",
+    "ws": "^8.19.0"
+  }
+}

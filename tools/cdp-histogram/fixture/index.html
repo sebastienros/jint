@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CDP histogram fixture</title>
+</head>
+<body>
+<h1>CDP histogram fixture</h1>
+
+<nav>
+  <a id="hash" href="#section">same page</a>
+  <a id="page2" href="page2.html">page two</a>
+  <a id="external" href="https://example.invalid/">external, never followed</a>
+</nav>
+
+<form id="form" method="post" action="/submit">
+  <input id="name" name="name" type="text" value="">
+  <input id="agree" name="agree" type="checkbox">
+  <select id="choice" name="choice">
+    <option value="a">alpha</option>
+    <option value="b">beta</option>
+    <option value="c">gamma</option>
+  </select>
+  <textarea id="notes" name="notes"></textarea>
+  <button type="submit">submit</button>
+</form>
+
+<button id="btn">late</button>
+<div id="mut">0</div>
+<div id="section">section</div>
+
+<script>
+document.cookie = 'session=abc; path=/';
+localStorage.setItem('k', 'v');
+
+console.log('hello');
+console.error('this is the fixture error');
+
+document.getElementById('btn').addEventListener('click', function () {
+  document.title = 'clicked';
+  setTimeout(function () {
+    var d = document.createElement('div');
+    d.id = 'late';
+    d.textContent = 'late';
+    document.body.appendChild(d);
+  }, 300);
+});
+
+var ticks = 0;
+setInterval(function () {
+  document.getElementById('mut').textContent = String(++ticks);
+}, 250);
+
+window.addEventListener('load', function () {
+  fetch('/api.json').then(function (r) { return r.json(); }).then(function (j) {
+    window.__api = j;
+  });
+});
+</script>
+</body>
+</html>
