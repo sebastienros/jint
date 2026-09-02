@@ -381,6 +381,32 @@ public sealed class NavigationTests
     }
 
     [Test]
+    public async Task AFinishedNavigationCannotSatisfyAWaitArmedAfterIt()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml(
+                "/one",
+                // The load handler holds the page's thread, which is what makes the window below a fixed
+                // length rather than a handful of instructions only a loaded machine can lose the race in.
+                "<title>one</title><script>addEventListener('load', function () {"
+                + " var t = Date.now(); while (Date.now() - t < 200) {} });</script>")
+            .MapHtml("/two", "<title>two</title>"));
+
+        // Every phase signal NavigateAsync may answer on is raised inside the parse, so a page that woke its
+        // navigation waiters afterwards would wake this one with the navigation that has already finished —
+        // and the caller would go on to read the document it was waiting to leave. WaitUntil.Commit answers
+        // before the load events are dispatched, so the wait below is armed while the page's thread is still
+        // inside the handler above, and a wake placed after it would arrive squarely in the middle of it.
+        await fixture.Page.NavigateAsync(fixture.Url("/one"), new NavigationOptions { WaitUntil = WaitUntilState.Commit });
+
+        (await fixture.Page.WaitForNavigationAsync(TimeSpan.FromMilliseconds(300)))
+            .Should().BeFalse("the navigation just awaited is over, so nothing is left to wait for");
+
+        await fixture.NavigateByScriptAsync("location.assign('/two')");
+        (await fixture.Page.TitleAsync()).Should().Be("two");
+    }
+
+    [Test]
     public async Task ABaseElementMovesTheDocumentsBaseUrlWithoutMovingItsUrl()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(

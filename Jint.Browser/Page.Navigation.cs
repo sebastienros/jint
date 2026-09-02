@@ -634,11 +634,18 @@ public sealed partial class Page
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
 
+        // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
+        // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
+        // navigation the caller has already finished awaiting satisfy a WaitForNavigationAsync armed on the
+        // line after it — the wait would answer for the wrong navigation and the page would still be showing
+        // the previous document. Waking here means every waiter is woken before any caller can arm one.
+        // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
+        SignalNavigation();
+
         var load = PageDocument.Load(runtime, html, url, _loop.Thread.ManagedThreadId, onPhase);
 
         _load = load;
         _mainFrame = Frame.Build(this, load.Document, url);
-        SignalNavigation();
         return null;
     }
 
