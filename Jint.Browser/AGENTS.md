@@ -188,167 +188,21 @@ declared — the sanctioned in-place slot replacement, and the only kind a shape
 ECMAScript's: an operation is **enumerable**. The same rule `Jint/WebApi/AGENTS.md` states, checked the same
 way, and it is the mistake a generator makes by default.
 
-### The page loop, and the thread rule
+### The page runtime is a file of its own
 
-**One thread per page owns its engine and its DOM, and nothing else may touch either.** `Runtime/PageLoop`
-is that thread: it drains a `Channel<Action<Engine?>>` mailbox, calls `Tasks.ProcessTasks()`, and parks in
-`Tasks.WaitForScheduledWork` for the shorter of `BrowserOptions.PumpIdle` and
-`Tasks.TimeUntilNextScheduledWork`. The engine is built on it and disposed on it, because both are
-engine-owning operations, and a navigation replaces the engine from inside a mailbox request rather than from
-outside. Jint starts no thread of its own; this is what makes a page's timers fire at all.
-
-Four rules follow, and each of them is a way to break the package silently:
-
-- **Every public `Page` member is a mailbox request, and the request is what holds the engine.** A new member
-  is `_loop.PostAsync(engine => …)`, never a field read that reaches into the runtime. A caller is on some
-  other thread by definition.
-- **Nothing that belongs to an engine may be in the returned task.** A `JsValue` belongs to the engine that
-  made it *and* to the thread that owns it, and an AngleSharp node is safe to read only while the loop is not
-  mutating the tree. Convert inside the request — `JsValue.ToObject()`, a `string`, a `PageError` rendered by
-  `ValueInspector` — and let the task carry the conversion. `PageTests` pins that what comes back is not from
-  Jint's assembly, which is the cheapest possible check and worth keeping.
-- **Posting wakes the park.** `PostAsync` writes to the mailbox and then calls `engine.Tasks.Post` with an
-  empty action, purely for its documented side effect of ending a `WaitForScheduledWork`. Without it a request
-  waits out `PumpIdle`; the channel write happens first, so the wake can never be lost.
-- **A request that arrives after the loop stopped fails with `ObjectDisposedException`.** It is never left to
-  hang, and the pending queue is failed the same way on the way down.
-- **Teardown is not a request.** `PageLoop.CloseAsync` takes the action that releases the document and the
-  browsing context and runs it in the loop's own shutdown, because a request would queue behind whatever is
-  running — and what is running may be the very wait the close is ending. Posting it instead deadlocks.
-
-`WaitForIdleAsync` runs its whole wait *inside* one request rather than polling from outside, because the wake
-poke is itself an engine job: a probe posted from another thread would find the queue non-empty and never see
-idle. Idle is `TimeUntilNextScheduledWork is null`. It holds the loop for its whole duration, so it takes the
-page's cancellation token: a wait that closing could not end would make closing wait out its ceiling.
-
-### The window: why the global stays `GlobalObject`, and the trap in it
-
-`Runtime/WindowInstaller` sets the global object's `[[Prototype]]` to
-`Window.prototype → EventTarget.prototype → Object.prototype` and installs the per-document singletons
-(`window`, `self`, `frames`, `top`, `parent`, `document`, `location`, `screen`) as own lazy globals through the
-public `Engine.AddLazyGlobal`. Substituting a host global would forfeit the global-identifier inline cache and
-mean re-installing every intrinsic; the prototype swap costs nothing, and
-`GlobalEnvironment.HasBindingOnGlobalPrototype` already resolves a prototype member as a global.
-
-**The trap: a shape *method* on `Window.prototype` cannot find its page.** A page calls `alert(…)` and
-`requestAnimationFrame(…)` unqualified, and an unqualified call to a member of the global object passes
-`undefined` as the receiver — the global environment record has no `with` base object — so a member body
-reading `thisObject` has no engine to reach the runtime through and can only answer `Illegal invocation`.
-Accessors are unaffected, because a bare identifier *read* goes through the global object's `[[Get]]` with the
-global as receiver. So: **an operation that needs its page is a `PerRealmSlot` holding a `ClrFunction` bound to
-the engine** (`WindowInstaller.Operation`), and only an operation that needs nothing — `scrollTo`,
-`getSelection` — stays a `Method`. Adding a window operation the other way compiles, passes `window.foo()`,
-and fails `foo()`.
-
-Several members are own properties of their object rather than accessors on a shaped prototype, and each says
-why in place. On `document`: `defaultView` (the binding excludes AngleSharp's `IWindow`, so nothing generates
-it), `currentScript` (AngleSharp answers the wrong thing — see the divergence table), `cookie` (the jar is the
-context's, and `HttpOnly` has to be enforced against script) and `URL`/`documentURI`/`baseURI`/`referrer`
-(the URL is the page's, not AngleSharp's — see the next section). On a **form wrapper**: `submit` and
-`requestSubmit`, installed by `DomHostHooks.WrapperCreated`, because neither is generated and neither could
-be — AngleSharp's `Submit()` returns a `Task` and has no `requestSubmit` at all, and its own submission
-navigates on the calling thread through its own event bus. And the whole of **`Location`**, which
-`Runtime/LocationInstaller` owns outright. **A member installed this way shadows the prototype and is visible
-to `Object.getOwnPropertyNames`**; it is the right tool for one object and the wrong one for a class, because
-a shaped prototype that takes an undeclared property loses its shape and its inline caching with it.
-
-### Navigation is a fetch and a new engine
-
-`Page.NavigateAsync` runs off the page loop and commits onto it, and the split is the whole design:
-
-- **The fetch is `FetchTransport`, the engine-free layer.** It takes a request snapshot and a policy and
-  answers plain CLR data, so the page's thread goes on pumping timers, answering calls and obeying a close
-  while the response is on its way — and the engine the new document will run in does not exist yet, so
-  there is no engine for it to be on. `Runtime/DocumentFetch` is the one caller: it drives
-  `SendForStreamAsync` (which owns the redirect loop and the per-hop policy re-check) and reads the body
-  itself under `BrowserOptions.MaxDocumentBytes`, because a document is bytes rather than a `ReadableStream`.
-  It also owes the observer the final `OnResponse`/`OnCompleted`, which only `SendAsync` does for itself.
-- **The commit is one mailbox request**, and it does four things in order: unload the outgoing document
-  (`beforeunload`, `pagehide`, `unload`), cancel that engine's `CancellationTokenSource` so everything it had
-  in flight is abandoned, `PageLoop.ReplaceEngine` (which disposes the old one), and parse. **The token is
-  what makes abandonment real**: `FetchOperation` and `XhrOperation` both read
-  `Constraints.Find<CancellationConstraint>()`, so a document's requests die with its engine only because
-  `BrowserEngineFactory` registered one linked to the page's own.
-- **`WaitUntil` is three signals, not three implementations.** `PageDocument.Load` reports
-  `NavigationPhase.Committed`, `DomContentLoaded` and `Loaded`, and the caller awaits whichever it asked for
-  racing the whole request. The parse is synchronous today so all three arrive in one turn; they are separate
-  because the parser driver makes them separate moments and a caller written against `Commit` should not have
-  to change then.
-- **One navigation at a time**, behind a `SemaphoreSlim` the page owns. A script assigning `location` while a
-  host's `NavigateAsync` is in flight queues rather than racing the engine swap, and a script-initiated
-  navigation is `Task.Run` + a page error on failure, because the document that script is running in is the
-  one being replaced and there is nobody to hand an exception to.
-
-**Everything the network touches is the context's, not the page's or the engine's** — `Runtime/PageNetwork`,
-one instance per `BrowserContext`: the `HttpClient`, the composed `UrlFilter`
-(`BrowserContextOptions.UrlFilter` and `BlockPrivateNetwork` combined once), the `CookieJar` and the
-`StoragePartitionProvider`. That is what makes two pages of a site share a session and two contexts two
-visitors, and it is why one filter bounds the document, every subresource, `fetch`, `XMLHttpRequest` and a
-worker's module loads alike. The `UrlFilter` for the **first hop of a document fetch is run by the page**, not
-by the transport, which deliberately never runs a host filter twice for one request.
-
-**The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and every relative
-resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
-`ILocation` instead would raise its own `Location.Changed`, which `Document.LocationChanged` answers with a
-fire-and-forget `IBrowsingContext.OpenAsync` on whatever thread the setter ran on — the second thread in the
-DOM the divergence table warns about. So `LocationInstaller` shadows the *whole* interface, AngleSharp's
-location is never written, and the hazard is gone rather than dormant. AngleSharp's document address stays at
-what the parse was given, which is what the parse resolved against and is right for that; two consequences
-follow, and both are deliberate: `document.baseURI` is recomputed here from `<base href>` against the page's
-URL, and `PageDocument` states `Content-Type: text/html` on the virtual response so AngleSharp does not guess
-a plain-text document from a `.txt` address and wrap the markup a second time.
-
-**The history entry is not the document.** `SessionHistory` gives each loaded document an id and every entry
-carries one, so a traversal within a cluster (`pushState` siblings, a fragment) is same-document — `popstate`
-and `hashchange`, no fetch — and one across clusters is a navigation. There is no back/forward cache, so
-going back to a previous document loads it again and its scripts run again; the cluster is rebound to the new
-document id afterwards, or every step among its siblings would become a reload. A traversal is always queued
-(`engine.Tasks.Post`, or a navigation) and never inline, which is HTML's own model and what a router expects.
-
-**A page starts one entry deep and the first navigation replaces it.** Navigating away from the initial
-`about:blank` is a replace rather than a push, so `history.length` counts what a browser counts.
-
-**One divergence to know before fixing it the wrong way:** `Options.WebApi.Fetch.BaseUrl` is read once when
-an engine is built, so a `fetch('./x')` after a `pushState` resolves against the URL the document *loaded*
-from rather than the pushed one. `location`, `document.URL` and `document.baseURI` all follow the pushed URL —
-only the engine's own API base URL does not, because nothing re-points it per document. The fix is an engine
-seam, not a second URL kept here.
-
-### The parse, and the parser hop
-
-`Runtime/PageDocument` opens the document through `IBrowsingContext.OpenAsync` on the loop thread and blocks on
-it. AngleSharp's parse is an asynchronous method whose every `await` carries `ConfigureAwait(false)`, so a
-genuinely asynchronous step anywhere in it would resume the parse — and the scripting hook with it — on a pool
-thread while the loop sat blocked, and the engine would be entered from two threads with nothing to say so.
-**Nothing in this configuration is asynchronous** (the source is in memory, no `IResourceLoader` is registered,
-no `IEventLoop` is registered so `Document.QueueTaskAsync` completes inline, and the scripting hook answers
-`Task.CompletedTask`), so the whole parse including script execution happens on the one thread. That is
-checked, not believed: `PageScriptingService.ObservedThreadId` records the thread it was called on, and a
-mismatch becomes a page error naming the fallback the design specifies — a fully synchronous parse on the loop
-with blocking script fetches. **Anything that makes a step of the parse genuinely asynchronous — a resource
-loader, an event loop service, a scripting hook that awaits — takes the fallback with it.**
-
-What runs: a classic inline `<script>`, synchronously at its own `</script>`, in document order. What does not:
-an external `src` (no network yet), a module, an import map. `SupportsType` answering `false` is what stops
-AngleSharp preparing a module at all, and `PageDocument.Survey` walks the parsed document afterwards so that
-every skipped script is named in `Page.UnsupportedScripts` rather than silently doing nothing.
-
-`readystatechange`, `DOMContentLoaded` (bubbling) and `load` (at the window) are dispatched afterwards through
-Jint's own dispatcher, because AngleSharp's own firing goes into its own listener lists, which hold nothing a
-script registered. `document.readyState` already reads `"complete"` at all three: AngleSharp advances it during
-the parse and `Document.ReadyState`'s setter is not reachable from outside its assembly.
+`Page`, the loop that owns its engine, the `Window` installer, navigation, forms, history, cookies, storage
+and workers are [`Runtime/AGENTS.md`](Runtime/AGENTS.md). The one rule to carry across the boundary without
+opening it: **one thread owns a page's engine and its DOM**, every public `Page` member is a mailbox request,
+and nothing belonging to an engine — a `JsValue`, an AngleSharp node — may be in the task it answers.
 
 ### The seams promoted later
 
 The package publishes exactly one thing: the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
-`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs`, and what a navigation
-takes and answers (`NavigationOptions`, `WaitUntilState`, `NavigationFailedException`, `PageResponse`,
-`PageHeader`, `PageRequest`, `RequestInitiator`, `StoragePartitionProvider`,
-`InMemoryStoragePartitionProvider`) — and `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the
-baseline that makes a change to it a reviewable diff. **Nothing public takes or answers an AngleSharp node**,
-which is why `Page.SubmitFormAsync` takes a selector: a node belongs to the page's own thread, so an overload
-taking one would be an invitation to touch the DOM from the caller's. R2 reaches the same algorithm through
-the internal `FormSubmitter.Submit` from inside the loop. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
+`BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` and what a navigation
+takes and answers — and `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline that makes a
+change to it a reviewable diff. **Nothing public takes or answers an AngleSharp node**, which is why
+`Page.SubmitFormAsync` takes a selector; R2 reaches the same algorithm through the internal
+`FormSubmitter.Submit` from inside the loop. Everything else is internal, and that is a decision with a date on it: the binding is a working surface
 until the protocol layer has settled what a host actually holds. `DomBindings`, `DomRealm`,
 `DomInterfaceDefinition` and `DomHostHooks` are the four most likely to be promoted next, and each would arrive
 with XML docs and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only consumer, which is

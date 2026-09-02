@@ -22,7 +22,9 @@ namespace Jint.Browser.Workers;
 /// What is added back here is exactly what a <c>DedicatedWorkerGlobalScope</c> is expected to have:
 /// <c>fetch</c> over the same client, filter and jar the page uses, and a module loader against the page's
 /// document URL. Storage is deliberately <b>not</b> given: <c>localStorage</c> is not available in a worker
-/// in any browser either.
+/// in any browser either. A page with no document URL to resolve against — <c>about:blank</c>, a
+/// <c>data:</c> URL — gets no module loader at all, which leaves the engine's own
+/// <c>FailFastModuleLoader</c>: such a worker fails at its first import rather than reading the file system.
 /// </para>
 /// <para>
 /// <b>Threads are counted and bounded by the engine, not here.</b> <c>Options.WebApi.Workers.MaxWorkers</c>
