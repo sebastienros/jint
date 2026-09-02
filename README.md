@@ -2541,8 +2541,66 @@ it, but any work or allocation the delegate performed to produce that string has
 ## Profiling scripts (opt-in)
 
 When a script is slow and you want to know which of *its* functions is responsible, opt the engine in and
-bracket the run. The profiler is **evented, not sampling** — it records at the call boundary on the engine's
-own thread, because inspecting a running engine from another thread is not something Jint supports.
+bracket the run. There are two instruments behind one gate, both recording on the engine's own thread —
+inspecting a running engine from another thread is not something Jint supports:
+
+- **Sampling** (`StartSampling` / `StopSampling`) asks *where the time went*. It notes what the call stack
+  looks like at the engine's periodic check points and writes a
+  [Firefox Profiler](https://profiler.firefox.com) profile. Reach for this first.
+- **Evented** (`StartProfiling` / `StopProfiling`) asks *what was called*. It records every call boundary and
+  writes a [speedscope](https://www.speedscope.app) profile, exactly and at a cost per call.
+
+### Sampling: where did the time go
+
+```csharp
+var engine = new Engine(options => options.Profiling.Enabled = true);
+
+engine.Diagnostics.StartSampling();                 // or new SamplingOptions { Interval = ... }
+engine.Execute(script);
+var profile = engine.Diagnostics.StopSampling();
+
+using var file = File.Create("run.json");
+profile.WriteTo(file);
+```
+
+Open the file at [profiler.firefox.com](https://profiler.firefox.com) — it runs fully client-side, so a
+local profile never leaves your machine. Wrap the stream in a `GZipStream` and name it `.json.gz` if you
+would rather keep it small; the viewer opens either.
+
+Every frame carries a category, which is the thing a CLR profiler cannot tell you: **Script** for the
+script's own functions, **Built-in** for Jint's, and **Host interop** for your code — a registered delegate,
+a CLR method reached through interop, or a `ClrFunction` you built. Seeing script time apart from time
+inside your own callbacks is usually half the diagnosis.
+
+Worth knowing before you read a sampled profile:
+
+- **Samples are taken at the engine's check points**, the same once-per-64-statements cadence a timeout
+  rides, so `SamplingOptions.Interval` (default 1 ms) is a floor rather than a schedule. A step the engine
+  cannot interrupt — one long `RegExp` match, one long host callback — is a gap, and the sample before it
+  carries the gap's weight, which is to say the time shows up at the call site. Arming the sampler does not
+  cost the interpreter's tight-loop lane; an execution constraint is what does that, and this is not one.
+- **`SamplingOptions.MaxSamples`** (default 100,000) caps a session. Past it nothing more is recorded and
+  the refusals are counted into `SampledProfile.DroppedSampleCount`.
+- **The tree is the call stack's tree.** A call that pushes no frame is not in it: a trivial built-in on the
+  frameless fast-call lane, and a callback a built-in invokes per element (`arr.sort(cb)` is sampled as
+  `sort`, not as `cb`). Nothing is lost — that time is attributed to the nearest frame that does exist.
+- **Your own code is not sampled while it runs.** There is no check point inside a CLR call, so a host frame
+  is caught while it is calling back into script — and, for a wrapped CLR delegate, once on the way out.
+  Time spent purely in your code is a gap, charged to the last sample taken, which is where the call was
+  made. A CLR profiler is the instrument for what happens inside a callback; this one is for the boundary.
+- **Wall clock, not CPU.** A thread the operating system deschedules attributes the time it was away to
+  whatever it was running when it lost the CPU. That is true of every sampling profiler.
+- **Nothing is charged to an engine that is not sampling.** The instrument is not a timer and not a second
+  thread; it is one field on the engine, folded into a check the interpreter already makes.
+
+`StartSampling()` throws `InvalidOperationException` when `Options.Profiling.Enabled` is false, which is the
+default. Both it and the types it produces are in a preview area — acknowledge `JINT0002` with a
+`#pragma warning disable` at the call site, or `<NoWarn>$(NoWarn);JINT0002</NoWarn>` once in the project file.
+
+### Evented: what was called, exactly
+
+The evented profiler records at the call boundary rather than sampling, so it misses nothing and costs per
+call.
 
 ```csharp
 var engine = new Engine(options => options.Profiling.Enabled = true);
@@ -2577,7 +2635,8 @@ Worth knowing before you read a profile:
   reaction handlers (`p.then(cb)` records `then`, not `cb`).
 
 `StartProfiling()` throws `InvalidOperationException` when `Options.Profiling.Enabled` is false, which is the
-default — an engine running untrusted script can refuse profiling outright.
+default — an engine running untrusted script can refuse both profilers outright by leaving it there. The two
+sessions are independent: a host may open one, the other, or both at once.
 
 ## Discussion
 

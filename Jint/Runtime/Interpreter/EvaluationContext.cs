@@ -23,7 +23,7 @@ internal sealed class EvaluationContext
 
     private readonly bool _shouldRunPerStatementChecks;
     private readonly bool _bypassStatementFastPaths;
-    private readonly bool _hasAmortizedConstraints;
+    private bool _runsAmortizedChecks;
     private readonly MaxStatementsConstraint? _statementCounter;
 
     public EvaluationContext(Engine engine)
@@ -43,7 +43,7 @@ internal sealed class EvaluationContext
         _statementCounter = _bypassStatementFastPaths ? null : engine._inlineStatementCounter;
         _shouldRunPerStatementChecks = (engine._exactConstraints.Length > 0 || _bypassStatementFastPaths)
                                        && _statementCounter is null;
-        _hasAmortizedConstraints = engine._amortizedConstraints.Length > 0;
+        _runsAmortizedChecks = ResolveAmortizedChecks(engine);
     }
 
     // for fast evaluation checks only
@@ -52,12 +52,26 @@ internal sealed class EvaluationContext
         Engine = null!;
         _shouldRunPerStatementChecks = false;
         _bypassStatementFastPaths = false;
-        _hasAmortizedConstraints = false;
+        _runsAmortizedChecks = false;
         _statementCounter = null;
     }
 
     public readonly Engine Engine;
     public bool DebugMode => Engine._isDebugMode;
+
+    /// <summary>
+    /// Whether anything rides the amortized cadence: an observation-only constraint, or a sampling
+    /// profiler. One flag rather than two, so the per-statement path stays the single field test it has
+    /// always been however many things end up hanging off the cadence.
+    /// </summary>
+    private static bool ResolveAmortizedChecks(Engine engine)
+        => engine._amortizedConstraints.Length > 0 || engine._sampler is not null;
+
+    /// <summary>
+    /// Re-reads that flag. Unlike everything else this context snapshots, a sampling session can open and
+    /// close during the engine's life, and the context is built once per engine.
+    /// </summary>
+    internal void RefreshAmortizedChecks() => _runsAmortizedChecks = ResolveAmortizedChecks(Engine);
 
     /// <summary>
     /// Frozen per context (exact constraints or debug mode at creation); statement fast paths
@@ -172,14 +186,14 @@ internal sealed class EvaluationContext
     /// statements regardless of which call sites drive it, of how many top-level entries the host
     /// makes, and of how short each of them is.
     /// <para>
-    /// The <see cref="_hasAmortizedConstraints"/> test must stay first: the parameterless
+    /// The <see cref="_runsAmortizedChecks"/> test must stay first: the parameterless
     /// constructor leaves <see cref="Engine"/> null and relies on it short-circuiting.
     /// </para>
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void RunAmortizedConstraintChecks()
     {
-        if (_hasAmortizedConstraints && --Engine._amortizedConstraintCountdown <= 0)
+        if (_runsAmortizedChecks && --Engine._amortizedConstraintCountdown <= 0)
         {
             Engine._amortizedConstraintCountdown = AmortizedConstraintCheckInterval;
             Engine.CheckAmortizedConstraints();

@@ -97,6 +97,8 @@ namespace Jint
         public sealed class DiagnosticOperations
         {
             public bool IsProfiling { get; }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+            public bool IsSampling { get; }
             public string StackTrace { get; }
             public Jint.Runtime.Coverage.CoverageReport GetCoverage() { }
             [System.Diagnostics.CodeAnalysis.Experimental("JINT0001")]
@@ -107,7 +109,11 @@ namespace Jint
             public Jint.ObjectRepresentation GetObjectRepresentation(Jint.Native.Object.ObjectInstance value) { }
             public void ResetCoverage() { }
             public void StartProfiling() { }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+            public void StartSampling(Jint.Profiling.SamplingOptions? options = null) { }
             public Jint.Profiling.ScriptProfile StopProfiling() { }
+            [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+            public Jint.Profiling.SampledProfile StopSampling() { }
             public Jint.SecurityConfigurationReport ValidateSecurityConfiguration(Jint.SecurityConfigurationPolicy policy = 0) { }
         }
         public sealed class ModuleOperations
@@ -1870,6 +1876,24 @@ namespace Jint.NodeCompat
 }
 namespace Jint.Profiling
 {
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class SampledProfile
+    {
+        public int DroppedSampleCount { get; }
+        public System.TimeSpan Duration { get; }
+        public System.TimeSpan Interval { get; }
+        public int SampleCount { get; }
+        public void WriteTo(System.IO.Stream stream) { }
+        public void WriteTo(System.IO.TextWriter writer) { }
+    }
+    [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
+    public sealed class SamplingOptions
+    {
+        public const int DefaultMaxSamples = 100000;
+        public SamplingOptions() { }
+        public System.TimeSpan Interval { get; set; }
+        public int MaxSamples { get; set; }
+    }
     public sealed class ScriptProfile
     {
         public System.TimeSpan Duration { get; }
