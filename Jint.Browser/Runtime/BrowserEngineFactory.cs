@@ -46,6 +46,14 @@ internal static class BrowserEngineFactory
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(request.PageClosing);
         var hasStorage = false;
 
+        // The document's own module loader, built before the engine because the engine is built around it.
+        // Its import map and base URL are filled in by the parser driver once the document has been parsed.
+        var modules = new Parsing.PageModuleScriptLoader(
+            request.Network,
+            request.Requests,
+            request.Url,
+            options.MaxSubresourceBytes);
+
         var engine = new Engine(o =>
         {
             // First, and before anything else this callback writes: the profile is expanded onto a private
@@ -91,6 +99,12 @@ internal static class BrowserEngineFactory
             o.WebApi.Fetch.MaxResponseBytes = options.MaxResponseBytes;
             o.WebApi.Fetch.Timeout = options.FetchTimeout;
 
+            // https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-module-system:
+            // a document can always import, whether from a <script type="module"> or an import() inside a
+            // classic script. A host that installs its own loader afterwards replaces this one, and the
+            // driver then leaves module scripts alone rather than resolving them against a stranger.
+            o.UseModules(modules);
+
             if (options.RecordErrors)
             {
                 // Installing a sink is not only a recording: it is what makes an exception escaping a timer,
@@ -117,8 +131,9 @@ internal static class BrowserEngineFactory
             }
         });
 
-        var runtime = PageRuntime.Attach(engine, page, options, recorder, request.Url, request.Referrer);
+        var runtime = PageRuntime.Attach(engine, page, options, recorder, request.Network, request.Requests, request.Url, request.Referrer);
         runtime.Cancellation = cancellation;
+        runtime.Modules = ReferenceEquals(engine.Options.Modules.ModuleLoader, modules) ? modules : null;
 
         DomBindings.Install(engine);
         runtime.Dom.MaxNodes = options.MaxDomNodes;

@@ -25,6 +25,8 @@ public sealed class BrowserOptions
     private TimeSpan _pumpIdle = TimeSpan.FromMilliseconds(50);
     private int _maxRecordedEvents = 1000;
     private long _maxDocumentBytes = 32 * 1024 * 1024;
+    private long _maxSubresourceBytes = 8 * 1024 * 1024;
+    private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
     private long? _memoryLimit;
@@ -209,6 +211,38 @@ public sealed class BrowserOptions
         set => _maxDocumentBytes = value > 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxDocumentBytes must be positive.");
+    }
+
+    /// <summary>The most bytes one subresource may be; 8 MiB by default.</summary>
+    /// <remarks>
+    /// A script, a module and a style sheet are bounded separately from the document that referenced them,
+    /// because a page pulls many of them and one ceiling for the lot would be the wrong shape. A resource
+    /// that declares or reaches more is abandoned: the element gets an <c>error</c> event and the page goes
+    /// on loading, which is what a browser does with a resource it could not read.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public long MaxSubresourceBytes
+    {
+        get => _maxSubresourceBytes;
+        set => _maxSubresourceBytes = value > 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxSubresourceBytes must be positive.");
+    }
+
+    /// <summary>How long one subresource has to answer; 30 seconds by default.</summary>
+    /// <remarks>
+    /// It bounds one script, module or style-sheet load — and, taken together, the module phase of a load —
+    /// so that a server that accepts a connection and then says nothing cannot hold a page in
+    /// <c>loading</c> for ever. Exceeding it is an <c>error</c> at the element and a page error, not a failed
+    /// navigation.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public TimeSpan SubresourceTimeout
+    {
+        get => _subresourceTimeout;
+        set => _subresourceTimeout = value > TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "SubresourceTimeout must be positive.");
     }
 
     /// <summary>How many redirects one navigation may follow; 20, which is what browsers use.</summary>

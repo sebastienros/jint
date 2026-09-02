@@ -71,6 +71,61 @@ internal sealed class FetchObservation
         return interception;
     }
 
+    /// <summary>
+    /// Reports the final response of an exchange whose body the caller reads itself, then — once those bytes
+    /// are counted — <see cref="Completed"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only <c>FetchTransport.SendAsync</c> reports its own final response.</b> Every caller of
+    /// <c>SendForStreamAsync</c> takes the exchange and reads the body itself, so the redirect loop has told
+    /// the observer about the hops it walked past and nothing about the answer — and an observer owed a
+    /// response it never receives shows the request as sent and never answered. Three callers pay that debt
+    /// (<c>XhrOperation</c>, and the browser package's document and subresource fetches), and this is the one
+    /// shape they pay it in.
+    /// </para>
+    /// <para>
+    /// <paramref name="headers"/> is for a caller that has already collected them for its own use; left out,
+    /// they are read from the exchange's response, every value of every header as its own entry.
+    /// </para>
+    /// </remarks>
+    internal void FinalResponse(FetchExchange exchange, IReadOnlyList<FetchHeader>? headers = null)
+    {
+        var response = exchange.Response;
+
+        Response(new ObservedFetchResponse
+        {
+            Id = Id,
+            Url = exchange.RequestUri,
+            Status = (int) response.StatusCode,
+            StatusText = response.ReasonPhrase ?? "",
+            Headers = headers ?? CollectHeaders(response),
+            FromInterception = exchange.FromInterception,
+
+            // The redirect loop is what reports a redirect; what an exchange carries is the answer at its end.
+            IsRedirect = false,
+        });
+    }
+
+    private static List<FetchHeader> CollectHeaders(System.Net.Http.HttpResponseMessage response)
+    {
+        var headers = new List<FetchHeader>();
+        Collect(headers, response.Headers);
+        Collect(headers, response.Content.Headers);
+        return headers;
+
+        static void Collect(List<FetchHeader> headers, System.Net.Http.Headers.HttpHeaders source)
+        {
+            foreach (var header in source.NonValidated)
+            {
+                foreach (var value in header.Value)
+                {
+                    headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
+                }
+            }
+        }
+    }
+
     internal void Response(ObservedFetchResponse response)
     {
         try

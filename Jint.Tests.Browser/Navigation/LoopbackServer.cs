@@ -206,7 +206,7 @@ internal sealed class LoopbackServer : IDisposable
 
     private static async Task WriteAsync(NetworkStream stream, LoopbackResponse response, CancellationToken token)
     {
-        var body = Encoding.UTF8.GetBytes(response.Body);
+        var body = response.RawBody ?? Encoding.UTF8.GetBytes(response.Body);
         var head = new StringBuilder();
 
         head.Append("HTTP/1.1 ").Append(response.Status.ToString(CultureInfo.InvariantCulture)).Append(' ').Append(response.Reason).Append("\r\n");
@@ -249,6 +249,9 @@ internal sealed class LoopbackResponse
 
     internal string Body { get; init; } = "";
 
+    /// <summary>The body as bytes, when the test is about the encoding rather than the text.</summary>
+    internal byte[]? RawBody { get; init; }
+
     internal LoopbackResponse With(string name, string value)
     {
         Headers.Add(new KeyValuePair<string, string>(name, value));
@@ -266,6 +269,18 @@ internal sealed class LoopbackResponse
 
     internal static LoopbackResponse Bytes(string body, string contentType)
         => new LoopbackResponse { Body = body }.With("Content-Type", contentType);
+
+    internal static LoopbackResponse Script(string source)
+        => new LoopbackResponse { Body = source }.With("Content-Type", "text/javascript; charset=utf-8");
+
+    internal static LoopbackResponse Css(string source)
+        => new LoopbackResponse { Body = source }.With("Content-Type", "text/css; charset=utf-8");
+
+    /// <summary>
+    /// A response whose body is exactly these bytes, for the cases where the encoding is what is under test.
+    /// </summary>
+    internal static LoopbackResponse Raw(byte[] body, string contentType)
+        => new LoopbackResponse { RawBody = body }.With("Content-Type", contentType);
 
     internal static LoopbackResponse Redirect(int status, string location)
         => new LoopbackResponse { Status = status, Reason = ReasonFor(status) }.With("Location", location);

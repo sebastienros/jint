@@ -138,7 +138,10 @@ internal sealed class PageModuleLoader : ModuleLoader
                 .GetResult();
 
             var bytes = exchange.Response.Content.ReadAsByteArrayAsync(cancellation.Token).GetAwaiter().GetResult();
-            Report(observation, exchange, bytes.Length);
+
+            // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
+            observation?.FinalResponse(exchange);
+            observation?.Completed(bytes.Length);
 
             if (!exchange.Response.IsSuccessStatusCode)
             {
@@ -160,50 +163,4 @@ internal sealed class PageModuleLoader : ModuleLoader
             throw;
         }
     }
-
-#pragma warning disable JINT0002 // The observation types are the engine's preview network seam.
-    /// <summary>
-    /// Hands the final response to the observer, which only <c>FetchTransport.SendAsync</c> does for itself —
-    /// this path reads its own body, so it owes the two calls the redirect loop does not make.
-    /// </summary>
-    private static void Report(FetchObservation? observation, FetchExchange exchange, long bodyLength)
-    {
-        if (observation is null)
-        {
-            return;
-        }
-
-        var response = exchange.Response;
-        var headers = new List<FetchHeader>();
-
-        foreach (var header in response.Headers.NonValidated)
-        {
-            foreach (var value in header.Value)
-            {
-                headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
-            }
-        }
-
-        foreach (var header in response.Content.Headers.NonValidated)
-        {
-            foreach (var value in header.Value)
-            {
-                headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
-            }
-        }
-
-        observation.Response(new ObservedFetchResponse
-        {
-            Id = observation.Id,
-            Url = exchange.RequestUri,
-            Status = (int) response.StatusCode,
-            StatusText = response.ReasonPhrase ?? "",
-            Headers = headers,
-            FromInterception = exchange.FromInterception,
-            IsRedirect = false,
-        });
-
-        observation.Completed(bodyLength);
-    }
-#pragma warning restore JINT0002
 }

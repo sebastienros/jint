@@ -8,6 +8,9 @@ public enum RequestInitiator
 
     /// <summary>Script: a <c>fetch</c> call, an <c>XMLHttpRequest</c>, or a worker's module load.</summary>
     Script,
+
+    /// <summary>A resource the document referenced: a script, a stylesheet, an image.</summary>
+    Subresource,
 }
 
 /// <summary>
@@ -29,10 +32,11 @@ public sealed class PageRequest
 {
     private volatile Snapshot _snapshot;
 
-    internal PageRequest(long id, RequestInitiator initiator, string url, string method)
+    internal PageRequest(long id, RequestInitiator initiator, string url, string method, string? notFetchedReason = null)
     {
         Id = id;
         Initiator = initiator;
+        NotFetchedReason = notFetchedReason;
         _snapshot = new Snapshot(url, method, 0, "", [], false, null, 0, 0);
     }
 
@@ -41,6 +45,17 @@ public sealed class PageRequest
 
     /// <summary>What asked for the request.</summary>
     public RequestInitiator Initiator { get; }
+
+    /// <summary>
+    /// Why the page recorded this reference without sending it, or <see langword="null"/> when it was sent.
+    /// </summary>
+    /// <remarks>
+    /// A headless browser with no rendering has no reason to download an image or a frame's document, and a
+    /// filter may refuse a URL before a socket is opened. Recording the reference anyway is what lets a
+    /// caller — or the protocol's <c>Network</c> domain — see everything the document asked for, rather than
+    /// only the subset something chose to fetch.
+    /// </remarks>
+    public string? NotFetchedReason { get; }
 
     /// <summary>The URL of the most recent hop.</summary>
     public string Url => _snapshot.Url;
@@ -73,6 +88,11 @@ public sealed class PageRequest
     public override string ToString()
     {
         var state = _snapshot;
+        if (NotFetchedReason is { } reason)
+        {
+            return state.Method + " " + state.Url + " (not fetched: " + reason + ")";
+        }
+
         if (state.Failed)
         {
             return state.Method + " " + state.Url + " failed: " + state.FailureReason;

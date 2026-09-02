@@ -281,16 +281,17 @@ public sealed class PageTests
     }
 
     [Test]
-    public async Task AnExternalScriptIsNotRunAndTheReasonIsRecorded()
+    public async Task AnExternalScriptOnAnOpaqueDocumentIsReportedRatherThanIgnored()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.SetContentAsync("<script src='/app.js'></script><script type='module'>export const x = 1</script>");
+        // about:blank is not a network scheme, so '/app.js' resolves to nothing a page can load. The parse
+        // still finishes and the page still loads; what it must not do is fail silently.
+        await page.SetContentAsync("<script src='/app.js'></script><p id='here'>ok</p>");
 
-        page.UnsupportedScripts.Should().HaveCount(2);
-        page.UnsupportedScripts.Should().ContainSingle(entry => entry.Contains("/app.js", StringComparison.Ordinal));
-        page.UnsupportedScripts.Should().ContainSingle(entry => entry.StartsWith("module script", StringComparison.Ordinal));
+        page.Errors.Should().ContainSingle(error => error.Message.Contains("/app.js", StringComparison.Ordinal));
+        (await page.EvaluateAsync("document.getElementById('here').textContent")).Should().Be("ok");
     }
 
     [Test]

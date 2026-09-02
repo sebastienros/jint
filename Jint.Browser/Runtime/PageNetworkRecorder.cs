@@ -32,8 +32,10 @@ internal sealed class PageNetworkRecorder : FetchObserver
 {
     private readonly Queue<PageRequest> _requests = new();
     private readonly Dictionary<long, PageRequest> _live = [];
+    private readonly Dictionary<long, RequestInitiator> _declared = [];
     private readonly System.Threading.Lock _gate = new();
     private readonly int _max;
+    private long _syntheticId;
 
     internal PageNetworkRecorder(int max)
     {
@@ -53,15 +55,55 @@ internal sealed class PageNetworkRecorder : FetchObserver
     }
 
     /// <summary>
+    /// Starts an observation whose entries this log should file under <paramref name="initiator"/> rather
+    /// than under what the transport can work out for itself.
+    /// </summary>
+    /// <remarks>
+    /// The transport knows only two initiators — a script's own request and one the host started — and every
+    /// load the page makes for a document is the second. Which <em>kind</em> of host load it is is something
+    /// only the caller knows, so the caller says, once, when it creates the observation.
+    /// </remarks>
+    internal FetchObservation? Observe(RequestInitiator initiator)
+    {
+        var observation = FetchObservation.Create(this, initiator == RequestInitiator.Script ? FetchInitiator.Script : FetchInitiator.Host);
+
+        if (observation is not null && initiator != RequestInitiator.Document)
+        {
+            lock (_gate)
+            {
+                _declared[observation.Id.Value] = initiator;
+            }
+        }
+
+        return observation;
+    }
+
+    /// <summary>
+    /// Records a reference the page saw and deliberately did not follow — an image, a frame's document, a
+    /// URL a filter refused.
+    /// </summary>
+    internal void RecordNotFetched(string url, RequestInitiator initiator, string reason)
+    {
+        lock (_gate)
+        {
+            var id = -System.Threading.Interlocked.Increment(ref _syntheticId);
+            _requests.Enqueue(new PageRequest(id, initiator, url, "GET", reason));
+            Trim();
+        }
+    }
+
+    /// <summary>
     /// Records a hop the transport is about to send, and answers nothing: this observer watches, it never
     /// intercepts. A host that wants to intercept installs its own through
     /// <c>BrowserOptions.ConfigureEngine</c>, which runs after this one is set and replaces it.
     /// </summary>
     public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
     {
-        // The transport already knows which it is: a document fetch is started by the page and carries
-        // FetchInitiator.Host, everything else is a script's own fetch, XMLHttpRequest or worker load.
-        var initiator = request.Initiator == FetchInitiator.Host ? RequestInitiator.Document : RequestInitiator.Script;
+        // The transport knows only that a document fetch is the host's and everything else is a script's; a
+        // caller that said which kind of host load it was started is taken at its word.
+        var initiator = Declared(request.Id.Value)
+            ?? (request.Initiator == FetchInitiator.Host ? RequestInitiator.Document : RequestInitiator.Script);
+
         Hop(request.Id.Value, initiator, request.Url, request.Method, request.RedirectCount);
         return new ValueTask<FetchInterception?>((FetchInterception?) null);
     }
@@ -114,12 +156,26 @@ internal sealed class PageNetworkRecorder : FetchObserver
             var request = new PageRequest(id, initiator, url.AbsoluteUri, method);
             _live[id] = request;
             _requests.Enqueue(request);
+            Trim();
+        }
+    }
 
-            while (_requests.Count > _max)
-            {
-                var dropped = _requests.Dequeue();
-                _live.Remove(dropped.Id);
-            }
+    private RequestInitiator? Declared(long id)
+    {
+        lock (_gate)
+        {
+            return _declared.TryGetValue(id, out var initiator) ? initiator : null;
+        }
+    }
+
+    /// <summary>Drops the oldest entries past the ring's bound. Called with the gate held.</summary>
+    private void Trim()
+    {
+        while (_requests.Count > _max)
+        {
+            var dropped = _requests.Dequeue();
+            _live.Remove(dropped.Id);
+            _declared.Remove(dropped.Id);
         }
     }
 
@@ -136,6 +192,7 @@ internal sealed class PageNetworkRecorder : FetchObserver
         lock (_gate)
         {
             _live.Remove(id);
+            _declared.Remove(id);
         }
     }
 }

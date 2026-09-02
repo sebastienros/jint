@@ -21,11 +21,13 @@ namespace Jint.Browser;
 /// </para>
 /// <para>
 /// <b>What runs today.</b> A document fetched over <c>http(s)</c>, from a <c>data:</c> URL,
-/// <c>about:blank</c> or <see cref="SetContentAsync"/>, with classic inline scripts executed in document
-/// order as the parse reaches them, then <c>readystatechange</c>, <c>DOMContentLoaded</c>, <c>load</c> and
-/// <c>pageshow</c>. Forms submit, history travels, cookies and storage persist, and workers run. External
-/// <c>&lt;script src&gt;</c> and module scripts still need the parser driver; what a parse skipped is listed
-/// in <see cref="UnsupportedScripts"/>.
+/// <c>about:blank</c> or <see cref="SetContentAsync"/>, with its scripts run the way HTML says: classic
+/// scripts inline and external in document order as the parse reaches them, <c>defer</c> and <c>async</c>
+/// ones after it, then module scripts against the document's import map, then <c>DOMContentLoaded</c>,
+/// <c>load</c> and <c>pageshow</c>. External style sheets load, so <c>getComputedStyle</c> answers from
+/// them. Forms submit, history travels, cookies and storage persist, and workers run. What is deliberately
+/// not fetched — an image, a frame's document — is in <see cref="Requests"/> with a
+/// <see cref="PageRequest.NotFetchedReason"/>.
 /// </para>
 /// <para>
 /// A page is closed with <see cref="CloseAsync"/> or by disposing it, and every call afterwards fails with
@@ -125,13 +127,6 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>What the page's scripts printed, oldest first, formatted the way a console would.</summary>
     public IReadOnlyList<string> ConsoleMessages => _recorder.ConsoleMessages;
-
-    /// <summary>The <c>&lt;script&gt;</c> elements the last load could not run, each with the reason.</summary>
-    /// <remarks>
-    /// A page that does nothing is usually a page whose scripts were external or modules. This says so rather
-    /// than leaving a host to work it out; it empties as the parser driver arrives.
-    /// </remarks>
-    public IReadOnlyList<string> UnsupportedScripts => _load?.UnsupportedScripts ?? [];
 
     /// <summary>Raised when the page calls <c>alert</c>, <c>confirm</c> or <c>prompt</c>.</summary>
     /// <remarks>

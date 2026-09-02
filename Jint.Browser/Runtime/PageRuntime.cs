@@ -34,12 +34,22 @@ internal sealed class PageRuntime
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
 
-    private PageRuntime(Engine engine, Page page, BrowserOptions options, PageRecorder recorder, string documentUrl, string referrer)
+    private PageRuntime(
+        Engine engine,
+        Page page,
+        BrowserOptions options,
+        PageRecorder recorder,
+        PageNetwork network,
+        PageNetworkRecorder requests,
+        string documentUrl,
+        string referrer)
     {
         Engine = engine;
         Page = page;
         Options = options;
         Recorder = recorder;
+        Network = network;
+        Requests = requests;
         Viewport = options.Viewport;
         Dom = DomRealm.Of(engine);
         Budget = PageBudget.For(engine, options);
@@ -61,6 +71,29 @@ internal sealed class PageRuntime
 
     /// <summary>Where errors and console output are recorded.</summary>
     internal PageRecorder Recorder { get; }
+
+    /// <summary>The context's client, URL filter, cookie jar and storage partition.</summary>
+    internal PageNetwork Network { get; }
+
+    /// <summary>The page's network log, which every document, script and stylesheet load reports to.</summary>
+    internal PageNetworkRecorder Requests { get; }
+
+    /// <summary>
+    /// The module loader this document's module scripts and <c>import()</c> calls resolve against, or
+    /// <see langword="null"/> when a host replaced the engine's loader with one of its own.
+    /// </summary>
+    internal Parsing.PageModuleScriptLoader? Modules { get; set; }
+
+    /// <summary>
+    /// What <c>document.readyState</c> answers: <c>loading</c>, <c>interactive</c> or <c>complete</c>.
+    /// </summary>
+    /// <remarks>
+    /// It is the page's rather than AngleSharp's because <c>Document.ReadyState</c>'s setter is protected and
+    /// unreachable from outside its assembly, so the three transitions and the <c>readystatechange</c> events
+    /// that go with them are the parser driver's to make. AngleSharp's own value advances on its own schedule
+    /// and is read at exactly one point — the moment it starts the deferred queue.
+    /// </remarks>
+    internal string ReadyState { get; set; } = "loading";
 
     /// <summary>The viewport this page answers dimension and media queries from.</summary>
     /// <remarks>
@@ -232,10 +265,12 @@ internal sealed class PageRuntime
         Page page,
         BrowserOptions options,
         PageRecorder recorder,
+        PageNetwork network,
+        PageNetworkRecorder requests,
         string documentUrl,
         string referrer)
     {
-        var runtime = new PageRuntime(engine, page, options, recorder, documentUrl, referrer);
+        var runtime = new PageRuntime(engine, page, options, recorder, network, requests, documentUrl, referrer);
         _runtimes.Add(engine, runtime);
         return runtime;
     }
