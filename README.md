@@ -2286,19 +2286,36 @@ show up there and nowhere else.
 `Jint.Browser` is **AngleSharp + Jint**: AngleSharp is the HTML parser, the DOM and (with `AngleSharp.Css`)
 the CSSOM; Jint is the engine, and this package is the layer between them. It is the beginning of a headless
 browser — one that runs a page's scripts against a real DOM without rendering anything — and it is not
-finished. What ships today is the binding layer alone, and this section says so rather than implying more.
+finished. What ships today is a page runtime for static content, and this section says so rather than
+implying more.
+
+```c#
+await using var browser = new Browser();
+var page = await browser.NewPageAsync();
+
+await page.SetContentAsync("<p id='greeting'></p><script>greeting.textContent = 'hello'</script>");
+
+var text = await page.EvaluateAsync<string>("document.querySelector('#greeting').textContent");
+```
 
 **What exists.** Generated bindings for every WebIDL interface AngleSharp describes: one prototype per
 interface built on Jint's own `JsObjectShape`, the interface objects (`Node`, `Element`, `HTMLDivElement`,
 `NodeList`, …) as globals so `instanceof` works, collections that index and iterate through the engine's
-array-like lane, and node wrappers that Jint's tree-aware event dispatcher can walk — so `addEventListener`
-on an element and `dispatchEvent` on a descendant bubble the way the DOM says. Every member is a static
-lambda calling the AngleSharp interface directly; there is no reflection on the path.
+array-like lane, and node wrappers that Jint's tree-aware event dispatcher can walk. On top of them, a page
+runtime: a `Browser` / `BrowserContext` / `Page` API, one engine and one thread per page, a `Window` whose
+prototype the global object inherits (so `window === globalThis`, `window instanceof EventTarget`, and
+`addEventListener` on the window is on a bubbling event's path), `document`, `location`, `screen`,
+`getComputedStyle`, `matchMedia`, `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
+that fire because the page's thread pumps the engine, and console output and script errors recorded on the
+page. Static content from `SetContentAsync`, `about:blank` and `data:text/html` loads, with classic inline
+scripts run in document order as the parse reaches them, then `readystatechange`, `DOMContentLoaded` and
+`load`.
 
-**What does not exist yet.** No `window`, no navigation, no `location` or `history`, no HTML parser driver
-(so a `<script>` in parsed markup does not run), no CSSOM beyond what AngleSharp.Css exposes, no
-`XMLHttpRequest` wiring, no rendering or layout, and no Chrome DevTools page domains. Those are the later
-items of the same campaign.
+**What does not exist yet.** No network, so no external `<script src>`, no subresources, no `fetch` or
+`XMLHttpRequest` traffic and no navigation to `http(s)` — a page names what it could not run in
+`Page.UnsupportedScripts`. No ES modules or import maps, no `history`, no `document.write` during a parse, no
+`MutationObserver`, no iframe scripting (frames are parsed and listed; `contentWindow` is absent), no
+rendering or layout, and no Chrome DevTools page domains. Those are the later items of the same campaign.
 
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is

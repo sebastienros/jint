@@ -69,9 +69,15 @@ internal sealed partial class EventConstructor : Constructor
     /// <c>isTrusted</c> is therefore true. Not reachable from script — the only trusted event Jint fires today
     /// is <c>abort</c>.
     /// </summary>
-    internal JsEvent CreateTrustedEvent(JsString type)
+    internal JsEvent CreateTrustedEvent(JsString type) => CreateTrustedEvent(type, default);
+
+    /// <summary>
+    /// The same, for the algorithm points that fire a bubbling or cancelable event — <c>DOMContentLoaded</c>,
+    /// <c>submit</c>, an input event — rather than the default-initialized one.
+    /// </summary>
+    internal JsEvent CreateTrustedEvent(JsString type, EventInit init)
     {
-        return new JsEvent(_engine, type, default, TimeStampNow(_engine))
+        return new JsEvent(_engine, type, init, TimeStampNow(_engine))
         {
             IsTrusted = true,
             _prototype = PrototypeObject,

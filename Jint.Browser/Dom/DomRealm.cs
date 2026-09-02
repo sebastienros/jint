@@ -5,6 +5,7 @@ using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.WebApi.Events;
 
 namespace Jint.Browser.Dom;
 
@@ -69,6 +70,18 @@ internal sealed class DomRealm
     /// what a binding with no runtime behind it can do; the parser driver replaces it.
     /// </summary>
     internal DomHostHooks Hooks { get; set; } = DomHostHooks.Default;
+
+    /// <summary>
+    /// The window an event path continues into above the document, or <see langword="null"/> when the engine
+    /// has no window.
+    /// </summary>
+    /// <remarks>
+    /// https://dom.spec.whatwg.org/#get-the-parent — a document's parent is its browsing context's window for
+    /// every event but <c>load</c>. The binding does not know what a window is and must not: the runtime that
+    /// installs one publishes it here, and a binding used without a runtime keeps answering the document as
+    /// the root of every path, which is exactly what a document with no browsing context is.
+    /// </remarks>
+    internal JsEventTarget? WindowTarget { get; set; }
 
     /// <summary>The binding state of <paramref name="engine"/>, created on first use.</summary>
     internal static DomRealm Of(Engine engine) => _realms.GetValue(engine, static e => new DomRealm(e));
