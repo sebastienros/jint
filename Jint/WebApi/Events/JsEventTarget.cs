@@ -536,7 +536,10 @@ internal class JsEventTarget : ObjectInstance
 
         if (callback is ICallable directly)
         {
-            directly.Call(ev.CurrentTarget, ev);
+            // Through Engine.Call rather than ICallable.Call, so the listener owns a call-stack frame: a
+            // dispatch is where the engine is entered, and a frame nothing pushed is a frame absent from
+            // Error.prototype.stack, from console.trace, from the profiler and from the debugger's call stack.
+            _engine.Call(directly, ev.CurrentTarget, [ev], expression: null);
             return;
         }
 
@@ -552,7 +555,7 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
-        operation.Call(handler, ev);
+        _engine.Call(operation, handler, [ev], expression: null);
     }
 
     /// <summary>
@@ -596,13 +599,17 @@ internal class JsEventTarget : ObjectInstance
             && IsGlobalScope
             && string.Equals(ev.TypeName, GlobalEventNames.ErrorName, StringComparison.Ordinal))
         {
-            var legacy = handler.Call(
+            var legacy = _engine.Call(
+                handler,
                 ev.CurrentTarget,
-                JsString.Create(errorEvent.Message),
-                JsString.Create(errorEvent.Filename),
-                JsNumber.Create(errorEvent.Lineno),
-                JsNumber.Create(errorEvent.Colno),
-                errorEvent.Error);
+                [
+                    JsString.Create(errorEvent.Message),
+                    JsString.Create(errorEvent.Filename),
+                    JsNumber.Create(errorEvent.Lineno),
+                    JsNumber.Create(errorEvent.Colno),
+                    errorEvent.Error
+                ],
+                expression: null);
 
             if (legacy is JsBoolean && legacy.AsBoolean())
             {
@@ -612,7 +619,7 @@ internal class JsEventTarget : ObjectInstance
             return;
         }
 
-        var result = handler.Call(ev.CurrentTarget, ev);
+        var result = _engine.Call(handler, ev.CurrentTarget, [ev], expression: null);
 
         // Step 4's BeforeUnloadEvent arm: "if return value is not null, then set event's canceled flag".
         // Undefined counts as null here — a handler with no return statement must not stop a navigation —

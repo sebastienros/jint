@@ -26,6 +26,11 @@ public class CallStackEntryFrameTests
         return new Engine(options => options.UseWebApis(WebApiFeatures.Timers | WebApiFeatures.Console));
     }
 
+    private static Engine WithEvents()
+    {
+        return new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.Console));
+    }
+
     /// <summary>The frames of <c>Error.prototype.stack</c>, one per line, whitespace trimmed.</summary>
     private static string[] StackLines(JsValue error)
     {
@@ -101,6 +106,78 @@ public class CallStackEntryFrameTests
         engine.Tasks.ProcessTasks();
 
         StackLines(_reported!)[0].Should().StartWith("at drain (app.js:");
+    }
+
+    [Test]
+    public void AnEventListenerHasAFrameOfItsOwn()
+    {
+        var engine = WithEvents();
+        engine.SetValue("report", new Action<JsValue>(value => _reported = value));
+        engine.Execute(
+            """
+            var target = new EventTarget();
+            target.addEventListener('ping', function handle() {
+                report(new Error('x'));
+            });
+            target.dispatchEvent(new Event('ping'));
+            """,
+            "app.js");
+
+        StackLines(_reported!)[0].Should().StartWith("at handle (app.js:");
+    }
+
+    [Test]
+    public void AHandleEventListenerHasAFrameOfItsOwn()
+    {
+        var engine = WithEvents();
+        engine.SetValue("report", new Action<JsValue>(value => _reported = value));
+        engine.Execute(
+            """
+            var target = new EventTarget();
+            target.addEventListener('ping', {
+                handleEvent: function receive() { report(new Error('x')); }
+            });
+            target.dispatchEvent(new Event('ping'));
+            """,
+            "app.js");
+
+        // The callback interface's operation is looked up per invocation, and the function it finds owns a
+        // frame just as a directly callable listener does.
+        StackLines(_reported!)[0].Should().StartWith("at receive (app.js:");
+    }
+
+    [Test]
+    public void AnEventHandlerAttributeCallbackHasAFrameOfItsOwn()
+    {
+        var engine = WithEvents();
+        engine.SetValue("report", new Action<JsValue>(value => _reported = value));
+        engine.Execute(
+            """
+            var controller = new AbortController();
+            controller.signal.onabort = function reacted() { report(new Error('x')); };
+            controller.abort();
+            """,
+            "app.js");
+
+        // An event handler IDL attribute is a different algorithm from addEventListener's callback, and takes
+        // the other branch of the invoke — which pushed nothing either.
+        StackLines(_reported!)[0].Should().StartWith("at reacted (app.js:");
+    }
+
+    [Test]
+    public void AnAnonymousEventListenerIsAnonymousRatherThanAbsent()
+    {
+        var engine = WithEvents();
+        engine.SetValue("report", new Action<JsValue>(value => _reported = value));
+        engine.Execute(
+            """
+            var target = new EventTarget();
+            target.addEventListener('ping', function () { report(new Error('x')); });
+            target.dispatchEvent(new Event('ping'));
+            """,
+            "app.js");
+
+        StackLines(_reported!)[0].Should().StartWith("at (anonymous) (app.js:");
     }
 
     [Test]

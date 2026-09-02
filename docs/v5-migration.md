@@ -4921,6 +4921,31 @@ with a shallower call stack. The one event it now gets is the deepest of the one
 value, same location, and the call stack it was thrown on — so a subscriber that only read the first event
 of a run sees no change at all.
 
+### 4.113 An event listener has a call-stack frame of its own ([#3644](https://github.com/sebastienros/jint/issues/3644))
+
+The same defect [4.108](#4108-a-frame-the-engine-was-entered-at-is-named-and-a-timer-callback-has-one-3635)
+fixed for a timer callback held for an event listener: `JsEventTarget` reached every callback through
+`ICallable.Call`, which pushes nothing onto the call stack, so a listener invoked by `dispatchEvent`, by
+`controller.abort()` or by any engine-fired event was absent from `Error.prototype.stack`, from
+`console.trace`, from the profiler and from the debugger's call stack. All four invocation sites — a callable
+listener, a callback object's `handleEvent`, an event handler IDL attribute (`onabort`, `onmessage`, …) and
+the global scope's legacy five-argument `onerror` — now go through `Engine.Call`, the same entry a call
+expression and `engine.Invoke` use.
+
+```js
+var target = new EventTarget();
+target.addEventListener('ping', function handle() { throw new Error('boom'); });
+target.dispatchEvent(new Event('ping'));
+// 5.0:  "    at dispatchEvent (app.js:3:8)"
+// 5.x:  "    at handle (app.js:2:52)" and the dispatchEvent frame under it
+```
+
+**What could break:** a test comparing a stack trace against a hard-coded string for code an event listener
+entered — there is one more frame in it — and a host that sets `Options.Constraints.MaxRecursionDepth` low
+enough that one extra frame per listener matters. Nothing about what a listener is passed, what its `this`
+is, what a throwing listener does (report and continue with a `DiagnosticsSink`, erupt without one), or
+whether a handler's return value cancels the event has changed.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
