@@ -160,10 +160,18 @@ public class JavaScriptException : JintException
                 return;
             }
 
-            // Does the Error object already have a stack property?
-            if (errObj.HasProperty(CommonProperties.Stack) && !overwriteExisting)
+            // Does the Error object already carry a usable stack? HasProperty walks the prototype chain, and
+            // %Error.prototype% exposes "stack" as an accessor (error-stack-accessor proposal) that returns
+            // undefined for receivers without [[ErrorData]] — e.g. `Object.create(Error.prototype)` subclasses
+            // such as WPT idlharness's IdlHarnessError. Only a string value counts as an existing stack;
+            // anything else falls through to building one, instead of failing AsString() with a CLR
+            // ArgumentException escaping out of an ordinary JavaScript `throw`.
+            var existingStack = !overwriteExisting && errObj.HasProperty(CommonProperties.Stack)
+                ? errObj.Get(CommonProperties.Stack)
+                : JsValue.Undefined;
+            if (existingStack.IsString())
             {
-                _callStack = errObj.Get(CommonProperties.Stack).AsString();
+                _callStack = existingStack.AsString();
             }
             else
             {

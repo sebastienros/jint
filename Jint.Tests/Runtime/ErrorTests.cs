@@ -231,6 +231,45 @@ var wrap = function(v) {
         engine.Evaluate(@"typeof Error().stack").AsString().Should().Be("string");
     }
 
+    [Fact]
+    public void ThrowingErrorPrototypeDerivedObjectWithoutErrorDataSurfacesAsJavaScriptException()
+    {
+        // A hand-rolled subclass in the pre-ES6 style inherits the Error.prototype "stack" accessor but has
+        // no [[ErrorData]], so the getter returns undefined. Building the host exception must not turn that
+        // undefined into a CLR ArgumentException — it must fall through to the engine-built call stack.
+        // (This is exactly how WPT's idlharness.js declares IdlHarnessError.)
+        var engine = new Engine();
+        engine.Execute(@"
+function CustomError(message) { this.message = message; }
+CustomError.prototype = Object.create(Error.prototype);
+function thrower() { throw new CustomError('custom boom'); }
+", "custom.js");
+
+        var e = Invoking(() => engine.Execute("thrower();", "main.js")).Should().ThrowExactly<JavaScriptException>().Which;
+
+        e.Message.Should().Be("custom boom");
+        EqualIgnoringNewLineDifferences(@"    at thrower (custom.js:4:28)
+    at main.js:1:1", e.JavaScriptStackTrace);
+
+        // The engine-built stack is installed as an own data property, so the script can read it too.
+        engine.Evaluate(@"
+try { thrower(); } catch (err) { typeof err.stack; }").AsString().Should().Be("string");
+    }
+
+    [Fact]
+    public void ThrowingObjectWithNonStringStackPropertyKeepsAuthorValueAndDoesNotFault()
+    {
+        var engine = new Engine();
+
+        var e = Invoking(() => engine.Execute("throw { message: 'plain', stack: 42 };", "main.js"))
+            .Should().ThrowExactly<JavaScriptException>().Which;
+
+        e.Message.Should().Be("plain");
+        // The author's non-string "stack" is left untouched; the host side falls back to its own call stack.
+        e.JavaScriptStackTrace.Should().Be("    at main.js:1:7");
+        engine.Evaluate("(function(){ try { throw { stack: 42 }; } catch (x) { return x.stack; } })()").AsNumber().Should().Be(42);
+    }
+
     private class Folder
     {
         public Folder Parent { get; set; }
