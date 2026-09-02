@@ -101,7 +101,7 @@ public class InProcessProtocolTests
     /// </summary>
     [TestCase("Runtime.evaluate", TestName = "A generated but unimplemented command")]
     [TestCase("Debugger.enable", TestName = "A generated but unimplemented command of another domain")]
-    [TestCase("Browser.setWindowBounds", TestName = "An unimplemented command of an implemented domain")]
+    [TestCase("Browser.getHistogram", TestName = "An unimplemented command of an implemented domain")]
     [TestCase("Page.navigate", TestName = "A command of a domain that is not generated at all")]
     [TestCase("Browser.thereIsNoSuchCommand", TestName = "A command the protocol does not declare")]
     [TestCase("nodot", TestName = "A method that is not qualified at all")]
@@ -123,7 +123,7 @@ public class InProcessProtocolTests
     {
         await using var session = ProtocolSession.Create();
         var error = await session.ErrorOfAsync(
-            """{"id":5,"method":"Browser.setWindowBounds","params":{"windowId":"not a number"}}""");
+            """{"id":5,"method":"Browser.getHistogram","params":{"name":42}}""");
 
         error.GetProperty("code").GetInt32().Should().Be(
             -32601,

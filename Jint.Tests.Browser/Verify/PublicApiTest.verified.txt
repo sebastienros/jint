@@ -56,6 +56,10 @@ namespace Jint.Browser
         public Jint.Browser.BrowserOptions ConfigureEngine(System.Action<Jint.Options> configure) { }
         public Jint.Browser.BrowserOptions ForUntrustedContent(Jint.UntrustedCodeLimits? limits = null) { }
     }
+    public static class DevToolsServerExtensions
+    {
+        public static System.Threading.Tasks.Task AddBrowser(this Jint.DevTools.DevToolsServer server, Jint.Browser.Browser browser) { }
+    }
     public sealed class DialogEventArgs : System.EventArgs
     {
         public bool Accepted { get; set; }

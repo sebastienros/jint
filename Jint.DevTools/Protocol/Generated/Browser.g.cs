@@ -806,6 +806,12 @@ namespace Jint.DevTools.Domains
         {
             switch (method)
             {
+                case "setDownloadBehavior":
+                {
+                    var result = await SetDownloadBehaviorAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.BrowserSetDownloadBehaviorRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 case "close":
                 {
                     var result = await CloseAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
@@ -816,6 +822,18 @@ namespace Jint.DevTools.Domains
                 {
                     var result = await GetVersionAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.BrowserGetVersionResponse);
+                }
+
+                case "getWindowForTarget":
+                {
+                    var result = await GetWindowForTargetAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.BrowserGetWindowForTargetRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.BrowserGetWindowForTargetResponse);
+                }
+
+                case "setWindowBounds":
+                {
+                    var result = await SetWindowBoundsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.BrowserSetWindowBoundsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
                 // A command manifest.json does not list is method-not-found BEFORE its parameters

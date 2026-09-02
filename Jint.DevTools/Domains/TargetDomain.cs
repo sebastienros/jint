@@ -31,6 +31,7 @@ internal sealed class TargetDomain : TargetDomainBase
 {
     private readonly BrowserSession _browser;
     private readonly bool _nested;
+    private readonly DevToolsTarget? _owner;
 
     private bool _discover;
     private FilterEntry[]? _discoverFilter;
@@ -42,12 +43,14 @@ internal sealed class TargetDomain : TargetDomainBase
     /// <param name="browser">The conversation whose attachments this domain mints.</param>
     /// <param name="nested">
     /// Whether this is the copy on an attached session rather than on the browser session, which decides
-    /// only what <c>setAutoAttach</c> does: a target here has no children to attach to.
+    /// what <c>setAutoAttach</c> does: a nested copy attaches that target's own children and nothing else.
     /// </param>
-    internal TargetDomain(BrowserSession browser, bool nested)
+    /// <param name="owner">The target this session is attached to, for a nested copy.</param>
+    internal TargetDomain(BrowserSession browser, bool nested, DevToolsTarget? owner = null)
     {
         _browser = browser;
         _nested = nested;
+        _owner = owner;
     }
 
     /// <inheritdoc/>
@@ -105,10 +108,23 @@ internal sealed class TargetDomain : TargetDomainBase
 
         if (_nested)
         {
-            // A target here has no children — a worker is not a target in this server, and an engine has
-            // none at all — so there is nothing to attach to and nothing to remember. Answered as the
-            // success it is: a client walks down the tree by sending this on every session it is given, and
-            // a refusal there reads to it as a broken target.
+            // A nested copy attaches this target's own children and nothing else. There is one kind that has
+            // any -- a tab, which is what a page hangs off -- and every other target answers this as the
+            // success it is: a client walks down the tree by sending it on every session it is given, and a
+            // refusal there reads to it as a broken target. A worker is not a target in this server.
+            _autoAttachWaitsForDebugger = parameters.WaitForDebuggerOnStart;
+
+            if (parameters.AutoAttach && _owner is { } owner)
+            {
+                foreach (var child in owner.Children)
+                {
+                    if (Matches(parameters.Filter, child.Type))
+                    {
+                        await AttachAsync(child, context.CancellationToken).ConfigureAwait(false);
+                    }
+                }
+            }
+
             return EmptyResult.Instance;
         }
 

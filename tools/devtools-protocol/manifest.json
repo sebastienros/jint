@@ -13,7 +13,14 @@
     "Log",
     "Schema",
     "Target",
-    "Browser"
+    "Browser",
+    "Page",
+    "Emulation",
+    "Network",
+    "Fetch",
+    "Performance",
+    "Audits",
+    "DOM"
   ],
 
   // The commands Jint.DevTools actually answers. Every entry is checked against the vendored protocol,
@@ -33,9 +40,18 @@
   // Profiler has no console-driven half: console.profile and console.profileEnd are not implemented by the
   // engine at all - ConsoleMethod has no member for either - so consoleProfileStarted and
   // consoleProfileFinished would be events nothing could ever raise.
+  //
+  // The last six domains are a *page* target's, and Jint.Browser is what answers them: an engine target has
+  // no document, so every one of them is -32601 there. That is why they are absent from reportedDomains
+  // below, and why Jint.Tests.DevTools checks them through the page-level suite rather than its own.
   "implementedMethods": [
+    "Audits.disable",
+    "Audits.enable",
     "Browser.close",
     "Browser.getVersion",
+    "Browser.getWindowForTarget",
+    "Browser.setDownloadBehavior",
+    "Browser.setWindowBounds",
     "Console.clearMessages",
     "Console.disable",
     "Console.enable",
@@ -62,11 +78,46 @@
     "Debugger.stepInto",
     "Debugger.stepOut",
     "Debugger.stepOver",
+    "Emulation.clearDeviceMetricsOverride",
+    "Emulation.setDeviceMetricsOverride",
+    "Emulation.setEmulatedMedia",
+    "Emulation.setFocusEmulationEnabled",
+    "Emulation.setTouchEmulationEnabled",
+    "Emulation.setUserAgentOverride",
+    "Fetch.disable",
+    "Fetch.enable",
     "Log.clear",
     "Log.disable",
     "Log.enable",
     "Log.startViolationsReport",
     "Log.stopViolationsReport",
+    "Network.disable",
+    "Network.enable",
+    "Network.setCacheDisabled",
+    "Network.setExtraHTTPHeaders",
+    "Page.addScriptToEvaluateOnNewDocument",
+    "Page.bringToFront",
+    "Page.captureScreenshot",
+    "Page.close",
+    "Page.createIsolatedWorld",
+    "Page.disable",
+    "Page.enable",
+    "Page.getFrameTree",
+    "Page.getLayoutMetrics",
+    "Page.getNavigationHistory",
+    "Page.handleJavaScriptDialog",
+    "Page.navigate",
+    "Page.navigateToHistoryEntry",
+    "Page.printToPDF",
+    "Page.reload",
+    "Page.removeScriptToEvaluateOnNewDocument",
+    "Page.setBypassCSP",
+    "Page.setDocumentContent",
+    "Page.setFontFamilies",
+    "Page.setLifecycleEventsEnabled",
+    "Page.stopLoading",
+    "Performance.disable",
+    "Performance.enable",
     "Profiler.disable",
     "Profiler.enable",
     "Profiler.getBestEffortCoverage",
@@ -122,6 +173,16 @@
     "Debugger.resumed",
     "Debugger.scriptParsed",
     "Log.entryAdded",
+    "Page.domContentEventFired",
+    "Page.frameNavigated",
+    "Page.frameStartedLoading",
+    "Page.frameStartedNavigating",
+    "Page.frameStoppedLoading",
+    "Page.javascriptDialogClosed",
+    "Page.javascriptDialogOpening",
+    "Page.lifecycleEvent",
+    "Page.loadEventFired",
+    "Page.navigatedWithinDocument",
     "Runtime.bindingCalled",
     "Runtime.consoleAPICalled",
     "Runtime.exceptionRevoked",
@@ -137,6 +198,12 @@
 
   // What Schema.getDomains answers. A domain reaches this list only once it has an implemented command,
   // so a client feature-detecting through it is never told about a domain that answers nothing.
+  //
+  // The page-level six are deliberately absent even though they have implemented commands: this command is
+  // answered by the *browser* session, which has no target in hand, and a server with no page targets would
+  // otherwise claim Page to a client that would get -32601 for every command in it. No recorded client sends
+  // Schema.getDomains at all; each of them feature-detects a page domain by sending one of its commands to a
+  // page session, which is exactly where they are answered.
   "reportedDomains": [
     { "name": "Browser", "version": "1.3" },
     { "name": "Console", "version": "1.3" },

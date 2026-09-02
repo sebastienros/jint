@@ -119,4 +119,17 @@ public sealed class Browser : IAsyncDisposable
             _contexts.Remove(context);
         }
     }
+
+    /// <summary>
+    /// Raised on the thread that opened a page, once the page is in its context.
+    /// </summary>
+    /// <remarks>
+    /// What lets the protocol layer publish a page a host opened as a target without the host having to say
+    /// so. It is internal because a target is the only thing that wants it: the public shape of "a page
+    /// appeared" is the protocol event a client receives.
+    /// </remarks>
+    internal event Action<BrowserContext, Page>? PageOpened;
+
+    /// <summary>Tells whoever is listening that <paramref name="page"/> is open.</summary>
+    internal void OnPageOpened(BrowserContext context, Page page) => PageOpened?.Invoke(context, page);
 }

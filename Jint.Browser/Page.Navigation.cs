@@ -29,6 +29,9 @@ public sealed partial class Page
     private NavigationRequest? _capturedNavigation;
     private bool _capturingNavigation;
 
+    /// <summary>How many documents this page has begun loading, which is what a loader identifier counts.</summary>
+    private int _loaderSerial;
+
     /// <summary>
     /// Whether the document showing is still the <c>about:blank</c> the page opened on, which the first
     /// navigation replaces rather than pushes past. Loop thread only.
@@ -288,6 +291,7 @@ public sealed partial class Page
         _url = url;
         runtime.DocumentUrl = url;
         SignalNavigation();
+        _observer?.SameDocumentNavigated(url, _loaderId);
     }
 
     /// <summary>Starts a navigation nobody is waiting for, and turns its failure into a page error.</summary>
@@ -338,6 +342,9 @@ public sealed partial class Page
 
         try
         {
+            var loaderId = NextLoaderId();
+            _observer?.NavigationStarted(url, loaderId);
+
             if (_load is not null)
             {
                 // beforeunload fires and is never honoured: a host replacing the content means it, and there
@@ -347,7 +354,7 @@ public sealed partial class Page
 
             await _loop.PostAsync(engine => Commit(
                 engine,
-                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null))).ConfigureAwait(false);
+                new CommitRequest(url, html, Response: null, HistoryMode.Push, TraversalIndex: -1, Referrer: ReferrerFor(_url), OnPhase: null, LoaderId: loaderId))).ConfigureAwait(false);
         }
         finally
         {
@@ -402,6 +409,11 @@ public sealed partial class Page
             return _response;
         }
 
+        // Minted here rather than at the commit, because a client is told a navigation started before
+        // anything has been fetched and every signal of the document it produces has to carry the same value.
+        var loaderId = NextLoaderId();
+        _observer?.NavigationStarted(href, loaderId);
+
         if (_load is not null)
         {
             var stay = await _loop.PostAsync(FireBeforeUnload).ConfigureAwait(false);
@@ -437,7 +449,7 @@ public sealed partial class Page
 
         var commit = _loop.PostAsync(engine => Commit(
             engine,
-            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached)));
+            new CommitRequest(finalUrl, html, response, request.History, request.TraversalIndex, referrer, signals.Reached, loaderId)));
 
         // The signal for the requested phase, so that WaitUntil.Commit really does answer before the load
         // events have run. A commit that fails before its phase arrives wins the race and throws.
@@ -557,7 +569,7 @@ public sealed partial class Page
         }
 
         var engine = _loop.ReplaceEngine(() => BuildEngine(request.Url, request.Referrer));
-        LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase);
+        LoadInto(engine, request.Url, request.Html, request.Response, request.Referrer, request.OnPhase, request.LoaderId);
 
         if (history == HistoryMode.Traverse)
         {
@@ -617,7 +629,8 @@ public sealed partial class Page
         string html,
         PageResponse? response,
         string referrer,
-        Action<NavigationPhase>? onPhase)
+        Action<NavigationPhase>? onPhase,
+        string loaderId)
     {
         // The previous document goes first, and the page describes nothing until the new one exists. The
         // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
@@ -633,6 +646,14 @@ public sealed partial class Page
         var runtime = PageRuntime.Find(engine)!;
         runtime.DocumentUrl = url;
         runtime.Referrer = referrer;
+        _loaderId = loaderId;
+        CancelNetworkIdle();
+
+        // The engine exists and its window is installed, and nothing of the document has been parsed. This is
+        // where a protocol target replaces its engine, re-installs the bindings a client added and runs the
+        // scripts it asked to be evaluated on every new document -- all of which have to be in place before
+        // the first inline script of the document runs.
+        _observer?.DocumentCreated(runtime, loaderId);
 
         // Before the parse, and the order is load-bearing rather than tidy. Every phase signal a caller of
         // NavigateAsync may be awaiting is raised *inside* the parse, so signalling afterwards would let a
@@ -642,11 +663,37 @@ public sealed partial class Page
         // What a woken waiter then posts queues behind this request, so it still observes the parsed document.
         SignalNavigation();
 
-        var load = PageDocument.Load(runtime, html, url, onPhase);
+        var load = PageDocument.Load(runtime, html, url, phase =>
+        {
+            onPhase?.Invoke(phase);
+            Reached(runtime, phase, loaderId);
+        });
 
         _load = load;
         _mainFrame = Frame.Build(this, load.Document, url);
         return null;
+    }
+
+    /// <summary>Tells the watcher how far the load got, and arms the quiet period once it is loaded.</summary>
+    /// <remarks>
+    /// The title is reported at each of the three, because it is what a client shows for the target and the
+    /// parse is what settles it: a document's <c>&lt;title&gt;</c> is in place by the commit, and a script
+    /// that rewrites it does so before <c>load</c> far more often than after.
+    /// </remarks>
+    private void Reached(PageRuntime runtime, NavigationPhase phase, string loaderId)
+    {
+        if (_observer is not { } observer)
+        {
+            return;
+        }
+
+        observer.Phase(phase, loaderId);
+        observer.TitleChanged(runtime.Document?.Title ?? "");
+
+        if (phase == NavigationPhase.Loaded)
+        {
+            ArmNetworkIdle(loaderId);
+        }
     }
 
     /// <summary>Records the entry the first <c>about:blank</c> document sits at, on the loop.</summary>
@@ -680,6 +727,7 @@ public sealed partial class Page
         _url = url;
         runtime.DocumentUrl = url;
         SignalNavigation();
+        _observer?.SameDocumentNavigated(url, _loaderId);
 
         FireHashChange(runtime, previous, url);
         return null;
@@ -700,6 +748,7 @@ public sealed partial class Page
         _url = url;
         runtime.DocumentUrl = url;
         SignalNavigation();
+        _observer?.SameDocumentNavigated(url, _loaderId);
 
         FirePopState(runtime.Engine);
         FireHashChange(runtime, previous, url);
@@ -877,7 +926,19 @@ public sealed partial class Page
         HistoryMode History,
         int TraversalIndex,
         string Referrer,
-        Action<NavigationPhase>? OnPhase);
+        Action<NavigationPhase>? OnPhase,
+        string LoaderId);
+
+    /// <summary>Mints the identifier the next document carries, unique for the life of the page.</summary>
+    private string NextLoaderId()
+    {
+        var loaderId = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{_loaderIdPrefix}{Interlocked.Increment(ref _loaderSerial)}");
+
+        _pendingLoaderId = loaderId;
+        return loaderId;
+    }
 
     /// <summary>
     /// The three points a caller can wait for, as tasks the loop completes on its way through the load.

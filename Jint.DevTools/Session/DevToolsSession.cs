@@ -101,6 +101,20 @@ internal sealed class DevToolsSession
         return child;
     }
 
+    /// <summary>Answers the child session <paramref name="sessionId"/> names, or <see langword="null"/>.</summary>
+    /// <remarks>
+    /// What a test reaches an attachment's own domains through. The routing itself does not use it — a
+    /// message is resolved on the way in — but a check that every command the manifest names is overridden
+    /// has to be able to ask which domains one attachment actually registered.
+    /// </remarks>
+    internal DevToolsSession? Child(string sessionId)
+    {
+        lock (_childLock)
+        {
+            return _root._children?.GetValueOrDefault(sessionId);
+        }
+    }
+
     /// <summary>Removes a child session, answering whether there was one.</summary>
     internal bool RemoveChild(string sessionId)
     {

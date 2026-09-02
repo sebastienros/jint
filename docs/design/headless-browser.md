@@ -195,6 +195,60 @@ selects); `dispatchKeyEvent` becomes `keydown`/`keypress`/`keyup` with editing o
 `beforeinput`/`input`/`change`); `insertText` and a `contenteditable`-lite complete it. WPT's `testdriver.js` is
 mapped onto the same dispatcher.
 
+## 8a. The page-level protocol
+
+A page is **one target with one engine per navigation**, and that is the whole shape. `PageTarget` is a
+`Jint.DevTools.DevToolsTarget`: it holds the identifier a client keeps addressing, the frame that identifier
+also names, the bindings `Runtime.addBinding` installed, the scripts
+`Page.addScriptToEvaluateOnNewDocument` runs and the emulation a client set; the engine under it is replaced
+on every commit, and with it every handle, every script identifier and the execution context. A client that
+comes back with something from the document before is told so in Chrome's own words —
+`Cannot find context with specified id`, `Could not find object with given id` — rather than answered about
+a value of the document that replaced it.
+
+`Jint.Browser` reaches all of that through one seam, `IPageObserver`, and a page has exactly one observer.
+`DocumentCreated` fires after the window installer and before the parse, on the loop thread, which is what
+makes it the place to replace the engine, re-install the bindings and run the new-document scripts: every one
+of them has to be in place before the document's first inline script. `Phase`, `SameDocumentNavigated`,
+`TitleChanged`, `DialogOpening`/`DialogClosed`, `NetworkIdle` and `Closed` are the rest.
+
+The events of a cross-document navigation, in the order the recordings show Chrome sending them:
+`frameStartedNavigating`, `frameStartedLoading`, `lifecycleEvent(init)`, `frameNavigated`, then the engine
+swap (`Runtime.executionContextsCleared`, `executionContextCreated`), `lifecycleEvent(commit)`,
+`domContentEventFired` + `lifecycleEvent(DOMContentLoaded)`, `loadEventFired` + `lifecycleEvent(load)`,
+`frameStoppedLoading`, and — after half a second of quiet — `lifecycleEvent(networkAlmostIdle)` and
+`lifecycleEvent(networkIdle)`. One divergence, and it comes from where the commit is announced: Chrome
+interleaves `frameNavigated` between the two context events, and here the frame and the engine swap are one
+`DocumentCreated` call — the moment the next document's engine exists and nothing of it has been parsed — so
+`frameNavigated` precedes the swap. A same-document move — `pushState`, a fragment, a traversal — is
+`navigatedWithinDocument`.
+
+`DevToolsServerExtensions.AddBrowser(server, browser)` is the only public member the protocol layer adds.
+Every page becomes a `page` target carrying its browser context, and the server's `Target` domain mints both
+through a `BrowserTargetHost`: `createBrowserContext` opens a `BrowserContext`, `createTarget` opens a `Page`
+in it, `closeTarget` closes the page, `disposeBrowserContext` closes the context. Each page is published
+with a **`tab` target** in front of it, which is not decoration: modern Chrome puts one between the browser
+and each page, Puppeteer's browser-level `setAutoAttach` filter is *everything but a page*, and it reaches a
+page by sending `setAutoAttach` again on the tab's session. A server that published pages and no tabs is one
+Puppeteer connects to, discovers a page on, and then waits forever for a session — which is how it was
+found.
+
+Three divergences are deliberate and stated where they are made. An **isolated world is an alias** for the
+document's own realm: there is one realm per document, so a world buys a client its own
+`executionContextId` and none of the isolation the name promises. A **dialog does not block the page** —
+`alert` runs on the page loop, inside the script that called it, and that loop is the thread a client's
+answer would be delivered on — so `Page.handleJavaScriptDialog` sets the standing decision the next dialog
+reads, and `javascriptDialogOpening` and `javascriptDialogClosed` arrive together. And
+**`captureScreenshot` and `printToPDF` answer `-32000`** with a sentence that says this browser renders no
+pixels and names `Jint.getMarkdown`, `Jint.getText` and `document.documentElement.outerHTML` instead.
+
+What is accepted and not yet effective is accepted because refusing it fails an ordinary connection, and
+each says which campaign item makes it real: `Emulation`'s touch, focus, media and user-agent overrides
+(input, §8), `Network.setCacheDisabled` and `setExtraHTTPHeaders` and `Fetch.enable` (the network work),
+`Performance.enable` and `Audits.enable` (nothing to measure and nothing to report). `Fetch.enable` above
+all must never stall a navigation. `Emulation.setDeviceMetricsOverride` is the one that is real: it sets the
+page's `Viewport`, so `innerWidth`, `devicePixelRatio`, `screen` and every `matchMedia` query move with it.
+
 ## 9. The scoreboard
 
 WPT is the conformance suite the way test262 is the language's, with the discipline `Jint.Tests/Wpt/AGENTS.md`

@@ -46,11 +46,12 @@ public class HandshakeReplayTests
     /// <remarks>
     /// Three reasons, and they are not interchangeable. A <b>page</b> entry belongs to a target that has a
     /// document — <c>Jint.Browser</c>, which is AngleSharp plus Jint — and would be wrong to answer here
-    /// whatever the implementation state, because an engine target has no page to answer about. A
-    /// <b>later</b> entry is engine-level and simply not written yet — <b>there are none, and that is the
-    /// point of naming the reason</b>: everything a recorded client sends and this server does not answer is
-    /// now either somebody else's to answer or nobody's. A <b>none</b> entry is one Chrome itself answered
-    /// <c>-32601</c> to in the very recording.
+    /// whatever the implementation state, because an engine target has no page to answer about. <b>Several of
+    /// them are now implemented</b>, and they still answer <c>-32601</c> here: what a page target answers is
+    /// checked by <c>Jint.Tests.Browser</c>, against a page. A <b>later</b> entry is engine-level and simply
+    /// not written yet — <b>there are none, and that is the point of naming the reason</b>: everything a
+    /// recorded client sends and this server does not answer is now either somebody else's to answer or
+    /// nobody's. A <b>none</b> entry is one Chrome itself answered <c>-32601</c> to in the very recording.
     /// </remarks>
     private static readonly Dictionary<string, string> Absent = new(StringComparer.Ordinal)
     {
@@ -170,7 +171,11 @@ public class HandshakeReplayTests
         foreach (var method in methods)
         {
             var reply = await BestAnswerAsync(session, method, fixture, attachment);
-            var implemented = ProtocolManifest.ImplementedMethods.Contains(method, StringComparer.Ordinal);
+
+            // A page-level command may well be in the manifest -- Jint.Browser implements it -- and is still
+            // not answered by an engine target, which has no page to answer about.
+            var implemented = ProtocolManifest.ImplementedMethods.Contains(method, StringComparer.Ordinal)
+                && Absent.GetValueOrDefault(method) != "page";
             var error = reply.TryGetProperty("error", out var value) ? value : (JsonElement?) null;
             var code = error?.GetProperty("code").GetInt32();
 
@@ -214,7 +219,10 @@ public class HandshakeReplayTests
     [Test]
     public void NothingIsExcusedThatIsAlreadyImplemented()
     {
-        var stale = Absent.Keys.Where(method => ProtocolManifest.ImplementedMethods.Contains(method, StringComparer.Ordinal)).ToArray();
+        var stale = Absent
+            .Where(entry => entry.Value != "page" && ProtocolManifest.ImplementedMethods.Contains(entry.Key, StringComparer.Ordinal))
+            .Select(entry => entry.Key)
+            .ToArray();
 
         Assert.That(
             stale.Length == 0,

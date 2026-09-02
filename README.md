@@ -2420,13 +2420,44 @@ var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(2) }.F
 await using var browser = new Browser(options);
 ```
 
+**And the automation protocol.** `AddBrowser` publishes every page of a browser on a
+`Jint.DevTools` server as a Chrome DevTools Protocol `page` target, so Puppeteer, PuppeteerSharp, Playwright
+and Playwright for .NET can drive it — in the same process, with no native binary and nothing to download:
+
+```c#
+await using var browser = new Browser();
+await using var server = new DevToolsServer(new DevToolsServerOptions { Port = 9222 });
+
+await server.AddBrowser(browser);
+server.Start();
+
+// …and from anywhere that can reach the port:
+await using var client = await Puppeteer.ConnectAsync(
+    new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+
+var page = await client.NewPageAsync();
+await page.GoToAsync("https://example.org/");
+var title = await page.EvaluateExpressionAsync<string>("document.title");
+```
+
+A client's `newPage` opens a real page in a real browser context, `goto` navigates and reports the lifecycle
+Chrome reports, and `evaluate` runs in the page. Three things a client may notice are decisions rather than
+gaps, and each is stated in the code that makes it: an isolated world is a second *name* for the document's
+own realm rather than a realm of its own; a dialog does not block the page, so `Page.handleJavaScriptDialog`
+sets the decision the next `alert`, `confirm` or `prompt` reads; and `Page.captureScreenshot` and
+`Page.printToPDF` answer an error saying this browser renders no pixels and naming what to ask for instead.
+The endpoint is unauthenticated by the protocol's own design, so it listens on loopback and should stay
+there.
+
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
-no rendering or layout — so every rectangle is zeros and `getBoundingClientRect` does not exist — and no
-Chrome DevTools page domains. Those are the later items of the same campaign. Drag and drop and the clipboard
-are v1 non-goals, so `DragEvent` and `ClipboardEvent` are absent rather than stubbed. Deliberately absent for
-good: images and frame documents are never fetched — the reference is recorded in `Page.Requests` with the
-reason instead — `integrity` is accepted and not enforced, and `document.write` after a page has finished
-parsing is refused with a page error rather than implying `document.open()`.
+and no rendering or layout — so every rectangle is zeros and `getBoundingClientRect` does not exist. Over the
+protocol that means no `Network` or `Fetch` events (so a client's `goto` answers no response object), no
+`DOM`, `Input`, `Storage` or `Accessibility` domains, and no screenshots. Those are the later items of the
+same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
+absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
+reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
+and `document.write` after a page has finished parsing is refused with a page error rather than implying
+`document.open()`.
 
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is
