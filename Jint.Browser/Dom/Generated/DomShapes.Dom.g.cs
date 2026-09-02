@@ -466,9 +466,9 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createHTMLDocument");
-                    return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMImplementation.createHTMLDocument")));
+                    return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, "")!));
                 },
-                length: 1)
+                length: 0)
             .Method("hasFeature",
                 static (thisObj, args) =>
                 {
@@ -711,6 +711,13 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.CreateElement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createElementNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createElementNS")));
                 },
                 length: 2)
+            .Method("createEvent",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createEvent");
+                    return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);
+                },
+                length: 1)
             .Method("createNodeIterator",
                 static (thisObj, args) =>
                 {

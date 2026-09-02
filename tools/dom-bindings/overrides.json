@@ -32,6 +32,11 @@
       "reason": "Returns an AngleSharp Event. Every script-visible event in this design is a Jint Event dispatched through the engine's own tree dispatcher (design doc §5), and letting AngleSharp's event objects reach script would create a second event bus with a second brand."
     },
     {
+      "interface": "DOMImplementation",
+      "member": "createHTMLDocument",
+      "reason": "AngleSharp's parameter is non-optional, so the projection would make DOM's `optional DOMString title` required and `document.implementation.createHTMLDocument()` a TypeError. Re-declared in `additions` over the same AngleSharp call with the argument optional."
+    },
+    {
       "interface": "Document",
       "member": "open",
       "reason": "document.open() re-enters the parser and replaces the document; the parser driver owns that (campaign item R3)."
@@ -100,6 +105,28 @@
   ],
 
   "additions": [
+    {
+      "interface": "DOMImplementation",
+      "member": "createHTMLDocument",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.createHTMLDocument\");",
+        "return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, \"\")!));"
+      ],
+      "reason": "DOM §4.5.1: the title is optional. The one divergence left is AngleSharp's: an omitted title still produces an empty <title> element, where the standard creates none at all."
+    },
+    {
+      "interface": "Document",
+      "member": "createEvent",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createEvent\");",
+        "return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);"
+      ],
+      "reason": "DOM §4.5's legacy creation surface, which the standard still requires and half the events corpus is written against. AngleSharp's own is skipped because it answers an AngleSharp Event; this builds the Jint event the alias names, with the empty type and the initialized flag unset that make it undispatchable until initEvent() has named it."
+    },
     {
       "interface": "Document",
       "member": "createTreeWalker",

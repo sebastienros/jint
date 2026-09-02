@@ -72,17 +72,20 @@ internal static class WptBrowserExclusions
         // says the same about `fetch/api/*/*.sub.any.js`, and Vendor/README.md's serving section argues it.
         ("dom/events/*.sub.html", "wptserve substitution into a *second* origin, which this server does not have"),
 
-        // ------------------------------------------------------------ needs `document.createEvent` at file scope
-        // The same defect the NeedsTriage rows below record, met before a test could be registered — so there
-        // is no per-test result for it here and the file is a harness error. `Event-cancelBubble.html` and its
-        // sixteen siblings name the defect from the other side, which is why nothing is lost by these rows.
-        ("dom/events/Event-constants.html", "calls document.createEvent at file scope, which the bindings do not have"),
-        ("dom/events/Event-propagation.html", "calls document.createEvent at file scope, which the bindings do not have"),
-        ("dom/events/Event-dispatch-detached-click.html", "calls document.createEvent inside its one test, which never completes"),
-        ("dom/events/keypress-dispatch-crash.html", "calls document.implementation.createDocument at file scope"),
+        // ------------------------------------------------------------ not vendored, and the cause has gone
+        // These four were harness errors because `document.createEvent` did not exist and each of them reaches
+        // for it before a test could report. It exists now, so the reason these are not vendored is spent and
+        // vendoring them is a change of its own: it moves the census's Documents and Tests columns, which the
+        // change that fixes an engine deliberately does not. `keypress-dispatch-crash.html` needs one more
+        // thing — `document.implementation.createDocument`, which AngleSharp's IImplementation does not have
+        // at all (`createHTMLDocument` and `new Document()` are the two this package answers).
+        ("dom/events/Event-constants.html", "not vendored: it called document.createEvent at file scope, which now exists"),
+        ("dom/events/Event-propagation.html", "not vendored: it called document.createEvent at file scope, which now exists"),
+        ("dom/events/Event-dispatch-detached-click.html", "not vendored: it called document.createEvent inside its one test, which now exists"),
+        ("dom/events/keypress-dispatch-crash.html", "calls document.implementation.createDocument at file scope, which AngleSharp's IImplementation does not have"),
 
         // ------------------------------------------------------------ needs a name this browser does not have
-        ("dom/events/Event-stopPropagation-cancel-bubbling.html", "reads the legacy global `window.event`, which is a NeedsTriage row of event-global.html"),
+        ("dom/events/Event-stopPropagation-cancel-bubbling.html", "not vendored: it read the legacy global `window.event`, which now exists"),
         ("dom/events/EventTarget-add-listener-platform-object.html", "defines a custom element: window.customElements is absent"),
         ("dom/events/Event-dispatch-click.html", "follows a `javascript:` URL 87 times; a page here loads http, https, about: and data:"),
 
@@ -279,39 +282,16 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly WptExclusion[] All =
     [
-        // ---------------------------------------------------------------- 1. document.createEvent
-        // https://dom.spec.whatwg.org/#dom-document-createevent, the legacy creation surface DOM still
-        // requires: `document.createEvent(alias)` then `initEvent`. Nothing in the bindings has it, and half
-        // this corpus is written against it because it predates the constructors. `new Document()` and
-        // `document.implementation.createHTMLDocument()` are the same section of the same gap — the two
-        // documents that reach for one are Event-dispatch-bubbles-{true,false}.
-        new("dom/events/CustomEvent.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-cancelBubble.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-defaultPrevented-after-dispatch.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-defaultPrevented.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubble-canceled.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubbles-false.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubbles-true.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-handlers-changed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-multiple-cancelBubble.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-multiple-stopPropagation.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-omitted-capture.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-propagation-stopped.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-reenter.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-target-moved.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-target-removed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-initEvent.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent-returnvalue.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's dispatch flag is set, an InvalidStateError must be thrown.", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "Exceptions from event listeners must not be propagated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-returnValue.html", "initEvent should unset returnValue.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type-empty.html", "initEvent", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type.html", "Event.type should initially be the empty string", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type.html", "Event.type should be initialized by initEvent", WptDivergence.NeedsTriage),
-        new("dom/events/KeyEvent-initKeyEvent.html", "KeyboardEvent.initKeyEvent shouldn't be defined (created by createEvent(\"KeyboardEvent\")", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 1. an event interface this browser has not built
+        // https://dom.spec.whatwg.org/#dom-document-createevent's alias table names five interfaces
+        // Jint.Browser deliberately does not build, and this file is the only place a page meets them all at
+        // once: it asks each of them for an uninitialized event and dispatches it. `createEvent` refuses the
+        // alias with the NotSupportedError the standard gives one it does not list, which is what these four
+        // rows say. See WptDivergence.NeedsMoreEventInterfaces.
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceMotionEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
 
         // ---------------------------------------------------------------- 3. a script's exception is not reported
         // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. An exception escaping a
@@ -339,13 +319,14 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/body-onerror-runtime-error.html", "<body onerror> - runtime error in <script>", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 4. the error event carries no column
-        // https://html.spec.whatwg.org/multipage/webappapis.html#erroreventinit: `colno`. The five-argument
-        // `onerror` receives `undefined` where a number is owed. These two rows are the only ones that can
-        // say so, because every other document that would asks it after the report of defect 3 that never
-        // arrives.
+        // The same defect met through a handler *content attribute* rather than a <script>. The runtime half
+        // of it is reported — an exception escaping a compiled handler is an exception escaping a listener,
+        // which the engine already reports — so what these two rows say is narrower: the compile error is
+        // not reported at all, and the report the runtime error does make names no file, because the handler
+        // is compiled through `Function` and a dynamic function has no source URL.
+        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute (column)", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute (column)", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- 5. the compiled handler is not HTML's
         // https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler.
