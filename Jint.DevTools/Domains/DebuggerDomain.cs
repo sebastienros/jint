@@ -398,9 +398,11 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
 
     /// <summary>Answers a script's retained source, or says why there is none to answer with.</summary>
     /// <remarks>
-    /// Source text is retained through the same switch <c>Function.prototype.toString</c> uses, and a module
-    /// a loader built follows the parsing options that loader was given — which is why a host can do
-    /// everything right and still meet this for one script. Issue #3588 tracks the loader half.
+    /// Source text is retained through the same switch <c>Function.prototype.toString</c> uses. A module a
+    /// host loader supplied follows the engine's own setting since
+    /// https://github.com/sebastienros/jint/issues/3588, so the two ways left to meet this are a
+    /// <c>Prepared</c> program and a loader that named parsing options of its own — both of them the host
+    /// having decided, which is why the answer names them rather than an engine setting to flip.
     /// </remarks>
     private string RequireSourceText(RegisteredScript script)
     {
@@ -408,7 +410,7 @@ internal sealed partial class DebuggerDomain : DebuggerDomainBase
         {
             Throw.ServerError(
                 "No source text was retained for this script; enable Options.RetainFunctionSourceText",
-                "Options.UseDevTools() sets it for what the engine parses itself; a prepared script or a loader-supplied module follows the parsing options it was built with");
+                "Options.UseDevTools() sets it for what the engine parses itself and for a module a host loader supplied; a prepared script, or a module built with parsing options the loader named, follows those options instead");
         }
 
         return sourceText;

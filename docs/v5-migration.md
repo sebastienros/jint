@@ -4801,6 +4801,42 @@ host `Invoke`. There is one more frame in the first case and a name where there 
 nothing about a frame a call expression created has changed. `Options.Interop.BuildCallStackHandler` is
 handed the same frames the renderer walks, so a host that overrides the rendering sees the new one too.
 
+### 4.110 A module a host loader supplied honours `RetainFunctionSourceText` ([#3588](https://github.com/sebastienros/jint/issues/3588))
+
+`Options.RetainFunctionSourceText` retained function source for everything the engine parsed itself, and for
+a module registered through `Engine.Modules.Add` — but not for one obtained through a host `IModuleLoader`.
+`ModuleFactory` pinned `ModuleParsingOptions.Default` at both of its parse sites, so the switch never reached
+the loader path. Those two parses now default to the engine's own module parsing options:
+
+```csharp
+var engine = new Engine(options =>
+{
+    options.RetainFunctionSourceText = true;
+    options.UseModules(new MyLoader());          // returns ModuleFactory.BuildSourceTextModule(...)
+});
+
+engine.SetValue("greet", engine.Modules.Import("lib").Get("greet"));
+engine.Evaluate("greet.toString()");
+// 5.0: "function greet() { [native code] }"
+// 5.x: "function greet(name) { return 'hi ' + name; }"
+```
+
+`engine.Advanced.TryGetSourceText` answers `true` for such a module's `Program` for the same reason, which is
+what `Jint.DevTools`'s `Debugger.getScriptSource` resolves a script's text through — so the Sources panel now
+shows exactly the modules an embedder is most likely to be debugging.
+
+A loader that names its own `ModuleParsingOptions` is unaffected in both directions: those options are the
+host having decided, and they are used as given. The asynchronous loader path
+(`IAsyncModuleLoader`/`AsyncModuleLoader`) changes with the synchronous one, because which of the two a host
+implements must not decide what its modules retain.
+
+**What could break:** an engine with `RetainFunctionSourceText` on now keeps the source string of every module
+its loader supplies, for as long as that module's AST lives, and `Function.prototype.toString` prints bodies
+where it printed `[native code]`. Neither is new behaviour so much as the behaviour the option always
+promised, but a host that wants the old answer for loader-loaded modules can say so per loader — pass
+`new ModuleParsingOptions { RetainFunctionSourceText = false }` to
+`ModuleFactory.BuildSourceTextModule`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

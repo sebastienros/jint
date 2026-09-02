@@ -38,10 +38,11 @@ public partial class Engine
         /// <remarks>
         /// <para>
         /// <b>Retention is opt-in, through the same switch <c>Function.prototype.toString</c> uses.</b>
-        /// <see cref="Options.RetainFunctionSourceText"/> covers what an engine parses itself; a prepared
-        /// program, and a module a <see cref="Runtime.Modules.ModuleLoader"/> builds, follow the
-        /// <see cref="IParsingOptions.RetainFunctionSourceText"/> of the options they were given. Without it
-        /// the answer is <see langword="false"/>; nothing is reconstructed from the AST.
+        /// <see cref="Options.RetainFunctionSourceText"/> covers what an engine parses itself, a module a
+        /// host loader supplied included — the loader path defaults to that engine's own module parsing
+        /// options. A prepared program, and a module built with parsing options a loader named itself, follow
+        /// the <see cref="IParsingOptions.RetainFunctionSourceText"/> of the options they were given. Without
+        /// it the answer is <see langword="false"/>; nothing is reconstructed from the AST.
         /// </para>
         /// <para>
         /// The text is the very <see cref="string"/> the host passed, not a copy of it — the whole input, so a
