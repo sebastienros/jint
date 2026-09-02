@@ -79,11 +79,21 @@ internal abstract class DevToolsDomain
     /// <summary>Runs when the client disables a domain it had enabled.</summary>
     protected virtual ValueTask OnDisabledAsync(CommandContext context) => default;
 
+    /// <summary>Gets the session this domain is registered with, once one has registered it.</summary>
+    /// <remarks>
+    /// A domain raising an event outside a command — a target appearing while nobody asked anything — needs
+    /// the session without a <see cref="CommandContext"/> to reach it through.
+    /// </remarks>
+    private protected DevToolsSession? Session => _session;
+
     /// <summary>Sends one event on the session this domain is registered with.</summary>
-    protected ValueTask EmitAsync(in ProtocolEvent @event, CommandContext context)
+    /// <remarks>
+    /// The event carries that session's own <c>sessionId</c>, so a domain never has to know which
+    /// attachment it is part of, and an event raised outside a command is addressed exactly as one raised
+    /// inside it.
+    /// </remarks>
+    protected ValueTask EmitAsync(in ProtocolEvent @event, CancellationToken cancellationToken = default)
     {
-        return _session is { } session
-            ? session.SendEventAsync(in @event, context.SessionId, context.CancellationToken)
-            : default;
+        return _session is { } session ? session.SendEventAsync(in @event, cancellationToken) : default;
     }
 }

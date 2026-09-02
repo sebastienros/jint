@@ -2092,6 +2092,52 @@ itself: that is where a size limit, an eviction policy and a per-tenant partitio
 
 
 
+## Chrome DevTools Protocol (opt-in package)
+
+The `Jint.DevTools` package lets a debugging client attach to an engine your host is already running. It
+speaks the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) over a WebSocket,
+so a Jint engine appears to a client the way a Node process does — a target it can list, attach to and
+evaluate in — with no browser anywhere in the picture.
+
+```csharp
+// dotnet add package Jint.DevTools   (net8.0 and later)
+using Jint.DevTools;
+
+var engine = new Engine(options => options.UseDevTools());
+
+await using var server = new DevToolsServer(new DevToolsServerOptions { Port = 9222 });
+server.AddTarget(new EngineTarget(engine));
+server.Start();
+
+// The host's own loop is what runs the engine AND answers the protocol.
+while (running)
+{
+    engine.Tasks.ProcessTasks();
+    engine.Tasks.WaitForScheduledWork(TimeSpan.FromMilliseconds(50));
+}
+```
+
+Point a client at `http://127.0.0.1:9222` — `chrome://inspect` lists it, PuppeteerSharp's
+`Puppeteer.ConnectAsync(new ConnectOptions { BrowserURL = "http://127.0.0.1:9222" })` connects to it, and
+`server.BrowserWebSocketUrl` is the address for a client that wants the socket directly. Leave
+`DevToolsServerOptions.Port` at its default of `0` for an ephemeral port and read `server.BoundPort`.
+
+**Which thread answers a command is yours to choose.** `ThreadMode.HostOwned`, the default, means your own
+loop does: every command waits for your next `ProcessTasks`, and one that waits longer than
+`DevToolsServerOptions.CommandTimeout` is refused with a message saying the engine is not being pumped.
+`ThreadMode.LibraryOwned` gives the target its own thread instead, and you hand it work with
+`target.Post(engine => …)` or `await target.PostAsync(engine => …)` — the engine's own rules are unchanged,
+so touching it from anywhere else still fails fast rather than corrupting anything.
+
+Today a client can list targets, attach, hear about the execution context and evaluate — including
+`returnByValue` and awaiting a promise. `Debugger` (breakpoints, stepping, scopes), `Profiler` and the
+console and log domains arrive in later releases; until then each answers `'Domain.method' wasn't found`,
+which is what a client feature-detects on. Page-level domains are not this package's business at all.
+
+**The endpoint is unauthenticated**, exactly as it is in Chrome: anything that can reach it can evaluate
+arbitrary script in your process. `DevToolsServerOptions.Host` therefore defaults to `127.0.0.1`; do not
+bind it to a routable address.
+
 ## Performance
 
 - Because Jint neither generates any .NET bytecode nor uses the DLR it runs relatively small scripts really fast

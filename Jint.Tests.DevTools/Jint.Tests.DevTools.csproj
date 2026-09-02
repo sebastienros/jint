@@ -28,6 +28,12 @@
 
   <ItemGroup>
     <PackageReference Include="AwesomeAssertions" />
+    <!--
+      The .NET client the recorded handshake in tools/devtools-protocol/handshakes/ came from, at the very
+      version it was recorded with. It is what turns "the protocol looks right" into "a client library
+      connects, lists the target, opens a session and gets 42 back"; no in-process test can make that claim.
+    -->
+    <PackageReference Include="PuppeteerSharp" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
@@ -61,6 +67,14 @@
       per test case, and fixtures parallel with each other. See the file for what each decision restores.
     -->
     <Compile Include="..\Jint.Tests\TestFrameworkConventions.cs" Link="TestFrameworkConventions.cs" />
+    <!--
+      And the switch that turns the host-contract verifiers on for a Release run, so that
+      JINT_HOST_CONTRACT_VERIFICATION=1 means the same thing here as it does in the other two suites. It has
+      to be a module initializer in *this* assembly: the gate Jint reads is a static readonly bool settled at
+      type initialization, and a fixture would arm it far too late. It is what makes the thread rule exact
+      rather than asserted: a JsValue touched from a transport thread fails loudly under it.
+    -->
+    <Compile Include="..\Jint.Tests\HostContractVerificationSwitch.cs" Link="HostContractVerificationSwitch.cs" />
   </ItemGroup>
 
   <ItemGroup>

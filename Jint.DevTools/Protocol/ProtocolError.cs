@@ -29,6 +29,14 @@ internal static class ProtocolErrorCodes
 
     /// <summary>The command was understood and refused, which is where "not supported" lives.</summary>
     internal const int ServerError = -32000;
+
+    /// <summary>The message named a <c>sessionId</c> no attachment answers to.</summary>
+    /// <remarks>
+    /// Chromium's <c>SESSION_NOT_FOUND</c>, one below the generic server error and carrying its own
+    /// wording — <c>Session with given id not found.</c> — which clients match on to tell a stale session
+    /// apart from a command that failed.
+    /// </remarks>
+    internal const int SessionNotFound = -32001;
 }
 
 /// <summary>

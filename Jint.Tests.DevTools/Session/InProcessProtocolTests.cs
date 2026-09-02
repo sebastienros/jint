@@ -17,20 +17,22 @@ public class InProcessProtocolTests
     [Test]
     public async Task SchemaGetDomainsAnswersTheManifest()
     {
-        var result = await ProtocolSession.Create().ResultOfAsync("""{"id":1,"method":"Schema.getDomains"}""");
+        await using var session = ProtocolSession.Create();
+        var result = await session.ResultOfAsync("""{"id":1,"method":"Schema.getDomains"}""");
 
         var domains = result.GetProperty("domains").EnumerateArray()
             .Select(domain => domain.GetProperty("name").GetString())
             .ToArray();
 
-        domains.Should().BeEquivalentTo(["Browser", "Schema"]);
+        domains.Should().BeEquivalentTo(["Browser", "Runtime", "Schema", "Target"]);
         result.GetProperty("domains")[0].GetProperty("version").GetString().Should().Be("1.3");
     }
 
     [Test]
     public async Task BrowserGetVersionNamesJintRatherThanAChromeBuild()
     {
-        var result = await ProtocolSession.Create().ResultOfAsync("""{"id":7,"method":"Browser.getVersion"}""");
+        await using var session = ProtocolSession.Create();
+        var result = await session.ResultOfAsync("""{"id":7,"method":"Browser.getVersion"}""");
 
         result.GetProperty("protocolVersion").GetString().Should().Be("1.3");
         result.GetProperty("product").GetString().Should().StartWith("Jint/");
@@ -43,7 +45,8 @@ public class InProcessProtocolTests
     public async Task BrowserCloseReachesTheHostAndAnswersAnEmptyResult()
     {
         var closed = 0;
-        var result = await ProtocolSession.Create(() => closed++).ResultOfAsync("""{"id":2,"method":"Browser.close"}""");
+        await using var session = ProtocolSession.Create(() => closed++);
+        var result = await session.ResultOfAsync("""{"id":2,"method":"Browser.close"}""");
 
         closed.Should().Be(1);
         result.ValueKind.Should().Be(JsonValueKind.Object);
@@ -53,7 +56,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task BrowserCloseWithoutAHostCallbackStillSucceeds()
     {
-        var result = await ProtocolSession.Create().ResultOfAsync("""{"id":2,"method":"Browser.close"}""");
+        await using var session = ProtocolSession.Create();
+        var result = await session.ResultOfAsync("""{"id":2,"method":"Browser.close"}""");
 
         result.GetRawText().Should().Be("{}");
     }
@@ -61,23 +65,32 @@ public class InProcessProtocolTests
     [Test]
     public async Task TheResponseEchoesTheRequestIdentifier()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"id":4294967296,"method":"Browser.getVersion"}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"id":4294967296,"method":"Browser.getVersion"}""");
 
         reply.GetProperty("id").GetInt64().Should().Be(4294967296, "identifiers are 64-bit, and a client that ran long enough to overflow an int is one that gets wrong answers");
     }
 
+    /// <summary>
+    /// A <c>sessionId</c> nothing answers to is <c>-32001</c> in Chrome's wording, and the failure still
+    /// echoes the identifier so the client can tell which of its attachments went away.
+    /// </summary>
     [Test]
-    public async Task TheResponseEchoesTheSessionIdentifier()
+    public async Task AMessageNamingAnUnknownSessionIsSessionNotFound()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"id":1,"method":"Browser.getVersion","sessionId":"AB12"}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"id":1,"method":"Browser.getVersion","sessionId":"AB12"}""");
 
         reply.GetProperty("sessionId").GetString().Should().Be("AB12");
+        reply.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32001);
+        reply.GetProperty("error").GetProperty("message").GetString().Should().Be("Session with given id not found.");
     }
 
     [Test]
     public async Task AResponseWithoutASessionIdentifierCarriesNone()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"id":1,"method":"Browser.getVersion"}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"id":1,"method":"Browser.getVersion"}""");
 
         reply.TryGetProperty("sessionId", out _).Should().BeFalse();
     }
@@ -94,7 +107,8 @@ public class InProcessProtocolTests
     [TestCase("nodot", TestName = "A method that is not qualified at all")]
     public async Task AnUnansweredMethodIsMethodNotFoundInChromesWording(string method)
     {
-        var error = await ProtocolSession.Create().ErrorOfAsync($$"""{"id":11,"method":"{{method}}"}""");
+        await using var session = ProtocolSession.Create();
+        var error = await session.ErrorOfAsync($$"""{"id":11,"method":"{{method}}"}""");
 
         error.GetProperty("code").GetInt32().Should().Be(-32601);
         error.GetProperty("message").GetString().Should().Be($"'{method}' wasn't found");
@@ -107,7 +121,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task AnUnansweredMethodIsMethodNotFoundEvenWhenItsParametersAreUnusable()
     {
-        var error = await ProtocolSession.Create().ErrorOfAsync(
+        await using var session = ProtocolSession.Create();
+        var error = await session.ErrorOfAsync(
             """{"id":5,"method":"Browser.setWindowBounds","params":{"windowId":"not a number"}}""");
 
         error.GetProperty("code").GetInt32().Should().Be(
@@ -118,7 +133,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task AnErrorResponseCarriesTheRequestIdentifier()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"id":99,"method":"Runtime.evaluate"}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"id":99,"method":"Runtime.evaluate"}""");
 
         reply.GetProperty("id").GetInt64().Should().Be(99, "a client is waiting on that identifier, and an error it cannot match up is a hang");
     }
@@ -126,7 +142,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task MalformedJsonIsAParseError()
     {
-        var error = await ProtocolSession.Create().ErrorOfAsync("{\"id\":1,\"method\":");
+        await using var session = ProtocolSession.Create();
+        var error = await session.ErrorOfAsync("{\"id\":1,\"method\":");
 
         error.GetProperty("code").GetInt32().Should().Be(-32700);
         error.GetProperty("message").GetString().Should().Be("Message must be a valid JSON");
@@ -135,7 +152,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task AMessageWithNoIdentifierIsAnErrorNotification()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"method":"Browser.getVersion"}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"method":"Browser.getVersion"}""");
 
         reply.TryGetProperty("id", out _).Should().BeFalse("there is no identifier to address the failure to, so Chrome sends a notification rather than a response");
         reply.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32600);
@@ -147,7 +165,8 @@ public class InProcessProtocolTests
     [TestCase("[]", TestName = "A message that is not an object")]
     public async Task AMessageThatIsNotARequestIsAnInvalidRequest(string message)
     {
-        var error = await ProtocolSession.Create().ErrorOfAsync(message);
+        await using var session = ProtocolSession.Create();
+        var error = await session.ErrorOfAsync(message);
 
         error.GetProperty("code").GetInt32().Should().Be(-32600);
     }
@@ -155,7 +174,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task AMessageWithoutAMethodIsAnInvalidRequest()
     {
-        var reply = await ProtocolSession.Create().RoundTripAsync("""{"id":3}""");
+        await using var session = ProtocolSession.Create();
+        var reply = await session.RoundTripAsync("""{"id":3}""");
 
         reply.GetProperty("id").GetInt64().Should().Be(3);
         reply.GetProperty("error").GetProperty("code").GetInt32().Should().Be(-32600);
@@ -165,7 +185,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task NonObjectParametersAreAnInvalidRequest()
     {
-        var error = await ProtocolSession.Create().ErrorOfAsync("""{"id":3,"method":"Browser.getVersion","params":[1,2]}""");
+        await using var session = ProtocolSession.Create();
+        var error = await session.ErrorOfAsync("""{"id":3,"method":"Browser.getVersion","params":[1,2]}""");
 
         error.GetProperty("code").GetInt32().Should().Be(-32600);
         error.GetProperty("message").GetString().Should().Be("Message has property 'params' of type other than object");
@@ -174,7 +195,8 @@ public class InProcessProtocolTests
     [Test]
     public async Task ParametersACommandDoesNotDeclareAreIgnored()
     {
-        var result = await ProtocolSession.Create().ResultOfAsync("""{"id":3,"method":"Browser.getVersion","params":{"whatIsThis":true}}""");
+        await using var session = ProtocolSession.Create();
+        var result = await session.ResultOfAsync("""{"id":3,"method":"Browser.getVersion","params":{"whatIsThis":true}}""");
 
         result.GetProperty("protocolVersion").GetString().Should().Be("1.3");
     }
@@ -212,7 +234,7 @@ public class InProcessProtocolTests
     [Test]
     public async Task EachMessageIsAnsweredOnceAndInOrder()
     {
-        var session = ProtocolSession.Create();
+        await using var session = ProtocolSession.Create();
 
         await session.RoundTripAsync("""{"id":1,"method":"Browser.getVersion"}""");
         await session.RoundTripAsync("""{"id":2,"method":"Schema.getDomains"}""");

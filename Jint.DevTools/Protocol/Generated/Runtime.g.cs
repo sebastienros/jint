@@ -1685,8 +1685,53 @@ namespace Jint.DevTools.Domains
             => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<global::Jint.DevTools.Protocol.Runtime.GetExceptionDetailsResponse>>("Runtime.getExceptionDetails");
 
         /// <inheritdoc/>
-        internal sealed override global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
-            => global::Jint.DevTools.Throw.MethodNotFound<global::System.Threading.Tasks.ValueTask<string>>("Runtime." + method);
+        internal sealed override async global::System.Threading.Tasks.ValueTask<string> DispatchAsync(string method, global::System.Text.Json.JsonElement? parameters, global::Jint.DevTools.Session.CommandContext context)
+        {
+            switch (method)
+            {
+                case "disable":
+                {
+                    var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "discardConsoleEntries":
+                {
+                    var result = await DiscardConsoleEntriesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "enable":
+                {
+                    var result = await EnableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "evaluate":
+                {
+                    var result = await EvaluateAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeEvaluateRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeEvaluateResponse);
+                }
+
+                case "getIsolateId":
+                {
+                    var result = await GetIsolateIdAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetIsolateIdResponse);
+                }
+
+                case "runIfWaitingForDebugger":
+                {
+                    var result = await RunIfWaitingForDebuggerAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                // A command manifest.json does not list is method-not-found BEFORE its parameters
+                // are looked at, which is the order Chrome answers in: a command a backend does not
+                // implement is not in its dispatch table at all, so its payload is never read.
+                default:
+                    return global::Jint.DevTools.Throw.MethodNotFound<string>("Runtime." + method);
+            }
+        }
     }
 
     /// <summary>Builds the <c>Runtime</c> domain's events.</summary>
