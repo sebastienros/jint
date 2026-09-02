@@ -5157,6 +5157,42 @@ when that parse did not retain. The text is the host's own string, not a copy, s
 into it directly, and the answer does not depend on the engine asked: one `Prepared<Script>` shared by many
 engines reads back the same text on all of them.
 
+### 5.9 A debugger can ask where the engine will stop ([#3614](https://github.com/sebastienros/jint/pull/3614))
+
+A breakpoint matches a step-eligible node's *exact* start position, and a debugger front end sets one by line
+with `columnNumber: 0`. So an indented statement was never hit, and nothing in the API said which positions
+would have been. `DebugHandler.GetStepLocations(program)` answers with all of them, ordered by line, then
+column, then kind:
+
+```csharp
+var prepared = Engine.PrepareScript(source, "app.js");
+
+// what a debugger would stop at, e.g. for Debugger.getPossibleBreakpoints
+var locations = DebugHandler.GetStepLocations(prepared.Program);
+
+// what "a breakpoint on line 12" actually resolves to
+var snapped = DebugHandler.FindStepLocation(prepared.Program, line: 12, column: 0);
+if (snapped is { } location)
+{
+    var target = location.ToBreakLocation();
+    engine.Debugger.BreakPoints.Set(new BreakPoint(target.Source, target.Line, target.Column));
+}
+```
+
+A `StepLocation` carries `Source`, a 1-based `Line`, a 0-based `Column` and a `StepLocationKind` —
+`Statement`, `Return` for the implicit return point at the end of a function body, or `DebuggerStatement`. The
+set is what the `Step` and `Break` events report for a run that takes every branch: every statement except a
+block, a loop's `test` and `update`, a `for`-`in`/`of` binding target, an arrow's expression body, and each
+function's return point. Two things it deliberately does not report: a `call` location, which the Chrome
+DevTools Protocol also defines but Jint's step lane never pauses on, and anything inside `eval`, which is a
+program of its own. A range overload, `GetStepLocations(program, startLine, startColumn, endLine, endColumn)`,
+filters the same list. All three are `static`: the walk reads nothing from an engine, so a host can ask about
+a prepared program before anything runs it.
+
+Alongside it, a class field initializer and a class static block now report their real source positions when
+the debugger steps onto them or through their return point. The nodes the engine synthesizes for both carried
+no location at all, so both used to pause at line 0 with no source file — a position no editor can open.
+
 ## 6. AOT and trimming
 
 Jint 4.16 asserted Native AOT compatibility with the `IsAotCompatible` property and nothing else. In

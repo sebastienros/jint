@@ -210,6 +210,106 @@ public class DebugHandler
         }
     }
 
+    /// <summary>
+    /// Returns every position in <paramref name="program"/> that the debugger stops at, ordered by line,
+    /// then column, then kind.
+    /// </summary>
+    /// <param name="program">The parsed script or module to walk.</param>
+    /// <remarks>
+    /// <para>
+    /// This is the set <see cref="Step"/> and <see cref="Break"/> report when the program runs with every
+    /// branch taken: every statement except a block, the test and update expressions of a loop header, the
+    /// binding target of <c>for</c>-<c>in</c>/<c>of</c>, an arrow function's expression body, and the
+    /// implicit return point at the end of every function body. A breakpoint matches a node's exact start
+    /// position, so this is what a debugger snaps a line-and-column request onto.
+    /// </para>
+    /// <para>
+    /// Static because the walk is purely syntactic: it reads nothing from an engine, so a host can ask for
+    /// the locations of a <see cref="Prepared{T}"/> program before any engine runs it. The result is
+    /// recomputed per call; cache it against the <see cref="Program"/> when answering many queries.
+    /// </para>
+    /// <para>
+    /// No location has kind <c>call</c>, which the Chrome DevTools Protocol also defines: Jint's step lane
+    /// pauses on statements, never on the calls inside one, so reporting a call position would name a place
+    /// the debugger never stops. Code reached through <c>eval</c> is a program of its own and is not walked.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<StepLocation> GetStepLocations(Program program)
+    {
+        if (program is null)
+        {
+            Throw.ArgumentNullException(nameof(program));
+        }
+
+        return StepLocationCollector.Collect(program);
+    }
+
+    /// <summary>
+    /// Returns the step locations of <paramref name="program"/> that start at or after one position and
+    /// before another.
+    /// </summary>
+    /// <param name="program">The parsed script or module to walk.</param>
+    /// <param name="startLine">The 1-based line the range starts on.</param>
+    /// <param name="startColumn">The 0-based column the range starts at.</param>
+    /// <param name="endLine">The 1-based line the range ends before.</param>
+    /// <param name="endColumn">The 0-based column the range ends before.</param>
+    /// <remarks>
+    /// <para>
+    /// The start is inclusive and the end exclusive, which is what the Chrome DevTools Protocol's
+    /// <c>Debugger.getPossibleBreakpoints</c> expects. Lines are 1-based here and 0-based there.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<StepLocation> GetStepLocations(Program program, int startLine, int startColumn, int endLine, int endColumn)
+    {
+        var all = GetStepLocations(program);
+        var result = new List<StepLocation>();
+        for (var i = 0; i < all.Count; i++)
+        {
+            var location = all[i];
+            if (IsBefore(location, startLine, startColumn) || !IsBefore(location, endLine, endColumn))
+            {
+                continue;
+            }
+
+            result.Add(location);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Returns the first step location of <paramref name="program"/> at or after the given position, or
+    /// <see langword="null"/> when none follows it.
+    /// </summary>
+    /// <param name="program">The parsed script or module to walk.</param>
+    /// <param name="line">The 1-based line asked for.</param>
+    /// <param name="column">The 0-based column asked for.</param>
+    /// <remarks>
+    /// <para>
+    /// This is the snap a debugger front end needs: it asks for a breakpoint at the start of a line, and an
+    /// indented statement — or one on a later line, when the line asked for holds no code — is where the
+    /// engine will actually stop.
+    /// </para>
+    /// </remarks>
+    public static StepLocation? FindStepLocation(Program program, int line, int column)
+    {
+        var all = GetStepLocations(program);
+        for (var i = 0; i < all.Count; i++)
+        {
+            if (!IsBefore(all[i], line, column))
+            {
+                return all[i];
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsBefore(StepLocation location, int line, int column)
+    {
+        return location.Line < line || (location.Line == line && location.Column < column);
+    }
+
     internal void OnExceptionThrown(JsValue thrownValue, in SourceLocation location)
     {
         if (ExceptionThrown is null)

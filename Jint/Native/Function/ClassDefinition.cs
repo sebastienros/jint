@@ -739,8 +739,22 @@ internal sealed class ClassDefinition
 
         public ClassFieldFunction(Expression expression) : base(NodeType.ExpressionStatement)
         {
-            var nodeList = NodeList.From<Statement>(new ReturnStatement(expression));
-            _statement = new FunctionBody(in nodeList, strict: true);
+            // The synthesized nodes carry the initializer expression's own position. Without it they keep
+            // the default (line 0, no source file), which is what the debugger reports when it steps onto
+            // a field initializer or its return point - a location no editor can open.
+            var returnStatement = new ReturnStatement(expression)
+            {
+                Location = expression.Location,
+                Range = expression.Range,
+            };
+            var nodeList = NodeList.From<Statement>(returnStatement);
+            _statement = new FunctionBody(in nodeList, strict: true)
+            {
+                Location = expression.Location,
+                Range = expression.Range,
+            };
+            Location = expression.Location;
+            Range = expression.Range;
         }
 
         protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();
@@ -784,8 +798,16 @@ internal sealed class ClassDefinition
 
         public ClassStaticBlockFunction(StaticBlock staticBlock) : base(NodeType.StaticBlock)
         {
-            _statement = new FunctionBody(staticBlock.Body, strict: true);
+            // See ClassFieldFunction: the synthesized body takes the static block's own position, so the
+            // return point the debugger pauses at is the block's closing brace rather than line 0.
+            _statement = new FunctionBody(staticBlock.Body, strict: true)
+            {
+                Location = staticBlock.Location,
+                Range = staticBlock.Range,
+            };
             _params = new NodeList<Node>();
+            Location = staticBlock.Location;
+            Range = staticBlock.Range;
         }
 
         protected override object Accept(AstVisitor visitor) => throw new NotImplementedException();

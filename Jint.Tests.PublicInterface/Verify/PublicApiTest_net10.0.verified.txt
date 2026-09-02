@@ -2179,6 +2179,9 @@ namespace Jint.Runtime.Debugger
         public event Jint.Runtime.Debugger.DebugHandler.DebugEventHandler? Step;
         public Jint.Native.JsValue Evaluate(in Jint.Prepared<Acornima.Ast.Script> preparedScript) { }
         public Jint.Native.JsValue Evaluate(string sourceText, Jint.ScriptParsingOptions? parsingOptions = null) { }
+        public static Jint.Runtime.Debugger.StepLocation? FindStepLocation(Acornima.Ast.Program program, int line, int column) { }
+        public static System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.StepLocation> GetStepLocations(Acornima.Ast.Program program) { }
+        public static System.Collections.Generic.IReadOnlyList<Jint.Runtime.Debugger.StepLocation> GetStepLocations(Acornima.Ast.Program program, int startLine, int startColumn, int endLine, int endColumn) { }
         public delegate void BeforeEvaluateEventHandler(object sender, Acornima.Ast.Program ast);
         public delegate Jint.Runtime.Debugger.StepMode DebugEventHandler(object sender, Jint.Runtime.Debugger.DebugInformation e);
         public delegate void ExceptionThrownEventHandler(object sender, Jint.Runtime.Debugger.ExceptionThrownEventArgs e);
@@ -2241,6 +2244,21 @@ namespace Jint.Runtime.Debugger
         Step = 1,
         Break = 2,
         DebuggerStatement = 3,
+    }
+    public readonly struct StepLocation : System.IEquatable<Jint.Runtime.Debugger.StepLocation>
+    {
+        public StepLocation(string? source, int line, int column, Jint.Runtime.Debugger.StepLocationKind kind) { }
+        public int Column { get; }
+        public Jint.Runtime.Debugger.StepLocationKind Kind { get; }
+        public int Line { get; }
+        public string? Source { get; }
+        public Jint.Runtime.Debugger.BreakLocation ToBreakLocation() { }
+    }
+    public enum StepLocationKind
+    {
+        Statement = 0,
+        Return = 1,
+        DebuggerStatement = 2,
     }
     public enum StepMode
     {
