@@ -4866,6 +4866,28 @@ where it printed `[native code]`. Neither is new behaviour so much as the behavi
 promised, but a host that wants the old answer for loader-loaded modules can say so per loader — pass
 `new ModuleParsingOptions { RetainFunctionSourceText = false }` to
 `ModuleFactory.BuildSourceTextModule`.
+### 4.109 `performance` is an `EventTarget`, and asking for it brings the events ([#3631](https://github.com/sebastienros/jint/pull/3631))
+
+[HR-Time](https://w3c.github.io/hr-time/#sec-performance) declares `interface Performance : EventTarget`, and
+Jint's did not: `Performance.prototype`'s own `[[Prototype]]` was `%Object.prototype%`, so
+`performance instanceof EventTarget` was false and `performance.addEventListener` was `undefined`. It was a
+deliberate refusal while nothing could fire an event at the object, and `PerformanceObserver` is what changed
+the argument — the timeline is now something a script listens to, and half an `EventTarget` is worse than
+none.
+
+```js
+performance instanceof EventTarget;            // 5.0: false        5.x: true
+typeof performance.addEventListener;           // 5.0: "undefined"  5.x: "function"
+Object.getPrototypeOf(Performance.prototype);  // 5.0: Object.prototype   5.x: EventTarget.prototype
+```
+
+**What could break:** feature detection that reads `typeof performance.addEventListener` to decide whether it
+is running in a browser. And the feature closure now brings `WebApiFeatures.Events` with
+`WebApiFeatures.Performance`, so an engine built with the performance flag alone additionally carries `Event`,
+`CustomEvent`, `EventTarget`, `AbortController` and `AbortSignal` as globals — a script that tested
+`typeof EventTarget === 'undefined'` to tell one build from another will see the other answer. Nothing is
+dispatched at `performance` by the engine: the one event the specifications define on the interface is
+`resourcetimingbufferfull`, and there is no resource timing buffer here to fill.
 
 ## 5. New in v5
 
@@ -5497,6 +5519,37 @@ new EngineTargetOptions { Url = Path.GetFullPath("app.js") }   // /json/list say
 `Options.Interop.BuildCallStackHandler` is handed, and they stay exactly what the host passed;
 `Debugger.setBreakpointByUrl` accepts either form. A `Url` that is not a path — `jint://repl`,
 `https://…`, the empty string — is unchanged.
+### 5.17 `PerformanceObserver` ([#3631](https://github.com/sebastienros/jint/pull/3631))
+
+`WebApiFeatures.Performance` now installs `PerformanceObserver` and `PerformanceObserverEntryList` beside
+`performance` and the entry interfaces. No new flag, and nothing changes for an engine that does not enable
+the feature.
+
+```js
+new PerformanceObserver((list, observer, options) => {
+  for (const entry of list.getEntries()) { console.log(entry.entryType, entry.name, entry.duration); }
+  // options.droppedEntriesCount is present on the first callback only.
+}).observe({ type: 'measure', buffered: true });
+```
+
+`observe({ entryTypes })` and `observe({ type, buffered })` are both supported and, as the standard says,
+stack differently — an `entryTypes` call replaces the observer's whole options list, a `type` call appends to
+it, and mixing the two on one observer is an `InvalidModificationError`. `takeRecords()`, `disconnect()` and
+the static `PerformanceObserver.supportedEntryTypes` are all there; the last answers
+`["mark", "measure"]`, which are the entry types an engine with no document to navigate can produce, so
+`observe({ type: 'resource' })` registers nothing rather than throwing.
+
+Two things an embedder has to know. **The callback is delivered on the event loop as a task**, exactly as a
+timer handler is — `engine.Tasks.ProcessTasks()` is what runs it, and an engine nobody pumps never calls one.
+Because it is a task and not a microtask, a promise reaction queued in the same turn as the entry runs first,
+as it does in a browser. And **a `RestoreGlobalSnapshot` ends every registration**, the way it ends a global
+`error` listener and for the same reason — a registered callback is a closure over the evaluation cycle that
+has just been thrown away — while the performance entry buffer survives it, being data behind a restored
+binding.
+
+`DiagnosticCallbackSource` gains a `PerformanceObserver` member: a callback that throws is reported to
+`Options.WebApi.Diagnostics.Sink` and the observers behind it are still delivered to, which is the
+`"report"` exception behaviour the algorithm invokes it with.
 
 ## 6. AOT and trimming
 

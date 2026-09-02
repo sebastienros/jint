@@ -194,8 +194,9 @@ public class WebApiPerformanceTests
         engine.Evaluate("performance.mark('a') instanceof PerformanceMark").AsBoolean().Should().BeTrue();
         engine.Evaluate("performance.measure('a', 'a') instanceof PerformanceEntry").AsBoolean().Should().BeTrue();
 
-        // No observer, so a library that feature-detects one takes its fallback path.
-        engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("undefined");
+        // And the two the observer half adds, which is what a callback's first argument is checked against.
+        engine.Evaluate("typeof PerformanceObserver").AsString().Should().Be("function");
+        engine.Evaluate("typeof PerformanceObserverEntryList").AsString().Should().Be("function");
     }
 
     [Test]

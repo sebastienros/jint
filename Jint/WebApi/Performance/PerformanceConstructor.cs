@@ -1,9 +1,9 @@
 #if NET8_0_OR_GREATER
 using Jint.Native;
-using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.WebApi.Events;
 
 namespace Jint.WebApi.Performance;
 
@@ -21,29 +21,25 @@ namespace Jint.WebApi.Performance;
 /// WinterTC's Minimum Common API §5.1 lists this interface as one a non-browser runtime should carry.
 /// </para>
 /// <para>
-/// <b>It does not inherit from <c>EventTarget</c>.</b> https://w3c.github.io/hr-time/#sec-performance declares
-/// <c>interface Performance : EventTarget</c>, and this interface object's <c>[[Prototype]]</c> is
-/// <c>%Function.prototype%</c> rather than the <c>EventTarget</c> interface object, with
-/// <c>Performance.prototype</c> inheriting straight from <c>%Object.prototype%</c>. Claiming the inheritance
-/// would be claiming the members — <c>addEventListener</c>, <c>dispatchEvent</c> — of an interface nothing here
-/// fires an event at, which is the half-truth this whole exposure decision exists to remove. The absence is
-/// the same one <c>PerformancePrototype</c> records for <c>PerformanceObserver</c>, and for the same reason: a
-/// script's feature detection should see what is actually there.
+/// <b>It inherits from <c>EventTarget</c></b>, as https://w3c.github.io/hr-time/#sec-performance declares, so
+/// this interface object's <c>[[Prototype]]</c> is the <c>EventTarget</c> interface object and
+/// <c>Performance.prototype</c> inherits from <c>EventTarget.prototype</c>. Jint declined that while nothing
+/// could fire an event at the object; what changed is not that something now does — the interface's whole
+/// event surface is <c>resourcetimingbufferfull</c>, and there is no resource timing buffer here — but that
+/// <c>PerformanceObserver</c> made the timeline something a script listens to, and half an <c>EventTarget</c>
+/// is the half-truth this exposure decision exists to remove. The feature closure brings
+/// <see cref="WebApiFeatures.Events"/> with <see cref="WebApiFeatures.Performance"/> for the same reason.
 /// </para>
 /// </remarks>
 internal sealed class PerformanceConstructor : Constructor
 {
     private static readonly JsString _functionName = new("Performance");
 
-    internal PerformanceConstructor(
-        Engine engine,
-        Realm realm,
-        FunctionPrototype functionPrototype,
-        ObjectPrototype objectPrototype)
+    internal PerformanceConstructor(Engine engine, Realm realm, EventTargetConstructor eventTargetConstructor)
         : base(engine, realm, _functionName)
     {
-        _prototype = functionPrototype;
-        PrototypeObject = new PerformancePrototype(engine, realm, this, objectPrototype);
+        _prototype = eventTargetConstructor;
+        PrototypeObject = new PerformancePrototype(engine, realm, this, eventTargetConstructor.PrototypeObject);
         _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
         _prototypeDescriptor = new PropertyDescriptor(PrototypeObject, PropertyFlag.AllForbidden);
     }

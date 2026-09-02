@@ -209,6 +209,14 @@
             ' but got ' + format_value(actual) + describe(description));
     }
 
+    function assert_less_than_equal(actual, expected, description) {
+        assert(typeof actual === 'number',
+            'expected a number but got a ' + typeof actual + describe(description));
+        assert(actual <= expected,
+            'expected a number less than or equal to ' + format_value(expected) +
+            ' but got ' + format_value(actual) + describe(description));
+    }
+
     // Upstream's tolerance comparison, including the branch that keeps it usable at the edges of the number
     // line: `Math.abs(Infinity - Infinity)` is NaN and `NaN <= epsilon` is false, so a pair where neither side
     // is finite is compared by identity instead — which is how Infinity equals Infinity and NaN equals NaN
@@ -1108,6 +1116,7 @@
     global.assert_not_equals = assert_not_equals;
     global.assert_greater_than = assert_greater_than;
     global.assert_greater_than_equal = assert_greater_than_equal;
+    global.assert_less_than_equal = assert_less_than_equal;
     global.assert_approx_equals = assert_approx_equals;
     global.assert_array_equals = assert_array_equals;
     global.assert_in_array = assert_in_array;

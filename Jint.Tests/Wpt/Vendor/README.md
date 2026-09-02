@@ -36,17 +36,18 @@ and `Response.formData()`, one algorithm reached three ways; and the `headers/` 
 about those three interfaces and nothing else, which is what let that half of the corpus be vendored years
 before there was anything for the other half to talk to).
 
-Thirteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
-`user-timing/` and `xhr/` as one suite each, `FileAPI/` as **three** (its root, `blob/` and `file/`),
-`workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing, structured-clone),
-`dom/` as **two** (events, abort), `fetch/api/` as **seven** (abort, basic, body, headers, redirect,
-request, response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one
-suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends.
-That is 348 theory cases over 41,435 assertions, of which 2,939 do not pass and every one is named in the
-driver's table; the whole driver runs in about two minutes.
+Fourteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpattern/`, `hr-time/`,
+`user-timing/`, `performance-timeline/` and `xhr/` as one suite each, `FileAPI/` as **three** (its root,
+`blob/` and `file/`), `workers/` as **four**, `html/webappapis/` as **three** (timers, microtask-queuing,
+structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as **six** (basic, body, headers, redirect,
+request, response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one suite
+per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 363
+theory cases over 41,448 assertions, of which 2,935 do not pass and every one is named in the driver's
+table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
-change moves them; the counts before the `xhr/` corpus arrived were 305 / 41,157 / 2,966, before
+change moves them; the counts before `performance-timeline/` arrived were 347 / 41,417 / 2,941, before the
+`xhr/` corpus 305 / 41,157 / 2,966, before
 [#3260](https://github.com/sebastienros/jint/issues/3260) stood a wpt server up 273 / 40,657 / 2,889,
 before [#3195](https://github.com/sebastienros/jint/issues/3195)'s interface-object exposure 270 / 40,631 /
 2,907, and the paragraph they replaced had been left at 269 / 40,617 / 2,980 by an earlier change.
@@ -384,7 +385,8 @@ without revisiting the reason fails rather than quietly adding a red suite.
 | `workers/examples/*` | Upstream's own tutorial for writing worker tests, and it teaches wpt rather than testing an engine: `general.any.js` is two tests, the second asserting `location.pathname === "/workers/examples/general.any.worker.js"` — the path of the glue script the wpt server generates for a `.any.js` file. There is no server here to generate one. `onconnect.any.js` beside it is `global=sharedworker`. |
 | `workers/Worker-location.sub.any.js`, `workers/interfaces/WorkerUtils/importScripts/*`, `workers/importscripts_mime*.any.js` | `.sub.` is wptserve's server-side substitution, which `WptServer` now performs — but over one origin, and these want a second. The `importScripts` families are classic-worker script loading on top of that, over server-chosen MIME types and cross-origin redirects. `Worker-location.sub.any.js` additionally asserts every member of a `WorkerLocation`, which is declined below. |
 | `workers/interfaces/WorkerGlobalScope/location/*` | The whole assertion of `returns-same-object.any.js` is `location === location`. The harness shim installs a stub `location` of its own — `/common/subset-tests.js` reads `location.search` to pick a shard — so a vendored copy would pass **against the shim** while Jint deliberately has no `WorkerLocation` at all. A test that can only assert the harness is worse than no test, which is why this is a row here and not an exclusion. |
-| `user-timing/supported-usertiming-types.any.js` | Reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide which promise tests to register, so on an engine with no `PerformanceObserver` it throws before the first test exists. The rows that reach for an observer from inside a test body are excluded one by one instead, under `NeedsPerformanceObserver`. |
+| `performance-timeline/droppedentriescount.any.js`, `performance-timeline/case-sensitivity.any.js` | Resource timing. The first opens by calling `setResourceTimingBufferSize(0)` so that a later `fetch` counts as a dropped entry, and all five of its tests then assert a `droppedEntriesCount` only a resource entry can produce; the second wants the resource entry for `testharness.js` itself, and reads `self.location` to name it. The observer's dropped-entry plumbing is exercised by `WebApiPerformanceObserverTests` over a mark buffer driven past its cap, and `user-timing/case-sensitivity.any.js` asserts the same case rule over marks. |
+| `performance-timeline/webtiming-resolution.any.js` | Asserts that two consecutive readings differ by at least five microseconds — that is, that the clock is *coarse*. `PerformancePrototype` records not coarsening as a deliberate divergence: an embedded engine has no cross-origin data to protect, so the resolution is whatever the host's `TimeProvider` gives, and how far apart two readings land would depend on how long an interpreted call happened to take. |
 | `html/webappapis/timers/evil-spec-example.any.js` | `setTimeout`'s string handler, which `TimerFunctions` documents declining: compiling the string is `eval` by another name and reachable even where a host disabled string compilation, so it is a `TypeError` here as it is in Node. The file's whole subject is that form, and it uses it at file scope. |
 | `dom/events/*.window.js`, `dom/events/*.html`, `dom/abort/*.html` | For a browsing context, like every non-`.any.js` file. |
 | `fetch/api/request/request-cache*` | An HTTP cache, and the `cache` init member `RequestConstructor` documents accepting and ignoring. |
@@ -799,19 +801,38 @@ so the writable data property it already had is what its own IDL asks for. It ha
 `self`'s, because the contrast is the whole point: HTML decided the two attributes separately, and so does
 this engine.
 
-## What the hr-time and user-timing corpora say about this engine
+## What the hr-time, user-timing and performance-timeline corpora say about this engine
 
-85 assertions, of which **6 do not pass**, and the split is almost exactly the one
-`PerformancePrototype` predicts in its own documentation.
+116 assertions across 37 files, and **all of them pass**.
 
-Five are `NeedsPerformanceObserver` and one is `NeedsPerformanceEventTarget`: the class lists
-"`PerformanceObserver` and everything that reports to one, `toJSON`, `setResourceTimingBufferSize` and the
-resource-timing surface, and the `EventTarget` this interface inherits from" as what it does not implement, and
-says why each is *absent* rather than present-and-throwing — so that a script's own feature detection sees the
-truth. What the corpus adds to that is a measurement of the cost: **only four files** of the user-timing suite
-depend on an observer at all, and one more (`supported-usertiming-types.any.js`, not vendored) reads it at file
-scope. The other fifteen read the timeline through `getEntries()` and pass, including the whole of
-`mark.any.js`, `measure-l3.any.js` and `measure_syntax_err.any.js`.
+They did not before. Until `PerformanceObserver` landed, the hr-time and user-timing corpora had six failing
+rows — five `NeedsPerformanceObserver` and one `NeedsPerformanceEventTarget` — and one file that could not be
+vendored at all, and both categories are gone now along with the exclusions. What the corpus had measured in
+the meantime was the *cost* of the absence, and the figure is worth keeping: **only four files** of the
+user-timing suite depended on an observer, and one more read it at file scope; the other fifteen read the
+timeline through `getEntries()` and passed throughout.
+
+**The performance-timeline corpus is what the observer is really held to**, and its shape is one file per
+rule. `po-observe.any.js` and `po-observe-type.any.js` pin the argument grammar — `entryTypes` must be a
+sequence, an unknown type is ignored rather than refused, and mixing the two shapes on one observer is an
+`InvalidModificationError` rather than a `TypeError`. `po-callback-mutate.any.js` is the one that decides
+whether an implementation has the buffers right: it re-`observe()`s from inside its own callback four times
+and asserts each delivery, so an observer buffer emptied at the wrong moment, or a re-registration that
+cleared it, fails on a named entry rather than by timing out. `po-entries-sort.any.js` holds the three getters
+to one chronological order and is the reason
+`PerformanceEntryFilter` is shared with `performance` rather than reimplemented. And the four
+`buffered`-flag files are the only ones that read the *timeline* rather than the delivery: three observers
+registered at three different moments must all see the same three marks
+(`multiple-buffered-flag-observers.any.js`), and one registered after a timer must still see a mark taken
+before it (`buffered-flag-after-timeout.any.js`).
+
+Three of the directory's files are not vendored and the reasons divide cleanly. Two are resource timing —
+`droppedentriescount.any.js` and `case-sensitivity.any.js` — which needs a document to have fetched something;
+the dropped-entry plumbing they would have exercised is implemented and is pinned instead by a public-interface
+test that drives a mark buffer past its cap. The third, `webtiming-resolution.any.js`, asserts that two
+consecutive readings are at least five microseconds apart, which is an assertion that the clock is *coarse*:
+`PerformancePrototype` records not coarsening as a deliberate divergence, so how far apart two readings land
+here depends on how long an interpreted call took and on nothing the engine promises.
 
 **The four that used to sit beside them were one genuine defect, and it is fixed.**
 `mark-errors.any.js` runs each of its five cases twice — once through `performance.mark(name, x)` and once
@@ -1367,14 +1388,15 @@ their exclusions without revisiting this table.
 | Streams | `streams/` ×7 | 66 | 1,170 | 4 |
 | Compression | `compression/` | 15 | 297 | 22 |
 | File API | `FileAPI/` ×3 | 14 | 342 | 0 |
-| High Resolution Time | `hr-time/` | 2 | 7 | 1 |
-| User Timing | `user-timing/` | 19 | 78 | 5 |
+| High Resolution Time | `hr-time/` | 2 | 7 | 0 |
+| User Timing | `user-timing/` | 20 | 81 | 0 |
+| Performance Timeline | `performance-timeline/` | 15 | 28 | 0 |
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
 | XMLHttpRequest | `xhr/` | 42 | 260 | 9 |
-| **total** | **41** | **348** | **41,435** | **2,939** |
+| **total** | **41** | **363** | **41,448** | **2,935** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

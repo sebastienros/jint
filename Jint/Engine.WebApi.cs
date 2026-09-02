@@ -9,6 +9,7 @@ using Jint.WebApi.Fetch;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Idle;
 using Jint.WebApi.Messaging;
+using Jint.WebApi.Performance;
 using Jint.WebApi;
 using Jint.WebApi.Scheduling;
 using Jint.WebApi.ServerSentEvents;
@@ -272,6 +273,13 @@ internal sealed class WebApiEngineState
     private List<WeakReference<JsMessagePort>>? _messagePorts;
 
     private int _messagePortPruneThreshold = MessagePortPruneFloor;
+
+    /// <summary>
+    /// The engine's <i>list of registered performance observer objects</i>, or <see langword="null"/> until a
+    /// script calls <c>observe()</c> for the first time — which is what keeps an engine that merely has the
+    /// <c>performance</c> object paying nothing for the interface.
+    /// </summary>
+    private PerformanceObserverRegistry? _performanceObservers;
 
     private const int MessagePortPruneFloor = 16;
 
@@ -914,6 +922,18 @@ internal sealed class WebApiEngineState
     }
 
     /// <summary>
+    /// The engine's registered <c>PerformanceObserver</c> objects and the delivery task that serves them.
+    /// </summary>
+    /// <remarks>
+    /// Engine state rather than state of the <c>performance</c> object, unlike the performance entry buffer
+    /// beside it: a registration is a live callback closing over the evaluation cycle it was made in, so a
+    /// <c>RestoreGlobalSnapshot</c> has to end it exactly as it ends a global <c>error</c> listener, while the
+    /// buffer is data behind a restored binding and survives. <see cref="PerformanceObserverRegistry"/> has
+    /// the whole argument.
+    /// </remarks>
+    internal PerformanceObserverRegistry PerformanceObservers => _performanceObservers ??= new PerformanceObserverRegistry(_engine);
+
+    /// <summary>
     /// Registered timers that have not fired and have not been cleared, for
     /// <see cref="Engine.DiagnosticOperations.GetMemoryReport(int)"/>.
     /// </summary>
@@ -969,6 +989,7 @@ internal sealed class WebApiEngineState
         CloseBroadcastChannels();
         CloseMessagePorts();
         IdleCallbacks?.Clear();
+        _performanceObservers?.Clear();
 
         // Dropped whole rather than emptied: the next cycle's first addEventListener builds a fresh target,
         // and nothing outside this class holds a reference to the old one — the three global operations ask

@@ -232,7 +232,7 @@ its own `console` (or any other name in the table below), enabling the feature l
 | `atob` / `btoa` | `Base64` | ✔ shipped |
 | `structuredClone` (incl. `{ transfer }` of `ArrayBuffer`s, `MessagePort`s and streams) | `StructuredClone` | ✔ shipped |
 | `crypto.getRandomValues` / `crypto.randomUUID` / `crypto.subtle` (SHA digests, HMAC, AES-GCM, RSA, ECDSA/ECDH, HKDF, PBKDF2, `CryptoKey`) | `WebApiFeatures.Crypto` | ✔ shipped |
-| `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` | `WebApiFeatures.Performance` | ✔ shipped |
+| `performance.now` / `timeOrigin` / `mark` / `measure` / `getEntries*` / `clearMarks` / `clearMeasures` / `PerformanceObserver` | `WebApiFeatures.Performance` | ✔ shipped |
 | `Event` / `EventTarget` / `CustomEvent` / `AbortController` / `AbortSignal` | `Events` | ✔ shipped |
 | `URL` / `URLSearchParams` / `URLPattern` | `Url` | ✔ shipped |
 | `Blob` (incl. `stream()` and `textStream()`) / `File` / `FormData` | `Files` | ✔ shipped |
@@ -657,12 +657,10 @@ retained by its sources until one of them aborts, at which point every link is d
 describes them — the whole overload matrix, mark names or raw timestamps, `detail` deep-copied through the
 same structured-clone algorithm `structuredClone` uses, and `PerformanceEntry` / `PerformanceMark` /
 `PerformanceMeasure` as real interface objects so `entry instanceof PerformanceMark` works. So is
-`Performance` itself: `performance instanceof Performance` holds, and the members live on
-`Performance.prototype` where a browser's do. The one link not claimed is the `EventTarget` the interface
-inherits from in the standard — nothing here fires an event at the object, so asserting the inheritance would
-make `performance instanceof EventTarget` true while `addEventListener` failed its brand check. Entries come back
-from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by `startTime`, and
-`clearMarks(name?)` / `clearMeasures(name?)` remove them.
+`Performance` itself: `performance instanceof Performance` holds, `performance instanceof EventTarget` holds
+as the standard says it should, and the members live on `Performance.prototype` where a browser's do. Entries
+come back from `getEntries()`, `getEntriesByType(type)` and `getEntriesByName(name, type?)` sorted by
+`startTime`, and `clearMarks(name?)` / `clearMeasures(name?)` remove them.
 
 ```js
 performance.mark('parse');
@@ -676,10 +674,26 @@ number. A page's timeline dies with the page, and an engine embedded in a long-l
 `while (true) performance.mark('x')` would otherwise be a memory leak that no execution constraint describes.
 Once the buffer is full, further entries are dropped exactly as the Performance Timeline standard says a full
 buffer drops them: nothing throws, `mark()` and `measure()` still return the entry they built, and
-`getEntries()` simply stops growing until you clear it. There is no `PerformanceObserver`, and it is absent
-rather than present-and-throwing so feature detection takes its fallback path. Readings are **not coarsened** —
+`getEntries()` simply stops growing until you clear it. What the bound drops is counted, and reported to a
+`PerformanceObserver` once, as its callback's `droppedEntriesCount`. Readings are **not coarsened** —
 an embedded engine has no cross-origin data for a fine clock to help steal, and a host that wants a coarse one
 supplies a coarse `TimeProvider`.
+
+`PerformanceObserver` is the other way to read the timeline, and the one a script written for a browser
+reaches for: `observe({ entryTypes })` or `observe({ type, buffered })`, `takeRecords()`, `disconnect()`, and
+`PerformanceObserver.supportedEntryTypes`, which answers `["mark", "measure"]` — those being the two entry
+types an engine with no document to navigate can produce, so a script that asks for `resource` or
+`navigation` is quietly given nothing rather than an error. **The callback is delivered on the event loop as
+a task**, exactly as a timer handler is, so a host that never pumps never sees one; and because it is a task
+rather than a microtask, a promise reaction queued in the same turn as the mark runs first, as it does in a
+browser. `buffered: true` replays what the timeline already holds of that type, which is how an observer
+registered late still sees the marks it missed.
+
+```js
+new PerformanceObserver(list => {
+  for (const entry of list.getEntries()) { console.log(entry.entryType, entry.name, entry.duration); }
+}).observe({ type: 'measure', buffered: true });
+```
 
 `navigator` carries `userAgent` and nothing else. It reports `Jint/<version>` — a single RFC 7231 product
 token with no comment component, so nothing about your operating system or your application leaks into it —

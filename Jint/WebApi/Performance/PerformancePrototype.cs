@@ -29,10 +29,11 @@ namespace Jint.WebApi.Performance;
 /// WebIDL draws and what makes an extracted <c>getEntries</c> behave as a browser's does.
 /// </para>
 /// <para>
-/// Not implemented, and absent rather than throwing so that feature detection sees the truth:
-/// <c>PerformanceObserver</c> and everything that reports to one, <c>toJSON</c>,
-/// <c>setResourceTimingBufferSize</c> and the resource-timing surface, and the <c>EventTarget</c> this
-/// interface inherits from — see <see cref="PerformanceConstructor"/> for why the inheritance is not claimed.
+/// Not implemented, and absent rather than throwing so that feature detection sees the truth: <c>toJSON</c>,
+/// and <c>setResourceTimingBufferSize</c> with the rest of the resource-timing surface — which is also why
+/// the <c>resourcetimingbufferfull</c> event this interface declares is never fired, there being no resource
+/// timing buffer to fill. <c>addEventListener</c> and its two siblings are inherited from
+/// <c>EventTarget</c>; see <see cref="PerformanceConstructor"/>.
 /// </para>
 /// <para>
 /// <c>Object.keys(performance)</c> answers the empty array here exactly as it does in a browser, because there
@@ -62,9 +63,9 @@ internal sealed partial class PerformancePrototype : Prototype
         Engine engine,
         Realm realm,
         PerformanceConstructor constructor,
-        ObjectPrototype objectPrototype) : base(engine, realm)
+        ObjectInstance eventTargetPrototype) : base(engine, realm)
     {
-        _prototype = objectPrototype;
+        _prototype = eventTargetPrototype;
         _constructor = constructor;
     }
 
@@ -101,8 +102,8 @@ internal sealed partial class PerformancePrototype : Prototype
     /// </summary>
     /// <remarks>
     /// "Queue a PerformanceEntry" (https://w3c.github.io/performance-timeline/#queue-a-performanceentry) is
-    /// almost entirely about <c>PerformanceObserver</c>s, of which there are none here; what survives of it is
-    /// the buffer add, which is why the two steps are one line.
+    /// the one call that both tells the registered observers and adds to the buffer — see
+    /// <see cref="JsPerformance.QueuePerformanceEntry"/>, which is why the two steps are one line.
     /// </remarks>
     [JsFunction(Name = "mark", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
     private JsPerformanceMark Mark(JsValue thisObject, JsValue markName, JsValue markOptions)
@@ -121,7 +122,7 @@ internal sealed partial class PerformancePrototype : Prototype
             _prototype = _realm.Intrinsics.PerformanceMark.PrototypeObject,
         };
 
-        performance.AddToBuffer(entry);
+        performance.QueuePerformanceEntry(entry);
         return entry;
     }
 
@@ -229,7 +230,7 @@ internal sealed partial class PerformancePrototype : Prototype
             _prototype = _realm.Intrinsics.PerformanceMeasure.PrototypeObject,
         };
 
-        performance.AddToBuffer(entry);
+        performance.QueuePerformanceEntry(entry);
         return entry;
     }
 

@@ -234,14 +234,25 @@ public class WptTestRunner
         ("workers/modules/resources/*credentials-checker*", "needs a wptserve credentials handler"),
         ("workers/modules/resources/*referrer-checker*", "needs a wptserve referrer handler"),
 
-        // ---------------------------------------------------------------- hr-time and user-timing
-        // The file reads `PerformanceObserver.supportedEntryTypes` at *file scope* to decide whether to
-        // register its promise tests, so on an engine with no PerformanceObserver it throws a ReferenceError
-        // before the first test is registered — a harness error for the whole file, which no per-test
-        // exclusion can name. The rows that reach for an observer from inside a test body are excluded one by
-        // one instead, under WptDivergence.NeedsPerformanceObserver.
-        ("user-timing/supported-usertiming-types.any.js",
-            "reads PerformanceObserver at file scope; PerformancePrototype documents declining the observer"),
+        // ------------------------------------------- hr-time, user-timing and the performance timeline
+        // Every row is about resource timing: the file opens by calling setResourceTimingBufferSize(0) so that
+        // a later fetch counts as a dropped entry, and each of its five tests then asserts a
+        // droppedEntriesCount that only a resource entry can produce. The observer's own dropped-entry
+        // plumbing is implemented and exercised by WebApiPerformanceObserverTests instead, over a mark buffer
+        // driven past its cap.
+        ("performance-timeline/droppedentriescount.any.js", "needs resource timing and setResourceTimingBufferSize"),
+
+        // Two of its three tests read `self.location.protocol` and `self.location.host` and expect the
+        // resource entry for testharness.js itself; there is no document to have fetched one.
+        ("performance-timeline/case-sensitivity.any.js",
+            "needs resource timing entries and a document location; user-timing/case-sensitivity.any.js asserts the same case rule over marks"),
+
+        // It asserts that two consecutive readings differ by at least 5 microseconds, which is an assertion
+        // that the clock is *coarse*. PerformancePrototype records the opposite as a deliberate divergence:
+        // an embedded engine has no cross-origin data to protect, so the readings are whatever the host's
+        // TimeProvider gives — on Windows a 100-nanosecond Stopwatch tick — and how far apart two of them
+        // land would depend on how long an interpreted call happened to take.
+        ("performance-timeline/webtiming-resolution.any.js", "asserts a coarsened clock, which PerformancePrototype declines"),
 
         // ---------------------------------------------------------------- html/webappapis
         // setTimeout's string handler, which TimerFunctions documents declining: compiling the string is eval
@@ -637,7 +648,24 @@ public class WptTestRunner
         ["user-timing/measure-with-dict.any.js"] = 2,
         ["user-timing/measure_syntax_err.any.js"] = 5,
         ["user-timing/structured-serialize-detail.any.js"] = 9,
+        ["user-timing/supported-usertiming-types.any.js"] = 3,
         ["user-timing/user_timing_exists.any.js"] = 4,
+
+        ["performance-timeline/buffered-flag-after-timeout.any.js"] = 1,
+        ["performance-timeline/buffered-flag-observer.any.js"] = 1,
+        ["performance-timeline/multiple-buffered-flag-observers.any.js"] = 1,
+        ["performance-timeline/observer-buffered-false.any.js"] = 1,
+        ["performance-timeline/performanceentry-tojson.any.js"] = 1,
+        ["performance-timeline/po-callback-mutate.any.js"] = 1,
+        ["performance-timeline/po-disconnect-removes-observed-types.any.js"] = 1,
+        ["performance-timeline/po-disconnect.any.js"] = 3,
+        ["performance-timeline/po-entries-sort.any.js"] = 1,
+        ["performance-timeline/po-getentries.any.js"] = 1,
+        ["performance-timeline/po-observe-repeated-type.any.js"] = 1,
+        ["performance-timeline/po-observe-type.any.js"] = 6,
+        ["performance-timeline/po-observe.any.js"] = 6,
+        ["performance-timeline/po-takeRecords.any.js"] = 1,
+        ["performance-timeline/supportedEntryTypes.any.js"] = 2,
 
         ["html/webappapis/timers/clearinterval-from-callback.any.js"] = 1,
         ["html/webappapis/timers/cleartimeout-clearinterval.any.js"] = 2,
@@ -1147,14 +1175,10 @@ public class WptTestRunner
         // TextDecoder half — the same 168 labels, the same expectations — passes.
         new("encoding/single-byte-decoder.any.js", "*(XMLHttpRequest)", WptDivergence.NeedsWptServer),
 
-        // ---------------------------------------------------------------- hr-time and user-timing
-        new("hr-time/basic.any.js", "Performance interface extends EventTarget.", WptDivergence.NeedsPerformanceEventTarget),
-
-        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous marks", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/buffered-flag.any.js", "PerformanceObserver with buffered flag sees previous measures", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/case-sensitivity.any.js", "getEntriesByType values are case sensitive", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/mark-l3.any.js", "mark entries' detail and startTime are customizable.", WptDivergence.NeedsPerformanceObserver),
-        new("user-timing/measure-with-dict.any.js", "measure entries' detail and start/end are customizable", WptDivergence.NeedsPerformanceObserver),
+        // ------------------------------------------- hr-time, user-timing and the performance timeline
+        // Nothing. The five NeedsPerformanceObserver rows and the one NeedsPerformanceEventTarget row that
+        // stood here until PerformanceObserver landed all pass now, and so does the whole of the
+        // performance-timeline corpus that arrived with it.
 
         // ---------------------------------------------------------------- fetch
         // The forbidden-header-name lists, which HeadersGuard documents declining. The 18 "is allowed to use"
@@ -1447,6 +1471,8 @@ public class WptTestRunner
 
     public static IEnumerable<object[]> UserTimingSuiteFiles() => Cases("user-timing");
 
+    public static IEnumerable<object[]> PerformanceTimelineSuiteFiles() => Cases("performance-timeline");
+
     public static IEnumerable<object[]> TimersSuiteFiles() => Cases("html/webappapis/timers");
 
     public static IEnumerable<object[]> MicrotaskQueuingSuiteFiles() => Cases("html/webappapis/microtask-queuing");
@@ -1556,6 +1582,9 @@ public class WptTestRunner
 
     [TestCaseSource(nameof(UserTimingSuiteFiles))]
     public void RunsTheUserTimingSuite(string file) => RunSuiteFile(file);
+
+    [TestCaseSource(nameof(PerformanceTimelineSuiteFiles))]
+    public void RunsThePerformanceTimelineSuite(string file) => RunSuiteFile(file);
 
     [TestCaseSource(nameof(TimersSuiteFiles))]
     public void RunsTheTimersSuite(string file) => RunSuiteFile(file);

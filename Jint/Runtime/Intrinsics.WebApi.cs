@@ -65,6 +65,8 @@ public sealed partial class Intrinsics
     private PerformanceEntryConstructor? _performanceEntry;
     private PerformanceMarkConstructor? _performanceMark;
     private PerformanceMeasureConstructor? _performanceMeasure;
+    private PerformanceObserverConstructor? _performanceObserver;
+    private PerformanceObserverEntryListConstructor? _performanceObserverEntryList;
     private NavigatorConstructor? _navigator;
     private JsNavigator? _navigatorObject;
 
@@ -289,8 +291,12 @@ public sealed partial class Intrinsics
     /// The <c>Performance</c> interface object. Reaching it builds <c>Performance.prototype</c>, which is what
     /// the <c>performance</c> object inherits from.
     /// </summary>
+    /// <remarks>
+    /// <c>Performance</c> inherits from <c>EventTarget</c>, so reaching it builds that too — which is what
+    /// makes <c>performance instanceof EventTarget</c> hold however the two were first touched.
+    /// </remarks>
     internal PerformanceConstructor Performance =>
-        _performance ??= new PerformanceConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+        _performance ??= new PerformanceConstructor(_engine, _realm, EventTarget);
 
     /// <summary>
     /// The <c>performance</c> object, which reads the engine's time origin and therefore needs the web-API
@@ -314,6 +320,14 @@ public sealed partial class Intrinsics
     /// <summary><c>PerformanceMeasure</c> inherits from <c>PerformanceEntry</c>.</summary>
     internal PerformanceMeasureConstructor PerformanceMeasure =>
         _performanceMeasure ??= new PerformanceMeasureConstructor(_engine, _realm, PerformanceEntry);
+
+    /// <summary>The <c>PerformanceObserver</c> interface object, and the holder of its one static member.</summary>
+    internal PerformanceObserverConstructor PerformanceObserver =>
+        _performanceObserver ??= new PerformanceObserverConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
+
+    /// <summary>The <c>PerformanceObserverEntryList</c> interface object, of what a callback is handed.</summary>
+    internal PerformanceObserverEntryListConstructor PerformanceObserverEntryList =>
+        _performanceObserverEntryList ??= new PerformanceObserverEntryListConstructor(_engine, _realm, Function.PrototypeObject, Object.PrototypeObject);
 
     /// <summary>
     /// The <c>Navigator</c> interface object. Reaching it builds <c>Navigator.prototype</c>, which is what the

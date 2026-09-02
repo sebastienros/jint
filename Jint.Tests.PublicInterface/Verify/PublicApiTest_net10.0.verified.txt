@@ -2843,6 +2843,7 @@ namespace Jint.WebApi
         EventListener = 1,
         Microtask = 2,
         IdleCallback = 3,
+        PerformanceObserver = 4,
     }
     public sealed class DiagnosticEvent
     {

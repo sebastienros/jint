@@ -326,6 +326,12 @@ internal static class WebApiRegistration
             Install(global, engine, "PerformanceEntry", static e => e.Realm.Intrinsics.PerformanceEntry, PropertyFlag.NonEnumerable);
             Install(global, engine, "PerformanceMark", static e => e.Realm.Intrinsics.PerformanceMark, PropertyFlag.NonEnumerable);
             Install(global, engine, "PerformanceMeasure", static e => e.Realm.Intrinsics.PerformanceMeasure, PropertyFlag.NonEnumerable);
+
+            // The observer half of the timeline. Both interface objects are reachable because a callback is
+            // handed one and checks it — `entries instanceof PerformanceObserverEntryList` — and because
+            // `PerformanceObserver.supportedEntryTypes` is what a script reads before it observes anything.
+            Install(global, engine, "PerformanceObserver", static e => e.Realm.Intrinsics.PerformanceObserver, PropertyFlag.NonEnumerable);
+            Install(global, engine, "PerformanceObserverEntryList", static e => e.Realm.Intrinsics.PerformanceObserverEntryList, PropertyFlag.NonEnumerable);
         }
 
         if ((features & WebApiFeatures.Navigator) != WebApiFeatures.None)
@@ -627,6 +633,15 @@ internal static class WebApiRegistration
         if ((features & WebApiFeatures.WebSocket) != WebApiFeatures.None)
         {
             features |= WebApiFeatures.Events | WebApiFeatures.Files;
+        }
+
+        // https://w3c.github.io/hr-time/#sec-performance declares `interface Performance : EventTarget`, so
+        // the performance object is one and its prototype chain reaches EventTarget.prototype. A script that
+        // can call performance.addEventListener has to be able to build the Event it dispatches, which is
+        // what makes this a closure rather than an inheritance claimed in private.
+        if ((features & WebApiFeatures.Performance) != WebApiFeatures.None)
+        {
+            features |= WebApiFeatures.Events;
         }
 
         // The Cache API stores Request/Response pairs, so it needs the same three for the same reasons — and
