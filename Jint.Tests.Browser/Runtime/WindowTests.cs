@@ -290,11 +290,13 @@ public sealed class WindowTests
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.EvaluateAsync("location.href = 'https://example.com/'");
+        // A scheme a page has no transport for; http and https really do navigate now.
+        await page.EvaluateAsync("location.href = 'ftp://example.com/file.txt'");
+        (await page.WaitForNavigationAsync(TimeSpan.FromSeconds(2))).Should().BeFalse("the navigation never committed");
 
         page.Errors.Should().ContainSingle();
-        page.Errors[0].Message.Should().Contain("https://example.com/");
-        page.Errors[0].Message.Should().Contain("no network");
+        page.Errors[0].Message.Should().Contain("ftp://example.com/file.txt");
+        page.Errors[0].Message.Should().Contain("http, https, about: and data:");
         page.Url.Should().Be("about:blank");
     }
 

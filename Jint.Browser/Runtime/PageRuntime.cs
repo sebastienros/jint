@@ -31,7 +31,7 @@ internal sealed class PageRuntime
     private readonly long _started;
     private IDocument? _document;
 
-    private PageRuntime(Engine engine, Page page, BrowserOptions options, PageRecorder recorder)
+    private PageRuntime(Engine engine, Page page, BrowserOptions options, PageRecorder recorder, string documentUrl, string referrer)
     {
         Engine = engine;
         Page = page;
@@ -40,6 +40,8 @@ internal sealed class PageRuntime
         Viewport = options.Viewport;
         Dom = DomRealm.Of(engine);
         AnimationFrames = new AnimationFrameLane(this);
+        DocumentUrl = documentUrl;
+        Referrer = referrer;
         _started = System.Diagnostics.Stopwatch.GetTimestamp();
     }
 
@@ -103,6 +105,42 @@ internal sealed class PageRuntime
     /// <summary><c>window.name</c>, which nothing but a script reads or writes in this version.</summary>
     internal string WindowName { get; set; } = "";
 
+    /// <summary>
+    /// The document's URL as the page knows it, which is what <c>location</c>, <c>document.URL</c> and
+    /// relative resolution read.
+    /// </summary>
+    /// <remarks>
+    /// It is the runtime's rather than AngleSharp's because <c>pushState</c> and a fragment navigation move
+    /// it without reloading, and writing AngleSharp's location instead would raise its own
+    /// <c>Location.Changed</c> — a fire-and-forget <c>IBrowsingContext.OpenAsync</c> on this very thread.
+    /// AngleSharp's document address stays at whatever the parse was given, which is what the parse resolved
+    /// against and is right for that.
+    /// </remarks>
+    internal string DocumentUrl { get; set; }
+
+    /// <summary>What <c>document.referrer</c> answers: the document this one was reached from.</summary>
+    internal string Referrer { get; set; }
+
+    /// <summary><c>history.scrollRestoration</c>, which nothing scrolls and nothing restores.</summary>
+    /// <remarks>
+    /// Stored and answered so that a router setting it — which many do, on their first line — is not
+    /// silently writing to nothing. There is no scrolling here for either value to change.
+    /// </remarks>
+    internal string ScrollRestoration { get; set; } = "auto";
+
+    /// <summary>
+    /// The forms whose entry list is being constructed — HTML's own reentrancy guard, so that a
+    /// <c>formdata</c> listener submitting the same form again does not recurse.
+    /// </summary>
+    internal HashSet<object> SubmittingForms { get; } = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>
+    /// Cancelled when this document is left or the page closes, so that everything the engine had in flight
+    /// — a <c>fetch</c>, an <c>XMLHttpRequest</c>, a worker's load — is abandoned rather than left to
+    /// complete into a realm nobody can reach.
+    /// </summary>
+    internal CancellationTokenSource? Cancellation { get; set; }
+
     /// <summary>Milliseconds since the page runtime was created, for a <c>DOMHighResTimeStamp</c>.</summary>
     /// <remarks>
     /// Measured with <see cref="System.Diagnostics.Stopwatch"/> rather than the engine's configured
@@ -113,9 +151,15 @@ internal sealed class PageRuntime
     internal double Now => System.Diagnostics.Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
 
     /// <summary>Attaches a runtime to a freshly built engine. Called once, on the page loop.</summary>
-    internal static PageRuntime Attach(Engine engine, Page page, BrowserOptions options, PageRecorder recorder)
+    internal static PageRuntime Attach(
+        Engine engine,
+        Page page,
+        BrowserOptions options,
+        PageRecorder recorder,
+        string documentUrl,
+        string referrer)
     {
-        var runtime = new PageRuntime(engine, page, options, recorder);
+        var runtime = new PageRuntime(engine, page, options, recorder, documentUrl, referrer);
         _runtimes.Add(engine, runtime);
         return runtime;
     }

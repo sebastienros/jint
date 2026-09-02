@@ -1,5 +1,6 @@
 using AngleSharp.Dom;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Runtime;
 
 namespace Jint.Browser.Dom;
@@ -26,6 +27,29 @@ internal class DomHostHooks
 {
     /// <summary>The behaviour a binding with no runtime behind it has: AngleSharp, called directly.</summary>
     internal static readonly DomHostHooks Default = new();
+
+    /// <summary>
+    /// A wrapper has just been created and is the one this engine will keep for its object; the runtime may
+    /// add members the generator could not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called once per object per engine, from the wrapper cache, and never again — so a member added here is
+    /// an own property of a wrapper rather than of a prototype, which is what keeps every generated prototype
+    /// shaped. It is the seam for a member whose <i>whole</i> body belongs to the runtime rather than one
+    /// whose body is replaced: <c>form.submit()</c> is a navigation and <c>form.requestSubmit()</c> does not
+    /// exist in AngleSharp at all, so neither is generated and neither can be.
+    /// </para>
+    /// <para>
+    /// The cost is one virtual call per wrapper creation, not per member access.
+    /// </para>
+    /// </remarks>
+    /// <param name="realm">The DOM state of the engine the wrapper belongs to.</param>
+    /// <param name="target">The AngleSharp object being wrapped.</param>
+    /// <param name="wrapper">The wrapper, before anything has read a property off it.</param>
+    internal virtual void WrapperCreated(DomRealm realm, object target, ObjectInstance wrapper)
+    {
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>
     internal virtual void SetInnerHtml(DomRealm realm, IElement element, string markup) => element.InnerHtml = markup;

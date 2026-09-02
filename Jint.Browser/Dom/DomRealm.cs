@@ -244,6 +244,15 @@ internal sealed class DomRealm
     {
         // GetValue rather than Add: two wrappers for one object can only be built by a re-entrant member, and
         // the table is what decides which one wins, so identity is never split.
-        return _wrappers.GetValue(key, _ => wrapper);
+        var cached = _wrappers.GetValue(key, _ => wrapper);
+
+        // Only the wrapper that won the race is decorated, and only once, because the table is what decides
+        // which one exists at all.
+        if (ReferenceEquals(cached, wrapper))
+        {
+            Hooks.WrapperCreated(this, key, wrapper);
+        }
+
+        return cached;
     }
 }

@@ -1,0 +1,361 @@
+using Jint.Browser;
+
+namespace Jint.Tests.Browser.Navigation;
+
+/// <summary>
+/// A navigation is a fetch and a new engine: the document comes off the wire through Jint's own transport,
+/// and the document it replaces is unloaded and disposed.
+/// </summary>
+public sealed class NavigationTests
+{
+    [Test]
+    public async Task ADocumentIsFetchedParsedAndItsScriptsRun()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(
+            "/index.html",
+            "<html><head><title>Hello</title></head><body><p id='greeting'>before</p>"
+            + "<script>document.getElementById('greeting').textContent = 'after'</script></body></html>"));
+
+        var response = await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(200);
+        response.Ok.Should().BeTrue();
+        response.Redirected.Should().BeFalse();
+
+        (await fixture.Page.TitleAsync()).Should().Be("Hello");
+        (await fixture.Page.EvaluateAsync<string>("document.getElementById('greeting').textContent")).Should().Be("after");
+        fixture.Page.Url.Should().Be(fixture.Url("/index.html"));
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AFourOhFourStillRenders()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync();
+
+        var response = await fixture.Page.NavigateAsync(fixture.Url("/missing.html"));
+
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(404);
+        response.Ok.Should().BeFalse();
+
+        (await fixture.Page.TitleAsync()).Should().Be("Not found");
+        (await fixture.Page.EvaluateAsync<string>("document.querySelector('h1').textContent")).Should().Be("404");
+    }
+
+    [Test]
+    public async Task APlainTextResponseBecomesADocumentWhoseBodyIsTheText()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map(
+            "/notes.txt",
+            _ => LoopbackResponse.Text("line one\n<not markup>")));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/notes.txt"));
+
+        (await fixture.Page.EvaluateAsync<string>("document.querySelector('pre').textContent"))
+            .Should().Be("line one\n<not markup>", "a plain-text document is the text inside a <pre>, not markup");
+    }
+
+    [Test]
+    public async Task AContentTypeAPageCannotRenderIsRefusedWithTheTypeInTheMessage()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map(
+            "/data.json",
+            _ => LoopbackResponse.Json("{\"a\":1}")));
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/data.json"));
+
+        (await act.Should().ThrowAsync<NavigationFailedException>())
+            .WithMessage("*application/json*");
+    }
+
+    [Test]
+    public async Task ARedirectIsFollowedAndTheFinalUrlIsTheDocumentsUrl()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .Map("/start", _ => LoopbackResponse.Redirect(302, "/end"))
+            .MapHtml("/end", "<title>arrived</title>"));
+
+        var response = await fixture.Page.NavigateAsync(fixture.Url("/start"));
+
+        response!.Redirected.Should().BeTrue();
+        response.Url.Should().Be(fixture.Url("/end"));
+        fixture.Page.Url.Should().Be(fixture.Url("/end"));
+        (await fixture.Page.TitleAsync()).Should().Be("arrived");
+        (await fixture.Page.EvaluateAsync<string>("location.pathname")).Should().Be("/end");
+    }
+
+    [Test]
+    public async Task ASeeOtherTurnsAFormPostIntoAGet()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/form.html", "<form id='f' method='post' action='/submit'><input name='a' value='1'><button type='submit'>go</button></form>")
+            .Map("/submit", _ => LoopbackResponse.Redirect(303, "/done"))
+            .MapHtml("/done", "<title>done</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
+        await fixture.Page.SubmitFormAsync("#f");
+
+        var submit = fixture.Server.Received.Single(r => r.Path == "/submit");
+        var done = fixture.Server.Received.Single(r => r.Path == "/done");
+
+        submit.Method.Should().Be("POST");
+        done.Method.Should().Be("GET", "303 rewrites the method to GET and drops the body");
+        done.Body.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ATemporaryRedirectKeepsTheMethodAndTheBody()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/form.html", "<form id='f' method='post' action='/submit'><input name='a' value='1'></form>")
+            .Map("/submit", _ => LoopbackResponse.Redirect(307, "/again"))
+            .MapHtml("/again", "<title>again</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/form.html"));
+        await fixture.Page.SubmitFormAsync("#f");
+
+        var again = fixture.Server.Received.Single(r => r.Path == "/again");
+        again.Method.Should().Be("POST");
+        again.Body.Should().Be("a=1");
+    }
+
+    [Test]
+    public async Task TheSecondNavigationCarriesTheFirstDocumentAsItsReferer()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/one.html", "<title>one</title>")
+            .MapHtml("/two.html", "<title>two</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+        await fixture.Page.NavigateAsync(fixture.Url("/two.html"));
+
+        var second = fixture.Server.Received.Single(r => r.Path == "/two.html");
+        second.Header("Referer").Should().Be(fixture.Url("/one.html"));
+
+        (await fixture.Page.EvaluateAsync<string>("document.referrer")).Should().Be(fixture.Url("/one.html"));
+    }
+
+    [Test]
+    public async Task TheFirstNavigationCarriesNoRefererFromAboutBlank()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml("/one.html", "<title>one</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+
+        fixture.Server.Received.Single().Header("Referer").Should().BeNull("about:blank has an opaque origin and is nobody's referrer");
+    }
+
+    [Test]
+    public async Task TheOutgoingDocumentIsUnloadedInOrderAndItsEngineIsDisposed()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml(
+                "/one.html",
+                """
+                <title>one</title>
+                <script>
+                  window.addEventListener('beforeunload', function () { console.log('beforeunload'); });
+                  window.addEventListener('pagehide', function (e) { console.log('pagehide:' + e.persisted); });
+                  window.addEventListener('unload', function () { console.log('unload'); });
+                  window.marker = 'first document';
+                  setInterval(function () { console.log('tick'); }, 5);
+                </script>
+                """)
+            .MapHtml("/two.html", "<title>two</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromMilliseconds(60));
+
+        var first = await fixture.Page.RunOnLoopAsync(engine => engine);
+
+        await fixture.Page.NavigateAsync(fixture.Url("/two.html"));
+
+        fixture.Page.ConsoleMessages.Should().ContainInOrder("beforeunload", "pagehide:false", "unload");
+
+        var second = await fixture.Page.RunOnLoopAsync(engine => engine);
+        second.Should().NotBeSameAs(first, "a navigation is a new realm and therefore a new engine");
+
+        (await fixture.Page.EvaluateAsync<string>("typeof window.marker"))
+            .Should().Be("undefined", "the new document is a new realm");
+
+        // The previous engine was disposed on the page loop, so nothing of it is pumped any more: its
+        // interval, which was firing before the navigation, is silent afterwards.
+        var ticksAtNavigation = fixture.Page.ConsoleMessages.Count(m => m == "tick");
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromMilliseconds(60));
+        fixture.Page.ConsoleMessages.Count(m => m == "tick").Should().Be(ticksAtNavigation);
+    }
+
+    [Test]
+    public async Task ABeforeUnloadHandlerCannotStopANavigationUnlessTheCallerAllowsIt()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/one.html", "<title>one</title><script>window.onbeforeunload = function () { return 'stay?' }</script>")
+            .MapHtml("/two.html", "<title>two</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+
+        // The default: the handler runs, and the navigation happens anyway.
+        await fixture.Page.NavigateAsync(fixture.Url("/two.html"));
+        (await fixture.Page.TitleAsync()).Should().Be("two");
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+
+        var act = async () => await fixture.Page.NavigateAsync(
+            fixture.Url("/two.html"),
+            new NavigationOptions { AllowCancel = true });
+
+        (await act.Should().ThrowAsync<NavigationFailedException>()).WithMessage("*beforeunload*");
+        (await fixture.Page.TitleAsync()).Should().Be("one", "the page stayed where it was");
+    }
+
+    [Test]
+    public async Task PreventDefaultInABeforeUnloadListenerCancelsToo()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml("/one.html", "<title>one</title><script>addEventListener('beforeunload', function (e) { e.preventDefault(); })</script>")
+            .MapHtml("/two.html", "<title>two</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/one.html"));
+
+        var act = async () => await fixture.Page.NavigateAsync(
+            fixture.Url("/two.html"),
+            new NavigationOptions { AllowCancel = true });
+
+        await act.Should().ThrowAsync<NavigationFailedException>();
+        (await fixture.Page.TitleAsync()).Should().Be("one");
+    }
+
+    [Test]
+    public async Task AUrlTheContextsFilterRefusesNeverReachesTheSocket()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(
+            configureContext: options => options.UrlFilter = _ => false);
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        (await act.Should().ThrowAsync<NavigationFailedException>()).WithMessage("*URL filter*");
+        fixture.Server.Received.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task ARedirectHopIsCheckedAgainstTheFilterToo()
+    {
+        LoopbackServer? server = null;
+
+        await using var fixture = await LoopbackPage.CreateAsync(
+            s =>
+            {
+                server = s;
+                s.Map("/start", _ => LoopbackResponse.Redirect(302, "/forbidden"));
+                s.MapHtml("/forbidden", "<title>should never be parsed</title>");
+            },
+            options => options.UrlFilter = uri => !uri.AbsolutePath.Contains("forbidden", StringComparison.Ordinal));
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/start"));
+
+        await act.Should().ThrowAsync<NavigationFailedException>();
+        server!.Received.Should().ContainSingle(r => r.Path == "/start");
+        server.Received.Should().NotContain(r => r.Path == "/forbidden");
+    }
+
+    [Test]
+    public async Task TheNetworkLogRecordsTheDocumentFetchAndAScriptsOwnRequest()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml(
+                "/index.html",
+                """
+                <title>logged</title>
+                <script>
+                  var xhr = new XMLHttpRequest();
+                  xhr.open('GET', '/api', false);
+                  xhr.send();
+                  window.answer = xhr.responseText;
+                </script>
+                """)
+            .Map("/api", _ => LoopbackResponse.Text("42")));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        (await fixture.Page.EvaluateAsync<string>("window.answer")).Should().Be("42");
+
+        var requests = fixture.Page.Requests;
+        requests.Should().Contain(r => r.Url == fixture.Url("/index.html") && r.Initiator == RequestInitiator.Document && r.Status == 200);
+        requests.Should().Contain(r => r.Url == fixture.Url("/api") && r.Initiator == RequestInitiator.Script && r.Status == 200);
+    }
+
+    [Test]
+    public async Task ClosingThePageWhileANavigationIsInFlightCancelsIt()
+    {
+        var release = new SemaphoreSlim(0, 1);
+
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.Map("/slow.html", _ =>
+        {
+            release.Wait(TimeSpan.FromSeconds(10));
+            return LoopbackResponse.Html("<title>too late</title>");
+        }));
+
+        var navigation = fixture.Page.NavigateAsync(fixture.Url("/slow.html"));
+
+        // The server is holding the response, so the navigation is inside the fetch when the page closes.
+        var closing = Task.Run(async () =>
+        {
+            await Task.Delay(50).ConfigureAwait(false);
+            await fixture.Page.CloseAsync().ConfigureAwait(false);
+        });
+
+        var act = async () => await navigation;
+        await act.Should().ThrowAsync<OperationCanceledException>();
+
+        release.Release();
+        await closing;
+    }
+
+    [Test]
+    public async Task ADataUrlAndAboutBlankStillLoadWithoutTheNetwork()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync();
+
+        var response = await fixture.Page.NavigateAsync("data:text/html,<title>inline</title>");
+
+        response.Should().BeNull("nothing reached the network, so there is no response");
+        (await fixture.Page.TitleAsync()).Should().Be("inline");
+
+        await fixture.Page.NavigateAsync("about:blank");
+        fixture.Page.Url.Should().Be("about:blank");
+        fixture.Server.Received.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task WaitUntilCommitAnswersBeforeTheLoadEventsHaveRun()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(
+            "/index.html",
+            "<title>committed</title>"));
+
+        var response = await fixture.Page.NavigateAsync(
+            fixture.Url("/index.html"),
+            new NavigationOptions { WaitUntil = WaitUntilState.Commit });
+
+        response!.Status.Should().Be(200);
+
+        // Whatever the caller observed, the page still finishes the load: the next request queues behind it.
+        (await fixture.Page.TitleAsync()).Should().Be("committed");
+    }
+
+    [Test]
+    public async Task ABaseElementMovesTheDocumentsBaseUrlWithoutMovingItsUrl()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(
+            "/deep/index.html",
+            "<base href='/root/'><title>based</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/deep/index.html"));
+
+        (await fixture.Page.EvaluateAsync<string>("document.baseURI")).Should().Be(fixture.Url("/root/"));
+        (await fixture.Page.EvaluateAsync<string>("document.URL")).Should().Be(fixture.Url("/deep/index.html"));
+        (await fixture.Page.EvaluateAsync<string>("location.href")).Should().Be(fixture.Url("/deep/index.html"));
+    }
+}

@@ -157,6 +157,20 @@ internal class JsEvent : ObjectInstance
     internal virtual bool IsActivationEvent => false;
 
     /// <summary>
+    /// Whether an event handler that returns a value other than <see langword="null"/> or
+    /// <see langword="undefined"/> cancels this event — HTML's <c>BeforeUnloadEvent</c> arm of
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#the-event-handler-processing-algorithm step 4.
+    /// </summary>
+    /// <remarks>
+    /// False for every event this assembly builds, because <c>beforeunload</c> is fired by the browser
+    /// package rather than by the engine: a document is what has an unload to be warned about, and nothing
+    /// here has one. It is a virtual rather than a type test so that the rule stays a property of the event —
+    /// the package's own <c>beforeunload</c> event overrides it, and <see cref="JsEventTarget"/> asks the
+    /// event instead of knowing about a class it cannot see.
+    /// </remarks>
+    internal virtual bool CancelsOnNonNullHandlerResult => false;
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#event-path, or <see langword="null"/> when no dispatch has ever built one.
     /// </summary>
     /// <remarks>

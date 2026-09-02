@@ -1,15 +1,16 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Text;
 using AngleSharp;
 using Jint.Browser.Runtime;
+using Jint.Browser.Workers;
 using Jint.Native;
+using Jint.WebApi;
 
 namespace Jint.Browser;
 
 /// <summary>
-/// One document, one engine and one thread: a page loads static content, runs its scripts, and answers
-/// questions about the result.
+/// One document, one engine and one thread: a page loads content, runs its scripts, and answers questions
+/// about the result.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,25 +20,40 @@ namespace Jint.Browser;
 /// its engine is used from exactly one.
 /// </para>
 /// <para>
-/// <b>What runs today.</b> Static content from <see cref="SetContentAsync"/>, <c>about:blank</c> and
-/// <c>data:text/html</c>, with classic inline scripts executed in document order as the parse reaches them,
-/// then <c>readystatechange</c>, <c>DOMContentLoaded</c> and <c>load</c>. External scripts, modules, real
-/// navigation and every kind of subresource need the network, which a page does not reach yet; what a parse
-/// skipped is listed in <see cref="UnsupportedScripts"/>.
+/// <b>What runs today.</b> A document fetched over <c>http(s)</c>, from a <c>data:</c> URL,
+/// <c>about:blank</c> or <see cref="SetContentAsync"/>, with classic inline scripts executed in document
+/// order as the parse reaches them, then <c>readystatechange</c>, <c>DOMContentLoaded</c>, <c>load</c> and
+/// <c>pageshow</c>. Forms submit, history travels, cookies and storage persist, and workers run. External
+/// <c>&lt;script src&gt;</c> and module scripts still need the parser driver; what a parse skipped is listed
+/// in <see cref="UnsupportedScripts"/>.
 /// </para>
 /// <para>
 /// A page is closed with <see cref="CloseAsync"/> or by disposing it, and every call afterwards fails with
 /// <see cref="ObjectDisposedException"/> rather than hanging.
 /// </para>
 /// </remarks>
-public sealed class Page : IAsyncDisposable
+public sealed partial class Page : IAsyncDisposable
 {
     private readonly PageLoop _loop;
     private readonly PageRecorder _recorder;
+    private readonly PageNetworkRecorder _requests;
     private readonly BrowserOptions _options;
+    private readonly PageNetwork _network;
+    private readonly ThreadPerWorkerProvider _workers;
+
+    /// <summary>The page's session history. Touched on the loop thread only.</summary>
+    private readonly SessionHistory _history = new();
+
+    /// <summary>
+    /// This page's <c>sessionStorage</c>, one store per origin. Touched on the loop thread only, and owned by
+    /// the page rather than the context, which is exactly the lifetime the name promises.
+    /// </summary>
+    private readonly Dictionary<string, StorageProvider> _sessionStores = new(StringComparer.Ordinal);
 
     private volatile PageLoad? _load;
     private volatile string _url = "about:blank";
+    private volatile string _referrer = "";
+    private volatile PageResponse? _response;
     private volatile Frame _mainFrame;
     private volatile bool _closed;
 
@@ -46,11 +62,14 @@ public sealed class Page : IAsyncDisposable
         Context = context;
         _options = options;
         _recorder = recorder;
+        _requests = new PageNetworkRecorder(options.MaxRecordedEvents);
+        _network = context.Network;
+        _workers = new ThreadPerWorkerProvider(this, _network, options.PumpIdle);
         _mainFrame = Frame.Detached(this);
         _loop = new PageLoop(
             "Jint.Browser page loop",
             options.PumpIdle,
-            () => BrowserEngineFactory.Create(this, options, recorder, "about:blank"),
+            () => BuildEngine("about:blank", ""),
             exception => recorder.Add(new PageError(PageErrorKind.UncaughtCallbackError, exception.Message, "PageLoop")));
     }
 
@@ -61,7 +80,32 @@ public sealed class Page : IAsyncDisposable
     public Frame MainFrame => _mainFrame;
 
     /// <summary>The URL of the document currently loaded.</summary>
+    /// <remarks>
+    /// It follows <c>history.pushState</c> and a fragment navigation as well as a real one, which is what a
+    /// page's own <c>location.href</c> does.
+    /// </remarks>
     public string Url => _url;
+
+    /// <summary>
+    /// The response the current document came from, or <see langword="null"/> when it did not come from one.
+    /// </summary>
+    /// <remarks>
+    /// <c>about:blank</c>, a <c>data:</c> URL and <see cref="SetContentAsync"/> reach no network, so they
+    /// have no response. A <c>404</c> does: a status is not a failure, and the error page it carried is the
+    /// document.
+    /// </remarks>
+    public PageResponse? Response => _response;
+
+    /// <summary>Every request the page has made, oldest first — documents, <c>fetch</c>, <c>XMLHttpRequest</c>.</summary>
+    /// <remarks>
+    /// It spans the page rather than the document, so a navigation does not clear it, and it is ring-bounded
+    /// by <see cref="BrowserOptions.MaxRecordedEvents"/>. An entry appears when the first hop goes out, so a
+    /// request still in flight is in the list with a status of zero.
+    /// </remarks>
+    public IReadOnlyList<PageRequest> Requests => _requests.Requests;
+
+    /// <summary>How many of this page's workers are running.</summary>
+    public int Workers => _workers.LiveCount;
 
     /// <summary>Whether the page has been closed.</summary>
     public bool IsClosed => _closed;
@@ -75,7 +119,7 @@ public sealed class Page : IAsyncDisposable
     /// <summary>The <c>&lt;script&gt;</c> elements the last load could not run, each with the reason.</summary>
     /// <remarks>
     /// A page that does nothing is usually a page whose scripts were external or modules. This says so rather
-    /// than leaving a host to work it out; it empties as the parser driver and the network arrive.
+    /// than leaving a host to work it out; it empties as the parser driver arrives.
     /// </remarks>
     public IReadOnlyList<string> UnsupportedScripts => _load?.UnsupportedScripts ?? [];
 
@@ -86,30 +130,26 @@ public sealed class Page : IAsyncDisposable
     /// </remarks>
     public event EventHandler<DialogEventArgs>? DialogOpened;
 
-    /// <summary>Loads <paramref name="url"/>, which must be <c>about:blank</c> or a <c>data:</c> URL.</summary>
-    /// <param name="url">The URL to load.</param>
-    /// <returns>A task that completes when the document has loaded and its scripts have run.</returns>
-    /// <exception cref="NotSupportedException">The URL names a scheme a page cannot reach yet.</exception>
-    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task NavigateAsync(string url)
-    {
-        ArgumentNullException.ThrowIfNull(url);
-
-        var html = ContentOf(url);
-        return _loop.PostAsync(engine => Navigate(url, html));
-    }
-
     /// <summary>Replaces the document with <paramref name="html"/>, parsed as if fetched from a URL.</summary>
     /// <param name="html">The markup to parse.</param>
     /// <param name="baseUrl">The URL the document reports and resolves against; <c>about:blank</c> by default.</param>
     /// <returns>A task that completes when the document has loaded and its scripts have run.</returns>
+    /// <remarks>
+    /// The document's origin is the base URL's, so content given an <c>https://</c> base URL reaches that
+    /// origin's <c>localStorage</c> and cookies exactly as a fetched document would. With no base URL the
+    /// origin is opaque.
+    /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task SetContentAsync(string html, string? baseUrl = null)
+    public async Task SetContentAsync(string html, string? baseUrl = null)
     {
         ArgumentNullException.ThrowIfNull(html);
+        ObjectDisposedException.ThrowIf(_closed, this);
 
         var url = baseUrl ?? "about:blank";
-        return _loop.PostAsync(engine => Navigate(url, html));
+
+        // Through the same gate a navigation takes, because it is one: it unloads a document, swaps the
+        // engine and adds a history entry, and doing that beside a navigation in flight would race the swap.
+        await SetContentCoreAsync(url, html).ConfigureAwait(false);
     }
 
     /// <summary>Evaluates <paramref name="script"/> in the page and answers the result as a CLR value.</summary>
@@ -166,29 +206,53 @@ public sealed class Page : IAsyncDisposable
     /// <param name="timeout">The ceiling on how long to keep pumping.</param>
     /// <returns><see langword="true"/> when the page went idle, <see langword="false"/> when the timeout won.</returns>
     /// <remarks>
+    /// <para>
     /// Idle means the engine has no queued job and nothing scheduled — no due timer, no pending animation
     /// frame, no promise waiting on a background completion. A page with a <c>setInterval</c> is never idle,
     /// so a timeout is the answer there and not a failure.
+    /// </para>
+    /// <para>
+    /// <b>It is not a way to wait for a navigation.</b> The wait holds the page's thread for its whole
+    /// duration, and a navigation commits by posting to that same thread — so a navigation a script started
+    /// would be queued behind this call and never seen by it. <see cref="WaitForNavigationAsync"/> is the one
+    /// that waits for that.
+    /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
     public Task<bool> WaitForIdleAsync(TimeSpan timeout) => _loop.PostAsync(engine => PumpUntilIdle(engine, timeout));
 
     /// <summary>Closes the page, disposing its engine and its document on the page's own thread.</summary>
     /// <returns>A task that completes when the page's thread has ended.</returns>
+    /// <remarks>
+    /// Everything the page had in flight ends with it: the page's cancellation token is cancelled, so a
+    /// running <c>fetch</c> or <c>XMLHttpRequest</c> is abandoned at the socket and a navigation a caller was
+    /// awaiting fails with <see cref="OperationCanceledException"/>; every worker thread is asked to stop and
+    /// disposes its own engine.
+    /// </remarks>
     public async Task CloseAsync()
     {
         _closed = true;
         Context.Remove(this);
 
+        // Before the loop stops, because a worker's own thread is what disposes its engine and it needs to
+        // observe the end. End() touches only endpoints and interlocked bookkeeping, so it is safe from here.
+        _workers.CloseAll();
+
         // The document and the browsing context are the loop thread's, like the engine, so they are released
         // there — in the loop's own teardown rather than as a mailbox request, because a request would queue
         // behind whatever is running and what is running may be the very wait this call is ending.
-        await _loop.CloseAsync(_ =>
+        await _loop.CloseAsync(engine =>
         {
+            if (engine is not null)
+            {
+                PageRuntime.Find(engine)?.Cancellation?.Cancel();
+            }
+
             Release(_load);
             _load = null;
         }).ConfigureAwait(false);
 
+        FailPendingNavigationWaiters();
         _loop.Dispose();
     }
 
@@ -208,6 +272,12 @@ public sealed class Page : IAsyncDisposable
     /// </remarks>
     internal Task<T> RunOnLoopAsync<T>(Func<Engine, T> work) => _loop.PostAsync(work);
 
+    /// <summary>The context's network position, which owns the cookie jar every document read shares.</summary>
+    internal PageNetwork Network => _network;
+
+    /// <summary>The page's session history. Reachable from the loop thread only.</summary>
+    internal SessionHistory History => _history;
+
     internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options)
     {
         var page = new Page(context, options, new PageRecorder(options.MaxRecordedEvents));
@@ -218,7 +288,8 @@ public sealed class Page : IAsyncDisposable
 
             // The loop built an engine on the way up, and it is already the about:blank engine this load
             // wants, so the first document reuses it rather than replacing a realm nothing has run in.
-            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "")).ConfigureAwait(false);
+            await page._loop.PostAsync(engine => page.LoadInto(engine, "about:blank", "", response: null, referrer: "", onPhase: null)).ConfigureAwait(false);
+            await page._loop.PostAsync(page.RecordFirstHistoryEntry).ConfigureAwait(false);
         }
         catch
         {
@@ -241,79 +312,23 @@ public sealed class Page : IAsyncDisposable
         return args;
     }
 
-    /// <summary>
-    /// The navigation seam a page's own <c>location</c> assignment reaches.
-    /// </summary>
-    /// <remarks>
-    /// It is deliberately honest rather than complete: a target this version can load starts a real
-    /// navigation on the next turn of the loop — never inline, because the caller is a script the current
-    /// document is running — and anything else is recorded as a page error naming what it would have needed.
-    /// A page is not silently left on the old document with no sign that it asked to leave.
-    /// </remarks>
-    internal void RequestNavigation(string url, bool replace)
-    {
-        if (_closed)
-        {
-            return;
-        }
+    /// <summary>Records what a worker's pump got wrong, from the worker's own thread.</summary>
+    internal void RecordWorkerError(Exception exception, string name)
+        => _recorder.Add(new PageError(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name));
 
-        if (!IsSupported(url))
-        {
-            _recorder.Add(new PageError(
-                PageErrorKind.ReportedError,
-                "Navigation to '" + url + "' was refused: a page reaches no network in this version, so only "
-                + "about:blank and data:text/html URLs can be loaded.",
-                "Location"));
-            return;
-        }
-
-        string html;
-
-        try
-        {
-            html = ContentOf(url);
-        }
-        catch (Exception exception)
-        {
-            // A malformed data: URL is the page's mistake, not the host's, and this call is inside the script
-            // that made it — so it becomes a page error like any other rather than a CLR exception erupting
-            // through the parse and faulting whatever the host was awaiting.
-            _recorder.Add(new PageError(
-                PageErrorKind.ReportedError,
-                "Navigation to '" + url + "' was refused: " + exception.Message,
-                "Location"));
-            return;
-        }
-
-        // Deliberately not awaited: the caller is a script the current document is running, and the document
-        // it asked for replaces the engine that script is in. The continuation is what keeps a navigation
-        // posted into a closing page from becoming an unobserved faulted task.
-        _ = _loop.PostAsync(engine => Navigate(url, html))
-            .ContinueWith(static task => _ = task.Exception, TaskScheduler.Default);
-    }
-
-    /// <summary>A navigation: a new engine, and therefore a new realm, for the document it loads.</summary>
-    private object? Navigate(string url, string html)
-        => LoadInto(_loop.ReplaceEngine(() => BrowserEngineFactory.Create(this, _options, _recorder, url)), url, html);
-
-    private object? LoadInto(Engine engine, string url, string html)
-    {
-        // The previous document goes first, and the page describes nothing until the new one exists. The
-        // engine that document belonged to has already been replaced, so nothing can reach it; and a parse
-        // that throws leaves a page with no document rather than one describing a document that is gone.
-        var previous = _load;
-        _load = null;
-        _url = url;
-        _mainFrame = Frame.Detached(this);
-        Release(previous);
-
-        var runtime = PageRuntime.Find(engine)!;
-        var load = PageDocument.Load(runtime, html, url, _loop.Thread.ManagedThreadId);
-
-        _load = load;
-        _mainFrame = Frame.Build(this, load.Document, url);
-        return null;
-    }
+    /// <summary>The engine one document runs in, built with that document's URL, origin and referrer.</summary>
+    private Engine BuildEngine(string url, string referrer)
+        => BrowserEngineFactory.Create(new PageEngineRequest(
+            this,
+            _options,
+            _recorder,
+            _requests,
+            _network,
+            _workers,
+            _sessionStores,
+            url,
+            referrer,
+            _loop.Closing));
 
     private static void Release(PageLoad? load)
     {
@@ -395,44 +410,5 @@ public sealed class Page : IAsyncDisposable
         // exactly what a caller reaches for given that a script answering null or undefined gives a default.
         var target = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         return (T?) System.Convert.ChangeType(converted, target, CultureInfo.InvariantCulture);
-    }
-
-    private static bool IsSupported(string url)
-        => url.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
-        || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// The markup a URL this version can load carries: nothing for <c>about:</c>, and the payload of a
-    /// <c>data:text/html</c> URL, percent-decoded or base64-decoded.
-    /// </summary>
-    private static string ContentOf(string url)
-    {
-        if (url.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
-        {
-            return "";
-        }
-
-        if (!url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new NotSupportedException(
-                "Jint.Browser cannot load '" + url + "'. A page reaches no network in this version: use "
-                + "SetContentAsync, about:blank, or a data:text/html URL.");
-        }
-
-        var comma = url.IndexOf(',', StringComparison.Ordinal);
-        if (comma < 0)
-        {
-            throw new NotSupportedException("'" + url + "' is not a valid data URL: it has no comma.");
-        }
-
-        var metadata = url[5..comma];
-        var payload = url[(comma + 1)..];
-
-        if (metadata.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
-        {
-            return Encoding.UTF8.GetString(System.Convert.FromBase64String(payload));
-        }
-
-        return Uri.UnescapeDataString(payload);
     }
 }

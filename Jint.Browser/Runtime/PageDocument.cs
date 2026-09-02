@@ -31,7 +31,7 @@ namespace Jint.Browser.Runtime;
 internal static class PageDocument
 {
     /// <summary>Opens <paramref name="html"/> as <paramref name="url"/> and runs its inline scripts.</summary>
-    internal static PageLoad Load(PageRuntime runtime, string html, string url, int loopThreadId)
+    internal static PageLoad Load(PageRuntime runtime, string html, string url, int loopThreadId, Action<NavigationPhase>? onPhase = null)
     {
         var scripting = new PageScriptingService(runtime, html, url, loopThreadId);
 
@@ -44,7 +44,18 @@ internal static class PageDocument
 
         try
         {
-            document = context.OpenAsync(response => response.Content(html).Address(url)).GetAwaiter().GetResult();
+            // The content type is stated rather than left to AngleSharp, which otherwise guesses one from the
+            // address: a document fetched from `/notes.txt` would be given AngleSharp's own plain-text
+            // document factory and the markup below — already the plain-text wrapper the navigate rules
+            // asked for — would end up inside a second <pre>. What reaches here is always HTML, because
+            // DocumentFetch has already decided what kind of document the response was.
+            document = context
+                .OpenAsync(response => response
+                    .Content(html)
+                    .Address(url)
+                    .Header(AngleSharp.Io.HeaderNames.ContentType, "text/html; charset=utf-8"))
+                .GetAwaiter()
+                .GetResult();
         }
         catch
         {
@@ -66,7 +77,8 @@ internal static class PageDocument
         }
 
         var unsupported = Survey(document);
-        FireLifecycle(runtime);
+        onPhase?.Invoke(NavigationPhase.Committed);
+        FireLifecycle(runtime, onPhase);
 
         return new PageLoad(document, context, unsupported, scripting.ScriptsRun);
     }
@@ -110,7 +122,7 @@ internal static class PageDocument
 
         if (!string.IsNullOrEmpty(script.Source))
         {
-            return "external script not run: " + script.Source + " (a page reaches no network in this version)";
+            return "external script not run: " + script.Source + " (external scripts arrive with the parser driver)";
         }
 
         return null;
@@ -128,7 +140,7 @@ internal static class PageDocument
     /// during the parse and its setter is not reachable from outside the assembly. The separate
     /// <c>"interactive"</c> step becomes observable when the parser driver owns the parse.
     /// </remarks>
-    private static void FireLifecycle(PageRuntime runtime)
+    private static void FireLifecycle(PageRuntime runtime, Action<NavigationPhase>? onPhase)
     {
         var engine = runtime.Engine;
         var events = engine._mainRealm.Intrinsics.Event;
@@ -137,12 +149,24 @@ internal static class PageDocument
 
         if (document is null || window is null)
         {
+            onPhase?.Invoke(NavigationPhase.DomContentLoaded);
+            onPhase?.Invoke(NavigationPhase.Loaded);
             return;
         }
 
         Dispatch(runtime, document, events.CreateTrustedEvent(JsString.Create("readystatechange")));
         Dispatch(runtime, document, events.CreateTrustedEvent(JsString.Create("DOMContentLoaded"), new EventInit(Bubbles: true, Cancelable: false, Composed: false)));
+        onPhase?.Invoke(NavigationPhase.DomContentLoaded);
+
+        // https://html.spec.whatwg.org/multipage/browsing-the-web.html#history-traversal: pageshow follows
+        // load, and its persisted flag is false because nothing here restores a document from a cache.
         Dispatch(runtime, window, events.CreateTrustedEvent(JsString.Create("load")));
+
+        var pageShow = PageEvents.Create(runtime, "pageshow");
+        PageEvents.Member(pageShow, "persisted", JsBoolean.False);
+        PageEvents.Dispatch(runtime, window, pageShow);
+
+        onPhase?.Invoke(NavigationPhase.Loaded);
     }
 
     private static void Dispatch(PageRuntime runtime, JsEventTarget target, JsEvent ev)
@@ -169,3 +193,24 @@ internal sealed record PageLoad(
     IBrowsingContext Context,
     IReadOnlyList<string> UnsupportedScripts,
     int ScriptsRun);
+
+/// <summary>
+/// How far a load has got, so that <see cref="WaitUntilState"/> can answer at three different points.
+/// </summary>
+/// <remarks>
+/// The parse is synchronous in this version, so all three arrive inside one turn of the page loop and a
+/// caller waiting for the first is only microseconds ahead of one waiting for the last. They are separate
+/// signals because the parser driver makes them separate moments, and because a caller written against
+/// <see cref="WaitUntilState.Commit"/> today should not have to change then.
+/// </remarks>
+internal enum NavigationPhase
+{
+    /// <summary>The document exists and is the page's; its scripts have run.</summary>
+    Committed,
+
+    /// <summary><c>DOMContentLoaded</c> has been dispatched.</summary>
+    DomContentLoaded,
+
+    /// <summary><c>load</c> and <c>pageshow</c> have been dispatched at the window.</summary>
+    Loaded,
+}
