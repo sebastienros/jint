@@ -329,37 +329,16 @@ internal static class FetchBody
     /// <see cref="ProxyBody"/>, and it is a property a script can observe directly:
     /// <c>(await original.body.getReader().read()).value !== (await clone.body.getReader().read()).value</c>.
     /// </para>
-    /// </remarks>
-    internal static void CloneBody(FetchBodyObject source, FetchBodyObject target)
-        => TeeInto(source, target, cloneForBranch2: true);
-
-    /// <summary>
-    /// https://streams.spec.whatwg.org/#readablestream-create-a-proxy, as
-    /// https://fetch.spec.whatwg.org/#dom-request step 42 asks for it: the body a <c>Request</c> built from
-    /// another <c>Request</c> gets.
-    /// </summary>
-    /// <remarks>
-    /// The standard pipes the input's stream through an identity <c>TransformStream</c>, which passes each
-    /// chunk on <b>unchanged</b>; Jint reaches the same observable result with a tee whose
-    /// <i>cloneForBranch2</i> is unset. Sharing the flag's <see langword="false"/> with <c>tee()</c> is the
-    /// point of the split: a proxy that structured-cloned would diverge from the standard in the other
-    /// direction, and quietly refuse a chunk an identity transform is happy to forward.
-    /// </remarks>
-    internal static void ProxyBody(FetchBodyObject source, FetchBodyObject target)
-        => TeeInto(source, target, cloneForBranch2: false);
-
-    /// <summary>
-    /// The shared tail of the two: keep the first branch, hand the second to <paramref name="target"/>.
-    /// </summary>
-    /// <remarks>
+    /// <para>
     /// The tee goes through <see cref="ReadableStreamOperations.Tee"/> rather than straight to the default
     /// algorithm, because https://streams.spec.whatwg.org/#readable-stream-tee dispatches on the kind of
     /// controller the stream has: a body's own stream is a byte stream, and its two branches have to be byte
-    /// streams too or a clone would quietly lose BYOB reading. A byte stream's tee ignores
-    /// <paramref name="cloneForBranch2"/> and clones every chunk regardless, which is why a network
-    /// response's <c>clone()</c> never shared a buffer even before this flag existed.
+    /// streams too or a clone would quietly lose BYOB reading. A byte stream's tee clones every chunk
+    /// regardless of the flag, which is why a network response's <c>clone()</c> never shared a buffer even
+    /// before the flag existed.
+    /// </para>
     /// </remarks>
-    private static void TeeInto(FetchBodyObject source, FetchBodyObject target, bool cloneForBranch2)
+    internal static void CloneBody(FetchBodyObject source, FetchBodyObject target)
     {
         if (!source.HasBody)
         {
@@ -372,9 +351,51 @@ internal static class FetchBody
             return;
         }
 
-        var (branch1, branch2) = ReadableStreamOperations.Tee(stream, cloneForBranch2);
+        var (branch1, branch2) = ReadableStreamOperations.Tee(stream, cloneForBranch2: true);
         source.ReplaceStream(branch1);
         target.SetStreamBody(branch2);
+    }
+
+    /// <summary>
+    /// https://streams.spec.whatwg.org/#readablestream-create-a-proxy, as
+    /// https://fetch.spec.whatwg.org/#dom-request step 42 asks for it: the body a <c>Request</c> built from
+    /// another <c>Request</c> gets.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A proxy disturbs its input, and a clone does not</b> — that is what the two are for. The standard
+    /// pipes the input's stream through an identity <c>TransformStream</c>, and says what the caller can then
+    /// observe: the input's stream "becomes immediately locked and disturbed", so <c>bodyUsed</c> is true on
+    /// the request that was handed in and reading it a second time is the <c>TypeError</c> step 42.1 raises
+    /// on the next construction. It keeps its identity too, which is why this is not a tee: a tee would
+    /// replace <c>input.body</c> with a branch, and the object a script already held would no longer be the
+    /// one the request has.
+    /// </para>
+    /// <para>
+    /// A body that has not materialized a stream is proxied by <i>sharing its source</i> and marking that
+    /// source disturbed. Sharing is safe because every arm of
+    /// <see cref="Extract"/> copies the bytes it was given, so no script can reach them again; and marking is
+    /// what makes the two halves agree, since the stream
+    /// <see cref="FetchBodyObject.GetOrCreateStream"/> hands over afterwards is the cancelled, locked one a
+    /// consumed body has. So the common <c>new Request(other)</c> still builds no stream, no controller and
+    /// no pipe, and is observably the proxy all the same.
+    /// </para>
+    /// </remarks>
+    internal static void ProxyBody(FetchBodyObject source, FetchBodyObject target)
+    {
+        if (!source.HasBody)
+        {
+            return;
+        }
+
+        if (source.Stream is not { } stream)
+        {
+            target.SetBufferedBody(source.Source!.Value);
+            source.MarkSourceDisturbed();
+            return;
+        }
+
+        target.SetStreamBody(ReadableStreamPipe.CreateProxy(stream));
     }
 
     /// <summary>

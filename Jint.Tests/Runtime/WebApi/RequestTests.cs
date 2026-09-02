@@ -155,18 +155,85 @@ public class RequestTests
     public void CopiesFromAnotherRequest()
     {
         var engine = WebEngine();
-        engine.Execute("var a = new Request('https://example.org/a', { method: 'POST', body: 'hi', headers: { 'x-a': '1' } });");
 
-        engine.Evaluate("new Request(a).method").AsString().Should().Be("POST");
-        engine.Evaluate("new Request(a).url").AsString().Should().Be("https://example.org/a");
-        engine.Evaluate("new Request(a).headers.get('x-a')").AsString().Should().Be("1");
-        engine.Evaluate("new Request(a).text()").UnwrapIfPromise().AsString().Should().Be("hi");
+        // A fresh input per probe, because a copy disturbs the one it was built from — see
+        // ProxyingAnotherRequestDisturbsIt.
+        engine.Execute("function a() { return new Request('https://example.org/a', { method: 'POST', body: 'hi', headers: { 'x-a': '1' } }); }");
 
-        // Copying does not consume the original.
-        engine.Evaluate("a.bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new Request(a()).method").AsString().Should().Be("POST");
+        engine.Evaluate("new Request(a()).url").AsString().Should().Be("https://example.org/a");
+        engine.Evaluate("new Request(a()).headers.get('x-a')").AsString().Should().Be("1");
+        engine.Evaluate("new Request(a()).text()").UnwrapIfPromise().AsString().Should().Be("hi");
 
         // An explicit headers member replaces the copied list wholesale rather than adding to it.
-        engine.Evaluate("new Request(a, { headers: { 'x-b': '2' } }).headers.has('x-a')").AsBoolean().Should().BeFalse();
+        engine.Evaluate("new Request(a(), { headers: { 'x-b': '2' } }).headers.has('x-a')").AsBoolean().Should().BeFalse();
+    }
+
+    /// <summary>
+    /// https://fetch.spec.whatwg.org/#dom-request step 42 — "set finalBody to the result of creating a proxy
+    /// for inputBody", and https://streams.spec.whatwg.org/#readablestream-create-a-proxy says what that
+    /// leaves behind: the input's stream "becomes immediately locked and disturbed".
+    /// </summary>
+    [Test]
+    public void ProxyingAnotherRequestDisturbsIt()
+    {
+        var engine = WebEngine();
+        engine.Execute("var a = new Request('https://example.org/a', { method: 'POST', body: 'hi' });");
+        engine.GetValue("a").Get("bodyUsed").AsBoolean().Should().BeFalse();
+
+        engine.Execute("var b = new Request(a);");
+
+        // The input is consumed even though nothing has read a byte of it, and the copy still carries them.
+        engine.GetValue("a").Get("bodyUsed").AsBoolean().Should().BeTrue();
+        engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("hi");
+
+        // ... so a second copy is the TypeError step 42.1 raises for an unusable input.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Request(a)"))!
+            .Message.Should().Contain("already used");
+    }
+
+    /// <summary>
+    /// The same construction on an input whose <c>body</c> has been asked for, which is the arm that has a
+    /// stream to proxy. A proxy is not a tee: the input keeps the very stream object a script already holds.
+    /// </summary>
+    [Test]
+    public void ProxyingLeavesTheInputsOwnStreamInPlace()
+    {
+        var engine = WebEngine();
+        engine.Execute("""
+            var a = new Request('https://example.org/a', { method: 'POST', body: 'hi' });
+            var before = a.body;
+            var b = new Request(a);
+            """);
+
+        engine.Evaluate("a.body === before").AsBoolean().Should().BeTrue();
+        engine.Evaluate("b.body === before").AsBoolean().Should().BeFalse();
+        engine.GetValue("a").Get("bodyUsed").AsBoolean().Should().BeTrue();
+
+        // Locked as well as disturbed, so nothing can read the input behind the proxy's back.
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("before.getReader()"));
+
+        // The bytes still arrive through the proxy, which is what makes it a proxy rather than a discard.
+        engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("hi");
+    }
+
+    /// <summary>
+    /// The other half of that step's condition: "if initBody is null <b>and</b> inputBody is non-null". An
+    /// init body means no proxy is created, so nothing reads the input and it stays usable — which is what
+    /// <c>fetch/api/request/request-disturbed.any.js</c>'s one excluded row asks for the opposite of.
+    /// </summary>
+    [Test]
+    public void AnInitBodyReplacesTheInputsWithoutDisturbingIt()
+    {
+        var engine = WebEngine();
+        engine.Execute("""
+            var a = new Request('https://example.org/a', { method: 'POST', body: 'hi' });
+            var b = new Request(a, { body: 'other' });
+            """);
+
+        engine.GetValue("a").Get("bodyUsed").AsBoolean().Should().BeFalse();
+        engine.Evaluate("b.text()").UnwrapIfPromise().AsString().Should().Be("other");
+        engine.Evaluate("a.text()").UnwrapIfPromise().AsString().Should().Be("hi");
     }
 
     [Test]
@@ -354,10 +421,11 @@ public class RequestTests
         engine.Evaluate("new Request('https://example.org', { method: 'POST', body: 'hi' }).method").AsString().Should().Be("POST");
         engine.Evaluate("new Request('https://example.org', { method: 'POST', body: 'hi', duplex: 'half' }).method").AsString().Should().Be("POST");
 
-        // Copying a request whose body is a stream: initBody is null, so the step does not apply.
-        engine.Execute("var streamed = new Request('https://example.org', { method: 'POST', body: stream(), duplex: 'half' });");
-        engine.Evaluate("new Request(streamed).method").AsString().Should().Be("POST");
-        engine.Evaluate("streamed.clone().method").AsString().Should().Be("POST");
+        // Copying a request whose body is a stream: initBody is null, so the step does not apply. One input
+        // apiece, because a proxy disturbs the request it was built from and a clone does not.
+        engine.Execute("function streamed() { return new Request('https://example.org', { method: 'POST', body: stream(), duplex: 'half' }); }");
+        engine.Evaluate("new Request(streamed()).method").AsString().Should().Be("POST");
+        engine.Evaluate("streamed().clone().method").AsString().Should().Be("POST");
     }
 
     /// <summary>

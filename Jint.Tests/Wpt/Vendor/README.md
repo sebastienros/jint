@@ -42,7 +42,7 @@ Thirteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpatter
 `dom/` as **two** (events, abort), `fetch/api/` as **six** (basic, body, headers, redirect, request,
 response), `WebCryptoAPI/` as **eight** and `streams/` as **seven** — their root files plus one suite per
 sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 347
-theory cases over 41,417 assertions, of which 2,941 do not pass and every one is named in the driver's
+theory cases over 41,417 assertions, of which 2,939 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
@@ -1158,6 +1158,46 @@ citation and an argued decision, never a to-do — and the rule that age alone n
    already reached the walk through a proxy while `new Headers({ [Symbol.toStringTag]: 'x' })` on a plain
    object was silently accepted where a browser throws.
 
+## What `fetch/api/request/` says about this engine
+
+`request/` was vendored last, once `Options.WebApi.Fetch.BaseUrl` gave `new Request('')` a base to resolve
+against, and it found one defect: **`new Request(anotherRequest)` left the input undisturbed**. Three rows of
+`request-disturbed.any.js` named it, they were the corpus's `NeedsTriage` debt, and
+[#3618](https://github.com/sebastienros/jint/issues/3618) is the change that paid it.
+
+[The `Request` constructor](https://fetch.spec.whatwg.org/#dom-request) step 42 is "set *finalBody* to the
+result of [creating a proxy](https://streams.spec.whatwg.org/#readablestream-create-a-proxy) for
+*inputBody*", and the Streams Standard states that operation's observable consequence in its own prose: the
+result "pulls its data from *stream*, while *stream* itself becomes immediately **locked and disturbed**".
+Both halves were missing, for two different reasons. A body that had materialized a stream was **teed** — so
+the input's `body` was replaced by a branch, changing an object identity a script already held, and a tee
+disturbs nothing until something reads it. A body that had not — `new Request(url, { method: 'POST', body:
+'hi' })`, which keeps its bytes and builds no stream — simply **shared its source**, which is right for
+`clone()` and wrong here, because it too disturbs nothing.
+
+The fix is the algorithm as written for the stream arm — pipe through an identity `TransformStream`, which
+locks and disturbs by construction because [piping](https://streams.spec.whatwg.org/#readable-stream-pipe-to)
+acquires a reader and sets `disturbed` before it has read anything — and, for the buffered arm, the source
+shared as before plus the disturbance marked on it. That second half is what keeps the common
+`new Request(other)` free of a stream, a controller and a pipe: `GetOrCreateStream` already answers a
+disturbed source with the cancelled, locked stream a consumed body has, so the two halves agree without one
+being built.
+
+### The one row of it that is not debt
+
+The third row, *"Input request used for creating new request became disturbed even if body is not used"*,
+asks that `new Request(input, { body })` disturb `input` as well. The constructor does not: step 42 creates
+the proxy **"if *initBody* is null and *inputBody* is non-null"**, so an init body means nothing ever reads
+the input, and `bodyUsed` stays false. undici answers the same way, following the same step.
+
+Nor does any browser pass the row, which is the empirical half. Chromium's own baseline for this file
+(`request-disturbed.any-expected.txt`) records two rows failing, this one and its sibling, and it fails them
+on the *next* assertion — `assert_equals: body should not change expected object "[object ReadableStream]"
+but got object "[object ReadableStream]"` — because Chrome replaces the input's stream where a proxy leaves
+it in place. Firefox's expectation metadata marks four rows of the file `FAIL`, including both. So the row is
+`AssertsWhatNothingRequires` rather than debt: no change to this engine that keeps step 42's condition would
+move it, and abandoning the condition would mean disturbing a body the constructor never reads.
+
 ## What the fetch *network* corpus says about this engine
 
 326 assertions across the twenty files [the server lane](#the-server-lane) added, of which **69 do not pass**,
@@ -1308,9 +1348,9 @@ their exclusions without revisiting this table.
 | HTML — workers | `workers/` ×4 | 12 | 24 | 8 |
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
-| Fetch | `fetch/api/` ×6 | 61 | 888 | 118 |
+| Fetch | `fetch/api/` ×6 | 61 | 888 | 116 |
 | XMLHttpRequest | `xhr/` | 42 | 260 | 9 |
-| **total** | **40** | **347** | **41,417** | **2,941** |
+| **total** | **40** | **347** | **41,417** | **2,939** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were
