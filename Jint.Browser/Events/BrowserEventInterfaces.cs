@@ -33,7 +33,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsUiEvent(realm.Engine, Type(realm, args, "UIEvent"), EventInit(realm, args, "UIEvent"), realm.TimeStamp, view, detail, which);
         });
 
@@ -45,7 +45,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsMouseEvent(
                 realm.Engine,
                 Type(realm, args, "MouseEvent"),
@@ -65,7 +65,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsPointerEvent(
                 realm.Engine,
                 Type(realm, args, "PointerEvent"),
@@ -96,7 +96,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsWheelEvent(
                 realm.Engine,
                 Type(realm, args, "WheelEvent"),
@@ -121,7 +121,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsKeyboardEvent(
                 realm.Engine,
                 Type(realm, args, "KeyboardEvent"),
@@ -156,7 +156,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsInputEvent(
                 realm.Engine,
                 Type(realm, args, "InputEvent"),
@@ -178,7 +178,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsCompositionEvent(
                 realm.Engine,
                 Type(realm, args, "CompositionEvent"),
@@ -198,7 +198,7 @@ internal static class BrowserEventInterfaces
         static (realm, args) =>
         {
             var init = EventInitReader.Dictionary(args);
-            var (view, detail, which) = EventInitReader.UiInit(init);
+            var (view, detail, which) = EventInitReader.UiInit(realm.Engine, init);
             return new JsFocusEvent(
                 realm.Engine,
                 Type(realm, args, "FocusEvent"),
@@ -370,12 +370,56 @@ internal static class BrowserEventInterfaces
         .Accessor("view", static (t, _) => Brand<JsUiEvent>(t, "UIEvent.view").View)
         .Accessor("detail", static (t, _) => JsNumber.Create(Brand<JsUiEvent>(t, "UIEvent.detail").Detail))
         .Accessor("which", static (t, _) => JsNumber.Create(Brand<JsUiEvent>(t, "UIEvent.which").Which))
+        .Method("initUIEvent", static (t, args) =>
+        {
+            var ev = Brand<JsUiEvent>(t, "UIEvent.initUIEvent");
+            if (Initializing(ev, args, "UIEvent.initUIEvent", out var type, out var bubbles, out var cancelable))
+            {
+                ev.Initialize(type, bubbles, cancelable, LegacyView(ev, args, 3), LegacyNumber(args, 4));
+            }
+
+            return JsValue.Undefined;
+        }, length: 3)
         .Build();
 
     private static JsObjectShape BuildMouseEvent()
     {
         var builder = Base("MouseEvent");
         AddMouseMembers(builder);
+        AddUiInitializer(builder, "MouseEvent");
+        builder.Method("initMouseEvent", static (t, args) =>
+        {
+            var ev = Brand<JsMouseEvent>(t, "MouseEvent.initMouseEvent");
+            if (!Initializing(ev, args, "MouseEvent.initMouseEvent", out var type, out var bubbles, out var cancelable))
+            {
+                return JsValue.Undefined;
+            }
+
+            var modifiers = EventModifiers.None;
+            if (LegacyBool(args, 9)) { modifiers |= EventModifiers.Control; }
+            if (LegacyBool(args, 10)) { modifiers |= EventModifiers.Alt; }
+            if (LegacyBool(args, 11)) { modifiers |= EventModifiers.Shift; }
+            if (LegacyBool(args, 12)) { modifiers |= EventModifiers.Meta; }
+
+            ev.Initialize(
+                type,
+                bubbles,
+                cancelable,
+                LegacyView(ev, args, 3),
+                LegacyNumber(args, 4),
+                new MouseEventState(
+                    LegacyNumber(args, 5),
+                    LegacyNumber(args, 6),
+                    LegacyNumber(args, 7),
+                    LegacyNumber(args, 8),
+                    (short) TypeConverter.ToUint16(args.At(13)),
+                    ev.Buttons,
+                    modifiers,
+                    EventInitReader.TargetOf(ev.Engine, args.At(14))));
+
+            return JsValue.Undefined;
+        }, length: 3);
+
         return builder.Build();
     }
 
@@ -412,6 +456,76 @@ internal static class BrowserEventInterfaces
         .Accessor("deltaMode", static (t, _) => JsNumber.Create(Brand<JsWheelEvent>(t, "WheelEvent.deltaMode").DeltaMode))
         .Build();
 
+    private static void AddUiInitializer(JsObjectShape.Builder builder, string owner)
+    {
+        var member = owner + ".initUIEvent";
+        builder.Method("initUIEvent", (t, args) =>
+        {
+            var ev = Brand<JsUiEvent>(t, member);
+            if (Initializing(ev, args, member, out var type, out var bubbles, out var cancelable))
+            {
+                ev.Initialize(type, bubbles, cancelable, LegacyView(ev, args, 3), LegacyNumber(args, 4));
+            }
+
+            return JsValue.Undefined;
+        }, length: 3);
+    }
+
+    /// <summary>
+    /// The three steps every legacy initializer shares: the required <c>type</c> argument, the dispatch-flag
+    /// short-circuit, and the two booleans.
+    /// </summary>
+    /// <remarks>
+    /// The arity check is before the short-circuit, because WebIDL converts the arguments whatever the
+    /// receiver is doing; <c>dom/events/Event-init-while-dispatching.html</c> is what pins the short-circuit
+    /// itself, one interface at a time.
+    /// </remarks>
+    private static bool Initializing(
+        JsEvent ev,
+        JsValue[] args,
+        string member,
+        out JsString type,
+        out bool bubbles,
+        out bool cancelable)
+    {
+        if (args.Length < 1)
+        {
+            Throw.TypeError(
+                ev.Engine.Realm,
+                "Failed to execute '" + member[(member.IndexOf('.') + 1)..] + "' on '" + member[..member.IndexOf('.')]
+                + "': 1 argument required, but only 0 present.");
+        }
+
+        type = TypeConverter.ToJsString(args.At(0));
+        bubbles = TypeConverter.ToBoolean(args.At(1));
+        cancelable = TypeConverter.ToBoolean(args.At(2));
+        return !ev.DispatchFlag;
+    }
+
+    private static double LegacyNumber(JsValue[] args, int index) => TypeConverter.ToInt32(args.At(index));
+
+    private static bool LegacyBool(JsValue[] args, int index) => TypeConverter.ToBoolean(args.At(index));
+
+    /// <summary>
+    /// The <c>view</c> argument of a legacy initializer, which is the same <c>Window?</c> the constructor's
+    /// dictionary member is.
+    /// </summary>
+    private static JsValue LegacyView(JsEvent ev, JsValue[] args, int index)
+    {
+        var view = args.At(index);
+        if (view.IsNull() || view.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        if (!ReferenceEquals(view, ev.Engine._mainRealm.GlobalObject))
+        {
+            Throw.TypeError(ev.Engine.Realm, "The view argument is not of type 'Window'.");
+        }
+
+        return view;
+    }
+
     private static JsObjectShape BuildKeyboardEvent() => Base("KeyboardEvent")
         .Constant("DOM_KEY_LOCATION_STANDARD", JsNumber.PositiveZero)
         .Constant("DOM_KEY_LOCATION_LEFT", JsNumber.PositiveOne)
@@ -434,6 +548,34 @@ internal static class BrowserEventInterfaces
                 Brand<JsKeyboardEvent>(t, "KeyboardEvent.getModifierState").Modifiers,
                 RequiredKeyArgument(t, args, "KeyboardEvent.getModifierState"))),
             length: 1)
+        .Method("initUIEvent", static (t, args) =>
+        {
+            var ev = Brand<JsUiEvent>(t, "KeyboardEvent.initUIEvent");
+            if (Initializing(ev, args, "KeyboardEvent.initUIEvent", out var type, out var bubbles, out var cancelable))
+            {
+                ev.Initialize(type, bubbles, cancelable, LegacyView(ev, args, 3), LegacyNumber(args, 4));
+            }
+
+            return JsValue.Undefined;
+        }, length: 3)
+        .Method("initKeyboardEvent", static (t, args) =>
+        {
+            var ev = Brand<JsKeyboardEvent>(t, "KeyboardEvent.initKeyboardEvent");
+            if (Initializing(ev, args, "KeyboardEvent.initKeyboardEvent", out var type, out var bubbles, out var cancelable))
+            {
+                ev.Initialize(
+                    type,
+                    bubbles,
+                    cancelable,
+                    LegacyView(ev, args, 3),
+                    TypeConverter.ToString(args.At(4)),
+                    LegacyNumber(args, 5),
+                    EventModifierNames.Parse(TypeConverter.ToString(args.At(6))),
+                    LegacyBool(args, 7));
+            }
+
+            return JsValue.Undefined;
+        }, length: 3)
         .Build();
 
     /// <remarks>
@@ -695,25 +837,46 @@ internal static class EventModifierNames
     /// </summary>
     internal static bool IsActive(EventModifiers modifiers, string key)
     {
-        var flag = key switch
-        {
-            "Alt" => EventModifiers.Alt,
-            "AltGraph" => EventModifiers.AltGraph,
-            "CapsLock" => EventModifiers.CapsLock,
-            "Control" => EventModifiers.Control,
-            "Fn" => EventModifiers.Fn,
-            "FnLock" => EventModifiers.FnLock,
-            "Hyper" => EventModifiers.Hyper,
-            "Meta" => EventModifiers.Meta,
-            "NumLock" => EventModifiers.NumLock,
-            "ScrollLock" => EventModifiers.ScrollLock,
-            "Shift" => EventModifiers.Shift,
-            "Super" => EventModifiers.Super,
-            "Symbol" => EventModifiers.Symbol,
-            "SymbolLock" => EventModifiers.SymbolLock,
-            _ => EventModifiers.None,
-        };
+        var flag = Flag(key);
 
         return flag != EventModifiers.None && (modifiers & flag) != EventModifiers.None;
     }
+
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-keyboardevent-initkeyboardevent's <c>modifiersListArg</c>: an
+    /// unordered set of modifier key values separated by spaces, which is the legacy initializer's way of
+    /// saying what a dictionary says with a boolean each.
+    /// </summary>
+    /// <remarks>A name the specification does not define contributes nothing, as it does to
+    /// <see cref="IsActive"/>.</remarks>
+    internal static EventModifiers Parse(string modifiersList)
+    {
+        var modifiers = EventModifiers.None;
+
+        foreach (var name in modifiersList.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            modifiers |= Flag(name);
+        }
+
+        return modifiers;
+    }
+
+    private static EventModifiers Flag(string key) => key switch
+    {
+        "Alt" => EventModifiers.Alt,
+        "AltGraph" => EventModifiers.AltGraph,
+        "CapsLock" => EventModifiers.CapsLock,
+        "Control" => EventModifiers.Control,
+        "Fn" => EventModifiers.Fn,
+        "FnLock" => EventModifiers.FnLock,
+        "Hyper" => EventModifiers.Hyper,
+        "Meta" => EventModifiers.Meta,
+        "NumLock" => EventModifiers.NumLock,
+        "ScrollLock" => EventModifiers.ScrollLock,
+        "Shift" => EventModifiers.Shift,
+        "Super" => EventModifiers.Super,
+        "Symbol" => EventModifiers.Symbol,
+        "SymbolLock" => EventModifiers.SymbolLock,
+        _ => EventModifiers.None,
+    };
 }

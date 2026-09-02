@@ -145,8 +145,37 @@ internal static class EventInitReader
     /// dictionary said zero": the first lets each interface compute its own legacy value, the second is
     /// honoured as given.
     /// </remarks>
-    internal static (JsValue View, double Detail, double? Which) UiInit(ObjectInstance? init)
-        => (Any(init, _view, JsValue.Null), Long(init, _detail), OptionalUnsignedLong(init, _which));
+    internal static (JsValue View, double Detail, double? Which) UiInit(Engine engine, ObjectInstance? init)
+        => (View(engine, init), Long(init, _detail), OptionalUnsignedLong(init, _which));
+
+    /// <summary>
+    /// The <c>view</c> member on its own — https://w3c.github.io/uievents/#dom-uievent-view, whose IDL type is
+    /// <c>Window?</c> and therefore a WebIDL interface type: anything that is not a <c>Window</c> and not null
+    /// is a <c>TypeError</c> rather than a value quietly kept.
+    /// </summary>
+    /// <remarks>
+    /// This engine's <c>Window</c> is the global object itself (the page runtime's window installer says
+    /// why), so the check is an identity comparison against it — which is exactly as narrow as a browser's,
+    /// there being one window per page here.
+    /// </remarks>
+    internal static JsValue View(Engine engine, ObjectInstance? init)
+    {
+        var view = Any(init, _view, JsValue.Null);
+
+        if (view.IsNull() || view.IsUndefined())
+        {
+            return JsValue.Null;
+        }
+
+        if (!ReferenceEquals(view, engine._mainRealm.GlobalObject))
+        {
+            Throw.TypeError(
+                engine.Realm,
+                "Failed to construct 'UIEvent': member view is not of type 'Window'.");
+        }
+
+        return view;
+    }
 
     /// <summary>
     /// https://w3c.github.io/uievents/#dictdef-eventmodifierinit — the fourteen modifier members,

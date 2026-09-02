@@ -335,15 +335,6 @@ internal static class WptBrowserExclusions
         // group below by cause, and is here only because the file is in another suite.
         new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
-        // ---------------------------------------------------------------- 7. the legacy init methods of the UI events
-        // `initUIEvent`, `initMouseEvent` and `initKeyboardEvent`: deprecated, still in the UI Events
-        // specification, and absent here. Beside them, `new UIEvent(type, {view: notAWindow})` must throw a
-        // TypeError and does not.
-        new("dom/events/Event-init-while-dispatching.html", "Calling initKeyboardEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-init-while-dispatching.html", "Calling initMouseEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-init-while-dispatching.html", "Calling initUIEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-subclasses-constructors.html", "UIEvent constructor (view argument with wrong type)", WptDivergence.NeedsTriage),
-
         // ---------------------------------------------------------------- 9. one click, one activation behaviour
         // https://dom.spec.whatwg.org/#eventtarget-activation-behavior: a dispatch runs the activation
         // behaviour of *one* element — the nearest ancestor in the event path that has one — and these rows
