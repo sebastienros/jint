@@ -48,7 +48,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.baseURI", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.baseURI");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.BaseUri);
+                    return self.Realm.Hooks.BaseUri(self.Realm, self.Target);
                 }))
             .Accessor("childNodes",
                 global::Jint.Browser.Dom.DomFailures.Guard("Node.childNodes", static (thisObj, args) =>
@@ -629,7 +629,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.URL", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.URL");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Url);
+                    return self.Realm.Hooks.DocumentUrl(self.Realm, self.Target);
                 }))
             .Accessor("activeElement",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.activeElement", static (thisObj, args) =>
@@ -715,12 +715,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.cookie", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.cookie");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Cookie);
+                    return self.Realm.Hooks.Cookie(self.Realm, self.Target);
                 }),
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.cookie", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.cookie");
-                    self.Target.Cookie = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.cookie"); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetCookie(self.Realm, self.Target, global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.cookie")); return global::Jint.Native.JsValue.Undefined;
                 }))
             .Method("createAttribute",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.createAttribute", static (thisObj, args) =>
@@ -831,7 +831,13 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.currentScript", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.currentScript");
-                    return self.Realm.WrapNodeValue(self.Target.CurrentScript);
+                    return self.Realm.Hooks.CurrentScript(self.Realm, self.Target);
+                }))
+            .Accessor("defaultView",
+                global::Jint.Browser.Dom.DomFailures.Guard("Document.defaultView", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.defaultView");
+                    return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.DefaultView);
                 }))
             .Accessor("designMode",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.designMode", static (thisObj, args) =>
@@ -871,7 +877,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.documentURI", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.documentURI");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.DocumentUri);
+                    return self.Realm.Hooks.DocumentUrl(self.Realm, self.Target);
                 }))
             .Accessor("domain",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.domain", static (thisObj, args) =>
@@ -1129,18 +1135,14 @@ internal static partial class DomInterfaces
             .Accessor("readyState",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.readyState", static (thisObj, args) =>
                 {
-                    if (!global::Jint.Browser.Dom.DomBindings.TryBind<global::AngleSharp.Dom.IDocument>(thisObj, out var self))
-                    {
-                        return global::Jint.Native.JsValue.Undefined;
-                    }
-
-                    return global::Jint.Browser.Dom.DomEnums.FromDocumentReadyState(self.Target.ReadyState);
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.readyState");
+                    return self.Realm.Hooks.ReadyState(self.Realm, self.Target);
                 }))
             .Accessor("referrer",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.referrer", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.referrer");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Referrer);
+                    return self.Realm.Hooks.Referrer(self.Realm, self.Target);
                 }))
             .Accessor("scripts",
                 global::Jint.Browser.Dom.DomFailures.Guard("Document.scripts", static (thisObj, args) =>

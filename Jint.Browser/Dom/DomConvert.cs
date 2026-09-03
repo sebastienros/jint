@@ -73,6 +73,20 @@ internal static class DomConvert
     internal static JsValue Number(int? value) => value is null ? JsValue.Null : JsNumber.Create(value.Value);
 
     /// <summary>
+    /// A <c>WindowProxy</c> return — <c>document.defaultView</c>, <c>iframe.contentWindow</c>. The binding has
+    /// no wrapper for a window and must not invent one: the global object of an engine already <em>is</em> the
+    /// window, and a second object claiming to be one would be a second window. So the answer comes from the
+    /// host, which is the only thing that knows which browsing context this engine stands for.
+    /// </summary>
+    /// <remarks>
+    /// <c>null</c> is the answer for a window that is not this engine's, and it is what a browser answers for
+    /// a frame with no browsing context yet. It is <c>null</c> rather than <c>undefined</c> because that is
+    /// what Web IDL's <c>WindowProxy?</c> is, and a page tests it (<c>if (iframe.contentWindow)</c>).
+    /// </remarks>
+    internal static JsValue Window(DomRealm realm, AngleSharp.Dom.IWindow? window)
+        => window is null ? JsValue.Null : realm.Hooks.Window(realm, window);
+
+    /// <summary>
     /// A WebIDL <c>any</c> return. AngleSharp types a handful of members as <c>object</c>, and what comes back
     /// is whatever the host put in; it crosses through Jint's ordinary CLR conversion, so a host object
     /// arrives as an <c>ObjectWrapper</c> and a primitive as a primitive.

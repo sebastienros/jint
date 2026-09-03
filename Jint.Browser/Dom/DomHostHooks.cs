@@ -1,4 +1,5 @@
 using AngleSharp.Dom;
+using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -8,8 +9,9 @@ namespace Jint.Browser.Dom;
 
 /// <summary>
 /// The seam for the DOM members whose behaviour depends on whether a page runtime is behind the binding:
-/// the ones that parse markup into the tree, and so have to reach the script scheduler, and the three whose
-/// answer is an object the host made rather than one AngleSharp did.
+/// the ones that parse markup into the tree and so have to reach the script scheduler, the three whose
+/// answer is an object the host made rather than one AngleSharp did, and the handful whose value the host
+/// simply <em>has</em> and AngleSharp does not.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -195,6 +197,108 @@ internal class DomHostHooks
     /// <inheritdoc cref="CreateElement" />
     internal virtual JsValue CloneNode(DomRealm realm, INode node, JsValue[] arguments)
         => CustomElements.CustomElementCreation.CloneNode(realm, node, arguments);
+
+    // ------------------------------------------------------------------------------------------------
+    // The members whose value the host has and AngleSharp does not. Every one of them used to be an own
+    // property written onto the document wrapper, because a getter could not be hooked; they are accessors
+    // on Document.prototype now, which is where a browser has them, and `Object.getOwnPropertyNames(document)`
+    // is empty as a result. The defaults below are AngleSharp's own answers, so a binding used without a
+    // page runtime behaves exactly as it did.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-document-defaultview and
+    /// <c>iframe.contentWindow</c>: the <c>WindowProxy</c> a member answers with.
+    /// </summary>
+    /// <remarks>
+    /// The global object of an engine <em>is</em> its window, so the only window this can answer is the one
+    /// this engine stands for; any other browsing context is <c>null</c>, which is what a browser answers for
+    /// a frame that has none yet. A binding with no page runtime has no window at all.
+    /// </remarks>
+    internal virtual JsValue Window(DomRealm realm, IWindow window)
+    {
+        if (PageRuntime.Find(realm.Engine) is not { } runtime || runtime.Document is not { } document)
+        {
+            return JsValue.Null;
+        }
+
+        return ReferenceEquals(window, document.DefaultView)
+            ? realm.Engine._mainRealm.GlobalObject
+            : JsValue.Null;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-currentscript — the script whose text is
+    /// running. AngleSharp answers the head of its <em>deferred</em> script queue, so it is null for exactly
+    /// the case a page uses it in; the parser driver knows which script it is running.
+    /// </summary>
+    internal virtual JsValue CurrentScript(DomRealm realm, IDocument document)
+    {
+        if (PageRuntime.Find(realm.Engine) is not { } runtime)
+        {
+            return realm.WrapNodeValue(document.CurrentScript);
+        }
+
+        return runtime.CurrentScript is { } script ? realm.WrapNode(script) : JsValue.Null;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#current-document-readiness. AngleSharp advances its own
+    /// readiness on its own schedule and <c>Document.ReadyState</c>'s setter is <c>protected</c>, so nothing
+    /// outside its assembly can move it; the three transitions a page observes are the parser driver's.
+    /// </summary>
+    internal virtual JsValue ReadyState(DomRealm realm, IDocument document)
+        => JsString.Create(PageRuntime.Find(realm.Engine) is { } runtime
+            ? runtime.ReadyState
+            : document.ReadyState.ToString().ToLowerInvariant());
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-document-url and its <c>documentURI</c> twin. The page's URL, not
+    /// AngleSharp's document address: <c>pushState</c> and a fragment navigation move the URL without
+    /// reloading, and AngleSharp's address cannot follow without raising a navigation of its own.
+    /// </summary>
+    internal virtual JsValue DocumentUrl(DomRealm realm, IDocument document)
+        => JsString.Create(PageRuntime.Find(realm.Engine)?.DocumentUrl ?? document.Url ?? "");
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#dom-node-baseuri — the node document's base URL, which
+    /// <c>&lt;base href&gt;</c> moves. Recomputed by the runtime because the URL it resolves against has to be
+    /// the page's.
+    /// </summary>
+    internal virtual JsValue BaseUri(DomRealm realm, INode node)
+    {
+        if (PageRuntime.Find(realm.Engine) is not { } runtime)
+        {
+            return JsString.Create(node.BaseUri ?? "");
+        }
+
+        return JsString.Create(runtime.BaseUri);
+    }
+
+    /// <summary>https://html.spec.whatwg.org/multipage/dom.html#dom-document-referrer</summary>
+    internal virtual JsValue Referrer(DomRealm realm, IDocument document)
+        => JsString.Create(PageRuntime.Find(realm.Engine)?.Referrer ?? document.Referrer ?? "");
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/dom.html#dom-document-cookie, over the same jar every request of
+    /// the browsing context reads and writes — which is a jar AngleSharp's own document has no idea about.
+    /// </summary>
+    internal virtual JsValue Cookie(DomRealm realm, IDocument document)
+        => JsString.Create(PageRuntime.Find(realm.Engine) is { } runtime
+            ? DocumentCookies.Read(runtime)
+            : document.Cookie ?? "");
+
+    /// <inheritdoc cref="Cookie" />
+    internal virtual void SetCookie(DomRealm realm, IDocument document, string value)
+    {
+        if (PageRuntime.Find(realm.Engine) is { } runtime)
+        {
+            DocumentCookies.Write(runtime, value);
+            return;
+        }
+
+        document.Cookie = value;
+    }
 
     /// <summary>
     /// Whether a write to a document that has finished parsing is refused, and the page told why.

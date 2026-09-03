@@ -1791,8 +1791,8 @@ internal static partial class DomInterfaces
             .Accessor("contentWindow",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.contentWindow", static (thisObj, args) =>
                 {
-                    global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.contentWindow");
-                    return global::Jint.Native.JsValue.Null;
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.contentWindow");
+                    return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.ContentWindow);
                 }))
             .Accessor("height",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.height", static (thisObj, args) =>
@@ -3225,6 +3225,12 @@ internal static partial class DomInterfaces
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.contentDocument");
                     return self.Realm.WrapNodeValue(self.Target.ContentDocument);
+                }))
+            .Accessor("contentWindow",
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.contentWindow", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlObjectElement>(thisObj, "HTMLObjectElement.contentWindow");
+                    return global::Jint.Browser.Dom.DomConvert.Window(self.Realm, self.Target.ContentWindow);
                 }))
             .Accessor("data",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLObjectElement.data", static (thisObj, args) =>

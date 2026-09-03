@@ -155,8 +155,33 @@ internal static class WindowInstaller
             engine.AddLazyGlobal(name, static e => e._mainRealm.GlobalObject);
         }
 
-        engine.AddLazyGlobal("document", static e => (JsValue?) PageRuntime.Find(e)?.DocumentWrapper ?? JsValue.Null);
-        engine.AddLazyGlobal("location", static e => LocationOf(e));
+        // https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-window-object - `document` and
+        // `location` are the two members of Window that carry [LegacyUnforgeable], so a page can neither
+        // delete them nor redefine them out of the way. That is not decoration: a library that could replace
+        // `document` could replace it for every other script on the page, which is the whole reason the
+        // attribute exists. Enumerable, because a Web IDL member is.
+        engine.AddLazyGlobal(
+            "document",
+            static e => (JsValue?) PageRuntime.Find(e)?.DocumentWrapper ?? JsValue.Null,
+            PropertyFlag.OnlyEnumerable);
+
+        // `location` is [LegacyUnforgeable] *and* [PutForwards=href], so it is an accessor rather than a
+        // value: `window.location = '/next'` is `location.href = '/next'`, which is a navigation. It used to
+        // be a writable data property, so that assignment - which is how a great many pages navigate at all -
+        // replaced the global and went nowhere.
+        global.SetProperty(
+            "location",
+            new GetSetPropertyDescriptor(
+                new ClrFunction(engine, "get location", (_, _) => LocationOf(engine)),
+                new ClrFunction(engine, "set location", (_, arguments) =>
+                {
+                    PageRuntime.Find(engine)?.Page.RequestNavigation(
+                        TypeConverter.ToString(arguments.At(0)),
+                        replace: false,
+                        engine: engine);
+                    return JsValue.Undefined;
+                }),
+                PropertyFlag.Enumerable | PropertyFlag.ConfigurableSet));
         engine.AddLazyGlobal("history", static e => HistoryInstaller.Create(e));
         engine.AddLazyGlobal("screen", static e => _screenShape.Instantiate(e, e._mainRealm.Intrinsics.Object.PrototypeObject));
         // Both interface objects are handed in as state rather than built by the factory, because the one the
@@ -187,110 +212,25 @@ internal static class WindowInstaller
     }
 
     /// <summary>
-    /// Adds the two document members the binding cannot generate, as own properties of the document wrapper.
+    /// Adds the members of <c>document</c> that belong to this page rather than to its interface.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>defaultView</c> is not generated because AngleSharp's <c>IWindow</c> is excluded from the binding —
-    /// the window is the runtime's. <c>currentScript</c> is generated, but AngleSharp answers the head of its
-    /// deferred-script queue rather than the script that is running, so it is <see langword="null"/> for
-    /// exactly the case a page uses it in; this own property shadows it with the running script.
+    /// There is one left. Everything else this used to attach — <c>defaultView</c>, <c>currentScript</c>,
+    /// <c>readyState</c>, <c>URL</c>, <c>documentURI</c>, <c>baseURI</c>, <c>referrer</c> and <c>cookie</c> —
+    /// is an accessor on <c>Document.prototype</c> now, answered through <c>DomHostHooks</c>, which is where a
+    /// browser has them and what makes <c>Object.getOwnPropertyNames(document)</c> empty. They were own
+    /// properties only because the binding generator had no way to hook the <em>read</em> half of an
+    /// attribute; it has one.
     /// </para>
     /// <para>
-    /// Both are own properties of <c>document</c> rather than accessors on <c>Document.prototype</c>, which is
-    /// where a browser has them. It is one object rather than a shared prototype, so nothing shaped is
-    /// deoptimized.
-    /// </para>
-    /// <para>
-    /// They are also <b>non-enumerable</b>, which is deliberately not WebIDL: an interface member is
-    /// enumerable, and this package holds every generated member to that. An own enumerable accessor would
-    /// show up in <c>Object.keys(document)</c>, in object spread and in <c>JSON.stringify(document)</c>, where
-    /// a browser shows nothing because the members are inherited rather than own — and <c>defaultView</c>
-    /// would take a conversion of the document into the window and back, which is a cycle. The price is
-    /// <c>for..in</c>, which walks the prototype chain and so does yield both names in a browser and neither
-    /// here. Moving the two onto <c>Document.prototype</c> settles all four at once and is not a regression.
+    /// <c>ontouchstart</c> stays, and is not an interface member at all: it is a presence test a responsive
+    /// page writes (<c>'ontouchstart' in document</c>), and what it must answer depends on the emulation a
+    /// client set. See <c>TouchEmulation</c> for why <c>Element.prototype</c> deliberately does not get one.
     /// </para>
     /// </remarks>
     internal static void AttachDocumentMembers(PageRuntime runtime, ObjectInstance wrapper)
-    {
-        var engine = runtime.Engine;
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "defaultView",
-            new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get defaultView", static (thisObject, _) => ((ObjectInstance) thisObject).Engine._mainRealm.GlobalObject),
-                set: null,
-                PropertyFlag.OnlyConfigurable));
-
-        wrapper.DefineOwnPropertyUnchecked(
-            "currentScript",
-            new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get currentScript", static (thisObject, _) =>
-                {
-                    var runtime = PageRuntime.Of(thisObject, "currentScript");
-                    return runtime.CurrentScript is { } script ? runtime.Dom.WrapNode(script) : JsValue.Null;
-                }),
-                set: null,
-                PropertyFlag.OnlyConfigurable));
-
-        // https://html.spec.whatwg.org/multipage/dom.html#current-document-readiness. AngleSharp advances
-        // its own readiness on its own schedule and its setter is not reachable from outside its assembly
-        // (AngleSharp#1309), so the three transitions a page observes are the parser driver's.
-        wrapper.DefineOwnPropertyUnchecked(
-            "readyState",
-            new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get readyState", static (thisObject, _) =>
-                    JsString.Create(PageRuntime.Of(thisObject, "readyState").ReadyState)),
-                set: null,
-                PropertyFlag.OnlyConfigurable));
-
-        // The four members whose answer is the page's URL rather than AngleSharp's document address. They
-        // are the same divergence `location` is: pushState and a fragment navigation move the URL without
-        // reloading, and AngleSharp's address cannot follow without raising its own navigation.
-        DocumentUrlMember(engine, wrapper, "URL", static runtime => runtime.DocumentUrl);
-        DocumentUrlMember(engine, wrapper, "documentURI", static runtime => runtime.DocumentUrl);
-        DocumentUrlMember(engine, wrapper, "baseURI", BaseUri);
-        DocumentUrlMember(engine, wrapper, "referrer", static runtime => runtime.Referrer);
-
-        DocumentCookies.Attach(runtime, wrapper);
-
-        // `'ontouchstart' in document` is the other half of the presence test a responsive page writes; see
-        // TouchEmulation for why Element.prototype deliberately does not get one.
-        TouchEmulation.Attach(runtime, wrapper);
-    }
-
-    /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-node-baseuri — the document's base URL, which <c>&lt;base href&gt;</c>
-    /// moves.
-    /// </summary>
-    /// <remarks>
-    /// The first <c>&lt;base&gt;</c> with an <c>href</c> wins, resolved against the document's own URL, and
-    /// one that does not parse is ignored. AngleSharp computes the same thing from the same element; it is
-    /// recomputed here because the URL it resolves against has to be the page's.
-    /// </remarks>
-    private static string BaseUri(PageRuntime runtime)
-    {
-        var href = runtime.Document?.QuerySelector("base[href]")?.GetAttribute("href");
-        if (string.IsNullOrEmpty(href))
-        {
-            return runtime.DocumentUrl;
-        }
-
-        return PageUrl.Resolve(href!, runtime.DocumentUrl) ?? runtime.DocumentUrl;
-    }
-
-    private static void DocumentUrlMember(Engine engine, ObjectInstance wrapper, string name, Func<PageRuntime, string> read)
-    {
-        var member = name;
-
-        wrapper.DefineOwnPropertyUnchecked(
-            name,
-            new GetSetPropertyDescriptor(
-                new ClrFunction(engine, "get " + name, (thisObject, _) =>
-                    JsString.Create(read(PageRuntime.Of(thisObject, member)))),
-                set: null,
-                PropertyFlag.OnlyConfigurable));
-    }
+        => TouchEmulation.Attach(runtime, wrapper);
 
     /// <summary>Adds every <c>Location</c> member to the location wrapper; see <see cref="LocationInstaller"/>.</summary>
     internal static void AttachLocationMembers(PageRuntime runtime, ObjectInstance wrapper)
