@@ -275,6 +275,14 @@ Two rules are worth carrying across without opening it:
 
 ### The seams promoted later
 
+**Where the pressure to promote comes from, and the table of what it has promoted so far, are
+[`Jint.Browser.Tool/AGENTS.md`](../Jint.Browser.Tool/AGENTS.md).** `Jint.Browser.Tool` and
+`Jint.Browser.Mcp` take **no** `InternalsVisibleTo` grant and must never be given one: they are the first
+consumers outside this repository's own tests, so what they cannot reach is what an embedder cannot reach,
+and every seam they have needed was published as a `Page` member over the internals the protocol layer
+already used. One rule to carry across without opening that file: **a target is a selector or a `ref=`**, and
+`Runtime/ElementLocator` is the one place that decides.
+
 The package publishes the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
 `BrowserContextOptions`, `Page`, `Frame`, `Viewport`, `PageError`, `DialogEventArgs` and what a navigation
 takes and answers — plus `DevToolsServerExtensions.AddBrowser`, and

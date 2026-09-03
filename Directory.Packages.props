@@ -33,6 +33,11 @@
     <PackageVersion Include="Verify.SourceGenerators" Version="2.5.0" />
     <PackageVersion Include="Verify.NUnit" Version="32.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <!-- The generic host the jint-browser `mcp` command builds its server on: the Model Context Protocol
+         SDK's own documented hosting path, and the one whose stdout purity it guarantees. Only the tool
+         references it; Jint.Browser.Mcp is transport-agnostic and takes the abstractions the SDK already
+         brings. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.9.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <!--
@@ -42,6 +47,11 @@
       downloads no browser.
     -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
+    <!-- The official Model Context Protocol C# SDK, which Jint.Browser.Mcp is a server on. The metapackage
+         brings ModelContextProtocol.Core plus the dependency-injection and hosting glue; the third package,
+         ModelContextProtocol.AspNetCore, is deliberately NOT referenced anywhere — it carries a framework
+         reference to Microsoft.AspNetCore.App, which a dotnet tool must not require to start. -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <PackageVersion Include="MongoDB.Bson.signed" Version="2.19.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="NiL.JS" Version="2.6.1722" />

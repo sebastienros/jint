@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Jint.Browser.Accessibility;
@@ -31,16 +32,27 @@ internal static class AccessibilitySnapshot
     ];
 
     /// <summary>Renders <paramref name="node"/> and its descendants.</summary>
-    internal static string Render(AxNode node)
+    /// <param name="node">The root of the tree to render.</param>
+    /// <param name="includeReferences">
+    /// Whether each element node carries <c>[ref=<i>n</i>]</c>, the identifier its document gave it.
+    /// </param>
+    /// <remarks>
+    /// <b>A reference is what makes a snapshot actionable.</b> An agent reading roles and names cannot write
+    /// a CSS selector for what it found, so the line has to carry the handle: the number is
+    /// <see cref="AxNode.Id"/>, which is the document's own identifier for that node, stable for as long as
+    /// the document is and resolved back through <c>AccessibilityTree.ElementFor</c>. A text node gets none —
+    /// there is nothing to click on a run of text — and neither does a node with no element behind it.
+    /// </remarks>
+    internal static string Render(AxNode node, bool includeReferences = false)
     {
         ArgumentNullException.ThrowIfNull(node);
 
         var builder = new StringBuilder();
-        Write(builder, node, depth: 0);
+        Write(builder, node, depth: 0, includeReferences);
         return builder.ToString();
     }
 
-    private static void Write(StringBuilder builder, AxNode node, int depth)
+    private static void Write(StringBuilder builder, AxNode node, int depth, bool includeReferences)
     {
         builder.Append(' ', depth * 2).Append("- ");
 
@@ -82,6 +94,14 @@ internal static class AccessibilitySnapshot
             }
         }
 
+        // Last of the attributes, so that a reader who does not want it can stop at the name and a reader who
+        // does always finds it in the same place. Only a node with an element behind it: a reference to a run
+        // of text is a handle onto something no click can reach.
+        if (includeReferences && node.Element is not null)
+        {
+            builder.Append(" [ref=").Append(node.Id.ToString(CultureInfo.InvariantCulture)).Append(']');
+        }
+
         // A node whose whole content is one run of text says it on its own line rather than in a child:
         // `- strong: non-DOM half` instead of two lines, which is the whole point of the compact form.
         if (node.Children is [{ Role: AriaRoles.StaticText, Name: { Length: > 0 } only }])
@@ -95,7 +115,7 @@ internal static class AccessibilitySnapshot
             builder.Append(":\n");
             foreach (var child in node.Children)
             {
-                Write(builder, child, depth + 1);
+                Write(builder, child, depth + 1, includeReferences);
             }
 
             return;

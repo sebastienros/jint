@@ -145,6 +145,22 @@ internal static class AccessibilityTree
     /// <summary>The identifier this document gave the node, assigning one when it has none yet.</summary>
     internal static int IdOf(IDocument document, INode node) => s_identifiers.GetValue(document, static _ => new NodeIdentifiers()).For(node);
 
+    /// <summary>The element this document already gave <paramref name="id"/> to, or <see langword="null"/>.</summary>
+    /// <remarks>
+    /// <para>
+    /// The reverse of <see cref="IdOf"/>, and it is what makes a reference printed in a snapshot something a
+    /// caller can act on — <c>Page.ClickAsync("ref=12")</c> resolves through here.
+    /// </para>
+    /// <para>
+    /// <b>It assigns nothing.</b> A walk that asked <see cref="IdOf"/> for every node would hand identifiers
+    /// to the whole document and move every one a later snapshot prints, so this reads only the table and
+    /// answers <see langword="null"/> for an identifier no snapshot has published. It is linear in the size
+    /// of the document, which a click can afford and a render loop could not.
+    /// </para>
+    /// </remarks>
+    internal static IElement? ElementFor(IDocument document, int id)
+        => s_identifiers.TryGetValue(document, out var identifiers) ? identifiers.Find(document, id) : null;
+
     private static string Identifier(int id) => id.ToString(CultureInfo.InvariantCulture);
 
     private static AxProtocolProperty ToProtocol(AxProperty property) =>
@@ -777,6 +793,20 @@ internal static class AccessibilityTree
         private int _next;
 
         internal int For(INode node) => _ids.GetValue(node, _ => new Box(Interlocked.Increment(ref _next))).Value;
+
+        /// <summary>The element carrying <paramref name="id"/>, without assigning one to anything.</summary>
+        internal IElement? Find(IDocument document, int id)
+        {
+            foreach (var element in document.Descendants<IElement>())
+            {
+                if (_ids.TryGetValue(element, out var box) && box.Value == id)
+                {
+                    return element;
+                }
+            }
+
+            return null;
+        }
 
         private sealed class Box(int value)
         {

@@ -19,17 +19,36 @@ published surface is enough to build one. Every time it turns out not to be, the
 on `Jint.Browser`** — public, XML-documented, with a row in the baseline diff — and never a widened
 `InternalsVisibleTo` or a copy of the package's code here.
 
-Three seams already came from exactly that, and the pattern is what to repeat:
+**The same is true of `Jint.Browser.Mcp`**, which drives a page for an agent over the same published members
+this does. Between them they are where the pressure to promote a seam comes from, and
+[`Jint.Browser/AGENTS.md`](../Jint.Browser/AGENTS.md#the-seams-promoted-later) points here for the table of
+what it has promoted so far. Every row is a `Page` member over the internals the protocol layer already
+used — **one implementation**, so a caller in this process and a client on the socket cannot make a page do
+two different things, or be told different things about one document:
 
-| What the tool needed | What was published | What was *not* done |
-| --- | --- | --- |
-| `--dump markdown\|text\|ax` | `Page.MarkdownAsync`, `Page.TextAsync`, `Page.AccessibilitySnapshotAsync` | reaching `Extraction/` and `Accessibility/`, which are internal |
-| `--wait-until networkidle` | `Page.WaitForNetworkIdleAsync` | a second quiet-period timer of the tool's own, next to the page's |
-| `serve --block-private-network` | `BrowserOptions.BlockPrivateNetwork` | a context option, which cannot reach a context a protocol client mints |
+| What was needed | What was published | Over | What was *not* done |
+| --- | --- | --- | --- |
+| `fetch --dump markdown\|text\|ax`, `snapshot` | `Page.MarkdownAsync`, `TextAsync`, `AccessibilitySnapshotAsync` | `Extraction/PageContent`, which the `Jint` protocol domain also answers from | reaching `Extraction/` and `Accessibility/`, which are internal |
+| `--wait-until networkidle`, `wait_for` | `Page.WaitForNetworkIdleAsync`, `WaitForSelectorAsync`, `WaitForTextAsync` | the request log's own quiet period, and the document | a second quiet-period timer beside the page's |
+| `serve --block-private-network` | `BrowserOptions.BlockPrivateNetwork` | the browser-wide default a context inherits | a context option, which cannot reach a context a protocol client mints |
+| `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | `Page.ClickAsync` and its siblings | `Events/InputDispatcher`, `Layout/`, `ActivationBehaviors.SelectOption` — the `Input` domain's own paths | a third input implementation, or `element.click()`, which is untrusted |
+| `back`, `forward`, `reload` | `Page.GoBackAsync`, `GoForwardAsync`, `ReloadAsync` | `Runtime/SessionHistory` and the navigation gate | `evaluate("history.back()")`, which answers before the traversal commits |
 
-The three page members answer the same three questions the custom `Jint` protocol domain does
-(`Jint.getMarkdown`, `Jint.getText`, `Jint.getAccessibilitySnapshot`), over the same `Extraction/PageContent`,
-so a caller in this process and a client on the socket cannot be told different things about one document.
+**A target is a selector or a `ref=`**, and `Runtime/ElementLocator` is the one place that decides: an agent
+reading `- button "Save" [ref=42]` out of a snapshot has no selector to write. The number is the
+accessibility tree's own identifier and **deliberately not the protocol's `backendNodeId`** — that one is
+`DevTools/DomNodeTracker`'s, which belongs to a page *target*, and a caller with no client attached has none.
+A reference dies with its document, because the table is keyed on the document.
+
+### The `mcp` command belongs to another file
+
+`McpCommand` is a shell over `Jint.Browser.Mcp`: it reads a command line, builds a generic host, and serves
+the protocol on standard input and output. Everything about *what* it serves —
+[`Jint.Browser.Mcp/AGENTS.md`](../Jint.Browser.Mcp/AGENTS.md) — is there, including why stdio is the only
+transport and why `--http` is refused as an unknown option rather than accepted. Two rules to carry across
+without opening it: **standard output is the protocol and nothing else** while `mcp` runs, so that command
+prints no banner and every diagnostic goes to standard error; and `mcp` **hardens the pages by default**,
+which is the opposite of every other command here and is why it takes `--trusted` rather than `--untrusted`.
 
 ### What is deliberately absent
 
@@ -75,6 +94,6 @@ repository. Three things about it are decisions:
   same version and from the same tag, because it references them by project. `pr.yml` packs nothing but
   `Jint`, so a packaging change is verified by running `dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj`
   before the pull request, not by CI.
-- **`README.md` here is the package README NuGet shows.** It is the only one in the repository besides the
-  root, and it is written for somebody who found the tool rather than the engine: it must keep saying that
-  this renders nothing, and it must keep the exit-code table in step with `ExitCode`.
+- **`README.md` here is the package README NuGet shows.** It is written for somebody who found the tool
+  rather than the engine: it must keep saying that this renders nothing, and it must keep the exit-code
+  table in step with `ExitCode`. `Jint.Browser.Mcp/README.md` is the other one, for the other audience.

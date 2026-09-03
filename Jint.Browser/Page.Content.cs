@@ -51,17 +51,28 @@ public sealed partial class Page
     /// <summary>The document's accessibility tree, rendered as an indented snapshot.</summary>
     /// <param name="mainContentOnly">Whether to walk only the document's main content, when it has one.</param>
     /// <param name="maxLength">The greatest number of characters to return, or zero for no limit.</param>
+    /// <param name="includeReferences">
+    /// Whether each element node carries <c>[ref=<i>n</i>]</c>, which <see cref="ClickAsync"/> and the rest
+    /// of the input members accept in place of a selector.
+    /// </param>
     /// <returns>The snapshot, or an empty string when the page holds no document.</returns>
     /// <remarks>
+    /// <para>
     /// One line per interesting node — its role, its accessible name and the states that matter — with the
     /// text between them, which is the shape an agent reads a page from. It is computed per call and never
     /// maintained, and it has no layout behind it: an element that is off screen, clipped or covered is not
     /// one this can tell from an element that is not.
+    /// </para>
+    /// <para>
+    /// <b>A reference belongs to the document it was printed from.</b> It stays valid for as long as that
+    /// document does, and a navigation ends every one of them: resolving an old reference afterwards finds
+    /// nothing rather than the wrong element.
+    /// </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
-    public Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0)
+    public Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0, bool includeReferences = false)
         => _loop.PostAsync(engine => PageRuntime.Find(engine)?.Document is { } document
-            ? PageContent.AccessibilitySnapshot(document, mainContentOnly, maxLength)
+            ? PageContent.AccessibilitySnapshot(document, mainContentOnly, maxLength, includeReferences)
             : "");
 
     /// <summary>Waits until the page has made no request for half a second.</summary>

@@ -80,6 +80,40 @@ console.log(await page.title());
 unauthenticated**, exactly as it is in Chrome: anything that can reach it can run script in this process, so
 `--host` defaults to `127.0.0.1` and should stay there.
 
+## Serving a browser to an agent
+
+```bash
+jint-browser mcp
+```
+
+That is a [Model Context Protocol](https://modelcontextprotocol.io/) server on standard input and output,
+over one browsing session: an agent navigates, reads the page as its accessibility tree or as markdown, and
+clicks, fills and types its way through it. In Claude Desktop's `claude_desktop_config.json`, VS Code's
+`mcp.json`, or any client that starts a server as a child process:
+
+```json
+{
+  "mcpServers": {
+    "jint-browser": {
+      "command": "jint-browser",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+or, in Claude Code:
+
+```bash
+claude mcp add jint-browser -- jint-browser mcp
+```
+
+**`mcp` hardens the pages by default** — the opposite of the other commands, because a client is by
+definition pointing this at content nobody vouched for. `--trusted` turns the profile off and
+`--allow-private-network` lets an agent reach your own machine. The tools, the `ref=` handles that make a
+snapshot actionable, and why stdio is the only transport are in
+[`Jint.Browser.Mcp`'s README](https://github.com/sebastienros/jint/blob/main/Jint.Browser.Mcp/README.md).
+
 ## Loading content nobody vouches for
 
 ```bash

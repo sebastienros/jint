@@ -24,6 +24,12 @@
     -->
     <ProjectReference Include="..\Jint.Browser.Tool\Jint.Browser.Tool.csproj" />
     <!--
+      The Model Context Protocol server. Mcp/ drives it through the SDK's own client over a pair of pipes,
+      so every message is serialized, framed and dispatched exactly as it would be over stdio: a test that
+      passes there is a test about the protocol rather than about a method call.
+    -->
+    <ProjectReference Include="..\Jint.Browser.Mcp\Jint.Browser.Mcp.csproj" />
+    <!--
       The web-platform-tests corpus, its server and its exclusion vocabulary, which Wpt/ runs the browser lane
       on. One corpus and one pin: copying WptCorpus, WptServer and WptExclusion here would give the two lanes
       two of each, and nothing would say when they drifted. Jint.Tests targets net8.0/net10.0 (plus net472 on

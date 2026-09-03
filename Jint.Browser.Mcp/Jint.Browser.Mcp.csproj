@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <!-- The same floor Jint.Browser and Jint.DevTools sit on, and the SDK's own lowest modern asset. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Jint.Browser.Mcp</PackageId>
+    <Description>A Model Context Protocol server over Jint.Browser: an agent navigates, reads a page as markdown, text or its accessibility tree, and clicks, fills and types its way through it.</Description>
+    <PackageTags>javascript, interpreter, jint, anglesharp, headless, browser, mcp, model-context-protocol, agent</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <Nullable>enable</Nullable>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- Off for the reason Jint.Browser's is off, and it is that package's reason rather than this one's:
+         AngleSharp is not trim-annotated. The Model Context Protocol packages are IsAotCompatible and
+         everything this serializes goes through a source-generated System.Text.Json context, so nothing here
+         is what would stop a native build; the DOM under it is. -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The official C# SDK. The metapackage rather than ModelContextProtocol.Core, because the tool attributes
+      and the IMcpServerBuilder extensions a host composes with live in it; it depends on
+      Microsoft.Extensions.Hosting.Abstractions and nothing web. ModelContextProtocol.AspNetCore is
+      deliberately absent — see the transport section of AGENTS.md.
+    -->
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The abstract syntax tree does not reach this assembly, so the repository-wide Acornima global usings
+         would be noise; the same call Jint.DevTools and Jint.Browser make. -->
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>
