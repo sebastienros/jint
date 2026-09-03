@@ -27,10 +27,17 @@ internal sealed class ViewRealm
     private ObjectInstance? _mediaQueryListEventPrototype;
     private HostInterfaceObject? _mediaQueryListEvent;
     private ObjectInstance? _nodeFilter;
+    private ObjectInstance? _cssNamespace;
     private ObjectInstance? _geolocationPrototype;
     private HostInterfaceObject? _geolocationInterface;
     private JsGeolocation? _geolocation;
     private JsSelection? _selection;
+    private ObjectInstance? _xPathEvaluatorPrototype;
+    private HostInterfaceObject? _xPathEvaluator;
+    private ObjectInstance? _xPathExpressionPrototype;
+    private HostInterfaceObject? _xPathExpressionInterface;
+    private ObjectInstance? _xPathResultPrototype;
+    private HostInterfaceObject? _xPathResultInterface;
 
     internal ViewRealm(PageRuntime runtime)
     {
@@ -144,6 +151,14 @@ internal sealed class ViewRealm
             _runtime.Engine,
             _runtime.Engine._mainRealm.Intrinsics.Object.PrototypeObject);
 
+    /// <summary>
+    /// The global <c>CSS</c>, which is CSSOM's namespace object and therefore a plain object too.
+    /// </summary>
+    internal ObjectInstance CssNamespace
+        => _cssNamespace ??= ViewInstaller.CssNamespaceShape.Instantiate(
+            _runtime.Engine,
+            _runtime.Engine._mainRealm.Intrinsics.Object.PrototypeObject);
+
     /// <summary>The global <c>Geolocation</c>, which is not constructible.</summary>
     internal HostInterfaceObject GeolocationInterface
     {
@@ -165,6 +180,99 @@ internal sealed class ViewRealm
             }
 
             return _geolocationInterface;
+        }
+    }
+
+    /// <summary>The global <c>XPathEvaluator</c>, which is the one of the three a page constructs.</summary>
+    internal HostInterfaceObject XPathEvaluator
+    {
+        get
+        {
+            if (_xPathEvaluator is null)
+            {
+                _xPathEvaluatorPrototype = ViewInstaller.Instantiate(
+                    _runtime.Engine,
+                    ViewInstaller.XPathEvaluatorShape,
+                    "XPathEvaluator",
+                    length: 0,
+                    _ => new JsXPathEvaluator(_runtime, _xPathEvaluatorPrototype!),
+                    parentPrototype: null,
+                    parentInterface: null,
+                    out var interfaceObject);
+
+                _xPathEvaluator = interfaceObject;
+            }
+
+            return _xPathEvaluator;
+        }
+    }
+
+    /// <summary>The global <c>XPathExpression</c>, which only <c>createExpression</c> makes.</summary>
+    internal HostInterfaceObject XPathExpressionInterface
+    {
+        get
+        {
+            if (_xPathExpressionInterface is null)
+            {
+                _xPathExpressionPrototype = ViewInstaller.Instantiate(
+                    _runtime.Engine,
+                    ViewInstaller.XPathExpressionShape,
+                    "XPathExpression",
+                    length: 0,
+                    construct: null,
+                    parentPrototype: null,
+                    parentInterface: null,
+                    out var interfaceObject);
+
+                _xPathExpressionInterface = interfaceObject;
+            }
+
+            return _xPathExpressionInterface;
+        }
+    }
+
+    /// <summary>The global <c>XPathResult</c>, which only an evaluation makes.</summary>
+    internal HostInterfaceObject XPathResultInterface
+    {
+        get
+        {
+            if (_xPathResultInterface is null)
+            {
+                _xPathResultPrototype = ViewInstaller.Instantiate(
+                    _runtime.Engine,
+                    ViewInstaller.XPathResultShape,
+                    "XPathResult",
+                    length: 0,
+                    construct: null,
+                    parentPrototype: null,
+                    parentInterface: null,
+                    out var interfaceObject,
+                    XPathEvaluation.ResultConstants);
+
+                _xPathResultInterface = interfaceObject;
+            }
+
+            return _xPathResultInterface;
+        }
+    }
+
+    /// <summary>The prototype every <c>XPathExpression</c> this engine makes is given.</summary>
+    internal ObjectInstance XPathExpressionPrototype
+    {
+        get
+        {
+            _ = XPathExpressionInterface;
+            return _xPathExpressionPrototype!;
+        }
+    }
+
+    /// <summary>The prototype every <c>XPathResult</c> this engine makes is given.</summary>
+    internal ObjectInstance XPathResultPrototype
+    {
+        get
+        {
+            _ = XPathResultInterface;
+            return _xPathResultPrototype!;
         }
     }
 

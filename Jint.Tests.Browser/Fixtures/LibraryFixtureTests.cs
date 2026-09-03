@@ -73,16 +73,13 @@ public class LibraryFixtureTests
 
     /// <summary>htmx's three entry points: a load trigger, a click that swaps, and a boosted link.</summary>
     /// <remarks>
-    /// <b>The one fixture that does not pass, and it fails before htmx does anything.</b> htmx 2 evaluates
+    /// <b>This is the case DOM XPath bought.</b> htmx 2 evaluates
     /// <c>const … = (new XPathEvaluator).createExpression(…)</c> at the top level of its bundle, to find the
-    /// <c>hx-on:</c> attributes, so the whole library is a <c>ReferenceError</c> on a browser with no XPath —
-    /// and there is none here, because AngleSharp keeps XPath in a package of its own
-    /// (<c>AngleSharp.XPath</c>) that nothing references. Nothing about <c>hx-get</c>, <c>hx-swap</c>,
-    /// <c>hx-trigger</c> or <c>hx-boost</c> has been reached, let alone refuted. The row in
-    /// <c>Fixtures/README.md</c> is the record; remove this attribute when the XPath family exists.
+    /// <c>hx-on:</c> attributes, so the whole library was a <c>ReferenceError</c> before any <c>hx-</c>
+    /// attribute was read, and this was the corpus's <c>needs triage</c> row for a feature that did not
+    /// exist. Everything below was unreached rather than refuted.
     /// </remarks>
     [Test]
-    [Explicit("htmx: htmx 2 constructs an XPathEvaluator at load, and this browser has no XPath, so the bundle is a ReferenceError before any hx- attribute is read.")]
     public async Task HtmxSwapsFragmentsAndBoostsALink()
     {
         await using var course = await FixtureCourse.OpenAsync("htmx");
@@ -133,13 +130,12 @@ public class LibraryFixtureTests
     /// A custom element upgraded by the parser, moved through the tree, and told its attribute changed.
     /// </summary>
     /// <remarks>
-    /// <b>Explicit, and the fixture is checked in anyway.</b> <c>customElements</c> does not exist on this
-    /// branch — campaign item C6 is the one that adds the registry, the upgrade and the four reactions — so
-    /// this case is a fixture waiting for it rather than a stub of it. Remove the attribute when C6 lands;
-    /// the fixture needs no change, which is the point of writing it now.
+    /// <b>The fixture was checked in before the feature was.</b> It was written against a branch with no
+    /// <c>customElements</c> at all, marked <c>[Explicit]</c> with a <c>needs triage</c> row beside it, and
+    /// turned on by deleting one attribute once the registry, the upgrade and the four reactions landed —
+    /// which is the shape a triage row is supposed to have.
     /// </remarks>
     [Test]
-    [Explicit("custom-elements: customElements is campaign item C6 and is not on this branch; the fixture is here so that C6 has something to turn on.")]
     public async Task ACustomElementIsUpgradedAndHearsItsReactions()
     {
         await using var course = await FixtureCourse.OpenAsync("custom-elements");

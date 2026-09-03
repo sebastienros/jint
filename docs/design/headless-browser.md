@@ -387,7 +387,9 @@ about them differ from the paragraph above. The course runs on all four legs, as
 because it costs nothing. A fixture that does not pass is a **`needs triage` row** in
 [`Fixtures/README.md`](../../Jint.Tests.Browser/Fixtures/README.md) with the failing assertion and a
 one-line diagnosis, and `FixtureInventoryTests` fails unless that set is exactly the set of cases marked
-`[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. And the
+`[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. Both
+rows that were ever written have since been retired by the pull request that paid them: `htmx` was owed
+DOM XPath and `custom-elements` was owed the registry. And the
 course is a **gate on the engine as much as on the package**: the eighteen fixtures and the two clients found
 seven defects between them, six of which were fixed in the pull request that added them — an
 `insertBefore(node, null)` that was a `TypeError`, a selector refusal a page could not catch, a

@@ -746,6 +746,39 @@
       "reason": "The one element whose scrollTop moves the window, which is how a client finds the page's own scroll offset. Standards mode always: it is the document element."
     },
     {
+      "interface": "Document",
+      "member": "evaluate",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "_ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.evaluate\");",
+        "return global::Jint.Browser.Dom.Views.XPathEvaluation.Evaluate(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, \"Document.evaluate\"), args, \"Document.evaluate\");"
+      ],
+      "reason": "DOM 7's XPath, which neither pinned assembly declares: there is no [DomName(\"evaluate\")] anywhere in AngleSharp, so nothing could generate it. The evaluator is System.Xml.XPath over AngleSharp.XPath's navigator - see Dom/Views/JsXPath. htmx 2 builds an XPathEvaluator at the top level of its bundle, so a page that loads it is a ReferenceError without this."
+    },
+    {
+      "interface": "Document",
+      "member": "createExpression",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "_ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createExpression\");",
+        "return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateExpression(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, \"Document.createExpression\"), args, \"Document.createExpression\");"
+      ],
+      "reason": "The compiling half of XPathEvaluatorBase, which a page reuses across evaluations the way htmx does."
+    },
+    {
+      "interface": "Document",
+      "member": "createNSResolver",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "_ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createNSResolver\");",
+        "return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateNSResolver(args, \"Document.createNSResolver\");"
+      ],
+      "reason": "Legacy, and DOM keeps it only because pages call it: its whole definition is now 'return the node'."
+    },
+    {
       "interface": "HTMLElement",
       "extend": "Jint.Browser.Events.DomShapeAdditions.HtmlElementHandlers",
       "reason": "HTML's GlobalEventHandlers and DocumentAndElementEventHandlers mixins - eighty-odd on* IDL attributes with an identically shaped accessor pair each. AngleSharp declares the handlers as CLR events, which the member closure never yields, and as member entries they would be a hundred and seventy near-identical rows; the extend form exists for exactly this."

@@ -2349,10 +2349,19 @@ await using var browser = new Browser();
 var page = await browser.NewPageAsync();
 
 var response = await page.NavigateAsync("https://example.org/login");
-await page.SubmitFormAsync("#login");
 
+await page.FillAsync("#email", "ada@example.org");
+await page.FillAsync("#password", "correct horse");
+await page.ClickAsync("#sign-in");
+
+await page.WaitForAsync("document.querySelector('#user') !== null", TimeSpan.FromSeconds(10));
 var user = await page.EvaluateAsync<string>("document.querySelector('#user').textContent");
 ```
+
+`WaitForAsync` is the general form of `WaitForSelectorAsync` and `WaitForTextAsync`, for a condition
+neither an element nor a piece of text can state — a URL a router moved, a list that reached a length. An
+expression that throws is *not yet true*, so a condition written against an element a framework has not
+rendered is usable; a timeout reports that failure rather than a bare `false`.
 
 **What exists.** Generated bindings for every WebIDL interface AngleSharp describes: one prototype per
 interface built on Jint's own `JsObjectShape`, the interface objects (`Node`, `Element`, `HTMLDivElement`,
@@ -2390,6 +2399,13 @@ as documented stubs that report every observed target once, since there is no la
 `DOMParser` (HTML, and XML through `AngleSharp.Xml`) and `XMLSerializer`, `Range`, `TreeWalker`,
 `NodeIterator`, `getSelection()`, `<template>` content and `attachShadow`, with events crossing a shadow
 boundary the way the DOM says.
+
+**And XPath.** `document.evaluate`, `createExpression`, `createNSResolver`, `XPathEvaluator`,
+`XPathExpression` and `XPathResult` with its ten result types, evaluated by `System.Xml.XPath` over
+`AngleSharp.XPath`'s navigator — which is what htmx 2 needs before it reads a single `hx-` attribute.
+Namespaces are ignored, so an unprefixed `//div` matches an HTML element the way a page expects, and a
+node set is taken whole at evaluation rather than kept live. CSSOM's `CSS.escape` and `CSS.supports` are
+there too, the second answered by AngleSharp.Css's own condition evaluator.
 
 **And the network half.** `Page.NavigateAsync` loads an `http(s)` URL through Jint's own fetch pipeline and
 parses the result into a new engine — the document being left gets `beforeunload`, `pagehide` and `unload`,
@@ -2664,7 +2680,7 @@ and `document.write` after a page has finished parsing is refused with a page er
 offline pages built out of the libraries' own published bundles, served over a loopback socket and driven
 through the `Page` API — and three of them are driven again over the protocol by PuppeteerSharp and by
 Playwright for .NET. Each case asserts a DOM end state *and* that the page reported no errors at all, which
-is what tells a half-working page from a working one. Sixteen of the eighteen pass:
+is what tells a half-working page from a working one. All eighteen pass:
 
 | Works | Fixture |
 | --- | --- |
@@ -2681,9 +2697,10 @@ is what tells a half-working page from a working one. Sixteen of the eighteen pa
 | **Both observers** — a `MutationObserver` widget batching a turn's mutations into one callback, and an `IntersectionObserver` lazy list | `mutation-observer`, `intersection-observer` |
 | **Dialogs** — `alert`, `confirm` and `prompt` answered through `Page.DialogOpened`, and dismissed by default | `dialogs` |
 
-Two do not, and both say why in the inventory rather than being quietly dropped: **htmx 2** builds an
-`XPathEvaluator` expression at the top level of its bundle and this browser has no XPath at all, and
-**custom elements** are a later item of the same campaign. The lazy list is the one whose *passing*
+**htmx 2** — `hx-trigger="load"`, `hx-get` with a swap, and a boosted link — and **custom elements** pass
+too, and both are worth a sentence because neither did when the course was written: each was a
+`needs triage` row in the inventory naming the feature it was owed, and each was retired by the pull
+request that added it rather than by being quietly dropped. The lazy list is the one whose *passing*
 behaviour is a divergence: with no layout nothing can stop intersecting, so an observed target is reported
 once and an infinite list loads every page at once — which is the readable outcome rather than the correct
 one, and is asserted as such.

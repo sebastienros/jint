@@ -10,13 +10,15 @@ namespace Jint.Browser.Dom.Views;
 
 /// <summary>
 /// The interfaces the runtime owns rather than the generator: <c>DOMParser</c>, <c>XMLSerializer</c>,
-/// <c>NodeFilter</c>, <c>Selection</c> and <c>MediaQueryListEvent</c>.
+/// <c>NodeFilter</c>, <c>Selection</c>, <c>MediaQueryListEvent</c>, <c>Geolocation</c> and DOM's three XPath
+/// interfaces.
 /// </summary>
 /// <remarks>
 /// <para>
-/// None of the five exists in AngleSharp — three of them are host objects a browser supplies rather than DOM
-/// objects, <c>NodeFilter</c> is a callback interface with constants and no instances, and
-/// <c>MediaQueryListEvent</c> is CSSOM View's. Everything else in this folder is a <em>view</em> onto the DOM
+/// None of them exists in AngleSharp — several are host objects a browser supplies rather than DOM
+/// objects, <c>NodeFilter</c> is a callback interface with constants and no instances,
+/// <c>MediaQueryListEvent</c> is CSSOM View's, and DOM §7's XPath is projected from no assembly at all
+/// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
 /// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
 /// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
 /// cross arrive from <c>overrides.json</c>'s additions.
@@ -34,6 +36,10 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _nodeFilter = BuildNodeFilterShape();
     private static readonly JsObjectShape _mediaQueryListEvent = BuildMediaQueryListEventShape();
     private static readonly JsObjectShape _geolocation = BuildGeolocationShape();
+    private static readonly JsObjectShape _xPathEvaluator = BuildXPathEvaluatorShape();
+    private static readonly JsObjectShape _xPathExpression = BuildXPathExpressionShape();
+    private static readonly JsObjectShape _xPathResult = BuildXPathResultShape();
+    private static readonly JsObjectShape _cssNamespace = BuildCssNamespaceShape();
 
     /// <summary>
     /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
@@ -41,7 +47,7 @@ internal static class ViewInstaller
     /// </summary>
     internal static IConfiguration ParserConfiguration { get; } = Configuration.Default.WithCss();
 
-    /// <summary>Installs the five globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
+    /// <summary>Installs the globals on <paramref name="runtime"/>'s engine. Called once, at construction.</summary>
     internal static void Install(PageRuntime runtime)
     {
         var engine = runtime.Engine;
@@ -52,6 +58,10 @@ internal static class ViewInstaller
         Add(engine, "NodeFilter", static realm => realm.NodeFilter);
         Add(engine, "MediaQueryListEvent", static realm => realm.MediaQueryListEvent);
         Add(engine, "Geolocation", static realm => realm.GeolocationInterface);
+        Add(engine, "XPathEvaluator", static realm => realm.XPathEvaluator);
+        Add(engine, "XPathExpression", static realm => realm.XPathExpressionInterface);
+        Add(engine, "XPathResult", static realm => realm.XPathResultInterface);
+        Add(engine, "CSS", static realm => realm.CssNamespace);
     }
 
     private static void Add(Engine engine, string name, Func<ViewRealm, JsValue> factory)
@@ -72,6 +82,14 @@ internal static class ViewInstaller
     internal static JsObjectShape MediaQueryListEventShape => _mediaQueryListEvent;
 
     internal static JsObjectShape GeolocationShape => _geolocation;
+
+    internal static JsObjectShape XPathEvaluatorShape => _xPathEvaluator;
+
+    internal static JsObjectShape XPathExpressionShape => _xPathExpression;
+
+    internal static JsObjectShape XPathResultShape => _xPathResult;
+
+    internal static JsObjectShape CssNamespaceShape => _cssNamespace;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-domparser-interface
@@ -143,6 +161,16 @@ internal static class ViewInstaller
         .Constant("SHOW_TEXT", JsNumber.Create(4))
         .Build();
 
+    /// <summary>
+    /// https://drafts.csswg.org/cssom/#namespacedef-css — a namespace object, so no constructor and no
+    /// prototype.
+    /// </summary>
+    private static JsObjectShape BuildCssNamespaceShape() => new JsObjectShape.Builder()
+        .ToStringTag("CSS")
+        .Method("escape", static (_, args) => JsCssNamespace.Escape(args), length: 1)
+        .Method("supports", static (_, args) => JsCssNamespace.Supports(args), length: 1)
+        .Build();
+
     /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>
     /// <remarks>
     /// The whole interface, and it is three operations: what a page has no way to observe is that the fix
@@ -155,6 +183,55 @@ internal static class ViewInstaller
         .Method("watchPosition", static (t, args) => JsGeolocation.Brand(t, "watchPosition").WatchPosition(args), length: 1)
         .Method("clearWatch", static (t, args) => JsGeolocation.Brand(t, "clearWatch").ClearWatch(args), length: 1)
         .Build();
+
+    /// <summary>https://dom.spec.whatwg.org/#interface-xpathevaluator — the three members of the mixin.</summary>
+    private static JsObjectShape BuildXPathEvaluatorShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("XPathEvaluator")
+        .Method("createExpression", static (t, args) => JsXPathEvaluator.Brand(t, "createExpression").CreateExpression(args), length: 1)
+        .Method("createNSResolver", static (t, args) =>
+        {
+            JsXPathEvaluator.Brand(t, "createNSResolver");
+            return XPathEvaluation.CreateNSResolver(args, "XPathEvaluator.createNSResolver");
+        }, length: 1)
+        .Method("evaluate", static (t, args) => JsXPathEvaluator.Brand(t, "evaluate").Evaluate(args), length: 2)
+        .Build();
+
+    /// <summary>https://dom.spec.whatwg.org/#interface-xpathexpression</summary>
+    private static JsObjectShape BuildXPathExpressionShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("XPathExpression")
+        .Method("evaluate", static (t, args) => JsXPathExpression.Brand(t, "evaluate").Evaluate(args), length: 1)
+        .Build();
+
+    /// <summary>https://dom.spec.whatwg.org/#interface-xpathresult</summary>
+    private static JsObjectShape BuildXPathResultShape()
+    {
+        var builder = new JsObjectShape.Builder()
+            .PerRealmSlot("constructor")
+            .ToStringTag("XPathResult");
+
+        foreach (var (name, value) in XPathEvaluation.ResultConstants)
+        {
+            builder = builder.Constant(name, JsNumber.Create(value));
+        }
+
+        return builder
+        .Accessor("resultType", static (t, _) => JsXPathResult.Brand(t, "resultType").ResultType)
+        .Accessor("numberValue", static (t, _) => JsXPathResult.Brand(t, "numberValue").NumberValue)
+        .Accessor("stringValue", static (t, _) => JsXPathResult.Brand(t, "stringValue").StringValue)
+        .Accessor("booleanValue", static (t, _) => JsXPathResult.Brand(t, "booleanValue").BooleanValue)
+        .Accessor("singleNodeValue", static (t, _) => JsXPathResult.Brand(t, "singleNodeValue").SingleNodeValue)
+        .Accessor("invalidIteratorState", static (t, _) =>
+        {
+            JsXPathResult.Brand(t, "invalidIteratorState");
+            return JsXPathResult.InvalidIteratorState;
+        })
+        .Accessor("snapshotLength", static (t, _) => JsXPathResult.Brand(t, "snapshotLength").SnapshotLength)
+        .Method("iterateNext", static (t, _) => JsXPathResult.Brand(t, "iterateNext").IterateNext())
+        .Method("snapshotItem", static (t, args) => JsXPathResult.Brand(t, "snapshotItem").SnapshotItem(args), length: 1)
+        .Build();
+    }
 
     /// <summary>https://drafts.csswg.org/cssom-view/#mediaquerylistevent</summary>
     private static JsObjectShape BuildMediaQueryListEventShape() => new JsObjectShape.Builder()
@@ -176,11 +253,12 @@ internal static class ViewInstaller
         Func<JsValue[], ObjectInstance>? construct,
         ObjectInstance? parentPrototype,
         ObjectInstance? parentInterface,
-        out HostInterfaceObject interfaceObject)
+        out HostInterfaceObject interfaceObject,
+        (string Name, int Value)[]? constants = null)
     {
         var realm = engine._mainRealm;
         var prototype = shape.Instantiate(engine, parentPrototype ?? realm.Intrinsics.Object.PrototypeObject);
-        interfaceObject = new HostInterfaceObject(engine, realm, name, prototype, length, construct, parentInterface);
+        interfaceObject = new HostInterfaceObject(engine, realm, name, prototype, length, construct, parentInterface, constants);
 
         prototype.DefineOwnPropertyUnchecked(
             "constructor",

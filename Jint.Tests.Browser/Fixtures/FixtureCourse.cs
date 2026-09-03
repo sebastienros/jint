@@ -18,10 +18,13 @@ using Browser = global::Jint.Browser.Browser;
 /// <i>something</i>, so the error sink is what tells a half-working page apart from a working one.
 /// </para>
 /// <para>
-/// <b>The driver is injected, never loaded.</b> <c>Fixtures/harness.js</c> is evaluated into the page after
-/// the load rather than referenced by the document, because the same fixtures are driven by PuppeteerSharp
-/// and by Playwright over the protocol with no help from it — a fixture that needed the harness would be a
-/// fixture only this suite could run.
+/// <b>Input is the public <c>Page</c> API; the harness is what is left.</b> A click, a fill and a key press
+/// go through <see cref="Page.ClickAsync"/>, <see cref="Page.FillAsync"/> and
+/// <see cref="Page.PressAsync"/>, which are the same paths a protocol client drives — so a case here and
+/// the same case in the PuppeteerSharp or Playwright suite exercise one input model rather than two.
+/// <c>Fixtures/harness.js</c> is evaluated into the page after the load, never referenced by the document,
+/// and it holds only the readers and the one click the public API has no member for: the <i>n</i>th match
+/// of a repeated selector.
 /// </para>
 /// </remarks>
 internal sealed class FixtureCourse : IAsyncDisposable
@@ -96,9 +99,16 @@ internal sealed class FixtureCourse : IAsyncDisposable
     internal Task SettleAsync() => Page.WaitForIdleAsync(TimeSpan.FromSeconds(2));
 
     /// <summary>Clicks the first match and lets whatever it started finish.</summary>
+    /// <remarks>
+    /// <see cref="Page.ClickAsync"/> rather than the harness: a real mouse sequence at the element's own
+    /// row, which is the same path <c>Input.dispatchMouseEvent</c> takes, so what this drives is what a
+    /// protocol client drives rather than a script calling <c>element.click()</c>.
+    /// </remarks>
     internal async Task ClickAsync(string selector)
     {
-        await Page.EvaluateAsync("__h.click(" + Literal(selector) + ")").ConfigureAwait(false);
+        (await Page.ClickAsync(selector).ConfigureAwait(false))
+            .Should().BeTrue("'" + selector + "' should have matched a clickable element");
+
         await SettleAsync().ConfigureAwait(false);
     }
 
@@ -109,10 +119,18 @@ internal sealed class FixtureCourse : IAsyncDisposable
         await SettleAsync().ConfigureAwait(false);
     }
 
-    /// <summary>Types into a field and lets whatever it started finish.</summary>
+    /// <summary>Puts a value in a field and lets whatever it started finish.</summary>
+    /// <remarks>
+    /// <see cref="Page.FillAsync"/>, which is what the harness member it replaced was: select everything,
+    /// then insert through the input model, so <c>beforeinput</c> and <c>input</c> fire and a controlled
+    /// field a framework owns is reached. It focuses the control, which is what lets
+    /// <see cref="PressAsync"/> follow it with no target of its own.
+    /// </remarks>
     internal async Task TypeAsync(string selector, string text)
     {
-        await Page.EvaluateAsync("__h.type(" + Literal(selector) + ", " + Literal(text) + ")").ConfigureAwait(false);
+        (await Page.FillAsync(selector, text).ConfigureAwait(false))
+            .Should().BeTrue("'" + selector + "' should have matched an editable element");
+
         await SettleAsync().ConfigureAwait(false);
     }
 
@@ -128,7 +146,7 @@ internal sealed class FixtureCourse : IAsyncDisposable
     internal async Task EnterAsync(string selector, string text)
     {
         await TypeAsync(selector, text).ConfigureAwait(false);
-        await PressAsync(selector, "Enter").ConfigureAwait(false);
+        await PressAsync("Enter").ConfigureAwait(false);
     }
 
     /// <summary>Clicks something that navigates, waits for the commit and re-injects the driver.</summary>
@@ -140,7 +158,8 @@ internal sealed class FixtureCourse : IAsyncDisposable
     internal async Task ClickAndNavigateAsync(string selector)
     {
         var navigated = Page.WaitForNavigationAsync(Bound);
-        await Page.EvaluateAsync("__h.click(" + Literal(selector) + ")").ConfigureAwait(false);
+        (await Page.ClickAsync(selector).ConfigureAwait(false))
+            .Should().BeTrue("'" + selector + "' should have matched a clickable element");
 
         (await navigated.ConfigureAwait(false)).Should().BeTrue("clicking '" + selector + "' should have navigated");
 
@@ -148,10 +167,14 @@ internal sealed class FixtureCourse : IAsyncDisposable
         await SettleAsync().ConfigureAwait(false);
     }
 
-    /// <summary>Presses a key at an element and lets whatever it started finish.</summary>
-    internal async Task PressAsync(string selector, string key)
+    /// <summary>Presses a key at whatever is focused and lets whatever it started finish.</summary>
+    /// <remarks>
+    /// <see cref="Page.PressAsync"/> takes no selector, because a key press has none: HTML sends it to the
+    /// currently focused area, which the fill or the click before it moved.
+    /// </remarks>
+    internal async Task PressAsync(string key)
     {
-        await Page.EvaluateAsync("__h.press(" + Literal(selector) + ", " + Literal(key) + ")").ConfigureAwait(false);
+        await Page.PressAsync(key).ConfigureAwait(false);
         await SettleAsync().ConfigureAwait(false);
     }
 
@@ -189,22 +212,14 @@ internal sealed class FixtureCourse : IAsyncDisposable
     /// </remarks>
     internal async Task UntilAsync(string expression, string expected)
     {
-        var deadline = Environment.TickCount64 + (long) Bound.TotalMilliseconds;
-        string? seen = null;
-
-        while (Environment.TickCount64 < deadline)
+        // One request that holds the page's thread and is woken by its own jobs, rather than a round trip
+        // per poll from here: Page.WaitForAsync is what a host has instead of this loop.
+        if (await Page.WaitForAsync("String(" + expression + ") === " + Literal(expected), Bound).ConfigureAwait(false))
         {
-            seen = await Page.EvaluateAsync<string>("String(" + expression + ")").ConfigureAwait(false);
-
-            if (string.Equals(seen, expected, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            await SettleAsync().ConfigureAwait(false);
-            await Task.Delay(25).ConfigureAwait(false);
+            return;
         }
 
+        var seen = await Page.EvaluateAsync<string>("String(" + expression + ")").ConfigureAwait(false);
         Assert.Fail($"'{expression}' was still '{seen}' rather than '{expected}' after {Bound}. Errors: {Errors()}");
     }
 

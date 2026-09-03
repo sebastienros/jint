@@ -35,7 +35,8 @@ internal sealed class HostInterfaceObject : Constructor
         ObjectInstance prototype,
         int length,
         Func<JsValue[], ObjectInstance>? construct = null,
-        ObjectInstance? parent = null)
+        ObjectInstance? parent = null,
+        (string Name, int Value)[]? constants = null)
         : base(engine, realm, new JsString(name))
     {
         _name = name;
@@ -46,6 +47,20 @@ internal sealed class HostInterfaceObject : Constructor
         // https://webidl.spec.whatwg.org/#interface-object — { writable: false, enumerable: false,
         // configurable: false }.
         _prototypeDescriptor = new PropertyDescriptor(prototype, PropertyFlag.AllForbidden);
+
+        // https://webidl.spec.whatwg.org/#es-constants — a constant is an own property of BOTH the interface
+        // object and the interface prototype object, so `XPathResult.FIRST_ORDERED_NODE_TYPE` and
+        // `result.FIRST_ORDERED_NODE_TYPE` both answer. The prototype's copy comes from its shape; this is
+        // the other one, and DomInterfaceObject does exactly this for a generated interface.
+        if (constants is not null)
+        {
+            foreach (var (constantName, value) in constants)
+            {
+                DefineOwnPropertyUnchecked(
+                    constantName,
+                    new PropertyDescriptor(JsNumber.Create(value), PropertyFlag.OnlyEnumerable));
+            }
+        }
     }
 
     /// <summary>https://webidl.spec.whatwg.org/#es-interface-call — an interface object is never callable.</summary>

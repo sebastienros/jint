@@ -414,13 +414,12 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
     /// a text match.
     /// </summary>
     /// <remarks>
-    /// <b>Two of Chrome's three, and the missing one is XPath.</b> Chrome tries the query as a selector, as
-    /// plain text and as an XPath expression; AngleSharp's XPath support is a separate package this project
-    /// does not reference, and adding one for a command no recorded client sends would be a dependency
-    /// bought for a front-end search box. What is here is the selector — matched first, so
-    /// <c>performSearch("div")</c> finds elements rather than the word — and then a case-insensitive
-    /// substring of a text node's data or of an attribute's value, which is what the other two of Chrome's
-    /// three arms cover between them.
+    /// <b>Chrome's three arms, in Chrome's order.</b> The query is tried as a selector first, so
+    /// <c>performSearch("div")</c> finds elements rather than the word; then as an XPath expression, which is
+    /// what a front end's search box sends for anything beginning <c>//</c> or <c>(</c>; then as a
+    /// case-insensitive substring of a text node's data or of an attribute's value. A query that is not one
+    /// of the three simply contributes nothing rather than failing the command — a search box is allowed to
+    /// be typed into one character at a time.
     /// </remarks>
     protected override ValueTask<PerformSearchResponse> PerformSearchAsync(PerformSearchRequest parameters, CommandContext context)
     {
@@ -433,6 +432,14 @@ internal sealed partial class DomDomain : DOMDomainBase, IDetachableDomain, ITar
             if (seen.Add(element))
             {
                 found.Add(element);
+            }
+        }
+
+        foreach (var node in XPathMatches(document, parameters.Query))
+        {
+            if (seen.Add(node))
+            {
+                found.Add(node);
             }
         }
 

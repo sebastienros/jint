@@ -11,13 +11,14 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is exactly one, and the emptiness of this table is the point.</b> AngleSharp puts
+/// <b>There are two, and the shortness of this table is the point.</b> AngleSharp puts
 /// <c>[DomConstructor]</c> on concrete classes and on no <c>[DomName]</c> interface, so the generator can
 /// never learn that an interface is constructible; <see cref="DomInterfaceObject"/> therefore refuses every
 /// <c>new</c>, which is also what a browser answers for <c>new HTMLDivElement()</c> and for all but a handful
-/// of DOM's interfaces. <c>Document</c> is the one this corpus reaches for —
-/// https://dom.spec.whatwg.org/#dom-document-document, "the Document() constructor" — and it is a decision
-/// rather than a projection, so it is written here by name.
+/// of DOM's interfaces. The two here are the ones this corpus reaches for and each is a decision rather than
+/// a projection: <c>Document</c> (https://dom.spec.whatwg.org/#dom-document-document) and
+/// <c>DocumentFragment</c> (https://dom.spec.whatwg.org/#dom-documentfragment-documentfragment), which htmx 2
+/// builds for every swap whose response starts with <c>&lt;html&gt;</c> or <c>&lt;body&gt;</c>.
 /// </para>
 /// <para>
 /// The document it makes is DOM's: an <b>XML</b> document with no doctype, no document element and no
@@ -37,6 +38,17 @@ internal static class DomConstructors
         if (ReferenceEquals(definition, DomInterfaces.Document))
         {
             instance = (ObjectInstance) realm.WrapNode(NewXmlDocument());
+            return true;
+        }
+
+        if (ReferenceEquals(definition, DomInterfaces.DocumentFragment))
+        {
+            // https://dom.spec.whatwg.org/#dom-documentfragment-documentfragment — the node document is the
+            // current global object's associated Document, which here is the page's. A binding installed on
+            // a bare engine has none, and an empty document of its own is the honest owner for a fragment
+            // nothing else can reach.
+            var document = Runtime.PageRuntime.Find(realm.Engine)?.Document ?? NewXmlDocument();
+            instance = (ObjectInstance) realm.WrapNode(document.CreateDocumentFragment());
             return true;
         }
 
