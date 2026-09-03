@@ -394,7 +394,7 @@ internal sealed partial class RuntimeDomain
             properties.Add(new InternalPropertyDescriptor
             {
                 Name = "[[FunctionLocation]]",
-                Value = Location(declaration),
+                Value = Location(function, declaration),
             });
         }
     }
@@ -403,10 +403,15 @@ internal sealed partial class RuntimeDomain
     /// One declaration position in the shape V8 sends it: a remote object with no handle, whose
     /// <c>value</c> is the location itself.
     /// </summary>
-    private RemoteObject Location(Node declaration)
+    private RemoteObject Location(Function function, Node declaration)
     {
         var location = declaration.Location;
-        var script = _target.Runtime.Scripts?.At(location.SourceFile, location.Start.Line, location.Start.Column);
+
+        // By identity, never by name: two scripts parsed under one name are two scripts, and every
+        // sourceless Execute shares the name <anonymous>. A function whose program the registry does not
+        // know - eval, the Function constructor, a script evicted past MaxScripts - is reported against
+        // Chrome's own sentinel identifier rather than against whichever script shares its name.
+        var script = _target.Runtime.Scripts?.For(function.Program);
 
         var buffer = new ArrayBufferWriter<byte>(96);
         using (var writer = new Utf8JsonWriter(buffer))

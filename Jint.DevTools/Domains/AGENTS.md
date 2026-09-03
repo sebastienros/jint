@@ -77,10 +77,12 @@ justifies making that a public commitment.
 a promise's `[[PromiseState]]`/`[[PromiseResult]]`, plus — for a function — `[[FunctionLocation]]`, and for a
 bound one `[[TargetFunction]]`, `[[BoundThis]]` and `[[BoundArgs]]`. `[[FunctionLocation]]` is the one that
 makes a function *clickable*: without it a front end names the function and opens nothing. It is the
-declaration node the function already carries — `Function.FunctionDeclaration`, published; the *program* that
-node was parsed in is not — so it is the one caller of `ScriptRegistry.At` that is not a rendered stack frame,
-and it inherits that lookup's caveat rather than resolving by identity. A function the engine has no
-declaration for carries no location at all, rather than one against the sentinel identifier `0`.
+declaration node the function already carries — `Function.FunctionDeclaration` — resolved to a script through
+`Function.Program` and `ScriptRegistry.For`, by identity, so two parses of one text are told apart. A
+function the engine has no declaration for carries no location at all, rather than one against the sentinel
+identifier `0`; a function whose *program* the registry does not know — `eval`, the `Function` constructor, a
+script evicted past `MaxScripts` — carries one against that sentinel, which is what Chrome sends for a
+location it cannot attribute.
 `[[BoundArgs]]` is a **copy** of the arguments array, because the engine's own is what every call through the
 bound function reads from. `[[Scopes]]` is absent for the same reason `[[Handler]]` and `[[Target]]` of a
 proxy are: the engine publishes neither the environment a closure captured nor a proxy's slots outside its own
@@ -169,11 +171,10 @@ bearing rather than incidental:
 - **`ScriptRegistry.At` is the fallback, and only a *rendered* stack frame may use it.** A frame of
   `Error.stack` and a `ConsoleStackFrame` are text — a source name, a line and a column, and no program —
   so `Runtime.consoleAPICalled`'s `stackTrace` and the frames parsed out of a thrown error's `stack` match by
-  name and range and cannot tell two sourceless scripts apart. `[[FunctionLocation]]` is the third caller and
-  the only one that is not rendered text: a function value publishes its declaration node
-  (`Function.FunctionDeclaration`) and not the program it was parsed in, so there is no identity to look up —
-  the seam #3632 opened for a frame, not yet extended to a function. Giving all three a program is a further
-  engine seam; until then, do not reach for `At` from anywhere that has one.
+  name and range and cannot tell two sourceless scripts apart. They are the only two callers left:
+  `[[FunctionLocation]]` was the third until `Function.Program`
+  ([#3666](https://github.com/sebastienros/jint/issues/3666)) extended the seam #3632 opened for a frame to a
+  function value, and it resolves through `For` now. Do not reach for `At` from anywhere that has a program.
 
 **A source name becomes a URL here, and nowhere else.** The engine's source names stay exactly what the host
 passed — a stack trace prints them, and `Options.Interop.BuildCallStackHandler` is handed them — so

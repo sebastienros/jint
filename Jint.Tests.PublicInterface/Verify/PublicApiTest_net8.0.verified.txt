@@ -1406,6 +1406,7 @@ namespace Jint.Native.Function
         protected Jint.Runtime.Descriptors.PropertyDescriptor? _length;
         protected Jint.Runtime.Descriptors.PropertyDescriptor? _prototypeDescriptor;
         public Acornima.Ast.IFunction? FunctionDeclaration { get; }
+        public Acornima.Ast.Program? Program { get; }
         public bool Strict { get; }
         protected abstract Jint.Native.JsValue Call(Jint.Native.JsValue thisObject, Jint.Native.JsValue[] arguments);
         public override Jint.Runtime.Descriptors.PropertyDescriptor GetOwnProperty(Jint.Native.JsValue property) { }

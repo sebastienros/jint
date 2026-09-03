@@ -139,6 +139,48 @@ public class DebuggerScriptIdentityTests
             script.Functions.Single(function => function.FunctionName == "used").Ranges[0].Count.Should().Be(1));
     }
 
+    /// <summary>
+    /// A function value names the script it was declared in, which two parses of one text is the case no
+    /// source name can answer: both are <c>&lt;anonymous&gt;</c>, and both ranges hold the other's positions.
+    /// </summary>
+    [Test]
+    public async Task TwoFunctionsFromTwoParsesOfOneTextCarryTheirOwnFunctionLocation()
+    {
+        // Every sourceless Execute is parsed under one name, and these two parses are character for
+        // character the same text - so the declaration's own position is inside both ranges and a match on
+        // name and range can only ever answer the newest.
+        const string Declaration = "globalThis.fns = globalThis.fns || []; fns.push(function work() { return 1; });";
+
+        await using var session = await AttachedSession.CreateAsync();
+        await session.EnableDebuggerAsync();
+
+        await session.Target.PostAsync(engine =>
+        {
+            engine.Execute(Declaration);
+            engine.Execute(Declaration);
+        });
+
+        var announced = session.EventsOf("Debugger.scriptParsed")
+            .Select(sent => sent.GetProperty("params").GetProperty("scriptId").GetString())
+            .ToList();
+
+        announced.Should().HaveCount(2, "two parses are two scripts, whatever they were named");
+
+        (await FunctionLocationScriptIdAsync(session, "fns[0]")).Should().Be(
+            announced[0], "the first function was declared in the first parse");
+        (await FunctionLocationScriptIdAsync(session, "fns[1]")).Should().Be(
+            announced[1], "the second function was declared in the second parse");
+    }
+
+    private static async Task<string?> FunctionLocationScriptIdAsync(AttachedSession session, string expression)
+    {
+        var handle = await session.HandleAsync(expression);
+        var properties = await session.PropertiesAsync(handle, ownProperties: true);
+
+        return properties.Internal("[[FunctionLocation]]")
+            .GetProperty("value").GetProperty("value").GetProperty("scriptId").GetString();
+    }
+
     private static string? ScriptIdOf(JsonElement frame)
         => frame.GetProperty("location").GetProperty("scriptId").GetString();
 

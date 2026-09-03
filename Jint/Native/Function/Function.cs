@@ -136,6 +136,41 @@ public abstract partial class Function : ObjectInstance, ICallable
     public IFunction? FunctionDeclaration => _functionDefinition?.Function;
 
     /// <summary>
+    /// Gets the program this function's declaration was parsed in, or <see langword="null"/> when the engine
+    /// knows of none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same reference <see cref="Runtime.Debugger.DebugHandler.BeforeEvaluate"/> hands over,
+    /// <see cref="Runtime.Debugger.CallFrame.Program"/> carries and
+    /// <see cref="Engine.AdvancedOperations.TryGetSourceText"/> is keyed by, so a host maps a function to a
+    /// script it announced by reference rather than by matching <see cref="FunctionDeclaration"/>'s source
+    /// name — which every sourceless <c>Execute</c> shares.
+    /// </para>
+    /// <para>
+    /// The answer does not depend on the engine: two engines sharing one <c>Prepared&lt;Script&gt;</c>
+    /// answer the same program for the functions each of them built from it.
+    /// </para>
+    /// <para>
+    /// Null for a function with no declaration — a built-in, a host callable, a bound function — and for one
+    /// declared in a program no execution context names: an <c>eval</c> body and a <c>Function</c>
+    /// constructor body are programs of their own, and are declined rather than attributed to the script
+    /// that ran them.
+    /// </para>
+    /// </remarks>
+    public Program? Program
+    {
+        get
+        {
+            // The function's [[ScriptOrModule]] is the script that was active when it was created, which is
+            // the program its declaration belongs to for everything but eval and the Function constructor -
+            // and those two are what OwningProgramOf declines rather than mis-attributing. Same reading as
+            // ScriptProfileFrame's, so a profile frame and a function value can never name two programs.
+            return _functionDefinition?.Function is Node node ? _scriptOrModule.OwningProgramOf(node) : null;
+        }
+    }
+
+    /// <summary>
     /// True when the function already carries a non-empty own name, materialized or pending
     /// (a pending descriptor stands for the definition's own name, which is never empty).
     /// </summary>

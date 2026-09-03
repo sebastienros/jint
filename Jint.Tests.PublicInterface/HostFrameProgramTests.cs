@@ -157,6 +157,86 @@ public class HostFrameProgramTests
     }
 
     /// <summary>
+    /// A function <em>value</em> answers the same question, which is what makes <c>[[FunctionLocation]]</c>
+    /// resolvable by identity: two parses of one text declare two functions under one source name.
+    /// </summary>
+    [Test]
+    public void TwoFunctionsFromTwoParsesOfOneTextNameTheirOwnProgram()
+    {
+        const string Declaration = "globalThis.fns = globalThis.fns || []; fns.push(function work() { return 1; });";
+
+        var engine = CreateDebuggerEngine();
+
+        var parsed = new List<Program>();
+        engine.Debugger.BeforeEvaluate += (sender, ast) => parsed.Add(ast);
+
+        engine.Execute(Declaration);
+        engine.Execute(Declaration);
+
+        parsed.Should().HaveCount(2);
+        FunctionOf(engine, "fns[0]").Program.Should().BeSameAs(parsed[0]);
+        FunctionOf(engine, "fns[1]").Program.Should().BeSameAs(parsed[1]);
+    }
+
+    /// <summary>
+    /// The contract <c>TryGetSourceText</c> keeps: one <c>Prepared&lt;Script&gt;</c> shared by several
+    /// engines answers the same program on every one of them.
+    /// </summary>
+    [Test]
+    public void AFunctionBuiltOnEitherOfTwoEnginesNamesTheOnePreparedProgram()
+    {
+        var prepared = Engine.PrepareScript("function work() { return 1; }", "shared.js");
+
+        var first = new Engine();
+        var second = new Engine();
+        first.Execute(prepared);
+        second.Execute(prepared);
+
+        FunctionOf(first, "work").Program.Should().BeSameAs(prepared.Program);
+        FunctionOf(second, "work").Program.Should().BeSameAs(prepared.Program);
+    }
+
+    /// <summary>
+    /// A built-in, a host callable and a bound function have no declaration at all, so they name no program
+    /// rather than the script that happened to be running when they were created.
+    /// </summary>
+    [Test]
+    public void AFunctionValueWithNoDeclarationNamesNoProgram()
+    {
+        var engine = new Engine();
+        engine.SetValue("host", new System.Func<int>(() => 1));
+        engine.Execute("function work() { return 1; } globalThis.bound = work.bind(null);", "host.js");
+
+        FunctionOf(engine, "Math.max").Program.Should().BeNull();
+        FunctionOf(engine, "host").Program.Should().BeNull();
+        FunctionOf(engine, "bound").Program.Should().BeNull();
+    }
+
+    /// <summary>
+    /// A body the engine reached another way is a program no execution context names, so it is declined
+    /// rather than attributed to the script that ran it.
+    /// </summary>
+    [Test]
+    public void AFunctionDeclaredInsideEvalOrTheFunctionConstructorNamesNoProgram()
+    {
+        var engine = new Engine();
+        engine.Execute(
+            """
+            globalThis.evaluated = eval('(function fromEval() { return 1; })');
+            globalThis.constructed = new Function('return 2;');
+            function declared() { return 3; }
+            """,
+            "host.js");
+
+        FunctionOf(engine, "evaluated").Program.Should().BeNull();
+        FunctionOf(engine, "constructed").Program.Should().BeNull();
+        FunctionOf(engine, "declared").Program.Should().NotBeNull();
+    }
+
+    private static Jint.Native.Function.Function FunctionOf(Engine engine, string expression)
+        => (Jint.Native.Function.Function) engine.Evaluate(expression);
+
+    /// <summary>
     /// A built-in and a host callable have no source, so they name no program either — the answer is
     /// <see langword="null"/> rather than the script that happened to be running when they were created.
     /// </summary>
