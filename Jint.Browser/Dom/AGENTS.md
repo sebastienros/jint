@@ -99,6 +99,13 @@ Divergences from a browser that are **ours** and deliberate:
 - **`select.add` and `HTMLOptionsCollection.add` take one of their two overloads**, because HTML's union type
   is two CLR methods sharing a `[DomName]`. Two diagnostics say so and `DomBindingsStalenessTests` pins them
   at exactly two, so a third means something new turned up.
+- **The ARIA mixin's element-reflection half is not projected.** `role` and the forty-four `aria-*`
+  IDL attributes are, through `AriaReflection` and the `additions` extend form, and each is a view of
+  its content attribute rather than stored state — which is what makes the two directions agree by
+  construction and what makes `[CEReactions]` come free. `ariaActiveDescendantElement`,
+  `ariaControlsElements` and their five siblings reflect an element or a frozen array of elements and
+  carry an explicitly-set value that survives the target leaving the tree; that is bookkeeping, not a
+  view, and it is [#3773](https://github.com/sebastienros/jint/issues/3773)'s remainder.
 - **A node's indexed and named getters are dropped** (`form[0]`, `form.username`, `select[0]`): a node wrapper
   is a `JsEventTarget` rather than an `ArrayLikeObject`, so it carries no property projection.
   `form.elements[0]` and `form.elements.namedItem('username')` are the same values.
