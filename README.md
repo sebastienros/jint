@@ -2671,7 +2671,6 @@ recorded in `Page.Requests` with the reason instead — `integrity` is accepted 
 
 | What is missing | Tracked by |
 | --- | --- |
-| No XPath at all — no `XPathEvaluator`, no `document.evaluate`, and `DOM.performSearch` takes a selector or plain text and not an expression | [#3714](https://github.com/sebastienros/jint/issues/3714) |
 | `Fetch`'s **response** stage, and with it the `IO` domain: an observer is told about a response and cannot answer it, so a response-stage pause could only ever continue unchanged | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | `Network`'s WebSocket and EventSource events — the engine deliberately does not observe those two handshakes — and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | `BrowserOptions.UserAgent` reaches script but not the wire unless a protocol client sets it | [#3720](https://github.com/sebastienros/jint/issues/3720) |

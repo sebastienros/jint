@@ -121,7 +121,6 @@ and this package works within — are the two tables at the end of
 
 | | |
 | --- | --- |
-| [#3714](https://github.com/sebastienros/jint/issues/3714) | No XPath — which is also why the htmx fixture does not pass |
 | [#3701](https://github.com/sebastienros/jint/issues/3701) | `Fetch`'s response stage and the `IO` domain, WebSocket and EventSource observation, and request timing |
 | [#3712](https://github.com/sebastienros/jint/issues/3712) | A nullable `DOMString` parameter in the binding generator, which is the single biggest cause in the custom-element corpus |
 | [#3720](https://github.com/sebastienros/jint/issues/3720) | `BrowserOptions.UserAgent` reaches script but not the wire |
