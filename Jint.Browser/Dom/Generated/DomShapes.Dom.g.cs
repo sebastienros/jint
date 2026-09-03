@@ -83,6 +83,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.firstChild");
                     return self.Realm.WrapNodeValue(self.Target.FirstChild);
                 })
+            .Method("getRootNode",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.getRootNode");
+                    return global::Jint.Browser.Dom.DomNodeMembers.GetRootNode(self.Realm, self.Target, args);
+                },
+                length: 0)
             .Method("hasChildNodes",
                 static (thisObj, args) =>
                 {

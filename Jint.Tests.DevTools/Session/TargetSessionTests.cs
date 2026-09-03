@@ -45,6 +45,30 @@ public class TargetSessionTests
     }
 
     /// <summary>
+    /// <c>targetId</c> is optional, and on the browser session an omitted one names the browser itself.
+    /// </summary>
+    /// <remarks>
+    /// The protocol says "if not specified, returns info about the target the session is attached to", and
+    /// Playwright's <c>connectOverCDP</c> sends exactly that — no parameters at all — immediately after
+    /// <c>Target.setAutoAttach</c> and before it will do anything else. Answering <c>-32000</c> refused every
+    /// Playwright connection at the handshake, which is how this was found.
+    /// </remarks>
+    [Test]
+    public async Task GetTargetInfoWithNoIdentifierAnswersTheBrowserItself()
+    {
+        await using var session = ProtocolSession.Create();
+        session.AddTarget();
+
+        var reply = await session.SendAsync("Target.getTargetInfo", "{}");
+        var info = reply.GetProperty("result").GetProperty("targetInfo");
+
+        info.GetProperty("type").GetString().Should().Be("browser");
+        info.GetProperty("attached").GetBoolean().Should().BeTrue();
+        info.GetProperty("targetId").GetString().Should().NotBeNullOrEmpty();
+        info.GetProperty("url").GetString().Should().BeEmpty();
+    }
+
+    /// <summary>
     /// Discovery replays what already exists and then reports what arrives, which is what makes it usable by
     /// a client that connected after the targets did.
     /// </summary>

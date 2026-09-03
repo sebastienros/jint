@@ -146,6 +146,17 @@
 
   "additions": [
     {
+      "interface": "Node",
+      "member": "getRootNode",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.getRootNode\");",
+        "return global::Jint.Browser.Dom.DomNodeMembers.GetRootNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})`. AngleSharp has no [DomName] for it at all, so nothing could generate it -- and it is not a corner: a library asks it to tell a node in the document from one in a shadow tree or in a detached fragment, and Playwright's injected script calls it on every element it touches."
+    },
+    {
       "interface": "Document",
       "member": "querySelector",
       "kind": "operation",

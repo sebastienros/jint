@@ -201,10 +201,9 @@ public class PuppeteerSharpCourseTests
 
         await page.GoToAsync(lane.Url("fetch-json")).WaitAsync(Bound);
 
-        await page.WaitForFunctionAsync("() => document.querySelectorAll('#rows li').length === 1").WaitAsync(Bound);
-
-        (await page.EvaluateExpressionAsync<string>("document.querySelector('#rows li').textContent").WaitAsync(Bound))
-            .Should().Be("intercepted (9)");
+        // The list arrives holding one `pending` row, so the wait is on the text rather than on the count.
+        await page.WaitForFunctionAsync(
+            "() => document.querySelector('#rows li').textContent === 'intercepted (9)'").WaitAsync(Bound);
 
         lane.Server.Received.Should().NotContain(
             request => request.Path == "/fetch-json/rows.json",
