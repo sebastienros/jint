@@ -37,9 +37,13 @@ target/runtime split and the manifest are there and none of it is repeated here.
   reason a client that never called `getDocument` hears nothing. The records are AngleSharp's, delivered on
   the engine's queue at the same checkpoint a page's own `MutationObserver` fires. Every box is the flat
   model's ([`Runtime/AGENTS.md`](../Runtime/AGENTS.md)), and a node with no box is refused in Chrome's wording
-  rather than answered with zeros. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
+  rather than answered with zeros. `performSearch` is Chrome's three arms in Chrome's order — a selector,
+  an XPath expression (the same evaluator `document.evaluate` answers from), then a text substring — and a
+  query that is none of them contributes nothing rather than failing, because a search box is typed into
+  one character at a time. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
   `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
-  honestly `-32601`. The keyboard's own rules are
+  honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync` reach the same dispatcher
+  rather than a second one. The keyboard's own rules are
   [above](../AGENTS.md#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a
@@ -83,8 +87,11 @@ target/runtime split and the manifest are there and none of it is repeated here.
   draw on a surface that does not exist; `Security` has no certificate decision to report, the transport
   being the host's own `HttpClient`.
 
-`Jint.Tests.Browser/DevTools/` holds the handshake replay of every step four recorded clients walked but the
-two no domain here answers, `PageProtocolManifestTests` (the page half of the property `Jint.Tests.DevTools`
+`Jint.Tests.Browser/DevTools/` holds two handshake replays — every *method* four recorded clients sent, and
+every parameter **shape** they sent it with, the second built out of each call's own `paramsKeys` and typed
+from the vendored protocol, because the two Playwright defects C7 found were shapes (`Target.getTargetInfo`
+with no parameters, a default-context page naming no context) and a name-only pin cannot see one —
+`PageProtocolManifestTests` (the page half of the property `Jint.Tests.DevTools`
 holds for the engine half), a suite per domain — `DomDomainTests`, `NetworkDomainTests`, `FetchDomainTests`,
 `EmulationDomainTests`, `AccessibilityDomainTests`, `FrontEndDomainTests` — and the two client suites, the
 only tests here that can claim client compatibility, because they are the only ones that satisfy a library

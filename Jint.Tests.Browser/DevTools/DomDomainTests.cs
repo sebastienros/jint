@@ -320,8 +320,9 @@ public class DomDomainTests
             .GetProperty("value").GetString().Should().Be("undefined");
     }
 
+    /// <summary>Chrome's three arms: a selector, an XPath expression, and a text substring.</summary>
     [Test]
-    public async Task PerformSearchFindsBySelectorAndByText()
+    public async Task PerformSearchFindsBySelectorByXPathAndByText()
     {
         await using var session = await PageSession.CreateAsync();
         var attachment = await session.OpenPageAsync();
@@ -338,6 +339,16 @@ public class DomDomainTests
             attachment);
 
         results.GetProperty("nodeIds").GetArrayLength().Should().Be(1);
+
+        // The arm this browser had none of until DOM XPath arrived: a front end's search box sends one of
+        // these for anything beginning `//`, and it is the same evaluator document.evaluate answers from.
+        var byXPath = await session.ResultAsync("DOM.performSearch", """{"query":"//div[@class='needle']"}""", attachment);
+        byXPath.GetProperty("resultCount").GetInt32().Should().Be(1);
+
+        // A query that is not an expression contributes nothing rather than failing the command: a search
+        // box is typed into one character at a time.
+        var nonsense = await session.ResultAsync("DOM.performSearch", """{"query":"//div["}""", attachment);
+        nonsense.GetProperty("resultCount").GetInt32().Should().Be(0);
 
         var byText = await session.ResultAsync("DOM.performSearch", """{"query":"haystack"}""", attachment);
         byText.GetProperty("resultCount").GetInt32().Should().Be(1);

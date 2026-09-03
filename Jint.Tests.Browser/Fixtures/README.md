@@ -22,20 +22,23 @@ To add one:
    `/vendor/<library>-<version>/<file>` — the server answers the corpus at the paths it is stored at.
 2. Add a row to the inventory below. `FixtureInventoryTests` fails if a directory has no row or a row has no
    directory, so the table cannot drift from the corpus.
-3. Add one NUnit case, through `FixtureCourse`. Drive it with `harness.js`'s members rather than raw script:
-   they are what a real client's input would do, and the fixture must work without them.
+3. Add one NUnit case, through `FixtureCourse`. Drive it with the public `Page` input members — the same
+   ones a protocol client's input goes through — rather than with raw script, and read the end state with
+   `harness.js`'s. The fixture must work without any of it.
 4. If it does not pass, **do not delete it and do not quietly ignore it.** Mark the case
    `[Explicit("<fixture>: <one-line diagnosis>")]` — the reason has to start with the fixture's directory name,
    which is what `FixtureInventoryTests` matches against the `needs triage` rows here — and set the row's
    status below. A `needs triage` row is somebody's debt, the way a `NeedsTriage` row in the web-platform-tests
    lane is.
 
-`harness.js` is injected by the in-process suite and never loaded by a fixture. Two of its members exist
-because of something real: `type` writes through the prototype's `value` setter, because React installs an own
-`value` property that swallows a change whose value it already knows; and `FixtureCourse.EnterAsync` types and
-presses Enter as **two** turns, because a browser runs a microtask checkpoint between two user events and a
-library that re-renders on a microtask (Preact does, React does not) would otherwise read a draft it had
-already cleared.
+`harness.js` is injected by the in-process suite and never loaded by a fixture, and it is now the readers
+plus one click: `clickAt`, for the *n*th match of a repeated selector, which the public API has no member
+for. Everything else a case does to a page — a click, a fill, a key, a wait — is `Page.ClickAsync`,
+`FillAsync`, `PressAsync` and `WaitForAsync`, so a case here and the same case in the PuppeteerSharp or
+Playwright suite exercise one input model rather than two. One thing about the driver is still real rather
+than tidy: `FixtureCourse.EnterAsync` fills and presses Enter as **two** turns, because a browser runs a
+microtask checkpoint between two user events and a library that re-renders on a microtask (Preact does,
+React does not) would otherwise read a draft it had already cleared.
 
 ## The fixtures
 
@@ -47,10 +50,10 @@ already cleared.
 | `todomvc-svelte` | Svelte 5 compiled ahead of time: no framework runtime is loaded, only the component's own output | passes |
 | `ssr-hydration` | React `hydrateRoot` over server-rendered markup — the nodes are adopted, not replaced, and `onRecoverableError` stays empty | passes |
 | `jquery` | jQuery 3.7: `$.ajax({ async: false })` (a *synchronous* XMLHttpRequest), `$(fn)` readiness, delegated events on rows added later | passes |
-| `htmx` | htmx 2: `hx-trigger="load"`, `hx-get` + `hx-swap`, `hx-boost` | **needs triage** |
+| `htmx` | htmx 2: `hx-trigger="load"`, `hx-get` + `hx-swap`, `hx-boost` | passes |
 | `alpine` | Alpine 3: `x-data`, `x-model`, `x-text`, `x-show` — attributes found by walking the document, kept live by a `MutationObserver` | passes |
 | `spa-router` | An intercepted click, `history.pushState`, `popstate`, `back()`/`forward()`, and a link the router does not claim | passes |
-| `custom-elements` | `customElements.define`, the upgrade of an element the parser already made, and all four reactions | **needs triage** |
+| `custom-elements` | `customElements.define`, the upgrade of an element the parser already made, and all four reactions | passes |
 | `modules-importmap` | `<script type="importmap">`, a bare specifier, a mapped directory prefix, and a dynamic `import()` | passes |
 | `fetch-json` | `fetch` of JSON rendered into a list, a request header the script set, and the page's own request log | passes |
 | `form-redirect` | A form's entry list, a urlencoded `POST`, a `303`, and the `GET` that shows what the server read | passes |
@@ -60,12 +63,16 @@ already cleared.
 | `mutation-observer` | A widget kept in step with its subtree: `childList`, `attributeFilter` with old values, `characterData`, one batch per turn | passes |
 | `dialogs` | `alert`/`confirm`/`prompt` answered through `Page.DialogOpened`, and the default dismiss with no handler | passes |
 
-### The two that need triage
+### The triage table is empty, and what it took to empty it
 
-| Fixture | The failing assertion | Diagnosis |
+No fixture is `needs triage` today, so `FixtureInventoryTests` holds the corpus to *no* `[Explicit]` case
+at all. Both rows that stood were features rather than defects, and each was retired by the pull request
+that added the feature — which is what a triage row is for:
+
+| Fixture | What it was owed | Paid by |
 | --- | --- | --- |
-| `htmx` | `#on-load` is still `pending`; the page reports `ReferenceError: XPathEvaluator is not defined` from `htmx.min.js` | htmx 2 builds an `XPathEvaluator` expression at the **top level** of its bundle to find `hx-on:` attributes, so the library is a `ReferenceError` before any `hx-` attribute is read. This browser has no XPath at all: AngleSharp keeps it in `AngleSharp.XPath`, which nothing references, and there is no `XPathEvaluator`/`XPathExpression`/`XPathResult`/`document.evaluate`. Nothing about `hx-get`, `hx-swap`, `hx-trigger` or `hx-boost` has been reached, let alone refuted. |
-| `custom-elements` | `customElements` is not defined | The registry, the upgrade and the four reactions are campaign item **C6**, which had not merged when this landed. The fixture is checked in unchanged so that C6 can turn the case on by deleting one attribute. |
+| `htmx` | htmx 2 builds an `XPathEvaluator` expression at the **top level** of its bundle, so the library was a `ReferenceError` before any `hx-` attribute was read | DOM §7's XPath over `AngleSharp.XPath` (`Jint.Browser/Dom/Views/JsXPath`), plus `CSS.escape` and `new DocumentFragment`, which are the next two things it reaches for |
+| `custom-elements` | `customElements` did not exist | campaign item C6: the registry, the upgrade and the four reactions |
 
 ### The one whose *passing* behaviour is a divergence
 

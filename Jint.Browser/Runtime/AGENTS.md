@@ -220,6 +220,19 @@ distinguishes it from `form.requestSubmit()` and from a submit button. Constrain
 readonly control and a control inside a disabled fieldset — without it every `<button type=button>` in the
 form would be examined.
 
+### The expression wait, and why it is not a pump
+
+`Page.WaitForAsync(expression, timeout)` is the general form of `Page.Input.cs`'s two other waits, and it
+is built the same way rather than the obvious way: the page is looked at from **off** the loop, every
+`WaitPoll`, through one mailbox request per look. Holding the loop and pumping inside a single request —
+which is what `WaitForIdleAsync` does — would be a wait for something the page could never do, because the
+loop it is holding is the one a navigation commits on and the one a mailbox request runs on. One wait
+mechanism, three public members over it.
+
+**An expression that throws is not yet true**, so a condition written against an element a framework has
+not rendered is usable; the last failure is kept, and a timeout rethrows it rather than answering
+`false`, so a typo in the expression is a failure with a reason.
+
 ### The flat box model, and the one number it is built from
 
 `Layout/FlatLayout` is the whole of what stands in for a layout engine, and its rule is one sentence: **every

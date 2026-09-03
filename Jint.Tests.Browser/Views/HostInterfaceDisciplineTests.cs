@@ -1,3 +1,4 @@
+using Jint.Browser.Dom.Views;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Native.Symbol;
@@ -34,7 +35,21 @@ public sealed class HostInterfaceDisciplineTests
         "Geolocation",
         "Window",
         "CustomElementRegistry",
+        "XPathEvaluator",
+        "XPathExpression",
+        "XPathResult",
     ];
+
+    /// <summary>The constants each of these interfaces declares, by the names WebIDL gives them.</summary>
+    /// <remarks>
+    /// A generated interface publishes its own list through <c>DomInterfaceDefinition.Constants</c>, which is
+    /// what <c>WebIdlPropertyAttributeTests</c> reads; a hand-written one has no such list, so this names the
+    /// table the shape was built from rather than guessing from the spelling of a key.
+    /// </remarks>
+    private static readonly Dictionary<string, string[]> _constants = new(StringComparer.Ordinal)
+    {
+        ["XPathResult"] = [.. XPathEvaluation.ResultConstants.Select(constant => constant.Name)],
+    };
 
     [Test]
     public async Task EveryRuntimeOwnedPrototypeKeepsItsSharedShape()
@@ -98,6 +113,16 @@ public sealed class HostInterfaceDisciplineTests
                     if (descriptor.Get is not null || descriptor.Set is not null)
                     {
                         Check(found, member, null, descriptor.Enumerable, descriptor.Configurable, null, true, true);
+                        continue;
+                    }
+
+                    // https://webidl.spec.whatwg.org/#es-constants — enumerable and nothing else, which is
+                    // the one kind whose attributes differ from an operation's. Membership in the
+                    // interface's own constant list rather than a naming heuristic, the way
+                    // WebIdlPropertyAttributeTests reads a generated interface's.
+                    if (_constants.TryGetValue(name, out var constants) && constants.Contains(key.AsString(), StringComparer.Ordinal))
+                    {
+                        Check(found, member, descriptor.Writable, descriptor.Enumerable, descriptor.Configurable, false, true, false);
                         continue;
                     }
 

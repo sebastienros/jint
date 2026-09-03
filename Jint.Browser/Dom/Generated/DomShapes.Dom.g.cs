@@ -725,6 +725,20 @@ internal static partial class DomInterfaces
                     return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);
                 },
                 length: 1)
+            .Method("createExpression",
+                static (thisObj, args) =>
+                {
+                    _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createExpression");
+                    return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateExpression(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, "Document.createExpression"), args, "Document.createExpression");
+                },
+                length: 1)
+            .Method("createNSResolver",
+                static (thisObj, args) =>
+                {
+                    _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createNSResolver");
+                    return global::Jint.Browser.Dom.Views.XPathEvaluation.CreateNSResolver(args, "Document.createNSResolver");
+                },
+                length: 1)
             .Method("createNodeIterator",
                 static (thisObj, args) =>
                 {
@@ -844,6 +858,13 @@ internal static partial class DomInterfaces
                     self.Target.EnableStyleSheetsForSet(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.enableStyleSheetsForSet")); return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 1)
+            .Method("evaluate",
+                static (thisObj, args) =>
+                {
+                    _ = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.evaluate");
+                    return global::Jint.Browser.Dom.Views.XPathEvaluation.Evaluate(global::Jint.Browser.Runtime.PageRuntime.Of(thisObj, "Document.evaluate"), args, "Document.evaluate");
+                },
+                length: 2)
             .Method("execCommand",
                 static (thisObj, args) =>
                 {

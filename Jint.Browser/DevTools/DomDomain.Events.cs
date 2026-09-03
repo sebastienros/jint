@@ -1,4 +1,6 @@
+using System.Xml.XPath;
 using AngleSharp.Dom;
+using AngleSharp.XPath;
 using Jint.Browser.Layout;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
@@ -368,6 +370,49 @@ internal sealed partial class DomDomain
             return parent.QuerySelectorAll(selector);
         }
         catch (DomException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// The nodes an XPath expression selects, or none when <paramref name="query"/> is not one.
+    /// </summary>
+    /// <remarks>
+    /// <c>System.Xml.XPath</c> over <c>AngleSharp.XPath</c>'s navigator, which is the same evaluator
+    /// <c>document.evaluate</c> answers from — so a front end's search and a page's own XPath agree. A query
+    /// that is not an expression raises, and raising is how this arm says "not mine": a search box is typed
+    /// into one character at a time, and every prefix of <c>//div</c> would otherwise be an error.
+    /// </remarks>
+    private static List<INode> XPathMatches(IDocument document, string query)
+    {
+        if (query.Length == 0 || document.DocumentElement is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            var navigator = new HtmlDocumentNavigator(document, document, ignoreNamespaces: true);
+
+            if (navigator.Evaluate(query) is not XPathNodeIterator nodes)
+            {
+                return [];
+            }
+
+            var found = new List<INode>();
+
+            while (nodes.MoveNext())
+            {
+                if (nodes.Current is HtmlDocumentNavigator { CurrentNode: { } node })
+                {
+                    found.Add(node);
+                }
+            }
+
+            return found;
+        }
+        catch (Exception exception) when (exception is XPathException or ArgumentException)
         {
             return [];
         }

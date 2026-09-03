@@ -140,6 +140,7 @@ namespace Jint.Browser
         public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> TypeAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<bool> WaitForAsync(string expression, System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }

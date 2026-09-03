@@ -2,6 +2,7 @@ using AngleSharp.Html.Dom;
 using Jint.Browser.Events;
 using Jint.Browser.Extraction;
 using Jint.Browser.Runtime;
+using Jint.Runtime;
 using Jint.WebApi.Events;
 
 namespace Jint.Browser;
@@ -360,6 +361,57 @@ public sealed partial class Page
             timeout);
     }
 
+    /// <summary>Waits until <paramref name="expression"/> answers something truthy in the page.</summary>
+    /// <param name="expression">A JavaScript expression, evaluated in the page between looks.</param>
+    /// <param name="timeout">The ceiling on the wait.</param>
+    /// <returns>
+    /// <see langword="true"/> when it became truthy, <see langword="false"/> when the timeout won or the
+    /// page closed first.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// The general form of the two waits above, for a condition neither an element nor a piece of text can
+    /// state — <c>location.pathname === '/next'</c>, a list that has reached a length, a flag a framework
+    /// set. It is the same wait: the page is looked at from off the loop, so it goes on running its timers,
+    /// its promises and its fetches while this lasts.
+    /// </para>
+    /// <para>
+    /// <b>An expression that throws is not yet true</b>, so
+    /// <c>document.querySelector('#x').textContent === 'y'</c> is a usable condition while <c>#x</c> is
+    /// still being rendered. If the timeout wins and the last evaluation threw, that failure is what comes
+    /// out rather than <see langword="false"/> — a typo in the expression is a failure with a reason, not a
+    /// silent wait.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">The page has been closed.</exception>
+    public async Task<bool> WaitForAsync(string expression, TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        ObjectDisposedException.ThrowIf(_closed, this);
+
+        Exception? lastFailure = null;
+
+        var answered = await WaitForAsync(
+            engine =>
+            {
+                try
+                {
+                    var truthy = TypeConverter.ToBoolean(engine.Evaluate(expression));
+                    lastFailure = null;
+                    return truthy;
+                }
+                catch (JavaScriptException exception)
+                {
+                    // Not yet true: a condition written against an element a framework has not rendered
+                    // throws until it has. Kept so that a timeout can say why rather than only that.
+                    lastFailure = exception;
+                    return false;
+                }
+            },
+            timeout).ConfigureAwait(false);
+
+        return answered || lastFailure is null ? answered : throw lastFailure;
+    }
     /// <summary>Looks at the document until <paramref name="condition"/> holds, or until the time runs out.</summary>
     private async Task<bool> WaitForAsync(Func<Engine, bool> condition, TimeSpan timeout)
     {

@@ -67,11 +67,11 @@ for decisions, the report is for consequences.
   `<div>`. Its shape is empty: HTML gives the interface no members beyond `WindowEventHandlers`, which this
   package puts on `HTMLElement`. Its index continues `DomInterfaces`' own, which is what keeps `DomRealm`'s
   per-engine arrays a dense array.
-- **`Document` is the one interface object a script may call `new` on.** AngleSharp puts `[DomConstructor]` on
-  no `[DomName]` interface at all, so the generator can never learn that an interface is constructible and
-  `DomInterfaceObject` refuses every `new` — which is also what a browser answers for `new HTMLDivElement()`.
-  The document it makes is DOM's: an XML document with no doctype, no document element and no browsing
-  context.
+- **`Document` and `DocumentFragment` are the interface objects a script may call `new` on.** AngleSharp
+  puts `[DomConstructor]` on no `[DomName]` interface at all, so the generator can never learn that an
+  interface is constructible and `DomInterfaceObject` refuses every `new` — which is also what a browser
+  answers for `new HTMLDivElement()`. The document it makes is DOM's: an XML document with no doctype, no
+  document element and no browsing context; the fragment's node document is the page's.
 
 ### The conversion table, and where it diverges from a browser
 
@@ -147,6 +147,35 @@ here:
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at
 the same instant or host-contract verification fails. That is keeping *our* contract, not mending AngleSharp's.
+
+### DOM §7's XPath, and CSSOM's `CSS`
+
+Two surfaces neither pinned assembly declares, so neither could be generated: there is no
+`[DomName("evaluate")]` and no `[DomName("escape")]` anywhere in AngleSharp or AngleSharp.Css. Both are
+hand-written in `Dom/Views/` beside `DOMParser`, and the three `Document` members XPath adds are
+`overrides.json` `additions`. `Jint.Tests.Browser/Fixtures/htmx` is why: htmx 2 builds an `XPathEvaluator`
+expression and calls `CSS.escape` at the top level of its bundle.
+
+- **The XPath engine is `System.Xml.XPath` over `AngleSharp.XPath`'s `HtmlDocumentNavigator`** — the
+  AngleSharp project's own package, referenced for this and nothing else, and exactly the seam the BCL's
+  XPath 1.0 evaluator takes. Writing an evaluator here instead is the one thing this package is not for.
+- **Namespaces are ignored, and that is what makes `//div` match.** An HTML element is in the XHTML
+  namespace, so an unprefixed XPath 1.0 name test — which is what every page writes — would match nothing
+  if the navigator reported it; `AngleSharp.XPath`'s own default is the same choice. The consequence is
+  stated rather than hidden: a *prefixed* test (`svg:circle`) compiles, because a resolver the page
+  supplied is consulted while the expression is compiled, and then matches nothing.
+- **A node set is materialized at evaluation**, so `invalidIteratorState` is always `false` and an
+  iterator survives a mutation instead of raising `InvalidStateError`. DOM's iterator is live and needs a
+  mutation signal this has none of; the direction is the safe one, because what it removes is a page
+  throwing.
+- **`CSS` is a namespace object, not an interface** — no constructor, no prototype, `[object CSS]` — and
+  it carries both members rather than the one htmx needs, because `window.CSS && CSS.supports(…)` is how
+  the feature is detected and half of it is a trap. `escape` is CSSOM's serialize-an-identifier;
+  `supports` parses the condition as an `@supports` rule and asks AngleSharp.Css's own
+  `IConditionFunction.Check`, so what this claims to support is exactly what the cascade can act on.
+- **`DomConstructors` grew a second entry**: `new DocumentFragment()`, which DOM gives a constructor and
+  htmx builds for every swap whose response starts with `<html>` or `<body>`. The shortness of that table
+  is still the point.
 
 ### Wrapper identity, and the two classes that are not one hierarchy
 
