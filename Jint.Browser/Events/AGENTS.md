@@ -37,11 +37,19 @@ second bus:
 | a form submits or resets | `invalid` at each failing control, `submit` (cancelable, carrying the `submitter`), `reset` (cancelable) | `Events/FormSubmission` |
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
 | a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing`, `Events/ContentEditing` ([below](#the-keyboard-and-the-editor-under-it)) |
+| the selection moves | `selectionchange`, queued and coalesced | `Events/SelectionChange`, from `Events/TextEditing` for a text control and from `Dom/Views/JsSelection` for the document |
 
 Every listener on that table returns to a microtask checkpoint, because the point that fires it is a turn of the loop rather than a script — see [`Jint/WebApi/AGENTS.md`](../../Jint/WebApi/AGENTS.md#web-apis). `AnimationFrameLane` owes the same cleanup by hand, since one frame is one job over many callbacks.
 
-`toggle` is the one that is **queued** rather than fired in place, on the engine's own task queue, because
-HTML's details notification task steps say so — a test that clicks a `<summary>` has to pump before it sees it.
+`toggle` and `selectionchange` are the two that are **queued** rather than fired in place, on the engine's
+own task queue, because their specifications say so — a test that clicks a `<summary>` or moves the caret has
+to pump before it sees the event. `selectionchange` is also **coalesced**: the Selection API gives each
+document and each text control a *has scheduled selectionchange event* flag, so a script that moves the
+caret ten times in one turn is heard once, after its own code returns. **Where it is fired is the target's
+decision** — at the document, not bubbling, for the document's own selection; at the *element*, bubbling, for
+an `<input>` or `<textarea>`, which is what lets the one `document.addEventListener("selectionchange", …)`
+every editor library writes hear a caret moving inside a control. What no member can see is a script mutating
+the boundary points of a `Range` it took out of `getRangeAt`, and `Events/SelectionChange` says why.
 
 **Activation without a layout is exact where it is state and a seam where it is not.** Checkedness,
 `details.open` and selectedness are pure state, so they are implemented outright, legacy pre-activation

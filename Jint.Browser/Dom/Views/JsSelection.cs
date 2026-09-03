@@ -1,4 +1,5 @@
-using AngleSharp.Dom;
+﻿using AngleSharp.Dom;
+using Jint.Browser.Events;
 using Jint.Browser.Runtime;
 using Jint.Native;
 using Jint.Native.Object;
@@ -18,9 +19,11 @@ namespace Jint.Browser.Dom.Views;
 /// <c>anchorNode</c> gets the earlier boundary where a browser gives it the later one.
 /// </para>
 /// <para>
-/// Nothing renders, so nothing is highlighted and no <c>selectionchange</c> event is fired: the selection is
-/// a place to put a range and read it back — which is what <c>window.getSelection().toString()</c>, the one
-/// call a text-extracting agent makes, needs.
+/// Nothing renders, so nothing is highlighted: the selection is a place to put a range and read it back —
+/// which is what <c>window.getSelection().toString()</c>, the one call a text-extracting agent makes, needs.
+/// Moving it does fire <c>selectionchange</c> at the document, queued and coalesced the way
+/// <c>Events/SelectionChange</c> describes; what no member here can see is a script mutating the boundary
+/// points of a <c>Range</c> it took out of <c>getRangeAt</c>, and that file says why.
 /// </para>
 /// </remarks>
 internal sealed class JsSelection : ObjectInstance
@@ -67,7 +70,11 @@ internal sealed class JsSelection : ObjectInstance
     internal IRange? Range
     {
         get => _range;
-        set => _range = value;
+        set
+        {
+            _range = value;
+            Moved();
+        }
     }
 
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-rangecount.</summary>
@@ -113,8 +120,13 @@ internal sealed class JsSelection : ObjectInstance
 
         // "If the selection's range list is not empty, abort these steps": a browser keeps the first range
         // and drops the second rather than replacing it, and a page that meant to replace calls
-        // removeAllRanges() first.
-        _range ??= range;
+        // removeAllRanges() first. Nothing changed in that case, so nothing is scheduled either.
+        if (_range is null)
+        {
+            _range = range;
+            Moved();
+        }
+
         return JsValue.Undefined;
     }
 
@@ -126,6 +138,7 @@ internal sealed class JsSelection : ObjectInstance
         if (ReferenceEquals(_range, range))
         {
             _range = null;
+            Moved();
         }
 
         return JsValue.Undefined;
@@ -134,7 +147,12 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-removeallranges.</summary>
     internal JsValue RemoveAllRanges()
     {
-        _range = null;
+        if (_range is not null)
+        {
+            _range = null;
+            Moved();
+        }
+
         return JsValue.Undefined;
     }
 
@@ -153,6 +171,7 @@ internal sealed class JsSelection : ObjectInstance
         range.StartWith(node, offset);
         range.Collapse(true);
         _range = range;
+        Moved();
         return JsValue.Undefined;
     }
 
@@ -165,6 +184,7 @@ internal sealed class JsSelection : ObjectInstance
         }
 
         _range!.Collapse(toStart);
+        Moved();
         return JsValue.Undefined;
     }
 
@@ -175,6 +195,7 @@ internal sealed class JsSelection : ObjectInstance
         var range = NewRange("selectAllChildren");
         range.SelectContent(node);
         _range = range;
+        Moved();
         return JsValue.Undefined;
     }
 
@@ -188,8 +209,28 @@ internal sealed class JsSelection : ObjectInstance
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-deletefromdocument.</summary>
     internal JsValue DeleteFromDocument()
     {
-        _range?.ClearContent();
+        if (_range is null)
+        {
+            return JsValue.Undefined;
+        }
+
+        // Removing the content collapses the range, which is a boundary point of the selection moving.
+        _range.ClearContent();
+        Moved();
         return JsValue.Undefined;
+    }
+
+    /// <summary>
+    /// https://w3c.github.io/selection-api/#selectionchange-event — the selection was dissociated from its
+    /// range, associated with a new one, or had a boundary point moved, so the document hears about it once
+    /// this turn.
+    /// </summary>
+    private void Moved()
+    {
+        if (_runtime.Document is { } document)
+        {
+            SelectionChange.Schedule(_runtime.Dom, document);
+        }
     }
 
     private IRange NewRange(string member)

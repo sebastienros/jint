@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -123,7 +123,7 @@ internal static class TextEditing
             return false;
         }
 
-        var control = new TextControl(element);
+        var control = new TextControl(dom, element);
         var extend = (options.Modifiers & EventModifiers.Shift) != EventModifiers.None;
         var shortcut = (options.Modifiers & (EventModifiers.Control | EventModifiers.Meta)) != EventModifiers.None;
 
@@ -326,8 +326,9 @@ internal static class TextEditing
     }
 
     /// <summary>
-    /// Moves the caret, or the focus end of the selection when <paramref name="extend"/>. It fires nothing:
-    /// moving is not an edit, and <c>selectionchange</c> is a document-level event this version does not fire.
+    /// Moves the caret, or the focus end of the selection when <paramref name="extend"/>. It fires no editing
+    /// event, because moving is not an edit — the only thing it raises is the <c>selectionchange</c>
+    /// <see cref="TextControl.SetSelection(int, int, string)"/> schedules when the selection really moved.
     /// </summary>
     private static bool Apply(in TextControl control, int position, bool extend)
     {
@@ -426,11 +427,13 @@ internal static class TextEditing
     /// </summary>
     internal readonly struct TextControl
     {
+        private readonly DomRealm _dom;
         private readonly IHtmlInputElement? _input;
         private readonly IHtmlTextAreaElement? _textArea;
 
-        internal TextControl(IElement element)
+        internal TextControl(DomRealm dom, IElement element)
         {
+            _dom = dom;
             Element = element;
             _input = element as IHtmlInputElement;
             _textArea = element as IHtmlTextAreaElement;
@@ -464,10 +467,10 @@ internal static class TextEditing
         /// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#dom-textarea-input-selectiondirection —
         /// <c>backward</c> puts the caret at the start, anything else at the end.
         /// </summary>
-        private bool IsBackward => string.Equals(
-            _input?.SelectionDirection ?? _textArea?.SelectionDirection,
-            "backward",
-            StringComparison.Ordinal);
+        private bool IsBackward => string.Equals(Direction, "backward", StringComparison.Ordinal);
+
+        /// <summary>What the control answers for <c>selectionDirection</c>, whichever interface backs it.</summary>
+        private string? Direction => _input?.SelectionDirection ?? _textArea?.SelectionDirection;
 
         /// <summary>The end the caret is at, which is the one <kbd>Shift</kbd> moves.</summary>
         internal int Focus => IsBackward ? Start : End;
@@ -477,14 +480,43 @@ internal static class TextEditing
 
         internal void SetSelection(int caret) => SetSelection(caret, caret, "none");
 
+        /// <summary>
+        /// Moves the selection, and schedules a <c>selectionchange</c> at the control when it really moved —
+        /// https://w3c.github.io/selection-api/#selectionchange-event, which says a text control's selection
+        /// schedules one "in either extent or direction".
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The comparison is against what the control answers <i>afterwards</i> rather than against the
+        /// arguments, because the clamping is this file's: a move the clamp turns into no move at all is not
+        /// one a page should hear about.
+        /// </para>
+        /// <para>
+        /// <b>The direction compared is <see cref="IsBackward"/> and not the string.</b> This file's whole
+        /// model of direction is which end the caret is at — "backward puts the caret at the start, anything
+        /// else at the end" — and the string cannot be compared anyway: AngleSharp answers <c>forward</c> for
+        /// a control nothing has selected in, where HTML says <c>none</c> (the divergence table in
+        /// <c>Dom/AGENTS.md</c>), so every first caret key in a control would otherwise look like a change of
+        /// direction and fire.
+        /// </para>
+        /// </remarks>
         internal void SetSelection(int start, int end, string direction)
         {
             var length = Value.Length;
             var from = Math.Clamp(start, 0, length);
             var to = Math.Clamp(end, from, length);
 
+            var wasStart = Start;
+            var wasEnd = End;
+            var wasBackward = IsBackward;
+
             _input?.Select(from, to, direction);
             _textArea?.Select(from, to, direction);
+
+            if (wasStart != Start || wasEnd != End || wasBackward != IsBackward)
+            {
+                SelectionChange.Schedule(_dom, Element);
+            }
         }
     }
 }
