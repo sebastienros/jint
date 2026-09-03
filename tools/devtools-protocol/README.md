@@ -68,8 +68,23 @@ read.
 `manifest.json` is the boundary between what is *described* and what is *answered*.
 
 - `generatedDomains` — the domains that get DTOs, a `<Domain>DomainBase` and a `<Domain>Events` factory
-  class. Every command of a generated domain gets a virtual, and its default answers
-  `-32601 'Domain.method' wasn't found`.
+  class. A generated command gets a virtual, and its default answers
+  `-32601 'Domain.method' wasn't found`. An entry is **either a domain name or an object**:
+
+  ```jsonc
+  "Runtime",                                                  // the whole domain
+  { "domain": "Audits", "commands": ["disable", "enable"] },   // these, and nothing else
+  ```
+
+  The object form generates the commands and events it names and nothing else — including nothing for a
+  list it leaves out — and the types it gets are the closure of what those members reach, computed rather
+  than listed. A command that is not generated has no virtual and is answered by the dispatch base's
+  `default` case, which is the same `-32601` it answered before: the object form changes what is checked
+  in, not what a client is told, and `ACommandAPartialDomainDoesNotGenerateIsStillMethodNotFound` is what
+  says so. Which form to use is a judgement about the domain — one whose surface is being filled in stays
+  whole, so the next command is an override and a manifest line; one that answers a handful of commands out
+  of dozens, and whose remainder describes machinery this engine does not have, names them. Nine domains
+  do today, and it took **30%** off the generated tree: `Audits` alone went from 143 KB to 4 KB.
 - `implementedMethods` — the commands Jint.DevTools answers. Each is checked to exist in the vendored
   protocol, and `ProtocolManifestTests` checks each is overridden on a registered domain and that
   nothing else is.
@@ -79,8 +94,33 @@ read.
   domain that answers nothing.
 
 The generator fails rather than emitting broken code when an entry names something the vendored protocol
-does not have, and when a `$ref` crosses into a domain that is not generated and does not resolve to a
-primitive alias.
+does not have, when a `$ref` crosses into a domain that is not generated and does not resolve to a
+primitive alias, and when `implementedMethods` names a command its own `generatedDomains` entry does not
+generate — which would otherwise be a command the manifest and `Schema.getDomains` claim and nothing can
+override.
+
+## What a generated file says about itself
+
+Every `.g.cs` carries three lines of provenance:
+
+```
+//     source:   tools/devtools-protocol/browser_protocol.json
+//     protocol: version 1.3, ChromeDevTools/devtools-protocol@ea39a11… (devtools-protocol@0.0.1687809)
+//     manifest: tools/devtools-protocol/manifest.json, Audits entries, sha256:5893b4009485
+```
+
+`source` is the description **that file** was read from, which is why it is per file: `Jint.g.cs` comes from
+`jint_protocol.json`, ours, and used to cite the Chrome commit its neighbours come from — provenance naming
+the wrong document, which is what a reader has instead of a build when they have only a diff in front of
+them. A file generated from our own description names no Chrome commit at all, because a bump cannot move
+it.
+
+The `manifest` digest is over the *part* of the manifest that shaped the file — that domain's
+`generatedDomains` entry, its implemented commands and its implemented events — rather than over the whole
+file. A whole-file digest would rewrite all twenty-four headers whenever any domain gained a command, and
+say nothing true about the other twenty-three. `ProtocolJsonContext.g.cs` and `ProtocolManifest.g.cs` are
+generated from all of it and carry a digest of all of it. Line endings are normalised before hashing, so a
+Windows checkout and a Linux one stamp the same digest.
 
 ## The map type
 

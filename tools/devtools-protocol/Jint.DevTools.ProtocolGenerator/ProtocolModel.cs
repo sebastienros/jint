@@ -45,6 +45,9 @@ public sealed class Protocol
     /// <summary>This repository's own description file, beside the two vendored ones.</summary>
     public const string OwnFile = "jint_protocol.json";
 
+    /// <summary>The three description files, in the order they are read and merged.</summary>
+    public static readonly string[] Files = ["js_protocol.json", "browser_protocol.json", OwnFile];
+
     /// <summary>
     /// Reads the protocol files out of <paramref name="directory"/> and merges their domain lists.
     /// </summary>
@@ -54,7 +57,7 @@ public sealed class Protocol
     /// </remarks>
     public static Protocol Read(string directory)
     {
-        var files = new[] { "js_protocol.json", "browser_protocol.json", OwnFile };
+        var files = Files;
         var domains = new List<ProtocolDomain>();
         string? version = null;
 
@@ -87,21 +90,20 @@ public sealed class Protocol
 
             version = declared;
 
-            var vendored = !string.Equals(file, OwnFile, StringComparison.Ordinal);
             foreach (var element in root.GetProperty("domains").EnumerateArray())
             {
-                domains.Add(ReadDomain(element, vendored));
+                domains.Add(ReadDomain(element, file));
             }
         }
 
         return new Protocol(version!, domains);
     }
 
-    private static ProtocolDomain ReadDomain(JsonElement element, bool vendored)
+    private static ProtocolDomain ReadDomain(JsonElement element, string sourceFile)
     {
         return new ProtocolDomain
         {
-            Vendored = vendored,
+            SourceFile = sourceFile,
             Name = element.GetProperty("domain").GetString()!,
             Description = Text(element, "description"),
             Experimental = Flag(element, "experimental"),
@@ -223,9 +225,18 @@ public sealed class Protocol
 /// <summary>One domain of the protocol.</summary>
 public sealed class ProtocolDomain
 {
+    /// <summary>The protocol description file the domain was read from, as a bare file name.</summary>
+    /// <remarks>
+    /// It is what the generated file's header names, so a reader can tell where a domain came from without
+    /// knowing which of the three files describes it. <c>Jint.g.cs</c> used to cite the Chrome pin its
+    /// neighbours come from, which is
+    /// <see href="https://github.com/sebastienros/jint/issues/3683">#3683</see>.
+    /// </remarks>
+    public required string SourceFile { get; init; }
+
     /// <summary>Whether the domain is Chrome's, rather than one this repository describes itself.</summary>
     /// <remarks>What decides where a member of it is cited: Chrome's documentation, or our own file.</remarks>
-    public bool Vendored { get; init; } = true;
+    public bool Vendored => !string.Equals(SourceFile, Protocol.OwnFile, StringComparison.Ordinal);
 
     public required string Name { get; init; }
     public string? Description { get; init; }

@@ -35,7 +35,14 @@ public sealed class ProtocolEmitter
     private readonly GenerationManifest _manifest;
     private readonly ProtocolPin _pin;
     private readonly HashSet<string> _generated;
+    private readonly Dictionary<string, GenerationManifest.GeneratedDomain> _selection;
     private readonly List<SerializableType> _serializable = [];
+
+    // Which of a generated domain's types get a declaration. A domain the manifest names whole gets all of
+    // them; one whose entry names only some commands and events gets the closure of what those reach, which
+    // is what MarkGenerated walks. The set is what Resolve is held to, so a reference the walk did not reach
+    // is a generation failure rather than a reference to a type that was never emitted.
+    private readonly Dictionary<string, HashSet<string>> _emitted = new(StringComparer.Ordinal);
 
     // An array of a generated record needs a declared entry of its own. Without one the serialization
     // generator names the transitively discovered type after the element's SHORT name -- "CallFrameArray"
@@ -49,7 +56,8 @@ public sealed class ProtocolEmitter
         _protocol = protocol;
         _manifest = manifest;
         _pin = pin;
-        _generated = new HashSet<string>(manifest.GeneratedDomains, StringComparer.Ordinal);
+        _generated = new HashSet<string>(manifest.GeneratedDomainNames, StringComparer.Ordinal);
+        _selection = manifest.GeneratedDomains.ToDictionary(domain => domain.Name, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -69,14 +77,143 @@ public sealed class ProtocolEmitter
     {
         var files = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var name in _manifest.GeneratedDomains)
+        MarkGenerated();
+
+        foreach (var entry in _manifest.GeneratedDomains)
         {
-            files[name + ".g.cs"] = EmitDomain(_protocol.Domain(name));
+            files[entry.Name + ".g.cs"] = EmitDomain(_protocol.Domain(entry.Name));
         }
 
         files["ProtocolJsonContext.g.cs"] = EmitJsonContext();
         files["ProtocolManifest.g.cs"] = EmitManifest();
         return files;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // What of a domain is generated.
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>The commands of <paramref name="domain"/> the manifest generates, in protocol order.</summary>
+    private List<ProtocolCommand> CommandsOf(ProtocolDomain domain)
+    {
+        var selection = _selection[domain.Name];
+        return domain.Commands.Where(command => selection.GeneratesCommand(command.Name)).ToList();
+    }
+
+    /// <summary>The events of <paramref name="domain"/> the manifest generates, in protocol order.</summary>
+    private List<ProtocolEventDefinition> EventsOf(ProtocolDomain domain)
+    {
+        var selection = _selection[domain.Name];
+        return domain.Events.Where(@event => selection.GeneratesEvent(@event.Name)).ToList();
+    }
+
+    /// <summary>
+    /// Works out which types each generated domain declares: everything, for a domain the manifest names
+    /// whole, and otherwise the closure of what its generated commands and events reach.
+    /// </summary>
+    /// <remarks>
+    /// A closure rather than a list in the manifest, because the alternative is a list somebody has to keep
+    /// in step with a protocol description they did not write. It runs before anything is emitted, and it
+    /// walks references exactly the way <see cref="Resolve"/> follows them, so the two cannot disagree about
+    /// what a reference reaches.
+    /// </remarks>
+    private void MarkGenerated()
+    {
+        foreach (var entry in _manifest.GeneratedDomains)
+        {
+            _emitted[entry.Name] = new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        foreach (var entry in _manifest.GeneratedDomains)
+        {
+            var domain = _protocol.Domain(entry.Name);
+
+            if (entry.IsWhole)
+            {
+                foreach (var type in domain.Types)
+                {
+                    MarkType(domain.Name, type.Id);
+                }
+            }
+
+            foreach (var command in CommandsOf(domain))
+            {
+                MarkAll(command.Parameters, domain.Name);
+                MarkAll(command.Returns, domain.Name);
+            }
+
+            foreach (var @event in EventsOf(domain))
+            {
+                MarkAll(@event.Parameters, domain.Name);
+            }
+        }
+    }
+
+    private void MarkAll(IReadOnlyList<ProtocolMember> members, string owningDomain)
+    {
+        foreach (var member in members)
+        {
+            MarkValue(member.Value, owningDomain);
+        }
+    }
+
+    private void MarkValue(ProtocolValue value, string owningDomain)
+    {
+        if (value.Reference is { } reference)
+        {
+            var separator = reference.IndexOf('.', StringComparison.Ordinal);
+            MarkType(
+                separator < 0 ? owningDomain : reference.Substring(0, separator),
+                separator < 0 ? reference : reference.Substring(separator + 1));
+            return;
+        }
+
+        if (value.Items is { } items)
+        {
+            MarkValue(items, owningDomain);
+        }
+    }
+
+    private void MarkType(string domainName, string typeName)
+    {
+        if (!_protocol.HasDomain(domainName))
+        {
+            // Resolve reports it, with the member that named it.
+            return;
+        }
+
+        var target = _protocol.Domain(domainName).Types.FirstOrDefault(type => string.Equals(type.Id, typeName, StringComparison.Ordinal));
+        if (target is null || target.IsMap)
+        {
+            // A map resolves to a dictionary and declares nothing; a name the protocol does not have is
+            // Resolve's complaint to make.
+            return;
+        }
+
+        if (!_emitted.TryGetValue(domainName, out var types))
+        {
+            // A reference into a domain the manifest does not generate. Resolve accepts it only when it is a
+            // type alias -- Network.RequestId is a string -- so follow the alias and stop.
+            if (!target.IsObject)
+            {
+                MarkValue(target.Value, domainName);
+            }
+
+            return;
+        }
+
+        if (!types.Add(typeName))
+        {
+            return;
+        }
+
+        if (target.IsObject)
+        {
+            MarkAll(target.Properties, domainName);
+            return;
+        }
+
+        MarkValue(target.Value, domainName);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -87,15 +224,24 @@ public sealed class ProtocolEmitter
     {
         var declared = new HashSet<string>(StringComparer.Ordinal);
         var builder = new StringBuilder();
-        Header(builder);
+        Header(builder, domain);
 
-        builder.Append("namespace ").Append(DtoNamespace).Append('.').Append(domain.Name).Append("\n{\n");
-        EmitDataTransferObjects(builder, domain, declared);
-        builder.Append("}\n\n");
+        // The data transfer objects go into a builder of their own first: a domain whose entry names only
+        // commands that take and return nothing declares no type at all, and an empty namespace block would
+        // be all that was left of it.
+        var objects = new StringBuilder();
+        EmitDataTransferObjects(objects, domain, declared);
+
+        if (objects.Length > 0)
+        {
+            builder.Append("namespace ").Append(DtoNamespace).Append('.').Append(domain.Name).Append("\n{\n");
+            builder.Append(objects);
+            builder.Append("}\n\n");
+        }
 
         builder.Append("namespace ").Append(DomainNamespace).Append("\n{\n");
         EmitDomainBase(builder, domain);
-        EmitEventFactories(builder, domain);
+        EmitEventFactories(builder, domain, EventsOf(domain));
         builder.Append("}\n");
 
         return builder.ToString();
@@ -104,9 +250,17 @@ public sealed class ProtocolEmitter
     private void EmitDataTransferObjects(StringBuilder builder, ProtocolDomain domain, HashSet<string> declared)
     {
         var first = true;
+        var emitted = _emitted[domain.Name];
 
         foreach (var type in domain.Types)
         {
+            if (!emitted.Contains(type.Id))
+            {
+                // Not reached by anything this domain generates. A domain the manifest names whole marks all
+                // of its types, so this only skips something in a domain whose entry names its members.
+                continue;
+            }
+
             if (type.Value.Enumeration is { } enumeration)
             {
                 Separate(builder, ref first);
@@ -145,7 +299,7 @@ public sealed class ProtocolEmitter
                 type.Properties);
         }
 
-        foreach (var command in domain.Commands)
+        foreach (var command in CommandsOf(domain))
         {
             var citation = Naming.Citation(domain, "method-" + command.Name);
 
@@ -180,7 +334,7 @@ public sealed class ProtocolEmitter
             }
         }
 
-        foreach (var @event in domain.Events)
+        foreach (var @event in EventsOf(domain))
         {
             if (@event.Parameters.Count == 0)
             {
@@ -339,7 +493,9 @@ public sealed class ProtocolEmitter
         builder.Append("        /// <inheritdoc/>\n");
         builder.Append("        internal sealed override string Name => \"").Append(domain.Name).Append("\";\n");
 
-        foreach (var command in domain.Commands)
+        var generated = CommandsOf(domain);
+
+        foreach (var command in generated)
         {
             var parameters = command.Parameters.Count > 0
                 ? $"global::{DtoNamespace}.{domain.Name}.{RequestName(command)}"
@@ -358,7 +514,7 @@ public sealed class ProtocolEmitter
                 .Append(">>(\"").Append(domain.Name).Append('.').Append(command.Name).Append("\");\n");
         }
 
-        var answered = domain.Commands
+        var answered = generated
             .Where(command => _manifest.ImplementedMethods.Contains(domain.Name + "." + command.Name, StringComparer.Ordinal))
             .ToList();
 
@@ -408,9 +564,9 @@ public sealed class ProtocolEmitter
             .Append("    }\n");
     }
 
-    private static void EmitEventFactories(StringBuilder builder, ProtocolDomain domain)
+    private static void EmitEventFactories(StringBuilder builder, ProtocolDomain domain, List<ProtocolEventDefinition> events)
     {
-        if (domain.Events.Count == 0)
+        if (events.Count == 0)
         {
             return;
         }
@@ -427,7 +583,7 @@ public sealed class ProtocolEmitter
         builder.Append("    internal static class ").Append(domain.Name).Append("Events\n    {\n");
 
         var first = true;
-        foreach (var @event in domain.Events)
+        foreach (var @event in events)
         {
             if (!first)
             {
@@ -534,7 +690,7 @@ public sealed class ProtocolEmitter
         builder.Append("        /// <summary>The npm version of <c>devtools-protocol</c> that commit publishes.</summary>\n");
         builder.Append("        internal const string PinnedNpmVersion = \"").Append(_pin.NpmVersion).Append("\";\n\n");
 
-        StringTable(builder, "GeneratedDomains", "The domains this assembly has data transfer objects and a dispatch base for.", _manifest.GeneratedDomains);
+        StringTable(builder, "GeneratedDomains", "The domains this assembly has data transfer objects and a dispatch base for.", _manifest.GeneratedDomainNames);
         builder.Append('\n');
         StringTable(builder, "ImplementedMethods", "The commands this assembly answers; every other one is method-not-found.", _manifest.ImplementedMethods);
         builder.Append('\n');
@@ -603,6 +759,13 @@ public sealed class ProtocolEmitter
                     "Add the domain to generatedDomains, or the reference has nothing to resolve to.");
             }
 
+            if (!_emitted[domainName].Contains(typeName))
+            {
+                throw new ProtocolGeneratorException(
+                    $"'{where}' refers to '{domainName}.{typeName}', which nothing the manifest generates reaches. " +
+                    "MarkGenerated and Resolve disagree about what a reference reaches, which is a bug in the emitter.");
+            }
+
             return $"global::{DtoNamespace}.{domainName}.{typeName}";
         }
 
@@ -649,15 +812,65 @@ public sealed class ProtocolEmitter
     // Shared writing.
     // ---------------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// The header of a domain's file, which names the description file <i>that domain</i> was read from.
+    /// </summary>
+    /// <remarks>
+    /// <c>Jint.g.cs</c> is why this takes a domain at all: the <c>Jint</c> domain is described by
+    /// <c>jint_protocol.json</c>, which is this repository's own, and its header used to cite the Chrome
+    /// commit its twenty-one neighbours come from - provenance that named the wrong document, which is item
+    /// three of <see href="https://github.com/sebastienros/jint/issues/3683">#3683</see>.
+    /// </remarks>
+    private void Header(StringBuilder builder, ProtocolDomain domain)
+    {
+        var source = domain.Vendored
+            ? ProtocolPath(domain.SourceFile)
+            : ProtocolPath(domain.SourceFile) + " - this repository's own domain, not Chrome's";
+
+        Header(builder, source, domain.Vendored, domain.Name + " entries, sha256:" + _manifest.DigestOf(domain.Name));
+    }
+
+    /// <summary>
+    /// The header of a file generated from all three descriptions and the whole manifest.
+    /// </summary>
     private void Header(StringBuilder builder)
+    {
+        Header(
+            builder,
+            ProtocolPath(string.Join(", ", Protocol.Files)),
+            vendored: true,
+            "whole file, sha256:" + _manifest.Digest);
+    }
+
+    /// <summary>
+    /// Writes the provenance every generated file carries: the description it was read from, the pin that
+    /// description is vendored at, and the part of the manifest that shaped it.
+    /// </summary>
+    /// <remarks>
+    /// The three lines are what make a file that is checked in and out of date <i>diagnosable</i> rather than
+    /// merely wrong. <c>GeneratedProtocolIsCurrentTests</c> catches a stale file in a build; a reader with a
+    /// diff in front of them has only what the file says about itself.
+    /// </remarks>
+    private void Header(StringBuilder builder, string source, bool vendored, string manifestScope)
     {
         builder
             .Append("// <auto-generated/>\n")
             .Append("//------------------------------------------------------------------------------\n")
-            .Append("// Emitted by tools/devtools-protocol/Jint.DevTools.ProtocolGenerator from the Chrome DevTools\n")
-            .Append("// Protocol pinned in tools/devtools-protocol/pin.json:\n")
+            .Append("// Emitted by tools/devtools-protocol/Jint.DevTools.ProtocolGenerator.\n")
             .Append("//\n")
-            .Append("//     ChromeDevTools/devtools-protocol@").Append(_pin.Commit).Append(" (devtools-protocol@").Append(_pin.NpmVersion).Append(")\n")
+            .Append("//     source:   ").Append(source).Append('\n')
+            .Append("//     protocol: version ").Append(_protocol.Version);
+
+        if (vendored)
+        {
+            builder
+                .Append(", ChromeDevTools/devtools-protocol@").Append(_pin.Commit)
+                .Append(" (devtools-protocol@").Append(_pin.NpmVersion).Append(')');
+        }
+
+        builder
+            .Append('\n')
+            .Append("//     manifest: ").Append(ProtocolPath("manifest.json")).Append(", ").Append(manifestScope).Append('\n')
             .Append("//\n")
             .Append("// Do not edit. Regenerate instead, and read the diff: it is the upstream change stated in the\n")
             .Append("// vocabulary this repository compiles. tools/devtools-protocol/README.md has the command, and\n")
@@ -665,6 +878,8 @@ public sealed class ProtocolEmitter
             .Append("//------------------------------------------------------------------------------\n")
             .Append("#nullable enable\n\n");
     }
+
+    private static string ProtocolPath(string file) => "tools/devtools-protocol/" + file;
 
     private static void Documentation(StringBuilder builder, string indent, string summary, string? citation, bool experimental, bool deprecated)
     {
