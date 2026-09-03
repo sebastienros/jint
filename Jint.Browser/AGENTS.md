@@ -43,6 +43,7 @@ a swap to a source generator later is mechanical.
 | A `DomCollectionAccessor` per collection interface, from `[DomAccessor]` | `DomInterfaceObject`, `DomBindings`, `DomConvert`, `DomHostHooks` |
 | `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
+| — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
@@ -62,7 +63,8 @@ Every script-visible event is a Jint `Event` dispatched through the engine's tre
 algorithm points the package owns (design doc §5) — never AngleSharp's own bus, which holds nothing a script
 registered. What that costs the binding is the `skip` and `additions` rows above: `click`, `focus`, `blur`,
 `form.reset`, `document.activeElement` and `document.hasFocus` are all AngleSharp members that do nothing
-useful, so they are skipped and re-declared. The behaviour behind them — which algorithm point raises which
+useful, so they are skipped and re-declared — and `document.createEvent`, whose AngleSharp `Event` must never
+reach script, is re-declared against Jint's in `Events/LegacyEventCreation`. The behaviour behind them — which algorithm point raises which
 event, what activation means with no layout, and why the handler content attributes need no notification from
 AngleSharp — is [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-events-bridge).
 

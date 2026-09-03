@@ -104,11 +104,28 @@ no wrapper of its own, so nothing counts it — and by this second.
 ### The window: why the global stays `GlobalObject`, and the trap in it
 
 `Runtime/WindowInstaller` sets the global object's `[[Prototype]]` to
-`Window.prototype → EventTarget.prototype → Object.prototype` and installs the per-document singletons
-(`window`, `self`, `frames`, `top`, `parent`, `document`, `location`, `screen`) as own lazy globals through the
-public `Engine.AddLazyGlobal`. Substituting a host global would forfeit the global-identifier inline cache and
-mean re-installing every intrinsic; the prototype swap costs nothing, and
+`Window.prototype → WindowProperties → EventTarget.prototype → Object.prototype` and installs the
+per-document singletons (`window`, `self`, `frames`, `top`, `parent`, `document`, `location`, `screen`) as own
+lazy globals through the public `Engine.AddLazyGlobal`. Substituting a host global would forfeit the
+global-identifier inline cache and mean re-installing every intrinsic; the prototype swap costs nothing, and
 `GlobalEnvironment.HasBindingOnGlobalPrototype` already resolves a prototype member as a global.
+
+**`WindowProperties` is HTML's named access, and where it sits is the whole of why it is free.**
+`Runtime/WindowNamedProperties` makes `<div id=x>` and `<iframe name=x>` reach script as `x`, and WebIDL puts
+the *named properties object* below the interface prototype object rather than on the global — so a name the
+global owns and a member `Window.prototype` declares are both found before the document is consulted, and what
+reaches the lookup is a **miss**. Nothing about an ordinary global read changes, structurally rather than by
+hope: `JintIdentifierExpression.TryRememberGlobalBinding` admits only a descriptor the global object *owns*,
+because a prototype mutation bumps no global version, so a name answered there is never cached and never
+displaces one that is. Two divergences are stated on the class: a name several elements answer to gives the
+first rather than an `HTMLCollection`, and an `<iframe name=x>` gives the frame element rather than a nested
+`WindowProxy`, there being no engine in a child frame.
+
+**`window.event` is the one member that is an own property of the global** rather than an accessor on the
+shaped prototype, because WebIDL's `[Global]` puts an interface's members on the global object itself and
+`event` is the one a page can tell apart (`assert_own_property(window, "event")`). The slot it reads is the
+engine's — DOM's *current event*, maintained by the dispatch — and the engine maintains it only because the
+installer sets `GlobalEventTarget.IsWindow`, which is also what turns on DOM's default passive value.
 
 **The trap: a shape *method* on `Window.prototype` cannot find its page.** A page calls `alert(…)` and
 `requestAnimationFrame(…)` unqualified, and an unqualified call to a member of the global object passes
@@ -284,6 +301,12 @@ measures.
   them separate moments.
 - **One navigation at a time**, behind a `SemaphoreSlim`. A script's is `Task.Run` plus a page error on
   failure, because the document that script is in is the one being replaced and there is nobody to throw to.
+- **A same-document fragment move never leaves the loop.** It neither fetches, replaces the engine nor can
+  fail, so there is nothing for the off-loop half to do — and going there anyway is observable:
+  `Page.RequestNavigation` used to send an `<a href="#x">` round the thread pool and the gate, which put the
+  commit behind every timer already due, so a page that clicked a link and then spun zero-delay timers waiting
+  for `hashchange` waited out the whole chain (measured at turn 20 of 20; turn 1 now). It is a job on the
+  engine's own queue instead, and it declines while a navigation is in flight — the gate is what orders those.
 
 **Everything the network touches is the context's** — `Runtime/PageNetwork`, one per `BrowserContext`: the
 client, the composed `UrlFilter` (host filter and `BlockPrivateNetwork` combined once), the `CookieJar` and
