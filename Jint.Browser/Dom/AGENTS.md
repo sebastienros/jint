@@ -44,15 +44,32 @@ version of AngleSharp nobody references.
 | --- | --- |
 | `excludedInterfaces` | An interface the runtime owns instead. Today: `IWindow` (campaign item R1). |
 | `manual` | An interface whose shape is hand-written in `DomManualShapes`. Today: `IHtmlCollection<T>`, whose generic invariance keeps a member body from naming its receiver. A manual interface contributes no members to any closure — its children inherit them through the prototype chain. |
-| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. `half: "setter"` skips the write half only. |
-| `hooks` | A member routed through `DomHostHooks` so the parser driver can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
-| `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, the whole of CSSOM View's box model (`getBoundingClientRect` and its `client*`/`scroll*`/`offset*` family, answered from the flat layout — [`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
+| `skip` | A member whose AngleSharp implementation must not be projected: navigation (`location.assign`, `location.href`'s setter), the parser (`document.open`/`close`/`load`), `document.createEvent` whose AngleSharp `Event` must never reach script, `DOMImplementation.createHTMLDocument` whose title AngleSharp makes required, and the six the events bridge re-declares because AngleSharp's own do nothing — see the divergence table. Every one of them is re-declared in `additions`, so a skip here is a *replacement* and not an absence. `half: "setter"` skips the write half only. |
+| `hooks` | A member routed through `DomHostHooks` so the package can replace its body: the `innerHTML` and `outerHTML` setters, `insertAdjacentHTML`, `document.write`/`writeln`, and `setAttribute`/`removeAttribute` — the one write of an attribute this package can see, and therefore where a handler content attribute takes its position in the element's listener list. The default implementations *are* the AngleSharp call, so the seam costs nothing until R3 uses it. The same class carries `WrapperCreated`, which is the other direction — a member the generator could not emit at all, added to one wrapper; it is also where the events bridge registers an element's handler content attributes. |
+| `additions` | A member the **standard** puts on a generated interface and AngleSharp's metadata cannot express: a callback parameter, a stringifier with no `[DomName]`, a Shadow DOM v0 spelling, a missing `[DomName]`, the whole of CSSOM View's box model (`getBoundingClientRect` and its `client*`/`scroll*`/`offset*` family, answered from the flat layout — [`../Runtime/AGENTS.md`](../Runtime/AGENTS.md)), the legacy event-creation surface (`document.createEvent`), and the operations whose body is an event rather than a DOM call (`click`/`focus`/`blur`, `form.submit`/`requestSubmit`/`reset`, `document.activeElement`/`hasFocus`). Two forms, and an entry uses exactly one: **reach for the member form**, which names one member and goes through the model like any projected member, so the generated file names it and a member AngleSharp later grows under that name is reported rather than shadowed; the `"extend"` form hands the builder to a method and exists only for a *family* whose member list is computed, which today is HTML's event handler IDL attributes. `Overrides.AdditionEntry` has the whole of why, including what the extend form gives up. Either way it adds rather than replaces, so the interface stays **one** shape — the only way to add a member to a class rather than to one object without costing the prototype its shape. |
 | `nullableStrings` | The members whose IDL type is `DOMString?` rather than `DOMString`. See the conversion table below. |
 | `stringEnums`, `constants` | The two enum decisions the heuristics above cannot make. |
 
 **A member the generator could not convert is not in this table.** It is skipped with the reason the generator
 worked out, and the reason is in the report the regeneration prints. That split is deliberate: this file is
 for decisions, the report is for consequences.
+
+### The two interfaces the generator cannot see
+
+`DomManualInterfaces` and `DomConstructors` are the whole of what the override table cannot express, and each
+holds exactly one entry today.
+
+- **`HTMLFrameSetElement` is declared by name and selected by local name.** AngleSharp models `<frameset>`
+  with the plain `IHtmlElement` — there is no `IHtmlFrameSetElement` and no `[DomName("HTMLFrameSetElement")]`
+  in the pinned assemblies — so `DomTypeMap`, which keys on the CLR type, cannot tell a frameset from a
+  `<div>`. Its shape is empty: HTML gives the interface no members beyond `WindowEventHandlers`, which this
+  package puts on `HTMLElement`. Its index continues `DomInterfaces`' own, which is what keeps `DomRealm`'s
+  per-engine arrays a dense array.
+- **`Document` is the one interface object a script may call `new` on.** AngleSharp puts `[DomConstructor]` on
+  no `[DomName]` interface at all, so the generator can never learn that an interface is constructible and
+  `DomInterfaceObject` refuses every `new` — which is also what a browser answers for `new HTMLDivElement()`.
+  The document it makes is DOM's: an XML document with no doctype, no document element and no browsing
+  context.
 
 ### The conversion table, and where it diverges from a browser
 
@@ -114,7 +131,9 @@ here:
 | `el.click()` on a checkbox, radio, `<summary>` or `<a href>` | the element's activation behaviour runs | `DoClick` dispatches on AngleSharp's own bus and runs **no activation behaviour at all**, with or without a browsing context: nothing toggles, opens or navigates |
 | `document.activeElement` | the focused element, or the body | `null` for the life of every document — nothing in AngleSharp ever assigns it, `DoFocus()` included |
 | `el.tabIndex` when the attribute is absent | −1 for anything not inherently focusable | 0 for every element, including a bare `<div>`, so it cannot decide focusability |
-| `input.labels` | the `<label>`s whose `for` names the control | an empty collection, though `label.control` resolves correctly in the other direction |
+| `input.labels` | the `<label>`s whose `for` names the control | an empty collection |
+| `label.control` | the labeled control: the `for` target, or the first labelable **descendant** | `null` for a control the label contains, which is the commoner spelling; `Events/ActivationBehaviors` computes it instead so a click inside a wrapping label reaches its checkbox |
+| `script.src` | HTML reflects it *as a URL*, so it answers the resolved absolute URL | the raw attribute value, so `<script src="a.js">.src` is `"a.js"` where a browser answers `"http://…/a.js"` |
 | `select.selectedIndex` with no `selected` option | 0 — the selectedness-setting algorithm picks the first option of a non-`multiple`, display-size-1 select | −1 |
 | `input.value = …` | the cursor moves to the end and the selection is dropped | `SelectionStart`/`SelectionEnd` are left where they were, so they can point past the end of the new value |
 | `input.setSelectionRange` on a `type=checkbox` | `InvalidStateError` — the type does not support selection | answers, so the type test has to be the caller's |

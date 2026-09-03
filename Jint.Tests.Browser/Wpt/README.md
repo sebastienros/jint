@@ -16,10 +16,10 @@ wrappers, the environment a document runs in, where a divergence goes — is
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 50 | 9 | 490 | 181 |
-| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 23 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 38 | 34 |
-| **total** | **87** | **9** | **565** | **238** |
+| `dom/events/` | 50 | 9 | 533 | 42 |
+| `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
+| **total** | **87** | **9** | **614** | **61** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -39,66 +39,46 @@ not-passing figure, for a corpus bump that genuinely arrives with new failures.
 
 ## What this corpus says about this browser
 
-Eleven distinct defects, each recorded rather than fixed, because the change that first runs a suite must not
-also be the change that moves the engine — otherwise nobody can tell which of the two a number came from.
-Every one of them is a `NeedsTriage` row in `WptBrowserExclusions.All`, and **a non-zero count there is a list
-somebody owes a fix for**.
+**The eleven defects this lane first recorded are fixed.** They were filed as
+[#3686](https://github.com/sebastienros/jint/issues/3686) to
+[#3695](https://github.com/sebastienros/jint/issues/3695) — `document.createEvent` and the document
+constructors, `window.event`, the report of a script's exception, the compiled handler's shape and scope, the
+body's window-forwarded handlers and `HTMLFrameSetElement`, the legacy UI-event initializers, the default
+passive value, one activation behaviour per click, the detached control's silent toggle, and named access on
+the window — and the three seams two of them needed in the engine are
+[#3696](https://github.com/sebastienros/jint/pull/3696).
 
-1. **`document.createEvent` does not exist**, and it is the largest single cause in the lane: seventeen
-   documents fail entirely on it and seven more in part.
-   [DOM still requires it](https://dom.spec.whatwg.org/#dom-document-createevent) — deprecated, not removed —
-   and half of `dom/events/` is written against it because the file predates the constructors. `new Document()`
-   and `document.implementation.createHTMLDocument()` are the same gap seen from two more angles, and four
-   further documents cannot report at all because they reach for one before a test could register —
-   `Event-constants.html`, `Event-propagation.html` and `keypress-dispatch-crash.html` at file scope, and
-   `Event-dispatch-detached-click.html` inside its only test.
-2. **`window.event` does not exist.** [The legacy global](https://dom.spec.whatwg.org/#dom-window-event) is set
-   for the duration of a dispatch and restored afterwards, and an inline handler that reads a bare `event`
-   reads it. `event-global.html` fails all eight of its tests on it, and
-   `Event-stopPropagation-cancel-bubbling.html` cannot report at all.
-3. **An exception escaping a classic `<script>` is not reported at the global scope.**
-   [Report an exception](https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception) fires an
-   `error` event that reaches `window.onerror` and `<body onerror>`; here a script's parse error or runtime
-   error becomes a `PageErrorKind.ScriptError` on the page's recorder and nothing else. Seventeen documents of
-   `processing-model-2/` say so, every one on `assert_true: ran expected true got false`. The engine *does*
-   fire that event for a timer callback, a listener and a microtask
-   (`Jint/WebApi/GlobalEvents/GlobalEventTarget.cs`), so what is missing is the parser driver's own report and
-   not the mechanism.
-4. **The `error` event carries no column number.**
-   [`ErrorEventInit.colno`](https://html.spec.whatwg.org/multipage/webappapis.html#erroreventinit) reaches the
-   five-argument `onerror` as `undefined`. Only two rows can say so — every other document that would asks for
-   it after the report of defect 3 that never arrives.
-5. **A compiled handler is not the function HTML describes.** The function a handler content attribute
-   [compiles to](https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler)
-   must be named for the attribute with the attribute's text as its body — `function onclick(event) {\nfoo\n}`
-   — and is `function anonymous(event\n) {\nwith (document) …`, which is the scope chain leaking into the
-   source text. Seven documents in `scripting/events/` assert around it: the text itself, what the chain
-   resolves, which IDL members are handlers at all, that an invalid handler keeps its position, that a form
-   owner is in the chain, and that a scripting-disabled document compiles none of them.
-6. **`<body>`'s window-forwarded handlers reflect as an object**, not a function, and
-   **`HTMLFrameSetElement` is not an interface object** — the other half of the same table.
-7. **The legacy UI-event init methods are absent**: `initUIEvent`, `initMouseEvent`, `initKeyboardEvent`.
-   Beside them, `new UIEvent(type, {view: notAWindow})` must throw a `TypeError` and does not.
-8. **Passive is not the default for `touchstart`, `touchmove`, `wheel` and `mousewheel`** on the Window, the
-   Document, the document element and the body
-   ([DOM's default passive value](https://dom.spec.whatwg.org/#default-passive-value)), so their
-   `preventDefault()` still cancels. Thirty-two rows of `passive-by-default.html`; the explicit
-   `{passive: true}` and `{passive: false}` spellings pass, so the rule is what is missing and not the
-   mechanism.
-9. **One click runs more than one activation behaviour.**
-   [A dispatch runs the behaviour of one element](https://dom.spec.whatwg.org/#eventtarget-activation-behavior),
-   the nearest ancestor in the path that has one. A `<form>` nested in a `<form>` submits **both** here; and a
-   nested `<a>` or `<area>` records nothing at all, because following a hyperlink to a fragment of the page's
-   own URL is not something this activation host does. 108 of that file's 132 shapes are right, which is what
-   makes the two wrong ones worth naming.
-10. **A detached checkbox or radio fires `input` and `change` on `click()`**, where the pre-click activation
-    steps fire them only for a connected control. The eight connected cases of the same file pass.
-11. **`window` has no named properties.**
-    [Named access on the Window object](https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object)
-    is what makes `<iframe name=x>` and `<div id=x>` reach script as `x`, and a surprising number of wpt
-    documents are written that way. It is not a category of its own because every document that meets it needs
-    something else as well — a scripted frame, or a rendering — so it is recorded here and named in the
-    `NeedsIframeScripting` comment of the exclusion table.
+What `NeedsTriage` holds now is five things, each bounded and each named by the exclusion table:
+
+1. **A `data:` URL is not fetched as a subresource.** A page navigates to one, so
+   `<script src="data:text/javascript,…">` is the one shape of external script that never runs; three
+   `processing-model-2/` documents are about exactly that script. The report site those documents test works,
+   which their `<script src>` and inline siblings say.
+2. **`script.src` does not reflect a URL.** HTML reflects it *as a URL*, so it answers the resolved absolute
+   one; AngleSharp's `IHtmlScriptElement.Source` answers the raw attribute value, so four rows compare a
+   correct absolute filename against the unresolved string the document wrote. It is AngleSharp's divergence
+   and is recorded in [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md).
+3. **A DOM prototype carries no `@@unscopables`.** WebIDL puts one on the interface prototype object of every
+   interface with an `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and
+   `replaceChildren` among them — and the generator emits none, because AngleSharp's metadata does not say
+   which members are unscopable. `compile-event-handler-symbol-unscopables.html` never reaches its subject:
+   it *writes* to `document[Symbol.unscopables]`.
+4. **`window.customElements` is absent**, which one row of
+   `compile-event-handler-lexical-scopes-form-owner.html` needs to define a form-associated custom element.
+   The file's other three rows pass.
+5. **A fragment navigation does not land inside two turns.** Following an `<a href="#x">` of the page's own
+   URL now happens on the page loop and fires `hashchange` on the next turn — measured, and moved there from
+   after the whole timer chain — but `Event-dispatch-single-activation-behavior.html` gives it two zero-delay
+   turns and its twenty-two `<a>`/`<area>` shapes still do not see it. What is left is a question about the
+   page loop's scheduling rather than about activation behaviour.
+
+One further group left `NeedsTriage` for a category of its own. `document.createEvent`'s alias table names
+five interfaces this package deliberately does not build — `DragEvent` and `ClipboardEvent` need a
+`DataTransfer`, `StorageEvent` a storage area's change notification, `TouchEvent` a touch input, and the two
+device events a sensor — so four rows of `EventTarget-dispatchEvent.html` are `NeedsMoreEventInterfaces`,
+which names what would move them. And eight rows of `Event-dispatch-single-activation-behavior.html` moved to
+`AssertsWhatNothingRequires`: the file's instrumentation is a `<form onsubmit>` handler and cannot tell an
+activation behaviour from an ordinary bubble, and `submit` and `reset` both bubble.
 
 Two more things the corpus found are **not** defects and are recorded where they belong instead.
 `Element.insertAdjacentText` is missing, which upstream's own result renderer calls — the overlay turns the
@@ -121,8 +101,8 @@ into thirteen groups; the counts are rows rather than files, since several are g
 | a sub-directory that is not a suite | 2 | `dom/events/scrolling/` and `non-cancelable-when-passive/`, both layout |
 | not a document, or a directory this PR does not vendor | 7 | `.window.js`, `.worker.js`, and four directories of the scripting tree |
 | upstream's own markers | 5 | `.tentative.`, `-manual.`, and `.sub.html`, which needs a second origin to substitute into |
-| `document.createEvent` and its kin | 4 | defect 1 above, met before a test could report |
-| a name this browser does not have | 3 | `window.event`, `customElements`, a `javascript:` URL |
+| a cause that has gone | 4 | they met `document.createEvent` before a test could report; it exists now, and vendoring them moves the census's Documents and Tests columns, so it is a change of its own |
+| a name this browser does not have | 3 | `customElements`, a `javascript:` URL, and one that read `window.event` before it existed |
 | a rendering | 4 | a CSS animation or transition event, and the coarse-clock assertion |
 | a focus event that does not arrive | 1 | the one row that is a finding rather than an environment; see its reason |
 | `testdriver.js` | 7 | campaign item C4 maps it onto the same dispatcher `Input.dispatchMouseEvent` reaches |

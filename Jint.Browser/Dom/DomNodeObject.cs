@@ -53,6 +53,24 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
     internal override bool IsNode => true;
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#default-passive-value — the three node targets DOM names beside the
+    /// <c>Window</c>: the document, its document element and its body element.
+    /// </summary>
+    /// <remarks>
+    /// Read only for a <c>touchstart</c>, <c>touchmove</c>, <c>wheel</c> or <c>mousewheel</c> listener, which
+    /// the engine tests for first, so every other <c>addEventListener</c> on a node costs nothing. The
+    /// comparisons are against the node's <i>own</i> document rather than the page's, which is what makes a
+    /// document a <c>DOMParser</c> produced answer about itself.
+    /// </remarks>
+    internal override bool IsDefaultPassiveTarget => Node switch
+    {
+        IDocument => true,
+        IElement element => element.Owner is { } owner
+            && (ReferenceEquals(element, owner.DocumentElement) || ReferenceEquals(element, owner.Body)),
+        _ => false,
+    };
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#get-the-parent — the node tree parent, and for a shadow root the host.
     /// </summary>
     /// <remarks>

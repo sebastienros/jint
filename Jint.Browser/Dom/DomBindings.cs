@@ -52,7 +52,7 @@ internal static class DomBindings
         // belong to the engine's own realm and to no other.
         var global = engine._mainRealm.GlobalObject;
 
-        foreach (var definition in DomInterfaces.All)
+        foreach (var definition in Interfaces())
         {
             if (!definition.HasInterfaceObject)
             {
@@ -68,6 +68,23 @@ internal static class DomBindings
             global.SetProperty(
                 definition.Name,
                 new LazyPropertyDescriptor<DomRealm>(realm, r => r.InterfaceObjectOf(captured), PropertyFlag.NonEnumerable));
+        }
+    }
+
+    /// <summary>
+    /// Every interface that gets a global: the generated ones, and the ones this package declares itself
+    /// because AngleSharp has no <c>[DomName]</c> interface for them. See <see cref="DomManualInterfaces"/>.
+    /// </summary>
+    private static IEnumerable<DomInterfaceDefinition> Interfaces()
+    {
+        foreach (var definition in DomInterfaces.All)
+        {
+            yield return definition;
+        }
+
+        foreach (var definition in DomManualInterfaces.All)
+        {
+            yield return definition;
         }
     }
 

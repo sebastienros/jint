@@ -11,10 +11,12 @@ namespace Jint.Browser.Dom;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every one of them throws <c>TypeError: Illegal constructor</c>, and that is not a gap: AngleSharp puts
+/// All but one of them throw <c>TypeError: Illegal constructor</c>, and that is not a gap: AngleSharp puts
 /// <c>[DomConstructor]</c> on concrete classes (<c>Event</c>, <c>MouseEvent</c>, <c>MutationObserver</c>,
-/// <c>DOMRect</c>) and on no <c>[DomName]</c> interface at all, so not one generated interface here is
-/// constructible in WebIDL terms. It is also what a browser answers for <c>new HTMLDivElement()</c>.
+/// <c>DOMRect</c>) and on no <c>[DomName]</c> interface at all, so the generator can never learn that an
+/// interface is constructible. It is also what a browser answers for <c>new HTMLDivElement()</c>. The
+/// exception is <c>Document</c>, whose constructor WebIDL really does declare; <see cref="DomConstructors"/>
+/// is the table it is written in.
 /// </para>
 /// <para>
 /// It derives from <c>Constructor</c> rather than from a plain function so that <c>x instanceof Node</c>
@@ -24,11 +26,13 @@ namespace Jint.Browser.Dom;
 /// </remarks>
 internal sealed class DomInterfaceObject : Constructor
 {
+    private readonly DomRealm _domRealm;
     private readonly DomInterfaceDefinition _definition;
 
     internal DomInterfaceObject(DomRealm realm, DomInterfaceDefinition definition)
         : base(realm.Engine, realm.PrincipalRealm, new JsString(definition.Name))
     {
+        _domRealm = realm;
         _definition = definition;
         _prototype = realm.PrincipalRealm.Intrinsics.Function.PrototypeObject;
         _length = new PropertyDescriptor(JsNumber.PositiveZero, PropertyFlag.Configurable);
@@ -64,8 +68,17 @@ internal sealed class DomInterfaceObject : Constructor
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// <see cref="DomConstructors"/> is the one exception, and it names a single interface: WebIDL gives
+    /// <c>Document</c> a constructor and the generator cannot learn that from AngleSharp's metadata.
+    /// </remarks>
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
+        if (DomConstructors.TryConstruct(_domRealm, _definition, out var instance))
+        {
+            return instance;
+        }
+
         Throw.TypeError(_realm, "Illegal constructor");
         return null!;
     }

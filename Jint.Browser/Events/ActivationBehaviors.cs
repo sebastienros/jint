@@ -223,8 +223,18 @@ internal static class ActivationBehaviors
                 // The checkedness was already changed by the legacy pre-activation behaviour; the activation
                 // behaviour is only the two events. HTML fires `input` with bubbles and composed both true and
                 // `change` with bubbles true, in that order, and both are plain Events rather than InputEvents.
+                //
+                // Step 1 of the input activation behaviour is "if the element is not connected, then return",
+                // so a detached control toggles silently: the checkedness is the element's own state and the
+                // two events announce a change to a *document*. The snapshot is dropped either way — the
+                // toggle stands, so there is nothing left to roll back.
                 _snapshots.Remove(wrapper);
-                FireInputAndChange(wrapper);
+
+                if (IsConnected(input))
+                {
+                    FireInputAndChange(wrapper);
+                }
+
                 return;
 
             case "file":
@@ -250,7 +260,7 @@ internal static class ActivationBehaviors
     /// </remarks>
     private static void RunLabel(DomNodeObject wrapper, IHtmlLabelElement label, JsEvent ev)
     {
-        if (label.Control is not { } control)
+        if (LabeledControl(label) is not { } control)
         {
             return;
         }
@@ -426,6 +436,79 @@ internal static class ActivationBehaviors
         "img" or "object" => element.HasAttribute("usemap"),
         _ => false,
     };
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/forms.html#labeled-control — the control a <c>&lt;label&gt;</c>
+    /// labels: the element its <c>for</c> attribute names, and otherwise the first labelable descendant.
+    /// </summary>
+    /// <remarks>
+    /// Computed rather than read off AngleSharp, whose <c>IHtmlLabelElement.Control</c> answers
+    /// <see langword="null"/> for a control the label <i>contains</i> — which is the commoner of the two
+    /// spellings and the one <c>&lt;label&gt;&lt;input type=checkbox&gt;&lt;span&gt;text&lt;/span&gt;&lt;/label&gt;</c>
+    /// uses. It is recorded as an AngleSharp divergence in <c>Jint.Browser/Dom/AGENTS.md</c> beside
+    /// <c>input.labels</c>, which is the same gap seen from the other end.
+    /// </remarks>
+    private static IHtmlElement? LabeledControl(IHtmlLabelElement label)
+    {
+        if (label.GetAttribute("for") is { Length: > 0 } id)
+        {
+            return label.Owner?.GetElementById(id) is IHtmlElement named && IsLabelable(named) ? named : null;
+        }
+
+        foreach (var descendant in label.QuerySelectorAll("button, input, meter, output, progress, select, textarea"))
+        {
+            if (descendant is IHtmlElement candidate && IsLabelable(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/forms.html#category-label — the seven labelable element kinds.
+    /// A hidden input is the one exception the list carries with it.
+    /// </summary>
+    private static bool IsLabelable(IHtmlElement element) => element switch
+    {
+        IHtmlInputElement input => !IsType(input, "hidden"),
+        IHtmlButtonElement or IHtmlSelectElement or IHtmlTextAreaElement => true,
+        _ => element.LocalName is "meter" or "output" or "progress",
+    };
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#connected — whether the node's <i>shadow-including root</i> is a
+    /// document, which is what "connected" means and what the checkbox and radio activation behaviours ask
+    /// before they announce anything.
+    /// </summary>
+    /// <remarks>
+    /// The walk crosses a shadow boundary through the root's host, so a control inside an open or closed
+    /// shadow tree of a connected host is connected — the eight shadow cases of
+    /// <c>Event-dispatch-detached-input-and-change.html</c> are what say so. AngleSharp has no member that
+    /// answers this: <c>INode.Owner</c> is the node document whether or not the node is in it.
+    /// </remarks>
+    private static bool IsConnected(INode node)
+    {
+        var current = node;
+
+        while (true)
+        {
+            if (current.Parent is { } parent)
+            {
+                current = parent;
+                continue;
+            }
+
+            if (current is IShadowRoot { Host: { } host })
+            {
+                current = host;
+                continue;
+            }
+
+            return current is IDocument;
+        }
+    }
 
     private static T? Ancestor<T>(INode node) where T : class
     {

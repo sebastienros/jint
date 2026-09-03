@@ -90,7 +90,16 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
-        var windowPrototype = _windowShape.Instantiate(engine, realm.Intrinsics.EventTarget.PrototypeObject);
+        // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
+        // WebIDL's named properties object sits between the interface prototype object and its parent, which
+        // is what makes named access a *miss* path: `document`, `alert` and every other name the global owns
+        // or `Window.prototype` declares is found before it is asked. See WindowNamedProperties.
+        var namedProperties = new WindowNamedProperties(runtime)
+        {
+            Prototype = realm.Intrinsics.EventTarget.PrototypeObject,
+        };
+
+        var windowPrototype = _windowShape.Instantiate(engine, namedProperties);
         var windowInterface = new WindowInterfaceObject(engine, realm, windowPrototype);
 
         // The per-realm `constructor` slot, filled the way the DOM binding fills its own: the shape declared
@@ -115,7 +124,30 @@ internal static class WindowInstaller
 
         // The window is the engine's global event target, and a document's event path ends at it. Publishing
         // it here rather than in the binding is what keeps the binding free of any notion of a window.
-        runtime.Dom.WindowTarget = engine._webApi?.GlobalEventTarget;
+        var windowTarget = engine._webApi?.GlobalEventTarget;
+        runtime.Dom.WindowTarget = windowTarget;
+
+        if (windowTarget is not null)
+        {
+            // This global scope is a `Window`, which is the fact two DOM rules turn on and which no engine
+            // without a document can claim: the default passive value
+            // (https://dom.spec.whatwg.org/#default-passive-value) and the current event
+            // (https://dom.spec.whatwg.org/#window-current-event) the accessor below reads.
+            windowTarget.IsWindow = true;
+
+            // `window.event` is an *own* property of the global rather than an accessor on `Window.prototype`,
+            // which is where every other Window member here lives. WebIDL's [Global] puts an interface's
+            // members on the global object itself, and this is the one a page can tell apart:
+            // `dom/events/event-global.html` opens with `assert_own_property(window, "event")`. One property
+            // per engine, installed the way `PageStorage` installs its own.
+            var scope = windowTarget;
+            global.SetProperty(
+                "event",
+                new GetSetPropertyDescriptor(
+                    new ClrFunction(engine, "get event", (_, _) => scope.CurrentEvent),
+                    set: null,
+                    PropertyFlag.Configurable | PropertyFlag.Enumerable));
+        }
 
         foreach (var name in (string[]) ["window", "self", "frames", "top", "parent"])
         {
@@ -294,8 +326,9 @@ internal static class WindowInstaller
     /// own globals instead.
     /// </summary>
     /// <remarks>
-    /// <c>window.event</c> is HTML's "current event", a legacy attribute that is undefined outside a dispatch;
-    /// nothing sets it here, so a page reading it gets what a page with no dispatch in progress gets.
+    /// <c>event</c> is not here: DOM's <i>current event</i> is the one member a page can tell apart from an
+    /// accessor on <c>Window.prototype</c>, because WebIDL's <c>[Global]</c> makes it an own property of the
+    /// global object. <see cref="Install"/> installs it there.
     /// </remarks>
     private static JsObjectShape BuildWindowShape()
     {
@@ -324,7 +357,6 @@ internal static class WindowInstaller
                     return JsValue.Undefined;
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
-            .Accessor("event", static (_, _) => JsValue.Undefined)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)
@@ -556,8 +588,14 @@ internal static class WindowInstaller
             _type = type;
         }
 
+        /// <summary>
+        /// Read through the content-attribute path rather than <c>EventHandlerAttributes</c>, because the
+        /// window's handler slot may hold a <c>&lt;body onload&gt;</c> that has not been compiled yet: the
+        /// compile-on-read placeholder must never reach script, whichever of the two names it is read
+        /// through.
+        /// </summary>
         internal JsValue Get(JsValue thisObject, JsValue[] arguments)
-            => EventHandlerAttributes.Get(WindowTargetOf(thisObject, "on" + _type, "read"), _type);
+            => EventHandlerContentAttributes.CurrentValue(WindowTargetOf(thisObject, "on" + _type, "read"), _type);
 
         internal JsValue Set(JsValue thisObject, JsValue[] arguments)
             => EventHandlerAttributes.Set(WindowTargetOf(thisObject, "on" + _type, "set"), _type, arguments.At(0));

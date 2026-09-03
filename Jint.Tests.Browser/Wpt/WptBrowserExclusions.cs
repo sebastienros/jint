@@ -72,17 +72,20 @@ internal static class WptBrowserExclusions
         // says the same about `fetch/api/*/*.sub.any.js`, and Vendor/README.md's serving section argues it.
         ("dom/events/*.sub.html", "wptserve substitution into a *second* origin, which this server does not have"),
 
-        // ------------------------------------------------------------ needs `document.createEvent` at file scope
-        // The same defect the NeedsTriage rows below record, met before a test could be registered — so there
-        // is no per-test result for it here and the file is a harness error. `Event-cancelBubble.html` and its
-        // sixteen siblings name the defect from the other side, which is why nothing is lost by these rows.
-        ("dom/events/Event-constants.html", "calls document.createEvent at file scope, which the bindings do not have"),
-        ("dom/events/Event-propagation.html", "calls document.createEvent at file scope, which the bindings do not have"),
-        ("dom/events/Event-dispatch-detached-click.html", "calls document.createEvent inside its one test, which never completes"),
-        ("dom/events/keypress-dispatch-crash.html", "calls document.implementation.createDocument at file scope"),
+        // ------------------------------------------------------------ not vendored, and the cause has gone
+        // These four were harness errors because `document.createEvent` did not exist and each of them reaches
+        // for it before a test could report. It exists now, so the reason these are not vendored is spent and
+        // vendoring them is a change of its own: it moves the census's Documents and Tests columns, which the
+        // change that fixes an engine deliberately does not. `keypress-dispatch-crash.html` needs one more
+        // thing — `document.implementation.createDocument`, which AngleSharp's IImplementation does not have
+        // at all (`createHTMLDocument` and `new Document()` are the two this package answers).
+        ("dom/events/Event-constants.html", "not vendored: it called document.createEvent at file scope, which now exists"),
+        ("dom/events/Event-propagation.html", "not vendored: it called document.createEvent at file scope, which now exists"),
+        ("dom/events/Event-dispatch-detached-click.html", "not vendored: it called document.createEvent inside its one test, which now exists"),
+        ("dom/events/keypress-dispatch-crash.html", "calls document.implementation.createDocument at file scope, which AngleSharp's IImplementation does not have"),
 
         // ------------------------------------------------------------ needs a name this browser does not have
-        ("dom/events/Event-stopPropagation-cancel-bubbling.html", "reads the legacy global `window.event`, which is a NeedsTriage row of event-global.html"),
+        ("dom/events/Event-stopPropagation-cancel-bubbling.html", "not vendored: it read the legacy global `window.event`, which now exists"),
         ("dom/events/EventTarget-add-listener-platform-object.html", "defines a custom element: window.customElements is absent"),
         ("dom/events/Event-dispatch-click.html", "follows a `javascript:` URL 87 times; a page here loads http, https, about: and data:"),
 
@@ -165,7 +168,7 @@ internal static class WptBrowserExclusions
         ["dom/events/AddEventListenerOptions-once.any.html"] = 4,
         ["dom/events/AddEventListenerOptions-passive.any.html"] = 5,
         ["dom/events/AddEventListenerOptions-signal.any.html"] = 11,
-        ["dom/events/Body-FrameSet-Event-Handlers.html"] = 5,
+        ["dom/events/Body-FrameSet-Event-Handlers.html"] = 48,
         ["dom/events/CustomEvent.html"] = 3,
         ["dom/events/Event-cancelBubble.html"] = 8,
         ["dom/events/Event-constructors.any.html"] = 14,
@@ -271,164 +274,100 @@ internal static class WptBrowserExclusions
     /// test, or by a glob over a family the file generates.
     /// </para>
     /// <para>
-    /// <b><see cref="WptDivergence.NeedsTriage"/> is eleven distinct defects, not eighty rows.</b>
-    /// <c>Wpt/README.md</c> has one section per defect with what it is and which rows it earns; they are what
-    /// this PR owes the engine and the package, recorded rather than fixed so that the change which first ran
-    /// these suites is not also the change that moved them.
+    /// <b><see cref="WptDivergence.NeedsTriage"/> is five distinct things, not eleven rows.</b> The eleven
+    /// defects this lane first recorded were filed as
+    /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
+    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
+    /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
+    /// emit, a custom element, and a fragment navigation this lane's own timing does not wait for.
     /// </para>
     /// </remarks>
     internal static readonly WptExclusion[] All =
     [
-        // ---------------------------------------------------------------- 1. document.createEvent
-        // https://dom.spec.whatwg.org/#dom-document-createevent, the legacy creation surface DOM still
-        // requires: `document.createEvent(alias)` then `initEvent`. Nothing in the bindings has it, and half
-        // this corpus is written against it because it predates the constructors. `new Document()` and
-        // `document.implementation.createHTMLDocument()` are the same section of the same gap — the two
-        // documents that reach for one are Event-dispatch-bubbles-{true,false}.
-        new("dom/events/CustomEvent.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-cancelBubble.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-defaultPrevented-after-dispatch.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-defaultPrevented.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubble-canceled.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubbles-false.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-bubbles-true.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-handlers-changed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-multiple-cancelBubble.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-multiple-stopPropagation.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-omitted-capture.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-propagation-stopped.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-reenter.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-target-moved.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-target-removed.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/Event-initEvent.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent-returnvalue.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (*", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "If the event's dispatch flag is set, an InvalidStateError must be thrown.", WptDivergence.NeedsTriage),
-        new("dom/events/EventTarget-dispatchEvent.html", "Exceptions from event listeners must not be propagated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-returnValue.html", "initEvent should unset returnValue.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type-empty.html", "initEvent", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type.html", "Event.type should initially be the empty string", WptDivergence.NeedsTriage),
-        new("dom/events/Event-type.html", "Event.type should be initialized by initEvent", WptDivergence.NeedsTriage),
-        new("dom/events/KeyEvent-initKeyEvent.html", "KeyboardEvent.initKeyEvent shouldn't be defined (created by createEvent(\"KeyboardEvent\")", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 1. an event interface this browser has not built
+        // https://dom.spec.whatwg.org/#dom-document-createevent's alias table names five interfaces
+        // Jint.Browser deliberately does not build, and this file is the only place a page meets them all at
+        // once: it asks each of them for an uninitialized event and dispatches it. `createEvent` refuses the
+        // alias with the NotSupportedError the standard gives one it does not list, which is what these four
+        // rows say. See WptDivergence.NeedsMoreEventInterfaces.
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceMotionEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DeviceOrientationEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (DragEvent).", WptDivergence.NeedsMoreEventInterfaces),
+        new("dom/events/EventTarget-dispatchEvent.html", "If the event's initialized flag is not set, an InvalidStateError must be thrown (StorageEvent).", WptDivergence.NeedsMoreEventInterfaces),
 
-        // ---------------------------------------------------------------- 2. window.event
-        // https://dom.spec.whatwg.org/#dom-window-event: the global `event`, set for the duration of a
-        // dispatch and restored afterwards. It is absent, which is what `assert_own_property: expected
-        // property "event" missing` says, and it is why an inline handler that reads a bare `event` reads
-        // nothing. Two more documents cannot even report because of it and are in NotVendored above.
-        new("dom/events/event-global.html", "*", WptDivergence.NeedsTriage),
-        new("dom/events/window-event-restored-after-throwing-onerror.html", "*", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- 3. a script's exception is not reported
-        // https://html.spec.whatwg.org/multipage/webappapis.html#report-an-exception. An exception escaping a
-        // classic `<script>` — a parse error, a runtime error, an external script's either — must be reported
-        // at the global scope, which fires `error` and reaches `window.onerror` and `<body onerror>`. Here it
-        // becomes a PageErrorKind.ScriptError on the page's recorder and nothing else: every one of these
-        // documents fails on `assert_true: ran expected true got false`. The engine fires that event for a
-        // timer callback, a listener and a microtask (GlobalEventTarget), so what is missing is the parser
-        // driver's own report and not the mechanism.
-        new("html/webappapis/scripting/processing-model-2/addEventListener.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 2. a `data:` URL subresource
+        // A page navigates to a `data:` URL and cannot fetch one as a subresource, so a
+        // `<script src="data:text/javascript,…">` is never run — which is what "ran expected true got false"
+        // says here. The report site these documents are about works; what is missing is the scheme, and
+        // adding it is `Runtime/SubresourceFetch`'s change rather than this one.
         new("html/webappapis/scripting/processing-model-2/compile-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error.html", "*", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-body-onerror.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-window-onerror.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-parse-error.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-runtime-error.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/window-onerror-runtime-error-throw.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error.html", "<body onerror> - compile error in <script>", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/body-onerror-runtime-error.html", "<body onerror> - runtime error in <script>", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 4. the error event carries no column
-        // https://html.spec.whatwg.org/multipage/webappapis.html#erroreventinit: `colno`. The five-argument
-        // `onerror` receives `undefined` where a number is owed. These two rows are the only ones that can
-        // say so, because every other document that would asks it after the report of defect 3 that never
-        // arrives.
-        new("html/webappapis/scripting/processing-model-2/compile-error-in-attribute.html", "window.onerror - compile error in attribute (column)", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-in-attribute.html", "window.onerror - runtime error in attribute (column)", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 3. `script.src` does not reflect a URL
+        // HTML: the `src` IDL attribute of a `<script>` reflects the content attribute **as a URL**, so it
+        // answers the resolved absolute URL. AngleSharp's `IHtmlScriptElement.Source` answers the raw
+        // attribute value, so the four rows below compare the report's filename — which is correct, and
+        // absolute — against the unresolved string the document wrote. It is AngleSharp's divergence and it
+        // is recorded in `Jint.Browser/Dom/AGENTS.md`; working around it in the binding is the thing that
+        // file says not to do.
+        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin.html", "window.onerror - compile error in <script src=...>", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin.html", "window.onerror - runtime error in <script src=...>", WptDivergence.NeedsTriage),
+        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 5. the compiled handler is not HTML's
-        // https://html.spec.whatwg.org/multipage/webappapis.html#getting-the-current-value-of-the-event-handler.
-        // The function a handler content attribute compiles to must be named for the attribute and have the
-        // attribute's text as its body: `function onclick(event) {\nfoo\n}`. It is
-        // `function anonymous(event\n) {\nwith (document) …`, which is the scope chain leaking into the
-        // source text. `event-handler-sourcetext` asserts the text; the unscopables and cancellation
-        // documents assert what the chain does; `-non-content-document-idl-attributes` asserts which members
-        // are handlers at all; `inline-event-handler-ordering` asserts that an invalid one keeps its slot;
-        // `-lexical-scopes-form-owner` asserts the form owner is in the chain (and needs custom elements for
-        // its fourth test); and `uncompiled_event_handler_with_scripting_disabled` asserts that a document
-        // with scripting disabled compiles none of them.
-        new("html/webappapis/scripting/events/event-handler-sourcetext.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/event-handler-non-content-document-idl-attributes.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/inline-event-handler-ordering.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 4. a DOM prototype has no @@unscopables
+        // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
+        // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
+        // among them — and this binding emits none, because AngleSharp's metadata does not say which members
+        // are unscopable. The three rows below never reach their subject: they *write* to
+        // `document[Symbol.unscopables]`, which is undefined here.
         new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/uncompiled_event_handler_with_scripting_disabled.html", "*", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 6. two names HTML gives a body and a frameset
-        // `<body>`'s handler attributes that HTML redirects to the Window are reflected as an object rather
-        // than a function, and `HTMLFrameSetElement` — which owns the other half of that table — is not an
-        // interface object at all.
-        new("dom/events/Body-FrameSet-Event-Handlers.html", "Forward HTMLBodyElement.onblur to Window", WptDivergence.NeedsTriage),
-        new("dom/events/Body-FrameSet-Event-Handlers.html", "Set HTMLFrameSetElement.onblur", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 4b. a custom element
+        // The file's other three rows pass. This one defines a form-associated custom element, and
+        // `window.customElements` is a name this browser does not have — the same reason
+        // `EventTarget-add-listener-platform-object.html` is not vendored.
+        new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 7. the legacy init methods of the UI events
-        // `initUIEvent`, `initMouseEvent` and `initKeyboardEvent`: deprecated, still in the UI Events
-        // specification, and absent here. Beside them, `new UIEvent(type, {view: notAWindow})` must throw a
-        // TypeError and does not.
-        new("dom/events/Event-init-while-dispatching.html", "Calling initKeyboardEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-init-while-dispatching.html", "Calling initMouseEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-init-while-dispatching.html", "Calling initUIEvent while dispatching.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-subclasses-constructors.html", "UIEvent constructor (view argument with wrong type)", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 5. a frame that runs script
+        // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window; a
+        // page here parses child frames and gives none of them an engine. It is the NeedsIframeScripting
+        // group below by cause, and is here only because the file is in another suite.
+        new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
-        // ---------------------------------------------------------------- 8. passive by default
-        // https://dom.spec.whatwg.org/#default-passive-value: a `touchstart`, `touchmove`, `wheel` or
-        // `mousewheel` listener added to the Window, the Document, the document element or the body with no
-        // `passive` member is passive, so its `preventDefault()` does nothing. Here it is active, and the
-        // thirty-two rows are those four types over those four targets in the two spellings that leave the
-        // member out. The `{passive:true}` and `{passive:false}` spellings pass, so the rule is what is
-        // missing rather than the mechanism.
-        new("dom/events/passive-by-default.html", "* listener is passive by default for *", WptDivergence.NeedsTriage),
-        new("dom/events/passive-by-default.html", "* listener is passive with {passive:undefined} for *", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 6. a bubbling `submit` the file counts as an activation
+        // `Event-dispatch-single-activation-behavior.html` builds 132 nesting shapes and asserts that exactly
+        // one activation behaviour runs. Its instrumentation is the *handler* — `<form onsubmit="activated(this)">`
+        // — and for eight of the shapes that cannot tell an activation behaviour from an ordinary bubble:
+        // the child form is a descendant of the parent form (the file appends it into the parent's `<input>`),
+        // and https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-form-submit
+        // fires `submit` "with the bubbles and cancelable attributes initialized to true", as
+        // https://html.spec.whatwg.org/multipage/forms.html#dom-form-reset does `reset`. So the parent's
+        // handler runs because the child's event reached it, and no implementation may stop it.
+        //
+        // The shape of the eight says the same thing from the other side: they are exactly the pairs whose
+        // two forms listen for the *same* event. A submitting child inside a resetting parent passes, because
+        // the parent has no `onsubmit` for the bubble to find.
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=reset></BUTTON></FORM> of parent <FORM><INPUT type=reset></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
 
-        // ---------------------------------------------------------------- 9. one click, one activation behaviour
-        // https://dom.spec.whatwg.org/#eventtarget-activation-behavior: a dispatch runs the activation
-        // behaviour of *one* element — the nearest ancestor in the event path that has one — and these rows
-        // are the two ways that goes wrong here. A nested `<a>` or `<area>` records nothing at all, because
-        // following a hyperlink to a fragment of the page's own URL is not what this activation host does;
-        // and a `<form>` nested in a `<form>` submits **both**, because the walk does not stop at the first
-        // behaviour it finds. 108 of the file's 132 shapes are right, which is what makes the two wrong ones
-        // worth naming.
+        // ---------------------------------------------------------------- 7. a fragment navigation the file does not wait for
+        // The same file's twenty-two `<a>`/`<area>` shapes click a link to a fragment of the page's own URL
+        // and give it two zero-delay turns to produce a `hashchange`. The navigation happens — a unit test
+        // measures it arriving on the *next* turn, and this change moved it there from after the whole timer
+        // chain by keeping a same-document fragment move on the page loop instead of sending it round the
+        // navigation gate — but in this document it still does not land inside the file's two turns. What is
+        // left is a scheduling question about the page loop rather than anything about activation behaviour,
+        // and it is the one row of #3693 this change does not retire.
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <A></A> of parent *", WptDivergence.NeedsTriage),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <AREA></AREA> of parent *", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <LABEL><INPUT type=checkbox></INPUT><SPAN></SPAN></LABEL> of parent *", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=reset></BUTTON></FORM> of parent <FORM><INPUT type=reset></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- 10. a detached control still fires input
-        // https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox): the pre-click
-        // activation steps fire `input` and `change` only for a control that is *connected*. A detached
-        // checkbox or radio fires them here, on `click()` and on a dispatched `MouseEvent` alike. The eight
-        // connected cases of the same file pass.
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached checkbox should not emit input or change events on click().", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached checkbox should not emit input or change events on dispatchEvent(new MouseEvent('click')).", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached radio should not emit input or change events on click().", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-detached-input-and-change.html", "detached radio should not emit input or change events on dispatchEvent(new MouseEvent('click')).", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a frame that runs script
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second
@@ -436,10 +375,8 @@ internal static class WptBrowserExclusions
         // frame's realm, an exception reported in the realm of the listener that threw. A page here parses
         // child frames and gives none of them an engine.
         //
-        // The eleventh defect this lane found is visible in every one of them and is *not* what puts them
-        // here: `window` has no named properties, so `<iframe name=x>` and `<div id=x>` do not reach script
-        // as `x`. That is https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object,
-        // and it is what these files meet first — but a fix for it would leave them needing the frame.
+        // Named access on the window is what these files used to meet first, and it is implemented now
+        // (Runtime/WindowNamedProperties); the frame is what is left, and no fix short of one moves them.
         new("dom/events/EventListener-handleEvent-cross-realm.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-reporting-exception-onerror.html", "*", WptDivergence.NeedsIframeScripting),
@@ -451,8 +388,8 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a rendering
         // `MouseEvent.offsetX` against a `body { margin: 8px }`, which is a used value and not a computed
-        // one. It reaches the assertion by way of named access, so today it fails on that instead — but no
-        // fix short of campaign item C4's flat renderer moves the row.
+        // one. Named access now carries it as far as the assertion, which is where no fix short of campaign
+        // item C4's flat renderer moves it.
         new("dom/events/mouse-event-retarget.html", "*", WptDivergence.NeedsLayout),
     ];
 }

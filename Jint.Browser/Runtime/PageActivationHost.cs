@@ -57,7 +57,7 @@ internal sealed class PageActivationHost : BrowserActivationHost
                 source.LocalName));
         }
 
-        _runtime.Page.RequestNavigation(url, replace: false);
+        _runtime.Page.RequestNavigation(url, replace: false, engine: _runtime.Engine);
     }
 
     /// <summary>

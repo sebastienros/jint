@@ -54,10 +54,26 @@ internal class JsUiEvent : JsEvent
     }
 
     /// <summary>https://w3c.github.io/uievents/#dom-uievent-view.</summary>
-    internal JsValue View { get; }
+    internal JsValue View { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-uievent-detail — a click count, a wheel tick count.</summary>
-    internal double Detail { get; }
+    internal double Detail { get; private set; }
+
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-uievent-inituievent — the legacy initializer: <i>initialize an
+    /// event</i>, then this interface's own two members.
+    /// </summary>
+    /// <remarks>
+    /// Every one of these is a no-op while the event is being dispatched, which is
+    /// <c>JsEvent.InitializeEvent</c>'s own rule — the caller checks the dispatch flag once, before the
+    /// arguments are converted, and every derived initializer inherits it by calling up.
+    /// </remarks>
+    internal virtual void Initialize(JsString type, bool bubbles, bool cancelable, JsValue view, double detail)
+    {
+        InitializeEvent(type, bubbles, cancelable);
+        View = view;
+        Detail = detail;
+    }
 
     /// <summary>
     /// The <c>which</c> the init dictionary supplied, or <see langword="null"/> when it said nothing — which is
@@ -116,26 +132,51 @@ internal class JsMouseEvent : JsUiEvent
         RelatedTarget = state.RelatedTarget;
     }
 
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-mouseevent-initmouseevent — the legacy initializer.
+    /// </summary>
+    /// <remarks>
+    /// <c>buttons</c> is not among its arguments and is deliberately left alone: the legacy signature
+    /// predates it, and inventing a value from <c>button</c> would be a guess a page cannot correct.
+    /// </remarks>
+    internal void Initialize(
+        JsString type,
+        bool bubbles,
+        bool cancelable,
+        JsValue view,
+        double detail,
+        in MouseEventState state)
+    {
+        Initialize(type, bubbles, cancelable, view, detail);
+        ScreenX = state.ScreenX;
+        ScreenY = state.ScreenY;
+        ClientX = state.ClientX;
+        ClientY = state.ClientY;
+        Button = state.Button;
+        Modifiers = state.Modifiers;
+        RelatedTarget = state.RelatedTarget;
+    }
+
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-screenx.</summary>
-    internal double ScreenX { get; }
+    internal double ScreenX { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-screeny.</summary>
-    internal double ScreenY { get; }
+    internal double ScreenY { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-clientx.</summary>
-    internal double ClientX { get; }
+    internal double ClientX { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-clienty.</summary>
-    internal double ClientY { get; }
+    internal double ClientY { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-button — 0 primary, 1 auxiliary, 2 secondary.</summary>
-    internal double Button { get; }
+    internal double Button { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-mouseevent-buttons — the bit set of buttons held down.</summary>
     internal double Buttons { get; }
 
     /// <summary>The modifier keys, read by the four IDL attributes and by <c>getModifierState()</c>.</summary>
-    internal EventModifiers Modifiers { get; }
+    internal EventModifiers Modifiers { get; private set; }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-dispatch step 6.4 — <c>true</c> exactly for a
@@ -328,29 +369,58 @@ internal sealed class JsKeyboardEvent : JsUiEvent
         KeyCode = state.KeyCode ?? LegacyKeyCodes.KeyCodeFor(TypeName, state.Key);
     }
 
+    /// <summary>
+    /// https://w3c.github.io/uievents/#dom-keyboardevent-initkeyboardevent — the legacy initializer, whose
+    /// signature is UI Events' own: no <c>code</c>, and the modifiers as a space-separated list of key values
+    /// rather than as booleans.
+    /// </summary>
+    /// <remarks>
+    /// The legacy signature has no <c>code</c>, no <c>isComposing</c> and no <c>charCode</c>/<c>keyCode</c>,
+    /// so those are left as they were and the two legacy codes are recomputed from the new key and type,
+    /// which is what the tables they come from are for.
+    /// </remarks>
+    internal void Initialize(
+        JsString type,
+        bool bubbles,
+        bool cancelable,
+        JsValue view,
+        string key,
+        double location,
+        EventModifiers modifiers,
+        bool repeat)
+    {
+        Initialize(type, bubbles, cancelable, view, detail: 0);
+        Key = key;
+        Location = location;
+        Modifiers = modifiers;
+        Repeat = repeat;
+        CharCode = LegacyKeyCodes.CharCodeFor(TypeName, key);
+        KeyCode = LegacyKeyCodes.KeyCodeFor(TypeName, key);
+    }
+
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-key.</summary>
-    internal string Key { get; }
+    internal string Key { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-code.</summary>
     internal string Code { get; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-location.</summary>
-    internal double Location { get; }
+    internal double Location { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-repeat.</summary>
-    internal bool Repeat { get; }
+    internal bool Repeat { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-iscomposing.</summary>
     internal bool IsComposing { get; }
 
     /// <summary>The modifier keys.</summary>
-    internal EventModifiers Modifiers { get; }
+    internal EventModifiers Modifiers { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-charcode.</summary>
-    internal double CharCode { get; }
+    internal double CharCode { get; private set; }
 
     /// <summary>https://w3c.github.io/uievents/#dom-keyboardevent-keycode.</summary>
-    internal double KeyCode { get; }
+    internal double KeyCode { get; private set; }
 
     /// <summary>
     /// https://w3c.github.io/uievents/#dom-uievent-which for a keyboard event: the character code when there is

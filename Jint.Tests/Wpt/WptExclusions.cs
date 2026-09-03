@@ -594,6 +594,26 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
+    /// The test names an <b>event interface this browser does not build</b>. <c>document.createEvent</c>'s
+    /// alias table (https://dom.spec.whatwg.org/#dom-document-createevent) is the only place a page meets
+    /// them all at once, and five of its rows name interfaces <c>Jint.Browser</c> deliberately has not:
+    /// <c>DragEvent</c> and <c>ClipboardEvent</c> need a <c>DataTransfer</c>, <c>StorageEvent</c> a storage
+    /// area's change notification, <c>TouchEvent</c> a touch input, and <c>DeviceMotionEvent</c> and
+    /// <c>DeviceOrientationEvent</c> a sensor. <c>Jint.Browser/Events/BrowserEventInterfaces.cs</c> is the
+    /// list of the fourteen it does build, and the absence of the rest is stated there.
+    /// </para>
+    /// <para>
+    /// It is <see cref="NeedsTriage"/>'s opposite in the way that matters: the interface is named, the reason
+    /// it is absent is a scope decision somebody made rather than a defect somebody owes, and the rows move
+    /// the day one of them is built. Answering a plain <c>Event</c> under those names instead would be a lie
+    /// a page cannot detect, which is why <c>createEvent</c> refuses them with the <c>NotSupportedError</c>
+    /// the standard gives an alias it does not list.
+    /// </para>
+    /// </summary>
+    NeedsMoreEventInterfaces,
+
+    /// <summary>
+    /// <para>
     /// The test asserts behaviour <b>nothing requires of anybody</b> — not of Jint, and not of any
     /// implementation. This is the corpus's analogue of test262's <c>=== PERMANENT EXCLUSIONS ===</c> banner
     /// and it is earned the same way: only when the standard the test claims to be about does not ask for

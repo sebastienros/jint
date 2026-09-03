@@ -51,8 +51,11 @@ internal sealed class DomRealm
     {
         Engine = engine;
         PrincipalRealm = engine._mainRealm;
-        _prototypes = new ObjectInstance?[DomInterfaces.All.Length];
-        _interfaceObjects = new DomInterfaceObject?[DomInterfaces.All.Length];
+        // The manual interfaces continue the generated ones' indices, so the two together stay one dense
+        // array; DomManualInterfaces says why there are any.
+        var interfaceCount = DomInterfaces.All.Length + DomManualInterfaces.All.Length;
+        _prototypes = new ObjectInstance?[interfaceCount];
+        _interfaceObjects = new DomInterfaceObject?[interfaceCount];
     }
 
     /// <summary>The engine every object in this realm belongs to.</summary>
@@ -210,7 +213,7 @@ internal sealed class DomRealm
             return (DomNodeObject) cached;
         }
 
-        var definition = DomTypeMap.For(node.GetType()) ?? DomInterfaces.Node;
+        var definition = DomManualInterfaces.For(node) ?? DomTypeMap.For(node.GetType()) ?? DomInterfaces.Node;
         return (DomNodeObject) Cache(node, new DomNodeObject(this, definition, node));
     }
 

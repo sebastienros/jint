@@ -466,9 +466,9 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.createHTMLDocument");
-                    return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMImplementation.createHTMLDocument")));
+                    return self.Realm.WrapNodeValue(self.Target.CreateHtmlDocument(global::Jint.Browser.Dom.DomConvert.OptionalText(args, 0, "")!));
                 },
-                length: 1)
+                length: 0)
             .Method("hasFeature",
                 static (thisObj, args) =>
                 {
@@ -711,6 +711,13 @@ internal static partial class DomInterfaces
                     return self.Realm.WrapNodeValue(self.Target.CreateElement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createElementNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createElementNS")));
                 },
                 length: 2)
+            .Method("createEvent",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createEvent");
+                    return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);
+                },
+                length: 1)
             .Method("createNodeIterator",
                 static (thisObj, args) =>
                 {
@@ -1532,7 +1539,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.removeAttribute");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.RemoveAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.removeAttribute")));
+                    self.Realm.Hooks.RemoveAttribute(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 1)
             .Method("removeAttributeNS",
@@ -1594,7 +1601,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.setAttribute");
-                    self.Target.SetAttribute(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.setAttribute"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Element.setAttribute")); return global::Jint.Native.JsValue.Undefined;
+                    self.Realm.Hooks.SetAttribute(self.Realm, self.Target, args); return global::Jint.Native.JsValue.Undefined;
                 },
                 length: 2)
             .Method("setAttributeNS",
