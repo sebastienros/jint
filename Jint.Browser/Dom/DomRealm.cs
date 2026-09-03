@@ -226,8 +226,18 @@ internal sealed class DomRealm
         }
 
         var definition = DomManualInterfaces.For(node) ?? DomTypeMap.For(node.GetType()) ?? DomInterfaces.Node;
-        return (DomNodeObject) Cache(node, new DomNodeObject(this, definition, node));
+        return (DomNodeObject) Cache(node, NewNode(definition, node));
     }
+
+    /// <summary>
+    /// The node wrapper an interface asks for: a plain one, or one carrying the interface's indexed and named
+    /// property projection (<c>form[0]</c>, <c>form.username</c>, <c>select[0]</c>). Both are node wrappers,
+    /// because a node's wrapper is what the engine's tree-dispatch lane keys on.
+    /// </summary>
+    private DomNodeObject NewNode(DomInterfaceDefinition definition, INode node)
+        => definition.WrapperKind == DomWrapperKind.IndexedNode && definition.CollectionAccessor is { } accessor
+            ? new DomIndexedNodeObject(this, definition, node, accessor)
+            : new DomNodeObject(this, definition, node);
 
     /// <summary>
     /// Projects an <c>IHtmlCollection&lt;T&gt;</c>, whose element type the calling generated member knows.
@@ -250,9 +260,9 @@ internal sealed class DomRealm
 
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)
     {
-        if (definition.WrapperKind == DomWrapperKind.Node)
+        if (definition.WrapperKind is DomWrapperKind.Node or DomWrapperKind.IndexedNode)
         {
-            return new DomNodeObject(this, definition, (INode) value);
+            return NewNode(definition, (INode) value);
         }
 
         if (definition.WrapperKind == DomWrapperKind.HtmlCollection)

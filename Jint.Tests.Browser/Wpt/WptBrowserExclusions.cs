@@ -1118,34 +1118,7 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
         // a (Node or DOMString) union parameter takes only a Node
-        new("dom/nodes/ChildNode-after.html", "*null as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*string as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*text as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*text as arguments.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*the argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-after.html", "*undefined as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*null as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*string as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*text as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*text as arguments.", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-before.html", "*the argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-before.html", "*undefined as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with empty string as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with null as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with one element and text as arguments.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and text as arguments.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with only text as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*with undefined as an argument.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-append.html", "*a child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-append.html", "*null as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-append.html", "*text as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-append.html", "*undefined as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-prepend.html", "*a child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-prepend.html", "*null as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-prepend.html", "*text as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/nodes/ParentNode-prepend.html", "*undefined as an argument, on a parent having no child.", WptDivergence.NeedsTriage),
-        new("dom/ranges/StaticRange-constructor.html", "Construct static range with DocumentFragment container", WptDivergence.NeedsTriage),
-        new("dom/ranges/StaticRange-constructor.html", "Construct static range with endpoints in disconnected trees", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- DOM's validate-and-extract, and the XML name productions
         // DOM's validate-and-extract, and the XML name productions
@@ -1268,7 +1241,6 @@ internal static class WptBrowserExclusions
         // inserted namespaced attribute records no prefix, and IChildNode.Replace converts its arguments
         // before it checks whether the child has a parent at all.
         new("dom/nodes/Attr-prefix.html", "Attr.prefix present (SVG)", WptDivergence.NeedsTriage),
-        new("dom/nodes/ChildNode-replaceWith.html", "*on a parentless child with two elements as arguments.", WptDivergence.NeedsTriage),
         new("dom/nodes/ChildNode-replaceWith.html", "*with one sibling of child and child itself as arguments.", WptDivergence.NeedsTriage),
         new("dom/nodes/Document-importNode.html", "*'deep' argument.", WptDivergence.NeedsTriage),
         new("dom/nodes/attributes.html", "Basic functionality of getAttributeNode/getAttributeNodeNS", WptDivergence.NeedsTriage),

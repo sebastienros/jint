@@ -232,6 +232,90 @@ internal sealed class DomAccessorFileList : DomCollectionAccessor
     }
 }
 
+/// <summary>How <c>HTMLFormElement</c> answers indexed and named property lookups.</summary>
+internal sealed class DomAccessorHTMLFormElement : DomCollectionAccessor
+{
+    internal static readonly DomAccessorHTMLFormElement Instance = new();
+
+    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.IHtmlFormElement) target).Length;
+
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
+    {
+        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        if (index >= (uint) collection.Length)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = realm.WrapNodeValue(collection[(int) index]);
+        return true;
+    }
+
+    internal override bool HasNamedGetter => true;
+
+    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)
+    {
+        var collection = (global::AngleSharp.Html.Dom.IHtmlFormElement) target;
+        var names = new global::System.Collections.Generic.List<string>(collection.Length);
+        for (var i = 0; i < collection.Length; i++)
+        {
+            var item = collection[i];
+            if (item is null)
+            {
+                continue;
+            }
+
+            Add(names, item.GetAttribute("name"));
+            Add(names, item.Id);
+        }
+
+        return names;
+
+        static void Add(global::System.Collections.Generic.List<string> names, string? name)
+        {
+            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))
+            {
+                names.Add(name!);
+            }
+        }
+    }
+
+    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)
+    {
+        var item = ((global::AngleSharp.Html.Dom.IHtmlFormElement) target)[name];
+        if (item is null)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = realm.WrapNodeValue(item);
+        return true;
+    }
+}
+
+/// <summary>How <c>HTMLSelectElement</c> answers indexed and named property lookups.</summary>
+internal sealed class DomAccessorHTMLSelectElement : DomCollectionAccessor
+{
+    internal static readonly DomAccessorHTMLSelectElement Instance = new();
+
+    internal override uint Length(object target) => (uint) ((global::AngleSharp.Html.Dom.IHtmlSelectElement) target).Length;
+
+    internal override bool TryGetIndex(DomRealm realm, object target, uint index, out global::Jint.Native.JsValue value)
+    {
+        var collection = (global::AngleSharp.Html.Dom.IHtmlSelectElement) target;
+        if (index >= (uint) collection.Length)
+        {
+            value = global::Jint.Native.JsValue.Undefined;
+            return false;
+        }
+
+        value = realm.WrapNodeValue(collection[(int) index]);
+        return true;
+    }
+}
+
 /// <summary>How <c>MediaList</c> answers indexed and named property lookups.</summary>
 internal sealed class DomAccessorMediaList : DomCollectionAccessor
 {

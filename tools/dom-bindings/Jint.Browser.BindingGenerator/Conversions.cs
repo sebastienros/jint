@@ -223,6 +223,16 @@ internal sealed class Conversions
                 return true;
             }
 
+            // https://dom.spec.whatwg.org/#converting-nodes-into-a-node - a variadic Node parameter is Web
+            // IDL's `(Node or DOMString)...`, and the string half becomes a text node in the receiver's node
+            // document. The receiver is in scope in every emitted body, which is the whole of what this
+            // needed: a static member body has no document until it is handed one.
+            if (element.FullName == "AngleSharp.Dom.INode")
+            {
+                code = "global::Jint.Browser.Dom.DomConvert.NodeOrTextRest(self.Realm, self.Target, args, " + index + ", " + CSharpNames.Literal(member) + ")";
+                return true;
+            }
+
             if (element.IsInterface && _lookup(element) is not null)
             {
                 code = "global::Jint.Browser.Dom.DomConvert.ObjectRest<" + CSharpNames.Render(element) + ">(args, " + index + ", " + CSharpNames.Literal(member) + ")";

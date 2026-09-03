@@ -320,7 +320,13 @@ internal sealed class ModelBuilder
     {
         if (type.GetInterfaces().Any(i => i.FullName == "AngleSharp.Dom.INode") || type.FullName == "AngleSharp.Dom.INode")
         {
-            return WrapperKind.Node;
+            // A node that also supports indexed or named properties. HTML gives two of them a getter -
+            // `form[0]` / `form.username` and `select[0]` - and the projection has to ride on the node
+            // wrapper, because a node's wrapper is what the tree-dispatch lane keys on and there is only
+            // ever one of it per node.
+            return FindIndexedGetter(type) is not null || FindNamedGetter(type) is not null
+                ? WrapperKind.IndexedNode
+                : WrapperKind.Node;
         }
 
         if (type.FullName == "AngleSharp.Dom.IHtmlCollection`1"
@@ -434,8 +440,16 @@ internal sealed class ModelBuilder
             {
                 if (!seen.Add(domName))
                 {
-                    _model.Diagnostics.Add(
-                        model.DomName + "." + domName + " is declared more than once in the interface closure; the first declaration wins (" + declaring.Name + "." + member.Name + " lost).");
+                    // A member the table has taken over is not news: `skip` means the projection of every
+                    // declaration under that name is replaced, so a second one losing is the decision rather
+                    // than a consequence of it. HTML's two union operations are exactly that, and a
+                    // collision anywhere else is still something nobody has looked at.
+                    if (!_overrides.Skip.Any(entry => entry.Interface == model.DomName && entry.Member == domName && entry.Half is null))
+                    {
+                        _model.Diagnostics.Add(
+                            model.DomName + "." + domName + " is declared more than once in the interface closure; the first declaration wins (" + declaring.Name + "." + member.Name + " lost).");
+                    }
+
                     continue;
                 }
 
@@ -729,11 +743,11 @@ internal sealed class ModelBuilder
             {
                 if (model.Kind is WrapperKind.Node)
                 {
-                    // An indexed or named getter needs a property projection, and a node wrapper is a
-                    // JsEventTarget rather than an ArrayLikeObject, so it has none. `form[0]` and
-                    // `form.username` are the two that lose by it; `form.elements[0]` and
-                    // `form.elements.namedItem('username')` are the same values through the collection.
-                    _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an indexed or named getter on a node, and a node wrapper carries no property projection; the collection member beside it carries the same values"));
+                    // A node whose interface declares an indexed or named getter is an IndexedNode and
+                    // carries the projection; a plain Node reaching here would be one whose getter the
+                    // conversion table could not express, and the collection member beside it carries the
+                    // same values.
+                    _model.Skipped.Add(new SkipRecord(model.DomName, domName, "is an indexed or named getter the conversion table could not project; the collection member beside it carries the same values"));
                     return;
                 }
 
@@ -1102,7 +1116,7 @@ internal sealed class ModelBuilder
 
     private void BuildAccessor(InterfaceModel model)
     {
-        if (model.Kind is not (WrapperKind.Collection or WrapperKind.NamedMap))
+        if (model.Kind is not (WrapperKind.Collection or WrapperKind.NamedMap or WrapperKind.IndexedNode))
         {
             return;
         }
@@ -1115,7 +1129,7 @@ internal sealed class ModelBuilder
         builder.Append("internal sealed class ").Append(className).Append(" : DomCollectionAccessor\n{\n");
         builder.Append("    internal static readonly ").Append(className).Append(" Instance = new();\n\n");
 
-        if (model.Kind == WrapperKind.Collection)
+        if (model.Kind is WrapperKind.Collection or WrapperKind.IndexedNode && FindIndexedGetter(model.ClrType) is not null)
         {
             var length = FindLength(model.ClrType);
             var indexed = FindIndexedGetter(model.ClrType)!;
@@ -1130,17 +1144,21 @@ internal sealed class ModelBuilder
                 ? readOnlyList.GetGenericArguments()[0]
                 : indexed.PropertyType;
 
+            // A node keeps its node wrapper whatever happens here, because the tree-dispatch lane keys on it;
+            // only the projection is lost.
+            var fallback = model.Kind == WrapperKind.IndexedNode ? WrapperKind.Node : WrapperKind.Object;
+
             if (length is null)
             {
-                _model.Diagnostics.Add(model.DomName + " has an indexed getter but no length; it is wrapped as a plain object instead.");
-                model.Kind = WrapperKind.Object;
+                _model.Diagnostics.Add(model.DomName + " has an indexed getter but no length; its indexed properties are dropped.");
+                model.Kind = fallback;
                 return;
             }
 
             if (!_conversions.TryReturn(elementType, access, "realm", nullableString: false, out var element, out var reason))
             {
-                _model.Diagnostics.Add(model.DomName + " has an indexed getter whose element " + reason + "; it is wrapped as a plain object instead.");
-                model.Kind = WrapperKind.Object;
+                _model.Diagnostics.Add(model.DomName + " has an indexed getter whose element " + reason + "; its indexed properties are dropped.");
+                model.Kind = fallback;
                 return;
             }
 
@@ -1205,7 +1223,29 @@ internal sealed class ModelBuilder
             // non-enumerable rather than hidden.
             var length = FindLength(model.ClrType);
             var itemName = ItemNameProperty(model.ClrType);
-            if (length is null || itemName is null)
+
+            // https://html.spec.whatwg.org/multipage/forms.html#dom-form-item - a form's supported property
+            // names are the `name` content attributes and the ids of its listed elements, in tree order, and
+            // an element carries neither as a [DomName] member the heuristic above could find: `name` is a
+            // content attribute rather than an IDL one on IElement. It is the one named getter over elements
+            // in the surface, so the rule is written once, here, rather than made a table entry.
+            var elementItems = FindIndexedGetter(model.ClrType) is { } indexedGetter
+                && Closure(indexedGetter.PropertyType).Any(t => t.FullName == "AngleSharp.Dom.IElement");
+
+            if (length is not null && itemName is null && elementItems)
+            {
+                builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target)\n    {\n");
+                builder.Append("        var collection = (").Append(target).Append(") target;\n");
+                builder.Append("        var names = new global::System.Collections.Generic.List<string>(collection.").Append(length.Name).Append(");\n");
+                builder.Append("        for (var i = 0; i < collection.").Append(length.Name).Append("; i++)\n        {\n");
+                builder.Append("            var item = collection[i];\n");
+                builder.Append("            if (item is null)\n            {\n                continue;\n            }\n\n");
+                builder.Append("            Add(names, item.GetAttribute(\"name\"));\n");
+                builder.Append("            Add(names, item.Id);\n        }\n\n        return names;\n\n");
+                builder.Append("        static void Add(global::System.Collections.Generic.List<string> names, string? name)\n        {\n");
+                builder.Append("            if (!string.IsNullOrEmpty(name) && !names.Contains(name!))\n            {\n                names.Add(name!);\n            }\n        }\n    }\n\n");
+            }
+            else if (length is null || itemName is null)
             {
                 builder.Append("    internal override global::System.Collections.Generic.IReadOnlyList<string> SupportedNames(object target) => [];\n\n");
             }
@@ -1218,7 +1258,12 @@ internal sealed class ModelBuilder
                 builder.Append("            names.Add(collection[i]!.").Append(itemName.Name).Append(");\n        }\n\n        return names;\n    }\n\n");
             }
 
-            builder.Append("    internal override bool AreNamesEnumerable => false;\n\n");
+            // https://webidl.spec.whatwg.org/#LegacyUnenumerableNamedProperties, which NamedNodeMap and
+            // HTMLCollection carry and HTMLFormElement does not: a form's named properties enumerate.
+            if (!elementItems)
+            {
+                builder.Append("    internal override bool AreNamesEnumerable => false;\n\n");
+            }
         }
 
         builder.Append("    internal override bool TryGetNamed(DomRealm realm, object target, string name, out global::Jint.Native.JsValue value)\n    {\n");
