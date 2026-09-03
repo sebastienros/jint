@@ -88,9 +88,9 @@ public class StreamRejectionTrackingTests
 
     /// <summary>
     /// What a host is left holding once the pairs cancel out: the rejections reported with no later
-    /// <c>"handle"</c> for the same promise. A <c>Reject</c> followed by a <c>Handle</c> is the cadence
-    /// difference <see cref="DiagnosticEvent.RejectionHandled"/> documents — Jint reports both operations as
-    /// they happen where HTML defers the decision to a checkpoint — and is not what this defect was about.
+    /// <c>"handle"</c> for the same promise. A <c>Reject</c> followed by a <c>Handle</c> means a handler was
+    /// attached in a later turn — the promise was announced and then handled, which is what
+    /// <see cref="DiagnosticEvent.RejectionHandled"/> is for — and is not what this defect was about.
     /// </summary>
     private static List<string> Standing(List<Rejection> rejections)
     {
@@ -333,20 +333,13 @@ public class StreamRejectionTrackingTests
         // released-reader TypeErrors the shutdown makes on the way are gone entirely.
         Standing(rejections).Should().Equal("Error: dest failed");
 
-        // The two pairs before it are a different thing, and are deliberately left alone: an algorithm that
-        // builds an already-rejected promise and attaches its own reaction one statement later — the WebIDL
-        // wrapper around the sink's throwing write(), and
-        // WritableStreamDefaultWriterCloseWithErrorPropagation's "a promise rejected with stream's stored
-        // error". Neither promise is the specification's to mark handled, so marking it would lose a real
-        // failure if the caller ever failed to attach; what a host sees instead is a Reject followed by its
-        // own Handle, which is the cadence DiagnosticEvent.RejectionHandled documents for every promise in
-        // the engine and not something streams may decide on their own.
-        rejections.Select(r => r.ToString()).Should().Equal(
-            "Reject:Error: dest failed",
-            "Handle:Error: dest failed",
-            "Reject:Error: dest failed",
-            "Handle:Error: dest failed",
-            "Reject:Error: dest failed");
+        // And it is the only report of any kind. Two algorithms here build an already-rejected promise and
+        // attach their own reaction one statement later — the WebIDL wrapper around the sink's throwing
+        // write(), and WritableStreamDefaultWriterCloseWithErrorPropagation's "a promise rejected with
+        // stream's stored error". Neither promise is the specification's to mark handled, and neither needs
+        // to be: the reaction lands inside the same microtask checkpoint, so HTML's deferred notification
+        // never announces it at all. That used to be a Reject followed by its own Handle.
+        rejections.Select(r => r.ToString()).Should().Equal("Reject:Error: dest failed");
     }
 
     [Test]

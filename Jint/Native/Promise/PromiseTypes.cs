@@ -111,3 +111,38 @@ public enum PromiseRejectionOperation
     /// </summary>
     Handle
 }
+
+/// <summary>
+/// Which of HTML's two rejection lists a promise is in, which is what defers a report to the microtask
+/// checkpoint that follows the job the rejection happened in rather than raising it where it happened.
+/// </summary>
+/// <remarks>
+/// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections
+/// </remarks>
+internal enum PromiseRejectionNotification : byte
+{
+    /// <summary>
+    /// In neither list: nothing is owed about this promise. Every promise starts here, and one that has been
+    /// announced and then handled ends here.
+    /// </summary>
+    None = 0,
+
+    /// <summary>
+    /// In the event loop's <i>about-to-be-notified rejected promises</i> list: rejected with nothing
+    /// attached, and reported as unhandled at the next checkpoint <b>unless</b> a handler is attached before
+    /// then — which is exactly why <c>Promise.reject(e).catch(f)</c> reports nothing at all.
+    /// </summary>
+    AboutToBeNotified,
+
+    /// <summary>
+    /// In the <i>outstanding rejected promises</i> weak set: already reported as unhandled, so a handler
+    /// attached later is worth a second report. A rejection whose report was cancelled with
+    /// <c>preventDefault()</c> does not reach this state — HTML's step 3 calls such a rejection handled.
+    /// </summary>
+    Outstanding,
+
+    /// <summary>
+    /// Left the weak set with a <c>rejectionhandled</c> notification owed, which the next checkpoint pays.
+    /// </summary>
+    HandledNotificationPending,
+}

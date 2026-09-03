@@ -394,7 +394,20 @@ internal sealed record EventLoop
 
                 if (!_events.TryDequeue(out var job))
                 {
-                    // The queue is empty, so this is the moment — and the only moment — a timer may join it,
+                    // The queue is empty, which is HTML's microtask checkpoint: every job this turn queued
+                    // has run, so a rejection nothing has handled by now is one nothing in this turn is
+                    // going to handle. HTML performs "notify about rejected promises" at the end of every
+                    // checkpoint and fires the events from a task it queues; here the checkpoint is exactly
+                    // this exhaustion, so firing them from it puts them where that task would be — before a
+                    // timer is promoted, and with whatever a listener queues given a turn of its own by the
+                    // continue below. Costs one field read per drain on an engine that has never had an
+                    // unhandled rejection.
+                    if (engine.NotifyAboutRejectedPromises())
+                    {
+                        continue;
+                    }
+
+                    // Still empty, so this is the moment — and the only moment — a timer may join it,
                     // and failing that an idle callback may run. Promoting exactly one due timer per
                     // exhaustion is what makes this single queue behave as the microtask queue HTML
                     // specifies: everything a job queues, transitively, runs before the next timer is even

@@ -162,11 +162,11 @@ internal sealed class TargetRuntime : IDisposable
     /// <c>Runtime.exceptionRevoked</c> come from.
     /// </summary>
     /// <remarks>
-    /// The engine raises <c>Reject</c> the moment a promise is rejected with nothing to handle it, and
-    /// <c>Handle</c> if something handles it afterwards. V8 waits for the end of the microtask checkpoint
-    /// before deciding, so a rejection handled on the very next line produces a throw and a revoke here
-    /// where Chrome produces neither — which is exactly the pair <c>exceptionRevoked</c> exists for, and is
-    /// why the identifier is remembered rather than the event delayed.
+    /// The engine raises <c>Reject</c> for a promise that is still unhandled at the microtask checkpoint
+    /// ending the job it was rejected in, and <c>Handle</c> if something handles it in a later turn — the
+    /// same cadence V8 decides on, so a rejection handled on the very next line produces neither event here
+    /// and neither in Chrome. <c>exceptionRevoked</c> is therefore what it is in Chrome too: the answer for
+    /// a handler that arrives after the report, not a correction issued a moment after it.
     /// </remarks>
     private void OnPromiseRejection(object? sender, PromiseRejectionTrackerEventArgs arguments)
     {

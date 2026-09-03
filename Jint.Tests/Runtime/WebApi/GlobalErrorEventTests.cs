@@ -445,7 +445,7 @@ public class GlobalErrorEventTests
     }
 
     [Test]
-    public void AHandlerAttachedLaterFiresRejectionHandled()
+    public void ARejectionHandledInTheSameCheckpointFiresNeitherEvent()
     {
         var (engine, _) = Silent();
 
@@ -456,9 +456,85 @@ public class GlobalErrorEventTests
             p.catch(function () {});
             """);
 
-        // The tracker's cadence, not HTML's microtask checkpoint: a browser would raise neither of these for
-        // a rejection handled this soon. rejectionhandled is fired without a cancelable initializer.
+        // HTML's cadence: the notification is read at the end of the microtask checkpoint and skips a
+        // promise whose [[PromiseIsHandled]] is true by then, so this shape — the one every API returning
+        // an already-rejected promise is used in — raises nothing at all.
+        Log(engine).Should().Be("");
+    }
+
+    [Test]
+    public void AHandlerAttachedInALaterTaskFiresRejectionHandled()
+    {
+        var (engine, _) = Silent();
+
+        engine.Execute("""
+            addEventListener('unhandledrejection', function (e) { log.push('unhandled'); });
+            addEventListener('rejectionhandled', function (e) { log.push('handled:' + e.cancelable); });
+            var p = Promise.reject(new Error('nope'));
+            """);
+
+        // Announced at the checkpoint that ended the script, so the pair is worth completing.
+        Log(engine).Should().Be("unhandled");
+
+        // rejectionhandled is fired without a cancelable initializer.
+        engine.Execute("p.catch(function () {});");
         Log(engine).Should().Be("unhandled,handled:false");
+    }
+
+    [Test]
+    public void ARejectionHandledInALaterTimerTaskFiresBothEvents()
+    {
+        var (engine, clock) = Silent();
+
+        engine.Execute("""
+            addEventListener('unhandledrejection', function (e) { log.push('unhandled:' + e.reason.message); });
+            addEventListener('rejectionhandled', function (e) { log.push('handled'); });
+            var p = Promise.reject(new Error('nope'));
+            setTimeout(function () { p.catch(function () {}); }, 10);
+            """);
+
+        // The script's own checkpoint announces it, because the handler is a whole task away.
+        Log(engine).Should().Be("unhandled:nope");
+
+        clock.Advance(10);
+        engine.Tasks.ProcessTasks();
+
+        Log(engine).Should().Be("unhandled:nope,handled");
+    }
+
+    [Test]
+    public void AHandlerTheUnhandledRejectionListenerAttachesCompletesNoPair()
+    {
+        var (engine, _) = Silent();
+
+        // HTML's copy-and-clear runs before the event, so a promise handled by the listener is in neither
+        // list: nothing owes a rejectionhandled, and nothing announces it a second time.
+        engine.Execute("""
+            addEventListener('unhandledrejection', function (e) { log.push('unhandled'); e.promise.catch(function () {}); });
+            addEventListener('rejectionhandled', function (e) { log.push('handled'); });
+            Promise.reject(new Error('nope'));
+            """);
+
+        Log(engine).Should().Be("unhandled");
+    }
+
+    [Test]
+    public void ARejectionAListenerCausesIsAnnouncedAtTheNextCheckpoint()
+    {
+        var (engine, _) = Silent();
+
+        // Firing runs script, and a promise that script rejects belongs to the next pass rather than to the
+        // copy this one is walking — so it is announced, once.
+        engine.Execute("""
+            var second = false;
+            addEventListener('unhandledrejection', function (e) {
+                log.push('unhandled:' + e.reason.message);
+                if (!second) { second = true; Promise.reject(new Error('again')); }
+            });
+            Promise.reject(new Error('first'));
+            """);
+
+        Log(engine).Should().Be("unhandled:first,unhandled:again");
     }
 
     [Test]
@@ -472,6 +548,26 @@ public class GlobalErrorEventTests
             """);
 
         sink.Reports.Should().ContainSingle().Which.Kind.Should().Be(DiagnosticEventKind.UnhandledPromiseRejection);
+    }
+
+    [Test]
+    public void CancellingUnhandledRejectionMeansNoRejectionHandledLater()
+    {
+        var (engine, sink, _) = Reporting();
+
+        engine.Execute("""
+            addEventListener('unhandledrejection', function (e) { log.push('unhandled'); e.preventDefault(); });
+            addEventListener('rejectionhandled', function (e) { log.push('handled'); });
+            var p = Promise.reject(new Error('nope'));
+            """);
+
+        // HTML step 3: "If notHandled is false, then the promise rejection is handled." A cancelled report
+        // therefore keeps the promise out of the outstanding set, so the handler attached below completes no
+        // pair — while the sink, which script cannot suppress, was told about the first half.
+        engine.Execute("p.catch(function () {});");
+
+        Log(engine).Should().Be("unhandled");
+        sink.Reports.Should().ContainSingle().Which.RejectionHandled.Should().BeFalse();
     }
 
     // Gating and lifetime

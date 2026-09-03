@@ -5185,6 +5185,45 @@ constructor's own body is stepped into exactly as before, which is where a brows
 source. Nothing else moves: the frames, the call stack and every location inside a program are unchanged, and
 the set `GetStepLocations` reports is now exactly the set a `StepMode.Into` run pauses at for such a class.
 
+### 4.122 An unhandled rejection is reported at the microtask checkpoint, not where it was rejected ([#3711](https://github.com/sebastienros/jint/issues/3711))
+
+`Engine.Tasks.PromiseRejectionTracker`, `Options.WebApi.Diagnostics.Sink` and the `unhandledrejection` /
+`rejectionhandled` global events all fired the instant `HostPromiseRejectionTracker` was called. A promise
+that is *already rejected* when script gets hold of it was therefore announced before the caller could attach
+anything, so the shape every API returning a rejected promise is used in — `fetch()` on a refused URL,
+`Response.json()` on a used body, `import()` of a missing module, `customElements.whenDefined('bad name')` —
+raised an unhandled rejection followed a moment later by a handled one.
+
+They now arrive at HTML's cadence: a rejection joins the *about-to-be-notified rejected promises* list, and
+the report is read from the microtask checkpoint that ends the job it happened in, over the promises that are
+**still** unhandled at it.
+
+```csharp
+engine.Tasks.PromiseRejectionTracker += (_, args) => Console.WriteLine(args.Operation);
+
+// 5.0: "Reject" then "Handle".   5.x: nothing at all — a browser reports nothing here either.
+engine.Execute("Promise.reject(new Error('x')).catch(() => {});");
+
+// 5.0: "Reject".                 5.x: "Reject", at the end of the Execute rather than at the semicolon.
+engine.Execute("globalThis.p = Promise.reject(new Error('x'));");
+
+// 5.0: "Handle".                 5.x: "Handle" — unchanged, the handler arrives in a later turn.
+engine.Execute("p.catch(() => {});");
+```
+
+**What could break:** a host that counts `Reject` operations sees fewer of them, because a rejection handled
+in the same turn is no longer counted at all; one that pairs a `Reject` with its `Handle` finds the pairs it
+was cancelling out are gone rather than balanced. A report is no longer synchronous with the statement that
+rejected, so a host asserting one *during* the script that caused it has to look after the entry returns
+instead — `Execute`, `Evaluate` and `Tasks.ProcessTasks()` all reach a checkpoint before returning, and so
+does an `Invoke` or a `Call` that runs no jobs at all. `preventDefault()` on `unhandledrejection` now has an
+effect beyond cancelling the event: it is HTML's *notHandled*, so a handler attached later raises no
+`rejectionhandled`. The `DiagnosticsSink` is told either way, as it always was.
+
+There is no option that restores the old timing. A host that wants the report where the rejection happened
+can subscribe to `PromiseRejectionTracker` and read `Operation`, which still names the two
+`HostPromiseRejectionTracker` operations — what changed is *when* the event is raised, not what it carries.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

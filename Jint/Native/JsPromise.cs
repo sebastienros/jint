@@ -53,6 +53,18 @@ internal sealed class JsPromise : ObjectInstance
     /// </summary>
     internal bool PromiseIsHandled { get; set; }
 
+    /// <summary>
+    /// Which of HTML's two rejection-notification lists this promise is in, for
+    /// <see cref="Engine.NotifyAboutRejectedPromises"/>.
+    /// </summary>
+    /// <remarks>
+    /// A byte on the promise rather than two collections on the engine, because the second of HTML's lists is
+    /// a <i>weak</i> set (https://html.spec.whatwg.org/multipage/webappapis.html#outstanding-rejected-promises):
+    /// membership expressed here dies with the promise, where an engine-held set of every rejection ever
+    /// announced would keep them all alive for the engine's lifetime.
+    /// </remarks>
+    internal PromiseRejectionNotification RejectionNotification { get; set; }
+
     // Allocated lazily on the first PerformPromiseThen against a pending promise;
     // nulled again on settle (a settled promise never accumulates reactions).
     internal List<PromiseReaction>? PromiseRejectReactions;

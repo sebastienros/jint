@@ -915,23 +915,35 @@ internal sealed class WebApiEngineState
     /// time this runs: a host with both channels wired sees the pre-existing event behave exactly as it did.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The <c>unhandledrejection</c> and <c>rejectionhandled</c> events of
-    /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections ride here too, and
-    /// therefore at the <i>tracker's</i> cadence rather than HTML's microtask checkpoint — the divergence
-    /// <see cref="DiagnosticEvent.RejectionHandled"/> documents, inherited whole. Cancelling
-    /// <c>unhandledrejection</c> suppresses a browser's console report; the sink is told regardless, for the
-    /// reason <see cref="ReportError"/> gives.
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections ride here too,
+    /// and therefore at HTML's own cadence: <see cref="Engine.NotifyAboutRejectedPromises"/> is the only
+    /// caller, and it runs from a microtask checkpoint over the promises that are still unhandled at it.
+    /// </para>
+    /// <para>
+    /// Cancelling <c>unhandledrejection</c> suppresses a browser's console report, and here it is HTML's
+    /// <i>notHandled</i>: what this returns decides whether a handler attached later completes the pair with
+    /// a <c>rejectionhandled</c>. The sink is told regardless, for the reason <see cref="ReportError"/>
+    /// gives — it is deliberately unsuppressible by script.
+    /// </para>
     /// </remarks>
-    internal void ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
+    /// <returns>
+    /// HTML's <i>notHandled</i> — false exactly when a listener called <c>preventDefault()</c> on an
+    /// <c>unhandledrejection</c> event.
+    /// </returns>
+    internal bool ReportPromiseRejection(JsPromise promise, PromiseRejectionOperation operation)
     {
+        var notHandled = true;
         if (_globalEventTarget is { } target)
         {
             var handled = operation == PromiseRejectionOperation.Handle;
             var reason = promise.State == PromiseState.Rejected ? promise.Value : JsValue.Undefined;
-            target.FireRejection(handled, promise, reason);
+            notHandled = target.FireRejection(handled, promise, reason);
         }
 
         Diagnostics?.Report(DiagnosticEvent.ForPromiseRejection(promise, operation));
+        return notHandled;
     }
 
     /// <summary>

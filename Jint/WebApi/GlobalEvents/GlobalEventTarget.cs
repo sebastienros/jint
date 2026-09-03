@@ -149,7 +149,12 @@ internal sealed class GlobalEventTarget : JsEventTarget
     /// </param>
     /// <param name="promise">The promise the tracker reported.</param>
     /// <param name="reason">Its rejection reason, or <c>undefined</c> when it is somehow no longer rejected.</param>
-    internal void FireRejection(bool handled, JsValue promise, JsValue reason)
+    /// <returns>
+    /// HTML's <i>notHandled</i> — false exactly when a listener cancelled the event, which HTML's step 3
+    /// reads as "the promise rejection is handled" and which therefore stops the promise entering the
+    /// outstanding set. Always true for <c>rejectionhandled</c>, which is not cancelable.
+    /// </returns>
+    internal bool FireRejection(bool handled, JsValue promise, JsValue reason)
     {
         var (type, typeName) = handled
             ? (GlobalEventNames.RejectionHandled, GlobalEventNames.RejectionHandledName)
@@ -157,11 +162,11 @@ internal sealed class GlobalEventTarget : JsEventTarget
 
         if (!HasListenerOfType(typeName))
         {
-            return;
+            return true;
         }
 
         var ev = _realm.Intrinsics.PromiseRejectionEvent.CreateTrustedRejection(type, promise, reason, cancelable: !handled);
-        FireReport(ev);
+        return FireReport(ev);
     }
 }
 
