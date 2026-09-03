@@ -5224,6 +5224,38 @@ There is no option that restores the old timing. A host that wants the report wh
 can subscribe to `PromiseRejectionTracker` and read `Operation`, which still names the two
 `HostPromiseRejectionTracker` operations — what changed is *when* the event is raised, not what it carries.
 
+### 4.123 An error is rendered without running its `name` or `message` accessor ([#3598](https://github.com/sebastienros/jint/issues/3598))
+
+`console.log(err)` and `console.error(err)` rendered an error through `Error.prototype.toString`, which is
+`Get("name")` plus `Get("message")`. Both are configurable on every error and definable on any subclass, so a
+script-defined accessor ran from a log statement — and a throwing one erupted out of it. That is the hole
+[#3316](https://github.com/sebastienros/jint/issues/3316) closed for a `Proxy`, left open for the value a
+console is handed most often.
+
+The console now reads both as descriptors, the way `Jint.Diagnostics.ValueInspector` already did: an own data
+property first, then the prototype chain for *data* properties only, and an accessor anywhere on the walk is
+treated as absent rather than called. A refused `name` falls back to the error's constructor name and then to
+`Error`; a refused `message` is simply absent.
+
+```js
+class Bad extends Error { get name() { throw new Error('name ran'); } }
+
+// 5.0: throws "name ran" out of the console.log call.
+// 5.x: prints "Bad: boom".
+console.log(new Bad('boom'));
+```
+
+A `DOMException` keeps its text in both renderers, which is the half that is *not* a refusal: its `name` and
+`message` are WebIDL prototype accessors by design, so they are answered from the instance's slots. That is a
+change to `ValueInspector.Describe` as well — `new DOMException('aborted', 'AbortError')` described as
+`DOMException` and now describes as `AbortError: aborted`.
+
+**What could break:** an error whose `name` or `message` is a script-defined accessor no longer renders as
+that accessor's value — in a console line, in a `console.table` cell, in `%o`/`%O`/`console.dir`, and in a
+`ValueDescription.Description`. Nothing changes for an ordinary error, including one built by a subclass that
+sets `this.name` in its constructor, because that is an own data property. A host that wants the accessor's
+value calls it itself and logs the string.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

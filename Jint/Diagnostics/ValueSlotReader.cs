@@ -1,5 +1,6 @@
 using Jint.Native;
 using Jint.Native.Date;
+using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -174,10 +175,61 @@ internal static class ValueSlotReader
     /// An error's <c>name</c> and <c>message</c> read as descriptors up the prototype chain, with an
     /// accessor anywhere on the walk treated as absent rather than called.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one exception is an <see cref="IErrorTextSlots"/>: its two properties are <i>intrinsic</i>
+    /// accessors — <c>DOMException</c>'s, defined that way by WebIDL — so refusing them would answer
+    /// <c>Error</c> for every <c>AbortError</c> the engine has. Answering from the slot is what the accessor
+    /// does, without the call, and nothing a script can install implements the interface. It is asked
+    /// <i>after</i> the walk rather than before it, because those accessors are configurable like any other
+    /// WebIDL attribute: an own data property a script defined over one is what the property <b>is</b>, and
+    /// is what a browser's console prints.
+    /// </para>
+    /// <para>
+    /// Everything else refuses an accessor, which is the whole promise: <c>name</c> and <c>message</c> are
+    /// both configurable on every error and definable on any subclass, so reading either through
+    /// <c>[[Get]]</c> makes rendering an error a way to run script — and to throw out of a log statement
+    /// (https://github.com/sebastienros/jint/issues/3598). An error whose <c>name</c> is refused falls back
+    /// to its constructor's name, which is the descriptor-only walk <see cref="ConstructorName"/> is, and
+    /// then to <c>Error</c>.
+    /// </para>
+    /// </remarks>
     internal static void ErrorText(ObjectInstance error, out string name, out string message)
     {
-        name = DataPropertyText(error, CommonProperties.Name) ?? ConstructorName(error) ?? "Error";
-        message = DataPropertyText(error, CommonProperties.Message) ?? string.Empty;
+        var slots = error as IErrorTextSlots;
+
+        name = DataPropertyText(error, CommonProperties.Name)
+            ?? slots?.ErrorNameSlot?.ToString()
+            ?? ConstructorName(error)
+            ?? "Error";
+
+        message = DataPropertyText(error, CommonProperties.Message)
+            ?? slots?.ErrorMessageSlot?.ToString()
+            ?? string.Empty;
+    }
+
+    /// <summary>
+    /// The one line an error renders as, from the two halves <see cref="ErrorText"/> read: the shape
+    /// <c>Error.prototype.toString</c> produces, and therefore what a console printed before it stopped
+    /// calling it.
+    /// </summary>
+    /// <remarks>
+    /// https://tc39.es/ecma262/#sec-error.prototype.tostring steps 8-10: an empty half is dropped along with
+    /// the separator, so a script that set <c>name</c> to <c>""</c> gets the message alone.
+    /// </remarks>
+    internal static string ErrorLine(string name, string message)
+    {
+        if (name.Length == 0)
+        {
+            return message;
+        }
+
+        if (message.Length == 0)
+        {
+            return name;
+        }
+
+        return name + ": " + message;
     }
 
     /// <summary>

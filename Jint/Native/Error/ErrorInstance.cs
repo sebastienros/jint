@@ -37,6 +37,34 @@ internal sealed record ClrErrorContext(
 /// </remarks>
 internal interface IErrorData;
 
+/// <summary>
+/// An error object that carries its <c>name</c> and <c>message</c> in internal slots, because the interface
+/// that defines it exposes them as <i>accessors</i> on its prototype rather than as own data properties.
+/// </summary>
+/// <remarks>
+/// <para>
+/// It exists for one reader: <c>Jint.Diagnostics.ValueSlotReader.ErrorText</c>, which may call nothing. A
+/// renderer that refuses every accessor is right about a script-defined one and wrong about
+/// <c>DOMException</c>, whose <c>name</c> and <c>message</c> are WebIDL prototype accessors by design
+/// (https://webidl.spec.whatwg.org/#idl-DOMException) — so without this, <c>console.log(e)</c> turns
+/// <c>AbortError: x</c> into <c>Error</c>. Answering from the slot is what the accessor itself does.
+/// </para>
+/// <para>
+/// An interface rather than a type test, because the type is in <c>Jint/WebApi/</c> and gated to
+/// <c>net8.0</c> while the reader is not: a <c>#if</c> in a shared reader is exactly what
+/// <c>Jint/Extensions/AGENTS.md</c> argues against. It is also what makes the answer un-spoofable — a script
+/// cannot construct an implementation, so nothing script installs can be mistaken for a slot.
+/// </para>
+/// </remarks>
+internal interface IErrorTextSlots
+{
+    /// <summary>The <c>name</c> the instance carries, or <see langword="null"/> when it carries none.</summary>
+    JsString? ErrorNameSlot { get; }
+
+    /// <summary>The <c>message</c> the instance carries, or <see langword="null"/> when it carries none.</summary>
+    JsString? ErrorMessageSlot { get; }
+}
+
 public class ErrorInstance : ObjectInstance
 {
     private protected ErrorInstance(Engine engine, ObjectClass objectClass)

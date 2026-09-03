@@ -137,6 +137,51 @@ public class ValueInspectorTests
     }
 
     [Test]
+    public void AnErrorWhoseMessageIsAThrowingGetterIsStillDescribed()
+    {
+        var engine = new Engine();
+        var calls = 0;
+        engine.SetValue("record", new Action(() => calls++));
+        var value = engine.Evaluate("""
+            (function () {
+                class Bad extends Error {
+                    get message() { record(); throw new Error('message ran'); }
+                }
+                return new Bad();
+            })()
+            """);
+
+        var description = ValueInspector.Describe(value);
+
+        calls.Should().Be(0);
+        description.Kind.Should().Be(ValueKind.Error);
+
+        // The message is refused and nothing is guessed in its place; the name is the one the subclass
+        // really has, Error.prototype's, read as a data property off the same chain.
+        description.Description.Should().Be("Error");
+    }
+
+#if NET8_0_OR_GREATER
+    /// <summary>
+    /// A <c>DOMException</c> keeps its text. Its <c>name</c> and <c>message</c> are WebIDL prototype
+    /// accessors by design (https://webidl.spec.whatwg.org/#idl-DOMException), so the refuse-every-accessor
+    /// rule answered <c>DOMException</c> for every one of them until the reader learned to ask the instance.
+    /// </summary>
+    [Test]
+    public void ADomExceptionIsDescribedByItsSlots()
+    {
+        var engine = new Engine(options => options.UseWebApis());
+
+        ValueInspector.Describe(engine.Evaluate("new DOMException('aborted', 'AbortError')")).Description
+            .Should().Be("AbortError: aborted");
+        ValueInspector.Describe(engine.Evaluate("new DOMException()")).Description
+            .Should().Be("Error");
+        ValueInspector.Describe(engine.Evaluate("new QuotaExceededError('too much')")).Description
+            .Should().Be("QuotaExceededError: too much");
+    }
+#endif
+
+    [Test]
     public void ACyclicObjectTerminates()
     {
         var description = Describe("(function () { var a = { name: 'a' }; a.self = a; return a; })()", new ValueInspectorOptions { MaxDepth = 32 });

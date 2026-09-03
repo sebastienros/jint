@@ -606,7 +606,12 @@ internal static class ConsoleFormatter
 
         if (obj is ErrorInstance error)
         {
-            builder.Append(error.ToString());
+            // Not error.ToString(), which is Error.prototype.toString and therefore Get("name") plus
+            // Get("message") — both configurable on every error and definable on any subclass, so a console
+            // that called them was a way to run script and to throw out of a log statement (#3598). The
+            // shared reader answers from descriptors, and from a DOMException's slots.
+            ValueSlotReader.ErrorText(error, out var name, out var message);
+            builder.Append(ValueSlotReader.ErrorLine(name, message));
             return;
         }
 
