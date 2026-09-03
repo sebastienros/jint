@@ -140,6 +140,99 @@ public class WptCensusTests
     }
 
     /// <summary>
+    /// The drift-verification recipe must walk the corpus that is actually vendored, and say how much of it
+    /// it walked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A verification statement is the one kind of prose that must never be typed.</b> The section that
+    /// checks the corpus against upstream used to end "verified at this pin: 359 files, 48 directories" —
+    /// four vendored suites out of date by the time
+    /// <see href="https://github.com/sebastienros/jint/issues/3647">#3647</see> was filed, and stale before
+    /// that. Nothing went red, because nothing was reading it: a figure describing what was checked reads
+    /// exactly the same whether it is true or three suites behind.
+    /// </para>
+    /// <para>
+    /// So the recipe and its figures are rendered from <see cref="WptCorpus.Paths"/> and held here. Free, like
+    /// the first test above and unlike the measured one: it counts what is embedded and runs no suite, so it
+    /// holds on every platform and in every filtered run. <c>JINT_WPT_CENSUS=update</c> rewrites the block,
+    /// the same maintenance procedure the inventory table has.
+    /// </para>
+    /// <para>
+    /// The outcome — no drift, no file absent upstream — stays prose after the block, because reproducing it
+    /// needs the network and a token. What the generated figures give it is a subject: when they move, the
+    /// sentence is about a corpus that no longer exists and the comparison has to be run again.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void TheDriftRecipeWalksTheCorpusThatIsVendored()
+    {
+        var rendered = WptCensus.RenderDrift();
+
+        if (WptCensus.UpdateRequested())
+        {
+            var path = WptCensus.WriteReadmeDrift(rendered);
+            Assert.Ignore($"{WptCensus.UpdateVariable} rewrote the drift-verification recipe in {path}.");
+        }
+
+        if (WptCensus.ReconcileDrift(rendered, WptCensus.ReadmeDrift()) is { } differences)
+        {
+            Assert.Fail(differences);
+        }
+    }
+
+    /// <summary>
+    /// Every extension the corpus vendors has to be one the recipe's <c>find</c> names.
+    /// </summary>
+    /// <remarks>
+    /// The half of the stale claim that was not merely stale but wrong: the recipe named five extensions
+    /// where the corpus vendors eight, so the <c>.asis</c> responses the xhr suites read as whole HTTP
+    /// messages, the <c>.headers</c> sidecars beside upstream's harness and two payload files were outside
+    /// every drift check ever run — silently, since a file the walk never lists cannot be reported missing.
+    /// This asserts the property directly rather than through the block comparison above, so it survives the
+    /// prose being reworded and names what is unwalked when it fails.
+    /// </remarks>
+    [Test]
+    public void TheDriftRecipeNamesEveryExtensionTheCorpusVendors()
+    {
+        var stated = WptCensus.ReadmeDrift();
+        var unwalked = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var path in WptCorpus.Paths)
+        {
+            var extension = Path.GetExtension(path);
+            if (!stated.Contains($"-name *{extension}", StringComparison.Ordinal))
+            {
+                unwalked.Add(extension);
+            }
+        }
+
+        unwalked.Should().BeEmpty(
+            "a vendored file the drift recipe's find does not list is one the comparison against upstream "
+            + "cannot report as drifted or as absent");
+    }
+
+    [Test]
+    public void ARecipeTheCorpusAgreesWithIsNotADifference()
+    {
+        WptCensus.ReconcileDrift(WptCensus.RenderDrift(), WptCensus.RenderDrift()).Should().BeNull();
+    }
+
+    [Test]
+    public void AStaleDriftRecipeSaysToRegenerateRatherThanToEdit()
+    {
+        // The failure mode this replaces was somebody typing the new numbers, so the message must not read
+        // as an invitation to do that again: it names the command, and says the run behind the sentence
+        // under the block was a run of a different corpus.
+        var message = WptCensus.ReconcileDrift(WptCensus.RenderDrift(), "349 files in 47 directories\n");
+
+        message.Should().NotBeNull();
+        message.Should().Contain($"{WptCensus.UpdateVariable}=update");
+        message.Should().Contain("run it again rather than to edit it");
+        message.Should().Contain("has to be run again");
+    }
+
+    /// <summary>
     /// A one-row table plus its total, which is the smallest thing the comparison has an opinion about.
     /// </summary>
     private static string Table(int files, int assertions, int notPassing, string standard = "Fetch", string suites = "`fetch/api/` ×5") =>
