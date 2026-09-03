@@ -1,0 +1,164 @@
+namespace Jint.Tests.Browser.Fixtures;
+
+/// <summary>
+/// The libraries that are not a rendering framework: React's hydration of server markup, jQuery, htmx and
+/// Alpine — and custom elements, which are the platform rather than a library.
+/// </summary>
+/// <remarks>
+/// Each is here because it reaches a part of the browser the TodoMVC four do not: hydration adopts nodes the
+/// parser made, jQuery makes a <i>synchronous</i> XMLHttpRequest, htmx swaps fragments in from the network
+/// and boosts an ordinary link into one, and Alpine compiles attributes it found by walking the document and
+/// keeps watching it with a <c>MutationObserver</c>.
+/// </remarks>
+public class LibraryFixtureTests
+{
+    /// <summary>
+    /// React hydrates the server's markup rather than replacing it, and reports nothing while doing so.
+    /// </summary>
+    /// <remarks>
+    /// The stamp is what makes this a hydration test rather than a rendering one: every node the document
+    /// arrived with is marked before <c>hydrateRoot</c> runs, and a node React threw away and rebuilt would
+    /// lose its mark. <c>onRecoverableError</c> is React's own mismatch report and has to stay empty.
+    /// </remarks>
+    [Test]
+    public async Task ReactHydratesServerRenderedMarkupWithoutAWarning()
+    {
+        await using var course = await FixtureCourse.OpenAsync("ssr-hydration");
+
+        await course.UntilAsync("window.__recovered && window.__recovered.length", "0");
+        await course.UntilAsync("window.__stampsKept()", "7");
+
+        (await course.TextAsync("#count")).Should().Be("count: 2");
+        (await course.TextsAsync(".notes li")).Should().Be("alpha|beta");
+
+        // And it is live: the adopted button carries the listener hydration attached to it.
+        await course.ClickAsync("#inc");
+        await course.UntilAsync("document.querySelector('#count').textContent", "count: 3");
+
+        // Still the server's nodes, after a client render on top of them.
+        await course.UntilAsync("window.__stampsKept()", "7");
+
+        course.Page.ConsoleMessages.Should().NotContain(message => message.Contains("Hydration", StringComparison.Ordinal));
+        course.ShouldHaveReportedNothing();
+    }
+
+    /// <summary>jQuery's synchronous <c>$.ajax</c>, its ready callback and its delegated events.</summary>
+    /// <remarks>
+    /// <c>async: false</c> is the interesting one. It is an <c>XMLHttpRequest</c> that blocks the page's own
+    /// thread until the origin answers, from inside a callback the page loop is running — so a page that
+    /// pumped its event loop to serve it would run its own timers in the middle of a script. It does not:
+    /// the request blocks on the transport directly.
+    /// </remarks>
+    [Test]
+    public async Task JQueryMakesASynchronousRequestAndDelegatesEvents()
+    {
+        await using var course = await FixtureCourse.OpenAsync("jquery");
+
+        await course.UntilAsync("document.querySelector('#ready').textContent", "yes");
+        (await course.TextAsync("#synchronous")).Should().Be("alpha,beta,gamma");
+
+        // A row that was in the document when the delegated handler was registered.
+        await course.ClickAtAsync("#list li", 0);
+        (await course.TextAsync("#clicked")).Should().Be("one");
+
+        // …and one that jQuery added afterwards, which is the whole reason delegation exists.
+        await course.ClickAsync("#add");
+        await course.UntilAsync("document.querySelectorAll('#list li').length", "3");
+
+        await course.ClickAtAsync("#list li", 2);
+        (await course.TextAsync("#clicked")).Should().Be("three");
+
+        course.ShouldHaveReportedNothing();
+    }
+
+    /// <summary>htmx's three entry points: a load trigger, a click that swaps, and a boosted link.</summary>
+    /// <remarks>
+    /// <b>The one fixture that does not pass, and it fails before htmx does anything.</b> htmx 2 evaluates
+    /// <c>const … = (new XPathEvaluator).createExpression(…)</c> at the top level of its bundle, to find the
+    /// <c>hx-on:</c> attributes, so the whole library is a <c>ReferenceError</c> on a browser with no XPath —
+    /// and there is none here, because AngleSharp keeps XPath in a package of its own
+    /// (<c>AngleSharp.XPath</c>) that nothing references. Nothing about <c>hx-get</c>, <c>hx-swap</c>,
+    /// <c>hx-trigger</c> or <c>hx-boost</c> has been reached, let alone refuted. The row in
+    /// <c>Fixtures/README.md</c> is the record; remove this attribute when the XPath family exists.
+    /// </remarks>
+    [Test]
+    [Explicit("htmx: htmx 2 constructs an XPathEvaluator at load, and this browser has no XPath, so the bundle is a ReferenceError before any hx- attribute is read.")]
+    public async Task HtmxSwapsFragmentsAndBoostsALink()
+    {
+        await using var course = await FixtureCourse.OpenAsync("htmx");
+
+        // hx-trigger="load": nobody interacted, and the fragment is already in.
+        await course.UntilAsync("document.querySelector('#on-load').textContent.trim()", "hello from the server");
+
+        await course.ClickAsync("#fetch-rows");
+        await course.UntilAsync("document.querySelectorAll('#rows .rows li').length", "3");
+        (await course.TextsAsync("#rows .rows li")).Should().Be("alpha|beta|gamma");
+
+        // hx-boost turns the link into a fetch and a pushState: the document is never replaced, so this is
+        // not a navigation, and the URL moves anyway.
+        await course.ClickAsync("#boosted");
+        await course.UntilAsync("document.querySelector('#heading').textContent", "next page");
+        await course.UntilAsync("location.pathname", "/htmx/next.html");
+        (await course.TextAsync("#arrived")).Should().Be("arrived by boost");
+
+        course.ShouldHaveReportedNothing();
+    }
+
+    /// <summary>Alpine's <c>x-data</c>, <c>x-model</c>, <c>x-text</c> and <c>x-show</c>.</summary>
+    [Test]
+    public async Task AlpineBindsAModelAndShowsAndHides()
+    {
+        await using var course = await FixtureCourse.OpenAsync("alpine");
+
+        await course.UntilAsync("document.querySelector('#greeting').textContent", "nobody");
+
+        // x-show is a `display` on the element's own style, so this is also a test that the style attribute
+        // Alpine writes reaches the CSSOM the page reads back.
+        await course.UntilAsync("document.querySelector('#details').style.display", "none");
+
+        await course.TypeAsync("#name", "Ada");
+        await course.UntilAsync("document.querySelector('#greeting').textContent", "hello Ada");
+        await course.UntilAsync("document.querySelector('#length').textContent", "3");
+
+        await course.ClickAsync("#toggle");
+        await course.UntilAsync("document.querySelector('#details').style.display", "");
+
+        await course.ClickAsync("#toggle");
+        await course.UntilAsync("document.querySelector('#details').style.display", "none");
+
+        course.ShouldHaveReportedNothing();
+    }
+
+    /// <summary>
+    /// A custom element upgraded by the parser, moved through the tree, and told its attribute changed.
+    /// </summary>
+    /// <remarks>
+    /// <b>Explicit, and the fixture is checked in anyway.</b> <c>customElements</c> does not exist on this
+    /// branch — campaign item C6 is the one that adds the registry, the upgrade and the four reactions — so
+    /// this case is a fixture waiting for it rather than a stub of it. Remove the attribute when C6 lands;
+    /// the fixture needs no change, which is the point of writing it now.
+    /// </remarks>
+    [Test]
+    [Explicit("custom-elements: customElements is campaign item C6 and is not on this branch; the fixture is here so that C6 has something to turn on.")]
+    public async Task ACustomElementIsUpgradedAndHearsItsReactions()
+    {
+        await using var course = await FixtureCourse.OpenAsync("custom-elements");
+
+        await course.UntilAsync("document.querySelector('#reactions').textContent", "defined");
+
+        // The parser made `<my-counter id="first">` before the definition existed, so this is an upgrade.
+        await course.UntilAsync("document.querySelector('#first').textContent", "count 2");
+        (await course.TextAsync("#reactions")).Should().Be("defined");
+
+        await course.Page.EvaluateAsync("__addOne()");
+        await course.UntilAsync("document.querySelector('#second').textContent", "count 10");
+
+        await course.ClickAsync("#first");
+        await course.UntilAsync("document.querySelector('#first').textContent", "count 3");
+
+        await course.Page.EvaluateAsync("__removeOne()");
+        await course.UntilAsync("window.__reactions().indexOf('disconnected:second') >= 0", "true");
+
+        course.ShouldHaveReportedNothing();
+    }
+}

@@ -58,6 +58,17 @@ internal sealed class LoopbackServer : IDisposable
     /// <summary>Every request the server has answered, oldest first.</summary>
     internal IReadOnlyList<LoopbackRequest> Received => _received.ToArray();
 
+    /// <summary>
+    /// Answers a path no <see cref="Map"/> claimed, or <see langword="null"/> to let the 404 stand.
+    /// </summary>
+    /// <remarks>
+    /// A route table is right for a navigation test, which serves five documents it wrote; it is wrong for a
+    /// fixture, which is a directory of files nobody wants to enumerate into <c>Map</c> calls. So the
+    /// obstacle course hangs its corpus here and still registers routes for the handful of paths a fixture
+    /// asks the server to compute — a redirect, a JSON body, a <c>Set-Cookie</c>.
+    /// </remarks>
+    internal Func<LoopbackRequest, LoopbackResponse?>? Fallback { get; set; }
+
     /// <summary>Registers a handler for one path.</summary>
     internal LoopbackServer Map(string path, Func<LoopbackRequest, LoopbackResponse> handler)
     {
@@ -113,7 +124,7 @@ internal sealed class LoopbackServer : IDisposable
 
                 var response = _routes.TryGetValue(request.Path, out var handler)
                     ? handler(request)
-                    : LoopbackResponse.NotFound(request.Path);
+                    : Fallback?.Invoke(request) ?? LoopbackResponse.NotFound(request.Path);
 
                 await WriteAsync(stream, response, _stopping.Token).ConfigureAwait(false);
             }

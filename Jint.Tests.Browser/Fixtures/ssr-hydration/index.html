@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SSR hydration</title>
+</head>
+<body>
+  <!--
+    The markup below is exactly what `ReactDOMServer.renderToString` emits for `App` in app.js with
+    `{ start: 2, notes: ['alpha', 'beta'] }` -- see Fixtures/README.md for the command that produced it. It is
+    checked in rather than computed so that the fixture is a *server*-rendered document, which is the whole
+    point: hydration has to adopt these nodes rather than replace them, and a mismatch has to be visible.
+  -->
+  <div id="root"><div class="app"><h1>Hydrated</h1><p id="count">count: 2</p><button id="inc">increment</button><ul class="notes"><li>alpha</li><li>beta</li></ul></div></div>
+
+  <script src="/vendor/react-18.3.1/react.production.min.js"></script>
+  <script src="/vendor/react-18.3.1/react-dom.production.min.js"></script>
+  <script src="/ssr-hydration/app.js"></script>
+</body>
+</html>

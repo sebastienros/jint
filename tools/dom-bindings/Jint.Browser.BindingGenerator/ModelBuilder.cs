@@ -86,7 +86,7 @@ internal sealed class ModelBuilder
             }
         }
 
-        _conversions = new Conversions(_model, LookupInterface, t => _stringEnums.Contains(t.FullName!));
+        _conversions = new Conversions(_model, LookupInterface, t => _stringEnums.Contains(t.FullName!), IsNullableParameter);
 
         foreach (var model in _byClrName.Values)
         {
@@ -884,6 +884,26 @@ internal sealed class ModelBuilder
     private bool IsNullableString(InterfaceModel model, string domName)
         => _overrides.NullableStrings.Any(n => n.Interface == model.DomName && n.Member == domName);
 
+    /// <summary>Whether the override table declares one argument of a member nullable.</summary>
+    /// <remarks>
+    /// The qualified name is what the emitted conversion already carries — <c>Node.insertBefore</c> — so the
+    /// lookup needs nothing the caller does not have, and an entry naming a member of an interface that
+    /// inherits it applies wherever that member is emitted.
+    /// </remarks>
+    private bool IsNullableParameter(string qualified, int index)
+    {
+        var dot = qualified.LastIndexOf('.');
+        if (dot <= 0)
+        {
+            return false;
+        }
+
+        var iface = qualified[..dot];
+        var member = qualified[(dot + 1)..];
+
+        return _overrides.NullableParameters.Any(n => n.Interface == iface && n.Member == member && n.Parameter == index);
+    }
+
     private static bool IsParams(ParameterInfo parameter)
         => parameter.GetCustomAttributesData().Any(a => a.AttributeType.FullName == "System.ParamArrayAttribute");
 
@@ -1179,6 +1199,11 @@ internal sealed class ModelBuilder
         foreach (var entry in _overrides.NullableStrings)
         {
             Check("nullableStrings", entry.Interface, entry.Member, entry.Reason);
+        }
+
+        foreach (var entry in _overrides.NullableParameters)
+        {
+            Check("nullableParameters", entry.Interface, entry.Member, entry.Reason);
         }
 
         // The additions are checked the other way round: the interface has to exist, and the member has to

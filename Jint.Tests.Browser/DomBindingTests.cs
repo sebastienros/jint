@@ -158,6 +158,37 @@ public sealed class DomBindingTests
         fixture.Text("document.querySelector('#list').firstElementChild.textContent").Should().Be("two");
     }
 
+    /// <summary>
+    /// <c>insertBefore(node, null)</c> appends, because WebIDL's second parameter is <c>Node?</c>.
+    /// </summary>
+    /// <remarks>
+    /// Not an edge case: it is how a virtual DOM adds its last row, and the obstacle course's Vue and Preact
+    /// fixtures both died on it with
+    /// <c>TypeError: Failed to execute 'Node.insertBefore': parameter 2 is not of the expected type</c>
+    /// before <c>overrides.json</c>'s <c>nullableParameters</c> table existed. <c>Node.contains(null)</c> and
+    /// <c>Node.isEqualNode(null)</c> are the same rule and are <i>not</i> fixed here: AngleSharp annotates
+    /// both parameters non-nullable and does not implement the null arm, so they are a row in the divergence
+    /// table rather than a null this binding forwards.
+    /// </remarks>
+    [Test]
+    public void ANullNodeIsLegalWhereWebIdlSaysItIs()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        fixture.Evaluate("""
+            var li = document.createElement('li');
+            li.textContent = 'four';
+            document.querySelector('#list').insertBefore(li, null);
+            """);
+
+        fixture.Text("document.querySelector('#list').lastElementChild.textContent").Should().Be("four");
+        fixture.Number("document.querySelectorAll('#list li').length").Should().Be(4);
+
+        // And the required half is still required: `appendChild(null)` is a TypeError, not an append.
+        var refused = () => fixture.Evaluate("document.querySelector('#list').appendChild(null)");
+        refused.Should().Throw<Jint.Runtime.JavaScriptException>().WithMessage("*not of the expected type*");
+    }
+
     [Test]
     public void ReflectedAttributesRoundTripThroughTheirIdlTypes()
     {

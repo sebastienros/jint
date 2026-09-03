@@ -53,3 +53,15 @@ tools/devtools-protocol/jint_protocol.json text eol=lf
 # collapsed in pull-request review and excluded from language statistics for the same reason.
 Jint.DevTools/Protocol/Generated/*.g.cs linguist-generated=true
 Jint.Browser/Dom/Generated/*.g.cs linguist-generated=true
+
+# The obstacle course's vendored half: each library's own published bundle and its licence, byte for byte, so
+# that re-downloading at the pinned version produces no diff. Upstream publishes LF, so pin the working tree
+# to LF rather than letting autocrlf rewrite it — the same arrangement the web-platform-tests corpus is under.
+# linguist-vendored so the minified bundles do not count as this repository's source; the fixture pages and
+# the C# beside them are ours and are deliberately not marked.
+Jint.Tests.Browser/Fixtures/vendor/** linguist-vendored
+Jint.Tests.Browser/Fixtures/vendor/** text eol=lf
+
+# Svelte has no runtime a page can load, so this fixture's app is build output rather than a download. It
+# carries Svelte's own runtime inlined, which is why it is vendored too.
+Jint.Tests.Browser/Fixtures/todomvc-svelte/todomvc.bundle.js linguist-vendored

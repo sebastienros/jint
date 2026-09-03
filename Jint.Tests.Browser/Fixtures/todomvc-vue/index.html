@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TodoMVC &mdash; Vue 3</title>
+</head>
+<body>
+  <!--
+    An in-DOM template, deliberately: Vue's compiler reads the mount element's own markup, so this fixture
+    exercises the parse of `v-`, `:` and `@` attributes and the mustache text nodes as much as it exercises
+    Vue. A `template:` string in the options object would skip all of it.
+  -->
+  <div id="app">
+    <section class="todoapp">
+      <header class="header">
+        <h1>todos</h1>
+        <input class="new-todo" placeholder="What needs to be done?" v-model="draft" @keydown.enter="add">
+      </header>
+      <section class="main">
+        <ul class="todo-list">
+          <li v-for="todo in visible" :key="todo.id" :class="{ completed: todo.done }" :data-id="todo.id">
+            <input class="toggle" type="checkbox" v-model="todo.done">
+            <label>{{ todo.title }}</label>
+            <button class="destroy" @click="destroy(todo)">x</button>
+          </li>
+        </ul>
+      </section>
+      <footer class="footer">
+        <span class="todo-count"><strong>{{ remaining }}</strong> items left</span>
+        <ul class="filters">
+          <li><a :class="{ selected: filter === 'all' }" href="#/">All</a></li>
+          <li><a :class="{ selected: filter === 'active' }" href="#/active">Active</a></li>
+          <li><a :class="{ selected: filter === 'completed' }" href="#/completed">Completed</a></li>
+        </ul>
+      </footer>
+    </section>
+  </div>
+
+  <script src="/vendor/vue-3.5.22/vue.global.prod.js"></script>
+  <script src="/todomvc-vue/app.js"></script>
+</body>
+</html>

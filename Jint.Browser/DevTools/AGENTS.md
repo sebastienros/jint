@@ -86,10 +86,24 @@ target/runtime split and the manifest are there and none of it is repeated here.
 `Jint.Tests.Browser/DevTools/` holds the handshake replay of every step four recorded clients walked but the
 two no domain here answers, `PageProtocolManifestTests` (the page half of the property `Jint.Tests.DevTools`
 holds for the engine half), a suite per domain — `DomDomainTests`, `NetworkDomainTests`, `FetchDomainTests`,
-`EmulationDomainTests`, `AccessibilityDomainTests`, `FrontEndDomainTests` — and the PuppeteerSharp suite, the
-only test here that can claim client compatibility: it is what says `$`, `$$`, `click`, `waitForSelector`, a
-bounding box, `emulateMediaFeatures`, `emulateTimezone`, `setJavaScriptEnabled` and
-`accessibility.snapshot()` work through a library nobody here wrote.
+`EmulationDomainTests`, `AccessibilityDomainTests`, `FrontEndDomainTests` — and the two client suites, the
+only tests here that can claim client compatibility, because they are the only ones that satisfy a library
+nobody here wrote.
+
+**Two clients rather than one, and the second is not a duplicate.** `PuppeteerSharpPageTests` and
+`PuppeteerSharpCourseTests` say that `$`, `$$`, `click`, `waitForSelector`, a bounding box,
+`emulateMediaFeatures`, `emulateTimezone`, `setJavaScriptEnabled` and `accessibility.snapshot()` work;
+`PlaywrightCourseTests` drives the same pages over `connectOverCDP` and asks for different things at every
+step — an HTTP discovery document rather than a socket address, a `browserContextId` on *every* page target,
+`scrollIntoViewIfNeeded` + `getContentQuads` rather than `describeNode`, `Storage.getCookies` on the browser
+session rather than the page's. Four defects came out of that difference alone (`Target.getTargetInfo` with
+no identifier, the default context naming nothing, `Node.getRootNode`, browser-session `Storage`), and none
+of them was reachable from the recorded handshake, which pins what a client *sends* rather than what it is
+told. Playwright's suite is gated on `JINT_BROWSER_CLIENTS` because its driver is a Node process; the
+`browser-clients` CI leg sets it, and also proves the gate switches.
+
+The pages both suites drive are the obstacle course, `Jint.Tests.Browser/Fixtures/`: real vendored libraries
+on a real origin, so what a client is driving is a page rather than a document written to be driven.
 
 ### The request log is the protocol's seam too
 

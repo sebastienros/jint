@@ -28,6 +28,46 @@
   "skip": [
     {
       "interface": "Document",
+      "member": "querySelector",
+      "reason": "DOM requires a SyntaxError DOMException for a selector that cannot be parsed, and a page has to be able to catch it -- jQuery's own support detection asks for `:has(*,:jqfake)` inside a try. AngleSharp raises a CLR AngleSharp.Dom.DomException instead, which walks through a script's catch and out of the page loop, and AngleSharp.Css NREs outright on that input. Re-declared in `additions` over the same AngleSharp call, wrapped so that the failure is the DOMException the standard names."
+    },
+    {
+      "interface": "Document",
+      "member": "querySelectorAll",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelector",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelectorAll",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelector",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelectorAll",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "Element",
+      "member": "matches",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "Element",
+      "member": "closest",
+      "reason": "Re-declared in `additions` for the reason Document.querySelector gives: the refusal has to be a DOMException a page can catch."
+    },
+    {
+      "interface": "Document",
       "member": "createEvent",
       "reason": "Returns an AngleSharp Event. Every script-visible event in this design is a Jint Event dispatched through the engine's own tree dispatcher (design doc §5), and letting AngleSharp's event objects reach script would create a second event bus with a second brand."
     },
@@ -120,6 +160,105 @@
   ],
 
   "additions": [
+    {
+      "interface": "Node",
+      "member": "getRootNode",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.getRootNode\");",
+        "return global::Jint.Browser.Dom.DomNodeMembers.GetRootNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})`. AngleSharp has no [DomName] for it at all, so nothing could generate it -- and it is not a corner: a library asks it to tell a node in the document from one in a shadow tree or in a detached fragment, and Playwright's injected script calls it on every element it touches."
+    },
+    {
+      "interface": "Document",
+      "member": "querySelector",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.querySelector\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"Document.querySelector\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "Document",
+      "member": "querySelectorAll",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.querySelectorAll\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"Document.querySelectorAll\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelector",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, \"DocumentFragment.querySelector\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"DocumentFragment.querySelector\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "DocumentFragment",
+      "member": "querySelectorAll",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, \"DocumentFragment.querySelectorAll\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"DocumentFragment.querySelectorAll\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelector",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.querySelector\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, \"Element.querySelector\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "querySelectorAll",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.querySelectorAll\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, \"Element.querySelectorAll\");"
+      ],
+      "reason": "DOM §4.2.6, re-declared so that an unparseable selector is the SyntaxError DOMException the standard prescribes rather than a CLR exception the page cannot catch. See Dom/DomSelectorMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "matches",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.matches\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, \"Element.matches\");"
+      ],
+      "reason": "DOM §4.9, re-declared for the same reason as querySelector: the refusal has to be catchable."
+    },
+    {
+      "interface": "Element",
+      "member": "closest",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.closest\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.Closest(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9, re-declared for the same reason as querySelector: the refusal has to be catchable."
+    },
     {
       "interface": "DOMImplementation",
       "member": "createHTMLDocument",
@@ -735,6 +874,15 @@
       "interface": "Node",
       "member": "lookupNamespaceURI",
       "reason": "DOM §4.4: `DOMString? lookupNamespaceURI(DOMString? prefix)`."
+    }
+  ],
+
+  "nullableParameters": [
+    {
+      "interface": "Node",
+      "member": "insertBefore",
+      "parameter": 1,
+      "reason": "DOM §4.4: `Node insertBefore(Node node, Node? child)` — a null child appends, which is how every virtual DOM adds its last row. AngleSharp annotates the parameter nullable and implements it, but the emitter reads C# optionality rather than nullable-reference metadata, so the table is where WebIDL's nullability is stated."
     }
   ],
 

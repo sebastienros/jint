@@ -365,5 +365,10 @@ public class TargetRuntimeTests
 
         public ValueTask CloseTargetAsync(DevToolsTarget target, CancellationToken cancellationToken)
             => target.CloseAsync();
+
+        /// <summary>A host with nothing of its own to answer about the browser, which is the ordinary case.</summary>
+        public void RegisterBrowserDomains(Jint.DevTools.Session.DevToolsSession session)
+        {
+        }
     }
 }

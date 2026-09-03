@@ -56,6 +56,18 @@ internal interface ITargetHost
     /// <param name="target">The target to close.</param>
     /// <param name="cancellationToken">Cancels the close.</param>
     ValueTask CloseTargetAsync(DevToolsTarget target, CancellationToken cancellationToken);
+
+    /// <summary>Registers whatever domains the host answers on the <b>browser</b> session.</summary>
+    /// <param name="session">The root session of one conversation.</param>
+    /// <remarks>
+    /// A target's own domains are registered per attachment; this is the other half, and it exists because
+    /// some commands are about the browser rather than about a page. <c>Storage.getCookies</c> is the one
+    /// that made it necessary: Puppeteer asks a page's session for its cookies and Playwright asks the
+    /// browser's session for a <i>context</i>'s, so a server that registered the domain on page sessions only
+    /// answered one of the two clients and <c>-32601</c>'d the other. Called once per conversation, before
+    /// anything is read from it.
+    /// </remarks>
+    void RegisterBrowserDomains(Session.DevToolsSession session);
 }
 
 /// <summary>

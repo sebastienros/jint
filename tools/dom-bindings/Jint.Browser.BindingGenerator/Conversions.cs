@@ -12,12 +12,18 @@ internal sealed class Conversions
     private readonly BindingModel _model;
     private readonly Func<Type, InterfaceModel?> _lookup;
     private readonly Func<Type, bool> _isStringEnum;
+    private readonly Func<string, int, bool> _isNullableParameter;
 
-    internal Conversions(BindingModel model, Func<Type, InterfaceModel?> lookup, Func<Type, bool> isStringEnum)
+    internal Conversions(
+        BindingModel model,
+        Func<Type, InterfaceModel?> lookup,
+        Func<Type, bool> isStringEnum,
+        Func<string, int, bool> isNullableParameter)
     {
         _model = model;
         _lookup = lookup;
         _isStringEnum = isStringEnum;
+        _isNullableParameter = isNullableParameter;
     }
 
     /// <summary>
@@ -218,7 +224,14 @@ internal sealed class Conversions
 
         if (type.IsInterface && _lookup(type) is not null)
         {
-            code = optional
+            // Optional means WebIDL's `optional`, which lets the argument be left out; the override table is
+            // what says a *required* argument may be null. The two are read differently and only the first
+            // is read here: C# optionality is a default value in the signature, while nullability is
+            // nullable-reference metadata this emitter deliberately does not decode -- doing so would flip
+            // every parameter AngleSharp happens to annotate, in one unreviewable change. So `Node? child`
+            // is a table entry, and without it `insertBefore(node, null)` -- how every virtual DOM appends
+            // its last row -- is a TypeError.
+            code = optional || _isNullableParameter(member, index)
                 ? "global::Jint.Browser.Dom.DomBindings.NullableArgument<" + CSharpNames.Render(type) + ">(args, " + index + ", " + CSharpNames.Literal(member) + ")"
                 : "global::Jint.Browser.Dom.DomBindings.Argument<" + CSharpNames.Render(type) + ">(args, " + index + ", " + CSharpNames.Literal(member) + ")";
             return true;

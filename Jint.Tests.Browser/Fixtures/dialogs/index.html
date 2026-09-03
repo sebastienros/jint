@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dialogs</title>
+</head>
+<body>
+  <button id="warn">alert</button>
+  <button id="ask">confirm</button>
+  <button id="name">prompt</button>
+
+  <p id="alerted">no</p>
+  <p id="confirmed">?</p>
+  <p id="prompted">?</p>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // A dialog does not block this page -- the host answers from a decision it already holds -- so every
+      // one of these returns to the same script that called it, with the answer the host had standing.
+      document.getElementById('warn').addEventListener('click', function () {
+        alert('the file could not be saved');
+        document.getElementById('alerted').textContent = 'yes';
+      });
+
+      document.getElementById('ask').addEventListener('click', function () {
+        document.getElementById('confirmed').textContent = String(confirm('delete everything?'));
+      });
+
+      document.getElementById('name').addEventListener('click', function () {
+        document.getElementById('prompted').textContent = String(prompt('what is your name?', 'anonymous'));
+      });
+    })();
+  </script>
+</body>
+</html>

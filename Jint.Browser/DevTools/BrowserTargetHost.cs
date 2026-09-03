@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jint.Browser.Runtime;
 using Jint.DevTools;
 
 namespace Jint.Browser.DevTools;
@@ -61,6 +62,17 @@ internal sealed class BrowserTargetHost : ITargetHost
 
     private int _nextContext;
 
+    /// <summary>The identifier the browser's own default context is named by.</summary>
+    /// <remarks>
+    /// <b>Chrome's default browser context has an identifier and every page in it reports one</b>, and a
+    /// client is entitled to rely on that: Playwright asserts <c>targetInfo.browserContextId</c> on every
+    /// target it attaches to and kills its driver process outright without it, which is how this was found.
+    /// It is deliberately <i>not</i> in <see cref="BrowserContextIds"/> and cannot be disposed, because
+    /// Chrome's <c>Target.getBrowserContexts</c> lists the contexts a client created rather than the one it
+    /// was given, and Puppeteer's own bookkeeping depends on that distinction.
+    /// </remarks>
+    private const string DefaultContextId = "JINTBROWSERCONTEXTDEFAULT";
+
     internal BrowserTargetHost(Browser browser, DevToolsServer server)
     {
         _browser = browser;
@@ -92,6 +104,7 @@ internal sealed class BrowserTargetHost : ITargetHost
         BrowserContext? context;
         lock (_gate)
         {
+            // The default context is not one a client created, so it is not one a client may dispose.
             _byId.TryGetValue(browserContextId, out context);
         }
 
@@ -132,8 +145,9 @@ internal sealed class BrowserTargetHost : ITargetHost
 
         // Registered before the navigation, and holding it when the client asked to attach before anything
         // runs: a target that navigated first would have run the first document's scripts before any client
-        // could see the frame start.
-        var target = await AdoptAsync(page, request.BrowserContextId, request.WaitForDebugger).ConfigureAwait(false);
+        // could see the frame start. The context is named from the context rather than from the request, so
+        // that a createTarget with no browserContextId still produces a target that names the default one.
+        var target = await AdoptAsync(page, IdOf(context), request.WaitForDebugger).ConfigureAwait(false);
 
         var url = string.IsNullOrEmpty(request.Url) ? "about:blank" : request.Url;
         if (!string.Equals(url, "about:blank", StringComparison.Ordinal))
@@ -155,6 +169,17 @@ internal sealed class BrowserTargetHost : ITargetHost
     /// <inheritdoc/>
     public ValueTask CloseTargetAsync(DevToolsTarget target, CancellationToken cancellationToken)
         => target is PageTarget page ? new ValueTask(page.Page.CloseAsync()) : default;
+
+    /// <inheritdoc/>
+    public void RegisterBrowserDomains(Jint.DevTools.Session.DevToolsSession session)
+        => session.Register(new BrowserStorageDomain(this));
+
+    /// <summary>The network position -- the client, the filter and the jar -- one context loads through.</summary>
+    /// <remarks>
+    /// It is what the browser-session <c>Storage</c> commands read: they name a context rather than a page,
+    /// and a context is exactly what owns a cookie jar.
+    /// </remarks>
+    internal PageNetwork NetworkOf(string? browserContextId) => Resolve(browserContextId).Network;
 
     /// <summary>Publishes every page the browser already has, and every one it opens from now on.</summary>
     internal async Task StartAsync()
@@ -256,7 +281,7 @@ internal sealed class BrowserTargetHost : ITargetHost
 
     private BrowserContext Resolve(string? browserContextId)
     {
-        if (string.IsNullOrEmpty(browserContextId))
+        if (string.IsNullOrEmpty(browserContextId) || string.Equals(browserContextId, DefaultContextId, StringComparison.Ordinal))
         {
             return _browser.DefaultContext;
         }
@@ -272,12 +297,12 @@ internal sealed class BrowserTargetHost : ITargetHost
         return Jint.DevTools.Throw.ServerError<BrowserContext>("Failed to find context with id " + browserContextId);
     }
 
-    /// <summary>The identifier of a context, minted on first sight; the default context has none.</summary>
+    /// <summary>The identifier of a context, minted on first sight.</summary>
     private string? IdOf(BrowserContext context)
     {
         if (ReferenceEquals(context, _browser.DefaultContext))
         {
-            return null;
+            return DefaultContextId;
         }
 
         lock (_gate)

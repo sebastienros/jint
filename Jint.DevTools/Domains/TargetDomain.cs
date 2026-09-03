@@ -69,10 +69,23 @@ internal sealed class TargetDomain : TargetDomainBase
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// <b><c>targetId</c> is optional, and leaving it out is not an edge case.</b> The protocol says "if not
+    /// specified, returns info about the target the session is attached to", and on the browser session that
+    /// is the browser itself. Playwright's <c>connectOverCDP</c> sends exactly that, with no parameters at
+    /// all, immediately after <c>Target.setAutoAttach</c> and before it will do anything else — so a server
+    /// that answered <c>-32000</c> here refused every Playwright connection at the handshake, which is how
+    /// this was found.
+    /// </remarks>
     protected override ValueTask<GetTargetInfoResponse> GetTargetInfoAsync(GetTargetInfoRequest parameters, CommandContext context)
     {
-        var target = Find(parameters.TargetId);
-        return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = Describe(target) });
+        if (parameters.TargetId is { } targetId)
+        {
+            return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = Describe(Find(targetId)) });
+        }
+
+        var own = _owner is null ? BrowserTargetInfo() : Describe(_owner);
+        return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = own });
     }
 
     /// <inheritdoc/>
@@ -365,6 +378,17 @@ internal sealed class TargetDomain : TargetDomainBase
 
     private TargetInfo Describe(DevToolsTarget target, bool attached = false)
         => target.Describe(attached || _browser.SessionIdOf(target) is not null);
+
+    /// <summary>The browser itself, as Chrome describes it on the session that is attached to nothing else.</summary>
+    private TargetInfo BrowserTargetInfo() => new()
+    {
+        TargetId = _browser.Server.BrowserId,
+        Type = "browser",
+        Title = "",
+        Url = "",
+        Attached = true,
+        CanAccessOpener = false,
+    };
 
     [System.Diagnostics.CodeAnalysis.DoesNotReturn]
     private static void RefuseUnflattened()

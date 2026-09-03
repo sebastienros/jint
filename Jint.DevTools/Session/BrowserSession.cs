@@ -30,6 +30,10 @@ internal sealed class BrowserSession
         _targets = new TargetDomain(this, nested: false);
 
         BuiltInDomains.RegisterBrowserDomains(Session, server.Version, closeRequested, _targets, server);
+
+        // And whatever the host answers about the browser rather than about one page. A server with no host
+        // has no such commands, which is why this is the only place that asks.
+        server.Host?.RegisterBrowserDomains(Session);
     }
 
     /// <summary>Gets the server whose targets this session sees.</summary>

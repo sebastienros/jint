@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Modules and an import map</title>
+
+  <!--
+    Three things the loader has to get right: a bare specifier, a trailing-slash prefix that maps a whole
+    directory, and the fact that a dynamic `import()` inside a module resolves against the same map.
+  -->
+  <script type="importmap">
+    {
+      "imports": {
+        "counter": "/modules-importmap/counter.mjs",
+        "util/": "/modules-importmap/util/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <p id="counter">pending</p>
+  <p id="label">pending</p>
+  <p id="late">pending</p>
+  <p id="order">pending</p>
+
+  <script type="module" src="/modules-importmap/main.mjs"></script>
+</body>
+</html>

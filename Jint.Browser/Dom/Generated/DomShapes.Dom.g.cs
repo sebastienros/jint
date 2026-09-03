@@ -83,6 +83,13 @@ internal static partial class DomInterfaces
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.firstChild");
                     return self.Realm.WrapNodeValue(self.Target.FirstChild);
                 })
+            .Method("getRootNode",
+                static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.getRootNode");
+                    return global::Jint.Browser.Dom.DomNodeMembers.GetRootNode(self.Realm, self.Target, args);
+                },
+                length: 0)
             .Method("hasChildNodes",
                 static (thisObj, args) =>
                 {
@@ -94,7 +101,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.insertBefore");
-                    return self.Realm.WrapNodeValue(self.Target.InsertBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.insertBefore"), global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 1, "Node.insertBefore")));
+                    return self.Realm.WrapNodeValue(self.Target.InsertBefore(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Dom.INode>(args, 0, "Node.insertBefore"), global::Jint.Browser.Dom.DomBindings.NullableArgument<global::AngleSharp.Dom.INode>(args, 1, "Node.insertBefore")));
                 },
                 length: 2)
             .Accessor("isConnected",
@@ -1035,14 +1042,14 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.querySelector")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, "Document.querySelector");
                 },
                 length: 1)
             .Method("querySelectorAll",
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.querySelectorAll");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.querySelectorAll")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, "Document.querySelectorAll");
                 },
                 length: 1)
             .Accessor("readyState",
@@ -1186,14 +1193,14 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.querySelector")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, "DocumentFragment.querySelector");
                 },
                 length: 1)
             .Method("querySelectorAll",
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentFragment>(thisObj, "DocumentFragment.querySelectorAll");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DocumentFragment.querySelectorAll")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, "DocumentFragment.querySelectorAll");
                 },
                 length: 1)
             .Build();
@@ -1353,7 +1360,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.closest");
-                    return self.Realm.WrapNodeValue(self.Target.Closest(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.closest")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.Closest(self.Realm, self.Target, args);
                 },
                 length: 1)
             .Accessor("firstElementChild",
@@ -1481,7 +1488,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.matches");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Matches(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.matches")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, "Element.matches");
                 },
                 length: 1)
             .Accessor("namespaceURI",
@@ -1530,14 +1537,14 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.querySelector");
-                    return self.Realm.WrapNodeValue(self.Target.QuerySelector(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.querySelector")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelector(self.Realm, self.Target, args, "Element.querySelector");
                 },
                 length: 1)
             .Method("querySelectorAll",
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.querySelectorAll");
-                    return self.Realm.WrapCollection<global::AngleSharp.Dom.IElement>(self.Target.QuerySelectorAll(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Element.querySelectorAll")));
+                    return global::Jint.Browser.Dom.DomSelectorMembers.QuerySelectorAll(self.Realm, self.Target, args, "Element.querySelectorAll");
                 },
                 length: 1)
             .Method("remove",

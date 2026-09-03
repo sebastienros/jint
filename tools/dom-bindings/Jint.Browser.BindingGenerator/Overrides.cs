@@ -32,6 +32,9 @@ internal sealed class Overrides
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
+    [JsonPropertyName("nullableParameters")]
+    public List<NullableParameterEntry> NullableParameters { get; init; } = [];
+
     [JsonPropertyName("stringEnums")]
     public List<StringEnumEntry> StringEnums { get; init; } = [];
 
@@ -176,6 +179,31 @@ internal sealed class Overrides
 
         [JsonPropertyName("member")]
         public string Member { get; init; } = "";
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// One argument position that WebIDL declares nullable, which the emitter cannot see: it reads C#
+    /// optionality — a default value in the signature — and not nullable-reference metadata.
+    /// </summary>
+    /// <remarks>
+    /// Decoding the metadata instead was considered and is a different change: it would flip every parameter
+    /// AngleSharp happens to annotate, all at once and unreviewably, where a table entry is one line naming
+    /// the clause of the standard it comes from. Keyed on the argument index rather than the parameter name,
+    /// because the index is what a script passes and what the emitted conversion takes.
+    /// </remarks>
+    internal sealed class NullableParameterEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        [JsonPropertyName("member")]
+        public string Member { get; init; } = "";
+
+        [JsonPropertyName("parameter")]
+        public int Parameter { get; init; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

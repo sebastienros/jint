@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>localStorage across navigations</title>
+</head>
+<body>
+  <p id="visits">0</p>
+  <p id="note">none</p>
+  <p id="session">0</p>
+  <button id="remember">remember</button>
+
+  <script>
+    // A visit counter in localStorage and one in sessionStorage. The pair is the point: both survive a
+    // navigation within one page, and only the first survives a second page of the same context -- which is
+    // the difference the two APIs exist for.
+    (function () {
+      'use strict';
+
+      var visits = Number(localStorage.getItem('visits') || '0') + 1;
+      localStorage.setItem('visits', String(visits));
+      document.getElementById('visits').textContent = String(visits);
+
+      var session = Number(sessionStorage.getItem('visits') || '0') + 1;
+      sessionStorage.setItem('visits', String(session));
+      document.getElementById('session').textContent = String(session);
+
+      document.getElementById('note').textContent = localStorage.getItem('note') || 'none';
+
+      document.getElementById('remember').addEventListener('click', function () {
+        localStorage.setItem('note', 'written on visit ' + visits);
+        document.getElementById('note').textContent = localStorage.getItem('note');
+      });
+    })();
+  </script>
+</body>
+</html>
