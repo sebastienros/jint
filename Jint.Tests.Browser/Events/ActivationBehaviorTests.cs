@@ -653,4 +653,129 @@ public sealed class ActivationBehaviorTests
                 + "connected:input,connected:change,connected:checked=true,"
                 + "inShadow:input,inShadow:change,inShadow:checked=true");
     }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-event-dispatch steps 6.5 and 6.9.5.1 — a dispatch chooses
+    /// <b>one</b> activation target, the nearest one at or above the click's target, so a nesting of
+    /// activatable elements runs exactly one behaviour.
+    /// </summary>
+    /// <remarks>
+    /// The nesting matrix <c>dom/events/Event-dispatch-single-activation-behavior.html</c> builds, reduced to
+    /// the four shapes whose two halves would each act on their own: a link inside a submit button, a button
+    /// inside a link, a label wrapping the control it labels, and a <c>&lt;summary&gt;</c> inside a link.
+    /// <b>Each shape is instrumented by the outer element's own default action</b> — a submission, a
+    /// navigation — rather than by a listener, because a listener cannot tell an activation behaviour from an
+    /// event that merely bubbled to it, which is exactly what the eight rows of that file this lane forgives
+    /// get wrong. The page is a real origin so that a link wrongly followed moves it and is seen.
+    /// </remarks>
+    [Test]
+    public async Task OnlyTheNearestActivationTargetsBehaviourRuns()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server
+            .MapHtml(
+                "/start.html",
+                """
+                <title>start</title>
+                <form id='f' action='/submitted.html'>
+                  <button id='outerButton' type='submit'><a id='innerLink' href='/linked.html'>link</a></button>
+                </form>
+                <a id='outerLink' href='/linked.html'><button id='innerButton' type='button'>button</button></a>
+                <label id='label'><input id='labeled' type='checkbox'><span id='labelText'>text</span></label>
+                <a id='outerLinkAroundDetails' href='/linked.html'><details id='details'><summary id='summary'>s</summary></details></a>
+                """)
+            .MapHtml("/linked.html", "<title>linked</title>")
+            .MapHtml("/submitted.html", "<title>submitted</title>"));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/start.html"));
+
+        (await fixture.Page.EvaluateAsync<string>(
+            """
+            (() => {
+              const seen = [];
+              const id = el => el === null ? 'none' : el.id;
+              document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); seen.push('submit'); });
+
+              // The parser has to have built the nesting each case is about, or the case would assert nothing.
+              seen.push('nesting=' + [
+                id(document.getElementById('innerLink').closest('button')),
+                id(document.getElementById('innerButton').closest('a')),
+                id(document.getElementById('summary').closest('a')),
+              ].join('/'));
+
+              // A link inside a submit button: the link is the target and has an activation behaviour of its
+              // own, so the button's never runs and the form is not submitted. The link's own click is
+              // canceled, which is what keeps the rest of the cases on this document.
+              document.getElementById('innerLink').addEventListener('click', e => e.preventDefault(), { once: true });
+              document.getElementById('innerLink').click();
+              seen.push('submitted=' + seen.includes('submit'));
+
+              // A button inside a link: the button is the target, and a type=button button's activation
+              // behaviour is nothing at all — the link's must not run in its place.
+              document.getElementById('innerButton').click();
+
+              // A label wrapping its control: one toggle, from the forwarded click, not two.
+              document.getElementById('labelText').click();
+              seen.push('checked=' + document.getElementById('labeled').checked);
+
+              // A <summary> inside a link: the summary toggles its <details>, and the link is not followed.
+              document.getElementById('summary').click();
+              seen.push('open=' + document.getElementById('details').open);
+
+              return seen.join(',');
+            })()
+            """))
+            .Should().Be("nesting=outerButton/outerLink/outerLinkAroundDetails,submitted=false,checked=true,open=true");
+
+        // A navigation an activation behaviour started runs off the loop, so the page is given the chance to
+        // move before it is asserted not to have.
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromSeconds(5));
+
+        (await fixture.Page.TitleAsync()).Should().Be("start", "not one of the four outer behaviours ran");
+        fixture.Page.Url.Should().Be(fixture.Url("/start.html"));
+        fixture.Page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate-fragid — a fragment navigation
+    /// is a same-document move on the document's own event loop, so it happens even while the navigation that
+    /// produced that document is still finishing.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the shape the corpus found.</b> A script that runs during its document's parse has a
+    /// document — it is the one showing — but the page's own load has not returned and the navigation gate is
+    /// still held by it, so a fragment move gated on either was refused and queued as a whole navigation
+    /// behind the gate instead. It then landed after the parse, in the wrong order, and after everything the
+    /// document had queued: <c>dom/events/Event-dispatch-single-activation-behavior.html</c> clicks such a
+    /// link from a test that gives it two zero-delay turns, and never saw the <c>hashchange</c> at all.
+    /// </remarks>
+    [Test]
+    public async Task AFragmentLinkClickedDuringTheParseFiresHashChangeOnTheNextTurn()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(server => server.MapHtml(
+            "/index.html",
+            """
+            <title>fragment</title>
+            <div id='wrapper'><a id='go' href='#frag'><span id='inner'>go</span></a></div>
+            <p id='frag'>target</p>
+            <script>
+              window.turns = 0;
+              window.seen = null;
+              window.onhashchange = e => { window.seen = window.turns + ':' + e.newURL; };
+              // The click is on a <span> inside the link, so the anchor is chosen as the activation target by
+              // the walk up the event path rather than by being the target.
+              document.getElementById('inner').click();
+              (function tick() { window.turns++; if (window.turns < 20 && window.seen === null) { setTimeout(tick, 0); } })();
+            </script>
+            """));
+
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+        await fixture.Page.WaitForIdleAsync(TimeSpan.FromSeconds(5));
+
+        (await fixture.Page.EvaluateAsync<string>("String(window.seen)"))
+            .Should().Be("1:" + fixture.Url("/index.html") + "#frag", "the move is a job on the loop, not a navigation behind the gate");
+        (await fixture.Page.EvaluateAsync<string>("location.hash")).Should().Be("#frag");
+        (await fixture.Page.EvaluateAsync<double>("history.length")).Should().Be(2, "a fragment move pushes one entry");
+        fixture.Page.Url.Should().Be(fixture.Url("/index.html") + "#frag");
+        fixture.Page.Errors.Should().BeEmpty();
+    }
 }

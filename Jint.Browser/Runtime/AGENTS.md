@@ -323,7 +323,15 @@ measures.
   `Page.RequestNavigation` used to send an `<a href="#x">` round the thread pool and the gate, which put the
   commit behind every timer already due, so a page that clicked a link and then spun zero-delay timers waiting
   for `hashchange` waited out the whole chain (measured at turn 20 of 20; turn 1 now). It is a job on the
-  engine's own queue instead, and it declines while a navigation is in flight — the gate is what orders those.
+  engine's own queue instead. **The one question it asks is whose document is moving**, and the engine
+  answers it: HTML's *navigate to a fragment* is a task on the event loop of the document whose URL changes,
+  so it is a same-document move exactly when the request came from the engine the page is showing. Neither
+  `_load` being set nor the gate being free is that question — `_load` is null for the whole of a document's
+  parse and the gate is held by the navigation that produced it, so gating on either refused the fragment arm
+  to every script that runs during its own parse and queued a whole navigation behind the gate instead
+  (#3693, and twenty-two rows of `dom/events/Event-dispatch-single-activation-behavior.html`). A commit
+  already on its way is ordered by the queue rather than by a refusal: a job posted first runs first, and one
+  the commit overtakes dies with the engine it was posted to.
 
 **Everything the network touches is the context's** — `Runtime/PageNetwork`, one per `BrowserContext`: the
 client, the composed `UrlFilter` (host filter and `BlockPrivateNetwork` combined once), the `CookieJar` and

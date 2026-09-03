@@ -25,14 +25,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 56 | 9 | 544 | 42 |
+| `dom/events/` | 56 | 9 | 544 | 20 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
 | `custom-elements/` | 16 | 0 | 510 | 257 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 219 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **133** | **9** | **1,417** | **551** |
+| **total** | **133** | **9** | **1,417** | **529** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -61,7 +61,7 @@ passive value, one activation behaviour per click, the detached control's silent
 the window — and the three seams two of them needed in the engine are
 [#3696](https://github.com/sebastienros/jint/pull/3696).
 
-What `NeedsTriage` holds now is five things, each bounded and each named by the exclusion table:
+What `NeedsTriage` holds now is four things, each bounded and each named by the exclusion table:
 
 1. **A `data:` URL is not fetched as a subresource.** A page navigates to one, so
    `<script src="data:text/javascript,…">` is the one shape of external script that never runs; three
@@ -81,11 +81,15 @@ What `NeedsTriage` holds now is five things, each bounded and each named by the 
    on an `<x-foo static formAssociated>` sees the *form's* lexical scope — which needs the element to be a
    form-associated element and take part in `form.elements`. This package records the flag and nothing
    consults it: there is no `ElementInternals`. The file's other three rows pass.
-5. **A fragment navigation does not land inside two turns.** Following an `<a href="#x">` of the page's own
-   URL now happens on the page loop and fires `hashchange` on the next turn — measured, and moved there from
-   after the whole timer chain — but `Event-dispatch-single-activation-behavior.html` gives it two zero-delay
-   turns and its twenty-two `<a>`/`<area>` shapes still do not see it. What is left is a question about the
-   page loop's scheduling rather than about activation behaviour.
+
+The twenty-two `<a>`/`<area>` shapes of `Event-dispatch-single-activation-behavior.html` were the fifth, and
+they pass now. What kept them red was not the page loop's scheduling but the fragment arm being gated on the
+page's own load having returned and on the navigation gate being free: this file's tests run *during* the
+parse, where neither is true, so every one of their fragment moves was queued as a whole navigation behind
+the gate and landed after the two turns the file allows. The move is a same-document one exactly when the
+request came from the document the page is showing, which is the question
+[`Jint.Browser/Runtime/AGENTS.md`](../../Jint.Browser/Runtime/AGENTS.md#navigation-is-a-fetch-and-a-new-engine)
+now says it asks.
 
 One further group left `NeedsTriage` for a category of its own. `document.createEvent`'s alias table names
 five interfaces this package deliberately does not build — `DragEvent` and `ClipboardEvent` need a
