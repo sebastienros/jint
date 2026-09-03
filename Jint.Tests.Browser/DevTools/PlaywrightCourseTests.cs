@@ -46,7 +46,7 @@ public class PlaywrightCourseTests
     internal const string Gate = "JINT_BROWSER_CLIENTS";
 
     /// <summary>Waiting for an element to exist, which is as far as an actionability check can get here.</summary>
-    private static readonly LocatorWaitForOptions Attached = new() { State = WaitForSelectorState.Attached };
+    private static LocatorWaitForOptions Attached => new() { State = WaitForSelectorState.Attached };
 
     /// <summary>Clicking without the actionability check that would refuse every element on every page.</summary>
     private static LocatorClickOptions Forced => new() { Force = true };

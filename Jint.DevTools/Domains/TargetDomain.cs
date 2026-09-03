@@ -79,11 +79,13 @@ internal sealed class TargetDomain : TargetDomainBase
     /// </remarks>
     protected override ValueTask<GetTargetInfoResponse> GetTargetInfoAsync(GetTargetInfoRequest parameters, CommandContext context)
     {
-        var info = parameters.TargetId is null
-            ? _owner is null ? BrowserTargetInfo() : Describe(_owner)
-            : Describe(Find(parameters.TargetId));
+        if (parameters.TargetId is { } targetId)
+        {
+            return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = Describe(Find(targetId)) });
+        }
 
-        return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = info });
+        var own = _owner is null ? BrowserTargetInfo() : Describe(_owner);
+        return new ValueTask<GetTargetInfoResponse>(new GetTargetInfoResponse { TargetInfo = own });
     }
 
     /// <inheritdoc/>
