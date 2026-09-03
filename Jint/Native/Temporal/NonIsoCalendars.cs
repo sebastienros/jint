@@ -2452,28 +2452,33 @@ internal static class NonIsoCalendars
 
     #region Persian Calendar
 
-    // Persian arithmetic calendar (2820-year cycle, Reingold–Dershowitz / Birashk).
-    // Used as a proleptic fallback for years outside the .NET PersianCalendar range
-    // (which only supports years 1–9999, ≈ ISO 622–10620). The 2820-year cycle has
-    // 683 leap years; year 1 starts at JDN 1948321 = ISO 622-03-22 (proleptic Gregorian).
-    private const long PersianEpochJdn = 1948321L;
+    // The Persian (Solar Hijri) arithmetic calendar on its 33-year cycle, which is the rule the
+    // platform's `persian` calendar is: ICU's own PersianCalendar places a year's first day
+    // 365 × (year − 1) + floor((8 × year + 21) / 33) days after the epoch and calls a year a leap year
+    // when floorMod(25 × year + 11, 33) < 8, so eight years in every thirty-three are 366 days long and
+    // the mean year is 365 + 8/33 = 365.2424 days.
+    //
+    // Used as a proleptic fallback for the years PersianCalendar cannot answer for — it spans
+    // ISO 622-03-22 to 9999-12-31, which is Persian 1 to 9378, and derives those astronomically (the
+    // true vernal equinox at Tehran) rather than arithmetically. Far outside that range only an
+    // arithmetic rule can answer at all: no ephemeris covers a quarter of a million years. *Which*
+    // arithmetic rule is what https://github.com/sebastienros/jint/issues/3604 was about — the
+    // 2820-year cycle this used to carry (Reingold–Dershowitz / Birashk) drifts from ICU's by two
+    // months over Temporal's own range, so its extremes came back in the wrong Persian year.
+    //
+    // Two rules meeting leaves the junctions imperfect, as they already were: at the top the answer
+    // steps two days backwards at ISO 10000-01-01, because the table stops part-way through Persian
+    // 9378 (https://github.com/sebastienros/jint/issues/3523), and at the bottom ISO 622-03-21 and
+    // 622-03-22 both read as Persian 1-01-01, because ICU begins Persian year 1 a day before the
+    // table does. Each is one day of the year the two rules change over in, and neither is reachable
+    // from a date anything actually keeps.
+    private const long PersianEpochJdn = 1948320L;
 
     private static bool IsPersianLeapYearAlgorithmic(int year)
-    {
-        long yp = (long) year - 474L;
-        long mod = ((yp % 2820L) + 2820L) % 2820L;
-        long yc = mod + 474L;
-        return ((yc + 38L) * 682L) % 2816L < 682L;
-    }
+        => FloorMod(25L * year + 11L, 33L) < 8L;
 
     private static long PersianYearStartJdn(int year)
-    {
-        long yp = (long) year - 474L;
-        long mod = ((yp % 2820L) + 2820L) % 2820L;
-        long cycle = (yp - mod) / 2820L;
-        long yc = mod + 474L;
-        return PersianEpochJdn + cycle * 1029983L + 365L * (yc - 1L) + (yc * 682L - 110L) / 2816L;
-    }
+        => PersianEpochJdn + 365L * ((long) year - 1L) + FloorDiv(8L * year + 21L, 33L);
 
     /// <summary>
     /// Days in a Persian month, computed algorithmically for the years PersianCalendar cannot answer for.

@@ -212,24 +212,21 @@
     "intl402/Temporal/PlainDate/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDate/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDate/prototype/inLeapYear/basic-islamic-umalqura.js",
-    "intl402/Temporal/PlainDate/prototype/withCalendar/extreme-dates.js",
+    // Still out, but on a range check rather than a calendar: one of its extremes raises
+    // "Date is outside valid range" from PlainDateTime.from. The persian rows it shares with the
+    // withCalendar files pass (https://github.com/sebastienros/jint/issues/3604).
     "intl402/Temporal/PlainDateTime/from/extreme-dates.js",
     "intl402/Temporal/PlainDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
-    "intl402/Temporal/PlainDateTime/prototype/withCalendar/extreme-dates.js",
     "intl402/Temporal/PlainMonthDay/from/islamic-umalqura-month-codes.js",
     "intl402/Temporal/PlainYearMonth/from/extreme-unsupported-dates.js",
     "intl402/Temporal/PlainYearMonth/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainYearMonth/prototype/daysInYear/basic-islamic-umalqura.js",
     "intl402/Temporal/PlainYearMonth/prototype/inLeapYear/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/from/extreme-dates.js",
     "intl402/Temporal/ZonedDateTime/prototype/daysInMonth/basic-islamic-umalqura.js",
     "intl402/Temporal/ZonedDateTime/prototype/daysInYear/basic-islamic-umalqura.js",
-    "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js",
-    // Only the persian minimum date still fails here, on eraYear alone: -272443 for the -272442
-    // the file asserts, while its `year` of -272442 is already right.
-    "intl402/Temporal/ZonedDateTime/prototype/withCalendar/extreme-dates.js"
+    "intl402/Temporal/ZonedDateTime/prototype/inLeapYear/basic-islamic-umalqura.js"
 
   ],
   // Timing-sensitive suites: serialise the whole generated test method instead of

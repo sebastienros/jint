@@ -72,4 +72,56 @@ public class NonIsoCalendarTests
         combinations.Should().Be(Calendars.Length * Years.Length * MonthCodes.Length * 15 * Days.Length);
         failures.ToString().Should().BeEmpty();
     }
+
+    /// <summary>
+    /// The Persian calendar at both ends of Temporal's own range, where the arithmetic rule is the only
+    /// thing that can answer: <c>PersianCalendar</c>'s table stops at ISO 622-03-22 and 9999-12-31, and
+    /// these two dates are a quarter of a million years outside it in either direction.
+    /// </summary>
+    /// <remarks>
+    /// The expected values are test262's own — the three
+    /// <c>intl402/Temporal/*/prototype/withCalendar/extreme-dates.js</c> files assert exactly these, and
+    /// <c>ZonedDateTime/from/extreme-dates.js</c> asserts the way back — which is to say they are ICU's
+    /// 33-year cycle. The 2820-year cycle Jint used to extend the calendar with put both ends about two
+    /// months out, and therefore in the wrong Persian year
+    /// (<see href="https://github.com/sebastienros/jint/issues/3604"/>). <c>eraYear</c> is the same number
+    /// as <c>year</c> because <c>ap</c> is the calendar's only era, which is why the off-by-one was first
+    /// read as an era defect.
+    /// </remarks>
+    [TestCase("-271821-04-20", -272442, 1, "M01", 10)]
+    [TestCase("+275760-09-13", 275139, 7, "M07", 12)]
+    public void ThePersianCalendarPlacesTheEndsOfTemporalsRangeWhereTheStandardLibrariesDo(
+        string iso, int year, int month, string monthCode, int day)
+    {
+        var engine = new Engine();
+        var date = $"Temporal.PlainDate.from('{iso}').withCalendar('persian')";
+
+        engine.Evaluate($"{date}.year").AsNumber().Should().Be(year);
+        engine.Evaluate($"{date}.month").AsNumber().Should().Be(month);
+        engine.Evaluate($"{date}.monthCode").AsString().Should().Be(monthCode);
+        engine.Evaluate($"{date}.day").AsNumber().Should().Be(day);
+        engine.Evaluate($"{date}.era").AsString().Should().Be("ap");
+        engine.Evaluate($"{date}.eraYear").AsNumber().Should().Be(year);
+
+        // And the way back, which is what ZonedDateTime/from/extreme-dates.js failed on: the fields are
+        // an answer only if they name the day they came from.
+        engine.Evaluate($"Temporal.PlainDate.from({{ calendar: 'persian', year: {year}, month: {month}, day: {day} }}).toString()")
+            .AsString().Should().Be($"{iso}[u-ca=persian]");
+    }
+
+    /// <summary>
+    /// The years <c>PersianCalendar</c> does cover are still its own to place, which the arithmetic rule
+    /// never reaches: Nowruz 1403 fell on ISO 2024-03-20, and the revolution of 22 Bahman 1357 on
+    /// 1979-02-11.
+    /// </summary>
+    [TestCase("2024-03-20", 1403, 1, 1)]
+    [TestCase("1979-02-11", 1357, 11, 22)]
+    public void ThePersianCalendarStillPlacesTheYearsItsTableCovers(string iso, int year, int month, int day)
+    {
+        var engine = new Engine();
+        var date = $"Temporal.PlainDate.from('{iso}').withCalendar('persian')";
+
+        engine.Evaluate($"[{date}.year, {date}.month, {date}.day].join('-')")
+            .AsString().Should().Be($"{year}-{month}-{day}");
+    }
 }
