@@ -24,7 +24,9 @@ target/runtime split and the manifest are there and none of it is repeated here.
   one of its calls turned into a protocol event. `DocumentCreated` runs after the window installer and
   before the parse, on the loop, which is what makes it the place to replace the engine, re-install the
   bindings and run `addScriptToEvaluateOnNewDocument` — all of which have to be in place before the
-  document's first inline script.
+  document's first inline script. `DocumentParsed` is the commit, with the runtime: it is the first moment
+  there is a tree, so it is where anything that watches a document arms itself, and why the mutation bridge
+  needs no field remembering an engine from before the parse.
 - **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
   (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
 - **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
