@@ -253,7 +253,10 @@ jobs:
 
     # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
     # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
-    # same project runs again with the variable unset and the Playwright cases have to come back skipped.
+    # same project runs again with the variable unset and every Playwright case has to come back skipped —
+    # all of them, and at least one. The count is read out of the run rather than written here: a literal
+    # would have to be edited every time a case is added to the suite, and the property being checked is not
+    # how many there are.
     - name: Without the switch, the Playwright suite is skipped rather than run
       shell: bash
       run: |
@@ -262,7 +265,10 @@ jobs:
           --configuration Release --framework net10.0 \
           --filter "FullyQualifiedName~PlaywrightCourseTests" \
           --logger "console;verbosity=normal" | tee gate.log
-        grep -qE 'Skipped:[[:space:]]+4' gate.log
+        total=$(sed -n 's/^Total tests: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
+        skipped=$(sed -n 's/^ *Skipped: *\([0-9][0-9]*\).*$/\1/p' gate.log | tail -1)
+        echo "the filter selected ${total:-no} cases and skipped ${skipped:-none} of them"
+        test -n "$total" && test "$total" -gt 0 && test "$skipped" = "$total"
 
   package-consumer:
 
