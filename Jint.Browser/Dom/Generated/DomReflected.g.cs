@@ -15,6 +15,46 @@ namespace Jint.Browser.Dom;
 /// </summary>
 internal static class DomReflected
 {
+    /// <summary><c>HTMLAnchorElement.charset</c> reflects <c>charset</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementCharset =
+        ReflectedAttribute.Text("HTMLAnchorElement.charset", "charset");
+
+    /// <summary><c>HTMLAnchorElement.coords</c> reflects <c>coords</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementCoords =
+        ReflectedAttribute.Text("HTMLAnchorElement.coords", "coords");
+
+    /// <summary><c>HTMLAnchorElement.name</c> reflects <c>name</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementName =
+        ReflectedAttribute.Text("HTMLAnchorElement.name", "name");
+
+    /// <summary><c>HTMLAnchorElement.ping</c> reflects <c>ping</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementPing =
+        ReflectedAttribute.Text("HTMLAnchorElement.ping", "ping");
+
+    /// <summary><c>HTMLAnchorElement.referrerPolicy</c> reflects <c>referrerpolicy</c> as an enum.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementReferrerPolicy =
+        ReflectedAttribute.Enumerated("HTMLAnchorElement.referrerPolicy", "referrerpolicy", ["", "no-referrer", "no-referrer-when-downgrade", "same-origin", "origin", "strict-origin", "origin-when-cross-origin", "strict-origin-when-cross-origin", "unsafe-url"], missing: "", invalid: null);
+
+    /// <summary><c>HTMLAnchorElement.rev</c> reflects <c>rev</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementRev =
+        ReflectedAttribute.Text("HTMLAnchorElement.rev", "rev");
+
+    /// <summary><c>HTMLAnchorElement.shape</c> reflects <c>shape</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementShape =
+        ReflectedAttribute.Text("HTMLAnchorElement.shape", "shape");
+
+    /// <summary><c>HTMLAnchorElement.type</c> reflects <c>type</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLAnchorElementType =
+        ReflectedAttribute.Text("HTMLAnchorElement.type", "type");
+
+    /// <summary><c>HTMLBRElement.clear</c> reflects <c>clear</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLBRElementClear =
+        ReflectedAttribute.Text("HTMLBRElement.clear", "clear");
+
+    /// <summary><c>HTMLDivElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLDivElementAlign =
+        ReflectedAttribute.Text("HTMLDivElement.align", "align");
+
     /// <summary><c>HTMLElement.autofocus</c> reflects <c>autofocus</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLElementAutofocus =
         ReflectedAttribute.Boolean("HTMLElement.autofocus", "autofocus");
@@ -39,9 +79,37 @@ internal static class DomReflected
     internal static readonly ReflectedAttribute HTMLElementTabIndex =
         ReflectedAttribute.Numeric("HTMLElement.tabIndex", "tabindex", ReflectedKind.Long, 0);
 
+    /// <summary><c>HTMLHRElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHRElementAlign =
+        ReflectedAttribute.Text("HTMLHRElement.align", "align");
+
+    /// <summary><c>HTMLHRElement.color</c> reflects <c>color</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHRElementColor =
+        ReflectedAttribute.Text("HTMLHRElement.color", "color");
+
+    /// <summary><c>HTMLHRElement.noShade</c> reflects <c>noshade</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLHRElementNoShade =
+        ReflectedAttribute.Boolean("HTMLHRElement.noShade", "noshade");
+
+    /// <summary><c>HTMLHRElement.size</c> reflects <c>size</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHRElementSize =
+        ReflectedAttribute.Text("HTMLHRElement.size", "size");
+
+    /// <summary><c>HTMLHRElement.width</c> reflects <c>width</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLHRElementWidth =
+        ReflectedAttribute.Text("HTMLHRElement.width", "width");
+
     /// <summary><c>HTMLHtmlElement.version</c> reflects <c>version</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLHtmlElementVersion =
         ReflectedAttribute.Text("HTMLHtmlElement.version", "version");
+
+    /// <summary><c>HTMLLIElement.type</c> reflects <c>type</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLLIElementType =
+        ReflectedAttribute.Text("HTMLLIElement.type", "type");
+
+    /// <summary><c>HTMLLIElement.value</c> reflects <c>value</c> as a long.</summary>
+    internal static readonly ReflectedAttribute HTMLLIElementValue =
+        ReflectedAttribute.Numeric("HTMLLIElement.value", "value", ReflectedKind.Long, 0);
 
     /// <summary><c>HTMLMenuElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
     internal static readonly ReflectedAttribute HTMLMenuElementCompact =
@@ -54,6 +122,26 @@ internal static class DomReflected
     /// <summary><c>HTMLModElement.dateTime</c> reflects <c>datetime</c> as a string.</summary>
     internal static readonly ReflectedAttribute HTMLModElementDateTime =
         ReflectedAttribute.Text("HTMLModElement.dateTime", "datetime");
+
+    /// <summary><c>HTMLOListElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLOListElementCompact =
+        ReflectedAttribute.Boolean("HTMLOListElement.compact", "compact");
+
+    /// <summary><c>HTMLOListElement.start</c> reflects <c>start</c> as a long.</summary>
+    internal static readonly ReflectedAttribute HTMLOListElementStart =
+        ReflectedAttribute.Numeric("HTMLOListElement.start", "start", ReflectedKind.Long, 1);
+
+    /// <summary><c>HTMLParagraphElement.align</c> reflects <c>align</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLParagraphElementAlign =
+        ReflectedAttribute.Text("HTMLParagraphElement.align", "align");
+
+    /// <summary><c>HTMLPreElement.width</c> reflects <c>width</c> as a long.</summary>
+    internal static readonly ReflectedAttribute HTMLPreElementWidth =
+        ReflectedAttribute.Numeric("HTMLPreElement.width", "width", ReflectedKind.Long, 0);
+
+    /// <summary><c>HTMLQuoteElement.cite</c> reflects <c>cite</c> as an url.</summary>
+    internal static readonly ReflectedAttribute HTMLQuoteElementCite =
+        ReflectedAttribute.Url("HTMLQuoteElement.cite", "cite");
 
     /// <summary><c>HTMLScriptElement.crossOrigin</c> reflects <c>crossorigin</c> as an enum.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementCrossOrigin =
@@ -74,4 +162,16 @@ internal static class DomReflected
     /// <summary><c>HTMLScriptElement.src</c> reflects <c>src</c> as an url.</summary>
     internal static readonly ReflectedAttribute HTMLScriptElementSrc =
         ReflectedAttribute.Url("HTMLScriptElement.src", "src");
+
+    /// <summary><c>HTMLTimeElement.dateTime</c> reflects <c>datetime</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLTimeElementDateTime =
+        ReflectedAttribute.Text("HTMLTimeElement.dateTime", "datetime");
+
+    /// <summary><c>HTMLUListElement.compact</c> reflects <c>compact</c> as a boolean.</summary>
+    internal static readonly ReflectedAttribute HTMLUListElementCompact =
+        ReflectedAttribute.Boolean("HTMLUListElement.compact", "compact");
+
+    /// <summary><c>HTMLUListElement.type</c> reflects <c>type</c> as a string.</summary>
+    internal static readonly ReflectedAttribute HTMLUListElementType =
+        ReflectedAttribute.Text("HTMLUListElement.type", "type");
 }
