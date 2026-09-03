@@ -3062,6 +3062,7 @@ namespace Jint.WebApi.Fetch
     {
         Script = 0,
         Host = 1,
+        XmlHttpRequest = 2,
     }
     [System.Diagnostics.CodeAnalysis.Experimental("JINT0002")]
     public sealed class FetchInterception

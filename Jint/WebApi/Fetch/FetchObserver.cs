@@ -33,8 +33,8 @@ public readonly record struct FetchRequestId(long Value)
 /// What asked for a request.
 /// </summary>
 /// <remarks>
-/// Only <see cref="Script"/> is produced today; the rest name the callers a host layer above Jint adds, and
-/// new members may appear, so switch with a default arm.
+/// Only <see cref="Script"/> and <see cref="XmlHttpRequest"/> are produced by the engine itself; the rest
+/// name the callers a host layer above Jint adds, and new members may appear, so switch with a default arm.
 /// </remarks>
 public enum FetchInitiator
 {
@@ -43,6 +43,14 @@ public enum FetchInitiator
 
     /// <summary>A request the host started rather than script — a document or subresource load.</summary>
     Host = 1,
+
+    /// <summary>An <c>XMLHttpRequest</c> made by script.</summary>
+    /// <remarks>
+    /// Told apart from <see cref="Script"/> because a host reporting a request to a tool has to name the
+    /// interface that asked for it: the Chrome DevTools Protocol has one resource type for <c>fetch()</c>
+    /// and another for <c>XMLHttpRequest</c>, and nothing on the wire distinguishes the two.
+    /// </remarks>
+    XmlHttpRequest = 2,
 }
 
 /// <summary>
