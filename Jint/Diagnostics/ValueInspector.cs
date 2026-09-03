@@ -224,7 +224,7 @@ public static class ValueInspector
             if (kind == ValueKind.Error)
             {
                 ValueSlotReader.ErrorText(obj, out var name, out var message);
-                description = message.Length == 0 ? name : name + ": " + Truncate(message);
+                description = ValueSlotReader.ErrorLine(name, Truncate(message));
             }
             else if (kind == ValueKind.Arguments)
             {
