@@ -154,7 +154,7 @@ internal static class ActivationBehaviors
                 return;
 
             case IHtmlOptionElement option:
-                RunOption(wrapper, option);
+                SelectOption(wrapper.DomRealm, option);
                 return;
 
             case IHtmlElement element when element.LocalName is "summary":
@@ -281,7 +281,12 @@ internal static class ActivationBehaviors
     /// changes the select's value and fires <c>input</c> then <c>change</c> at the <b>select</b>, which is
     /// where a page listens.
     /// </summary>
-    private static void RunOption(DomNodeObject wrapper, IHtmlOptionElement option)
+    /// <remarks>
+    /// Internal rather than private because <c>Page.SelectAsync</c> reaches the same algorithm: a host
+    /// choosing an option and a client clicking one have to change the same state and fire the same two
+    /// events, or a page could tell the two apart.
+    /// </remarks>
+    internal static void SelectOption(DomRealm dom, IHtmlOptionElement option)
     {
         if (option.IsDisabled || Ancestor<IHtmlSelectElement>(option) is not { } select || select.IsDisabled)
         {
@@ -302,7 +307,7 @@ internal static class ActivationBehaviors
         }
 
         option.IsSelected = true;
-        FireInputAndChange(wrapper.DomRealm.WrapNode(select));
+        FireInputAndChange(dom.WrapNode(select));
     }
 
     /// <summary>

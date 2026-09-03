@@ -46,14 +46,14 @@ internal static class PageContent
     /// between its nodes — the other two presets are a protocol client's business, and a snapshot rendered
     /// from <see cref="AccessibilityOptions.Default"/> would carry no text to read at all.
     /// </remarks>
-    internal static string AccessibilitySnapshot(IDocument document, bool mainContentOnly, int maxLength)
+    internal static string AccessibilitySnapshot(IDocument document, bool mainContentOnly, int maxLength, bool includeReferences = false)
     {
         var root = mainContentOnly ? MarkdownExtractor.MainContentOf(document) : null;
         var tree = root is null
             ? AccessibilityTree.Build(document, AccessibilityOptions.Snapshot)
             : AccessibilityTree.Build(root, AccessibilityOptions.Snapshot);
 
-        var snapshot = tree is null ? "" : Accessibility.AccessibilitySnapshot.Render(tree);
+        var snapshot = tree is null ? "" : Accessibility.AccessibilitySnapshot.Render(tree, includeReferences);
         return MarkdownExtractor.Truncate(snapshot, maxLength);
     }
 }

@@ -99,6 +99,16 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
+    # The Model Context Protocol server, from the same tag and the same version, because it is a library
+    # over Jint.Browser referenced by project. Packed before the tool, which references it.
+    - name: Pack Jint.Browser.Mcp with dotnet
+      run: >
+        dotnet pack Jint.Browser.Mcp/Jint.Browser.Mcp.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
     # The jint-browser dotnet tool, from the same tag and the same version again: it is a shell over
     # Jint.Browser, referenced by project, so a version of its own would be a second number saying nothing.
     # PackAsTool means the asset is framework-dependent — there is no PublishAot here and cannot be.

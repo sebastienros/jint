@@ -2614,6 +2614,33 @@ code separates a bad command line from a page that would not load from one that 
 `--untrusted` hardens every page and blocks the private network. Its README is
 [`Jint.Browser.Tool/README.md`](Jint.Browser.Tool/README.md).
 
+**And a browser an agent can drive.** `Jint.Browser.Mcp` is a [Model Context
+Protocol](https://modelcontextprotocol.io/) server over the same page API, and `jint-browser mcp` serves it
+on standard input and output — so a coding agent gets `navigate`, `snapshot`, `click`, `fill`, `type`,
+`press`, `select`, `hover`, `scroll`, `back`, `forward`, `reload`, `evaluate`, `wait_for`,
+`network_requests`, `cookies` and `set_cookie`, plus the page as a resource:
+
+```json
+{
+  "mcpServers": {
+    "jint-browser": { "command": "jint-browser", "args": ["mcp"] }
+  }
+}
+```
+
+`snapshot` is the one that matters: its `ax` mode is the accessibility tree with a `ref=` on every element,
+and `click`, `fill`, `type`, `select` and `hover` take one of those in place of a CSS selector — which is
+what an agent has, where a selector is something it would have to invent. Every tool answers an error object
+rather than throwing through the transport, the pages are hardened for untrusted content by default, and a
+host that already runs a server of its own composes the same tools with one call:
+
+```c#
+builder.Services.AddMcpServer().WithStdioServerTransport().AddJintBrowser();
+```
+
+Its README, including why stdio is the only transport the tool serves, is
+[`Jint.Browser.Mcp/README.md`](Jint.Browser.Mcp/README.md).
+
 **What does not exist yet.** No `ElementInternals` and no scoped custom element registries, no iframe
 scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and

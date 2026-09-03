@@ -1,0 +1,199 @@
+﻿[assembly: System.Resources.NeutralResourcesLanguage("en-US")]
+namespace Jint.Browser.Mcp
+{
+    public sealed class ActionOutcome : System.IEquatable<Jint.Browser.Mcp.ActionOutcome>
+    {
+        public ActionOutcome(bool Done, string Url, string Note) { }
+        public bool Done { get; init; }
+        public string Note { get; init; }
+        public string Url { get; init; }
+    }
+    public sealed class BrowserAgent : System.IAsyncDisposable
+    {
+        public BrowserAgent(Jint.Browser.Browser browser, Jint.Browser.Mcp.BrowserAgentOptions options) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> BackAsync() { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> ClickAsync(string target) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> CloseAsync() { }
+        public System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Jint.Browser.Mcp.CookieLine>> CookiesAsync(string? url = null) { }
+        public System.Threading.Tasks.ValueTask DisposeAsync() { }
+        public System.Threading.Tasks.Task<string> EvaluateAsync(string expression) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> FillAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> ForwardAsync() { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> HoverAsync(string target) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.PageState> NavigateAsync(string url, string? waitUntil = null) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> PressAsync(string key) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.PageState> ReloadAsync() { }
+        public System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Jint.Browser.Mcp.RequestLine>> RequestsAsync() { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> ScrollAsync(double y) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> SelectAsync(string target, string value) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> SetCookieAsync(string name, string value, string? url = null) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.PageSnapshot> SnapshotAsync(string? mode = null, bool mainContentOnly = false, int? maxLength = default) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> TypeAsync(string target, string text) { }
+        public System.Threading.Tasks.Task<Jint.Browser.Mcp.ActionOutcome> WaitForAsync(string? selector = null, string? text = null, double? timeoutSeconds = default) { }
+    }
+    public sealed class BrowserAgentOptions
+    {
+        public BrowserAgentOptions() { }
+        public bool? BlockPrivateNetwork { get; set; }
+        public int MaxSnapshotLength { get; set; }
+        public System.TimeSpan? MaxTaskDuration { get; set; }
+        public long? MemoryLimit { get; set; }
+        public System.TimeSpan Timeout { get; set; }
+        public bool Trusted { get; set; }
+        public System.Func<System.Uri, bool>? UrlFilter { get; set; }
+        public string? UserAgent { get; set; }
+    }
+    [ModelContextProtocol.Server.McpServerResourceType]
+    public sealed class BrowserResources
+    {
+        public BrowserResources(Jint.Browser.Mcp.BrowserAgent agent) { }
+        [ModelContextProtocol.Server.McpServerResource(MimeType="text/markdown", Name="page_markdown", Title="The current page as markdown", UriTemplate="jint://page/markdown")]
+        [System.ComponentModel.Description("The page currently open in this session, rendered as CommonMark for reading.")]
+        public System.Threading.Tasks.Task<string> MarkdownAsync() { }
+        [ModelContextProtocol.Server.McpServerResource(MimeType="application/json", Name="page_requests", Title="The current page\'s network requests", UriTemplate="jint://page/requests")]
+        [System.ComponentModel.Description("Every request the page currently open in this session has made, with the status e" +
+            "ach answered.")]
+        public System.Threading.Tasks.Task<string> RequestsAsync() { }
+    }
+    public sealed class BrowserToolException : System.Exception
+    {
+        public BrowserToolException() { }
+        public BrowserToolException(string message) { }
+        public BrowserToolException(string message, System.Exception innerException) { }
+    }
+    [ModelContextProtocol.Server.McpServerToolType]
+    public sealed class BrowserTools
+    {
+        public BrowserTools(Jint.Browser.Mcp.BrowserAgent agent) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="back", Title="Go back")]
+        [System.ComponentModel.Description("Goes back one entry in the browsing history, as the browser\'s back button does. A" +
+            "nswers whether there was anywhere to go back to.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> BackAsync() { }
+        [ModelContextProtocol.Server.McpServerTool(Name="click", Title="Click an element")]
+        [System.ComponentModel.Description(@"Clicks a link, a button, a checkbox or anything else on the page, running whatever the page does in
+response — a link navigates and the navigation is finished by the time this answers. Name the element
+with a ref= value from an ax snapshot, or with a CSS selector. Take a snapshot afterwards to see what
+changed.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> ClickAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, for example \"ref=42\", or a CSS selector such as" +
+            " \"#submit\".")] string target) { }
+        [ModelContextProtocol.Server.McpServerTool(Idempotent=true, Name="close", Title="Close the page")]
+        [System.ComponentModel.Description("Closes the page and forgets its cookies, its storage and its history. Call it whe" +
+            "n the task is done; the next navigate starts a clean session.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> CloseAsync() { }
+        [ModelContextProtocol.Server.McpServerTool(Name="cookies", ReadOnly=true, Title="List cookies")]
+        [System.ComponentModel.Description("Lists the cookies this session holds for an origin, which is how to check whether" +
+            " a sign-in worked.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> CookiesAsync([System.ComponentModel.Description("The http: or https: URL whose cookies to list. Defaults to the current page\'s.")] string? url = null) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="evaluate", Title="Run JavaScript in the page")]
+        [System.ComponentModel.Description(@"Runs one JavaScript expression in the page and answers its JSON value, serialized by the page itself.
+Use it for what the other tools cannot read — a value on window, an attribute, a computed count — and
+prefer snapshot for reading the page and click or fill for changing it, because those go through the
+events a page is listening for.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> EvaluateAsync([System.ComponentModel.Description("A JavaScript expression, for example document.querySelectorAll(\'article\').length.")] string expression) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="fill", Title="Fill in a field")]
+        [System.ComponentModel.Description("Replaces everything in a text field with the given value, as pasting into it woul" +
+            "d. Use this for filling forms; use type when the page reacts to each keystroke, " +
+            "as a search box with suggestions does.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> FillAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector.")] string target, [System.ComponentModel.Description("The value to leave in the field.")] string text) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="forward", Title="Go forward")]
+        [System.ComponentModel.Description("Goes forward one entry in the browsing history, as the browser\'s forward button d" +
+            "oes. Answers whether there was anywhere to go forward to.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> ForwardAsync() { }
+        [ModelContextProtocol.Server.McpServerTool(Name="hover", Title="Hover over an element")]
+        [System.ComponentModel.Description("Moves the mouse pointer over an element. Only pages that listen for mousemove rea" +
+            "ct; a menu that opens on mouseenter will not, because this browser tracks no poi" +
+            "nter position between calls.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> HoverAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector.")] string target) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="navigate", OpenWorld=true, Title="Open a URL")]
+        [System.ComponentModel.Description(@"Loads a web page and answers its final URL, its title and its HTTP status. This is the first tool to
+call: every other tool acts on the page this one opened. Redirects are followed and a 404 or a 500
+still loads, because an error page is a page. Call snapshot afterwards to read what arrived.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> NavigateAsync([System.ComponentModel.Description("An absolute http: or https: URL, for example https://example.org/docs.")] string url, [System.ComponentModel.Description("How far to wait: load (default), domcontentloaded, commit, or networkidle for a p" +
+            "age that fetches its content after loading.")] string? waitUntil = null) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="press", Title="Press a key")]
+        [System.ComponentModel.Description("Presses one key wherever the page has the cursor. \"Enter\" in a single-line field " +
+            "submits the form it is in, and the navigation is finished by the time this answe" +
+            "rs. \"Tab\" moves to the next field, \"Escape\" closes a dialog the page opened.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> PressAsync([System.ComponentModel.Description("A key name: Enter, Tab, Escape, Backspace, ArrowDown, or a single character.")] string key) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="reload", Title="Reload the page")]
+        [System.ComponentModel.Description("Fetches the current URL again and replaces the page with the result. Use it when " +
+            "the page shows something stale, or after setting a cookie that changes what the " +
+            "site returns.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> ReloadAsync() { }
+        [ModelContextProtocol.Server.McpServerTool(Name="network_requests", ReadOnly=true, Title="List the page\'s network requests")]
+        [System.ComponentModel.Description("Lists every request the page has made — the document, its scripts and style sheet" +
+            "s, and everything its own code fetched — with the status each answered. Use it t" +
+            "o find the API a page reads its data from, or to see which request failed.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> RequestsAsync() { }
+        [ModelContextProtocol.Server.McpServerTool(Name="scroll", Title="Scroll the page")]
+        [System.ComponentModel.Description(@"Scrolls the page to a vertical offset in pixels, which is what a page that loads more content as you scroll is waiting for. Use 0 to go back to the top. There is no layout behind it, so the offset is a number the page reads rather than a place on a screen.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> ScrollAsync([System.ComponentModel.Description("The offset from the top of the page, in pixels.")] double y) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="select", Title="Choose an option")]
+        [System.ComponentModel.Description("Chooses an option in a drop-down list. The value is the option\'s value attribute," +
+            " or the text shown for it when no option carries that value.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> SelectAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector, naming the <select> element.")] string target, [System.ComponentModel.Description("The option\'s value, or the text shown for it.")] string value) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="set_cookie", Title="Set a cookie")]
+        [System.ComponentModel.Description("Sets one cookie for an origin, which is how to carry a session token you already " +
+            "have rather than signing in through a form. Reload the page afterwards for the s" +
+            "ite to see it.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> SetCookieAsync([System.ComponentModel.Description("The cookie\'s name.")] string name, [System.ComponentModel.Description("The cookie\'s value.")] string value, [System.ComponentModel.Description("The http: or https: URL it belongs to. Defaults to the current page\'s.")] string? url = null) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="snapshot", ReadOnly=true, Title="Read the page")]
+        [System.ComponentModel.Description(@"Reads the current page. This is the tool to call after navigating and after every action that changes
+the page. Three modes: ""ax"" (the default) is the accessibility tree — every interactive element with
+its role, its name and a ref= value that click, fill, type, select and hover accept, which is what to
+use when you intend to act on the page; ""markdown"" is the page as prose, which is what to use when you
+intend to read it; ""text"" is the same without any formatting. There are no screenshots: this browser
+renders nothing.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> SnapshotAsync([System.ComponentModel.Description("ax, markdown or text. Defaults to ax.")] string? mode = null, [System.ComponentModel.Description("True to skip the navigation and the footer and read only the article or main regi" +
+            "on, when the page has one.")] bool mainContentOnly = false, [System.ComponentModel.Description("A ceiling on the number of characters returned. The server has one of its own and" +
+            " this can only lower it.")] int? maxLength = default) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="type", Title="Type into a field")]
+        [System.ComponentModel.Description("Types text one character at a time into a field, without clearing what is already" +
+            " there. The page sees every keystroke, which is what a search box with live sugg" +
+            "estions is waiting for.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> TypeAsync([System.ComponentModel.Description("A ref= value from an ax snapshot, or a CSS selector.")] string target, [System.ComponentModel.Description("The characters to type.")] string text) { }
+        [ModelContextProtocol.Server.McpServerTool(Name="wait_for", ReadOnly=true, Title="Wait for the page to change")]
+        [System.ComponentModel.Description("Waits until an element matching a CSS selector is in the page, or until some text" +
+            " appears in it. Use it after an action that starts something the page finishes l" +
+            "ater — a search, a form that saves in the background. Give exactly one of select" +
+            "or or text.")]
+        public System.Threading.Tasks.Task<ModelContextProtocol.Protocol.CallToolResult> WaitForAsync([System.ComponentModel.Description("A CSS selector to wait for.")] string? selector = null, [System.ComponentModel.Description("Text to wait for anywhere on the page.")] string? text = null, [System.ComponentModel.Description("How long to wait, in seconds. The server\'s own ceiling applies and this can only " +
+            "lower it.")] double? timeoutSeconds = default) { }
+    }
+    public sealed class CookieLine : System.IEquatable<Jint.Browser.Mcp.CookieLine>
+    {
+        public CookieLine(string Name, string Value, string Domain, string Path, bool HttpOnly, bool Secure) { }
+        public string Domain { get; init; }
+        public bool HttpOnly { get; init; }
+        public string Name { get; init; }
+        public string Path { get; init; }
+        public bool Secure { get; init; }
+        public string Value { get; init; }
+    }
+    public sealed class PageSnapshot : System.IEquatable<Jint.Browser.Mcp.PageSnapshot>
+    {
+        public PageSnapshot(string Url, string Title, string Mode, string Content, bool Truncated) { }
+        public string Content { get; init; }
+        public string Mode { get; init; }
+        public string Title { get; init; }
+        public bool Truncated { get; init; }
+        public string Url { get; init; }
+    }
+    public sealed class PageState : System.IEquatable<Jint.Browser.Mcp.PageState>
+    {
+        public PageState(string Url, string Title, int Status) { }
+        public int Status { get; init; }
+        public string Title { get; init; }
+        public string Url { get; init; }
+    }
+    public sealed class RequestLine : System.IEquatable<Jint.Browser.Mcp.RequestLine>
+    {
+        public RequestLine(string Url, string Method, int Status, string Initiator, bool Failed, string? Reason) { }
+        public bool Failed { get; init; }
+        public string Initiator { get; init; }
+        public string Method { get; init; }
+        public string? Reason { get; init; }
+        public int Status { get; init; }
+        public string Url { get; init; }
+    }
+}

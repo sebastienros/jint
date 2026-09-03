@@ -69,8 +69,9 @@ internal static class ToolProgram
                 "serve" => await RunAsync(ServeCommand.Syntax(), rest, line => ServeCommand.RunAsync(line, output, error, stopping)).ConfigureAwait(false),
                 "fetch" => await RunAsync(FetchCommand.Syntax(), rest, line => FetchCommand.RunAsync(line, output, error)).ConfigureAwait(false),
                 "eval" => await RunAsync(EvalCommand.Syntax(), rest, line => EvalCommand.RunAsync(line, output, error)).ConfigureAwait(false),
+                "mcp" => await RunAsync(McpCommand.Syntax(), rest, line => McpCommand.RunAsync(line, error, stopping)).ConfigureAwait(false),
                 "version" or "--version" => PrintVersion(output),
-                _ => throw new ToolUsageException($"'{command}' is not a command; they are serve, fetch, eval and version"),
+                _ => throw new ToolUsageException($"'{command}' is not a command; they are serve, fetch, eval, mcp and version"),
             };
         }
         catch (ToolUsageException exception)
@@ -117,7 +118,7 @@ internal static class ToolProgram
     }
 
     /// <summary>The informational version of the package this assembly was built from.</summary>
-    private static string Version
+    internal static string Version
         => typeof(ToolProgram).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? typeof(ToolProgram).Assembly.GetName().Version?.ToString()
             ?? "unknown";
@@ -132,6 +133,7 @@ internal static class ToolProgram
         output.WriteLine("  serve                     Publish a browser on the Chrome DevTools Protocol");
         output.WriteLine("  fetch <url|file>          Load one page and write it to standard output");
         output.WriteLine("  eval <url|file> <expr>    Load one page, evaluate an expression, write JSON");
+        output.WriteLine("  mcp                       Serve the Model Context Protocol on stdin and stdout");
         output.WriteLine("  version                   Print the version and exit");
         output.WriteLine();
         output.WriteLine("serve:");
@@ -149,6 +151,12 @@ internal static class ToolProgram
         output.WriteLine("  --timeout <duration>      Ceiling on the load; 30s");
         output.WriteLine("  --header 'Name: value'    A header every request carries; repeatable");
         output.WriteLine("  --cookie name=value       A cookie seeded before the load; repeatable");
+        output.WriteLine();
+        output.WriteLine("mcp:");
+        output.WriteLine("  --stdio                   The transport, and the only one; the default");
+        output.WriteLine("  --trusted                 Do NOT harden the pages; mcp hardens them by default");
+        output.WriteLine("  --timeout <duration>      Ceiling on a navigation and on a wait; 30s");
+        output.WriteLine("  --max-snapshot-length <n> Ceiling on what a snapshot returns; 40000");
         output.WriteLine();
         output.WriteLine("Every command:");
         output.WriteLine("  --untrusted               Harden the pages for content nobody vouches for");
@@ -168,6 +176,7 @@ internal static class ToolProgram
         output.WriteLine("  jint-browser fetch https://example.com --dump markdown --main-content");
         output.WriteLine("  jint-browser fetch ./page.html --dump ax");
         output.WriteLine("  jint-browser eval https://example.com 'document.title'");
+        output.WriteLine("  jint-browser mcp              Serve a browser to an agent over stdio");
         output.WriteLine();
         output.WriteLine("This browser renders nothing: there are no screenshots and no PDFs. What it answers");
         output.WriteLine("instead is the page as text, as markdown and as its accessibility tree.");

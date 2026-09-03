@@ -22,6 +22,7 @@
   <Project Path="Jint.AotExample.UnrootedHost/Jint.AotExample.UnrootedHost.csproj" />
   <Project Path="Jint.Benchmark/Jint.Benchmark.csproj" />
   <Project Path="Jint.Browser/Jint.Browser.csproj" />
+  <Project Path="Jint.Browser.Mcp/Jint.Browser.Mcp.csproj" />
   <Project Path="Jint.Browser.Tool/Jint.Browser.Tool.csproj" />
   <Project Path="Jint.DevTools/Jint.DevTools.csproj" />
   <Project Path="Jint.Repl/Jint.Repl.csproj" />

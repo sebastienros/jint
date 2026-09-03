@@ -42,6 +42,16 @@
     <!-- The protocol server `serve` publishes the browser on. Jint.Browser references it too, and the
          dependency stays one way: nothing in Jint.DevTools knows what a document is. -->
     <ProjectReference Include="..\Jint.DevTools\Jint.DevTools.csproj" />
+    <!-- The Model Context Protocol server the `mcp` command serves. It is a library rather than a program,
+         so the tool is the only thing that knows about a transport. -->
+    <ProjectReference Include="..\Jint.Browser.Mcp\Jint.Browser.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The generic host the `mcp` command builds its server on, which is the SDK's own documented hosting
+         path and the one whose standard-output purity it guarantees. It is the only dependency this project
+         adds beyond the packages it already carries through Jint.Browser. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
