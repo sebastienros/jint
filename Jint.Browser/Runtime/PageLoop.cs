@@ -42,6 +42,7 @@ internal sealed class PageLoop : IDisposable
     private readonly TaskCompletionSource _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Func<Engine> _engineFactory;
     private readonly Action<Exception> _onPumpError;
+    private readonly Action<Engine>? _onTurnEnd;
     private readonly TimeSpan _idle;
     private readonly Thread _thread;
 
@@ -56,11 +57,28 @@ internal sealed class PageLoop : IDisposable
     private PageBudget.TurnScope _turn;
     private bool _inTurn;
 
-    internal PageLoop(string name, TimeSpan idle, Func<Engine> engineFactory, Action<Exception> onPumpError)
+    /// <param name="name">What the loop's thread is called.</param>
+    /// <param name="idle">The ceiling on a park with nothing due.</param>
+    /// <param name="engineFactory">Builds the first engine, on the loop thread.</param>
+    /// <param name="onPumpError">Where anything that erupts out of the pump is recorded.</param>
+    /// <param name="onTurnEnd">
+    /// What the page does at the end of each of the loop's own turns, with the engine the turn ran on, or
+    /// <see langword="null"/> for a loop that does nothing there. It runs <i>outside</i> the turn's budget
+    /// bracket, so a page's own bookkeeping cannot spend the budget a caller's request is bounded by or fail
+    /// that request; anything it throws goes to <paramref name="onPumpError"/> like everything else the loop
+    /// runs, because a page survives what watches it as well as what it runs.
+    /// </param>
+    internal PageLoop(
+        string name,
+        TimeSpan idle,
+        Func<Engine> engineFactory,
+        Action<Exception> onPumpError,
+        Action<Engine>? onTurnEnd = null)
     {
         _idle = idle;
         _engineFactory = engineFactory;
         _onPumpError = onPumpError;
+        _onTurnEnd = onTurnEnd;
         _thread = new Thread(Run) { IsBackground = true, Name = name };
     }
 
@@ -330,7 +348,7 @@ internal sealed class PageLoop : IDisposable
                 }
                 finally
                 {
-                    EndTurn();
+                    EndLoopTurn();
                 }
             }
 
@@ -354,7 +372,7 @@ internal sealed class PageLoop : IDisposable
                 }
                 finally
                 {
-                    EndTurn();
+                    EndLoopTurn();
                 }
             }
             catch (Exception exception)
@@ -421,6 +439,41 @@ internal sealed class PageLoop : IDisposable
 
         _turn = budget.BeginTurn();
         _inTurn = true;
+    }
+
+    /// <summary>Closes one of the loop's own turns: unarms the budget, then tells the page it ended.</summary>
+    /// <remarks>
+    /// <para>
+    /// The hook runs <b>after</b> <see cref="EndTurn"/> and not inside it, for two reasons and both matter.
+    /// A turn's budget bounds the work the turn was <i>for</i>: charging a page's own end-of-turn bookkeeping
+    /// to it would let that bookkeeping fail a caller's request with a <see cref="TimeoutException"/> the
+    /// caller could do nothing about. And <see cref="ReplaceEngine"/> closes a turn mid-request through
+    /// <see cref="EndTurn"/> directly, so a navigation runs the hook <b>once</b> — at the end of the request,
+    /// on the engine the swap installed and the document now showing — rather than twice, once about a
+    /// document that has been thrown away.
+    /// </para>
+    /// <para>
+    /// It is wrapped, like everything else the loop runs on a page's behalf. A page survives its scripts;
+    /// it survives what watches them too.
+    /// </para>
+    /// </remarks>
+    private void EndLoopTurn()
+    {
+        EndTurn();
+
+        if (_onTurnEnd is not { } onTurnEnd || _engine is not { } engine)
+        {
+            return;
+        }
+
+        try
+        {
+            onTurnEnd(engine);
+        }
+        catch (Exception exception)
+        {
+            _onPumpError(exception);
+        }
     }
 
     /// <summary>Closes it, if one is open. Safe to call when none is.</summary>
