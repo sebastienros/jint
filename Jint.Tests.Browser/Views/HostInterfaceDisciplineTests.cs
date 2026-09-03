@@ -31,6 +31,7 @@ public sealed class HostInterfaceDisciplineTests
         "Selection",
         "MediaQueryListEvent",
         "MediaQueryList",
+        "Geolocation",
         "Window",
     ];
 

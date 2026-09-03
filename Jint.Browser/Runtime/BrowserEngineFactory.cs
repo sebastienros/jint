@@ -99,6 +99,20 @@ internal static class BrowserEngineFactory
             o.WebApi.Fetch.MaxResponseBytes = options.MaxResponseBytes;
             o.WebApi.Fetch.Timeout = options.FetchTimeout;
 
+            // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setTimezoneOverride
+            // and #method-setLocaleOverride. Both are Options a realm's Date and Intl objects are built
+            // from, so they are the two overrides that reach a document only by being applied to the engine
+            // that document runs in — which is this one, built once per navigation. The commands say so.
+            if (request.Emulation.TimeZone is { } timeZone)
+            {
+                o.TimeZone = timeZone;
+            }
+
+            if (request.Emulation.Locale is { } locale)
+            {
+                o.Culture = locale;
+            }
+
             // https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-module-system:
             // a document can always import, whether from a <script type="module"> or an import() inside a
             // classic script. A host that installs its own loader afterwards replaces this one, and the
@@ -131,12 +145,13 @@ internal static class BrowserEngineFactory
             }
         });
 
-        var runtime = PageRuntime.Attach(engine, page, options, recorder, request.Network, request.Requests, request.Url, request.Referrer);
+        var runtime = PageRuntime.Attach(engine, page, options, recorder, request.Network, request.Requests, request.Emulation, request.Url, request.Referrer);
         runtime.Cancellation = cancellation;
         runtime.Modules = ReferenceEquals(engine.Options.Modules.ModuleLoader, modules) ? modules : null;
 
         DomBindings.Install(engine);
         runtime.Dom.MaxNodes = options.MaxDomNodes;
+        runtime.Dom.ScriptingEnabled = runtime.ScriptingEnabled;
         WindowInstaller.Install(runtime);
 
         // Where an activation behaviour's default action goes now that there is a page behind it: a link
@@ -201,6 +216,7 @@ internal static class BrowserEngineFactory
 /// <param name="Network">The context's client, filter, jar and storage partition.</param>
 /// <param name="Workers">The page's worker provider.</param>
 /// <param name="SessionStores">The page's <c>sessionStorage</c>, one store per origin.</param>
+/// <param name="Emulation">What a client asked the page to pretend it is.</param>
 /// <param name="Url">The document's URL, which is its base URL and decides its origin.</param>
 /// <param name="Referrer">The document this one was reached from, or the empty string.</param>
 /// <param name="PageClosing">Cancelled when the page closes, so every engine token is linked to it.</param>
@@ -212,6 +228,7 @@ internal readonly record struct PageEngineRequest(
     PageNetwork Network,
     ThreadPerWorkerProvider Workers,
     Dictionary<string, Jint.WebApi.StorageProvider> SessionStores,
+    EmulationState Emulation,
     string Url,
     string Referrer,
     CancellationToken PageClosing);

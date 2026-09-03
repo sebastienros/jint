@@ -46,7 +46,14 @@ internal static class AccessibilityTree
             builder.Visit(document.DocumentElement, AxIgnoredReason.None, children, suppressText: false);
         }
 
-        var properties = new List<AxProperty>();
+        // https://w3c.github.io/html-aam/#el-html — the document is focusable: it is what holds the focus
+        // when nothing in it does, which is why a browser reports `focusable` on the root web area and why a
+        // client that prunes uninteresting nodes keeps the root because of it.
+        var properties = new List<AxProperty>
+        {
+            new(AxPropertyName.Focusable, AxValue.Boolean(true)),
+        };
+
         if (!string.IsNullOrEmpty(document.Url))
         {
             properties.Add(new AxProperty(AxPropertyName.Url, AxValue.String(document.Url)));

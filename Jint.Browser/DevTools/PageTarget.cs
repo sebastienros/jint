@@ -48,7 +48,6 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
             waitForDebuggerOnStart: waitForDebuggerOnStart)
     {
         Page = page;
-        Emulation = new EmulationState(page.Context.Browser.Options.Viewport);
         _closed = closed;
     }
 
@@ -66,8 +65,13 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     /// </remarks>
     internal string FrameId => TargetId;
 
-    /// <summary>What a client set through the <c>Emulation</c> domain, kept for the page and for C5.</summary>
-    internal EmulationState Emulation { get; }
+    /// <summary>What a client set through the <c>Emulation</c> domain.</summary>
+    /// <remarks>
+    /// It is the <i>page's</i> rather than the target's, because an override outlives the document it was
+    /// set on: a client that emulated a time zone before its first navigation expects every document after
+    /// it to be in that time zone, and the target's runtime is replaced by each of them.
+    /// </remarks>
+    internal EmulationState Emulation => Page.Emulation;
 
     /// <summary>The scripts <c>Page.addScriptToEvaluateOnNewDocument</c> runs before each document's own.</summary>
     internal NewDocumentScripts NewDocumentScripts { get; } = new();
@@ -147,8 +151,12 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         var network = new NetworkDomain(this);
         var fetch = new FetchDomain(this);
         var storage = new StorageDomain(this);
-        var performance = new PerformanceDomain();
+        var performance = new PerformanceDomain(this);
         var audits = new AuditsDomain();
+        var accessibility = new AccessibilityDomain(this);
+        var css = new CssDomain(this);
+        var security = new SecurityDomain();
+        var overlay = new OverlayDomain();
         var jint = new JintDomain(this);
 
         session
@@ -161,6 +169,10 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
             .Register(storage)
             .Register(performance)
             .Register(audits)
+            .Register(accessibility)
+            .Register(css)
+            .Register(security)
+            .Register(overlay)
             .Register(jint);
 
         AddDomain(page);
@@ -170,7 +182,14 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
         Observe(dom);
         Nodes.Add(dom);
 
-        return domains with { Extra = [page, dom, input, emulation, network, fetch, storage, performance, audits, jint] };
+        return domains with
+        {
+            Extra =
+            [
+                page, dom, input, emulation, network, fetch, storage, performance, audits, accessibility, css,
+                security, overlay, jint,
+            ],
+        };
     }
 
     /// <inheritdoc/>
@@ -309,61 +328,6 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     }
 
     private PageDomain[] Snapshot() => Volatile.Read(ref _domains);
-}
-
-/// <summary>
-/// What a client asked the page to pretend, and which of it is effective.
-/// </summary>
-/// <remarks>
-/// <b>The viewport is real; the rest is stored.</b> <c>Emulation.setDeviceMetricsOverride</c> changes what
-/// the page believes its window to be, so <c>window.innerWidth</c>, <c>devicePixelRatio</c>, <c>screen</c>
-/// and every <c>matchMedia</c> query move with it. The touch, focus, media and user-agent overrides are kept
-/// and answered so that a client's own bookkeeping holds, and are made effective by the input model and the
-/// network layer that follow (campaign items C3 and C5); a comment on each says which.
-/// </remarks>
-internal sealed class EmulationState
-{
-    internal EmulationState(Viewport defaultViewport)
-    {
-        DefaultViewport = defaultViewport;
-        Viewport = defaultViewport;
-    }
-
-    /// <summary>The viewport the page opened with, which clearing an override restores.</summary>
-    internal Viewport DefaultViewport { get; }
-
-    /// <summary>What the page currently believes its window to be.</summary>
-    /// <remarks>
-    /// Kept here as well as on the page runtime so that <c>Browser.getWindowForTarget</c> can answer it from
-    /// a transport thread: the runtime's copy belongs to the page loop, and a window's size is not worth a
-    /// round trip to it.
-    /// </remarks>
-    internal Viewport Viewport { get; set; }
-
-    /// <summary>Whether <c>Emulation.setTouchEmulationEnabled</c> asked for touch. Effective with C5's input.</summary>
-    internal bool TouchEnabled { get; set; }
-
-    /// <summary>How many touch points a client asked for. Effective with C5's input.</summary>
-    internal int MaxTouchPoints { get; set; } = 1;
-
-    /// <summary>Whether the page is to behave as focused. Effective with C5's input.</summary>
-    internal bool FocusEmulationEnabled { get; set; }
-
-    /// <summary>The media type a client emulated, or <see langword="null"/>. Effective with the CSSOM work.</summary>
-    internal string? EmulatedMedia { get; set; }
-
-    /// <summary>The user agent a client set, or <see langword="null"/>.</summary>
-    /// <remarks>
-    /// Kept here so that <c>Emulation</c>'s own bookkeeping holds; what makes it effective is
-    /// <see cref="PageTarget.NetworkPolicy"/>, which both <c>Emulation.setUserAgentOverride</c> and
-    /// <c>Network.setUserAgentOverride</c> write, because Chrome treats the two as one override.
-    /// </remarks>
-    internal string? UserAgent { get; set; }
-
-    /// <summary>Whether the client asked for the cache to be bypassed, which changes nothing.</summary>
-    /// <remarks>Nothing in this browser stores a response between requests; see <c>NetworkDomain</c>.</remarks>
-    internal bool CacheDisabled { get; set; }
-
 }
 
 /// <summary>What a client decided about the next dialog the page opens.</summary>

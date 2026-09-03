@@ -27,6 +27,9 @@ internal sealed class ViewRealm
     private ObjectInstance? _mediaQueryListEventPrototype;
     private HostInterfaceObject? _mediaQueryListEvent;
     private ObjectInstance? _nodeFilter;
+    private ObjectInstance? _geolocationPrototype;
+    private HostInterfaceObject? _geolocationInterface;
+    private JsGeolocation? _geolocation;
     private JsSelection? _selection;
 
     internal ViewRealm(PageRuntime runtime)
@@ -140,6 +143,43 @@ internal sealed class ViewRealm
         => _nodeFilter ??= ViewInstaller.NodeFilterShape.Instantiate(
             _runtime.Engine,
             _runtime.Engine._mainRealm.Intrinsics.Object.PrototypeObject);
+
+    /// <summary>The global <c>Geolocation</c>, which is not constructible.</summary>
+    internal HostInterfaceObject GeolocationInterface
+    {
+        get
+        {
+            if (_geolocationInterface is null)
+            {
+                _geolocationPrototype = ViewInstaller.Instantiate(
+                    _runtime.Engine,
+                    ViewInstaller.GeolocationShape,
+                    "Geolocation",
+                    length: 0,
+                    construct: null,
+                    parentPrototype: null,
+                    parentInterface: null,
+                    out var interfaceObject);
+
+                _geolocationInterface = interfaceObject;
+            }
+
+            return _geolocationInterface;
+        }
+    }
+
+    /// <summary>
+    /// The document's one <c>Geolocation</c>, which is what <c>navigator.geolocation</c> answers and which
+    /// stays the same object for the life of the document.
+    /// </summary>
+    internal JsGeolocation Geolocation
+    {
+        get
+        {
+            _ = GeolocationInterface;
+            return _geolocation ??= new JsGeolocation(_runtime, _geolocationPrototype!);
+        }
+    }
 
     /// <summary>
     /// The document's one <c>Selection</c>, which <c>window.getSelection()</c> and

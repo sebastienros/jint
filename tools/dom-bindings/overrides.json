@@ -296,6 +296,26 @@
       "reason": "AngleSharp's HasFocus() reports a window-level flag DoFocus sets and nothing clears, which is not HTML's 'is the document's viewport focused'."
     },
     {
+      "interface": "Document",
+      "member": "visibilityState",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.visibilityState\");",
+        "return global::Jint.Native.JsString.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine)?.VisibilityState ?? \"visible\");"
+      ],
+      "reason": "AngleSharp has no visibility state at all - there is no IDocument member for it - and a page reads it to decide whether to animate, poll or reconnect. Emulation.setFocusEmulationEnabled is what moves it."
+    },
+    {
+      "interface": "Document",
+      "member": "hidden",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.hidden\");",
+        "return global::Jint.Native.JsBoolean.Create(global::Jint.Browser.Runtime.PageRuntime.Find(self.Realm.Engine) is { } page && page.VisibilityState != \"visible\");"
+      ],
+      "reason": "The boolean half of visibilityState, and the one most feature detection actually reads. AngleSharp has neither."
+    },
+    {
       "interface": "HTMLFormElement",
       "member": "submit",
       "body": [

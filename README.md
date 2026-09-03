@@ -1,4 +1,4 @@
-[![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
+﻿[![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![NuGet](https://img.shields.io/nuget/vpre/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![MyGet](https://img.shields.io/myget/jint/vpre/jint.svg?label=MyGet)](https://www.myget.org/feed/jint/package/nuget/Jint)
@@ -2471,6 +2471,34 @@ await page.WaitForSelectorAsync("#result");
 var rows = await page.QuerySelectorAllAsync("tr.row");
 ```
 
+**And the page a client asks it to pretend to be.** `Emulation` is effective rather than merely accepted. The
+viewport, the emulated media type and the Level 5 preference features move the document that is loaded — so
+`matchMedia('(prefers-color-scheme: dark)').matches` flips and every `MediaQueryList` whose answer moved
+hears `change` — while the time zone and the locale are read when the *next* document's engine is built,
+which is where every client sets them and what makes `new Date()` and `Intl` agree with each other. Touch
+emulation reaches `navigator.maxTouchPoints`, `'ontouchstart' in window` and `(pointer: coarse)`;
+`setGeolocationOverride` is what `navigator.geolocation` answers with; `setScriptExecutionDisabled` stops the
+next document's own scripts and leaves `evaluate` working. Whatever is not effective is an accepted no-op
+whose reason is stated in place — there is no renderer for auto dark mode or a CPU throttle to change:
+
+```c#
+await page.EmulateTimezoneAsync("Asia/Tokyo");                    // read when the next document loads
+await page.GoToAsync("https://example.org/");
+
+await page.EmulateMediaFeaturesAsync(
+    [new MediaFeatureValue { MediaFeature = MediaFeature.PrefersColorScheme, Value = "dark" }]);
+
+var snapshot = await page.Accessibility.SnapshotAsync();          // roles and names, computed with no layout
+```
+
+**And the accessibility tree over the protocol.** `Accessibility` answers the tree this package already
+computes — HTML-AAM's roles, accname's names, the CSS cascade's hidden verdict — in Chrome's own `AXNode`
+shape, with the `DOM` domain's `backendNodeId` on every node. That is what `page.accessibility.snapshot()`,
+an `aria/` selector and Playwright's `getByRole` read, and it means a node found by its role is a node the
+same client can then measure and click. `Security`, `Overlay` and `CSS` answer what a DevTools front end
+sends while attaching; `CSS.getComputedStyleForNode` is the same cascade `getComputedStyle` gives the page,
+and every command that would edit a style sheet is honestly absent.
+
 Three things a client may notice are decisions rather than
 gaps, and each is stated in the code that makes it: an isolated world is a second *name* for the document's
 own realm rather than a realm of its own; a dialog does not block the page, so `Page.handleJavaScriptDialog`
@@ -2532,14 +2560,16 @@ the options the extractor behind it already had.
 
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
-nothing is ever side by side. Over the protocol that means no touch or drag input, no `Accessibility` domain,
-and no screenshots. Those are the later items of the same campaign. Three network lanes are absent with a
-reason rather than pending: `Fetch`'s **response** stage and with it the `IO` domain (an observer is told
-about a response and cannot answer it, so a response-stage pause could only ever continue unchanged), the
-**WebSocket and EventSource** events (the engine deliberately does not observe those two handshakes), and
-`Network`'s **timing** document (no phase of a request is measured, and a document of zeros would read as a
-page that loaded instantly). Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and
-`ClipboardEvent` are
+nothing is ever side by side. Over the protocol that means no touch or drag input and no screenshots; those are
+the later items of the same campaign. Three network lanes are absent with a reason rather than pending: `Fetch`'s
+**response** stage and with it the `IO` domain (an observer is told about a response and cannot answer it, so a
+response-stage pause could only ever continue unchanged), the **WebSocket and EventSource** events (the engine
+deliberately does not observe those two handshakes), and `Network`'s **timing** document (no phase of a request is
+measured, and a document of zeros would read as a page that loaded instantly). A page's `@media` rules are not
+re-evaluated against the emulated preferences either — the cascade is AngleSharp.Css's and it models none of them —
+so a themed page reads `matchMedia` rather than `getComputedStyle` to find out; and touch emulation changes what a
+page *detects* without a touch event ever being dispatched. Drag and drop and the clipboard are v1 non-goals, so
+`DragEvent` and `ClipboardEvent` are
 absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
 reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
 and `document.write` after a page has finished parsing is refused with a page error rather than implying

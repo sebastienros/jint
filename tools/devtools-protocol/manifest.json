@@ -23,6 +23,10 @@
     "DOM",
     "Input",
     "Storage",
+    "Accessibility",
+    "Security",
+    "Overlay",
+    "CSS",
     "Jint"
   ],
 
@@ -79,11 +83,42 @@
   // those two handshakes (Jint/WebApi/AGENTS.md says why), and its timing document because no phase of a
   // request is measured. Network.requestServedFromCache is never sent: there is no cache.
   //
+  // Emulation is effective rather than stored: the media type and the Level 5 preference features feed the
+  // page's own media environment, so matchMedia answers them and a MediaQueryList whose answer moved fires
+  // change; the time zone and the locale are Options fixed when an engine is built, so they take effect on
+  // the next document and the command says so; touch reaches navigator.maxTouchPoints, `ontouchstart` and
+  // the pointer/hover features; and geolocation, hardware concurrency and script execution are real.
+  // setAutoDarkModeOverride, setIdleOverride/clearIdleOverride, setDefaultBackgroundColorOverride,
+  // setCPUThrottlingRate, setScrollbarsHidden, setDocumentCookieDisabled and setEmitTouchEventsForMouse are
+  // accepted no-ops: there is no renderer, no idle detector, no throttle and no scrollbar for any of them to
+  // change, and every one of them is sent by a client that reads a refusal as a broken target.
+  //
+  // Accessibility is the tree Jint.Browser/Accessibility already computes, published in Chrome's own AXNode
+  // shape with the DOM domain's backendNodeId on every node. It is what Puppeteer's page.accessibility and
+  // Playwright's getByRole read. The two events - loadComplete and nodesUpdated - are deliberately absent:
+  // the tree is computed per request rather than maintained, so there is nothing that could raise them
+  // honestly.
+  //
+  // Security, Overlay and CSS are what a DevTools front end sends at a page and what the automation clients
+  // never do. Each answers the handful of commands that make an ordinary attachment work and nothing else:
+  // Security has no certificate state to report because the transport is HttpClient's; Overlay would draw a
+  // highlight on a surface that does not exist; and CSS answers the two read commands AngleSharp.Css can
+  // stand behind - the computed style of a node and its inline style - while every editing command is
+  // -32601, because a style sheet this package can rewrite is a CSSOM feature nobody has asked for.
+  //
   // Jint is not Chrome's. It is described in tools/devtools-protocol/jint_protocol.json, in the protocol's
   // own format and beside the two vendored files, the way Lightpanda adds its LP domain: this browser
   // renders nothing, so the three commands a client would have used a screenshot for are answered by the
   // page as text, as CommonMark and as its accessibility tree.
   "implementedMethods": [
+    "Accessibility.disable",
+    "Accessibility.enable",
+    "Accessibility.getAXNodeAndAncestors",
+    "Accessibility.getChildAXNodes",
+    "Accessibility.getFullAXTree",
+    "Accessibility.getPartialAXTree",
+    "Accessibility.getRootAXNode",
+    "Accessibility.queryAXTree",
     "Audits.disable",
     "Audits.enable",
     "Browser.close",
@@ -94,6 +129,10 @@
     "Console.clearMessages",
     "Console.disable",
     "Console.enable",
+    "CSS.disable",
+    "CSS.enable",
+    "CSS.getComputedStyleForNode",
+    "CSS.getInlineStylesForNode",
     "Debugger.continueToLocation",
     "Debugger.disable",
     "Debugger.enable",
@@ -145,11 +184,26 @@
     "DOM.setNodeValue",
     "DOM.setOuterHTML",
     "Emulation.clearDeviceMetricsOverride",
+    "Emulation.clearGeolocationOverride",
+    "Emulation.clearIdleOverride",
+    "Emulation.setAutoDarkModeOverride",
+    "Emulation.setCPUThrottlingRate",
+    "Emulation.setDefaultBackgroundColorOverride",
     "Emulation.setDeviceMetricsOverride",
+    "Emulation.setDocumentCookieDisabled",
+    "Emulation.setEmitTouchEventsForMouse",
     "Emulation.setEmulatedMedia",
     "Emulation.setFocusEmulationEnabled",
+    "Emulation.setGeolocationOverride",
+    "Emulation.setHardwareConcurrencyOverride",
+    "Emulation.setIdleOverride",
+    "Emulation.setLocaleOverride",
+    "Emulation.setScriptExecutionDisabled",
+    "Emulation.setScrollbarsHidden",
+    "Emulation.setTimezoneOverride",
     "Emulation.setTouchEmulationEnabled",
     "Emulation.setUserAgentOverride",
+    "Emulation.setVisibleSize",
     "Fetch.continueRequest",
     "Fetch.disable",
     "Fetch.enable",
@@ -182,6 +236,11 @@
     "Network.setCookies",
     "Network.setExtraHTTPHeaders",
     "Network.setUserAgentOverride",
+    "Overlay.disable",
+    "Overlay.enable",
+    "Overlay.hideHighlight",
+    "Overlay.setPausedInDebuggerMessage",
+    "Overlay.setShowViewportSizeOnResize",
     "Page.addScriptToEvaluateOnNewDocument",
     "Page.bringToFront",
     "Page.captureScreenshot",
@@ -201,10 +260,12 @@
     "Page.setBypassCSP",
     "Page.setDocumentContent",
     "Page.setFontFamilies",
+    "Page.setInterceptFileChooserDialog",
     "Page.setLifecycleEventsEnabled",
     "Page.stopLoading",
     "Performance.disable",
     "Performance.enable",
+    "Performance.getMetrics",
     "Profiler.disable",
     "Profiler.enable",
     "Profiler.getBestEffortCoverage",
@@ -234,6 +295,9 @@
     "Runtime.setCustomObjectFormatterEnabled",
     "Runtime.setMaxCallStackSizeToCapture",
     "Schema.getDomains",
+    "Security.disable",
+    "Security.enable",
+    "Security.setIgnoreCertificateErrors",
     "Storage.clearCookies",
     "Storage.getCookies",
     "Storage.setCookies",

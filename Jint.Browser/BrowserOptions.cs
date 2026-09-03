@@ -36,14 +36,18 @@ public sealed class BrowserOptions
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
 
-    /// <summary>
-    /// What a page reports itself as. It does not reach <c>navigator.userAgent</c> in this version.
-    /// </summary>
+    /// <summary>What a page reports itself as, in script and on the wire.</summary>
     /// <remarks>
-    /// The engine has no user-agent setting: <c>navigator.userAgent</c> answers <c>"Jint/&lt;version&gt;"</c>
-    /// and is not configurable, so this is carried for the network layer and the protocol's
-    /// <c>Emulation.setUserAgentOverride</c> and is not yet read by anything a script can see. Making the two
-    /// agree needs an engine option, which is a separate change.
+    /// <para>
+    /// It is what <c>navigator.userAgent</c> answers and what every request the page makes carries, so the
+    /// two never disagree. The engine's own <c>Navigator</c> publishes <c>"Jint/&lt;version&gt;"</c> and is
+    /// not configurable; a page shadows that member with this value, which is why a host setting it here
+    /// changes what a script reads.
+    /// </para>
+    /// <para>
+    /// A protocol client's <c>Emulation.setUserAgentOverride</c> takes precedence over it for the page it
+    /// was sent to, which is what an override means.
+    /// </para>
     /// </remarks>
     public string UserAgent
     {

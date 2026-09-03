@@ -1,7 +1,8 @@
-using Jint.Browser;
+﻿using Jint.Browser;
 using Jint.DevTools;
 using Jint.Tests.Browser.Navigation;
 using PuppeteerSharp;
+using PuppeteerSharp.PageAccessibility;
 using PageContextOptions = Jint.Browser.BrowserContextOptions;
 
 namespace Jint.Tests.Browser.DevTools;
@@ -293,6 +294,140 @@ public class PuppeteerSharpPageTests
 
         browser.Disconnect();
         await context.CloseAsync();
+    }
+
+    /// <summary>
+    /// The emulation half, driven by the library's own members rather than by raw commands.
+    /// </summary>
+    /// <remarks>
+    /// Each of these is a page-level API a client library offers because Chrome answers it, and each of them
+    /// is a different one of the two shapes C5 delivers: <c>EmulateMediaFeaturesAsync</c> moves the document
+    /// that is loaded, while <c>EmulateTimezoneAsync</c> and <c>SetJavaScriptEnabledAsync</c> are read when
+    /// the next document's engine is built — which is exactly the order a client uses them in, since both are
+    /// set before a <c>goto</c>.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerEmulatesTheMediaTheTimeZoneAndScriptExecution()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml(
+            "/emulation",
+            """
+            <html><head><title>Emulation</title></head><body>
+              <script>
+                window.ran = true;
+                window.changes = [];
+                window.dark = matchMedia('(prefers-color-scheme: dark)');
+                window.dark.addEventListener('change', e => window.changes.push(e.matches));
+              </script>
+            </body></html>
+            """);
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+
+        // The time zone is set before the navigation, which is where a client sets it and where it becomes
+        // effective: the engine one document runs in is built with it.
+        await page.EmulateTimezoneAsync("Asia/Tokyo").WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/emulation")).WaitAsync(Bound);
+
+        (await page.EvaluateExpressionAsync<int>("new Date().getTimezoneOffset()").WaitAsync(Bound)).Should().Be(-540);
+        (await page.EvaluateExpressionAsync<bool>("window.ran === true").WaitAsync(Bound)).Should().BeTrue();
+        (await page.EvaluateExpressionAsync<bool>("window.dark.matches").WaitAsync(Bound)).Should().BeFalse();
+
+        // …and the media features move the document that is already showing, with the change event that goes
+        // with them.
+        await page.EmulateMediaFeaturesAsync(
+        [
+            new MediaFeatureValue { MediaFeature = MediaFeature.PrefersColorScheme, Value = "dark" },
+        ]).WaitAsync(Bound);
+
+        (await page.EvaluateExpressionAsync<bool>("window.dark.matches").WaitAsync(Bound)).Should().BeTrue();
+        (await page.EvaluateExpressionAsync<string>("window.changes.join('|')").WaitAsync(Bound)).Should().Be("true");
+
+        // Turning scripting off stops the *next* document's own scripts and leaves evaluation working, which
+        // is what the client's own documentation promises.
+        await page.SetJavaScriptEnabledAsync(false).WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/emulation")).WaitAsync(Bound);
+
+        (await page.EvaluateExpressionAsync<string>("typeof window.ran").WaitAsync(Bound)).Should().Be("undefined");
+        (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Emulation");
+
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    /// <summary>
+    /// <c>page.accessibility.snapshot()</c>, which is the accessibility tree read through a library that
+    /// knows nothing about how it was computed.
+    /// </summary>
+    [Test]
+    public async Task PuppeteerTakesAnAccessibilitySnapshot()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml(
+            "/aria",
+            """
+            <html><head><title>Aria</title></head><body>
+              <h1>Report</h1>
+              <button>Save changes</button>
+              <input aria-label="Your name">
+            </body></html>
+            """);
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/aria")).WaitAsync(Bound);
+
+        var snapshot = await page.Accessibility.SnapshotAsync().WaitAsync(Bound);
+
+        snapshot.Should().NotBeNull("the client builds its tree out of Accessibility.getFullAXTree");
+        snapshot!.Role.Should().Be("RootWebArea");
+        snapshot.Name.Should().Be("Aria");
+
+        var flattened = Flatten(snapshot).ToArray();
+
+        flattened.Should().Contain(node => node.Role == "button" && node.Name == "Save changes");
+        flattened.Should().Contain(node => node.Role == "textbox" && node.Name == "Your name");
+        flattened.Should().Contain(node => node.Role == "heading" && node.Name == "Report");
+
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    private static IEnumerable<SerializedAXNode> Flatten(SerializedAXNode node)
+    {
+        yield return node;
+
+        foreach (var child in node.Children ?? [])
+        {
+            foreach (var descendant in Flatten(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     [Test]

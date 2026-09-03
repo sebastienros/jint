@@ -116,4 +116,11 @@ internal sealed class AxProtocolValueConverter : JsonConverter<AxProtocolValue>
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(AxProtocolNode))]
 [JsonSerializable(typeof(IReadOnlyList<AxProtocolNode>))]
+
+// The three primitives an AXValue's `value` can be. The protocol declares it as `any`, so the generated
+// data transfer object carries a JsonElement and the CDP domain has to build one — through the source
+// generator like everything else this package serializes, rather than by reflecting over a boxed value.
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(double))]
+[JsonSerializable(typeof(string))]
 internal sealed partial class AxProtocolJsonContext : JsonSerializerContext;

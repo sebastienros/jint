@@ -21,25 +21,23 @@ namespace Jint.Browser.DevTools;
 /// thing is swapped as a unit instead of being mutated in place.
 /// </para>
 /// </remarks>
+/// <para>
+/// <b>The user agent is deliberately not here.</b> <c>Network.setUserAgentOverride</c> and
+/// <c>Emulation.setUserAgentOverride</c> are one setting in Chrome and one here too, and the page's
+/// <c>Runtime/EmulationState</c> is where it lives — because <c>navigator.userAgent</c> has to answer the
+/// same string this puts on every request, and a page whose host never attached a client still has one. So
+/// <see cref="Apply"/> is handed that state rather than keeping a copy of it.
+/// </para>
 /// <param name="ExtraHeaders">What <c>Network.setExtraHTTPHeaders</c> asked to add to every request.</param>
-/// <param name="UserAgent">What <c>Network.setUserAgentOverride</c> or <c>Emulation.setUserAgentOverride</c> set, or <see langword="null"/>.</param>
-/// <param name="AcceptLanguage">The <c>Accept-Language</c> that came with the user agent, or <see langword="null"/>.</param>
-/// <param name="Platform">What <c>navigator.platform</c> should answer, or <see langword="null"/>.</param>
 /// <param name="Offline">Whether <c>Network.emulateNetworkConditions</c> pulled the plug.</param>
 /// <param name="BlockedUrls">The patterns <c>Network.setBlockedURLs</c> refuses.</param>
 internal sealed record PageNetworkPolicy(
     IReadOnlyList<PageHeader> ExtraHeaders,
-    string? UserAgent,
-    string? AcceptLanguage,
-    string? Platform,
     bool Offline,
     IReadOnlyList<string> BlockedUrls)
 {
     /// <summary>A page nobody has configured: every request goes as the page composed it.</summary>
-    internal static PageNetworkPolicy None { get; } = new([], null, null, null, false, []);
-
-    /// <summary>Whether anything here would change a request that is about to be sent.</summary>
-    internal bool RewritesRequests => ExtraHeaders.Count != 0 || UserAgent is not null || AcceptLanguage is not null;
+    internal static PageNetworkPolicy None { get; } = new([], false, []);
 
     /// <summary>Whether <paramref name="url"/> is one <c>setBlockedURLs</c> refuses.</summary>
     internal bool Blocks(string url)
@@ -62,9 +60,12 @@ internal sealed record PageNetworkPolicy(
     /// A client's header wins over the one the page composed — that is what an override is — and a name the
     /// client did not mention is left exactly as the transport computed it, cookies and referrer included.
     /// </remarks>
-    internal IReadOnlyList<PageHeader>? Apply(IReadOnlyList<PageHeader> headers)
+    internal IReadOnlyList<PageHeader>? Apply(IReadOnlyList<PageHeader> headers, EmulationState emulation)
     {
-        if (!RewritesRequests)
+        var agent = emulation.UserAgent;
+        var language = emulation.AcceptLanguage;
+
+        if (ExtraHeaders.Count == 0 && agent is null && language is null)
         {
             return null;
         }
@@ -72,12 +73,12 @@ internal sealed record PageNetworkPolicy(
         var overrides = new List<PageHeader>(ExtraHeaders.Count + 2);
         overrides.AddRange(ExtraHeaders);
 
-        if (UserAgent is { } agent)
+        if (agent is not null)
         {
             overrides.Add(new PageHeader("user-agent", agent));
         }
 
-        if (AcceptLanguage is { } language)
+        if (language is not null)
         {
             overrides.Add(new PageHeader("accept-language", language));
         }

@@ -168,6 +168,17 @@ internal static class WindowInstaller
         Observers.ObserverInstaller.Install(runtime);
         Dom.Views.ViewInstaller.Install(runtime);
 
+        // The page's own navigator members, over the engine's one-member Navigator, and the emulation a
+        // client set before this document existed: both are read on every access, so this is only the
+        // installation and never a snapshot.
+        NavigatorInstaller.Install(runtime);
+        TouchEmulation.Apply(runtime);
+
+        // https://html.spec.whatwg.org/multipage/interaction.html#dom-document-hasfocus — a headless page is
+        // focused unless Emulation.setFocusEmulationEnabled(false) said otherwise, and the same flag is what
+        // document.visibilityState answers from.
+        BrowserEventRealm.Of(engine).DocumentHasFocus = runtime.Emulation.FocusEmulation != false;
+
         // The UI event interface objects — MouseEvent, KeyboardEvent and their family — as lazy, non-clobbering
         // globals, the same way DomBindings.Install adds the DOM's.
         BrowserEventRealm.Install(engine);
@@ -240,6 +251,10 @@ internal static class WindowInstaller
         DocumentUrlMember(engine, wrapper, "referrer", static runtime => runtime.Referrer);
 
         DocumentCookies.Attach(runtime, wrapper);
+
+        // `'ontouchstart' in document` is the other half of the presence test a responsive page writes; see
+        // TouchEmulation for why Element.prototype deliberately does not get one.
+        TouchEmulation.Attach(runtime, wrapper);
     }
 
     /// <summary>

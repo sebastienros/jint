@@ -152,82 +152,52 @@ None of the five interface objects is generated, so they are hand-written `JsObj
 - **`Selection` has no direction**, because direction comes from which end a user dragged from: the anchor is
   always the range's start.
 
-`matchMedia` gained its other half. `PageRuntime.SetViewport` is the seam device emulation (campaign item C5)
-drives, and every `MediaQueryList` the page holds recomputes and fires `change` — a real
-`MediaQueryListEvent`, because `e => e.matches` is how the listener is written — only if its own answer moved.
-No `resize` event fires at the window: HTML fires that from update-the-rendering, and there is none.
+### Emulation, and the media environment it moves
 
-### The protocol layer
+**`Runtime/PageMediaEnvironment` is the one value every media query is answered from**, and
+`PageRuntime.SetMedia` is its only writer. It holds the viewport, the emulated media type, whether the
+primary pointer is coarse, whether the document's own scripts run, and the features a client emulated — as
+one immutable value, swapped whole. That is not tidiness: a query's answer can depend on the viewport *and*
+the media type *and* a preference, so a change that moved two of them has to reach a `change` listener once,
+with both already in place. Every `MediaQueryList` the page holds then recomputes and fires a real
+`MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
+`resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
 
-`DevTools/` is what makes a page drivable by Puppeteer, Playwright and their .NET ports. The public surface
-is one method — `DevToolsServerExtensions.AddBrowser(server, browser)`. Read
-[`Jint.DevTools/AGENTS.md`](../Jint.DevTools/AGENTS.md) first: the thread rule, the mailbox, the
-target/runtime split and the manifest are there and none of it is repeated here.
+**The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
+library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or
+`pointer` at all, and its own `CssMediaQueryList.ComputeMatched` is a stub answering `false` for every query.
+`PageMediaEnvironment.ValueOf` is the table, and the one place that will delegate the day it grows them.
 
-- **A target is a page and a runtime is a document.** `PageTarget : DevToolsTarget` holds what a client keeps
-  addressing — the identifier, the frame it names, the bindings, the new-document scripts, the emulation —
-  and the engine under it is replaced on every navigation. The frame identifier **is** the target
-  identifier: there is one scripted frame per page, and a client matching the frame it navigated against the
-  context it evaluates in gets one string from both.
-- **`IPageObserver` is the only seam, and a page has exactly one observer.** Every event a client hears is
-  one of its calls turned into a protocol event. `DocumentCreated` runs after the window installer and
-  before the parse, on the loop, which is what makes it the place to replace the engine, re-install the
-  bindings and run `addScriptToEvaluateOnNewDocument` — all of which have to be in place before the
-  document's first inline script.
-- **Every command runs on the page loop**, so it may touch the DOM directly — and one that waits
-  (`Page.navigate`) waits by `await`ing, never by blocking: the loop it is on runs the commit it waits for.
-- **`DOM` and `Input` are where a client stops evaluating and starts driving.** A node reaches a client as a
-  `RemoteObject` the `DomRemoteObjectDescriber` named — `subtype: "node"`, the interface, `div#id.cls` — and
-  that subtype is what makes a client library build an *element* handle out of it. `DomNodeTracker` holds the
-  two identifiers: a `nodeId` per document, thrown away and announced with `documentUpdated` on every commit,
-  and a `backendNodeId` per node for the page's life, keyed in a `ConditionalWeakTable`. Both are shared by
-  every attachment, the way the remote-object table is; what is **not** shared is which nodes an attachment
-  has been *sent*, and that is what decides which mutation events reach it — Chrome's own rule, and the
-  reason a client that never called `getDocument` hears nothing. The records are AngleSharp's, delivered on
-  the engine's queue at the same checkpoint a page's own `MutationObserver` fires. Every box is the flat
-  model's ([`Runtime/AGENTS.md`](Runtime/AGENTS.md)), and a node with no box is refused in Chrome's wording
-  rather than answered with zeros. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
-  `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
-  honestly `-32601`. The keyboard's own rules are
-  [above](#the-keyboard-and-the-editor-under-it).
-- **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
-  Playwright each create one utility world when they attach and then use it for the life of the page — so a
-  world that ended with the first document leaves `$`, `$$` and `waitForSelector` waiting for a context that
-  never arrives. `DevToolsTarget.Replace` re-mints it under the same name with a fresh identifier, after the
-  default context is announced.
-- **Tab targets exist because Puppeteer requires them.** Its browser-level `setAutoAttach` filter excludes
-  `page`; it reaches a page by sending `setAutoAttach` again on the tab's session. `TabTarget` answers about
-  the page's engine rather than one of its own. Found by driving the client, not by reading the protocol.
-- **The `Jint` domain is ours, and it is described rather than invented.**
-  `tools/devtools-protocol/jint_protocol.json` sits beside the vendored Chrome files in the same format, so
-  `Jint.getMarkdown`, `Jint.getText` and `Jint.getAccessibilitySnapshot` are generated like any other
-  command. They are what the screenshot refusal names, and `JintDomainTests` closes that loop by following
-  the refusal to a command that answers.
-- **Three divergences, each stated where it is made.** An isolated world is an alias for the document's own
-  realm; a dialog does not block the page, so `handleJavaScriptDialog` sets the standing decision the next
-  one reads; and `captureScreenshot` / `printToPDF` answer `-32000` with a sentence naming the text and
-  markdown alternatives, because this browser renders no pixels.
-- **`Network` and `Fetch` read the page's own request log; they are never a second observer.**
-  `Runtime/PageNetworkRecorder` is the engine's `FetchObserver` and already sees the document, every
-  subresource, every `fetch` and `XMLHttpRequest` and a worker's module loads, so `Page.Requests` and the
-  protocol say the same thing about the same request and the two domains share identifiers. **The
-  notifications and the interception run on the transport thread, not the page loop**, and
-  [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-request-log-is-the-protocols-seam-too) argues why moving them
-  would deadlock the one fetch a page cannot pump through. The document's request carries the `loaderId` as
-  its `requestId`, which is how every client tells a navigation apart.
-- **What is accepted and not yet effective says so, in place.** `Emulation`'s touch, focus and media
-  overrides, `Network.setCacheDisabled` (there is no cache), `Performance.enable` and `Audits.enable` are
-  answered because a refusal fails an ordinary connection, and each names the campaign item that makes it
-  real. Three whole lanes are absent with a reason rather than pending: the `Fetch` **response stage** and
-  with it `IO` (an observer cannot answer `OnResponse`, so a response-stage pause could only continue
-  unchanged), the **WebSocket and EventSource** events (the engine deliberately does not observe those two
-  handshakes), and `Network`'s **timing** document (no phase of a request is measured).
+**An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
+an override lives — on the **page**, not on the protocol target, because an override outlives the document it
+was set on. What separates one command from the next is *when* it becomes effective, and each summary says
+so: the viewport, the media, touch, focus, geolocation, the user agent and the hardware concurrency move the
+document that is loaded; the time zone and the locale (`Options` an engine is *constructed* from) and script
+execution (the parse is what refuses) reach the next one; and the remainder are accepted no-ops naming what
+there is none of.
 
-`Jint.Tests.Browser/DevTools/` holds four checks: the handshake replay of what four recorded clients send up
-to and including their first click, `PageProtocolManifestTests` (the page half of the property
-`Jint.Tests.DevTools` holds for the engine half), `DomDomainTests`, and the PuppeteerSharp suite, the only
-test here that can claim client compatibility — it is what says `$`, `$$`, `click`, `waitForSelector`,
-`hover` and a bounding box work through a library nobody here wrote.
+**Four decisions are made in the code and argued there**, and each is one an edit can undo without noticing.
+`Runtime/NavigatorInstaller` says why the page's `navigator` members are own non-enumerable properties of the
+instance rather than accessors on the shaped `Navigator.prototype`, and why `userAgent` is *shadowed* — a
+page's is `BrowserOptions.UserAgent` and a client's override, and it has to be the string every request the
+page makes carries. `Runtime/TouchEmulation` says that touch emulation changes what a page *detects* and not
+what it receives — no touch event is ever dispatched — and why `Element.prototype` deliberately gets no
+`ontouchstart`. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
+two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
+because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
+not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
+
+**`getComputedStyle` is not re-evaluated against the emulated media**, and that is the one divergence this
+buys: the cascade is AngleSharp.Css's `ComputeCurrentStyle()`, whose media evaluation is its own render
+device, so an `@media (prefers-color-scheme: dark)` rule never becomes active. What a page reads through
+`matchMedia` and through the cascade can therefore disagree — and a framework that themes itself reads the
+first.
+
+### The protocol layer has a file of its own
+
+Page targets, the page-level domains and the request log they read are [`DevTools/AGENTS.md`](DevTools/AGENTS.md).
+The one rule to carry across without opening it: a domain reads the target's *current* runtime per command and
+never caches an engine, and a `JsValue` never leaves the page loop.
 
 ### The seams promoted later
 
@@ -293,6 +263,8 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
 | `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
 | `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
+| `CssMediaQueryList.matches` | evaluate the query against the device and answer | a stub: `ComputeMatched` returns `false` for every query, so a page asking whether it is on a narrow screen is always told no — which is why `Runtime/MediaQuery` exists at all |
+| Media Queries Level 5's preference features | `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`, `forced-colors`, `hover`, `pointer`, `scripting`, `color-gamut` are media features the cascade evaluates | not modelled: `IRenderDevice` has no member for any of them, so an `@media` rule naming one can never match and `Runtime/PageMediaEnvironment` answers them itself |
 
 One more, in AngleSharp itself rather than in `AngleSharp.Css`:
 
@@ -300,47 +272,3 @@ One more, in AngleSharp itself rather than in `AngleSharp.Css`:
 | --- | --- | --- |
 | `IHtmlElement.IsContentEditable` on `<div contenteditable>` | `true`: HTML's [`contenteditable`](https://html.spec.whatwg.org/multipage/interaction.html#attr-contenteditable) is an enumerated attribute whose `true` keyword has the **empty string** as its other spelling, which is how nearly every page in the world writes it | `false` — the attribute is mapped through an enumeration that does not admit the empty string, so only `contenteditable="true"` reads as editable. `Events/ContentEditing.HostOf` computes the state itself for the editor and for focusability; the script-visible `el.isContentEditable` is still AngleSharp's answer, because that member is the binding forwarding it |
 
-### The request log is the protocol's seam too
-
-`Runtime/PageNetworkRecorder` is the page's `FetchObserver`, and it is now two things rather than one: the
-log behind `Page.Requests`, and the seam the `Network` and `Fetch` domains read through
-(`Runtime/IPageNetworkListener`). One observer, two consumers — a second observer on the transport would be
-a second truth about the same request.
-
-- **Every listener call runs on the thread the observation arrived on, which is a transport thread.**
-  Delivering them through the page loop was considered and is wrong: `RequestWillBeSentAsync` is where a
-  client's `Fetch` pause blocks, and the one fetch a page cannot pump through is a `<script src>` a running
-  script inserted — `Parsing/AGENTS.md` says why it blocks the loop rather than pumping — so a pause
-  delivered on the loop would deadlock exactly there. Nothing in the listener touches an engine or a node,
-  which is what makes that safe: the frame identifier is a string, and the loader identifier and document
-  URL are read off `Page`'s own volatile fields as the request goes out.
-- **The listener may answer, so the recorder intercepts as well as watches.** The extra headers a client
-  set, its user-agent override, its blocked URLs, its offline switch and a `Fetch` pause all come back as a
-  `PageNetworkDecision`, which the recorder turns into the engine's own `FetchInterception`. With no
-  listener registered it answers `null` to every hop and copies nothing, which is what a page with no client
-  attached costs.
-- **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
-  than read from the page: the field still holds the document that is showing while the fetch is in flight,
-  and a client tells the navigation apart from every other request by exactly that string.
-- **`DocumentFetch` and `SubresourceFetch` hand their bytes to the observer.** Both read their own body, so
-  neither raises `OnData` for free; without the call the log would have a response with no body and
-  `Network.getResponseBody` would answer nothing for the document a client just navigated to. It is the same
-  debt `FetchObservation.FinalResponse` names, and the body half of it.
-- **The capture is bounded and off by default.** `BrowserOptions.MaxCapturedResponseBytes` bounds the total
-  a page holds, the oldest capture is dropped to stay under it, and the copying is armed only while a client
-  has the `Network` domain enabled.
-
-**The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
-resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
-`ILocation` instead raises `Location.Changed`, answered with a fire-and-forget `IBrowsingContext.OpenAsync` on
-the setter's own thread — the second thread in the DOM the divergence table warns about — so
-`LocationInstaller` shadows the *whole* interface and the hazard is gone rather than dormant. One divergence
-stays: `Options.WebApi.Fetch.BaseUrl` is read once per engine, so `fetch('./x')` after a `pushState` resolves
-against the URL the document *loaded* from. Closing it is an engine seam, not a second URL kept here.
-
-**The history entry is not the document.** Each loaded document gets an id and every entry carries one, so a
-traversal within a cluster (`pushState` siblings, a fragment) is same-document — `popstate`, `hashchange`, no
-fetch — and one across clusters is a navigation that reloads, there being no back/forward cache. The cluster
-is rebound to the new id afterwards, or every step among its siblings would become a reload too. A traversal
-is always queued, never inline; and navigating away from the initial `about:blank` is a **replace**, so
-`history.length` counts what a browser counts.
