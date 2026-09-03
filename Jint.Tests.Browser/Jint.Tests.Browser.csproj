@@ -42,6 +42,15 @@
       was recorded with, so what it sends here is what that file says it sends.
     -->
     <PackageReference Include="PuppeteerSharp" />
+    <!--
+      The second client, and the only one whose driver is a process: Playwright for .NET is a wrapper over a
+      Node program, and the package carries both it and a node runtime for the host's RID. Nothing is
+      downloaded and no browser is installed, because `connectOverCDP` attaches to an endpoint that already
+      exists. The driver is still a process start, an IPC handshake and a few hundred milliseconds, which is
+      why DevTools/PlaywrightCourseTests runs only where JINT_BROWSER_CLIENTS says so and the `browser-clients`
+      CI leg is what sets it.
+    -->
+    <PackageReference Include="Microsoft.Playwright" />
     <PackageReference Include="GitHubActionsTestLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />

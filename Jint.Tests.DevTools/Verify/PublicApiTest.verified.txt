@@ -14,6 +14,7 @@ namespace Jint.DevTools
     {
         public DevToolsServer(Jint.DevTools.DevToolsServerOptions? options = null) { }
         public int BoundPort { get; }
+        public string BrowserHttpUrl { get; }
         public string BrowserId { get; }
         public string BrowserWebSocketUrl { get; }
         public System.Collections.Generic.IReadOnlyList<Jint.DevTools.EngineTarget> Targets { get; }

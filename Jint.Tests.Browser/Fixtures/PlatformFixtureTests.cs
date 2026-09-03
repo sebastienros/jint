@@ -109,13 +109,12 @@ public class PlatformFixtureTests
         string? body = null;
         string? method = null;
 
-        await using var course = await FixtureCourse.OpenAsync("form-redirect", server => server.Map(
-            "/form-redirect/submit",
-            request =>
+        await using var course = await FixtureCourse.OpenAsync(
+            "form-redirect",
+            server => FixtureRoutes.FormRedirect(server, (seenMethod, seenBody) =>
             {
-                method = request.Method;
-                body = request.Body;
-                return LoopbackResponse.Redirect(303, "/form-redirect/done.html?" + request.Body);
+                method = seenMethod;
+                body = seenBody;
             }));
 
         await course.ClickAndNavigateAsync("#place");
@@ -142,42 +141,7 @@ public class PlatformFixtureTests
     [Test]
     public async Task ACookieLoginReachesAProtectedPage()
     {
-        await using var course = await FixtureCourse.OpenAsync("cookie-login", server =>
-        {
-            server.Map("/cookie-login/session", request =>
-            {
-                var credentials = request.Body.Contains("user=ada", StringComparison.Ordinal)
-                    && request.Body.Contains("password=lovelace", StringComparison.Ordinal);
-
-                if (!credentials)
-                {
-                    return LoopbackResponse.Redirect(303, "/cookie-login/index.html");
-                }
-
-                return LoopbackResponse.Redirect(303, "/cookie-login/secret")
-                    .With("Set-Cookie", "session=ada-is-in; Path=/; HttpOnly")
-                    .With("Set-Cookie", "theme=dark; Path=/");
-            });
-
-            server.Map("/cookie-login/secret", request =>
-            {
-                var cookie = request.Header("Cookie") ?? "";
-
-                return cookie.Contains("session=ada-is-in", StringComparison.Ordinal)
-                    ? LoopbackResponse.Html(
-                        "<!doctype html><html><head><title>Secret</title></head><body>"
-                        + "<p id='welcome'>welcome, ada</p>"
-                        + "<p id='cookies'></p>"
-                        + "<script>document.getElementById('cookies').textContent = document.cookie;</script>"
-                        + "</body></html>")
-                    : new LoopbackResponse
-                    {
-                        Status = 401,
-                        Reason = "Unauthorized",
-                        Body = "<!doctype html><html><body><p id='denied'>no session</p></body></html>",
-                    }.With("Content-Type", "text/html; charset=utf-8");
-            });
-        });
+        await using var course = await FixtureCourse.OpenAsync("cookie-login", server => FixtureRoutes.CookieLogin(server));
 
         (await course.TextAsync("#cookies")).Should().Be("no cookies yet");
 

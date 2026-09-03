@@ -87,6 +87,26 @@ public sealed class DevToolsServer : IAsyncDisposable
         }
     }
 
+    /// <summary>Gets the HTTP address a client discovers this server at, e.g. <c>http://127.0.0.1:9222</c>.</summary>
+    /// <remarks>
+    /// The other half of <see cref="BrowserWebSocketUrl"/>, and the one some clients insist on: Playwright's
+    /// <c>ConnectOverCDPAsync</c> and Puppeteer's <c>connect({ browserURL })</c> read
+    /// <c>webSocketDebuggerUrl</c> out of <c>/json/version</c> here rather than being handed a socket address.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The server has not been started.</exception>
+    public string BrowserHttpUrl
+    {
+        get
+        {
+            if (_transport is null)
+            {
+                Throw.InvalidOperation("The server has no address until it is started.");
+            }
+
+            return string.Create(CultureInfo.InvariantCulture, $"http://{Authority}");
+        }
+    }
+
     /// <summary>Gets the engine targets a client can list and attach to, oldest first.</summary>
     /// <remarks>
     /// The engine targets only. A package layered on this one publishes targets of its own — a page is one —
