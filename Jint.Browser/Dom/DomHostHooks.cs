@@ -65,10 +65,29 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-innerhtml</summary>
-    internal virtual void SetInnerHtml(DomRealm realm, IElement element, string markup) => element.InnerHtml = markup;
+    /// <remarks>
+    /// The <c>[CEReactions]</c> half is the second line, and it is only the <i>detached</i> case: a
+    /// connected element's assignment produced a mutation record, which upgraded and connected what it
+    /// parsed before AngleSharp's own call returned. A detached one produces no record, and HTML
+    /// upgrades there too. See <c>CustomElements/CustomElementRegistry.Tree.cs</c>.
+    /// </remarks>
+    internal virtual void SetInnerHtml(DomRealm realm, IElement element, string markup)
+    {
+        element.InnerHtml = markup;
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element);
+    }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-outerhtml</summary>
-    internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup) => element.OuterHtml = markup;
+    /// <remarks>
+    /// The markup replaces the element, so what is walked afterwards is the parent it was in — the
+    /// element itself is no longer in the tree the new content went into.
+    /// </remarks>
+    internal virtual void SetOuterHtml(DomRealm realm, IElement element, string markup)
+    {
+        var parent = element.Parent;
+        element.OuterHtml = markup;
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, parent ?? element);
+    }
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-element-setattribute, hooked so that a handler content attribute a
@@ -94,10 +113,15 @@ internal class DomHostHooks
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
+    /// <remarks>
+    /// Two of the four positions insert into the element's parent, so that is what is walked when there
+    /// is one; see <see cref="SetInnerHtml"/> for why the walk is here at all.
+    /// </remarks>
     internal virtual void InsertAdjacentHtml(DomRealm realm, IElement element, JsValue[] arguments)
     {
         var position = DomEnums.ToAdjacentPosition(DomConvert.At(arguments, 0), "Element.insertAdjacentHTML");
         element.Insert(position, DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML"));
+        CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
     }
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write</summary>

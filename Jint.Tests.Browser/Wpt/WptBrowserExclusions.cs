@@ -86,7 +86,6 @@ internal static class WptBrowserExclusions
 
         // ------------------------------------------------------------ needs a name this browser does not have
         ("dom/events/Event-stopPropagation-cancel-bubbling.html", "not vendored: it read the legacy global `window.event`, which now exists"),
-        ("dom/events/EventTarget-add-listener-platform-object.html", "defines a custom element: window.customElements is absent"),
         ("dom/events/Event-dispatch-click.html", "follows a `javascript:` URL 87 times; a page here loads http, https, about: and data:"),
 
         // ------------------------------------------------------------ needs a rendering
@@ -140,6 +139,101 @@ internal static class WptBrowserExclusions
         // ------------------------------------------------------------ helpers of documents that are not vendored
         ("html/webappapis/scripting/processing-model-2/support/*-in-set*.js", "the bodies of the string-handler tests above"),
         ("dom/events/resources/prefixed-animation-event-tests.js", "the body of the prefixed animation tests above"),
+
+        // ============================================================ custom-elements
+        // The corpus of HTML §4.13, and the shape of what is missing from it is one sentence: **most of it
+        // is written against a second global**. `resources/custom-elements-helpers.js` gives it
+        // `create_window_in_test`, which loads an iframe and resolves with its window, and `document_types()`,
+        // which walks the current document, `new Document()`, `createHTMLDocument()`, an iframe's document and
+        // an XHR-fetched one. A page here parses child frames and gives none of them an engine, so a file
+        // built on either waits for a load that never comes: the harness reports TIMEOUT, which is a whole-file
+        // error no per-test exclusion can name.
+
+        // ------------------------------------------------------------ the whole-directory and marker rules
+        ("custom-elements/form-associated/*", "ElementInternals and form association, which this package has no ElementInternals for"),
+        ("custom-elements/registries/*", "scoped custom element registries, a second registry per shadow root and per element"),
+        ("custom-elements/state/*", "CustomStateSet and its `:state()` selector, which needs a selector engine that knows about it"),
+        ("custom-elements/htmlconstructor/*", "both documents build their subject in an iframe; with those out the directory holds nothing"),
+        ("custom-elements/reactions/customized-builtins/*", "a directory this PR does not vendor"),
+        ("custom-elements/*.tentative.html", "tests a proposal the specification has not adopted"),
+        ("custom-elements/reactions/*.tentative.html", "tests a proposal the specification has not adopted"),
+        ("custom-elements/*.window.js", "a .window.js script, whose generated wrapper this lane does not synthesize"),
+        ("custom-elements/*.xhtml", "an XML document; the server serves this corpus as text/html and AngleSharp parses the page as HTML"),
+        ("custom-elements/parser/*.xhtml", "an XML document, for the same reason"),
+        ("custom-elements/*.svg", "the SVG document a test frames, not a test"),
+        ("custom-elements/parser/*.svg", "the SVG document a test frames, not a test"),
+
+        // ------------------------------------------------------------ needs a frame that runs script
+        ("custom-elements/Document-createElement.html", "document_types(): every assertion is made in five documents, one of them an iframe's"),
+        ("custom-elements/Document-createElement-customized-builtins.html", "document_types(): the same five documents"),
+        ("custom-elements/adopted-callback.html", "adopts nodes between an iframe's document and this one"),
+        ("custom-elements/append-children-to-new-parent-cycle.html", "builds its cycle in a second window"),
+        ("custom-elements/connected-callbacks.html", "document_types(): the same five documents"),
+        ("custom-elements/connected-callbacks-html-fragment-parsing.html", "parses its fragments in a second window"),
+        ("custom-elements/cross-realm-callback-report-exception.html", "a callback whose realm is an iframe's"),
+        ("custom-elements/custom-element-reaction-queue.html", "create_window_in_test"),
+        ("custom-elements/disconnected-callbacks.html", "document_types(): the same five documents"),
+        ("custom-elements/enqueue-custom-element-callback-reactions-inside-another-callback.html", "create_window_in_test"),
+        ("custom-elements/perform-microtask-checkpoint-before-construction.html", "create_window_in_test"),
+        ("custom-elements/pseudo-class-defined.html", "create_window_in_test"),
+        ("custom-elements/pseudo-class-defined-customized-builtins.html", "create_window_in_test"),
+        ("custom-elements/throw-on-dynamic-markup-insertion-counter-construct.html", "create_window_in_test"),
+        ("custom-elements/throw-on-dynamic-markup-insertion-counter-reactions.html", "create_window_in_test"),
+        ("custom-elements/upgrading.html", "document_types(): the same five documents"),
+        ("custom-elements/parser/parser-uses-registry-of-owner-document.html", "parses into a document an iframe owns"),
+        ("custom-elements/reactions/Document.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLAnchorElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLOptionElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLOptionsCollection.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLOutputElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLSelectElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLTableElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLTableRowElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLTableSectionElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/HTMLTitleElement.html", "create_window_in_test"),
+        ("custom-elements/reactions/NamedNodeMap.html", "create_window_in_test"),
+        ("custom-elements/reactions/Range.html", "create_window_in_test"),
+        ("custom-elements/reactions/ShadowRoot.html", "create_window_in_test"),
+        ("custom-elements/reactions/with-exceptions.html", "create_window_in_test"),
+        ("custom-elements/upgrading/Document-importNode.html", "imports from an iframe's document"),
+        ("custom-elements/upgrading/Document-importNode-customized-builtins.html", "imports from an iframe's document"),
+        ("custom-elements/upgrading/Node-cloneNode.html", "clones into an iframe's document"),
+        ("custom-elements/upgrading/upgrade-custom-element-error-event.html", "create_window_in_test"),
+        ("custom-elements/upgrading/upgrading-enqueue-reactions.html", "create_window_in_test"),
+
+        // ------------------------------------------------------------ needs ElementInternals
+        // `attachInternals()` is the whole subject of these, and this package has no ElementInternals: a
+        // form-associated custom element records the flag and takes part in no entry list. The reference is
+        // at file scope in each, so none of them registers a test.
+        ("custom-elements/HTMLElement-attachInternals.html", "attachInternals, which this package does not have"),
+        ("custom-elements/ElementInternals-accessibility.html", "attachInternals, which this package does not have"),
+        ("custom-elements/ElementInternals-role.html", "attachInternals, and get_computed_role is testdriver.js"),
+        ("custom-elements/element-internals-aria-element-reflection.html", "attachInternals, which this package does not have"),
+        ("custom-elements/element-internals-shadowroot.html", "attachInternals, which this package does not have"),
+
+        // ------------------------------------------------------------ not a testharness document at all
+        // A crash test and a print reftest: neither loads testharness.js, so neither can report anything and
+        // the driver's own deadline is what ends them.
+        ("custom-elements/prevent-extensions-crash.html", "a crash test: it loads no harness and asserts nothing"),
+        ("custom-elements/when-defined-reentry-crash.html", "a crash test: it loads no harness and asserts nothing"),
+        ("custom-elements/pseudo-class-defined-print.html", "a print reftest, which needs a rendering to compare"),
+        ("custom-elements/pseudo-class-defined-print-ref.html", "the reference of the reftest above"),
+
+        // ------------------------------------------------------------ two findings, each a whole-file error
+        // `CustomElementRegistry.html` is the corpus's largest file and it reaches `customElements.whenDefined`
+        // with an invalid name, which HTML makes a rejected promise. The file attaches a handler on the very
+        // next line, so a browser raises nothing — but Jint reports HostPromiseRejectionTracker at the
+        // tracker's own cadence rather than at HTML's microtask checkpoint (`WebApi/DiagnosticsSink` states
+        // that divergence), so `unhandledrejection` fires before the handler exists and testharness makes it a
+        // file-wide ERROR. It is the engine's cadence rather than anything about custom elements.
+        ("custom-elements/CustomElementRegistry.html", "an `unhandledrejection` the engine raises at the tracker's cadence rather than at the microtask checkpoint, which testharness turns into a file-wide error"),
+        // A constructor that constructs a *second* instance of its own name before calling `super()`. HTML has
+        // the parser *construct* a custom element, so the nested construction starts with an empty construction
+        // stack and makes an element of its own; here the parser creates the element and the driver upgrades
+        // it, so the stack is not empty and the nested `super()` takes the element being upgraded. The outer
+        // `super()` then finds the already-constructed marker, and the InvalidStateError is reported at the
+        // global scope, which testharness makes a file-wide ERROR.
+        ("custom-elements/parser/parser-uses-constructed-element.html", "the parser upgrades a custom element where HTML constructs one, so a constructor that constructs its own name before super() takes the element being upgraded"),
     ];
 
     /// <summary>
@@ -155,12 +249,53 @@ internal static class WptBrowserExclusions
     /// </remarks>
     internal static readonly Dictionary<string, int> MinimumTests = new(StringComparer.Ordinal)
     {
+        ["custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html"] = 5,
+        ["custom-elements/CustomElementRegistry-getName.html"] = 4,
+        ["custom-elements/Document-createElementNS-customized-builtins.html"] = 3,
+        ["custom-elements/Document-createElementNS-prefix-timing.html"] = 3,
+        ["custom-elements/Document-createElementNS.html"] = 4,
+        ["custom-elements/HTMLElement-constructor-customized-builtins.html"] = 2,
+        ["custom-elements/HTMLElement-constructor.html"] = 12,
+        ["custom-elements/attribute-changed-callback.html"] = 13,
+        ["custom-elements/builtin-coverage.html"] = 441,
+        ["custom-elements/connected-callbacks-template.html"] = 1,
+        ["custom-elements/customized-built-in-constructor-exceptions.html"] = 5,
+        ["custom-elements/historical.html"] = 3,
+        ["custom-elements/microtasks-and-constructors.html"] = 5,
+        ["custom-elements/overwritten-customElements-global.html"] = 4,
+        ["custom-elements/parser/parser-constructs-custom-element-in-document-write.html"] = 2,
+        ["custom-elements/parser/parser-constructs-custom-element-synchronously.html"] = 1,
+        ["custom-elements/parser/parser-constructs-custom-elements-with-is.html"] = 2,
+        ["custom-elements/parser/parser-constructs-custom-elements.html"] = 2,
+        ["custom-elements/parser/parser-custom-element-in-foreign-content.html"] = 1,
+        ["custom-elements/parser/parser-fallsback-to-unknown-element.html"] = 4,
+        ["custom-elements/parser/parser-sets-attributes-and-children.html"] = 5,
+        ["custom-elements/parser/serializing-html-fragments-customized-builtins.html"] = 3,
+        ["custom-elements/range-and-constructors.html"] = 2,
+        ["custom-elements/reaction-timing.html"] = 3,
+        ["custom-elements/reactions/Animation.html"] = 3,
+        ["custom-elements/reactions/AriaMixin-element-attributes.html"] = 16,
+        ["custom-elements/reactions/AriaMixin-string-attributes.html"] = 80,
+        ["custom-elements/reactions/Attr.html"] = 2,
+        ["custom-elements/reactions/CSSStyleDeclaration.html"] = 30,
+        ["custom-elements/reactions/ChildNode.html"] = 7,
+        ["custom-elements/reactions/DOMStringMap.html"] = 8,
+        ["custom-elements/reactions/DOMTokenList.html"] = 19,
+        ["custom-elements/reactions/Element.html"] = 47,
+        ["custom-elements/reactions/ElementContentEditable.html"] = 2,
+        ["custom-elements/reactions/HTMLElement.html"] = 22,
+        ["custom-elements/reactions/Node.html"] = 14,
+        ["custom-elements/reactions/ParentNode.html"] = 4,
+        ["custom-elements/reactions/Selection.html"] = 1,
+        ["custom-elements/upgrading/Node-cloneNode-customized-builtins.html"] = 1,
+        ["custom-elements/upgrading/upgrading-parser-created-element.html"] = 6,
         ["dom/events/AddEventListenerOptions-once.any.html"] = 4,
         ["dom/events/AddEventListenerOptions-passive.any.html"] = 5,
         ["dom/events/AddEventListenerOptions-signal.any.html"] = 11,
         ["dom/events/Body-FrameSet-Event-Handlers.html"] = 48,
         ["dom/events/CustomEvent.html"] = 3,
         ["dom/events/Event-cancelBubble.html"] = 8,
+        ["dom/events/EventTarget-add-listener-platform-object.html"] = 1,
         ["dom/events/Event-constructors.any.html"] = 14,
         ["dom/events/Event-defaultPrevented-after-dispatch.html"] = 2,
         ["dom/events/Event-defaultPrevented.html"] = 8,
@@ -386,5 +521,144 @@ internal static class WptBrowserExclusions
         // one. Named access now carries it as far as the assertion, which is where no fix short of campaign
         // item C4's flat renderer moves it.
         new("dom/events/mouse-event-retarget.html", "*", WptDivergence.NeedsLayout),
+
+        // ================================================================ custom-elements
+        // What the custom element corpus found. Every one of these is a defect somebody owes a fix for:
+        // `Wpt/README.md` groups them by cause and names each, and the groups below are that list in the
+        // order the README gives it.
+
+        // ---------------------------------------------------------------- the registry, the constructor and the two creation members
+        new("custom-elements/CustomElementRegistry-constructor-and-callbacks-are-held-strongly.html", "adoptedCallback", WptDivergence.NeedsTriage),
+        new("custom-elements/CustomElementRegistry-getName.html", "customElements.getName must throw when the element interface is not a constructor", WptDivergence.NeedsTriage),
+        new("custom-elements/CustomElementRegistry-getName.html", "customElements.getName returns the name of the entry with the given constructor when there is a matching entry.", WptDivergence.NeedsTriage),
+        new("custom-elements/Document-createElementNS.html", "autonomous: document.createElementNS should create custom elements with prefixes.", WptDivergence.NeedsTriage),
+        new("custom-elements/Document-createElementNS-customized-builtins.html", "builtin: document.createElementNS should create custom elements with prefixes.", WptDivergence.NeedsTriage),
+        new("custom-elements/Document-createElementNS-prefix-timing.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/HTMLElement-constructor.html", "HTMLElement constructor must throw a TypeError when NewTarget is equal to itself", WptDivergence.NeedsTriage),
+        new("custom-elements/HTMLElement-constructor.html", "HTMLElement constructor must throw a TypeError when NewTarget is equal to itself via a Proxy object", WptDivergence.NeedsTriage),
+        new("custom-elements/HTMLElement-constructor-customized-builtins.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/overwritten-customElements-global.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/range-and-constructors.html", "*", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- the callbacks and when they run
+        new("custom-elements/attribute-changed-callback.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser", WptDivergence.NeedsTriage),
+        new("custom-elements/microtasks-and-constructors.html", "Microtasks evaluate immediately when the stack is empty inside the parser, causing the checks on no attributes to fail", WptDivergence.NeedsTriage),
+        new("custom-elements/reaction-timing.html", "*", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- the customized built-in table
+        new("custom-elements/builtin-coverage.html", "*: Operator 'new' should instantiate a customized built-in element", WptDivergence.NeedsTriage),
+        new("custom-elements/builtin-coverage.html", "*: document.createElement() should instantiate a customized built-in element", WptDivergence.NeedsTriage),
+        new("custom-elements/builtin-coverage.html", "dl: Define a customized built-in element", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- the parser
+        new("custom-elements/parser/parser-constructs-custom-element-in-document-write.html", "HTML parser must instantiate custom elements inside document.write", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/parser-constructs-custom-element-synchronously.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/parser-fallsback-to-unknown-element.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser must enqueue attributeChanged reactions", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser must set the attributes or append children before calling constructor", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/parser-sets-attributes-and-children.html", "HTML parser should call connectedCallback before appending child nodes.", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized even for an undefined element", WptDivergence.NeedsTriage),
+        new("custom-elements/parser/serializing-html-fragments-customized-builtins.html", "\"is\" value should be serialized if the custom element has no \"is\" content attribute", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- the upgrade
+        new("custom-elements/upgrading/Node-cloneNode-customized-builtins.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself after super() call", WptDivergence.NeedsTriage),
+        new("custom-elements/upgrading/upgrading-parser-created-element.html", "HTMLElement constructor must throw an TypeError when the top of the construction stack is marked AlreadyConstructed due to a custom element constructor constructing itself before super() call", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- one [CEReactions] member per file
+        new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/AriaMixin-element-attributes.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/AriaMixin-string-attributes.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Attr.html", "value on Attr must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/CSSStyleDeclaration.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ChildNode.html", "after on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ChildNode.html", "before on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ChildNode.html", "replaceWith on ChildNode must enqueue a connected reaction", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ChildNode.html", "replaceWith on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMStringMap.html", "setter on DOMStringMap must enqueue an attributeChanged reaction when adding an observed data attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMStringMap.html", "setter on DOMStringMap must enqueue an attributeChanged reaction when mutating the value of an observed data attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMStringMap.html", "setter on DOMStringMap must enqueue an attributeChanged reaction when mutating the value of an observed data attribute to the same value", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "add on DOMTokenList must enqueue an attributeChanged reaction when adding a value to an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "add on DOMTokenList must enqueue an attributeChanged reaction when adding an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "add on DOMTokenList must enqueue exactly one attributeChanged reaction when adding multiple values to an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "remove on DOMTokenList must enqueue an attributeChanged reaction even when removing a non-existent value from an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "remove on DOMTokenList must enqueue an attributeChanged reaction when removing a value from an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "remove on DOMTokenList must enqueue exactly one attributeChanged reaction when removing multiple values to an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "replace on DOMTokenList must enqueue an attributeChanged reaction when replacing a value in an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "replace on DOMTokenList must not enqueue an attributeChanged reaction when replacing a value in an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "replace on DOMTokenList must not enqueue an attributeChanged reaction when the token to replace does not exist in the attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "the stringifier of DOMTokenList must enqueue an attributeChanged reaction when adding an observed attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "the stringifier of DOMTokenList must enqueue an attributeChanged reaction when mutating the value of an observed attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "the stringifier of DOMTokenList must enqueue an attributeChanged reaction when the setter is called with the original value of the attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "toggle on DOMTokenList must enqueue an attributeChanged reaction when adding a value to an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/DOMTokenList.html", "toggle on DOMTokenList must enqueue an attributeChanged reaction when removing a value from an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "className on Element must enqueue an attributeChanged reaction when adding class content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "className on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "id on Element must enqueue an attributeChanged reaction when adding id content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "id on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "innerHTML on Element must enqueue a attributeChanged reaction for a newly constructed custom element", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "insertAdjacentElement on Element must enqueue a connected reaction", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "insertAdjacentElement on Element must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "insertAdjacentHTML on Element must enqueue a attributeChanged reaction for a newly constructed custom element", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "insertAdjacentHTML on Element must enqueue a connected reaction for a newly constructed custom element", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "outerHTML on Element must enqueue a attributeChanged reaction for a newly constructed custom element", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "removeAttributeNS on Element must enqueue an attributeChanged reaction when removing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "removeAttributeNode on Element must enqueue an attributeChanged reaction when removing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "removeAttributeNode on Element must not enqueue an attributeChanged reaction when removing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "removeAttributeNode on Element must not enqueue an attributeChanged reaction when removing an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttribute on Element must enqueue an attributeChanged reaction when adding an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttribute on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNS on Element must enqueue an attributeChanged reaction when adding an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNS on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNode on Element must enqueue an attributeChanged reaction when adding an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNode on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNode on Element must enqueue an attributeChanged reaction when replacing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNode on Element must not enqueue an attributeChanged reaction when adding an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNodeNS on Element must enqueue an attributeChanged reaction when adding an attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNodeNS on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNodeNS on Element must enqueue an attributeChanged reaction when replacing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "setAttributeNodeNS on Element must not enqueue an attributeChanged reaction when adding an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "slot on Element must enqueue an attributeChanged reaction when adding slot content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "slot on Element must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (force false) on Element must enqueue an attributeChanged reaction when removing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (force false) on Element must not enqueue an attributeChanged reaction when removing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (force false) on Element must not enqueue an attributeChanged reaction when removing an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (only removes) on Element must enqueue an attributeChanged reaction when removing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (only removes) on Element must not enqueue an attributeChanged reaction when removing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Element.html", "toggleAttribute (only removes) on Element must not enqueue an attributeChanged reaction when removing an unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ElementContentEditable.html", "*", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "accessKey on HTMLElement must enqueue an attributeChanged reaction when adding accesskey content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "accessKey on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "dir on HTMLElement must enqueue an attributeChanged reaction when adding dir content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "dir on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "draggable on HTMLElement must enqueue an attributeChanged reaction when adding draggable content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "draggable on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "hidden on HTMLElement must enqueue an attributeChanged reaction when adding hidden content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "hidden on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "lang on HTMLElement must enqueue an attributeChanged reaction when adding lang content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "lang on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "outerText on HTMLElement must enqueue a disconnected reaction", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "popover on HTMLElement must enqueue an attributeChanged reaction when adding popover content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "popover on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "spellcheck on HTMLElement must enqueue an attributeChanged reaction when adding spellcheck content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "spellcheck on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "tabIndex on HTMLElement must enqueue an attributeChanged reaction when adding tabindex content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "tabIndex on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "title on HTMLElement must enqueue an attributeChanged reaction when adding title content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "title on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "translate on HTMLElement must enqueue an attributeChanged reaction when adding translate content attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/HTMLElement.html", "translate on HTMLElement must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "appendChild on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "cloneNode on Node must enqueue an attributeChanged reaction when cloning an element only for observed attributes", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "cloneNode on Node must enqueue an attributeChanged reaction when cloning an element with an observed attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "insertBefore on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "nodeValue on Node must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "nodeValue on Node must not enqueue an attributeChanged reaction when replacing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "replaceChild on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "textContent on Node must enqueue an attributeChanged reaction when replacing an existing attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/Node.html", "textContent on Node must not enqueue an attributeChanged reaction when replacing an existing unobserved attribute", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ParentNode.html", "append on ParentNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
+        new("custom-elements/reactions/ParentNode.html", "prepend on ParentNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
     ];
 }

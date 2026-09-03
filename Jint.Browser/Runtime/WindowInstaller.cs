@@ -167,6 +167,7 @@ internal static class WindowInstaller
         // touching none of them builds none of their prototypes.
         Observers.ObserverInstaller.Install(runtime);
         Dom.Views.ViewInstaller.Install(runtime);
+        CustomElements.CustomElementInstaller.Install(runtime);
 
         // The page's own navigator members, over the engine's one-member Navigator, and the emulation a
         // client set before this document existed: both are read on every access, so this is only the
@@ -344,6 +345,13 @@ internal static class WindowInstaller
     /// <c>event</c> is not here: DOM's <i>current event</i> is the one member a page can tell apart from an
     /// accessor on <c>Window.prototype</c>, because WebIDL's <c>[Global]</c> makes it an own property of the
     /// global object. <see cref="Install"/> installs it there.
+    /// <para>
+    /// <c>customElements</c> is
+    /// <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#dom-window-customelements">a
+    /// <c>[SameObject]</c> attribute</a>, so the registry is the runtime's and the member only names it. It
+    /// is an accessor rather than an operation, which is what keeps it clear of the unqualified-call trap
+    /// above.
+    /// </para>
     /// </remarks>
     private static JsObjectShape BuildWindowShape()
     {
@@ -372,6 +380,7 @@ internal static class WindowInstaller
                     return JsValue.Undefined;
                 })
             .Accessor("origin", static (t, _) => JsString.Create(PageRuntime.Of(t, "origin").Document?.Origin ?? "null"))
+            .Accessor("customElements", static (t, _) => PageRuntime.Of(t, "customElements").CustomElements)
             .Method("stop", static (_, _) => JsValue.Undefined)
             .Method("focus", static (_, _) => JsValue.Undefined)
             .Method("blur", static (_, _) => JsValue.Undefined)

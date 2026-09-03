@@ -103,6 +103,16 @@ it is the answer to the one actionable question Starling's "we will not embed Ji
 This is the piece offered upstream: AngleSharp.Js can adopt the generated bindings without adopting anything
 else here.
 
+**What was built also owns HTML §4.13**, which AngleSharp has nothing of: `Jint.Browser/CustomElements/` is
+the `CustomElementRegistry`, the element state (a side table keyed on the AngleSharp element), the
+construction stack that makes `super()` answer the element being created, and the reaction lane. Three of the
+overrides above exist for it — `createElement`, `createElementNS` and `cloneNode` answer the *constructor's*
+element for a defined name — and `DomInterfaceObject.Construct`, which refuses every other `new`, is HTML's
+`HTMLElement` constructor. The one approximation is where a reaction runs: nothing here can see a generated
+member return, so the element queue is drained as a reaction *arrives* rather than when the outermost
+`[CEReactions]` operation returns, and a parser-created element is upgraded at the driver's script boundaries
+rather than constructed by the parser. `Jint.Browser/AGENTS.md` states both and what they cost.
+
 Wrapper identity: `DomNodeObject : JsEventTarget` holds an `INode`, the prototype picked from `DomTypeMap`, the
 brand check in a generated member is the interface cast (`Illegal invocation` otherwise). One wrapper per node
 through a per-page `ConditionalWeakTable<INode, DomNodeObject>`: a node in the tree keeps its wrapper and its

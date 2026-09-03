@@ -33,6 +33,7 @@ public sealed class HostInterfaceDisciplineTests
         "MediaQueryList",
         "Geolocation",
         "Window",
+        "CustomElementRegistry",
     ];
 
     [Test]

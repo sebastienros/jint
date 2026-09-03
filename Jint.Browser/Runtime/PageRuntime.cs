@@ -31,6 +31,7 @@ internal sealed class PageRuntime
     private readonly long _started;
     private IDocument? _document;
     private Observers.ObserverRealm? _observers;
+    private CustomElements.CustomElementRegistry? _customElements;
     private Dom.Views.ViewRealm? _views;
     private List<JsMediaQueryList>? _mediaQueryLists;
 
@@ -65,6 +66,16 @@ internal sealed class PageRuntime
 
     /// <summary>The engine this page runs in.</summary>
     internal Engine Engine { get; }
+
+    /// <summary>The managed identifier of the thread that owns this engine and its document.</summary>
+    /// <remarks>
+    /// It is this constructor's own thread, because a page's engine is built on its loop
+    /// (<c>PageLoop.ReplaceEngine</c>) and nothing else may build one. It exists so that a callback
+    /// AngleSharp makes <i>inline</i> — a mutation record, an attribute notification — can tell whether
+    /// it arrived on the loop or on the parser's thread, which is the difference between running a
+    /// page's script now and having to queue it.
+    /// </remarks>
+    internal int LoopThreadId { get; } = Environment.CurrentManagedThreadId;
 
     /// <summary>The page, for the seams that have to reach the host — dialogs and navigation.</summary>
     internal Page Page { get; }
@@ -161,6 +172,20 @@ internal sealed class PageRuntime
 
     /// <summary>The observer interface objects of this engine, built on first use.</summary>
     internal Observers.ObserverRealm Observers => _observers ??= new Observers.ObserverRealm(this);
+
+    /// <summary>
+    /// This document's <c>CustomElementRegistry</c> — <c>window.customElements</c> — built on first use.
+    /// </summary>
+    internal CustomElements.CustomElementRegistry CustomElements
+        => _customElements ??= global::Jint.Browser.CustomElements.CustomElementInstaller.Create(this);
+
+    /// <summary>The registry if a page has ever asked for one, and <see langword="null"/> otherwise.</summary>
+    /// <remarks>
+    /// Every path that merely <i>might</i> concern a custom element reads this rather than
+    /// <see cref="CustomElements"/>: a document that never mentions <c>customElements</c> builds no
+    /// registry, so it pays nothing for the attribute notifications and the tree walks that serve one.
+    /// </remarks>
+    internal CustomElements.CustomElementRegistry? CustomElementsIfCreated => _customElements;
 
     /// <summary>The DOM views of this engine — <c>DOMParser</c>, <c>XMLSerializer</c>, <c>Selection</c>.</summary>
     internal Dom.Views.ViewRealm Views => _views ??= new Dom.Views.ViewRealm(this);

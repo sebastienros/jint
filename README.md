@@ -2372,6 +2372,17 @@ way HTML says: inline and external classic scripts in document order as the pars
 and one `innerHTML` inserted does not, `import()` works from a classic script, and `<link rel=stylesheet>` is
 fetched so `getComputedStyle` answers from it.
 
+**And custom elements.** `window.customElements` is HTML's registry: `define` with `extends` and the
+reserved-name rules, `get`, `getName`, `whenDefined` and `upgrade`, with `connectedCallback`,
+`disconnectedCallback` and `attributeChangedCallback` running where a browser runs them — inside the DOM call
+that caused them, so `el.setAttribute('x', 1)` has already called back by the time it returns.
+`document.createElement`, `new MyElement()`, `innerHTML`, `cloneNode` and an element written in the markup
+all end in the same constructor, autonomous elements and customized built-ins (`extends: 'button'`,
+`<button is="my-button">`) alike, and a constructor or a callback that throws is reported to the page rather
+than crashing it. Two things differ from a browser and say so: an element the *parser* created is upgraded at
+the next script boundary rather than constructed as the tokenizer reaches it, and there is no
+`ElementInternals`, so `static formAssociated` is recorded and takes part in no form.
+
 **And the observers and views a page written this decade expects.** A `MutationObserver` whose records come
 from AngleSharp and are delivered at Jint's microtask checkpoint; `IntersectionObserver` and `ResizeObserver`
 as documented stubs that report every observed target once, since there is no layout for either to measure;
@@ -2558,7 +2569,8 @@ var markdown = answer!.Value.GetProperty("markdown").GetString();
 from the DOM — no layout, no rendering, and nothing that runs a line of the page's script — and each takes
 the options the extractor behind it already had.
 
-**What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
+**What does not exist yet.** No `ElementInternals` and no scoped custom element registries, no iframe
+scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
 nothing is ever side by side. Over the protocol that means no touch or drag input and no screenshots; those are
 the later items of the same campaign. Three network lanes are absent with a reason rather than pending: `Fetch`'s

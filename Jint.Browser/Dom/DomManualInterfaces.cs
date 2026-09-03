@@ -54,8 +54,35 @@ internal static class DomManualInterfaces
 
     /// <summary>
     /// The interface a node takes when its CLR type does not decide it, or <see langword="null"/> when
-    /// <c>DomTypeMap</c> is the answer — which it is for every node but a frameset.
+    /// <c>DomTypeMap</c> is the answer.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two nodes need an answer here rather than from the CLR type, and the second is HTML's rule for a
+    /// custom element name.
+    /// <a href="https://html.spec.whatwg.org/multipage/dom.html#htmlunknownelement">The element interface
+    /// for a name in the HTML namespace</a> is <c>HTMLElement</c> when the name is a valid custom element
+    /// name and <c>HTMLUnknownElement</c> otherwise — so an undefined <c>&lt;my-el&gt;</c> is an
+    /// <c>HTMLElement</c>, which is what a page tests before anything is defined and what the element
+    /// keeps until an upgrade swaps its wrapper's prototype for the constructor's.
+    /// </para>
+    /// <para>
+    /// AngleSharp builds an <c>HtmlUnknownElement</c> for both, so the name is the only thing separating
+    /// them. The test costs a character scan, and only for an element AngleSharp could not identify.
+    /// </para>
+    /// </remarks>
     internal static DomInterfaceDefinition? For(INode node)
-        => node is IHtmlElement { LocalName: "frameset" } ? HTMLFrameSetElement : null;
+    {
+        if (node is IHtmlElement { LocalName: "frameset" })
+        {
+            return HTMLFrameSetElement;
+        }
+
+        if (node is IHtmlUnknownElement unknown && CustomElements.CustomElementNames.IsValid(unknown.LocalName))
+        {
+            return DomInterfaces.HTMLElement;
+        }
+
+        return null;
+    }
 }
