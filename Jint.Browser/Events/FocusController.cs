@@ -291,7 +291,10 @@ internal static class FocusController
         IHtmlButtonElement or IHtmlSelectElement or IHtmlTextAreaElement => true,
         IHtmlInputElement input => !string.Equals(input.Type, "hidden", StringComparison.Ordinal),
         IHtmlInlineFrameElement => true,
-        IHtmlElement html => html.LocalName is "summary" || html.IsContentEditable,
+        // An editing host is a focusable area; an element merely *inside* one is not, which is what makes a
+        // click on a <span> inside <a contenteditable> focus the anchor. ContentEditing.HostOf says which is
+        // which, and says why AngleSharp's own IsContentEditable cannot answer it.
+        IHtmlElement html => html.LocalName is "summary" || ReferenceEquals(ContentEditing.HostOf(html), html),
         _ => false,
     };
 

@@ -197,6 +197,104 @@ public class PuppeteerSharpPageTests
         await context.CloseAsync();
     }
 
+    /// <summary>
+    /// The keyboard, through the client's own API: <c>TypeAsync</c>, <c>PressAsync</c>, a held modifier and
+    /// the <kbd>Tab</kbd> that moves focus.
+    /// </summary>
+    /// <remarks>
+    /// Every one of these is <c>Input.dispatchKeyEvent</c> as PuppeteerSharp composes it — <c>keyDown</c> with
+    /// <c>text</c> for a character, <c>rawKeyDown</c> without for an editing key, its own running modifier bit
+    /// field, and <c>Input.insertText</c> for a character its US layout has no key for. What the page sees is
+    /// what a page sees in Chrome, and the assertions are written on that rather than on the wire.
+    /// </remarks>
+    [Test]
+    public async Task PuppeteerTypesEditsAndSubmits()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml(
+            "/form",
+            """
+            <html><head><title>Form</title></head><body>
+              <form id="f" action="/done" method="get">
+                <input id="name" name="name" type="text">
+                <input id="city" name="city" type="text">
+                <button id="go" type="submit">Go</button>
+              </form>
+              <script>
+                window.events = [];
+                const name = document.getElementById('name');
+                name.addEventListener('input', e => window.events.push('input:' + e.inputType + ':' + (e.data ?? '')));
+                name.addEventListener('change', () => window.events.push('change:' + name.value));
+                document.getElementById('city').addEventListener('focus', () => window.events.push('focus:city'));
+              </script>
+            </body></html>
+            """);
+
+        origin.MapHtml("/done", "<html><head><title>Done</title></head><body><p>submitted</p></body></html>");
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/form")).WaitAsync(Bound);
+
+        // type() clicks the element and then sends one key press per character.
+        await page.TypeAsync("#name", "hello").WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<string>("document.getElementById('name').value").WaitAsync(Bound))
+            .Should().Be("hello");
+
+        (await page.EvaluateExpressionAsync<string>("window.events.join('|')").WaitAsync(Bound))
+            .Should().Be("input:insertText:h|input:insertText:e|input:insertText:l|input:insertText:l|input:insertText:o");
+
+        // A held modifier: Shift down, two arrows, Shift up — and the client puts the modifier in each event's
+        // bit field, which is what makes the selection extend rather than the caret move.
+        await page.Keyboard.PressAsync("End").WaitAsync(Bound);
+        await page.Keyboard.DownAsync("Shift").WaitAsync(Bound);
+        await page.Keyboard.PressAsync("ArrowLeft").WaitAsync(Bound);
+        await page.Keyboard.PressAsync("ArrowLeft").WaitAsync(Bound);
+        await page.Keyboard.UpAsync("Shift").WaitAsync(Bound);
+
+        (await page.EvaluateExpressionAsync<string>(
+            "(() => { const n = document.getElementById('name'); return [n.selectionStart, n.selectionEnd].join(','); })()")
+            .WaitAsync(Bound)).Should().Be("3,5");
+
+        // …and the selection is what the next key replaces.
+        await page.Keyboard.PressAsync("Backspace").WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<string>("document.getElementById('name').value").WaitAsync(Bound))
+            .Should().Be("hel");
+
+        // Input.insertText, which is how a client sends a character its keyboard layout has no key for.
+        await page.Keyboard.SendCharacterAsync("ü").WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<string>("document.getElementById('name').value").WaitAsync(Bound))
+            .Should().Be("helü");
+
+        // Tab moves focus along the sequential focus order, firing the focus events on the way.
+        await page.Keyboard.PressAsync("Tab").WaitAsync(Bound);
+        (await page.EvaluateExpressionAsync<string>("document.activeElement.id").WaitAsync(Bound)).Should().Be("city");
+        (await page.EvaluateExpressionAsync<string>("window.events.join('|')").WaitAsync(Bound))
+            .Should().Contain("focus:city");
+
+        // Enter in a single-line control is HTML's implicit submission, which navigates.
+        await Task.WhenAll(
+            page.WaitForNavigationAsync(),
+            page.Keyboard.PressAsync("Enter")).WaitAsync(Bound);
+
+        (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Done");
+        page.Url.Should().Contain("name=hel");
+
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
     [Test]
     public async Task PuppeteerSeesEveryRequestThePageMakes()
     {

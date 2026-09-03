@@ -2453,14 +2453,19 @@ var title = await page.EvaluateExpressionAsync<string>("document.title");
 ```
 
 A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
-response object, and `evaluate` runs in the page. **Finding elements and clicking them works too** — the `DOM`
-domain answers about the document a client walks, and `Input.dispatchMouseEvent` turns a coordinate into the
-pointer and mouse sequence a browser fires, with the focus and the activation behaviour that go with it:
+response object, and `evaluate` runs in the page. **Finding elements, clicking them and typing into them works
+too** — the `DOM` domain answers about the document a client walks, `Input.dispatchMouseEvent` turns a
+coordinate into the pointer and mouse sequence a browser fires, and `Input.dispatchKeyEvent` and
+`Input.insertText` turn a key into `keydown`, `keypress` and `keyup` at whatever the page has focused, with
+the focus, the editing and the activation behaviour that go with them:
 
 ```c#
 var button = await page.QuerySelectorAsync("#submit");
 var box = await button.BoundingBoxAsync();      // the flat model's box, the same one the page reads
 await button.ClickAsync();                       // a trusted click at its centre; a link here would navigate
+
+await page.TypeAsync("#search", "hello");        // one key press per character, editing the value as it goes
+await page.Keyboard.PressAsync("Enter");         // …and Enter is HTML's implicit submission
 
 await page.WaitForSelectorAsync("#result");
 var rows = await page.QuerySelectorAllAsync("tr.row");
@@ -2527,14 +2532,14 @@ the options the extractor behind it already had.
 
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
-nothing is ever side by side. Over the protocol that means no keyboard (`Input.dispatchKeyEvent` and
-`insertText` are absent, so `page.type` does not work yet), no `Accessibility` domain, and no screenshots.
-Those are the later items of the same campaign. Three network lanes are absent with a reason rather than
-pending: `Fetch`'s **response** stage and with it the `IO` domain (an observer is told about a response and
-cannot answer it, so a response-stage pause could only ever continue unchanged), the **WebSocket and
-EventSource** events (the engine deliberately does not observe those two handshakes), and `Network`'s
-**timing** document (no phase of a request is measured, and a document of zeros would read as a page that
-loaded instantly). Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
+nothing is ever side by side. Over the protocol that means no touch or drag input, no `Accessibility` domain,
+and no screenshots. Those are the later items of the same campaign. Three network lanes are absent with a
+reason rather than pending: `Fetch`'s **response** stage and with it the `IO` domain (an observer is told
+about a response and cannot answer it, so a response-stage pause could only ever continue unchanged), the
+**WebSocket and EventSource** events (the engine deliberately does not observe those two handshakes), and
+`Network`'s **timing** document (no phase of a request is measured, and a document of zeros would read as a
+page that loaded instantly). Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and
+`ClipboardEvent` are
 absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
 reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
 and `document.write` after a page has finished parsing is refused with a page error rather than implying

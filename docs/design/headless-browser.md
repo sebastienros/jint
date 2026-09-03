@@ -209,11 +209,31 @@ inside the viewport" — Playwright's does — succeed on a document taller than
 
 `dispatchMouseEvent` is the pointer/mouse event sequence with focus and click activation (`<a>` navigates,
 submit buttons submit, checkbox/radio toggle with legacy pre-activation rollback, `<label>` forwards,
-`<summary>` toggles, `<option>` selects), and `mouseWheel` is a scroll of `deltaY`. Still to come:
-`dispatchKeyEvent` as `keydown`/`keypress`/`keyup` with editing on `<input>` and `<textarea>` (characters,
-Backspace/Delete, Home/End/arrows, selection, Enter implicit submission, Tab traversal,
-`beforeinput`/`input`/`change`), then `insertText` and a `contenteditable`-lite. WPT's `testdriver.js` is
-mapped onto the same dispatcher.
+`<summary>` toggles, `<option>` selects), and `mouseWheel` is a scroll of `deltaY`.
+
+**The keyboard shipped, and the protocol's four types are three questions.** `dispatchKeyEvent` dispatches at
+whatever the page has focused — the body when nothing is. `keyDown` fires `keydown` and, for a key that
+produces text, `keypress`, then runs the whole default action; `rawKeyDown` fires `keydown` and runs the
+default action *without* the insertion, because it is what a client sends for a key whose character is coming
+separately or not at all — which is every editing key; `char` is that character alone, a `keypress` and then
+the insertion; `keyUp` fires `keyup` always, because it is part of no default action. Modifier state is the
+client's: every one of them puts the bit field in each event. `insertText` is text at the caret with no key
+events, which is an IME commit and Puppeteer's `sendCharacter`; `imeSetComposition` is accepted and changes
+nothing, because a candidate string never reaches the value and the commit that does arrives as `insertText`.
+
+Editing is a string and two offsets, which needs no rendering: insertion at the selection, `Backspace` and
+`Delete`, `Home`/`End`/arrows with `Shift` extending from the anchor (so `selectionDirection` is real),
+`ArrowUp`/`ArrowDown` as line moves computed from the newlines in a `<textarea>`'s value, select-all,
+`maxlength`, `Enter` as a newline in a `<textarea>` and as HTML's implicit submission in an `<input>`,
+`Tab`/`Shift`+`Tab` along the sequential focus order, and `beforeinput` (cancelable) / `input` / `change`
+around all of it. `contenteditable` is deliberately light — text spliced in one text node, the caret kept in
+the document's own `Selection` — so `Enter` there does nothing rather than something structural and wrong.
+
+WPT's `testdriver.js` is mapped onto the same dispatcher through `testdriver-vendor.js`, the file upstream
+ships empty for a vendor to replace: `click`, `send_keys` and `action_sequence` resolve a WebDriver origin to
+a point in the page and post it to a host function that runs the same `InputDispatcher` the `Input` domain
+runs. There is one implementation, so a wpt document and a Puppeteer client cannot disagree about what a
+click does.
 
 ## 8a. The page-level protocol
 
@@ -300,7 +320,10 @@ engine, not values through a binding, because a page's engine belongs to a threa
 **window** wrapper is synthesized — upstream's dedicated-worker wrapper builds a *classic* worker whose body
 opens with `importScripts`, which Jint runs no lane for. And an uncaught exception is **upstream's harness's**
 business rather than the driver's, because the engine fires a real `error` event at the global scope and
-`testharness.js` listens for it, `setup({allow_uncaught_exception: true})` included. The suites arrive a PR at a
+`testharness.js` listens for it, `setup({allow_uncaught_exception: true})` included. A second overlay fills
+upstream's other vendor slot, `testdriver-vendor.js`, so a document that drives input through `test_driver`
+reaches the same `InputDispatcher` a protocol client does — one implementation, so the two cannot disagree.
+The suites arrive a PR at a
 time; the first are `dom/events` and `html/webappapis/scripting`'s events and processing-model halves, and the
 rest of the list above follows through the same lane. A nightly
 real `wpt run` over CDP produces a public scoreboard later; it is not a PR gate. Next to it, an obstacle course

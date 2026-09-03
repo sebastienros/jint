@@ -576,18 +576,19 @@ internal enum WptDivergence
 
     /// <summary>
     /// <para>
-    /// <b>The browser lane's.</b> The test drives input through <c>/resources/testdriver.js</c> —
-    /// <c>test_driver.click()</c>, <c>send_keys()</c>, <c>Actions()</c>, <c>bless()</c> — which is wpt's
-    /// automation API and is deliberately not wired to anything yet. The harness file <i>is</i> vendored, and
-    /// upstream's own <c>testdriver-vendor.js</c> is the empty hook a vendor replaces, so every call rejects
-    /// and the test times out or fails rather than erupting.
+    /// <b>The browser lane's.</b> The test drives input through <c>/resources/testdriver.js</c> — wpt's
+    /// automation API — and needs a call of it that the lane's <c>testdriver-vendor.js</c> overlay does not
+    /// implement. Upstream's own file at that path is the empty hook a vendor replaces, so an unimplemented
+    /// call rejects with its own "not implemented by testdriver-vendor.js" and the test fails or times out
+    /// rather than erupting.
     /// </para>
     /// <para>
-    /// This one is <b>debt with an owner</b>, unlike the three above it: campaign item C4 maps
-    /// <c>testdriver.js</c> onto the same <c>InputDispatcher</c> that <c>Input.dispatchMouseEvent</c> and
-    /// <c>Input.dispatchKeyEvent</c> already reach (design doc §8), so every entry in this category is a row
-    /// that change is expected to move. Recording them under their own name is what will make that change's
-    /// effect countable.
+    /// It was <b>debt with an owner</b> and the owner paid: campaign item C4 mapped <c>click</c>,
+    /// <c>send_keys</c> and <c>action_sequence</c> onto the same <c>InputDispatcher</c> that
+    /// <c>Input.dispatchMouseEvent</c> and <c>Input.dispatchKeyEvent</c> reach (design doc §8), and <b>no
+    /// exclusion carries this category any more</b>. It stays because the rest of that API — cookies,
+    /// permissions, window rects, the BiDi surface — is deliberately still upstream's rejections, so the next
+    /// suite this lane vendors may need somewhere to record a row.
     /// </para>
     /// </summary>
     NeedsTestDriver,

@@ -90,6 +90,8 @@ internal static class WptBrowserExclusions
         ("dom/events/Event-dispatch-click.html", "follows a `javascript:` URL 87 times; a page here loads http, https, about: and data:"),
 
         // ------------------------------------------------------------ needs a rendering
+        ("dom/events/Event-dispatch-on-disabled-elements.html", "five of its nine tests wait for CSS transition and animation events on a disabled control, and nothing animates without a rendering, so the file never completes; its testdriver-driven test is the last one and is never reached"),
+        ("dom/events/click-on-absolute-pseudo.html", "reads `event.pseudoTarget` and `element.pseudo('::after')`; there is no pseudo-element model without generated content, and the assertion throws out of the click listener into a harness ERROR"),
         ("dom/events/webkit-animation-*-event.html", "waits for a CSS animation event; nothing animates without a rendering"),
         ("dom/events/webkit-transition-end-event.html", "waits for a CSS transition event; nothing animates without a rendering"),
         ("dom/events/EventListener-invoke-legacy.html", "waits for `animationend` and `transitionend`; nothing animates without a rendering"),
@@ -101,18 +103,6 @@ internal static class WptBrowserExclusions
         // under. What it would have asserted — that `relatedTarget` is retargeted to the shadow host — is
         // therefore untested here, which is why the reason says so rather than naming a category.
         ("dom/events/shadow-relatedTarget.html", "its two tests wait for a `focus` event that never reaches a capturing listener on the window, so the file reports nothing; focus retargeting across a shadow boundary is untested here as a result"),
-
-        // ------------------------------------------------------------ needs testdriver.js (campaign item C4)
-        // The harness file is vendored and upstream's testdriver-vendor.js is the empty hook a vendor
-        // replaces, so every call rejects with "not implemented by testdriver-vendor.js" before a test can
-        // report. Once C4 maps it onto InputDispatcher these become cases rather than rows.
-        ("dom/events/click-on-absolute-pseudo.html", "drives input through testdriver.js, which is campaign item C4"),
-        ("dom/events/focus-event-document-move.html", "drives input through testdriver.js, which is campaign item C4"),
-        ("dom/events/handler-count.html", "drives input through testdriver.js, which is campaign item C4"),
-        ("dom/events/no-focus-events-at-clicking-editable-content-in-link.html", "drives input through testdriver.js, which is campaign item C4"),
-        ("dom/events/pointer-event-document-move.html", "drives input through testdriver.js, and reads getClientRects"),
-        ("dom/events/Event-dispatch-on-disabled-elements.html", "drives input through testdriver.js, which is campaign item C4"),
-        ("dom/events/Event-dispatch-redispatch.html", "drives input through testdriver.js, and reads getBoundingClientRect"),
 
         // ------------------------------------------------------------ needs a frame that runs script
         ("dom/events/Event-dispatch-throwing-multiple-globals.html", "needs a second global with a document in it"),
@@ -186,6 +176,7 @@ internal static class WptBrowserExclusions
         ["dom/events/Event-dispatch-order.html"] = 1,
         ["dom/events/Event-dispatch-other-document.html"] = 1,
         ["dom/events/Event-dispatch-propagation-stopped.html"] = 1,
+        ["dom/events/Event-dispatch-redispatch.html"] = 4,
         ["dom/events/Event-dispatch-reenter.html"] = 1,
         ["dom/events/Event-dispatch-single-activation-behavior.html"] = 132,
         ["dom/events/Event-dispatch-target-moved.html"] = 1,
@@ -217,9 +208,13 @@ internal static class WptBrowserExclusions
         ["dom/events/event-global.html"] = 8,
         ["dom/events/event-handler-attribute-replace-preserves-passive.html"] = 2,
         ["dom/events/event-src-element-nullable.html"] = 1,
+        ["dom/events/focus-event-document-move.html"] = 1,
+        ["dom/events/handler-count.html"] = 2,
         ["dom/events/label-default-action.html"] = 1,
         ["dom/events/mouse-event-retarget.html"] = 1,
+        ["dom/events/no-focus-events-at-clicking-editable-content-in-link.html"] = 2,
         ["dom/events/passive-by-default.html"] = 100,
+        ["dom/events/pointer-event-document-move.html"] = 1,
         ["dom/events/preventDefault-during-activation-behavior.html"] = 1,
         ["dom/events/remove-all-listeners.html"] = 2,
         ["dom/events/window-composed-path.html"] = 1,

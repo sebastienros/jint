@@ -68,6 +68,33 @@ reach script, is re-declared against Jint's in `Events/LegacyEventCreation`. The
 event, what activation means with no layout, and why the handler content attributes need no notification from
 AngleSharp — is [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-events-bridge).
 
+### The keyboard, and the editor under it
+
+The other half of the events bridge, and it lives here rather than beside the rest of it only because
+`Runtime/AGENTS.md` has no room left.
+
+**`Input.dispatchKeyEvent`'s four types are three questions**, and `Events/InputDispatcher.DispatchKey` is
+where the answers are: which event fires, whether a `keypress` follows, and whether a character may be
+inserted. `keyDown` fires `keydown` and — for a key that produces text — `keypress`, then runs the whole
+default action; `rawKeyDown` fires `keydown` and runs it **without the insertion**, because that is what every
+client sends for a key whose character is coming separately or not at all, which is every editing key; `char`
+is that character alone; `keyUp` fires `keyup` always. Modifier state is the client's, never this package's:
+each event carries its own bit field.
+
+**The editor is a string and two offsets, and the direction is load-bearing.** `Events/TextEditing` splices a
+control's value; <kbd>Shift</kbd> extends from the *anchor*, so `selectionDirection` decides which offset moves
+and a selection dragged back through its anchor flips it. `ArrowUp`/`ArrowDown` are line moves computed from
+the newlines in the value, exact here and not in a browser: nothing wraps, so a visual line and a logical one
+are the same. `maxlength` bounds an insertion and nothing else, because HTML applies it to what a *user*
+enters. **`change` fires from two places** — the focus update steps on the way out, and <kbd>Enter</kbd> in a
+single-line control, which commits the value and re-arms the snapshot so a later blur does not fire again.
+
+**`contenteditable` is light and the boundary is one text node.** `Events/ContentEditing` splices a `Text`
+node's data; nothing splits, merges or inserts an element, so <kbd>Enter</kbd> there does nothing rather than
+something structural and wrong. The caret is the document's own `Selection`, so a page reading
+`getSelection().focusOffset` is told where typing goes. AngleSharp's `IsContentEditable` cannot be used for
+any of it — it answers `false` for `<div contenteditable>` — and the divergence table below records why.
+
 ### The page runtime is a file of its own
 
 `Page`, the loop that owns its engine, the `Window` installer, navigation, forms, history, cookies, storage
@@ -159,8 +186,10 @@ target/runtime split and the manifest are there and none of it is repeated here.
   reason a client that never called `getDocument` hears nothing. The records are AngleSharp's, delivered on
   the engine's queue at the same checkpoint a page's own `MutationObserver` fires. Every box is the flat
   model's ([`Runtime/AGENTS.md`](Runtime/AGENTS.md)), and a node with no box is refused in Chrome's wording
-  rather than answered with zeros. `Input` is `dispatchMouseEvent` and nothing else: the keyboard half is a
-  later item, and every other command of the domain is honestly `-32601`.
+  rather than answered with zeros. `Input` is `dispatchMouseEvent`, `dispatchKeyEvent`, `insertText` and an
+  `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
+  honestly `-32601`. The keyboard's own rules are
+  [above](#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a
   world that ended with the first document leaves `$`, `$$` and `waitForSelector` waiting for a context that
@@ -264,6 +293,12 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
 | `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
 | `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
+
+One more, in AngleSharp itself rather than in `AngleSharp.Css`:
+
+| What | The standard | AngleSharp 1.7.2 |
+| --- | --- | --- |
+| `IHtmlElement.IsContentEditable` on `<div contenteditable>` | `true`: HTML's [`contenteditable`](https://html.spec.whatwg.org/multipage/interaction.html#attr-contenteditable) is an enumerated attribute whose `true` keyword has the **empty string** as its other spelling, which is how nearly every page in the world writes it | `false` — the attribute is mapped through an enumeration that does not admit the empty string, so only `contenteditable="true"` reads as editable. `Events/ContentEditing.HostOf` computes the state itself for the editor and for focusability; the script-visible `el.isContentEditable` is still AngleSharp's answer, because that member is the binding forwarding it |
 
 ### The request log is the protocol's seam too
 

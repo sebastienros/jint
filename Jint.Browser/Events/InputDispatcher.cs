@@ -311,36 +311,101 @@ internal static class InputDispatcher
     }
 
     /// <summary>
-    /// A key press as a user makes it: <c>keydown</c> at the focused element, <c>keypress</c> for a printable
-    /// key, the edit or the traversal the key asks for, then <c>keyup</c>.
+    /// A key press as a user makes it: the whole of a <c>keydown</c> — the event, the <c>keypress</c> a
+    /// printable key adds, and the edit or the traversal the key asks for — and then the <c>keyup</c>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The target is the focused element, or the body when nothing is focused — HTML's "the currently focused
-    /// area of the document", whose fallback is the document's viewport and whose event target is the body.
-    /// </para>
-    /// <para>
-    /// A <c>keydown</c> a listener cancels stops the default action, which is exactly what a page relies on for
-    /// <c>e.preventDefault()</c> in a key handler; <c>keyup</c> fires either way, because it is not part of the
-    /// default action.
-    /// </para>
+    /// This is the two protocol events at once, which is what a synthesized press is; a client sends them
+    /// separately and reaches <see cref="DispatchKey(PageRuntime, in KeyOptions, KeyInputKind)"/> twice.
     /// </remarks>
     internal static void DispatchKey(Engine engine, in KeyOptions options)
     {
-        var dom = DomRealm.Of(engine);
-        var document = PageRuntime.Find(engine)?.Document;
-
-        if (document is null)
+        if (PageRuntime.Find(engine) is not { } runtime)
         {
             return;
         }
 
-        DispatchKey(dom, document, options);
+        DispatchKey(runtime, options, KeyInputKind.KeyDown);
+        DispatchKey(runtime, options, KeyInputKind.KeyUp);
     }
 
-    /// <summary>The same, for a caller that already holds the document.</summary>
-    internal static void DispatchKey(DomRealm dom, IDocument document, in KeyOptions options)
+    /// <summary>
+    /// Text at the caret with no key events at all, which is what <c>Input.insertText</c> becomes.
+    /// </summary>
+    /// <remarks>
+    /// It is the shape an IME commit and a paste arrive in, and the shape a client library uses for a
+    /// character its keyboard layout has no key for — Puppeteer's <c>sendCharacter</c> is exactly this.
+    /// </remarks>
+    internal static void InsertText(Engine engine, string text)
     {
+        if (PageRuntime.Find(engine) is { } runtime)
+        {
+            InsertText(runtime, text);
+        }
+    }
+
+    /// <summary>The same, for a caller that already holds the page.</summary>
+    internal static void InsertText(PageRuntime runtime, string text)
+    {
+        if (runtime.Document is not { } document)
+        {
+            return;
+        }
+
+        var dom = runtime.Dom;
+        var focused = FocusController.ActiveElement(BrowserEventRealm.Of(dom.Engine), document);
+
+        if (focused is null)
+        {
+            return;
+        }
+
+        if (TextEditing.IsEditable(focused))
+        {
+            TextEditing.Insert(dom, new TextEditing.TextControl(focused), text, "insertText");
+            return;
+        }
+
+        if (ContentEditing.HostOf(focused) is { } host)
+        {
+            ContentEditing.Insert(dom, host, text, "insertText");
+        }
+    }
+
+    /// <summary>
+    /// One key event as a client sends it: <c>keyDown</c>, <c>rawKeyDown</c>, <c>keyUp</c> or <c>char</c>,
+    /// dispatched at the focused element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The four types are three questions</b> — which event fires, whether a <c>keypress</c> follows, and
+    /// whether a character may be inserted. <c>keyDown</c> fires <c>keydown</c> and, for a key that produces
+    /// text, <c>keypress</c>, and then runs the whole default action. <c>rawKeyDown</c> fires <c>keydown</c>
+    /// and runs the default action <i>without</i> the insertion, because it is what a client sends for a key
+    /// whose character is coming separately or is not coming at all — which is every editing key.
+    /// <c>char</c> is that character on its own: a <c>keypress</c> and then the insertion. <c>keyUp</c> fires
+    /// <c>keyup</c>, always, because it is not part of any default action.
+    /// </para>
+    /// <para>
+    /// <b>The target is the focused element</b>, or the body when nothing is focused — HTML's "the currently
+    /// focused area of the document", whose fallback is the document's viewport and whose event target is the
+    /// body. A <c>keydown</c> a listener cancels stops the default action, which is what a page relies on for
+    /// <c>e.preventDefault()</c> in a key handler.
+    /// </para>
+    /// <para>
+    /// <b>Modifier state is the client's.</b> Every client tracks which modifiers it is holding and puts them
+    /// in each event's bit field, so nothing here has to remember that <kbd>Shift</kbd> went down: the arrow
+    /// key that follows says so itself.
+    /// </para>
+    /// </remarks>
+    internal static void DispatchKey(PageRuntime runtime, in KeyOptions options, KeyInputKind kind)
+    {
+        if (runtime.Document is not { } document)
+        {
+            return;
+        }
+
+        var dom = runtime.Dom;
         var realm = BrowserEventRealm.Of(dom.Engine);
         var focused = FocusController.ActiveElement(realm, document);
 
@@ -349,31 +414,56 @@ internal static class InputDispatcher
             return;
         }
 
-        var target = dom.WrapNode(focused);
-        var keyDown = KeyEvent(dom, realm, "keydown", options, cancelable: true);
-
-        if (target.DispatchEvent(keyDown))
+        if (kind == KeyInputKind.KeyUp)
         {
-            RunDefaultAction(dom, document, focused, keyDown, options);
+            dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
+            return;
         }
 
-        // The focused element may have changed — Tab moved it, Enter submitted — so keyup goes where focus is
-        // now, which is what a browser does.
-        var after = FocusController.ActiveElement(realm, document) ?? focused;
-        dom.WrapNode(after).DispatchEvent(KeyEvent(dom, realm, "keyup", options, cancelable: true));
-    }
+        if (kind == KeyInputKind.Char)
+        {
+            if (Keypress(dom, realm, focused, options))
+            {
+                RunDefaultAction(dom, document, focused, options, allowInsertion: true);
+            }
 
-    private static void RunDefaultAction(DomRealm dom, IDocument document, IElement focused, JsKeyboardEvent keyDown, in KeyOptions options)
-    {
+            return;
+        }
+
+        if (!dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keydown", options, cancelable: true)))
+        {
+            return;
+        }
+
         // https://w3c.github.io/uievents/#event-type-keypress — legacy, fired only for a key that produces a
         // character, and cancelable, so a page's `return false` in an onkeypress still blocks the insertion.
-        if (options.Key.Length == 1)
+        if (kind == KeyInputKind.KeyDown && options.ProducedText.Length > 0 && !Keypress(dom, realm, focused, options))
         {
-            var keyPress = KeyEvent(dom, BrowserEventRealm.Of(dom.Engine), "keypress", options, cancelable: true);
-            if (!dom.WrapNode(focused).DispatchEvent(keyPress))
-            {
-                return;
-            }
+            return;
+        }
+
+        RunDefaultAction(dom, document, focused, options, allowInsertion: kind == KeyInputKind.KeyDown);
+    }
+
+    /// <summary>Dispatches <c>keypress</c>, answering whether nothing cancelled it.</summary>
+    private static bool Keypress(DomRealm dom, BrowserEventRealm realm, IElement focused, in KeyOptions options)
+        => dom.WrapNode(focused).DispatchEvent(KeyEvent(dom, realm, "keypress", options, cancelable: true));
+
+    /// <summary>
+    /// What the key does when nothing cancelled it: move focus, submit a form, or edit whatever is focused.
+    /// </summary>
+    /// <remarks>
+    /// <c>commands</c> — the macOS editing commands a client attaches to a key event — are accepted and
+    /// ignored except for <c>selectAll</c>, which is the one that maps onto something this editor has. A
+    /// command nothing here knows leaves the key's ordinary default action to run, which is what a client
+    /// sending <c>moveToEndOfLine</c> beside an <kbd>End</kbd> key needs.
+    /// </remarks>
+    private static void RunDefaultAction(DomRealm dom, IDocument document, IElement focused, in KeyOptions options, bool allowInsertion)
+    {
+        if (options.HasCommand("selectAll"))
+        {
+            SelectAll(dom, focused);
+            return;
         }
 
         switch (options.Key)
@@ -383,11 +473,38 @@ internal static class InputDispatcher
                 return;
 
             case "Enter" when focused is IHtmlInputElement input && TextEditing.IsEditable(input):
+                // The value is committed by the press, so `change` fires here rather than waiting for focus to
+                // leave — which is what a page listening for it on a search box is written against.
+                TextEditing.CommitChange(dom, input);
                 ImplicitSubmission(dom, input);
                 return;
         }
 
-        TextEditing.HandleKeyDown(dom, focused, keyDown);
+        if (TextEditing.HandleKeyDown(dom, focused, options, allowInsertion))
+        {
+            return;
+        }
+
+        if (ContentEditing.HostOf(focused) is { } host)
+        {
+            ContentEditing.HandleKeyDown(dom, host, options, allowInsertion);
+        }
+    }
+
+    /// <summary>Select-all, wherever the focus is — a text control or an editing host.</summary>
+    private static void SelectAll(DomRealm dom, IElement focused)
+    {
+        var selectAll = KeyOptions.For("a") with { Modifiers = EventModifiers.Control };
+
+        if (TextEditing.HandleKeyDown(dom, focused, selectAll, allowInsertion: false))
+        {
+            return;
+        }
+
+        if (ContentEditing.HostOf(focused) is { } host)
+        {
+            ContentEditing.HandleKeyDown(dom, host, selectAll, allowInsertion: false);
+        }
     }
 
     /// <summary>
@@ -482,8 +599,23 @@ internal static class InputDispatcher
         _ => false,
     };
 
+    /// <summary>
+    /// One keyboard event over <paramref name="options"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>charCode</c> and <c>keyCode</c> are left to <c>LegacyKeyCodes</c>' table on <c>keydown</c> and
+    /// <c>keyup</c> and are pinned on <c>keypress</c>, because there they are the character the key really
+    /// produced rather than a derivation from <c>key</c> — which is the whole difference for <kbd>Enter</kbd>,
+    /// whose <c>key</c> is a name and whose character is <c>U+000D</c>, so a page's <c>keyCode === 13</c> on a
+    /// <c>keypress</c> is answered as every browser answers it.
+    /// </remarks>
     private static JsKeyboardEvent KeyEvent(DomRealm dom, BrowserEventRealm realm, string type, in KeyOptions options, bool cancelable)
     {
+        double? charCode = string.Equals(type, "keypress", StringComparison.Ordinal)
+            && options.ProducedText is { Length: > 0 } produced
+                ? produced[0]
+                : null;
+
         var ev = new JsKeyboardEvent(
             dom.Engine,
             JsString.Create(type),
@@ -499,8 +631,8 @@ internal static class InputDispatcher
                 options.Repeat,
                 IsComposing: false,
                 options.Modifiers,
-                CharCode: null,
-                KeyCode: null));
+                charCode,
+                KeyCode: charCode));
 
         ev._prototype = realm.PrototypeOf(BrowserEventInterfaces.KeyboardEvent);
         ev.IsTrusted = true;
@@ -606,22 +738,69 @@ internal readonly record struct MouseInput(
         => new(X, Y, X, Y, Button, Buttons, ClickCount, Modifiers);
 }
 
+/// <summary>Which of the four events <c>Input.dispatchKeyEvent</c> was asked for.</summary>
+internal enum KeyInputKind
+{
+    /// <summary>A key went down, with the character it produces.</summary>
+    KeyDown,
+
+    /// <summary>A key went down and its character, if any, is a separate event.</summary>
+    RawKeyDown,
+
+    /// <summary>A key came up.</summary>
+    KeyUp,
+
+    /// <summary>A character, with no key event of its own.</summary>
+    Char,
+}
+
 /// <summary>
 /// What a synthesized key press carries — the <c>KeyboardEventInit</c> members a dispatcher supplies.
 /// </summary>
 /// <param name="Key">The <c>key</c> value: the character for a printable key, the named value otherwise.</param>
 /// <param name="Code">The <c>code</c> value — the physical key, which a protocol client supplies and this never invents.</param>
+/// <param name="Text">The text the key produces, which a client sends and which is empty for a key that produces none.</param>
 /// <param name="Location">The <c>location</c>: 0 standard, 1 left, 2 right, 3 numpad.</param>
 /// <param name="Repeat">Whether the key is auto-repeating.</param>
 /// <param name="Modifiers">The modifier keys held.</param>
+/// <param name="Commands">The editing commands a client attached to the event, or <see langword="null"/>.</param>
 [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
 internal readonly record struct KeyOptions(
     string Key,
     string Code,
+    string Text,
     double Location,
     bool Repeat,
-    EventModifiers Modifiers)
+    EventModifiers Modifiers,
+    string[]? Commands)
 {
     /// <summary>One key with no modifiers, which is what a test and a plain <c>Input.dispatchKeyEvent</c> send.</summary>
-    internal static KeyOptions For(string key) => new(key, "", 0, false, EventModifiers.None);
+    internal static KeyOptions For(string key) => new(key, "", "", 0, false, EventModifiers.None, null);
+
+    /// <summary>
+    /// The text this key produces: what the client said, or the <c>key</c> itself when it is one character,
+    /// which is how a key that produces a character is told from a named one.
+    /// </summary>
+    /// <remarks>
+    /// A character typed with <kbd>Control</kbd> or <kbd>Meta</kbd> held produces none — it is a shortcut, and
+    /// every client already sends it with an empty <c>text</c>; the fallback has to agree, or a synthesized
+    /// <kbd>Ctrl</kbd>+<kbd>A</kbd> would fire a <c>keypress</c> no browser fires.
+    /// </remarks>
+    internal string ProducedText
+    {
+        get
+        {
+            if (Text.Length > 0)
+            {
+                return Text;
+            }
+
+            var shortcut = (Modifiers & (EventModifiers.Control | EventModifiers.Meta)) != EventModifiers.None;
+            return Key.Length == 1 && !shortcut ? Key : "";
+        }
+    }
+
+    /// <summary>Whether the client attached <paramref name="command"/> to this event.</summary>
+    internal bool HasCommand(string command)
+        => Commands is not null && Array.IndexOf(Commands, command) >= 0;
 }

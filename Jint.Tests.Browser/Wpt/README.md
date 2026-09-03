@@ -4,7 +4,9 @@ The `.any.js` lane hands a file to an engine. This one **loads a document**: a v
 `WptServer` at a real URL, a `Browser` navigates a fresh `Page` to it, and the document pulls in upstream's own
 `resources/testharness.js` through a `<script src>` exactly as a browser does. The realm is a real `Window`
 with a `document`, a `<div id=log>` and a `load` event, so the harness deciding what passed is upstream's and
-there is nothing of Jint's between the corpus and the verdict.
+there is nothing of Jint's between the corpus and the verdict. A document that drives input reaches
+`test_driver`, and that goes through the same `InputDispatcher` the `Input` domain does — the
+`testdriver-vendor.js` slot upstream ships empty is where the two meet.
 
 **The corpus is vendored once.** Everything here runs out of `Jint.Tests/Wpt/Vendor/`, at the commit
 [`Vendor/README.md`](../../Jint.Tests/Wpt/Vendor/README.md) names, byte-verified the way that file describes;
@@ -16,10 +18,10 @@ wrappers, the environment a document runs in, where a divergence goes — is
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 50 | 9 | 533 | 42 |
+| `dom/events/` | 55 | 9 | 543 | 42 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
-| **total** | **87** | **9** | **614** | **61** |
+| **total** | **92** | **9** | **624** | **61** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -94,7 +96,7 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into thirteen groups; the counts are rows rather than files, since several are globs.
+into twelve groups; the counts are rows rather than files, since several are globs.
 
 | Why | How many | What it is |
 | --- | --- | --- |
@@ -103,17 +105,26 @@ into thirteen groups; the counts are rows rather than files, since several are g
 | upstream's own markers | 5 | `.tentative.`, `-manual.`, and `.sub.html`, which needs a second origin to substitute into |
 | a cause that has gone | 4 | they met `document.createEvent` before a test could report; it exists now, and vendoring them moves the census's Documents and Tests columns, so it is a change of its own |
 | a name this browser does not have | 3 | `customElements`, a `javascript:` URL, and one that read `window.event` before it existed |
-| a rendering | 4 | a CSS animation or transition event, and the coarse-clock assertion |
+| a rendering | 6 | a CSS animation or transition event, a pseudo-element, and the coarse-clock assertion |
 | a focus event that does not arrive | 1 | the one row that is a finding rather than an environment; see its reason |
-| `testdriver.js` | 7 | campaign item C4 maps it onto the same dispatcher `Input.dispatchMouseEvent` reaches |
 | a frame that runs script | 11 | a second global with a document in it, and the helper documents of those tests |
 | the WebIDL conformance harness | 2 | `idl_test([…])`, which the engine lane declines for the same reason |
 | the timer's string handler | 2 | `setTimeout("{", 10)`, which `TimerFunctions` documents declining |
 | a second origin | 1 | `location.href.replace('://', '://www1.')`, and there is one origin here |
 | a helper of a document above | 2 | the bodies two of those tests load |
 
-The `testdriver.js` group is the one with an owner: seven documents become cases the day campaign item C4
-lands, and that is what recording them by name is for.
+**The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
+upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the
+`testdriver-vendor.js` slot upstream ships empty for a vendor to fill (`AGENTS.md` has the rules). Its seven
+documents were then re-examined one at a time, and **five are cases now** —
+`Event-dispatch-redispatch.html`, `focus-event-document-move.html`, `handler-count.html`,
+`no-focus-events-at-clicking-editable-content-in-link.html` and `pointer-event-document-move.html`, ten tests
+between them, all passing, none excluded. Two still cannot report, and neither reason was ever the driver's:
+`Event-dispatch-on-disabled-elements.html` spends five of its nine tests waiting for CSS transition and
+animation events on a disabled control, so it never completes and never reaches its testdriver-driven test at
+all; and `click-on-absolute-pseudo.html` reads `event.pseudoTarget` and `element.pseudo('::after')`, which
+need a pseudo-element model. Both are `a rendering` rows now. **The mapping found no new defect**, which is
+the outcome running documents through an existing dispatcher should have.
 
 ## What runs, and what it costs
 
