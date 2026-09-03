@@ -14,3 +14,5 @@ Never hand-edit a file under `Jint.Browser/Dom/Generated/`: `DomBindingsStalenes
 One thread owns a page's engine and its DOM. Every public `Page` member is a mailbox request, and nothing that belongs to an engine — a `JsValue`, an AngleSharp node — may be in the task it returns; convert inside the request. `Jint.Tests.Browser/Verify/PublicApiTest.verified.txt` is the baseline for everything the package publishes.
 
 When what you are editing is a page target or a page-level protocol domain under `Jint.Browser/DevTools/`, read [`Jint.Browser/DevTools/AGENTS.md`](../../Jint.Browser/DevTools/AGENTS.md) as well.
+
+When what you are editing is the accessibility tree or an extractor under `Jint.Browser/Accessibility/` or `Jint.Browser/Extraction/`, read [`Jint.Browser/Accessibility/AGENTS.md`](../../Jint.Browser/Accessibility/AGENTS.md) as well.

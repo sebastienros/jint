@@ -155,7 +155,6 @@ None of the five interface objects is generated, so they are hand-written `JsObj
 
 ### Emulation, and the media environment it moves
 
-<<<<<<< HEAD
 **`Runtime/PageMediaEnvironment` is the one value every media query is answered from**, and
 `PageRuntime.SetMedia` is its only writer. It holds the viewport, the emulated media type, whether the
 primary pointer is coarse, whether the document's own scripts run, and the features a client emulated — as
@@ -164,7 +163,37 @@ the media type *and* a preference, so a change that moved two of them has to rea
 with both already in place. Every `MediaQueryList` the page holds then recomputes and fires a real
 `MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
 `resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
-=======
+
+**The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
+library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or
+`pointer` at all, and its own `CssMediaQueryList.ComputeMatched` is a stub answering `false` for every query.
+`PageMediaEnvironment.ValueOf` is the table, and the one place that will delegate the day it grows them.
+
+**An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
+an override lives — on the **page**, not on the protocol target, because an override outlives the document it
+was set on. What separates one command from the next is *when* it becomes effective, and each summary says
+so: the viewport, the media, touch, focus, geolocation, the user agent and the hardware concurrency move the
+document that is loaded; the time zone and the locale (`Options` an engine is *constructed* from) and script
+execution (the parse is what refuses) reach the next one; and the remainder are accepted no-ops naming what
+there is none of.
+
+**Four decisions are made in the code and argued there**, and each is one an edit can undo without noticing.
+`Runtime/NavigatorInstaller` says why the page's `navigator` members are own non-enumerable properties of the
+instance rather than accessors on the shaped `Navigator.prototype`, and why `userAgent` is *shadowed* — a
+page's is `BrowserOptions.UserAgent` and a client's override, and it has to be the string every request the
+page makes carries. `Runtime/TouchEmulation` says that touch emulation changes what a page *detects* and not
+what it receives — no touch event is ever dispatched — and why `Element.prototype` deliberately gets no
+`ontouchstart`. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
+two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
+because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
+not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
+
+**`getComputedStyle` is not re-evaluated against the emulated media**, and that is the one divergence this
+buys: the cascade is AngleSharp.Css's `ComputeCurrentStyle()`, whose media evaluation is its own render
+device, so an `@media (prefers-color-scheme: dark)` rule never becomes active. What a page reads through
+`matchMedia` and through the cascade can therefore disagree — and a framework that themes itself reads the
+first.
+
 ### Custom elements, and where a reaction actually runs
 
 `CustomElements/` is HTML §4.13 over a DOM that has none of it: AngleSharp builds an `HtmlUnknownElement`
@@ -217,39 +246,6 @@ gives an empty construction stack and this gives the element being upgraded.
 attribute without notifying its own `IAttributeObserver` or queueing a record, and `setAttributeNS` notifies
 only the record channel. Both are in [`Dom/AGENTS.md`](Dom/AGENTS.md)'s divergence table.
 
-### The protocol layer
->>>>>>> 5714944e3 (Custom elements: a page defines one, the constructor runs where HTML says, and its callbacks run before the call that caused them returns)
-
-**The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
-library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or
-`pointer` at all, and its own `CssMediaQueryList.ComputeMatched` is a stub answering `false` for every query.
-`PageMediaEnvironment.ValueOf` is the table, and the one place that will delegate the day it grows them.
-
-**An `Emulation` command is a write to that value or to the page's `Runtime/EmulationState`**, which is where
-an override lives — on the **page**, not on the protocol target, because an override outlives the document it
-was set on. What separates one command from the next is *when* it becomes effective, and each summary says
-so: the viewport, the media, touch, focus, geolocation, the user agent and the hardware concurrency move the
-document that is loaded; the time zone and the locale (`Options` an engine is *constructed* from) and script
-execution (the parse is what refuses) reach the next one; and the remainder are accepted no-ops naming what
-there is none of.
-
-**Four decisions are made in the code and argued there**, and each is one an edit can undo without noticing.
-`Runtime/NavigatorInstaller` says why the page's `navigator` members are own non-enumerable properties of the
-instance rather than accessors on the shaped `Navigator.prototype`, and why `userAgent` is *shadowed* — a
-page's is `BrowserOptions.UserAgent` and a client's override, and it has to be the string every request the
-page makes carries. `Runtime/TouchEmulation` says that touch emulation changes what a page *detects* and not
-what it receives — no touch event is ever dispatched — and why `Element.prototype` deliberately gets no
-`ontouchstart`. `PageRuntime.VisibilityState` says why visibility and focus are one flag here and cannot be
-two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scripting-disabled is checked,
-because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
-not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
-
-**`getComputedStyle` is not re-evaluated against the emulated media**, and that is the one divergence this
-buys: the cascade is AngleSharp.Css's `ComputeCurrentStyle()`, whose media evaluation is its own render
-device, so an `@media (prefers-color-scheme: dark)` rule never becomes active. What a page reads through
-`matchMedia` and through the cascade can therefore disagree — and a framework that themes itself reads the
-first.
-
 ### The protocol layer has a file of its own
 
 Page targets, the page-level domains and the request log they read are [`DevTools/AGENTS.md`](DevTools/AGENTS.md).
@@ -291,65 +287,8 @@ and a `docs/v5-migration.md` row. Until then `Jint.Tests.Browser` is the only co
 named in `InternalsVisibleTo` and why every test of the binding is written against the internal surface
 rather than around it.
 
-### Accessibility and extraction have no layout
+### Accessibility and extraction have a file of their own
 
-`Accessibility/` computes an accessibility tree over AngleSharp's DOM and `Extraction/` renders the same
-document as text or CommonMark. Both are pure C# over `IDocument`/`IElement`; neither touches an engine, and
-that is why they were built before the page runtime existed. The consumers are the CDP `Accessibility` domain,
-the custom `Jint.getMarkdown`/`getText`/`getAccessibilitySnapshot` domain, and the MCP server's `snapshot`.
-
-**Three things a browser answers from its layout tree are answered from somewhere else, and every one is a
-place where this can be wrong.**
-
-- **Hidden** is `ElementVisibility`: the `hidden` content attribute, `aria-hidden="true"`, and `display:none`
-  / `visibility:hidden|collapse` from the cascade — `IElement.ComputeCurrentStyle()`, which resolves author
-  sheets and the UA sheet — falling back to the `style` content attribute alone when `AngleSharp.Css` is not
-  registered. It cannot know that an element is off screen, clipped, covered or zero-sized. Two asymmetries
-  are deliberate: `display:none` takes its subtree with it while `visibility:hidden` does not (CSS inherits
-  `visibility`, so a `visibility:visible` descendant comes back), and `aria-hidden` removes a node from the
-  accessibility tree while changing nothing about the rendering — so the extractors ask
-  `RenderingReasonFor`, which ignores it, and only the tree asks `ReasonFor`, which does not.
-- **Block-level** is `HtmlDisplay`, HTML's suggested rendering rather than a used display, and it is the
-  table that decides — not the cascade. The cascade only wins where it *differs* from the table, which is
-  what makes `<span style="display:block">` a block and stops AngleSharp's incomplete default sheet from
-  calling every `<section>` inline.
-- **`innerText`** is therefore the text of the document, not the text of a rendering of it: the required
-  line breaks, the `<br>`s, the cell tabs and the white-space processing are all there, but nothing wraps,
-  so a paragraph is one line however wide it would have been.
-
-Three simplifications in the name computation are worth knowing before reading a wrong name as a bug: CSS
-generated content (`::before`, `::after`, `::marker`) contributes nothing, `text-transform` is not applied,
-and SVG `<title>`/`<desc>` children are not read. Everything else of accname 1.2 — 2A through 2I, the
-recursion, the visited guard, the flattening — is the algorithm as written. HTML-AAM's mapping table is
-implemented in full with one blanket simplification: where it names a computed role that is not a WAI-ARIA
-role (`html-abbr`, `html-audio`, `keyboard`, `variable` and their kind) the element maps to `generic`.
-
-`AccessibilityOptions` has three presets and they are not interchangeable: `Default` is the pruned tree,
-`Snapshot` adds the text between the nodes (which is what `AccessibilitySnapshot.Render` needs to say
-anything at all), and `Full` is what `Accessibility.getFullAXTree` answers with. A snapshot states each
-string once — text that is already a node's accessible name is not published again as a text node.
-
-The four fixture pages under `Jint.Tests.Browser/Accessibility/Golden/` are rendered three ways each and the
-output is checked in. **`JINT_BROWSER_GOLDEN=update` rewrites them**, the same discipline `JINT_SPEC_ANCHORS`
-and `JINT_DOM_BINDINGS` use: the diff is the artefact, so a change to what an agent reads has to be looked at.
-
-Divergences that are **AngleSharp's**, found by this work, to be reported upstream rather than patched here:
-
-| What | The standard | AngleSharp.Css 1.0.2 |
-| --- | --- | --- |
-| `el.ComputeCurrentStyle()` without the CSS services | an empty declaration, or a documented failure | throws `InvalidOperationException("Sequence contains no elements")`, which is why every call here is guarded and the guard latches |
-| the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
-| `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
-| `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
-| `CssMediaQueryList.matches` | evaluate the query against the device and answer | a stub: `ComputeMatched` returns `false` for every query, so a page asking whether it is on a narrow screen is always told no — which is why `Runtime/MediaQuery` exists at all |
-| Media Queries Level 5's preference features | `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`, `forced-colors`, `hover`, `pointer`, `scripting`, `color-gamut` are media features the cascade evaluates | not modelled: `IRenderDevice` has no member for any of them, so an `@media` rule naming one can never match and `Runtime/PageMediaEnvironment` answers them itself |
-| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value — `visibility` is `visible` | the empty string. **This is the one that stops an automation client.** Playwright's actionability check ends in `style.visibility !== "visible"`, so it reads every element of every page as hidden: `IsVisibleAsync` is false for an element with a real 1280×16 box, an unforced `ClickAsync` or `WaitForSelectorAsync` waits out its timeout, and the ARIA role engine drops the element as hidden. `Jint.Tests.Browser/DevTools/PlaywrightCourseTests` drives past it with `Force` and `IncludeHidden` and pins the reason; the standing decision (`Views/ComputedStyleTests`) is to record this rather than keep an initial-value table here, and what is new is that a supported client is unusable without one |
-| the selector parser on `:has(*,:jqfake)` | a parse failure the caller can act on | `CssSelectorConstructor.HasFunctionState.Produce()` dereferences null, so the failure is a `NullReferenceException` rather than the `DomException` every other bad selector raises. jQuery 3.7 asks for exactly that selector inside a `try` during its support detection, so an unwrapped binding refuses to load jQuery at all — `Dom/DomSelectorMembers` contains both shapes and answers the `SyntaxError` the standard names |
-
-One more, in AngleSharp itself rather than in `AngleSharp.Css`:
-
-| What | The standard | AngleSharp 1.7.2 |
-| --- | --- | --- |
-| `IHtmlElement.IsContentEditable` on `<div contenteditable>` | `true`: HTML's [`contenteditable`](https://html.spec.whatwg.org/multipage/interaction.html#attr-contenteditable) is an enumerated attribute whose `true` keyword has the **empty string** as its other spelling, which is how nearly every page in the world writes it | `false` — the attribute is mapped through an enumeration that does not admit the empty string, so only `contenteditable="true"` reads as editable. `Events/ContentEditing.HostOf` computes the state itself for the editor and for focusability; the script-visible `el.isContentEditable` is still AngleSharp's answer, because that member is the binding forwarding it |
-| `Node.getRootNode()` | DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})` | absent — there is no `[DomName("getRootNode")]` anywhere in the assembly, so nothing could generate it. `Dom/DomNodeMembers` declares it over `INode.Parent`, and it is not a corner: Playwright's injected script calls it on every element it touches |
-
+The accessibility tree (html-aam roles, the accessible name, what `hidden` means without layout) and the text
+and markdown extractors are [`Accessibility/AGENTS.md`](Accessibility/AGENTS.md). The one rule to carry across:
+nothing there runs a line of the page's script, and nothing there needs a box.
