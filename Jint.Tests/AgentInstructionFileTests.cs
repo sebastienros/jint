@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Globalization;
 using System.Text;
@@ -207,6 +207,31 @@ public class AgentInstructionFileTests
     /// allowance is the smaller one. A constant that quietly disagreed with it would enforce a rule nobody had
     /// read, so the two are held together rather than merely written twice.
     /// </remarks>
+    /// <summary>
+    /// A rebase resolved by hand can commit its own markers, and nothing else here reads the file closely enough
+    /// to notice: #3709 landed with a `&lt;&lt;&lt;&lt;&lt;&lt;&lt;` block in the middle of the browser package's file and every other
+    /// test stayed green, because links, anchors and sizes were all still in order.
+    /// </summary>
+    [Test]
+    public void NoInstructionFileCarriesAConflictMarker()
+    {
+        var offending = new List<string>();
+
+        foreach (var file in AgentInstructionFiles.All)
+        {
+            var lines = File.ReadAllLines(file.FullPath);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].StartsWith("<<<<<<< ", StringComparison.Ordinal) || lines[i].StartsWith(">>>>>>> ", StringComparison.Ordinal))
+                {
+                    offending.Add($"  {file.RelativePath}:{i + 1}: {lines[i]}");
+                }
+            }
+        }
+
+        offending.Should().BeEmpty("a committed conflict marker is a sentence no agent can follow:" + Environment.NewLine + string.Join(Environment.NewLine, offending));
+    }
+
     [Test]
     public void TheRootFileStatesTheBudgetsThisTestEnforces()
     {
