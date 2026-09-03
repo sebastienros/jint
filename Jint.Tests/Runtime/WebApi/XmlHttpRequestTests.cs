@@ -57,6 +57,16 @@ public class XmlHttpRequestTests
         /// </summary>
         internal TimeSpan Delay { get; set; }
 
+        /// <summary>
+        /// Set to make the transport wait for <see cref="Release"/> instead of for a duration, so a test can
+        /// say when the response arrives rather than hope it arrives in time. Waited for on the cancellation
+        /// token, so a terminated request still fails at once.
+        /// </summary>
+        internal TaskCompletionSource? Gate { get; set; }
+
+        /// <summary>Lets a gated response through.</summary>
+        internal void Release() => Gate!.TrySetResult();
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -76,7 +86,11 @@ public class XmlHttpRequestTests
 
             Requests.Add(new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body));
 
-            if (Delay > TimeSpan.Zero)
+            if (Gate is { } gate)
+            {
+                await gate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (Delay > TimeSpan.Zero)
             {
                 await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
             }
@@ -825,20 +839,20 @@ public class XmlHttpRequestTests
 
     /// <summary>
     /// https://xhr.spec.whatwg.org/#the-timeout-attribute — the asynchronous deadline is a task on the
-    /// engine's own event loop, so a long-running task holds it off exactly as it holds off a
-    /// <c>setTimeout</c>: a response that arrives while the loop is busy is delivered, and the deadline that
-    /// came due behind it finds nothing left to terminate.
+    /// engine's own event loop, so it comes due rather than fires: a loop that is not running cannot run it,
+    /// and a response that arrived first is delivered before it is reached.
     /// </summary>
     /// <remarks>
-    /// This is web-platform-tests' <c>xhr/xhr-timeout-longtask.any.js</c> written as a unit test: a 50 ms
-    /// <c>timeout</c>, a response 150 ms out, and a 600 ms busy loop entered from the very task <c>send()</c>
-    /// was called in. Every number is a wide multiple of the one before it, so what the test asserts is the
-    /// ordering and never the timing.
+    /// This is what web-platform-tests' <c>xhr/xhr-timeout-longtask.any.js</c> asserts, written so that it
+    /// cannot depend on the machine — which is why that file itself stays out of the vendored corpus. The
+    /// transport is gated rather than delayed, and nothing pumps the engine for four times the deadline: a
+    /// wall-clock deadline on a cancellation token terminates the request in that window, and a task on the
+    /// timer queue is still sitting behind the response when the loop next runs.
     /// </remarks>
     [Test]
-    public Task ALongTaskHoldsOffTheTimeoutSoTheResponseStillArrives() => DedicatedThread.RunAsync(() =>
+    public Task ADeadlineComingDueWhileNothingPumpsDoesNotTerminateTheRequest() => DedicatedThread.RunAsync(() =>
     {
-        var handler = new StubHandler { Delay = TimeSpan.FromMilliseconds(150) };
+        var handler = new StubHandler { Gate = new TaskCompletionSource() };
 
         var engine = XhrEngine(handler);
         engine.Execute($@"
@@ -847,9 +861,11 @@ public class XmlHttpRequestTests
             for (const t of ['timeout', 'error', 'load', 'loadend']) xhr.addEventListener(t, () => log.push(t));
             xhr.open('GET', '{Url}');
             xhr.timeout = 50;
-            xhr.send();
-            const start = Date.now();
-            while (Date.now() - start < 600) {{ }}");
+            xhr.send();");
+
+        // Four times the deadline with the loop stopped, which is what a long task looks like from here.
+        Thread.Sleep(200);
+        handler.Release();
 
         Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the load and loadend events");
         engine.Evaluate("log.join('|')").AsString().Should().Be("load|loadend");

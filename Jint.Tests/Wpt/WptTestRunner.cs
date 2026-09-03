@@ -384,6 +384,8 @@ public class WptTestRunner
         ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
 
+        ("xhr/xhr-timeout-longtask.any.js", "its outcome still depends on the machine. The deadline is a task on the engine's timer queue since #3627, so it can no longer fire *during* the 200 ms busy-wait — but the file also needs the 100 ms response to have arrived before that wait ends, and a loaded runner cannot promise that: when the body lands after the loop, the deadline behind it is due and the file's assert_unreached fires. It passed on Linux and failed on macOS in the same run"),
+
         // ---------------------------------------------------------------- resources/ and common/
         // The two shared roots hold helpers rather than tests, and the rule for them is the rule for every
         // other directory: vendor what something references, and say why for the rest. What is vendored is
@@ -834,7 +836,6 @@ public class WptTestRunner
         ["xhr/send-usp.any.js"] = 135,
         ["xhr/sync-no-progress.any.js"] = 1,
         ["xhr/sync-no-timeout.any.js"] = 1,
-        ["xhr/xhr-timeout-longtask.any.js"] = 1,
 
     };
 
