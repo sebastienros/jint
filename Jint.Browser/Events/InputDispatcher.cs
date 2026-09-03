@@ -1,4 +1,4 @@
-using AngleSharp.Dom;
+﻿using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Dom;
 using Jint.Browser.Runtime;
@@ -362,7 +362,7 @@ internal static class InputDispatcher
 
         if (TextEditing.IsEditable(focused))
         {
-            TextEditing.Insert(dom, new TextEditing.TextControl(focused), text, "insertText");
+            TextEditing.Insert(dom, new TextEditing.TextControl(dom, focused), text, "insertText");
             return;
         }
 
