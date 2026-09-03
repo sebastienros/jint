@@ -1,4 +1,4 @@
-using Jint.DevTools.Protocol.Browser;
+﻿using Jint.DevTools.Protocol.Browser;
 using Jint.DevTools.Session;
 
 namespace Jint.DevTools.Domains;
@@ -132,9 +132,37 @@ internal readonly record struct TargetDomains(
     /// <summary>Gets whatever the target registered next to the built-in five, or <see langword="null"/>.</summary>
     /// <remarks>
     /// Every one of them is observed and released with the rest; the property exists so that a target's own
-    /// domains are part of the attachment rather than a second lifetime nothing tracks.
+    /// domains are part of the attachment rather than a second lifetime nothing tracks. It is set through
+    /// <see cref="With"/> and nowhere else, which is what makes registration and release symmetric.
     /// </remarks>
-    internal IReadOnlyList<DevToolsDomain>? Extra { get; init; }
+    internal IReadOnlyList<DevToolsDomain>? Extra { get; private init; }
+
+    /// <summary>
+    /// The same attachment with the domains a target registered beside the built-in five, each of them now
+    /// observing the target if it listens.
+    /// </summary>
+    /// <param name="extra">The target's own domains.</param>
+    /// <remarks>
+    /// <b>The observing belongs here because the unobserving does.</b> <see cref="Detach"/> walks
+    /// <see cref="Extra"/> and unobserves every <see cref="ITargetObserver"/> among them without being told
+    /// which; if registration does not do the mirror image, a target has to remember to call
+    /// <see cref="DevToolsTarget.Observe"/> by hand for each one, and the one it forgets is a domain that
+    /// hears nothing about the engine being replaced under it and is released anyway. Setting
+    /// <see cref="Extra"/> is private for the same reason: there is no way to build an attachment whose
+    /// domains are released but were never registered.
+    /// </remarks>
+    internal TargetDomains With(IReadOnlyList<DevToolsDomain> extra)
+    {
+        foreach (var domain in extra)
+        {
+            if (domain is ITargetObserver observer)
+            {
+                Target.Observe(observer);
+            }
+        }
+
+        return this with { Extra = extra };
+    }
 
     /// <summary>Releases everything this attachment holds of its target, and stops it hearing anything.</summary>
     /// <remarks>
