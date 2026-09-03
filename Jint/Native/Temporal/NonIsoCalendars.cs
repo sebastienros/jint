@@ -2452,27 +2452,83 @@ internal static class NonIsoCalendars
 
     #region Persian Calendar
 
-    // The Persian (Solar Hijri) arithmetic calendar on its 33-year cycle, which is the rule the
-    // platform's `persian` calendar is: ICU's own PersianCalendar places a year's first day
-    // 365 × (year − 1) + floor((8 × year + 21) / 33) days after the epoch and calls a year a leap year
-    // when floorMod(25 × year + 11, 33) < 8, so eight years in every thirty-three are 366 days long and
-    // the mean year is 365 + 8/33 = 365.2424 days.
+    // The Persian (Solar Hijri) arithmetic calendar on its 33-year cycle, which is the rule ICU's own
+    // PersianCalendar is and therefore the one every other Temporal implementation answers a proleptic
+    // `persian` date with: a year's first day is 365 × (year − 1) + floor((8 × year + 21) / 33) days after
+    // the epoch, and a year is a leap year when floorMod(25 × year + 11, 33) < 8, so eight years in every
+    // thirty-three are 366 days long and the mean year is 365 + 8/33 = 365.2424 days. *Which* arithmetic
+    // rule this is was what https://github.com/sebastienros/jint/issues/3604 was about: the 2820-year
+    // cycle it used to be (Reingold–Dershowitz / Birashk) drifts from ICU's by two months over Temporal's
+    // own range, so both ends of that range came back in the wrong Persian year.
     //
-    // Used as a proleptic fallback for the years PersianCalendar cannot answer for — it spans
-    // ISO 622-03-22 to 9999-12-31, which is Persian 1 to 9378, and derives those astronomically (the
-    // true vernal equinox at Tehran) rather than arithmetically. Far outside that range only an
-    // arithmetic rule can answer at all: no ephemeris covers a quarter of a million years. *Which*
-    // arithmetic rule is what https://github.com/sebastienros/jint/issues/3604 was about — the
-    // 2820-year cycle this used to carry (Reingold–Dershowitz / Birashk) drifts from ICU's by two
-    // months over Temporal's own range, so its extremes came back in the wrong Persian year.
+    // It answers outside the window below, and only outside it. Inside, PersianCalendar places the date,
+    // because inside it that calendar is not arithmetic at all — it derives a year from the true vernal
+    // equinox at Tehran — and the two answers really are different. Over the 9,377 whole years they share,
+    // 4,144 year-starts differ, by −1 to +3 days, and 1,514,413 of the window's 3,425,164 days fall in a
+    // different Persian month; the disagreement is 19 years per thousand around the present, none of them
+    // between 1300 and 1500 AP, and grows past 4,000 AP as the mean year drifts from the equinox. So the
+    // delegation earns its keep at both ends: the table is what makes a date anybody keeps right, and the
+    // cycle is what makes a proleptic one agree with the rest of the world. Far outside the window only an
+    // arithmetic rule can answer at all — no ephemeris covers a quarter of a million years.
+    //
+    // *Where the hand-off happens is stated here rather than asked of the platform.* It used to be
+    // PersianCalendar's own MinSupportedDateTime, MaxSupportedDateTime and the ArgumentOutOfRangeException
+    // ToDateTime raises outside them, which is to say it was whatever calendar data the runner shipped: a
+    // runtime that moved its window by a day would have moved every proleptic answer with it, and the only
+    // symptom would have been a date a quarter of a million years away landing somewhere else on one CI
+    // leg. The window is the same on net472 and on .NET 10 today, and PersianCalendarBoundaryTests is what
+    // says so on every runner — it asserts these constants against the platform, so a platform that ever
+    // disagrees fails there, naming the reason, rather than silently moving the proleptic years.
     //
     // Two rules meeting leaves the junctions imperfect, as they already were: at the top the answer
     // steps two days backwards at ISO 10000-01-01, because the table stops part-way through Persian
     // 9378 (https://github.com/sebastienros/jint/issues/3523), and at the bottom ISO 622-03-21 and
-    // 622-03-22 both read as Persian 1-01-01, because ICU begins Persian year 1 a day before the
+    // 622-03-22 both read as Persian 1-01-01, because the cycle begins Persian year 1 a day before the
     // table does. Each is one day of the year the two rules change over in, and neither is reachable
     // from a date anything actually keeps.
     private const long PersianEpochJdn = 1948320L;
+
+    /// <summary>
+    /// The ISO window <see cref="PersianCal"/> places a date in — 622-03-22 to 9999-12-31 inclusive — as
+    /// the pair of Julian Day Numbers the placement is decided by. Everything outside it is the 33-year
+    /// cycle's.
+    /// </summary>
+    private static readonly long PersianTableFirstJdn = IsoToJulianDay(622, 3, 22);
+
+    /// <inheritdoc cref="PersianTableFirstJdn"/>
+    private static readonly long PersianTableLastJdn = IsoToJulianDay(9999, 12, 31);
+
+    /// <summary>
+    /// The same window read in Persian fields, which is the direction <see cref="PersianDateToIso"/> asks
+    /// it in: 1-01-01 through 9378-10-13. The last year is a part of one — DateTime's end falls inside
+    /// Persian 9378 — so the top edge needs the month and the day as well as the year.
+    /// </summary>
+    private const int PersianTableLastYear = 9378;
+
+    /// <inheritdoc cref="PersianTableLastYear"/>
+    private const int PersianTableLastMonth = 10;
+
+    /// <inheritdoc cref="PersianTableLastYear"/>
+    private const int PersianTableLastDay = 13;
+
+    /// <summary>
+    /// Whether <see cref="PersianCal"/>'s window holds these Persian fields, which is the question the
+    /// <c>try</c> around <c>ToDateTime</c> used to ask by catching the refusal.
+    /// </summary>
+    private static bool PersianTableHolds(int year, int month, int day)
+    {
+        if (year < 1 || year > PersianTableLastYear)
+        {
+            return false;
+        }
+
+        if (year < PersianTableLastYear)
+        {
+            return true;
+        }
+
+        return month < PersianTableLastMonth || (month == PersianTableLastMonth && day <= PersianTableLastDay);
+    }
 
     private static bool IsPersianLeapYearAlgorithmic(int year)
         => FloorMod(25L * year + 11L, 33L) < 8L;
@@ -2495,10 +2551,8 @@ internal static class NonIsoCalendars
         return IsPersianLeapYearAlgorithmic(year) ? 30 : 29;
     }
 
-    private static CalendarDate PersianAlgorithmicFromIso(in IsoDate isoDate)
+    private static CalendarDate PersianAlgorithmicFromIso(long jdn)
     {
-        long jdn = IsoToJulianDay(isoDate.Year, isoDate.Month, isoDate.Day);
-
         // Estimate Persian year then walk to exact.
         long days = jdn - PersianEpochJdn;
         int yearEst = (int) (days / 365L) + 1;
@@ -2539,19 +2593,16 @@ internal static class NonIsoCalendars
 
     private static CalendarDate PersianToCalendarDate(in IsoDate isoDate)
     {
+        var jdn = IsoToJulianDay(isoDate.Year, isoDate.Month, isoDate.Day);
+
+        if (jdn < PersianTableFirstJdn || jdn > PersianTableLastJdn)
+        {
+            return PersianAlgorithmicFromIso(jdn);
+        }
+
+        // Inside the window the ISO year is 622 to 9999, which is DateTime's own range.
         var cal = PersianCal;
-
-        if (isoDate.Year < 1 || isoDate.Year > 9999)
-        {
-            return PersianAlgorithmicFromIso(in isoDate);
-        }
-
         var dt = new DateTime(isoDate.Year, isoDate.Month, isoDate.Day);
-
-        if (dt < cal.MinSupportedDateTime || dt > cal.MaxSupportedDateTime)
-        {
-            return PersianAlgorithmicFromIso(in isoDate);
-        }
 
         var year = cal.GetYear(dt);
         var ordinalMonth = cal.GetMonth(dt);
@@ -2620,8 +2671,8 @@ internal static class NonIsoCalendars
 
         // Constrain day. The algorithmic computation answers for every year past the last whole one the
         // table holds, which includes the partial year at the end of it: there the table's month lengths
-        // are DateTime's end rather than the calendar's. The placement below still tries the table
-        // first, so a day it can still put somewhere keeps the table's answer.
+        // are DateTime's end rather than the calendar's. The placement below still asks the window first,
+        // so a day it still holds keeps the table's answer.
         var maxDay = SupportsYear(cal, year) && TryGetDaysInMonth(cal, year, ordinalMonth, out var tableDay)
             ? tableDay
             : PersianAlgorithmicDaysInMonth(year, ordinalMonth);
@@ -2635,16 +2686,13 @@ internal static class NonIsoCalendars
             return null;
         }
 
-        try
+        if (!PersianTableHolds(year, ordinalMonth, day))
         {
-            var dt = cal.ToDateTime(year, ordinalMonth, day, 0, 0, 0, 0);
-            return new IsoDate(dt.Year, dt.Month, dt.Day);
-        }
-        catch
-        {
-            // Year is outside .NET PersianCalendar range — use algorithmic conversion.
             return PersianAlgorithmicToIso(year, ordinalMonth, day);
         }
+
+        var dt = cal.ToDateTime(year, ordinalMonth, day, 0, 0, 0, 0);
+        return new IsoDate(dt.Year, dt.Month, dt.Day);
     }
 
     #endregion

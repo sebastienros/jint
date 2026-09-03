@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 namespace Jint.Tests.Runtime;
 
@@ -25,6 +25,16 @@ namespace Jint.Tests.Runtime;
 /// a regression rather than a matter of taste
 /// (<see href="https://github.com/sebastienros/jint/issues/3520"/>).
 /// </para>
+/// <para>
+/// <b>The four Persian values past ISO 9999 moved once.</b> Not because a step is taken differently — the
+/// two spellings still agree on every one of those cases — but because the reckoning underneath them
+/// became the 33-year cycle rather than the 2820-year one, which is what every other Temporal
+/// implementation answers a proleptic <c>persian</c> date with
+/// (<see href="https://github.com/sebastienros/jint/issues/3604"/>). Those years lie outside
+/// <c>PersianCalendar</c>'s window, so nothing but integer arithmetic on a fixed epoch decides them; where
+/// that window ends, and that it is Jint's to state rather than the runner's, is
+/// <see cref="PersianCalendarBoundaryTests"/>.
+/// </para>
 /// </remarks>
 public class HebrewMonthSteppingTests
 {
@@ -40,7 +50,7 @@ public class HebrewMonthSteppingTests
     [TestCase("hebrew", 100_000, "+010085-03-13")]
     [TestCase("hebrew", 300_000, "+026255-08-10")]
     [TestCase("hebrew", 3_000_000, "+244556-01-22")]
-    [TestCase("persian", 3_000_000, "+251999-10-18")]
+    [TestCase("persian", 3_000_000, "+251999-12-13")]
     public void ABulkMonthAdditionDoesNotWalkYearByYear(string calendar, int months, string expected)
     {
         var engine = new Engine(options => options.LimitStatements(2));
@@ -141,7 +151,7 @@ public class HebrewMonthSteppingTests
     /// the whole span reaches.
     /// </summary>
     [TestCase("hebrew", "+042426-02-07")]
-    [TestCase("persian", "+043666-09-25")]
+    [TestCase("persian", "+043666-10-04")]
     public void AMonthSpanSplitInTwoReachesWhereTheWholeSpanReaches(string calendar, string expected)
     {
         var engine = new Engine();
@@ -195,8 +205,8 @@ public class HebrewMonthSteppingTests
     [TestCase("hebrew", "+100000-01-01", -1, "+099999-12-02")]
     [TestCase("hebrew", "+100000-01-01", 13, "+100001-01-20")]
     [TestCase("persian", "9999-12-31", -1, "9999-12-01")]
-    [TestCase("persian", "9999-12-31", 1, "+010000-01-31")]
-    [TestCase("persian", "9999-12-31", 13, "+010001-01-30")]
+    [TestCase("persian", "9999-12-31", 1, "+010000-02-02")]
+    [TestCase("persian", "9999-12-31", 13, "+010001-02-01")]
     public void AStepAcrossTheEndOfTheTableLandsWhereItAlwaysDid(string calendar, string start, int months, string expected)
     {
         var engine = new Engine();
