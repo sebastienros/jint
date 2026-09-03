@@ -97,9 +97,13 @@ git -C wpt checkout <pin>
 cp tools/wpt-scoreboard/wpt-config.json wpt/config.json
 (cd wpt && ./wpt make-hosts-file | sudo tee -a /etc/hosts)
 
-# 2. a virtualenv with this product in it, built with the python ./wpt will run under
+# 2. a virtualenv with this product in it, built with the python ./wpt will run under. A plain install,
+#    not `pip install -e`: `./wpt --venv` activates the virtualenv by adding its site-packages to the parent's
+#    path, and the test-runner children `multiprocessing` spawns inherit that path but not the import finder
+#    an editable install registers through its `.pth` file -- so they cannot import the product. Reinstall
+#    after editing the package.
 python3 -m venv .wpt-venv
-.wpt-venv/bin/pip install -e tools/wpt-scoreboard pytest
+.wpt-venv/bin/pip install tools/wpt-scoreboard pytest
 
 # 3. the browser
 dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0

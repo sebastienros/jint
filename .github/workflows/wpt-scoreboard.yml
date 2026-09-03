@@ -146,6 +146,13 @@ jobs:
     # *before* `wpt run` looks for entry points. `wpt --venv` then reuses it and installs the runner's own
     # requirements alongside. It is built with the runner's own `python3` -- the same interpreter `./wpt`
     # runs under -- because `wpt` activates the virtualenv inside the process it is already in.
+    #
+    # A plain install, never `pip install -e`. That activation is `site.addsitedir` on the virtualenv's
+    # site-packages in the *parent*: the `.pth` file an editable install leaves there registers its import
+    # finder on the parent's `sys.meta_path`, and a test-runner child -- `multiprocessing` spawns one per
+    # runner -- inherits `sys.path` but not `sys.meta_path` and never processes the `.pth`, so it dies on
+    # `ModuleNotFoundError: No module named 'wpt_jint_browser'` while the parent imports it fine. A copied
+    # package is on `sys.path` itself, which is the one thing a spawned child does get.
     - name: Install the wptrunner product
       shell: bash
       run: |
@@ -153,7 +160,7 @@ jobs:
         python3 -m venv "$RUNNER_TEMP/wpt-venv"
         "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet --upgrade pip
         "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet pytest
-        "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet -e tools/wpt-scoreboard
+        "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet tools/wpt-scoreboard
 
     # The unit tests of the plugin itself, and the one thing that tells "the scoreboard is zero because the
     # engine fails everything" from "the scoreboard is zero because the runner never reached the page": one
