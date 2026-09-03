@@ -108,13 +108,26 @@ dotnet artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll ser
 # 4. the run
 cd wpt && ./wpt --venv ../.wpt-venv run jint-browser \
   --ssl-type none --no-manifest-download --processes 1 --test-types testharness \
-  --no-fail-on-unexpected --timeout-multiplier 2 \
+  --no-fail-on-unexpected \
   --log-wptreport ../wptreport.json --log-mach - \
   dom/
 
 # 5. the page
 .wpt-venv/bin/python -m wpt_jint_browser.scoreboard wptreport.json --markdown docs/wpt-scoreboard.md
 ```
+
+### What the run costs, and the flag that decides it
+
+The wall time is dominated by the cases that fail by **not reporting**: a document that never completes
+costs its whole timeout, and a `<meta name=timeout content=long>` file's timeout is 60 seconds.
+`html/semantics/scripting-1/the-script-element/moving-between-documents/` is 52 of those, and at the time of
+writing every one of them times out on the same defect — a `<script src>` whose fetch fails fires neither
+`load` nor `error`, so the harness never finishes — so that one directory is most of an hour.
+
+**There is therefore no `--timeout-multiplier`**, and the reason is not only cost. Every per-test timeout in
+the corpus is the test author's, and wpt.fyi's published figures are taken at the default of 1; a scoreboard
+measured at 2 would be systematically more generous than the numbers it invites comparison with. Raising it
+doubles exactly the cases that are already failing and changes nothing about the ones that pass.
 
 ### If the nightly gets too long
 

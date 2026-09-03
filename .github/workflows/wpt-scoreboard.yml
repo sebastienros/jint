@@ -206,6 +206,16 @@ jobs:
     # on the page, and the step's exit code is about the runner. The four .h2. files are named because the
     # h2 server is off with TLS, and a test whose protocol has no port would be an internal error rather
     # than a result.
+    #
+    # There is deliberately no --timeout-multiplier, and it is worth knowing why before one is added back.
+    # Every per-test timeout in the corpus is the test author's, and wpt.fyi's own numbers are taken at the
+    # default of 1, so a scoreboard measured at 2 would be more generous than the figures it invites
+    # comparison with. It is also the flag that decides how long this job takes, because the run's cost is
+    # dominated by the cases that fail by *not reporting*: a `<meta name=timeout content=long>` file is 60
+    # seconds each time, and `html/semantics/scripting-1/the-script-element/moving-between-documents/` alone
+    # is 52 of them, every one of which currently times out on one defect (a <script src> whose fetch fails
+    # fires neither load nor error, so the harness never completes). At 2 that one directory is an hour and
+    # three quarters of this job on its own.
     - name: Run the suites
       shell: bash
       working-directory: wpt
@@ -225,7 +235,6 @@ jobs:
           --test-types testharness \
           --no-fail-on-unexpected \
           --no-fail-on-unexpected-pass \
-          --timeout-multiplier 2 \
           --log-wptreport "$RUNNER_TEMP/wptreport.json" \
           --log-mach-level info \
           --log-mach - \

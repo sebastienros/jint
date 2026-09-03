@@ -286,6 +286,7 @@ def render_markdown(
 
     variant_header = ("Case", *_HEADER[1:])
     variant_rows = [_group_row(scoreboard.variants[name], name) for name in sorted(scoreboard.variants)]
+    variant_rows.append(_group_row(total, "**total**"))
     lines.extend(_table(variant_header, _ALIGN, variant_rows))
     lines.append("")
 
