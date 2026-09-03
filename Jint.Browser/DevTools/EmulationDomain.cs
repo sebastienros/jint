@@ -83,6 +83,16 @@ internal sealed class EmulationDomain : EmulationDomainBase
     protected override ValueTask<EmptyResult> SetUserAgentOverrideAsync(SetUserAgentOverrideRequest parameters, CommandContext context)
     {
         _target.Emulation.UserAgent = parameters.UserAgent;
+
+        // The same override Network.setUserAgentOverride writes, because Chrome has one: a client that set it
+        // through either domain expects every request the page makes to carry it.
+        _target.UpdateNetworkPolicy(policy => policy with
+        {
+            UserAgent = parameters.UserAgent,
+            AcceptLanguage = parameters.AcceptLanguage is { Length: > 0 } language ? language : policy.AcceptLanguage,
+            Platform = parameters.Platform is { Length: > 0 } platform ? platform : policy.Platform,
+        });
+
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }
 

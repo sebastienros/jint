@@ -127,7 +127,7 @@ internal sealed class PageModuleLoader : ModuleLoader
 
         // The page's own network log sees a worker's module loads too, so Page.Requests is what the page
         // fetched rather than what its document fetched.
-        var observation = FetchObservation.Create(_requests, FetchInitiator.Script);
+        var observation = _requests.Observe(RequestInitiator.Script, PageRequestKind.Script);
 
         try
         {
@@ -141,6 +141,7 @@ internal sealed class PageModuleLoader : ModuleLoader
 
             // The debt every SendForStreamAsync caller owes its observer; see FetchObservation.FinalResponse.
             observation?.FinalResponse(exchange);
+            observation?.Data(bytes);
             observation?.Completed(bytes.Length);
 
             if (!exchange.Response.IsSuccessStatusCode)

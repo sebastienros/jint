@@ -93,6 +93,10 @@ Four things about the emitted code are decisions rather than accidents:
 - **A `$ref` into a domain the manifest does not generate must resolve to a primitive alias**, or the
   generator fails rather than emit something that will not compile. Today `Network.RequestId` and
   `Page.FrameId` are both `string`.
+- **A named type declared as an object with no properties is a map**, not an empty record:
+  `Network.Headers` resolves to `Dictionary<string, string>` and no type is emitted for it. An *inline*
+  `"type": "object"` member is a different thing and stays a `JsonElement` — see the map-type section of
+  [`tools/devtools-protocol/README.md`](../tools/devtools-protocol/README.md) for why the two differ.
 
 ### The manifest
 

@@ -22,6 +22,7 @@
     "Audits",
     "DOM",
     "Input",
+    "Storage",
     "Jint"
   ],
 
@@ -60,6 +61,23 @@
   // Input is dispatchMouseEvent alone. The keyboard half - dispatchKeyEvent, insertText,
   // imeSetComposition - is the next campaign item, and answering one of them now would be a silent
   // success where a client feature-detecting it wants the truth.
+  // Storage is generated for three commands and no more. Every recorded client reads and writes a page's
+  // cookies through Storage.getCookies and Storage.setCookies rather than through Network's, which is the
+  // whole reason the domain is here; the other twenty commands name IndexedDB, cache storage, shared
+  // storage, interest groups, attribution reporting and quota, and every one of those is a store this
+  // browser does not have.
+  //
+  // The Fetch response stage is absent, and with it Fetch.continueResponse, Fetch.getResponseBody,
+  // Fetch.takeResponseBodyAsStream and the whole IO domain. FetchObserver.OnResponse is a notification an
+  // observer cannot answer, so a response-stage pause could only ever continue unchanged and a client that
+  // called fulfillRequest from one would be silently ignored - which is worse than not pausing at all.
+  // Network.getResponseBody is what answers a body here. Fetch.continueWithAuth is absent for a smaller
+  // reason: nothing in this browser answers a 401 with credentials, so there is no challenge to be asked
+  // about and Fetch.authRequired is never sent.
+  //
+  // Network's WebSocket and EventSource events are absent because the engine deliberately does not observe
+  // those two handshakes (Jint/WebApi/AGENTS.md says why), and its timing document because no phase of a
+  // request is measured. Network.requestServedFromCache is never sent: there is no cache.
   //
   // Jint is not Chrome's. It is described in tools/devtools-protocol/jint_protocol.json, in the protocol's
   // own format and beside the two vendored files, the way Lightpanda adds its LP domain: this browser
@@ -132,8 +150,11 @@
     "Emulation.setFocusEmulationEnabled",
     "Emulation.setTouchEmulationEnabled",
     "Emulation.setUserAgentOverride",
+    "Fetch.continueRequest",
     "Fetch.disable",
     "Fetch.enable",
+    "Fetch.failRequest",
+    "Fetch.fulfillRequest",
     "Input.dispatchMouseEvent",
     "Jint.getAccessibilitySnapshot",
     "Jint.getMarkdown",
@@ -143,10 +164,21 @@
     "Log.enable",
     "Log.startViolationsReport",
     "Log.stopViolationsReport",
+    "Network.clearBrowserCookies",
+    "Network.deleteCookies",
     "Network.disable",
+    "Network.emulateNetworkConditions",
     "Network.enable",
+    "Network.getAllCookies",
+    "Network.getCookies",
+    "Network.getRequestPostData",
+    "Network.getResponseBody",
+    "Network.setBlockedURLs",
     "Network.setCacheDisabled",
+    "Network.setCookie",
+    "Network.setCookies",
     "Network.setExtraHTTPHeaders",
+    "Network.setUserAgentOverride",
     "Page.addScriptToEvaluateOnNewDocument",
     "Page.bringToFront",
     "Page.captureScreenshot",
@@ -199,6 +231,9 @@
     "Runtime.setCustomObjectFormatterEnabled",
     "Runtime.setMaxCallStackSizeToCapture",
     "Schema.getDomains",
+    "Storage.clearCookies",
+    "Storage.getCookies",
+    "Storage.setCookies",
     "Target.activateTarget",
     "Target.attachToTarget",
     "Target.closeTarget",
@@ -232,7 +267,15 @@
     "Debugger.paused",
     "Debugger.resumed",
     "Debugger.scriptParsed",
+    "Fetch.requestPaused",
     "Log.entryAdded",
+    "Network.dataReceived",
+    "Network.loadingFailed",
+    "Network.loadingFinished",
+    "Network.requestWillBeSent",
+    "Network.requestWillBeSentExtraInfo",
+    "Network.responseReceived",
+    "Network.responseReceivedExtraInfo",
     "Page.domContentEventFired",
     "Page.frameNavigated",
     "Page.frameStartedLoading",

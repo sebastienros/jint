@@ -406,6 +406,14 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     /// </remarks>
     private static string NetworkError(NavigationFailedException failure)
     {
+        if (failure.Message.Contains("net::ERR_", StringComparison.Ordinal))
+        {
+            // A client's own refusal — Network.emulateNetworkConditions(offline), setBlockedURLs, a
+            // Fetch.failRequest — names its code in the reason it failed the request with, and that code is
+            // what the client that chose it expects to read back here.
+            return Runtime.PageNetworkRecorder.NetworkError(failure.Message, failure);
+        }
+
         if (failure.Message.Contains("URL filter", StringComparison.Ordinal))
         {
             return "net::ERR_BLOCKED_BY_CLIENT";

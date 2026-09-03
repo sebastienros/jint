@@ -65,7 +65,7 @@ public class ProtocolManifestTests
     /// here rather than skipping anything unrecognized is what keeps the two halves adding up to the whole
     /// manifest.
     /// </remarks>
-    private static readonly string[] PageDomains = ["Page", "Emulation", "Network", "Fetch", "Performance", "Audits", "DOM", "Input", "Jint"];
+    private static readonly string[] PageDomains = ["Page", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "DOM", "Input", "Jint"];
 
     [Test]
     public void EveryImplementedMethodTheManifestNamesIsOverridden()

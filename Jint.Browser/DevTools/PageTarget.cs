@@ -29,7 +29,7 @@ namespace Jint.Browser.DevTools;
 /// the <c>Page</c> domain enabled.
 /// </para>
 /// </remarks>
-internal sealed class PageTarget : DevToolsTarget, IPageObserver
+internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 {
     private readonly object _domainGate = new();
     private readonly Action<PageTarget>? _closed;
@@ -127,6 +127,10 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
             return true;
         }).ConfigureAwait(false);
 
+        // The network log is the page's rather than a document's, so it is claimed once here and not on
+        // every commit; it hands its notifications straight back on the transport thread they arrive on.
+        page.NetworkLog.Listener = target;
+
         target.Publish(await page.TitleAsync().ConfigureAwait(false), page.Url);
         return target;
     }
@@ -141,7 +145,8 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
         var input = new InputDomain(this);
         var emulation = new EmulationDomain(this);
         var network = new NetworkDomain(this);
-        var fetch = new FetchDomain();
+        var fetch = new FetchDomain(this);
+        var storage = new StorageDomain(this);
         var performance = new PerformanceDomain();
         var audits = new AuditsDomain();
         var jint = new JintDomain(this);
@@ -153,6 +158,7 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
             .Register(emulation)
             .Register(network)
             .Register(fetch)
+            .Register(storage)
             .Register(performance)
             .Register(audits)
             .Register(jint);
@@ -164,7 +170,7 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
         Observe(dom);
         Nodes.Add(dom);
 
-        return domains with { Extra = [page, dom, input, emulation, network, fetch, performance, audits, jint] };
+        return domains with { Extra = [page, dom, input, emulation, network, fetch, storage, performance, audits, jint] };
     }
 
     /// <inheritdoc/>
@@ -296,7 +302,11 @@ internal sealed class PageTarget : DevToolsTarget, IPageObserver
     }
 
     /// <inheritdoc/>
-    void IPageObserver.Closed() => _closed?.Invoke(this);
+    void IPageObserver.Closed()
+    {
+        Page.NetworkLog.Listener = null;
+        _closed?.Invoke(this);
+    }
 
     private PageDomain[] Snapshot() => Volatile.Read(ref _domains);
 }
@@ -342,10 +352,16 @@ internal sealed class EmulationState
     /// <summary>The media type a client emulated, or <see langword="null"/>. Effective with the CSSOM work.</summary>
     internal string? EmulatedMedia { get; set; }
 
-    /// <summary>The user agent a client set, or <see langword="null"/>. Effective with C3's network layer.</summary>
+    /// <summary>The user agent a client set, or <see langword="null"/>.</summary>
+    /// <remarks>
+    /// Kept here so that <c>Emulation</c>'s own bookkeeping holds; what makes it effective is
+    /// <see cref="PageTarget.NetworkPolicy"/>, which both <c>Emulation.setUserAgentOverride</c> and
+    /// <c>Network.setUserAgentOverride</c> write, because Chrome treats the two as one override.
+    /// </remarks>
     internal string? UserAgent { get; set; }
 
-    /// <summary>Whether the client asked for the cache to be bypassed. Effective with C3's network layer.</summary>
+    /// <summary>Whether the client asked for the cache to be bypassed, which changes nothing.</summary>
+    /// <remarks>Nothing in this browser stores a response between requests; see <c>NetworkDomain</c>.</remarks>
     internal bool CacheDisabled { get; set; }
 
 }

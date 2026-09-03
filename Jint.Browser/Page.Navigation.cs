@@ -479,7 +479,7 @@ public sealed partial class Page
 
         if (PageUrl.IsNetworkScheme(target))
         {
-            var fetched = await FetchDocumentAsync(target, request, current, timeout, cancellationToken).ConfigureAwait(false);
+            var fetched = await FetchDocumentAsync(target, request, current, loaderId, timeout, cancellationToken).ConfigureAwait(false);
             html = fetched.Html;
 
             // https://html.spec.whatwg.org/multipage/browsing-the-web.html#create-navigation-params-by-fetching:
@@ -532,6 +532,7 @@ public sealed partial class Page
         UrlRecord target,
         NavigationRequest request,
         string currentUrl,
+        string loaderId,
         CancellationTokenSource timeout,
         CancellationToken cancellationToken)
     {
@@ -565,7 +566,7 @@ public sealed partial class Page
         try
         {
             return await DocumentFetch
-                .LoadAsync(_network, client, documentRequest, _requests, cancellationToken)
+                .LoadAsync(_network, client, documentRequest, _requests, loaderId, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)

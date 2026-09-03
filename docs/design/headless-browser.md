@@ -263,11 +263,25 @@ reads, and `javascriptDialogOpening` and `javascriptDialogClosed` arrive togethe
 pixels and names `Jint.getMarkdown`, `Jint.getText` and `document.documentElement.outerHTML` instead.
 
 What is accepted and not yet effective is accepted because refusing it fails an ordinary connection, and
-each says which campaign item makes it real: `Emulation`'s touch, focus, media and user-agent overrides
-(input, §8), `Network.setCacheDisabled` and `setExtraHTTPHeaders` and `Fetch.enable` (the network work),
-`Performance.enable` and `Audits.enable` (nothing to measure and nothing to report). `Fetch.enable` above
-all must never stall a navigation. `Emulation.setDeviceMetricsOverride` is the one that is real: it sets the
-page's `Viewport`, so `innerWidth`, `devicePixelRatio`, `screen` and every `matchMedia` query move with it.
+each says which campaign item makes it real: `Emulation`'s touch and focus overrides (input, §8), its
+media override (the CSSOM work), `Network.setCacheDisabled` (there is no cache to bypass),
+`Performance.enable` and `Audits.enable` (nothing to measure and nothing to report).
+`Emulation.setDeviceMetricsOverride` is real: it sets the page's `Viewport`, so `innerWidth`,
+`devicePixelRatio`, `screen` and every `matchMedia` query move with it, and so is the user-agent override,
+which both `Emulation` and `Network` write and which every request the page makes then carries.
+
+**The network domains are real, and three lanes of them are absent with a reason rather than pending.**
+`Network` reports every request the page makes and `Fetch` pauses one at the **request** stage, both over
+the page's own request log, which is the engine's `FetchObserver`; the document's request carries the
+`loaderId` as its `requestId`, which is what makes a client's `goto` answer a response object. What is not
+there: the `Fetch` **response** stage and with it the `IO` domain, because `FetchObserver.OnResponse` is a
+notification an observer cannot answer, so a response-stage pause could only ever continue unchanged and a
+client that fulfilled from one would be ignored; the **WebSocket and EventSource** events, because the
+engine deliberately does not observe those two handshakes and a socket reported as a request that never
+finishes would also stop `networkIdle` firing; and `Network`'s **timing** document, because no phase of a
+request is measured and a document of zeros reads as a page that loaded instantly. A paused request holds
+the transport thread it is being sent on and never the page loop — the one exception is a `<script src>` a
+running script inserted, which blocks the loop by design.
 
 ## 9. The scoreboard
 
@@ -300,7 +314,7 @@ WebSocket.
 
 | Where | What |
 | --- | --- |
-| `Jint/` (engine, public, additive) | B1 tree event dispatch; B2 `XMLHttpRequest` (`WebApiFeatures.XmlHttpRequest`, sync supported as a blocking wait on the engine-free transport); B3 fetch for documents (`BaseUrl`, referrer policy, `Origin`, `CookieJar`, `FetchObserver` with interception); B4 `PerformanceObserver`, `FileReader`, blob URLs |
+| `Jint/` (engine, public, additive) | B1 tree event dispatch; B2 `XMLHttpRequest` (`WebApiFeatures.XmlHttpRequest`, sync supported as a blocking wait on the engine-free transport); B3 fetch for documents (`BaseUrl`, referrer policy, `Origin`, `CookieJar`, `FetchObserver` with interception), and C3's one addition to it — `FetchInitiator.XmlHttpRequest`, plus the body chunks an `XMLHttpRequest` never handed its observer; B4 `PerformanceObserver`, `FileReader`, blob URLs |
 | `Jint.Browser/` (net8.0+, `InternalsVisibleTo` from Jint for now, promoted to public seams as they prove their shape) | the runtime of §3–§8 and the page-level CDP domains, plus the custom `Jint` domain (`getMarkdown`, `getText`, `getAccessibilitySnapshot`) |
 | `Jint.Browser.Tool/` | the `jint-browser` dotnet tool (`serve --port 9222`, `fetch <url> --dump html|text|markdown|ax`) and the MCP server |
 | `Jint.Tests.Browser/` | the WPT browser lane, the obstacle course, the client smoke suites |

@@ -71,6 +71,7 @@ public class HandshakeReplayTests
         ["DOM.resolveNode"] = "page",
         ["Network.enable"] = "page",
         ["Network.setCacheDisabled"] = "page",
+        ["Network.setBlockedURLs"] = "page",
         ["Emulation.setDeviceMetricsOverride"] = "page",
         ["Emulation.setTouchEmulationEnabled"] = "page",
         ["Input.dispatchMouseEvent"] = "page",
@@ -89,7 +90,6 @@ public class HandshakeReplayTests
         // handles not getting it.
         ["WebMCP.enable"] = "none",
         ["Network.setAttachDebugStack"] = "none",
-        ["Network.setBlockedURLs"] = "none",
         ["Network.emulateNetworkConditionsByRule"] = "none",
         ["Network.overrideNetworkState"] = "none",
         ["Network.clearAcceptedEncodingsOverride"] = "none",

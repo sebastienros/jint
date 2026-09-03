@@ -39,6 +39,7 @@ namespace Jint.Browser
         public BrowserOptions() { }
         public System.TimeSpan FetchTimeout { get; set; }
         public int MaxActiveTimers { get; set; }
+        public long MaxCapturedResponseBytes { get; set; }
         public long MaxDocumentBytes { get; set; }
         public int MaxDomNodes { get; set; }
         public int MaxRecordedEvents { get; set; }

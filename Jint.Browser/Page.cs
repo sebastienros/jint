@@ -88,7 +88,7 @@ public sealed partial class Page : IAsyncDisposable
         Context = context;
         _options = options;
         _recorder = recorder;
-        _requests = new PageNetworkRecorder(options.MaxRecordedEvents);
+        _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
         _mainFrame = Frame.Detached(this);
@@ -409,6 +409,13 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>The page's session history. Reachable from the loop thread only.</summary>
     internal SessionHistory History => _history;
+
+    /// <summary>The page's network log, which is also the seam a protocol client watches requests through.</summary>
+    /// <remarks>
+    /// Reachable from any thread: everything on it is guarded by its own lock and none of it touches an
+    /// engine. It is the page's for the page's whole life, so a navigation neither replaces nor clears it.
+    /// </remarks>
+    internal PageNetworkRecorder NetworkLog => _requests;
 
     internal static async Task<Page> CreateAsync(BrowserContext context, BrowserOptions options)
     {

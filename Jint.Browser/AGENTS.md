@@ -178,10 +178,21 @@ target/runtime split and the manifest are there and none of it is repeated here.
   realm; a dialog does not block the page, so `handleJavaScriptDialog` sets the standing decision the next
   one reads; and `captureScreenshot` / `printToPDF` answer `-32000` with a sentence naming the text and
   markdown alternatives, because this browser renders no pixels.
-- **What is accepted and not yet effective says so, in place.** `Emulation`'s touch, focus, media and
-  user-agent overrides, `Network.setCacheDisabled`/`setExtraHTTPHeaders`, `Fetch.enable`,
-  `Performance.enable` and `Audits.enable` are answered because a refusal fails an ordinary connection, and
-  each names the campaign item that makes it real. `Fetch.enable` must never stall a navigation.
+- **`Network` and `Fetch` read the page's own request log; they are never a second observer.**
+  `Runtime/PageNetworkRecorder` is the engine's `FetchObserver` and already sees the document, every
+  subresource, every `fetch` and `XMLHttpRequest` and a worker's module loads, so `Page.Requests` and the
+  protocol say the same thing about the same request and the two domains share identifiers. **The
+  notifications and the interception run on the transport thread, not the page loop**, and
+  [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-request-log-is-the-protocols-seam-too) argues why moving them
+  would deadlock the one fetch a page cannot pump through. The document's request carries the `loaderId` as
+  its `requestId`, which is how every client tells a navigation apart.
+- **What is accepted and not yet effective says so, in place.** `Emulation`'s touch, focus and media
+  overrides, `Network.setCacheDisabled` (there is no cache), `Performance.enable` and `Audits.enable` are
+  answered because a refusal fails an ordinary connection, and each names the campaign item that makes it
+  real. Three whole lanes are absent with a reason rather than pending: the `Fetch` **response stage** and
+  with it `IO` (an observer cannot answer `OnResponse`, so a response-stage pause could only continue
+  unchanged), the **WebSocket and EventSource** events (the engine deliberately does not observe those two
+  handshakes), and `Network`'s **timing** document (no phase of a request is measured).
 
 `Jint.Tests.Browser/DevTools/` holds four checks: the handshake replay of what four recorded clients send up
 to and including their first click, `PageProtocolManifestTests` (the page half of the property

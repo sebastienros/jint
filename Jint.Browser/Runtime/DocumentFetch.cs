@@ -46,9 +46,13 @@ internal static class DocumentFetch
         HttpClient client,
         DocumentRequest request,
         PageNetworkRecorder? recorder,
+        string loaderId,
         CancellationToken cancellationToken)
     {
-        var observation = recorder is null ? null : FetchObservation.Create(recorder, FetchInitiator.Host);
+        // The document's own request is addressed by the loaderId, which is what Chrome does and what every
+        // client reads as "this request is the navigation": Puppeteer decides a request is a navigation by
+        // comparing exactly those two strings.
+        var observation = recorder?.Observe(RequestInitiator.Document, PageRequestKind.Document, loaderId);
 
         var headers = new List<HeaderEntry>();
         if (request.ContentType is { } contentType)
@@ -96,6 +100,10 @@ internal static class DocumentFetch
             observation?.FinalResponse(exchange, ToFetchHeaders(headerList));
 
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
+
+            // The body half of the debt FetchObservation.FinalResponse names: this method reads the bytes
+            // itself, so it is the only place the observer can be handed them.
+            observation?.Data(bytes);
             observation?.Completed(bytes.Length);
 
             var url = exchange.Url.Serialize(excludeFragment: true);

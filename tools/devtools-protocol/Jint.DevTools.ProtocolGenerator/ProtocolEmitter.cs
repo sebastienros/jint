@@ -24,6 +24,13 @@ public sealed class ProtocolEmitter
     private const string Context = "global::Jint.DevTools.Protocol.ProtocolJsonContext";
     private const string ValueTask = "global::System.Threading.Tasks.ValueTask";
 
+    // The protocol's map shape. A type it names but declares no properties for is a JSON object whose keys
+    // are data rather than a record -- Network.Headers is the one every generated domain uses -- so it
+    // resolves to a dictionary and no empty record is emitted for it. An *inline* "type": "object" member is
+    // a different thing and stays a JsonElement: Debugger.paused's data and an execution context's auxData
+    // carry values of mixed shapes, and a dictionary of strings would silently drop them.
+    private const string MapType = "global::System.Collections.Generic.Dictionary<string, string>";
+
     private readonly Protocol _protocol;
     private readonly GenerationManifest _manifest;
     private readonly ProtocolPin _pin;
@@ -116,6 +123,12 @@ public sealed class ProtocolEmitter
 
             if (!type.IsObject)
             {
+                continue;
+            }
+
+            if (type.IsMap)
+            {
+                // A map, not a record: it resolves to MapType wherever it is referenced.
                 continue;
             }
 
@@ -573,6 +586,14 @@ public sealed class ProtocolEmitter
                 // A type alias: the protocol names it, but it is a string, a number or an array of
                 // something, so the C# side is that shape and the name is documentation.
                 return Resolve(target.Value, domainName, where);
+            }
+
+            if (target.IsMap)
+            {
+                // Declared as an object and given no properties: the protocol's own way of writing a map of
+                // strings, which is what Network.Headers is. It needs no domain to be generated, because
+                // nothing of the domain is referenced -- only the shape.
+                return MapType;
             }
 
             if (!_generated.Contains(domainName))

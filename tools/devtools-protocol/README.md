@@ -82,6 +82,25 @@ The generator fails rather than emitting broken code when an entry names somethi
 does not have, and when a `$ref` crosses into a domain that is not generated and does not resolve to a
 primitive alias.
 
+## The map type
+
+The protocol has no map keyword. What it writes instead is a **named type declared as `"type": "object"`
+with no `properties`**, and `Network.Headers` — "request / response headers as keys / values of JSON
+object" — is the one every generated domain uses. The emitter reads that shape as a map: no record is
+emitted for the type, and every `$ref` to it resolves to
+`global::System.Collections.Generic.Dictionary<string, string>`. An empty record was what came before, and
+it meant a client's headers were not in the request object at all.
+
+Two things about the rule are deliberate:
+
+- **Only a *named* type is a map.** An **inline** `"type": "object"` member stays a `JsonElement`, because
+  those carry values of mixed shapes rather than strings: `Debugger.paused`'s `data` holds a remote object,
+  an execution context's `auxData` holds a boolean and two strings, and a dictionary of strings would drop
+  the lot silently.
+- **A repeated header is joined with a newline**, which is what Chrome sends, because the Fetch Standard
+  keeps every value of a repeated header apart and the protocol's map cannot. That join is the domain's
+  business rather than the generator's; see `Jint.Browser/DevTools/NetworkDomain.Events.cs`.
+
 ## The handshake recordings
 
 `handshakes/` is what the described protocol looks like from the *client* side: every CDP method and event

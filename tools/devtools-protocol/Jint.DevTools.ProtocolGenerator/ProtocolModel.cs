@@ -248,6 +248,17 @@ public sealed class ProtocolType
 
     /// <summary>Whether this is an object type, which is the only kind that becomes a record.</summary>
     public bool IsObject => string.Equals(Value.Kind, "object", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether the protocol declares this as an object and names none of its properties, which is how it
+    /// writes a map of strings.
+    /// </summary>
+    /// <remarks>
+    /// <c>Network.Headers</c> is the one every generated domain uses. It becomes a dictionary rather than a
+    /// record, and no record is emitted for it: an empty one would read as a type with no members rather
+    /// than as a type whose members are data.
+    /// </remarks>
+    public bool IsMap => IsObject && Properties.Count == 0;
 }
 
 /// <summary>A command a domain declares.</summary>

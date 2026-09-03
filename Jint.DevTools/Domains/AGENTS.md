@@ -313,6 +313,37 @@ away.
 which it sets only when asked. Both are construction-time, so the refusal names the option rather than
 answering an empty report that reads as a script which never ran.
 
+### What a request log promises
+
+The `Network` and `Fetch` domains are `Jint.Browser`'s rather than this package's, but the promise they keep
+is the same shape as the remote-object one above and is worth stating here, because the next domain that
+reports something a client cannot see again will want it.
+
+**A `requestId` is a promise that the request is still findable when the client comes back.** A client reads
+one off `requestWillBeSent` and hands it to `getResponseBody` some time later, so the log has to hold what
+it reported — and it holds it *bounded*, by count and by bytes, which is the same trade the console journal
+makes. The three consequences are the ones an implementation gets wrong:
+
+- **The bound is the host's, not the client's.** `Network.enable`'s `maxTotalBufferSize` is accepted and not
+  honoured; `BrowserOptions.MaxCapturedResponseBytes` is what decides, because a client must not be able to
+  ask a host's process for memory.
+- **Nothing is copied until a client asks to be told.** The capture is armed by `Network.enable` and emptied
+  by `disable`, so a page nobody is driving pays nothing — the same rule that keeps `Debugger`'s `Skip`
+  subscription off an engine no session has enabled it on.
+- **A body that is gone is `-32000 "No data found for resource with given identifier"`**, Chrome's own
+  wording, and never an empty string: a client cannot tell an empty response from a forgotten one.
+
+**A paused request is a promise about a thread, and it is the opposite of the pause loop's.** A debugger
+pause holds the *engine* thread and services the client inline; a `Fetch` pause holds the one transport
+thread its request is being sent on and the engine goes on running, which is what lets the very command that
+releases it be answered at all. A design that moved the pause onto the engine thread would deadlock the case
+the page cannot pump through, and `Jint.Browser/DevTools/FetchDomain.cs` names it.
+
+**Reporting is not observing twice.** Both domains read one seam the page already has —
+`Jint.Browser`'s request log, which is the engine's `FetchObserver` — so `Page.Requests` and the protocol
+say the same thing about the same request and the two domains share identifiers. A second observer on the
+transport would be a second truth.
+
 ### The `Absent` table, and how a command leaves it
 
 `Jint.Tests.DevTools/Protocol/HandshakeReplayTests.cs` replays the recordings in

@@ -43,16 +43,22 @@ public class PageHandshakeReplayTests
     private static readonly Dictionary<string, string> Absent = new(StringComparer.Ordinal)
     {
         ["WebMCP.enable"] = "Chrome answered -32601 in the recording itself",
-        ["Storage.getCookies"] = "the Storage domain arrives with the network work",
-        ["Storage.setCookies"] = "the Storage domain arrives with the network work",
-        ["Fetch.continueRequest"] = "interception arrives with the network work",
     };
 
-    /// <summary>The ten steps of the scenario this replay covers, in the order the recording has them.</summary>
+    /// <summary>
+    /// The thirteen steps of the scenario this replay covers, in the order the recording has them.
+    /// </summary>
+    /// <remarks>
+    /// Everything up to and including the network work: a page's cookies are read and written through
+    /// <c>Storage</c> by every recorded client, and <c>interception</c> is where <c>Fetch.enable</c> and
+    /// <c>Fetch.continueRequest</c> appear. The steps still left out — <c>type</c>, <c>screenshot</c>,
+    /// <c>pdf</c> — need domains later campaign items bring, or are refused by design.
+    /// </remarks>
     private static readonly string[] ReplayedSteps =
     [
         "connect", "newContext", "newPage", "goto", "evaluateTitle", "evaluateObject",
         "querySelector", "querySelectorAll", "click", "waitForSelector",
+        "cookies", "setCookie", "interception",
     ];
 
     [TestCase("puppeteer-node")]
@@ -143,6 +149,19 @@ public class PageHandshakeReplayTests
 
         session.EventsOf("Runtime.executionContextCreated", attachment).Should().NotBeEmpty();
         session.EventsOf("Page.frameNavigated", attachment).Should().NotBeEmpty();
+
+        // The document's own request, which is what a client builds its `goto` response object out of: its
+        // requestId is the loaderId, and every client tells the navigation apart by exactly that.
+        var sent = session.EventsOf("Network.requestWillBeSent", attachment);
+        sent.Should().NotBeEmpty();
+
+        var documentRequest = sent[0].GetProperty("params");
+        documentRequest.GetProperty("requestId").GetString()
+            .Should().Be(documentRequest.GetProperty("loaderId").GetString());
+
+        var received = session.EventsOf("Network.responseReceived", attachment);
+        received.Should().NotBeEmpty("a client's goto answers a response object built from this event");
+        received[0].GetProperty("params").GetProperty("response").GetProperty("status").GetInt32().Should().Be(200);
 
         session.EventsOf("Page.lifecycleEvent", attachment)
             .Select(e => e.GetProperty("params").GetProperty("name").GetString())
@@ -263,6 +282,13 @@ public class PageHandshakeReplayTests
         "Target.attachToTarget" => $$"""{"targetId":"{{targetId}}","flatten":true}""",
         "Runtime.evaluate" => """{"expression":"document.title","returnByValue":true}""",
         "Runtime.addBinding" => """{"name":"__jintHandshakeBinding"}""",
+        "Storage.setCookies" => $$"""{"cookies":[{"name":"replay","value":"1","url":"{{url}}"}]}""",
+
+        // A pattern that matches nothing, deliberately: the question this replay asks is whether the method
+        // is answered, and a client that really enabled interception here would leave the page's next request
+        // paused with nobody to release it.
+        "Fetch.enable" => """{"patterns":[{"urlPattern":"http://handshake.invalid/*"}]}""",
+        "Fetch.continueRequest" => """{"requestId":"interception-job-0"}""",
         _ => null,
     };
 
