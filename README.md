@@ -1258,7 +1258,8 @@ var jar = new CookieContainerCookieJar();
 
 var engine = new Engine(options => options.UseFetch(fetch =>
 {
-    fetch.BaseUrl = new Uri("https://example.org/app/page.html");   // resolves fetch('/api') and new Request('x')
+    fetch.BaseUrl = new Uri("https://example.org/app/page.html");   // resolves fetch('/api'), new Request('x'),
+                                                                    // xhr.open() and new WebSocket('/feed')
     fetch.Referrer = new Uri("https://example.org/app/page.html");  // what a Referer header is computed from
     fetch.ReferrerPolicy = ReferrerPolicy.StrictOriginWhenCrossOrigin;
     fetch.Origin = "https://example.org";                           // an Origin header, on POST/PUT/…
@@ -1704,8 +1705,11 @@ died. Every event dispatches from the engine's job queue on the engine's thread,
 and `https` admits `wss` — so a policy written for fetch carries over — and naming `ws` or `wss` outright
 works too, for a host that wants sockets and not fetches. The `UrlFilter` is shown the `ws:` URL the script
 asked for, which fails safe: a filter that tests `uri.Scheme == "https"` refuses every socket rather than
-admitting one it was never shown. There is no per-hop re-check because there are no hops — the WHATWG
-handshake forbids redirects outright. Three settings shift meaning the same way they do for an event stream:
+admitting one it was never shown. `BaseUrl` is what a relative URL in the constructor resolves against, the
+same setting `fetch` and `new Request()` use, and an `https` base makes `new WebSocket('/feed')` a `wss`
+socket; without one a relative URL is the `SyntaxError` the standard's step 3 raises. There is no per-hop
+re-check because there are no hops — the WHATWG handshake forbids redirects outright. Three settings shift
+meaning the same way they do for an event stream:
 
 - **`Timeout` bounds the opening handshake only.** The peer has to answer it; a socket that then idles for an
   hour is a socket doing its job.
