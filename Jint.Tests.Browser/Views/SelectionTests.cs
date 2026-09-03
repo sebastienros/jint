@@ -169,4 +169,33 @@ public sealed class SelectionTests
 
         (await page.EvaluateAsync<string>("window.left")).Should().BeEmpty();
     }
+
+    /// <summary>
+    /// A member that reaches AngleSharp's own range algorithms refuses as a <c>DOMException</c>, not as the
+    /// CLR exception AngleSharp raises — <see href="https://github.com/sebastienros/jint/issues/3670">#3670</see>.
+    /// </summary>
+    [Test]
+    public async Task ARefusedRangeOperationIsADomException()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        // The doctype is written out because the second case needs a node no range may select the contents
+        // of, and SetContentAsync's fragment form leaves document.doctype null.
+        await page.SetContentAsync("<!doctype html><html><body><div id=\"host\">hello</div></body></html>");
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              try { getSelection().collapse(document.getElementById('host'), 99); return 'no throw' }
+              catch (e) { return [e instanceof DOMException, e.name, e.code].join('/') }
+            })()
+            """)).Should().Be("true/IndexSizeError/1");
+
+        (await page.EvaluateAsync<string>("""
+            (() => {
+              try { getSelection().selectAllChildren(document.doctype); return 'no throw' }
+              catch (e) { return [e instanceof DOMException, e.name, e.code].join('/') }
+            })()
+            """)).Should().Be("true/InvalidNodeTypeError/24");
+    }
 }

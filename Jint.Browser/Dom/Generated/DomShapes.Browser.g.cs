@@ -26,31 +26,31 @@ internal static partial class DomInterfaces
             .Constant("UNCACHED", global::Jint.Native.JsNumber.Create(0))
             .Constant("UPDATEREADY", global::Jint.Native.JsNumber.Create(4))
             .Method("abort",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.abort", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.abort");
                     self.Target.Abort(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("status",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.status", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.status");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Status));
-                })
+                }))
             .Method("swapCache",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.swapCache", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.swapCache");
                     self.Target.Swap(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Method("update",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("ApplicationCache.update", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IApplicationCache>(thisObj, "ApplicationCache.update");
                     self.Target.Update(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Build();
 
@@ -60,52 +60,52 @@ internal static partial class DomInterfaces
             .ToStringTag("History")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("back",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.back", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.back");
                     self.Target.Back(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Method("forward",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.forward", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.forward");
                     self.Target.Forward(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Method("go",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.go", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.go");
                     self.Target.Go(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0)); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("length",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                })
+                }))
             .Method("pushState",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.pushState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.pushState");
                     self.Target.PushState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.pushState"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 2)
             .Method("replaceState",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.replaceState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.replaceState");
                     self.Target.ReplaceState(global::Jint.Browser.Dom.DomConvert.At(args, 0), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "History.replaceState"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 2)
             .Accessor("state",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("History.state", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.IHistory>(thisObj, "History.state");
                     return global::Jint.Browser.Dom.DomConvert.Any(self.Realm, self.Target.State);
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>Navigator</c>.</summary>
@@ -114,83 +114,83 @@ internal static partial class DomInterfaces
             .ToStringTag("Navigator")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("appName",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.appName", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.appName");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
-                })
+                }))
             .Accessor("appVersion",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.appVersion", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.appVersion");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Version);
-                })
+                }))
             .Method("isContentHandlerRegistered",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.isContentHandlerRegistered", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.isContentHandlerRegistered");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsContentHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isContentHandlerRegistered"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isContentHandlerRegistered")));
-                },
+                }),
                 length: 2)
             .Method("isProtocolHandlerRegistered",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.isProtocolHandlerRegistered", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.isProtocolHandlerRegistered");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsProtocolHandlerRegistered(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.isProtocolHandlerRegistered"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.isProtocolHandlerRegistered")));
-                },
+                }),
                 length: 2)
             .Accessor("onLine",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.onLine", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.onLine");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsOnline);
-                })
+                }))
             .Accessor("platform",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.platform", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.platform");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Platform);
-                })
+                }))
             .Method("registerContentHandler",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.registerContentHandler", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.registerContentHandler");
                     self.Target.RegisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerContentHandler")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 3)
             .Method("registerProtocolHandler",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.registerProtocolHandler", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.registerProtocolHandler");
                     self.Target.RegisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.registerProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.registerProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "Navigator.registerProtocolHandler")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 3)
             .Method("unregisterContentHandler",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.unregisterContentHandler", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.unregisterContentHandler");
                     self.Target.UnregisterContentHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterContentHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterContentHandler")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 2)
             .Method("unregisterProtocolHandler",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.unregisterProtocolHandler", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.unregisterProtocolHandler");
                     self.Target.UnregisterProtocolHandler(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Navigator.unregisterProtocolHandler"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Navigator.unregisterProtocolHandler")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 2)
             .Accessor("userAgent",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.userAgent", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.userAgent");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.UserAgent);
-                })
+                }))
             .Method("yieldForStorageUpdates",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Navigator.yieldForStorageUpdates", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Browser.Dom.INavigator>(thisObj, "Navigator.yieldForStorageUpdates");
                     self.Target.WaitForStorageUpdates(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Build();
 }

@@ -103,6 +103,22 @@ Divergences from a browser that are **ours** and deliberate:
   is a `JsEventTarget` rather than an `ArrayLikeObject`, so it carries no property projection.
   `form.elements[0]` and `form.elements.namedItem('username')` are the same values.
 
+### Every member body goes through one invoker, and that is where a refusal is converted
+
+`DomFailures.Guard` wraps every emitted body — an operation, both halves of an attribute — and the emitter
+wraps it in exactly one place (`Emitter.AppendGuardedBody`); `Views/ViewInstaller`'s `Selection` shape is the
+one hand-written shape that takes it too, because its members reach AngleSharp's range algorithms.
+**Nothing generated carries a `catch`**, because
+two thousand copies of one decision is two thousand chances to disagree with it. What crosses is
+AngleSharp's `DomException` as the `DOMException` its `DomError` names, an `ArgumentException` as a
+`TypeError` (WebIDL's answer for an argument no conversion accepts), and a `NotSupportedException` /
+`NotImplementedException` as `NotSupportedError`; **everything else keeps the engine's own interop
+behaviour**, which [`Jint/Runtime/Interop/AGENTS.md`](../../Jint/Runtime/Interop/AGENTS.md) says is frozen —
+so a `JavaScriptException` a body raised itself, and every constraint and cancellation signal, are outside
+the filter. A member the standard gives a *different* name to is written by hand and calls
+`DomFailures.Refuse`, which is the same door `DomSelectorMembers` uses; the divergence table below is what
+says which those are.
+
 Divergences that are **AngleSharp's**, found by this work and to be reported upstream rather than patched
 here:
 
@@ -143,6 +159,12 @@ here:
 | `select.selectedIndex` with no `selected` option | 0 — the selectedness-setting algorithm picks the first option of a non-`multiple`, display-size-1 select | −1 |
 | `input.value = …` | the cursor moves to the end and the selection is dropped | `SelectionStart`/`SelectionEnd` are left where they were, so they can point past the end of the new value |
 | `input.setSelectionRange` on a `type=checkbox` | `InvalidStateError` — the type does not support selection | answers, so the type test has to be the caller's |
+| `DomException.Name` | DOM's error name — `HierarchyRequestError` | the **enum field name**, `HierarchyRequest`, so the string can never be handed to a page; `DomFailures.NameOf` is the table that maps a `DomError` to the standard's name, and `DomExceptionTests` pins every row of it |
+| `DomError.Validation` | WebIDL's legacy code for `ValidationError` is 16 | 15 — the value of `DomError.InvalidAccess` — so the two are one number and no `ValidationError` can be told from an `InvalidAccessError` |
+| a `DomException`'s message | a browser names the operation and what it refused | AngleSharp's own sentence, which is what `DomFailures` puts after the `Failed to execute '<interface>.<member>': ` prefix. DOM specifies a `name` and nothing about wording, and a page branches on the name |
+| `insertAdjacentHTML('beforebegin')` on an element with no parent element | HTML step 2: a `NoModificationAllowedError` | the one `DomException` in the assembly built from a *string*, so it carries no `DomError` at all and its `Name` is the sentence "The element has no parent."; `DomHostHooks.InsertAdjacentHtml` makes that refusal itself |
+| `createElementNS(null, 'a:b')`, `setAttributeNS(null, 'a:b', …)` | DOM's validate-and-extract is a `NamespaceError` for a prefixed name with no namespace | no refusal at all, so an element or attribute is created with a prefix nothing declares. The `xmlns` half of the same algorithm *is* checked |
+| `el.classList.add('')` / `add('a b')` | DOM §7.1: a `SyntaxError` for the empty token, an `InvalidCharacterError` for one containing ASCII whitespace | neither is validated, so the token list takes both |
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at

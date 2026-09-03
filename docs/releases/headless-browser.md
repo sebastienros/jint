@@ -126,7 +126,6 @@ and this package works within — are the two tables at the end of
 | [#3720](https://github.com/sebastienros/jint/issues/3720) | `BrowserOptions.UserAgent` reaches script but not the wire |
 | [#3721](https://github.com/sebastienros/jint/issues/3721) | A page's browsing context has no `IRenderDevice`, so `@media` and `matchMedia` disagree |
 | [#3711](https://github.com/sebastienros/jint/issues/3711) | An already-rejected promise fires `unhandledrejection` before a handler can attach |
-| [#3670](https://github.com/sebastienros/jint/issues/3670) | An AngleSharp `DomException` crosses into script as a raw CLR exception |
 | [#3698](https://github.com/sebastienros/jint/issues/3698), [#3706](https://github.com/sebastienros/jint/issues/3706), [#3707](https://github.com/sebastienros/jint/issues/3707), [#3684](https://github.com/sebastienros/jint/issues/3684), [#3683](https://github.com/sebastienros/jint/issues/3683) | The seams each area of the work wished it had, filed where the work stopped |
 
 Iframe scripting, `ElementInternals`, scoped custom element registries, real isolated worlds, screenshots and

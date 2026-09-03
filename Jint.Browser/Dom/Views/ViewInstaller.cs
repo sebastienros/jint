@@ -112,30 +112,42 @@ internal static class ViewInstaller
         .Build();
 
     /// <summary>https://w3c.github.io/selection-api/#selection-interface</summary>
+    /// <remarks>
+    /// The one hand-written shape whose members reach AngleSharp's own range algorithms — a collapse to an
+    /// offset past the end of a node is an <c>IndexSizeError</c>, selecting the contents of a doctype an
+    /// <c>InvalidNodeTypeError</c> — so every one goes through <see cref="DomFailures.Guard"/>, exactly as a
+    /// generated body does. <see cref="Selection"/> is only there to keep the qualified name in one place.
+    /// </remarks>
     private static JsObjectShape BuildSelectionShape() => new JsObjectShape.Builder()
         .PerRealmSlot("constructor")
         .ToStringTag("Selection")
-        .Accessor("anchorNode", static (t, _) => JsSelection.Brand(t, "anchorNode").AnchorNode)
-        .Accessor("anchorOffset", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "anchorOffset").AnchorOffset))
-        .Accessor("focusNode", static (t, _) => JsSelection.Brand(t, "focusNode").FocusNode)
-        .Accessor("focusOffset", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "focusOffset").FocusOffset))
-        .Accessor("isCollapsed", static (t, _) => JsSelection.Brand(t, "isCollapsed").IsCollapsed ? JsBoolean.True : JsBoolean.False)
-        .Accessor("rangeCount", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "rangeCount").RangeCount))
-        .Accessor("type", static (t, _) => JsString.Create(JsSelection.Brand(t, "type").SelectionType))
-        .Method("getRangeAt", static (t, args) => JsSelection.Brand(t, "getRangeAt").GetRangeAt(args), length: 1)
-        .Method("addRange", static (t, args) => JsSelection.Brand(t, "addRange").AddRange(args), length: 1)
-        .Method("removeRange", static (t, args) => JsSelection.Brand(t, "removeRange").RemoveRange(args), length: 1)
-        .Method("removeAllRanges", static (t, _) => JsSelection.Brand(t, "removeAllRanges").RemoveAllRanges())
-        .Method("empty", static (t, _) => JsSelection.Brand(t, "empty").RemoveAllRanges())
-        .Method("collapse", static (t, args) => JsSelection.Brand(t, "collapse").Collapse(args), length: 1)
-        .Method("setPosition", static (t, args) => JsSelection.Brand(t, "setPosition").Collapse(args), length: 1)
-        .Method("collapseToStart", static (t, _) => JsSelection.Brand(t, "collapseToStart").CollapseTo(true, "collapseToStart"))
-        .Method("collapseToEnd", static (t, _) => JsSelection.Brand(t, "collapseToEnd").CollapseTo(false, "collapseToEnd"))
-        .Method("selectAllChildren", static (t, args) => JsSelection.Brand(t, "selectAllChildren").SelectAllChildren(args), length: 1)
-        .Method("containsNode", static (t, args) => JsSelection.Brand(t, "containsNode").ContainsNode(args), length: 1)
-        .Method("deleteFromDocument", static (t, _) => JsSelection.Brand(t, "deleteFromDocument").DeleteFromDocument())
-        .Method("toString", static (t, _) => JsString.Create(JsSelection.Brand(t, "toString").ToString()))
+        .Accessor("anchorNode", Selection("anchorNode", static (t, _) => JsSelection.Brand(t, "anchorNode").AnchorNode))
+        .Accessor("anchorOffset", Selection("anchorOffset", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "anchorOffset").AnchorOffset)))
+        .Accessor("focusNode", Selection("focusNode", static (t, _) => JsSelection.Brand(t, "focusNode").FocusNode))
+        .Accessor("focusOffset", Selection("focusOffset", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "focusOffset").FocusOffset)))
+        .Accessor("isCollapsed", Selection("isCollapsed", static (t, _) => JsSelection.Brand(t, "isCollapsed").IsCollapsed ? JsBoolean.True : JsBoolean.False))
+        .Accessor("rangeCount", Selection("rangeCount", static (t, _) => JsNumber.Create(JsSelection.Brand(t, "rangeCount").RangeCount)))
+        .Accessor("type", Selection("type", static (t, _) => JsString.Create(JsSelection.Brand(t, "type").SelectionType)))
+        .Method("getRangeAt", Selection("getRangeAt", static (t, args) => JsSelection.Brand(t, "getRangeAt").GetRangeAt(args)), length: 1)
+        .Method("addRange", Selection("addRange", static (t, args) => JsSelection.Brand(t, "addRange").AddRange(args)), length: 1)
+        .Method("removeRange", Selection("removeRange", static (t, args) => JsSelection.Brand(t, "removeRange").RemoveRange(args)), length: 1)
+        .Method("removeAllRanges", Selection("removeAllRanges", static (t, _) => JsSelection.Brand(t, "removeAllRanges").RemoveAllRanges()))
+        .Method("empty", Selection("empty", static (t, _) => JsSelection.Brand(t, "empty").RemoveAllRanges()))
+        .Method("collapse", Selection("collapse", static (t, args) => JsSelection.Brand(t, "collapse").Collapse(args)), length: 1)
+        .Method("setPosition", Selection("setPosition", static (t, args) => JsSelection.Brand(t, "setPosition").Collapse(args)), length: 1)
+        .Method("collapseToStart", Selection("collapseToStart", static (t, _) => JsSelection.Brand(t, "collapseToStart").CollapseTo(true, "collapseToStart")))
+        .Method("collapseToEnd", Selection("collapseToEnd", static (t, _) => JsSelection.Brand(t, "collapseToEnd").CollapseTo(false, "collapseToEnd")))
+        .Method("selectAllChildren", Selection("selectAllChildren", static (t, args) => JsSelection.Brand(t, "selectAllChildren").SelectAllChildren(args)), length: 1)
+        .Method("containsNode", Selection("containsNode", static (t, args) => JsSelection.Brand(t, "containsNode").ContainsNode(args)), length: 1)
+        .Method("deleteFromDocument", Selection("deleteFromDocument", static (t, _) => JsSelection.Brand(t, "deleteFromDocument").DeleteFromDocument()))
+        .Method("toString", Selection("toString", static (t, _) => JsString.Create(JsSelection.Brand(t, "toString").ToString())))
         .Build();
+
+    /// <summary>One <c>Selection</c> member body, wrapped so an AngleSharp refusal is a <c>DOMException</c>.</summary>
+    private static Func<JsValue, JsValue[], JsValue> Selection(
+        string member,
+        Func<JsValue, JsValue[], JsValue> implementation)
+        => DomFailures.Guard("Selection." + member, implementation);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#interface-nodefilter — a callback interface, so its interface object is

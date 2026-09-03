@@ -2,6 +2,7 @@ using AngleSharp.Dom;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
+using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
 
@@ -114,12 +115,33 @@ internal class DomHostHooks
 
     /// <summary>https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-insertadjacenthtml</summary>
     /// <remarks>
+    /// <para>
     /// Two of the four positions insert into the element's parent, so that is what is walked when there
     /// is one; see <see cref="SetInnerHtml"/> for why the walk is here at all.
+    /// </para>
+    /// <para>
+    /// Step 2's refusal is made here rather than left to AngleSharp, which is the one place in the pinned
+    /// assembly that raises a <c>DomException</c> carrying a sentence instead of a
+    /// <c>DomError</c> — so <see cref="DomFailures.NameOf"/> could only ever guess at its name, and the
+    /// standard's is <c>NoModificationAllowedError</c>. Recorded in <c>AGENTS.md</c>'s divergence table.
+    /// </para>
     /// </remarks>
     internal virtual void InsertAdjacentHtml(DomRealm realm, IElement element, JsValue[] arguments)
     {
         var position = DomEnums.ToAdjacentPosition(DomConvert.At(arguments, 0), "Element.insertAdjacentHTML");
+
+        // "If position is 'beforebegin' or 'afterend' … If context is null or a Document, throw a
+        // NoModificationAllowedError DOMException." A parent that is the document is not an IElement, so the
+        // one test covers both halves — and it is the very test AngleSharp's own `Parent as Element` makes.
+        if (position is AdjacentPosition.BeforeBegin or AdjacentPosition.AfterEnd && element.Parent is not IElement)
+        {
+            DomFailures.Refuse(
+                realm.Engine,
+                "Element.insertAdjacentHTML",
+                DomExceptionNames.NoModificationAllowed,
+                "the element has no parent element to insert " + (position == AdjacentPosition.BeforeBegin ? "before" : "after") + ".");
+        }
+
         element.Insert(position, DomConvert.RequiredText(arguments, 1, "Element.insertAdjacentHTML"));
         CustomElements.CustomElementRegistry.SubtreeCreated(realm, element.Parent ?? element);
     }
