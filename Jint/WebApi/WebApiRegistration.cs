@@ -689,12 +689,13 @@ internal static class WebApiRegistration
         WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Performance | WebApiFeatures.Fetch | WebApiFeatures.Scheduler | WebApiFeatures.Messaging | WebApiFeatures.Storage | WebApiFeatures.WebSocket | WebApiFeatures.CacheApi | WebApiFeatures.IdleCallback | WebApiFeatures.GlobalEvents | WebApiFeatures.FetchEvents | WebApiFeatures.Workers | WebApiFeatures.XmlHttpRequest;
 
     /// <summary>
-    /// The queue exists for the timer globals, for AbortSignal.timeout() and for a delayed
-    /// scheduler.postTask(), each of which needs it whether or not the host also asked for setTimeout; a
-    /// performance-only engine reads just the time origin and never schedules, so it carries no queue at all.
+    /// The queue exists for the timer globals, for AbortSignal.timeout(), for a delayed scheduler.postTask()
+    /// and for an XMLHttpRequest's own <c>timeout</c>, each of which needs it whether or not the host also
+    /// asked for setTimeout; a performance-only engine reads just the time origin and never schedules, so it
+    /// carries no queue at all.
     /// </summary>
     private const WebApiFeatures NeedsTimerQueue =
-        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback;
+        WebApiFeatures.Timers | WebApiFeatures.Events | WebApiFeatures.Scheduler | WebApiFeatures.IdleCallback | WebApiFeatures.XmlHttpRequest;
 
     /// <summary>
     /// The features that take their transport and their policy from <c>Options.WebApi.Fetch</c>. EventSource

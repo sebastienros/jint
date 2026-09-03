@@ -5831,6 +5831,12 @@ transport, which never touches the engine, so it needs no `ProcessTasks` and can
 host loop; it holds the thread for as long as `Options.WebApi.Fetch.Timeout` and the request's own
 `timeout` allow, both enforced CLR-side.
 
+**An asynchronous request's own `timeout` is a task on the event loop**
+([#3627](https://github.com/sebastienros/jint/issues/3627)), the lane `setTimeout` rides, so it
+fires only when the loop gets a turn and never inside a long-running one — which is what
+`xhr/xhr-timeout-longtask.any.js` requires of it. An engine nobody pumps therefore never fires
+one; `Options.WebApi.Fetch.Timeout` stays CLR-side and is what bounds such an engine's socket.
+
 `Options.WebApi.Xhr.DocumentParser` is the one new options group: a
 `Func<Engine, string, string, JsValue?>` handed the engine, the decoded body and the final MIME
 type's essence. Without it `responseXML` and `responseType = "document"` answer `null`, because Jint

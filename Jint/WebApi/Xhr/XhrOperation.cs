@@ -3,10 +3,12 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jint.Constraints;
+using Jint.Native;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 using Jint.WebApi.Fetch;
 using Jint.WebApi.Files;
+using Jint.WebApi.Timers;
 using Jint.WebApi.Url.Parsing;
 
 namespace Jint.WebApi.Xhr;
@@ -57,10 +59,12 @@ internal enum XhrOutcome
 /// after the wait, on the caller's own stack.
 /// </para>
 /// <para>
-/// <b>Both deadlines are CLR-side</b>, on cancellation token sources rather than on the timer queue, so an
-/// engine nobody pumps still lets go of its socket. They are two sources rather than one because the
-/// <c>timeout</c> attribute may be re-armed mid-flight and the host's own
-/// <c>Options.WebApi.Fetch.Timeout</c> may not.
+/// <b>There are two deadlines, and only one of them is CLR-side.</b> The host's own
+/// <c>Options.WebApi.Fetch.Timeout</c> is a cancellation token source for every request, so an engine nobody
+/// pumps still lets go of its socket. The object's own <c>timeout</c> attribute is
+/// <see cref="RearmTimeout">an entry on the engine's timer queue</see> for an asynchronous request — a task,
+/// which is what stops it firing inside a long-running one — and a cancellation token source for a
+/// synchronous one, which holds the engine thread by definition and so has no loop to be a task on.
 /// </para>
 /// </remarks>
 internal sealed class XhrOperation : IDisposable
@@ -95,6 +99,12 @@ internal sealed class XhrOperation : IDisposable
     private readonly CancellationTokenSource _hostDeadline = new();
     private readonly CancellationTokenSource _scriptDeadline = new();
     private readonly CancellationTokenSource _cancellation;
+
+    /// <summary>
+    /// The timer-queue id of an asynchronous request's <c>timeout</c>, or zero when it has none — the
+    /// attribute is 0, the request is synchronous, or the timer has already fired.
+    /// </summary>
+    private int _timeoutTimerId;
 
     /// <summary>
     /// This request's side of the host's <c>FetchObserver</c>, kept so that the failure path — which is not
@@ -417,21 +427,70 @@ internal sealed class XhrOperation : IDisposable
             _hostDeadline.CancelAfter(hostTimeout);
         }
 
-        RearmScriptDeadline(_xhr.TimeoutMilliseconds);
+        RearmTimeout(_xhr.TimeoutMilliseconds);
     }
 
     /// <summary>
-    /// https://xhr.spec.whatwg.org/#timeout-timer — the deadline measured from when the request was sent, so
-    /// that assigning <c>timeout</c> mid-flight really does shorten (or remove) it.
+    /// The object's own <c>timeout</c>, armed or re-armed. Whichever lane it is on, the deadline is measured
+    /// from when the request was sent — https://xhr.spec.whatwg.org/#dom-xmlhttprequest-timeout: "it will
+    /// still be measured relative to the start of fetching" — so assigning <c>timeout</c> mid-flight really
+    /// does shorten, lengthen or remove it.
     /// </summary>
-    internal void RearmScriptDeadline(uint milliseconds)
+    internal void RearmTimeout(uint milliseconds)
+    {
+        if (_xhr.SynchronousFlag)
+        {
+            RearmSynchronousDeadline(milliseconds);
+            return;
+        }
+
+        // Whatever was scheduled measured a deadline this call replaces. Cancelling is O(1) and the entry is
+        // discarded when it surfaces, so re-arming a timeout every few milliseconds costs the heap nothing it
+        // does not already carry for a script that does the same with setTimeout.
+        CancelTimeoutTimer();
+
+        if (milliseconds == 0)
+        {
+            return;
+        }
+
+        // Never null: WebApiRegistration.NeedsTimerQueue names XmlHttpRequest, exactly so that this timer has
+        // somewhere to live.
+        var timers = _state.Timers!;
+
+        var remaining = TimeSpan.FromMilliseconds(milliseconds) - System.Diagnostics.Stopwatch.GetElapsedTime(_sentAt);
+        var delay = remaining > TimeSpan.Zero ? (long) Math.Ceiling(remaining.TotalMilliseconds) : 0;
+
+        // The cap the timer globals answer QuotaExceededError on is deliberately not consulted, exactly as
+        // requestIdleCallback's own timeout does not consult it: this entry is not one a script registered,
+        // and what bounds how many of them can exist at once is Options.WebApi.Fetch.MaxConcurrentRequests.
+        // It does occupy a slot while it waits.
+        var entry = new TimerEntry(
+            timers,
+            new TimeoutAlgorithm(this),
+            [],
+            delay,
+            repeat: false,
+            _registration);
+
+        _timeoutTimerId = timers.Schedule(entry);
+    }
+
+    /// <summary>
+    /// The synchronous request's deadline: a cancellation token source, because <c>send()</c> holds the
+    /// engine thread until it returns and there is therefore no turn of the event loop for a task to take.
+    /// That is the specification's own shape for it — https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send's
+    /// synchronous arm <i>pauses</i> "until either processedResponse is true or this's timeout is not 0 and
+    /// this's timeout milliseconds have passed", where the asynchronous arm waits in parallel.
+    /// </summary>
+    private void RearmSynchronousDeadline(uint milliseconds)
     {
         try
         {
             if (milliseconds == 0)
             {
-                // "or xhr's timeout becomes 0 (whichever comes first)" — the wait is abandoned rather than
-                // left to fire against a request that no longer has a deadline.
+                // No deadline at all: the wait is abandoned rather than left to fire against a request that
+                // no longer has one.
                 _scriptDeadline.CancelAfter(Timeout.InfiniteTimeSpan);
                 return;
             }
@@ -443,6 +502,21 @@ internal sealed class XhrOperation : IDisposable
         {
             // Raced with a settle that already released the sources; the request is over either way.
         }
+    }
+
+    /// <summary>
+    /// Drops the scheduled <c>timeout</c>, if there is one. Every call site is on the engine thread, which is
+    /// the only thread the timer queue may be touched from.
+    /// </summary>
+    private void CancelTimeoutTimer()
+    {
+        if (_timeoutTimerId == 0)
+        {
+            return;
+        }
+
+        _state.Timers?.Cancel(_timeoutTimerId);
+        _timeoutTimerId = 0;
     }
 
     /// <summary>
@@ -740,6 +814,22 @@ internal sealed class XhrOperation : IDisposable
     }
 
     /// <summary>
+    /// The task an asynchronous request's <c>timeout</c> runs when the loop reaches it: terminate the fetch
+    /// controller, then https://xhr.spec.whatwg.org/#handle-errors' <c>timeout</c> arm.
+    /// </summary>
+    /// <remarks>
+    /// Being a task rather than a wall-clock deadline is the whole point, and it is what
+    /// <c>xhr/xhr-timeout-longtask.any.js</c> asserts: a response that arrived while a long-running task held
+    /// the loop is delivered by the job already queued behind it, and this deadline — promoted only once that
+    /// queue has run dry — then finds the request finished and does nothing.
+    /// </remarks>
+    private void HandleTimeoutTimer()
+    {
+        _timeoutTimerId = 0;
+        _xhr.HandleTimeout(this);
+    }
+
+    /// <summary>
     /// Queues one engine-thread job carrying the generation this request was registered in, and entering the
     /// realm it started in.
     /// </summary>
@@ -795,6 +885,7 @@ internal sealed class XhrOperation : IDisposable
         }
 
         _state.UnregisterXhr(this);
+        CancelTimeoutTimer();
         _cancellation.Dispose();
         _abortSource.Dispose();
         _hostDeadline.Dispose();
@@ -852,5 +943,24 @@ internal sealed class XhrOperation : IDisposable
         internal byte[]? Body { get; init; }
     }
 
+    /// <summary>
+    /// The <c>timeout</c> timer's task in the shape the timer queue takes its callbacks in — the same shape
+    /// <c>EventSource</c>'s reconnection delay and <c>requestIdleCallback</c>'s timeout are written as.
+    /// </summary>
+    private sealed class TimeoutAlgorithm : ICallable
+    {
+        private readonly XhrOperation _operation;
+
+        internal TimeoutAlgorithm(XhrOperation operation)
+        {
+            _operation = operation;
+        }
+
+        public JsValue Call(JsValue thisObject, params JsCallArguments arguments)
+        {
+            _operation.HandleTimeoutTimer();
+            return JsValue.Undefined;
+        }
+    }
 }
 #endif
