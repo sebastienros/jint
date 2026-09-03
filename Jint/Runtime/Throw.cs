@@ -451,6 +451,12 @@ internal static class Throw
     }
 
     [DoesNotReturn]
+    public static void ObjectDisposedException(string objectName, string message)
+    {
+        throw new ObjectDisposedException(objectName, message);
+    }
+
+    [DoesNotReturn]
     public static void MeaningfulException(Engine engine, TargetInvocationException exception)
     {
         var meaningfulException = exception.InnerException ?? exception;

@@ -34,10 +34,12 @@ namespace Jint
         public Jint.Native.Object.ObjectInstance Global { get; }
         public object? HostDefined { get; set; }
         public Jint.Runtime.Intrinsics Intrinsics { get; }
+        public bool IsDisposed { get; }
         public Jint.Engine.ModuleOperations Modules { get; }
         public Jint.Options Options { get; }
         public Jint.Engine.TaskOperations Tasks { get; }
         public Jint.Runtime.Interop.ClrTypeConverter TypeConverter { get; }
+        public event System.EventHandler? Disposed;
         public void AddLazyGlobal(string name, System.Func<Jint.Engine, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
         public void AddLazyGlobal<TState>(string name, TState state, System.Func<Jint.Engine, TState, Jint.Native.JsValue> valueFactory, Jint.Runtime.Descriptors.PropertyFlag flags = 21) { }
         public Jint.Native.JsValue Call(Jint.Native.JsValue callable, params Jint.Native.JsValue[] arguments) { }

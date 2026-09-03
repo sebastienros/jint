@@ -137,6 +137,10 @@ public sealed partial class Engine : IDisposable
     private ManualResetEventSlim? _ownershipReleased;
     private ConditionalWeakTable<ObjectInstance, HostCallbackAuthorization>? _hostCallbackAuthorizations;
 
+    // Read with Volatile.Read behind IsDisposed: Dispose may be called from a thread other than the one that
+    // last ran script, and Post - the one cross-thread entry - is what reads it.
+    private int _disposed;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal HostCallScope EnterHostCall(object? asyncOwner = null, object? callbackOwner = null)
     {
@@ -5196,7 +5200,75 @@ public sealed partial class Engine : IDisposable
         return ref _executionContexts.Peek(fromTop);
     }
 
+    /// <summary>
+    /// Whether <see cref="Dispose"/> has been called on this engine, which makes it unusable.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Safe to read from any thread. A host holding a reference an engine's owner may already have disposed
+    /// — a debugger session, a console sink, a rejection subscription — asks this before letting go of it,
+    /// instead of guessing from an exception.
+    /// </para>
+    /// <para>
+    /// It becomes <see langword="true"/> before <see cref="Disposed"/> is raised and before anything is
+    /// released, so a handler never sees an engine that is half gone reporting itself as live.
+    /// </para>
+    /// </remarks>
+    public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+    /// <summary>
+    /// Raised once, on whichever thread calls <see cref="Dispose"/>, as this engine begins going away.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The engine is already unusable when it fires.</b> <see cref="IsDisposed"/> is
+    /// <see langword="true"/>, and a handler must not run script, evaluate, invoke or post — it is the
+    /// signal to unsubscribe and drop references, nothing more.
+    /// </para>
+    /// <para>
+    /// It runs before any of the engine's own release, and on the disposing thread rather than on the one
+    /// that last ran script, so a handler that needs the engine's thread has to marshal for itself.
+    /// </para>
+    /// <para>
+    /// Raised exactly once: a second <see cref="Dispose"/> raises nothing. A handler that throws still
+    /// leaves the engine released, and its exception reaches the caller of <see cref="Dispose"/>.
+    /// </para>
+    /// </remarks>
+    public event EventHandler? Disposed;
+
+    /// <summary>
+    /// Releases the caches, registrations and worker connections this engine holds, after saying it is going.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Idempotent: the second call does nothing. It raises <see cref="Disposed"/> first, then clears the
+    /// interop wrapper caches, ends every bridged cancellation registration and every worker connection.
+    /// </para>
+    /// <para>
+    /// The engine must not be used afterwards; <see cref="TaskOperations.Post"/> refuses with
+    /// <see cref="ObjectDisposedException"/>, and <see cref="IsDisposed"/> answers for everything else.
+    /// </para>
+    /// </remarks>
     public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            // Before EnterHostCall, so a handler is not fighting the ownership guard, and before anything is
+            // released, so what it sees is an engine that is going rather than one already half gone.
+            Disposed?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            DisposeCore();
+        }
+    }
+
+    private void DisposeCore()
     {
         using var ownership = EnterHostCall();
 

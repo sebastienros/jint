@@ -202,7 +202,18 @@ internal sealed class PageLoop : IDisposable
         // EventLoop.WakeJob rather than an empty lambda of this file's own, because a checkpoint identifies a
         // wake by reference: this job sits on the queue for as long as the request takes, and any other
         // Action there would cost a listener returning to an empty stack the microtask checkpoint it is owed.
-        _tasks?.Post(EventLoop.WakeJob);
+        try
+        {
+            _tasks?.Post(EventLoop.WakeJob);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The loop disposed its engine between the mailbox write above and this line — it is stopping, or
+            // a navigation is swapping the engine under us — and Engine.Tasks.Post refuses a disposed engine.
+            // This call is only ever a wake: the request is already in the mailbox, where the loop's teardown
+            // fails it or the next turn reads it. PostAsync's failure channel is the Task it returns, so this
+            // must never leave synchronously.
+        }
 
         return completion.Task;
     }

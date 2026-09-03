@@ -116,9 +116,10 @@ internal sealed class TargetRuntime : IDisposable
     /// <inheritdoc/>
     /// <remarks>
     /// Called on the engine thread, from <see cref="DevToolsTarget.Replace"/> or from the target going away.
-    /// Every unsubscription is guarded: the engine this runtime was built over may already have been
-    /// disposed by whoever owns it — a page disposes the old engine as it commits the next document — and a
-    /// failure to let go of something that is already gone must not stop the rest of the release.
+    /// The engine this runtime was built over may already have been disposed by whoever owns it — a page
+    /// disposes the outgoing engine on its loop and the target learns of the swap afterwards — so the two
+    /// steps that reach into the engine are skipped when <see cref="Engine.IsDisposed"/> says so. Everything
+    /// else touches no engine and runs either way.
     /// </remarks>
     public void Dispose()
     {
@@ -127,34 +128,27 @@ internal sealed class TargetRuntime : IDisposable
             return;
         }
 
-        Release(() => Engine.Tasks.PromiseRejectionTracker -= _onRejection);
-        Release(() => _console?.Unbind(_target));
-        Release(() => Scripts?.Stop());
+        // The only two steps that reach into the engine. A disposed engine has already dropped both
+        // subscriptions along with everything else it held, so there is nothing left to unsubscribe from.
+        if (!Engine.IsDisposed)
+        {
+            Engine.Tasks.PromiseRejectionTracker -= _onRejection;
+            Scripts?.Stop();
+        }
+
+        _console?.Unbind(_target);
 
         // A handle is a promise to keep a value alive until the client releases it, and the engine those
         // values belong to is going. Dropping the references runs no engine code, and so does letting go of
         // the journal that was holding the arguments of this document's console calls.
-        Release(() => Console.Clear(RemoteObjects));
-        Release(RemoteObjects.Clear);
+        Console.Clear(RemoteObjects);
+        RemoteObjects.Clear();
 
         // Last: whatever a client had queued for an engine that will never run it again is answered rather
-        // than left to time out.
-        Release(Dispatcher.Abandon);
-        Release(Dispatcher.Dispose);
-    }
-
-    /// <summary>Runs one step of the release, so that a failure in it cannot skip the rest.</summary>
-    private static void Release(Action step)
-    {
-        try
-        {
-            step();
-        }
-#pragma warning disable CA1031 // the engine may already be gone; the rest of the release is still owed
-        catch (Exception)
-#pragma warning restore CA1031
-        {
-        }
+        // than left to time out. Anything handed on goes to the runtime that replaced this one, whose engine
+        // is live.
+        Dispatcher.Abandon();
+        Dispatcher.Dispose();
     }
 
     /// <summary>

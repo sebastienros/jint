@@ -376,10 +376,10 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
         {
             _engine.Tasks.Post(_drain);
         }
-#pragma warning disable CA1031 // the engine may be disposed underneath us; the arrival flag still has to be set
-        catch (Exception)
-#pragma warning restore CA1031
+        catch (ObjectDisposedException)
         {
+            // Engine.Tasks.Post refuses a disposed engine, and the owner may dispose it between the check
+            // above and this line; the arrival flag still has to be set for a paused loop.
         }
 
         // The post above wakes whichever thread pumps the engine, and a paused engine has no such thread:

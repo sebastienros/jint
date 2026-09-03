@@ -12,7 +12,7 @@
 #
 # The names are ISO documentation comment ids, which is what the compiler writes into Jint.xml.
 #
-undocumented: 622
+undocumented: 621
 F:Jint.ModuleParsingOptions.Default
 F:Jint.ModulePreparationOptions.Default
 F:Jint.Native.Function.Function._length
@@ -153,7 +153,6 @@ F:Jint.SecurityDiagnosticCodes.TimeoutSaturated
 M:Jint.Constraint.#ctor
 M:Jint.Constraints.CancellationConstraint.Reset(System.Threading.CancellationToken)
 M:Jint.Constraints.MemoryLimitConstraint.#ctor(System.Int64)
-M:Jint.Engine.Dispose
 M:Jint.JsAccessibleAttribute.#ctor
 M:Jint.ModuleParsingOptions.#ctor
 M:Jint.ModulePreparationOptions.#ctor

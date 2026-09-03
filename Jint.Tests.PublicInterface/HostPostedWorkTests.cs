@@ -176,21 +176,29 @@ public class HostPostedWorkTests
     }
 
     /// <summary>
-    /// An <see cref="Engine"/> has no disposed state, so a post after <see cref="Engine.Dispose"/> is
-    /// accepted and runs when the engine is pumped again. Pinned because the alternative — refusing it — is
-    /// what a host reading the name would expect.
+    /// <see cref="Engine.Dispose"/> is a barrier: a post afterwards is refused with one documented
+    /// exception rather than accepted and left to a pump that will never come.
     /// </summary>
+    /// <remarks>
+    /// The exception is what makes the refusal usable from the thread that does not own the engine — it is
+    /// the one thread that can lose the race with the owner's <c>Dispose</c> at any point — and
+    /// <see cref="Engine.IsDisposed"/> is how a caller that would rather not catch asks first.
+    /// </remarks>
     [Test]
-    public void PostAfterDisposeIsAcceptedAndRuns()
+    public void PostAfterDisposeIsRefused()
     {
         var engine = new Engine();
         engine.Dispose();
 
         var ran = false;
-        engine.Tasks.Post(() => ran = true);
+
+        Invoking(() => engine.Tasks.Post(() => ran = true))
+            .Should().Throw<ObjectDisposedException>()
+            .Which.ObjectName.Should().Be(nameof(Engine));
+
         engine.Tasks.ProcessTasks();
 
-        ran.Should().BeTrue();
+        ran.Should().BeFalse();
     }
 
     [Test]

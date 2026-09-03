@@ -1,4 +1,4 @@
-# Migrating from Jint 4.16 to Jint 5
+﻿# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -6323,6 +6323,52 @@ than a zero a client would read as a page that loaded instantly.
 
 **What could break:** nothing. It is a new property on a preview record, and an observer that does not read
 it pays nothing for it.
+### 5.30 A host can ask whether an engine is disposed, and be told when it is going ([#3684](https://github.com/sebastienros/jint/issues/3684))
+
+`Engine.Dispose` used to be a method with no state behind it: it was not idempotent, it raised nothing, and
+nothing could ask afterwards whether it had run. A component holding an engine it does not own — a rejection
+tracker, a console sink, a debugger subscription, anything a page hands its outgoing engine to — had no way
+to tell a live engine from a dead one, so every release step it owed was a `try` around a call that might be
+reaching into something already gone.
+
+Two members close it, and both are on `Engine`:
+
+```csharp
+engine.Disposed += (sender, _) =>
+{
+    // Already true here: the event says the engine is going away, not that it might.
+    ((Engine) sender).IsDisposed.Should().BeTrue();
+
+    // What a subscriber is here for. Never run script from a handler — the engine is unusable.
+    engine.Tasks.PromiseRejectionTracker -= OnRejection;
+};
+
+engine.Dispose();
+engine.Dispose();   // idempotent now, and raises nothing the second time
+```
+
+`Disposed` is raised exactly once, at the very start of `Dispose`, before anything is released, and on
+whichever thread called `Dispose` rather than on the one that last ran script — so a handler needing the
+engine's thread has to marshal for itself. A handler that throws still leaves the engine released, and its
+exception reaches the caller of `Dispose`. `IsDisposed` is safe to read from any thread.
+
+**The behaviour change is `Engine.Tasks.Post`.** It is the one entry a thread that does not own the engine
+may call, and it was documented as accepting a job on a disposed engine — "`Engine.Dispose` is not a barrier
+— an engine has no disposed state, and a job posted to a disposed engine still runs if it is pumped again."
+It is a barrier now, and refuses with `ObjectDisposedException`:
+
+```csharp
+engine.Dispose();
+engine.Tasks.Post(() => { });   // ObjectDisposedException, ObjectName == "Engine"
+```
+
+A host that relied on the old behaviour was relying on a job it could never have run — nothing pumps a
+disposed engine, and the internal enqueue paths Jint itself uses are unchanged. What such a host does instead
+is one of two things: check `IsDisposed` before posting, if it can tolerate losing the race with another
+thread's `Dispose`; or subscribe to `Disposed` and stop posting from the handler, which is race-free because
+the flag is already set when it runs. A caller that genuinely cannot know — a wake posted from a thread-pool
+continuation, say — catches `ObjectDisposedException` and does nothing, which is what `Jint.DevTools` and
+`Jint.Browser` now do at the three call sites that can lose that race.
 
 ## 6. AOT and trimming
 
