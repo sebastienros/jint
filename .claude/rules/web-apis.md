@@ -9,3 +9,5 @@ You are editing the opt-in WHATWG surface. `Jint/WebApi/AGENTS.md` carries the f
 
 **Read [`Jint/WebApi/AGENTS.md`](../../Jint/WebApi/AGENTS.md) before you edit.** It is not repeated here or in the repository-root
 `AGENTS.md`; that file's index says what each co-located instruction file covers.
+
+When what you are editing is `fetch`, a cookie jar, a redirect hop or `FetchObserver`, read [`Jint/WebApi/Fetch/AGENTS.md`](../../Jint/WebApi/Fetch/AGENTS.md) too.
