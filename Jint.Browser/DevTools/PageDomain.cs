@@ -333,6 +333,19 @@ internal sealed partial class PageDomain : PageDomainBase, IDetachableDomain
     protected override ValueTask<EmptyResult> SetFontFamiliesAsync(SetFontFamiliesRequest parameters, CommandContext context)
         => new(EmptyResult.Instance);
 
+    /// <summary>Answers success, and no file chooser is ever opened for a client to intercept.</summary>
+    /// <remarks>
+    /// A click on an <c>&lt;input type=file&gt;</c> reaches <c>Events/BrowserActivationHost</c>, which
+    /// <i>records</i> the request rather than opening anything — there is no file chooser here to intercept,
+    /// so <c>Page.fileChooserOpened</c> is never emitted and a client waiting for one waits forever whether
+    /// this command is answered or refused. It is answered because a client sets the interception up front,
+    /// long before it clicks anything, and reads a refusal as a broken page.
+    /// </remarks>
+    protected override ValueTask<EmptyResult> SetInterceptFileChooserDialogAsync(
+        SetInterceptFileChooserDialogRequest parameters,
+        CommandContext context)
+        => new(EmptyResult.Instance);
+
     /// <summary>
     /// Answers success and stops nothing, because a navigation here is not interruptible.
     /// </summary>

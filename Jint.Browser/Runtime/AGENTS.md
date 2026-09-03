@@ -7,7 +7,9 @@
 > This is one of the co-located instruction files indexed from the repository-root
 > [`AGENTS.md`](../../AGENTS.md). Read that first, and read
 > [`Jint.Browser/AGENTS.md`](../AGENTS.md) beside it — it carries the package's principle, the binding layer
-> these sections stand on, and the divergence tables. Nothing below is repeated in either.
+> these sections stand on, the divergence tables, and the emulation section that argues
+> `PageMediaEnvironment`, `EmulationState`, `NavigatorInstaller`, `TouchEmulation` and `JsGeolocation`.
+> Nothing below is repeated in either.
 > The design this implements is [`docs/design/headless-browser.md`](../../docs/design/headless-browser.md):
 > §3 for the runtime model, §5 for events, §6 for navigation and the parse, §7 for the per-page constraints.
 
@@ -317,7 +319,7 @@ module loads alike.
 ### The request log is the protocol's seam too
 
 How `PageNetworkRecorder` serves the `Network` and `Fetch` domains as well as `Page.Requests`, and on which
-thread a listener is told, is in [the package file](../AGENTS.md#the-request-log-is-the-protocols-seam-too).
+thread a listener is told, is in [the package file](../DevTools/AGENTS.md#the-request-log-is-the-protocols-seam-too).
 
 ### The one observer, and what it is owed
 

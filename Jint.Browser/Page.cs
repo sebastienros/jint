@@ -88,6 +88,7 @@ public sealed partial class Page : IAsyncDisposable
         Context = context;
         _options = options;
         _recorder = recorder;
+        Emulation = new EmulationState(options.Viewport);
         _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);
@@ -111,6 +112,16 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>The context this page belongs to.</summary>
     public BrowserContext Context { get; }
+
+    /// <summary>
+    /// What a client asked this page to pretend it is — its viewport, its media, its time zone, its locale.
+    /// </summary>
+    /// <remarks>
+    /// It outlives every document, because that is what an override means: the engine factory reads it when
+    /// it builds the next one, and the window installer reads it on every access. The <c>Emulation</c>
+    /// domain is what writes it, on the loop thread; nothing public exposes it yet.
+    /// </remarks>
+    internal EmulationState Emulation { get; }
 
     /// <summary>The page's only scripted frame; child frames are parsed and listed but do not run script.</summary>
     public Frame MainFrame => _mainFrame;
@@ -473,6 +484,7 @@ public sealed partial class Page : IAsyncDisposable
             _network,
             _workers,
             _sessionStores,
+            Emulation,
             url,
             referrer,
             _loop.Closing));

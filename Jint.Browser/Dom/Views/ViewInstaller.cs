@@ -33,6 +33,7 @@ internal static class ViewInstaller
     private static readonly JsObjectShape _selection = BuildSelectionShape();
     private static readonly JsObjectShape _nodeFilter = BuildNodeFilterShape();
     private static readonly JsObjectShape _mediaQueryListEvent = BuildMediaQueryListEventShape();
+    private static readonly JsObjectShape _geolocation = BuildGeolocationShape();
 
     /// <summary>
     /// The configuration a <c>DOMParser</c> document is parsed with: the CSS services, so that
@@ -50,6 +51,7 @@ internal static class ViewInstaller
         Add(engine, "Selection", static realm => realm.SelectionInterface);
         Add(engine, "NodeFilter", static realm => realm.NodeFilter);
         Add(engine, "MediaQueryListEvent", static realm => realm.MediaQueryListEvent);
+        Add(engine, "Geolocation", static realm => realm.GeolocationInterface);
     }
 
     private static void Add(Engine engine, string name, Func<ViewRealm, JsValue> factory)
@@ -68,6 +70,8 @@ internal static class ViewInstaller
     internal static JsObjectShape NodeFilterShape => _nodeFilter;
 
     internal static JsObjectShape MediaQueryListEventShape => _mediaQueryListEvent;
+
+    internal static JsObjectShape GeolocationShape => _geolocation;
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#the-domparser-interface
@@ -137,6 +141,19 @@ internal static class ViewInstaller
         .Constant("SHOW_NOTATION", JsNumber.Create(2048))
         .Constant("SHOW_PROCESSING_INSTRUCTION", JsNumber.Create(64))
         .Constant("SHOW_TEXT", JsNumber.Create(4))
+        .Build();
+
+    /// <summary>https://w3c.github.io/geolocation/#geolocation_interface</summary>
+    /// <remarks>
+    /// The whole interface, and it is three operations: what a page has no way to observe is that the fix
+    /// never moves, so <c>watchPosition</c> delivers once. <see cref="JsGeolocation"/> says why.
+    /// </remarks>
+    private static JsObjectShape BuildGeolocationShape() => new JsObjectShape.Builder()
+        .PerRealmSlot("constructor")
+        .ToStringTag("Geolocation")
+        .Method("getCurrentPosition", static (t, args) => JsGeolocation.Brand(t, "getCurrentPosition").GetCurrentPosition(args), length: 1)
+        .Method("watchPosition", static (t, args) => JsGeolocation.Brand(t, "watchPosition").WatchPosition(args), length: 1)
+        .Method("clearWatch", static (t, args) => JsGeolocation.Brand(t, "clearWatch").ClearWatch(args), length: 1)
         .Build();
 
     /// <summary>https://drafts.csswg.org/cssom-view/#mediaquerylistevent</summary>

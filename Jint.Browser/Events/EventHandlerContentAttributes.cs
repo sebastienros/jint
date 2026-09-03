@@ -214,6 +214,17 @@ internal static class EventHandlerContentAttributes
             return null;
         }
 
+        // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes step 3:
+        // "if scripting is disabled for element's node document, return". This is the one place that has to
+        // check it, because it is the one place every path arrives at — the wrapper's creation, a read or a
+        // write of the IDL attribute, and the dispatcher asking for the parent. What stays true either way is
+        // that the attribute's text is untouched, so turning scripting back on for the next document compiles
+        // exactly the markup that was always there.
+        if (!wrapper.DomRealm.ScriptingEnabled)
+        {
+            return target;
+        }
+
         // A document carries no content attributes, so its handler slot has only the IDL half; the null here
         // removes a handler the markup no longer declares, and for a document there never was one. An
         // element's attribute is read only for a type an element can carry it for.

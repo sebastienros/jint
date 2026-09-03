@@ -11,7 +11,7 @@ namespace Jint.Tests.Browser.DevTools;
 /// <remarks>
 /// <para>
 /// <c>Jint.Tests.DevTools</c> holds the manifest and the code to each other for everything an <i>engine</i>
-/// target answers, and skips the six page-level domains for the obvious reason: it has no page. This test is
+/// target answers, and skips the page-level domains for the obvious reason: it has no page. This test is
 /// the other half, over a real one — the same property, the same reflection, the same failure message — so
 /// that between the two of them every entry in <c>implementedMethods</c> is accounted for.
 /// </para>
@@ -25,7 +25,11 @@ namespace Jint.Tests.Browser.DevTools;
 public class PageProtocolManifestTests
 {
     /// <summary>The domains a page target answers, which is what this test is responsible for.</summary>
-    private static readonly string[] PageDomains = ["Page", "DOM", "Input", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits", "Jint"];
+    private static readonly string[] PageDomains =
+    [
+        "Page", "DOM", "Input", "Emulation", "Network", "Fetch", "Storage", "Performance", "Audits",
+        "Accessibility", "CSS", "Security", "Overlay", "Jint",
+    ];
 
     [Test]
     public async Task EveryPageLevelMethodTheManifestNamesIsOverridden()

@@ -283,12 +283,8 @@ reads, and `javascriptDialogOpening` and `javascriptDialogClosed` arrive togethe
 pixels and names `Jint.getMarkdown`, `Jint.getText` and `document.documentElement.outerHTML` instead.
 
 What is accepted and not yet effective is accepted because refusing it fails an ordinary connection, and
-each says which campaign item makes it real: `Emulation`'s touch and focus overrides (input, §8), its
-media override (the CSSOM work), `Network.setCacheDisabled` (there is no cache to bypass),
-`Performance.enable` and `Audits.enable` (nothing to measure and nothing to report).
-`Emulation.setDeviceMetricsOverride` is real: it sets the page's `Viewport`, so `innerWidth`,
-`devicePixelRatio`, `screen` and every `matchMedia` query move with it, and so is the user-agent override,
-which both `Emulation` and `Network` write and which every request the page makes then carries.
+each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass) and
+`Audits.enable` (nothing to report).
 
 **The network domains are real, and three lanes of them are absent with a reason rather than pending.**
 `Network` reports every request the page makes and `Fetch` pauses one at the **request** stage, both over
@@ -302,6 +298,26 @@ finishes would also stop `networkIdle` firing; and `Network`'s **timing** docume
 request is measured and a document of zeros reads as a page that loaded instantly. A paused request holds
 the transport thread it is being sent on and never the page loop — the one exception is a `<script src>` a
 running script inserted, which blocks the loop by design.
+
+**`Emulation` is effective, and the question each command answers is *when*.** The viewport, the emulated
+media type and its Level 5 preference features, touch, focus, geolocation, the user agent and the hardware
+concurrency move the document that is loaded: `matchMedia` re-evaluates against a single
+`PageMediaEnvironment` and every `MediaQueryList` whose own answer moved fires `change`, and `navigator`
+answers differently on the next read. The time zone and the locale are `Options` an engine is *constructed*
+from and a page constructs one per navigation, so those two — and script execution, which the parse refuses
+— take effect on the next document, which is where every client sets them. The rest are accepted no-ops
+whose summaries say what there is none of: no renderer for auto dark mode, a background colour, a scrollbar
+or a CPU throttle; no idle detector; no touch event interface for a mouse event to be translated into. The
+preference features are the page's own answer rather than AngleSharp.Css's, which models none of them, so
+when that library grows them there is one table to delegate from. The user agent is one setting for two
+commands — `Emulation`'s and `Network`'s — kept on the page, because `navigator.userAgent` has to answer the
+same string every request carries.
+
+`Accessibility` publishes the tree of §9's accessibility layer in Chrome's `AXNode` shape, with the `DOM`
+domain's `backendNodeId` on every node — which is what makes `page.accessibility.snapshot()`, an `aria/`
+selector and `getByRole` answer about a node the same client can then measure and click. `Security`,
+`Overlay` and `CSS` answer what a DevTools front end sends while attaching and nothing more: `CSS` has the
+computed style and the inline style, both AngleSharp.Css's, and every editing command is `-32601`.
 
 ## 9. The scoreboard
 
@@ -338,7 +354,7 @@ WebSocket.
 | Where | What |
 | --- | --- |
 | `Jint/` (engine, public, additive) | B1 tree event dispatch; B2 `XMLHttpRequest` (`WebApiFeatures.XmlHttpRequest`, sync supported as a blocking wait on the engine-free transport); B3 fetch for documents (`BaseUrl`, referrer policy, `Origin`, `CookieJar`, `FetchObserver` with interception), and C3's one addition to it — `FetchInitiator.XmlHttpRequest`, plus the body chunks an `XMLHttpRequest` never handed its observer; B4 `PerformanceObserver`, `FileReader`, blob URLs |
-| `Jint.Browser/` (net8.0+, `InternalsVisibleTo` from Jint for now, promoted to public seams as they prove their shape) | the runtime of §3–§8 and the page-level CDP domains, plus the custom `Jint` domain (`getMarkdown`, `getText`, `getAccessibilitySnapshot`) |
+| `Jint.Browser/` (net8.0+, `InternalsVisibleTo` from Jint for now, promoted to public seams as they prove their shape) | the runtime of §3–§8 and the page-level CDP domains, plus the custom `Jint` domain (`getMarkdown`, `getText`, `getAccessibilitySnapshot`). **No engine seam is owed for the emulation**: a page's time zone and culture are `Options.TimeZone` and `Options.Culture`, already public and already fixed at construction, so the whole of `Emulation` is the package's own |
 | `Jint.Browser.Tool/` | the `jint-browser` dotnet tool (`serve --port 9222`, `fetch <url> --dump html|text|markdown|ax`) and the MCP server |
 | `Jint.Tests.Browser/` | the WPT browser lane, the obstacle course, the client smoke suites |
 

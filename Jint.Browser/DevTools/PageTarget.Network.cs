@@ -121,7 +121,7 @@ internal sealed partial class PageTarget : IPageNetworkListener
 
         // The rewrite happens before the announcement, so a client is told what the request will actually
         // carry rather than what the page composed before its own overrides were applied.
-        var headers = policy.Apply(request.Headers);
+        var headers = policy.Apply(request.Headers, Emulation);
         var effective = headers is null ? request : request with { Headers = headers };
 
         foreach (var domain in NetworkDomains())

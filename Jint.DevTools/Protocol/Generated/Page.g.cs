@@ -4128,6 +4128,12 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
+                case "setInterceptFileChooserDialog":
+                {
+                    var result = await SetInterceptFileChooserDialogAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.PageSetInterceptFileChooserDialogRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 // A command manifest.json does not list is method-not-found BEFORE its parameters
                 // are looked at, which is the order Chrome answers in: a command a backend does not
                 // implement is not in its dispatch table at all, so its payload is never read.

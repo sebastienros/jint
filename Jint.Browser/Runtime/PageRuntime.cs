@@ -41,6 +41,7 @@ internal sealed class PageRuntime
         PageRecorder recorder,
         PageNetwork network,
         PageNetworkRecorder requests,
+        EmulationState emulation,
         string documentUrl,
         string referrer)
     {
@@ -50,7 +51,8 @@ internal sealed class PageRuntime
         Recorder = recorder;
         Network = network;
         Requests = requests;
-        Viewport = options.Viewport;
+        Emulation = emulation;
+        Media = emulation.MediaEnvironment;
         Dom = DomRealm.Of(engine);
         Budget = PageBudget.For(engine, options);
         AnimationFrames = new AnimationFrameLane(this);
@@ -96,12 +98,43 @@ internal sealed class PageRuntime
     /// </remarks>
     internal string ReadyState { get; set; } = "loading";
 
-    /// <summary>The viewport this page answers dimension and media queries from.</summary>
+    /// <summary>What a client asked this page to pretend it is, which outlives this document.</summary>
+    internal EmulationState Emulation { get; }
+
+    /// <summary>
+    /// Everything a media query of this document is answered from — the viewport, the media type and the
+    /// preferences a client emulated.
+    /// </summary>
     /// <remarks>
-    /// Settable through <see cref="SetViewport"/> only, because a change has to be announced: every
+    /// Settable through <see cref="SetMedia"/> only, because a change has to be announced: every
     /// <c>MediaQueryList</c> the page is holding recomputes and fires <c>change</c> if its answer moved.
     /// </remarks>
-    internal Viewport Viewport { get; private set; }
+    internal PageMediaEnvironment Media { get; private set; }
+
+    /// <summary>The viewport this page answers dimension queries from.</summary>
+    internal Viewport Viewport => Media.Viewport;
+
+    /// <summary>Whether this document's own scripts run at all.</summary>
+    /// <remarks>
+    /// <c>Emulation.setScriptExecutionDisabled</c> decides it, and it is fixed for the document: the parse
+    /// is what refuses to run a script, so a client that turned scripting off half way through a load has
+    /// turned it off for the load after this one. <c>Runtime.evaluate</c> is unaffected either way.
+    /// </remarks>
+    internal bool ScriptingEnabled => Media.ScriptingEnabled;
+
+    /// <summary>
+    /// What <c>document.visibilityState</c> answers, and the negation of what <c>document.hidden</c> does.
+    /// </summary>
+    /// <remarks>
+    /// <b>Visibility and focus are one flag here, and they cannot be anything else.</b> HTML separates them
+    /// — a window can be visible and unfocused — but a headless page has no window manager and no second
+    /// tab, so the only thing that can move either is a client saying so through
+    /// <c>Emulation.setFocusEmulationEnabled</c>. It sets <c>Events.BrowserEventRealm.DocumentHasFocus</c>,
+    /// which <c>document.hasFocus()</c> already reads, and this reads the same flag rather than inventing a
+    /// second one a client would have no way to move.
+    /// </remarks>
+    internal string VisibilityState
+        => Events.BrowserEventRealm.Of(Engine).DocumentHasFocus ? "visible" : "hidden";
 
     /// <summary>The DOM binding state of this engine.</summary>
     internal DomRealm Dom { get; }
@@ -217,31 +250,32 @@ internal sealed class PageRuntime
     internal double Now => System.Diagnostics.Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
 
     /// <summary>
-    /// Replaces the viewport and tells every <c>MediaQueryList</c> the page is holding.
+    /// Replaces the whole media environment and tells every <c>MediaQueryList</c> the page is holding.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is the seam device emulation drives (campaign item C5): the viewport is the only thing a page can
-    /// observe about its window's size, so changing it is the whole of "the window resized" in a browser with
-    /// no window. <a href="https://drafts.csswg.org/cssom-view/#dom-mediaquerylist-onchange">CSSOM View</a>
-    /// fires <c>change</c> at a list whose answer moved and at no other, which is what a page listens for
-    /// rather than polling.
+    /// This is the seam the <c>Emulation</c> domain drives, and it takes the environment whole rather than a
+    /// viewport or a feature at a time: a query's answer can depend on the viewport <i>and</i> the media type
+    /// <i>and</i> a preference, so a change that moved two of them has to reach a <c>change</c> listener once,
+    /// with both already in place.
+    /// <a href="https://drafts.csswg.org/cssom-view/#dom-mediaquerylist-onchange">CSSOM View</a> fires at a
+    /// list whose answer moved and at no other, which is what a page listens for rather than polling.
     /// </para>
     /// <para>
     /// It runs on the page loop, like everything else here, and it dispatches synchronously — a listener runs
     /// before this returns, exactly as it does for any other dispatch. A <c>resize</c> event at the window is
-    /// deliberately not fired yet: HTML fires it from the "run the resize steps" of update-the-rendering, and
+    /// deliberately not fired: HTML fires it from the "run the resize steps" of update-the-rendering, and
     /// this package has no rendering step to hang it on.
     /// </para>
     /// </remarks>
-    internal void SetViewport(Viewport viewport)
+    internal void SetMedia(PageMediaEnvironment media)
     {
-        if (Viewport == viewport)
+        if (Media == media)
         {
             return;
         }
 
-        Viewport = viewport;
+        Media = media;
 
         if (_mediaQueryLists is null)
         {
@@ -252,9 +286,12 @@ internal sealed class PageRuntime
         // during the notification cannot have a stale answer to report.
         foreach (var list in _mediaQueryLists.ToArray())
         {
-            list.ViewportChanged();
+            list.MediaChanged();
         }
     }
+
+    /// <summary>Replaces the viewport alone, leaving the emulated media and preferences where they are.</summary>
+    internal void SetViewport(Viewport viewport) => SetMedia(Media with { Viewport = viewport });
 
     /// <summary>
     /// Remembers a <c>MediaQueryList</c> so that a viewport change can reach it.
@@ -276,10 +313,11 @@ internal sealed class PageRuntime
         PageRecorder recorder,
         PageNetwork network,
         PageNetworkRecorder requests,
+        EmulationState emulation,
         string documentUrl,
         string referrer)
     {
-        var runtime = new PageRuntime(engine, page, options, recorder, network, requests, documentUrl, referrer);
+        var runtime = new PageRuntime(engine, page, options, recorder, network, requests, emulation, documentUrl, referrer);
         _runtimes.Add(engine, runtime);
         return runtime;
     }

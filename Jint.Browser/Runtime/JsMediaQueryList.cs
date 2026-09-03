@@ -10,12 +10,13 @@ namespace Jint.Browser.Runtime;
 /// <remarks>
 /// <para>
 /// It is a real <c>EventTarget</c>, so <c>addEventListener('change', …)</c> and <c>onchange</c> both work,
-/// and it is an event nothing can fire in this version: the viewport is fixed for a page's lifetime, so a
-/// query's answer never changes. Emulation changing the viewport is what will fire it.
+/// and the event really fires: <c>Emulation.setDeviceMetricsOverride</c> and
+/// <c>Emulation.setEmulatedMedia</c> both move the page's media environment, and every list whose own answer
+/// moved with it hears <c>change</c>.
 /// </para>
 /// <para>
-/// <c>matches</c> is computed on every read rather than captured, so a page reading it after a viewport
-/// change gets the new answer even before the event exists.
+/// <c>matches</c> is computed on every read rather than captured, so a page polling it sees a change even
+/// without a listener.
 /// </para>
 /// </remarks>
 internal sealed class JsMediaQueryList : JsEventTarget
@@ -36,14 +37,14 @@ internal sealed class JsMediaQueryList : JsEventTarget
     /// <summary>The serialized query, as the page wrote it.</summary>
     internal string Media { get; }
 
-    /// <summary>Whether the query matches the page's viewport right now.</summary>
-    internal bool Matches => MediaQuery.Matches(Media, _runtime.Viewport);
+    /// <summary>Whether the query matches the page's media environment right now.</summary>
+    internal bool Matches => MediaQuery.Matches(Media, _runtime.Media);
 
     /// <summary>The event type a <c>MediaQueryList</c> fires, which is also what <c>onchange</c> keys on.</summary>
     internal const string ChangeEventType = "change";
 
     /// <summary>
-    /// Recomputes after a viewport change and fires <c>change</c> if the answer moved.
+    /// Recomputes after the page's media environment changed and fires <c>change</c> if the answer moved.
     /// </summary>
     /// <remarks>
     /// <a href="https://drafts.csswg.org/cssom-view/#evaluate-media-queries-and-report-changes">CSSOM View</a>
@@ -51,7 +52,7 @@ internal sealed class JsMediaQueryList : JsEventTarget
     /// the ones whose answer actually moved. The event carries <c>media</c> and <c>matches</c> because that is
     /// what a listener written without a reference to the list reads.
     /// </remarks>
-    internal void ViewportChanged()
+    internal void MediaChanged()
     {
         var matches = Matches;
         if (matches == _lastMatches)

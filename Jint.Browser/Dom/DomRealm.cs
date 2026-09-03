@@ -94,6 +94,18 @@ internal sealed class DomRealm
     /// </remarks>
     internal int MaxNodes { get; set; }
 
+    /// <summary>
+    /// Whether the document's own markup may run script, which is what HTML calls <i>scripting enabled</i>.
+    /// </summary>
+    /// <remarks>
+    /// <c>Emulation.setScriptExecutionDisabled</c> turns it off for the next document, and what it decides
+    /// here is one thing: an <c>onclick=</c> and its kind are not compiled, so a handler content attribute is
+    /// text on an element and nothing else. It is a field on the realm rather than a lookup because
+    /// <c>WrapperCreated</c> asks it once per wrapper. A host embedding the projection on its own gets the
+    /// default, which is that markup handlers work.
+    /// </remarks>
+    internal bool ScriptingEnabled { get; set; } = true;
+
     /// <summary>How many node wrappers this engine has made, for a diagnostic and for the tests.</summary>
     internal int NodeCount => _nodes;
 

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Jint.Browser;
 using Jint.Tests.Browser.Navigation;
 
@@ -48,20 +48,21 @@ public class PageHandshakeReplayTests
     };
 
     /// <summary>
-    /// The fourteen steps of the scenario this replay covers, in the order the recording has them.
+    /// Every step of the scenario this replay covers but one, in the order the recording has them.
     /// </summary>
     /// <remarks>
-    /// Everything up to and including the network work and the typing: a page's cookies are read and written
-    /// through <c>Storage</c> by every recorded client, <c>interception</c> is where <c>Fetch.enable</c> and
-    /// <c>Fetch.continueRequest</c> appear, and <c>type</c> is six <c>Input.dispatchKeyEvent</c> in every one
-    /// of the five recordings. The steps still left out — <c>screenshot</c> and <c>pdf</c> — are refused by
-    /// design, because this browser renders no pixels.
+    /// A page's cookies are read and written through <c>Storage</c> by every recorded client, <c>interception</c>
+    /// is where <c>Fetch.enable</c> and <c>Fetch.continueRequest</c> appear, <c>type</c> is six
+    /// <c>Input.dispatchKeyEvent</c> in every one of the five recordings, and <c>screenshot</c> is the refusal
+    /// this browser answers by design. The one step left out is <c>pdf</c>: it needs the <c>IO</c> stream a
+    /// <c>printToPDF</c> would have written into, and that command is refused by design.
     /// </remarks>
     private static readonly string[] ReplayedSteps =
     [
         "connect", "newContext", "newPage", "goto", "evaluateTitle", "evaluateObject",
         "querySelector", "querySelectorAll", "click", "waitForSelector", "type",
-        "cookies", "setCookie", "interception",
+        "clickCheckbox", "selectOption", "content", "title", "evaluateLocalStorage", "consoleEvent",
+        "gotoPage2", "goBack", "screenshot", "cookies", "setCookie", "interception",
     ];
 
     [TestCase("puppeteer-node")]

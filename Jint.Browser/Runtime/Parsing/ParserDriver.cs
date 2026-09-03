@@ -84,16 +84,22 @@ internal sealed class ParserDriver : IDisposable
 
     private PageLoad Run(string html, Action<NavigationPhase>? onPhase)
     {
-        var scripting = new PageScriptingService(this);
-
         // WithCss registers the declaration factory `element.style`, the computed-style cascade and the
         // styling service <link rel=stylesheet> needs; the resource loader is what makes AngleSharp ask for
         // anything at all, and is therefore what makes the baton necessary. There is deliberately no
         // WithDefaultLoader: every byte a document pulls goes through the page's own network position.
         var configuration = Configuration.Default
             .WithCss()
-            .With(scripting)
             .With(new PageResourceLoader(this));
+
+        // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
+        // — the scripting service is simply not registered, which is how AngleSharp is told a document has
+        // scripting disabled: no <script> is prepared, and <noscript> parses as the markup it is rather than
+        // as text. Refusing each script instead would leave the document believing it could run one.
+        if (_runtime.ScriptingEnabled)
+        {
+            configuration = configuration.With(new PageScriptingService(this));
+        }
 
         var context = BrowsingContext.New(configuration);
         IDocument document;
@@ -546,15 +552,24 @@ internal sealed class ParserDriver : IDisposable
         // The handler content attributes on <body> that HTML redirects to the window — onload above all —
         // belong to a target the body's own wrapper is what registers them on. Every other element's arrive
         // with its wrapper; see EventHandlerContentAttributes.InstallBodyHandlers for why this one cannot.
-        // First, so a markup handler is ahead of any listener a deferred or module script adds.
-        Events.EventHandlerContentAttributes.InstallBodyHandlers(_runtime.Dom, document);
+        // First, so a markup handler is ahead of any listener a deferred or module script adds. Not at all
+        // when scripting is disabled, which is where every other handler content attribute stops too.
+        if (_runtime.ScriptingEnabled)
+        {
+            Events.EventHandlerContentAttributes.InstallBodyHandlers(_runtime.Dom, document);
+        }
 
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. AngleSharp advances its own
         // readiness during the parse and its setter is not reachable from outside its assembly
         // (AngleSharp#1309), so what a page reads is the runtime's shadow, moved here.
         SetReadyState("interactive");
 
-        RunModules(document);
+        // The module half of "scripting is disabled": AngleSharp never sees a module script, so refusing one
+        // is this driver's own business rather than a service it can decline to register.
+        if (_runtime.ScriptingEnabled)
+        {
+            RunModules(document);
+        }
 
         var window = _runtime.Engine._webApi?.GlobalEventTarget;
         var wrapper = _runtime.DocumentWrapper;

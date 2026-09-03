@@ -55,7 +55,10 @@ internal class DomHostHooks
         // what puts a markup handler ahead of a script's in the listener list. It is here rather than in
         // DomNodeObject's constructor because this hook fires exactly once for the wrapper that won, and a
         // re-entrant member that built a second one would otherwise have scanned the loser too.
-        if (wrapper is DomNodeObject node)
+        // https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-content-attributes step 3:
+        // "if scripting is disabled for element's node document, return" — which is what
+        // Emulation.setScriptExecutionDisabled turns off.
+        if (wrapper is DomNodeObject node && realm.ScriptingEnabled)
         {
             Events.EventHandlerContentAttributes.InstallFromMarkup(node);
         }
