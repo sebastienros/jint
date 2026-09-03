@@ -1,0 +1,7 @@
+{
+  "ports": {
+    "https-local": [null],
+    "https-public": [null],
+    "h2": [null]
+  }
+}

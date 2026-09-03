@@ -1,0 +1,5 @@
+# `pip install -e .` and pytest both write into the source tree.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

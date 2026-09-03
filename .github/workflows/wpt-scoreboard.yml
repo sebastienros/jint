@@ -1,0 +1,324 @@
+# The public web-platform-tests scoreboard: upstream's own runner, driving Jint.Browser over CDP.
+#
+# This is NOT a gate. A test that fails here fails the scoreboard, not the build; the only things that fail
+# this workflow are the runner failing to reach the browser at all and a run that produced no report worth
+# publishing. Everything that gates `Jint.Browser` is in `pr.yml` and runs in process.
+#
+# Nothing here is on the pull-request path, and nothing here writes to `main`: the page and the badge
+# document are committed to the orphan `wpt-scoreboard` branch, whose whole content is what this workflow
+# generates.
+#
+# The two numbers this repository publishes are deliberately different and neither replaces the other:
+#   * this one       -- upstream's runner, upstream's server, every case the manifest generates;
+#   * the census     -- Jint.Tests.Browser/Wpt/README.md, a vendored subset run in process, and a gate.
+name: WPT scoreboard
+
+on:
+  schedule:
+    # 04:17 UTC, off the hour so it does not queue behind everyone else's midnight cron.
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Commit the result to the wpt-scoreboard branch'
+        type: boolean
+        default: true
+      suites:
+        description: 'Space-separated test paths to run (default: the ten the design names)'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wpt-scoreboard
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  # Where `jint-browser serve` listens, and what the wptrunner product connects to.
+  JINT_BROWSER_URL: http://127.0.0.1:9222
+  # The suites §9 of docs/design/headless-browser.md names. `.any.js` files in them become several cases
+  # each; the wrappers for globals this engine has no lane for are run rather than filtered, and the
+  # scoreboard breaks them out so the totals cannot be mistaken for a verdict on the DOM.
+  DEFAULT_SUITES: >-
+    dom/
+    html/dom/
+    html/semantics/scripting-1/
+    html/webappapis/
+    html/browsers/history/
+    xhr/
+    url/
+    fetch/api/
+    FileAPI/
+    custom-elements/
+
+jobs:
+  scoreboard:
+
+    name: 'nightly wpt run'
+
+    runs-on: ubuntu-latest
+
+    # Generous, because it is a nightly and because a run that has to build the manifest from scratch pays
+    # for it once. A run that reaches this is killed and reports nothing, which is one of the two failures
+    # this workflow is allowed to have.
+    timeout-minutes: 300
+
+    steps:
+
+    - name: Checkout Jint
+      uses: actions/checkout@v7
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0
+
+    # One corpus, one pin: the commit is read out of the file that owns it, so the scoreboard and the
+    # in-process census can never be measured against different trees.
+    - name: Read the pinned web-platform-tests commit
+      id: pin
+      shell: bash
+      run: |
+        set -o pipefail
+        sha=$(grep -oE '\b[0-9a-f]{40}\b' Jint.Tests/Wpt/Vendor/README.md | head -1)
+        if [ -z "$sha" ]; then
+          echo 'Jint.Tests/Wpt/Vendor/README.md names no commit' >&2
+          exit 1
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        echo "web-platform-tests pinned at $sha"
+
+    - name: Checkout web-platform-tests at the pin
+      uses: actions/checkout@v7
+      with:
+        repository: web-platform-tests/wpt
+        ref: ${{ steps.pin.outputs.sha }}
+        path: wpt
+        # The corpus is what is being run; its history is not.
+        fetch-depth: 1
+
+    # wptserve serves every subdomain wpt's substitution syntax names, and a page can only reach them if the
+    # machine resolves them. `wpt run` refuses to start without this for any product but its own handful,
+    # which is exactly right: without it a third of `fetch/api` and `xhr` would fail for the environment's
+    # reason and the number would be a lie.
+    - name: Map the wpt hosts onto loopback
+      shell: bash
+      working-directory: wpt
+      run: |
+        set -o pipefail
+        ./wpt make-hosts-file | sudo tee -a /etc/hosts > /dev/null
+        grep -c web-platform.test /etc/hosts
+
+    # Dropping the TLS servers. Jint.Browser cannot be told about an extra certificate authority, so a run
+    # over wpt's pregenerated certificates would fail every https case for the environment's reason; with
+    # --ssl-type=none wptrunner leaves https tests out of the run instead (include_https=ssl_enabled), which
+    # is the honest shape. The file itself only has to null three ports out, because ConfigBuilder._get_ports
+    # skips the bare `https` and `wss` schemes when SSL is off but not `https-local`, `https-public` or `h2`,
+    # and those three then try to start with no certificate and take the whole environment down with them.
+    - name: Configure the wpt servers
+      shell: bash
+      run: cp tools/wpt-scoreboard/wpt-config.json wpt/config.json
+
+    # Generating it takes minutes and it only depends on the pin, so it is cached on exactly that.
+    # --no-manifest-download in the run below is what keeps this the manifest that gets used: a downloaded
+    # one is built for whatever revision upstream last published, which is not necessarily this one.
+    - name: Restore the wpt manifest
+      id: manifest-cache
+      uses: actions/cache@v6
+      with:
+        path: wpt/MANIFEST.json
+        key: wpt-manifest-${{ steps.pin.outputs.sha }}
+
+    - name: Build the wpt manifest
+      if: steps.manifest-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: wpt
+      run: ./wpt manifest --no-download
+
+    - name: Build jint-browser
+      run: dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj --configuration Release --framework net10.0
+
+    # The virtualenv is ours rather than wpt's own `_venv3`, because the product has to be installed into it
+    # *before* `wpt run` looks for entry points. `wpt --venv` then reuses it and installs the runner's own
+    # requirements alongside. It is built with the runner's own `python3` -- the same interpreter `./wpt`
+    # runs under -- because `wpt` activates the virtualenv inside the process it is already in.
+    - name: Install the wptrunner product
+      shell: bash
+      run: |
+        set -o pipefail
+        python3 -m venv "$RUNNER_TEMP/wpt-venv"
+        "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet --upgrade pip
+        "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet pytest
+        "$RUNNER_TEMP/wpt-venv/bin/pip" install --quiet -e tools/wpt-scoreboard
+
+    # The unit tests of the plugin itself, and the one thing that tells "the scoreboard is zero because the
+    # engine fails everything" from "the scoreboard is zero because the runner never reached the page": one
+    # known-good document, served with upstream's own testharness.js and wptrunner's own report script, run
+    # through a `jint-browser serve` this step starts and stops on a port of its own. Three subtests must
+    # pass and one must fail; a bridge that reported nothing would time out here and a bridge that reported
+    # optimistically would not have the failure in it.
+    - name: Test the executor against a known-good document
+      shell: bash
+      env:
+        WPT_ROOT: ${{ github.workspace }}/wpt
+        JINT_BROWSER_COMMAND: dotnet ${{ github.workspace }}/artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll
+      run: |
+        set -o pipefail
+        "$RUNNER_TEMP/wpt-venv/bin/python" -m pytest tools/wpt-scoreboard/tests -q
+
+    # Deliberately NOT --untrusted, and the reason is worth having in the file that would otherwise grow it
+    # back. `BrowserOptions.ForUntrustedContent` applies `UntrustedCodeLimits.Default` to every page engine:
+    # one second per engine entry, 50 000 statements, 10 000-element arrays, recursion depth 64, a 250 ms
+    # regex budget. Those are the right numbers for a page nobody vouches for and the wrong ones for a
+    # conformance measurement -- a scoreboard taken under them would be a report on the hardened profile
+    # rather than on the engine, and the command line has no switch for any of the five. What the corpus is
+    # instead is vendored, pinned content served from loopback.
+    #
+    # --max-task-duration 0 for the same reason the in-process lane sets MaxTaskDuration to infinite: a
+    # legitimately slow file cut mid-script reads as an engine defect three layers from its cause. The bound
+    # on a page here is wptrunner's own per-test timeout, which is upstream's number.
+    - name: Start jint-browser serve
+      shell: bash
+      run: |
+        set -o pipefail
+        nohup dotnet artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll \
+          serve --port 9222 --max-task-duration 0 > "$RUNNER_TEMP/serve.log" 2>&1 &
+        echo $! > "$RUNNER_TEMP/serve.pid"
+
+        for _ in $(seq 1 60); do
+          if curl --silent --fail "$JINT_BROWSER_URL/json/version" > /dev/null; then
+            curl --silent "$JINT_BROWSER_URL/json/version"
+            echo
+            exit 0
+          fi
+          sleep 1
+        done
+
+        echo 'jint-browser serve never answered /json/version' >&2
+        cat "$RUNNER_TEMP/serve.log" >&2
+        exit 1
+
+    # --no-fail-on-unexpected is what makes this a scoreboard rather than a gate: a failing test is a number
+    # on the page, and the step's exit code is about the runner. The four .h2. files are named because the
+    # h2 server is off with TLS, and a test whose protocol has no port would be an internal error rather
+    # than a result.
+    #
+    # There is deliberately no --timeout-multiplier, and it is worth knowing why before one is added back.
+    # Every per-test timeout in the corpus is the test author's, and wpt.fyi's own numbers are taken at the
+    # default of 1, so a scoreboard measured at 2 would be more generous than the figures it invites
+    # comparison with. It is also the flag that decides how long this job takes, because the run's cost is
+    # dominated by the cases that fail by *not reporting*: a `<meta name=timeout content=long>` file is 60
+    # seconds each time, and `html/semantics/scripting-1/the-script-element/moving-between-documents/` alone
+    # is 52 of them, every one of which waits for a message posted by script running inside an <iframe> --
+    # and iframes run no script in this version, by design, so the harness never completes. At 2 that one
+    # directory is an hour and three quarters of this job on its own.
+    - name: Run the suites
+      shell: bash
+      working-directory: wpt
+      # The total budget, and it sits on the step rather than on the job so that the two steps below still
+      # run when it is reached: a run that has to be killed leaves no wptreport, and the log is then the only
+      # evidence of why.
+      timeout-minutes: 240
+      env:
+        SUITES: ${{ inputs.suites || env.DEFAULT_SUITES }}
+      run: |
+        set -o pipefail
+        ./wpt --venv "$RUNNER_TEMP/wpt-venv" run jint-browser \
+          --jint-browser-url "$JINT_BROWSER_URL" \
+          --ssl-type none \
+          --no-manifest-download \
+          --processes 1 \
+          --test-types testharness \
+          --no-fail-on-unexpected \
+          --no-fail-on-unexpected-pass \
+          --log-wptreport "$RUNNER_TEMP/wptreport.json" \
+          --log-mach-level info \
+          --log-mach - \
+          --exclude fetch/api/basic/request-upload.h2.any.js \
+          --exclude fetch/api/basic/status.h2.any.js \
+          --exclude fetch/api/redirect/redirect-upload.h2.any.js \
+          --exclude xhr/status.h2.window.js \
+          $SUITES
+
+    - name: Stop jint-browser serve
+      if: always()
+      shell: bash
+      run: |
+        if [ -f "$RUNNER_TEMP/serve.pid" ]; then
+          kill "$(cat "$RUNNER_TEMP/serve.pid")" 2>/dev/null || true
+        fi
+        tail -40 "$RUNNER_TEMP/serve.log" || true
+
+    # The report is the artefact the page is derived from, so it is kept whether or not the page is
+    # published: everything on the page can be recomputed from it by anybody who downloads it.
+    - name: Upload wptreport.json
+      if: always()
+      uses: actions/upload-artifact@v5
+      with:
+        name: wptreport
+        path: ${{ runner.temp }}/wptreport.json
+        if-no-files-found: warn
+        retention-days: 30
+
+    # The other half of the "did the runner work" question, and it takes two thresholds because they catch
+    # different failures. --min-tests catches a run that produced almost no results. Its default sibling
+    # --min-subtests catches the one --min-tests cannot see: a browser that died has a result for every test
+    # -- every one an error -- so only the absence of any subtest anywhere tells that apart from a score.
+    # Publishing either would silently replace a real number with a wrong one.
+    - name: Generate the scoreboard
+      shell: bash
+      run: |
+        set -o pipefail
+        mkdir -p "$RUNNER_TEMP/out/docs"
+        "$RUNNER_TEMP/wpt-venv/bin/python" -m wpt_jint_browser.scoreboard \
+          "$RUNNER_TEMP/wptreport.json" \
+          --markdown "$RUNNER_TEMP/out/docs/wpt-scoreboard.md" \
+          --badge "$RUNNER_TEMP/out/badge.json" \
+          --jint-commit "$GITHUB_SHA" \
+          --wpt-commit "${{ steps.pin.outputs.sha }}" \
+          --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+          --min-tests 500
+        cat "$RUNNER_TEMP/out/docs/wpt-scoreboard.md" >> "$GITHUB_STEP_SUMMARY"
+
+    # A branch of its own, never main: the page changes every night and a commit on main every night would
+    # bury everything else in the history. The branch holds nothing but what this workflow generates, which
+    # is why it is orphaned and why every link on the page is absolute.
+    - name: Publish to the wpt-scoreboard branch
+      if: github.event_name == 'schedule' || inputs.publish
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -o pipefail
+        publish="$RUNNER_TEMP/publish"
+        rm -rf "$publish"
+        git init --quiet --initial-branch=wpt-scoreboard "$publish"
+        cd "$publish"
+        git config user.name 'github-actions[bot]'
+        git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+        git config http.extraheader "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+
+        # Depth 1 so the branch does not accumulate a clone of the repository's history, and a fresh start
+        # when it does not exist yet.
+        if git fetch --quiet --depth 1 origin wpt-scoreboard 2>/dev/null; then
+          git reset --quiet --hard FETCH_HEAD
+        fi
+
+        mkdir -p docs
+        cp "$RUNNER_TEMP/out/docs/wpt-scoreboard.md" docs/wpt-scoreboard.md
+        cp "$RUNNER_TEMP/out/badge.json" badge.json
+
+        git add -A
+        if git diff --cached --quiet; then
+          echo 'the scoreboard is unchanged'
+          exit 0
+        fi
+
+        git commit --quiet -m "WPT scoreboard: $(date -u '+%Y-%m-%d') at ${GITHUB_SHA:0:12}"
+        git push --quiet origin wpt-scoreboard
+        echo "published $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/wpt-scoreboard/docs/wpt-scoreboard.md"
