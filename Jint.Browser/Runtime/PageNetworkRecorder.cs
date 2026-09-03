@@ -270,6 +270,7 @@ internal sealed class PageNetworkRecorder : FetchObserver
         var kind = declaration?.Kind ?? request.Initiator switch
         {
             FetchInitiator.XmlHttpRequest => PageRequestKind.Xhr,
+            FetchInitiator.EventSource => PageRequestKind.EventSource,
             FetchInitiator.Host => PageRequestKind.Document,
             _ => PageRequestKind.Fetch,
         };

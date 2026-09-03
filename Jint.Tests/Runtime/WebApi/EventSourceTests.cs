@@ -1,5 +1,6 @@
 #if NET8_0_OR_GREATER
 #nullable enable
+#pragma warning disable JINT0002 // the fetch observer is a preview surface; a stream is one of the lanes it watches
 
 using System.Net;
 using System.Net.Http;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Jint.WebApi.Fetch;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -243,6 +245,180 @@ public class EventSourceTests
 
     private static void PumpUntilLogHas(Engine engine, int entries, string expectation)
         => Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= entries, expectation);
+
+    /// <summary>
+    /// A <see cref="FetchObserver"/> that writes down what it was told, in the order it was told.
+    /// </summary>
+    /// <remarks>
+    /// Every callback arrives on a transport thread, so the list is guarded and a test waits for a count
+    /// rather than assuming the hand-over has happened; <see cref="Take"/> answers a prefix so that a
+    /// terminal call a test is not about — the failure a closed stream reports — cannot race into an
+    /// assertion.
+    /// </remarks>
+    private sealed class RecordingObserver : FetchObserver
+    {
+        private readonly List<string> _events = new();
+
+        public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
+        {
+            Add($"request {request.Id} {request.Method} {request.Url} redirects={request.RedirectCount} initiator={request.Initiator}");
+            return new ValueTask<FetchInterception?>((FetchInterception?) null);
+        }
+
+        public override void OnResponse(ObservedFetchResponse response)
+            => Add($"response {response.Id} {response.Status} redirect={response.IsRedirect}");
+
+        public override void OnData(FetchRequestId id, ReadOnlySpan<byte> chunk)
+            => Add($"data {id} {chunk.Length}");
+
+        public override void OnCompleted(FetchRequestId id, long bodyLength)
+            => Add($"completed {id} {bodyLength}");
+
+        public override void OnFailed(FetchRequestId id, string reason, Exception? exception)
+            => Add($"failed {id} {reason}");
+
+        /// <summary>Waits for <paramref name="count"/> notifications and answers exactly those.</summary>
+        internal IReadOnlyList<string> Take(int count)
+        {
+            var deadline = DateTime.UtcNow + TransportSignalCeiling;
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (_events)
+                {
+                    if (_events.Count >= count)
+                    {
+                        return _events.GetRange(0, count);
+                    }
+                }
+
+                Thread.Sleep(2);
+            }
+
+            lock (_events)
+            {
+                Assert.Fail($"the observer should have been told {count} things; it was told: {string.Join(" | ", _events)}");
+                return _events.ToArray();
+            }
+        }
+
+        private void Add(string entry)
+        {
+            lock (_events)
+            {
+                _events.Add(entry);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An observer sees a stream the way it sees a fetch: the request, the response, a chunk at a time as
+    /// the bytes arrive, and one terminal call.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The initiator is <c>FetchInitiator.EventSource</c>, because a host reporting this to a tool has to
+    /// name the interface that asked — the Chrome DevTools Protocol has a resource type of its own for a
+    /// stream.
+    /// </para>
+    /// <para>
+    /// <b>The chunks are what make this whole rather than partial.</b> An <c>EventSource</c> reads its own
+    /// body, so nothing in the transport can hand them over; without the call in the read loop an observer
+    /// would be told a stream was asked for and answered and never that a byte of it arrived, which is why
+    /// this lane was left unobserved until there was somewhere to put them
+    /// ([#3621](https://github.com/sebastienros/jint/issues/3621)).
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AnObserverSeesTheRequestTheResponseAndEveryChunk()
+    {
+        var stream = new PushStream();
+        var handler = new StubHandler { Responder = _ => Answer(stream) };
+        var observer = new RecordingObserver();
+        var (engine, _) = SseEngine(handler, net => net.Observer = observer);
+
+        engine.Execute($"var es = watch(new EventSource('{StreamUrl}'));");
+
+        stream.Push("data: one\n\n");
+        PumpUntilLogHas(engine, 2, "the open event and the first message");
+
+        stream.Push("data: two\n\n");
+        PumpUntilLogHas(engine, 3, "the second message");
+
+        var events = observer.Take(4);
+        var id = events[0].Split(' ')[1];
+
+        events.Should().Equal(
+            $"request {id} GET {StreamUrl} redirects=0 initiator=EventSource",
+            $"response {id} 200 redirect=False",
+            $"data {id} 11",
+            $"data {id} 11");
+
+        engine.Execute("es.close();");
+        stream.Complete();
+    }
+
+    /// <summary>
+    /// A stream the server ends completes, and the reconnect that follows is a request of its own with its
+    /// own identifier — which is what it is on the wire, and what a network panel shows.
+    /// </summary>
+    [Test]
+    public void EachConnectionIsItsOwnObservedRequestAndTheEndCompletesIt()
+    {
+        var second = new PushStream();
+        var handler = new StubHandler
+        {
+            Responder = attempt => attempt == 0 ? Answer("data: one\n\n") : Answer(second),
+        };
+
+        var observer = new RecordingObserver();
+        var (engine, clock) = SseEngine(handler, net => net.Observer = observer);
+
+        engine.Execute($"var es = watch(new EventSource('{StreamUrl}'));");
+        PumpUntilLogHas(engine, 3, "open, the message, and the error the ended stream queues");
+
+        // The reconnect is a timer entry on the engine's own queue, so it takes the clock and a pump.
+        clock.Advance(5000);
+        Pump(engine, () => handler.Requests.Count == 2, "the reconnect");
+
+        var events = observer.Take(6);
+        var first = events[0].Split(' ')[1];
+        var next = events[4].Split(' ')[1];
+
+        next.Should().NotBe(first, "a reconnect is a second request, not a second hop of the first");
+        events.Should().Equal(
+            $"request {first} GET {StreamUrl} redirects=0 initiator=EventSource",
+            $"response {first} 200 redirect=False",
+            $"data {first} 11",
+            $"completed {first} 11",
+            $"request {next} GET {StreamUrl} redirects=0 initiator=EventSource",
+            $"response {next} 200 redirect=False");
+
+        engine.Execute("es.close();");
+        second.Complete();
+    }
+
+    /// <summary>
+    /// A response the standard fails the connection over reaches the observer as the response it was and
+    /// then as a failure, so the terminal call is never left unmade.
+    /// </summary>
+    [Test]
+    public void AResponseTheStandardRefusesIsReportedAsAFailure()
+    {
+        var handler = new StubHandler { Responder = _ => Answer("", "text/plain") };
+        var observer = new RecordingObserver();
+        var (engine, _) = SseEngine(handler, net => net.Observer = observer);
+
+        engine.Execute($"var es = watch(new EventSource('{StreamUrl}'));");
+        PumpUntilLogHas(engine, 1, "the error event");
+
+        var events = observer.Take(3);
+        var id = events[0].Split(' ')[1];
+
+        events.Should().Equal(
+            $"request {id} GET {StreamUrl} redirects=0 initiator=EventSource",
+            $"response {id} 200 redirect=False",
+            $"failed {id} The response is not a text/event-stream.");
+    }
 
     [Test]
     public void DispatchesAMessageEventForEachBlankLineTerminatedBlock()

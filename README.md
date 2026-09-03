@@ -1589,6 +1589,12 @@ something different for a stream:
 - **`MaxConcurrentRequests` bounds the streams one engine may have open**, counted separately from the
   fetches in flight, because a stream holds its socket for as long as it lives.
 
+`Observer` reads the same way it does for a fetch, and a stream is reported whole: the request (with
+`FetchInitiator.EventSource`, so a tool can name the interface that asked), the response, every chunk as it
+comes off the wire, and one terminal call — `OnCompleted` when the server ends the stream, `OnFailed` when
+the connection is refused, fails or is closed. **Each connection is its own request**: a reconnect has an
+identifier of its own, which is what it is on the wire.
+
 **Reconnection rides the timer queue**, so it too happens only while you are pumping, and it counts against
 `MaxActiveTimers`. A stream that ends, or a network error, sets `readyState` back to `CONNECTING`, fires
 `error`, waits the server's `retry:` value (3 seconds by default) and connects again — re-running the URL
@@ -2687,7 +2693,7 @@ recorded in `Page.Requests` with the reason instead — `integrity` is accepted 
 | What is missing | Tracked by |
 | --- | --- |
 | `Fetch`'s **response** stage, and with it the `IO` domain: an observer is told about a response and cannot answer it, so a response-stage pause could only ever continue unchanged | [#3701](https://github.com/sebastienros/jint/issues/3701) |
-| `Network`'s WebSocket and EventSource events — the engine deliberately does not observe those two handshakes — and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
+| `Network`'s WebSocket events — a socket's handshake is not a fetch, so the engine does not observe it — its `eventSourceMessageReceived` event, since what an observer is handed is the stream's bytes rather than the events they decode into, and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | A page's `@media` rules are evaluated against the page's viewport and emulated media type, but not against the emulated **preferences** — AngleSharp.Css's render device models none of them — so a themed page reads `matchMedia` rather than `getComputedStyle` to find out whether the scheme is dark | [#3707](https://github.com/sebastienros/jint/issues/3707) |
 | `ElementInternals`, so a `static formAssociated` custom element is recorded and takes part in no form; and no scoped custom element registries | [#3714](https://github.com/sebastienros/jint/issues/3714) |
 

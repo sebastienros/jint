@@ -341,6 +341,7 @@ internal sealed class FetchDomain : FetchDomainBase, IDetachableDomain
         PageRequestKind.Stylesheet => ProtocolNetwork.ResourceTypeValues.Stylesheet,
         PageRequestKind.Xhr => ProtocolNetwork.ResourceTypeValues.XHR,
         PageRequestKind.Fetch => ProtocolNetwork.ResourceTypeValues.Fetch,
+        PageRequestKind.EventSource => ProtocolNetwork.ResourceTypeValues.EventSource,
         PageRequestKind.Image => ProtocolNetwork.ResourceTypeValues.Image,
         PageRequestKind.Frame => ProtocolNetwork.ResourceTypeValues.Document,
         _ => ProtocolNetwork.ResourceTypeValues.Other,

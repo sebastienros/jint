@@ -30,6 +30,15 @@ internal enum PageRequestKind
     /// <summary>A <c>fetch()</c> a script made.</summary>
     Fetch,
 
+    /// <summary>An <c>EventSource</c> stream a script opened.</summary>
+    /// <remarks>
+    /// A page's own scripts cannot open one — the feature is not among the ones a page engine is built with
+    /// — so this names the streams of a host that granted it through <c>BrowserOptions.ConfigureEngine</c>.
+    /// The engine reports them like any other request, so the log would otherwise call a stream a
+    /// <c>fetch</c>.
+    /// </remarks>
+    EventSource,
+
     /// <summary>An image the document referenced, which this browser records and does not fetch.</summary>
     Image,
 
