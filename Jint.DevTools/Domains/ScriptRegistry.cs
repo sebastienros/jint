@@ -114,9 +114,10 @@ internal sealed class ScriptRegistry
     /// Answers which script a program is, or <see langword="null"/> when none is known.
     /// </summary>
     /// <remarks>
-    /// The engine hands the program itself to a call frame, a profile frame and a coverage source, so the
-    /// answer is a lookup by reference rather than a guess from a source name — which is what keeps two
-    /// scripts parsed under one name (every sourceless <c>Execute</c> is <c>&lt;anonymous&gt;</c>) apart.
+    /// The engine hands the program itself to a call frame, a profile frame, a coverage source and a
+    /// function value, so the answer is a lookup by reference rather than a guess from a source name — which
+    /// is what keeps two scripts parsed under one name (every sourceless <c>Execute</c> is
+    /// <c>&lt;anonymous&gt;</c>) apart.
     /// Null for a program the engine reached another way — <c>eval</c>, the <c>Function</c> constructor —
     /// and for one this registry has forgotten.
     /// </remarks>
@@ -137,8 +138,8 @@ internal sealed class ScriptRegistry
     /// Answers which script a rendered stack frame belongs to, or <see langword="null"/> when none is known.
     /// </summary>
     /// <remarks>
-    /// <b>The name-and-range fallback, and the only place left that needs one.</b> A frame of a rendered
-    /// stack trace — a <c>ConsoleStackFrame</c>, a line of <c>Error.stack</c> — is text, so all it carries
+    /// <b>The name-and-range fallback, and rendered text is the only thing left that needs one.</b> A frame
+    /// of a rendered stack trace — a <c>ConsoleStackFrame</c>, a line of <c>Error.stack</c> — is text, so all it carries
     /// is a source name and a position: among the scripts registered under that name, the one whose own
     /// range contains the position, and failing that the most recently parsed. Several programs parsed under
     /// one name therefore share one answer. Anything that has the program itself resolves through

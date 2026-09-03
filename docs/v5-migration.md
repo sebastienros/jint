@@ -5214,6 +5214,7 @@ none of it changes an engine that does not.
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#527-a-host-can-list-the-global-lexical-bindings-3610) |
+| The program a function value was parsed in, so a tooling protocol resolves its script by identity | `function.Program`, beside `FunctionDeclaration` | [§5.28](#528-a-function-value-names-the-program-it-was-parsed-in-3666) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -6059,6 +6060,33 @@ Names only — read a value with `engine.Evaluate(name)` — and a fresh list pe
 afterwards does not change one already handed out. A binding still in its temporal dead zone is named too.
 `Jint.DevTools` answers `Runtime.globalLexicalScopeNames` over it, which is the console completion list in
 Chrome's front end; that command was `-32601` before.
+
+### 5.28 A function value names the program it was parsed in ([#3666](https://github.com/sebastienros/jint/issues/3666))
+
+[5.17](#517-a-frame-a-profile-frame-and-a-coverage-source-name-the-program-they-belong-to-3632) gave a call
+frame, a profile frame and a coverage source the program they belong to. A function *value* published only
+its declaration node — `Function.FunctionDeclaration` — so anything resolving "which script is this function
+in?" had to match the declaration's source *name*, and every sourceless `Execute` is `<anonymous>`.
+`Jint.Native.Function.Function.Program` closes it:
+
+```csharp
+const string declaration = "globalThis.fns = globalThis.fns || []; fns.push(function work() { return 1; });";
+engine.Execute(declaration);
+engine.Execute(declaration);   // two parses of one text, under one name
+
+var first = (Function) engine.Evaluate("fns[0]");
+var second = (Function) engine.Evaluate("fns[1]");
+first.Program.Should().NotBeSameAs(second.Program);   // each names its own parse
+```
+
+Same reference `DebugHandler.BeforeEvaluate` hands over and `engine.Advanced.TryGetSourceText` is keyed by,
+and the same contract: two engines sharing one `Prepared<Script>` answer the same program for the functions
+each built from it. `null` for a function with no declaration — a built-in, a host callable, a bound function
+— and for one declared in a program no execution context names, since an `eval` body and a `Function`
+constructor body are declined rather than attributed to the script that ran them.
+
+`Jint.DevTools` resolves `[[FunctionLocation]]`'s `scriptId` through it, which was the last thing in that
+package still matching a script by name.
 
 ## 6. AOT and trimming
 
