@@ -1,4 +1,4 @@
-namespace Jint.Runtime.Debugger;
+﻿namespace Jint.Runtime.Debugger;
 
 /// <summary>
 /// Walks a program and collects every position the debugger's step lane visits when the program runs
@@ -11,6 +11,11 @@ namespace Jint.Runtime.Debugger;
 /// <c>DebugHandler.OnReturnPoint</c>, which <c>ScriptFunction</c> raises at the end of every script function
 /// body. Every arm below cites the call site it mirrors; a change to either side without the other is what
 /// <c>StepLocationTests</c> fails on, running the corpus and comparing the two sets.
+/// <para>
+/// Nothing here reports the constructor a class with no explicit one borrows from
+/// <c>ClassDefinition</c>, because that AST is in no program - and nothing needs to, because the step
+/// lane does not pause in it either (<c>ClassDefinition.IsSynthesizedConstructor</c>).
+/// </para>
 /// </remarks>
 internal sealed class StepLocationCollector : AstVisitor
 {

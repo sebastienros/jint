@@ -1,4 +1,4 @@
-# Migrating from Jint 4.16 to Jint 5
+﻿# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -5161,6 +5161,29 @@ running before any promise reaction the first one queued. There is no switch: a 
 `dispatchEvent`, which is what the standard requires. A host that needs the old grouping has to queue the
 work it wants deferred as a task rather than as a promise reaction — `engine.Tasks.Post`, or a `setTimeout`
 on an engine with `WebApiFeatures.Timers`.
+### 4.121 Stepping crosses an implicit derived constructor instead of stopping inside it ([#3616](https://github.com/sebastienros/jint/issues/3616))
+
+A derived class that declares no constructor runs `constructor(...args) { super(...args); }` from an abstract
+syntax tree Jint parses once, at type initialization, out of a source string no host ever handed it. The
+debugger stepped through that body like any other, so a step into `new Derived()` stopped twice at positions
+whose `DebugInformation.Location` named a source no editor can open, and which
+`DebugHandler.GetStepLocations(program)` could not report because they are in no program:
+
+```js
+class Base { constructor() { this.x = 1; } }
+class Derived extends Base { }
+new Derived();
+// 5.0:  step, step at SourceFile null - then this.x = 1
+// 5.x:  straight to this.x = 1
+```
+
+The synthesized body is now transparent to the step lane, the way the empty constructor a *base* class with
+no constructor borrows already was: neither its statement nor its return point raises a pause. The base
+constructor's own body is stepped into exactly as before, which is where a browser's debugger lands too.
+
+**What could break:** a `Step` handler that counted pauses, or one written around the two locations with no
+source. Nothing else moves: the frames, the call stack and every location inside a program are unchanged, and
+the set `GetStepLocations` reports is now exactly the set a `StepMode.Into` run pauses at for such a class.
 
 ## 5. New in v5
 
