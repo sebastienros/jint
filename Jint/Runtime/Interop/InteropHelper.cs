@@ -87,9 +87,16 @@ internal sealed class InteropHelper
     /// Determines how well parameter type matches target method's type.
     /// </summary>
     private static int CalculateMethodParameterScore(Engine engine, ParameterInfo parameter, JsValue parameterValue)
-    {
-        var paramType = parameter.ParameterType;
+        => CalculateParameterTypeScore(engine, parameter.ParameterType, parameter.IsOptional, parameterValue);
 
+    /// <summary>
+    /// The same question asked of a bare <see cref="Type"/>, so that a value with no <see cref="ParameterInfo"/>
+    /// of its own - an element of a JavaScript array being rated against an array or collection parameter -
+    /// is scored by the very rules its parameter would be. Only the parameter's type and its optionality were
+    /// ever read, and an element is never optional.
+    /// </summary>
+    private static int CalculateParameterTypeScore(Engine engine, Type paramType, bool isOptional, JsValue parameterValue)
+    {
         // Special case: if parameter expects a JsValue-derived type (e.g., TypeReference),
         // check if the argument is of that exact type before calling ToObject().
         // This is important because ToObject() unwraps TypeReference to System.Type,
@@ -118,7 +125,7 @@ internal sealed class InteropHelper
 
         if (objectValue is null)
         {
-            if (!parameter.IsOptional && !TypeIsNullable(paramType))
+            if (!isOptional && !TypeIsNullable(paramType))
             {
                 // this is bad
                 return -1;
@@ -210,10 +217,9 @@ internal sealed class InteropHelper
             return 1;
         }
 
-        if (parameterValue.IsArray() && (paramType.IsArray || IsGenericCollectionType(paramType)))
+        if (parameterValue.IsArray() && TryGetCollectionElementType(paramType, out var elementType))
         {
-            // we have potential, TODO if we'd know JS array's internal type we could have exact match
-            return 2;
+            return CalculateArrayParameterScore(engine, elementType, parameterValue);
         }
 
         // not sure the best point to start generic type tests
@@ -269,6 +275,91 @@ internal sealed class InteropHelper
 
         // this is bad
         return -1;
+    }
+
+    /// <summary>What an array or collection parameter is worth before its elements are read.</summary>
+    private const int ArrayParameterBaseScore = 2;
+
+    /// <summary>How many of a JavaScript array's elements are rated against the parameter's element type.</summary>
+    private const int MaxScoredArrayElements = 8;
+
+    /// <summary>
+    /// Rates a JavaScript array against an array or generic-collection parameter by the elements it actually
+    /// holds, so that overloads differing only in element type are told apart rather than tied.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The score is the base plus the <em>worst</em> element, never their sum, so an array parameter's
+    /// contribution stays the same magnitude as a scalar's and a long array cannot outweigh the parameters
+    /// beside it. Exact elements therefore still answer 2, which is what every array parameter answered
+    /// before. It also never answers 0: a perfect score ends <see cref="FindBestMatch{TState}"/> outright
+    /// with a one-element candidate set, and an array argument has never been a perfect match.
+    /// </para>
+    /// <para>
+    /// Only the first <see cref="MaxScoredArrayElements"/> elements are read, and the cap is safe in both
+    /// directions. A tail that would have scored worse only reorders the candidates - the conversion still
+    /// validates every element, and since the composite branches of <c>DefaultTypeConverter.TryConvert</c>
+    /// now decline instead of throwing, a wrong order costs a decline and a move to the next candidate rather
+    /// than a failed call. A tail that would have scored better cannot promote a candidate past a rival the
+    /// prefix already ruled out, because a <c>-1</c> is returned on the first element that cannot bind at all.
+    /// </para>
+    /// <para>
+    /// That <c>-1</c> is the converter's own answer, reached through the same ladder
+    /// <c>MethodDescriptor.Call</c> will use to perform the conversion - the
+    /// <see href="https://github.com/sebastienros/jint/issues/3407">#3407</see> invariant applied one level
+    /// down, so the score cannot claim an element conversion the call then fails to perform. The recursion
+    /// terminates because each level strips one array rank off the <em>parameter</em> type, which is finite.
+    /// </para>
+    /// </remarks>
+    private static int CalculateArrayParameterScore(Engine engine, Type elementType, JsValue parameterValue)
+    {
+        // CARVE-OUT: an element type any JsValue is already assignable to - object, JsValue itself, or a base
+        // of it - answers for every element there could be, so reading them buys nothing and costs the
+        // candidate its place. params object[] and params JsValue[] are what a host writes for "anything",
+        // and rating their elements (5 for the catch-all object, 1 for an is-a JsValue) would hand the call
+        // to whatever scalar overload sits beside them.
+        if (elementType.IsAssignableFrom(typeof(JsValue)))
+        {
+            return ArrayParameterBaseScore;
+        }
+
+        // A Proxy reports itself as an array; reading its elements here would run its traps - user
+        // JavaScript - during overload scoring, so it keeps the base score the way it always had.
+        if (parameterValue is not Jint.Native.Array.ArrayInstance array)
+        {
+            return ArrayParameterBaseScore;
+        }
+
+        var length = array.GetLength();
+        if (length == 0)
+        {
+            // nothing to read: the candidates are genuinely indistinguishable and the base score is all there is
+            return ArrayParameterBaseScore;
+        }
+
+        var scoredElements = length < MaxScoredArrayElements ? length : (uint) MaxScoredArrayElements;
+        var worstElementScore = 0;
+        for (uint i = 0; i < scoredElements; i++)
+        {
+            if (!array.TryGetValue(i, out var element))
+            {
+                element = JsValue.Undefined;
+            }
+
+            var elementScore = CalculateParameterTypeScore(engine, elementType, isOptional: false, element);
+            if (elementScore < 0)
+            {
+                // an element this parameter cannot hold makes the whole array unbindable to it
+                return -1;
+            }
+
+            if (elementScore > worstElementScore)
+            {
+                worstElementScore = elementScore;
+            }
+        }
+
+        return ArrayParameterBaseScore + worstElementScore;
     }
 
     /// <summary>
@@ -340,6 +431,28 @@ internal sealed class InteropHelper
         return type.IsGenericType
                && type.GetGenericArguments().Length == 1
                && GenericCollectionTypeDefinitions.Contains(type.GetGenericTypeDefinition());
+    }
+
+    /// <summary>
+    /// The element type an array or single-argument generic collection parameter holds, which is what
+    /// <see cref="CalculateArrayParameterScore"/> rates a JavaScript array's elements against.
+    /// </summary>
+    private static bool TryGetCollectionElementType(Type type, [NotNullWhen(true)] out Type? elementType)
+    {
+        if (type.IsArray)
+        {
+            elementType = type.GetElementType();
+            return elementType is not null;
+        }
+
+        if (IsGenericCollectionType(type))
+        {
+            elementType = type.GetGenericArguments()[0];
+            return true;
+        }
+
+        elementType = null;
+        return false;
     }
 
     internal static bool TypeIsNullable(Type type)
