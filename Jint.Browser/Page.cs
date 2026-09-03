@@ -399,6 +399,23 @@ public sealed partial class Page : IAsyncDisposable
     /// <summary>The watcher, for the navigation half of this type.</summary>
     internal IPageObserver? Observer => _observer;
 
+    /// <summary>How many turns this page's loop has taken since the page opened.</summary>
+    /// <remarks>
+    /// <para>
+    /// The one thing on <see cref="Page"/> that is <b>not</b> a mailbox request: it is a volatile read of a
+    /// number the loop publishes, safe from any thread and costing the loop nothing to be asked. A turn is a
+    /// bracketed mailbox request or a <c>ProcessTasks</c> drain — <see cref="PageLoop.Turns"/> is the
+    /// definition, including what a navigation and a pump each count as.
+    /// </para>
+    /// <para>
+    /// It exists so that a scheduling test can say <i>which turn</i> something happened on rather than only
+    /// that it eventually did. Read from the loop thread — from inside a request, or from a host function a
+    /// script calls — it is the ordinal of the turn currently running, so two readings that agree happened in
+    /// the same turn.
+    /// </para>
+    /// </remarks>
+    internal int LoopTurns => _loop.Turns;
+
     /// <summary>The identifier of the document currently loaded, which every lifecycle signal carries.</summary>
     internal string LoaderId => _loaderId;
 

@@ -591,6 +591,71 @@ public sealed class ActivationBehaviorTests
     }
 
     /// <summary>
+    /// The same scheduling, measured against the <b>loop's</b> own turns rather than the script's: the
+    /// <c>hashchange</c> listener runs on the turn the click was made on, and not on a later one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The test above pins the script's half of the measurement the page runtime's <c>AGENTS.md</c> made by
+    /// hand — "turn 20 of 20; turn 1 now" — by counting the ticks a page had to spin through. This pins the
+    /// loop's half, and nothing did before: <c>Page.LoopTurns</c> is the ordinal of the turn the loop is
+    /// currently taking, so a click and a listener that read the same number ran in the same one.
+    /// </para>
+    /// <para>
+    /// It is the difference the fix made rather than a restatement of it. Sending the fragment arm of
+    /// <i>navigate</i> round the thread pool and the navigation gate made the commit come back as a mailbox
+    /// request, which is a <i>later turn by construction</i> however few timers were queued in front of it;
+    /// a job on the engine's own queue is delivered by the drain the evaluation performs on its way out,
+    /// before the turn that clicked has ended.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task AFragmentLinkFiresHashChangeOnTheTurnTheClickWasMadeOn()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<a id='go'>go</a><p id='target'>t</p>");
+
+        // Installed on the engine the document ended up with, from the loop, the way a protocol client
+        // installs a binding. Reading the count is a volatile read of a number this very thread publishes.
+        await page.RunOnLoopAsync(engine =>
+        {
+            engine.SetValue("loopTurn", new Func<double>(() => page.LoopTurns));
+            return true;
+        });
+
+        await page.EvaluateAsync(
+            """
+            window.clicked = -1;
+            window.heard = -2;
+            window.ticks = 0;
+            window.onhashchange = () => { window.heard = loopTurn(); };
+            // The absolute form, because resolving a bare `#target` is AngleSharp's and it mangles an
+            // `about:blank` base; what is measured here is when the navigation lands, not how it resolved.
+            document.getElementById('go').setAttribute('href', location.href + '#target');
+            window.clicked = loopTurn();
+            document.getElementById('go').click();
+            (function tick() {
+              window.ticks++;
+              if (window.ticks < 20 && window.heard < 0) { setTimeout(tick, 0); }
+            })();
+            """);
+
+        await page.WaitForIdleAsync(TimeSpan.FromSeconds(5));
+
+        var clicked = await page.EvaluateAsync<double>("window.clicked");
+        var heard = await page.EvaluateAsync<double>("window.heard");
+
+        clicked.Should().BeGreaterThan(0, "the click ran on a turn of the loop");
+        heard.Should().Be(clicked, "the fragment move is a job on the engine's own queue, so it is delivered before the turn that clicked ends");
+
+        // And the number moves, so the equality above is two things in one turn rather than a counter that
+        // never advanced: the idle wait and the two reads after it are turns of their own.
+        ((double) page.LoopTurns).Should().BeGreaterThan(clicked);
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) — step 1 of the
     /// checkbox and radio activation behaviours is "if the element is not connected, then return", so a
     /// detached control toggles silently.
