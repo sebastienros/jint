@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Text;
 using AngleSharp.Html.Dom;
 using Jint.Browser.Runtime;
@@ -747,6 +747,14 @@ public sealed partial class Page
         if (_observer is not { } observer)
         {
             return;
+        }
+
+        // Before the phase, because the phase is what a watcher forwards to a client and the tree has to be
+        // observable by the time one can act on it. The commit is the one point where the runtime is worth
+        // carrying: the other two are reported after a listener of this document could have navigated away.
+        if (phase == NavigationPhase.Committed)
+        {
+            observer.DocumentParsed(runtime, loaderId);
         }
 
         observer.Phase(phase, loaderId);

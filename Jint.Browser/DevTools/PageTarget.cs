@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Jint.Browser.Runtime;
 using Jint.DevTools;
 using Jint.DevTools.Domains;
@@ -35,7 +35,6 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     private readonly Action<PageTarget>? _closed;
 
     private PageDomain[] _domains = [];
-    private PageRuntime? _runtime;
 
     private PageTarget(Page page, string? browserContextId, bool waitForDebuggerOnStart, Action<PageTarget>? closed)
         : base(
@@ -241,7 +240,6 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
 
         // Before the swap, because the swap is what tells every DOM domain to announce documentUpdated and a
         // client that acted on it must find the identifiers already gone rather than resolving one more time.
-        _runtime = runtime;
         Nodes.DocumentReplaced();
 
         Replace(runtime.Engine);
@@ -249,15 +247,15 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The first moment the document exists and the parse is over, which is when a client's view of the tree
+    /// can start being kept current. Idempotent, and a no-op while nobody has enabled the <c>DOM</c> domain.
+    /// </remarks>
+    void IPageObserver.DocumentParsed(PageRuntime runtime, string loaderId) => Nodes.Watch(runtime);
+
+    /// <inheritdoc/>
     void IPageObserver.Phase(NavigationPhase phase, string loaderId)
     {
-        if (phase == NavigationPhase.Committed && _runtime is { } runtime)
-        {
-            // The first moment the document exists and the parse is over, which is when a client's view of
-            // the tree can start being kept current. Idempotent, and a no-op while nobody has enabled DOM.
-            Nodes.Watch(runtime);
-        }
-
         foreach (var domain in Snapshot())
         {
             domain.Phase(phase, loaderId);
