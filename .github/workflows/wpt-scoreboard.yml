@@ -213,9 +213,9 @@ jobs:
     # comparison with. It is also the flag that decides how long this job takes, because the run's cost is
     # dominated by the cases that fail by *not reporting*: a `<meta name=timeout content=long>` file is 60
     # seconds each time, and `html/semantics/scripting-1/the-script-element/moving-between-documents/` alone
-    # is 52 of them, every one of which currently times out on one defect (a <script src> whose fetch fails
-    # fires neither load nor error, so the harness never completes). At 2 that one directory is an hour and
-    # three quarters of this job on its own.
+    # is 52 of them, every one of which waits for a message posted by script running inside an <iframe> --
+    # and iframes run no script in this version, by design, so the harness never completes. At 2 that one
+    # directory is an hour and three quarters of this job on its own.
     - name: Run the suites
       shell: bash
       working-directory: wpt

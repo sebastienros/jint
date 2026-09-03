@@ -120,9 +120,10 @@ cd wpt && ./wpt --venv ../.wpt-venv run jint-browser \
 
 The wall time is dominated by the cases that fail by **not reporting**: a document that never completes
 costs its whole timeout, and a `<meta name=timeout content=long>` file's timeout is 60 seconds.
-`html/semantics/scripting-1/the-script-element/moving-between-documents/` is 52 of those, and at the time of
-writing every one of them times out on the same defect — a `<script src>` whose fetch fails fires neither
-`load` nor `error`, so the harness never finishes — so that one directory is most of an hour.
+`html/semantics/scripting-1/the-script-element/moving-between-documents/` is 52 of those, and every one of
+them waits for a message posted by script running inside an `<iframe>` — and iframes run no script in this
+version, by design (`docs/design/headless-browser.md` keeps that for a later phase), so the harness never
+finishes — so that one directory is most of an hour, and will be until iframes run script.
 
 **There is therefore no `--timeout-multiplier`**, and the reason is not only cost. Every per-test timeout in
 the corpus is the test author's, and wpt.fyi's published figures are taken at the default of 1; a scoreboard
