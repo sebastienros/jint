@@ -60,10 +60,12 @@ internal sealed partial class WebSocketConstructor : Constructor
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>There is no base URL.</b> The specification parses <c>url</c> against "the relevant settings
-    /// object's API base URL", which is a document's URL; an embedded engine has no document, so a relative
-    /// URL simply does not parse and is the <c>SyntaxError</c> step 3 asks for. Pass an absolute URL, or
-    /// resolve it yourself with <c>new URL(relative, base).href</c>.
+    /// <b>The base URL is <c>Options.WebApi.Fetch.BaseUrl</c>.</b> The specification parses <c>url</c>
+    /// against "the relevant settings object's API base URL", which is a document's URL, and an embedded
+    /// engine's stand-in for that is the one setting <c>fetch</c> and <c>new Request()</c> already resolve
+    /// against — a browsing position is one position, not one per interface. An engine whose host named none
+    /// has no document at all, and a relative URL then does not parse and is the <c>SyntaxError</c> step 3
+    /// asks for, exactly as before.
     /// </para>
     /// <para>
     /// Steps 4 and 5 — <c>http</c> becomes <c>ws</c> and <c>https</c> becomes <c>wss</c> — are the
@@ -80,8 +82,9 @@ internal sealed partial class WebSocketConstructor : Constructor
 
         var href = UrlValues.ToUsvString(arguments[0]);
 
-        // Steps 2 and 3.
-        var url = UrlParser.Parse(href);
+        // Steps 2 and 3. The base is read off the engine's parsed network context rather than from Options,
+        // so a relative URL costs no re-parse of the base and reaches the same record fetch resolves against.
+        var url = UrlParser.Parse(href, _engine._webApi?.FetchNetwork.BaseUrl);
         if (url is null)
         {
             ThrowSyntaxError($"Failed to construct 'WebSocket': The URL '{href}' is invalid.");

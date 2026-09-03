@@ -601,6 +601,9 @@ public sealed partial class Options
         /// <c>new Request("./x")</c> raise a <c>TypeError</c>, which is what an engine with no document has
         /// always done; with one they resolve exactly as https://url.spec.whatwg.org/#concept-basic-url-parser
         /// says, so <c>new URL(relative, base).href</c> is no longer the caller's job.
+        /// <c>XMLHttpRequest.open()</c> and <c>new WebSocket()</c> read it too — it is one browsing position,
+        /// not one per interface — and a <c>WebSocket</c> with no base still raises the <c>SyntaxError</c>
+        /// https://websockets.spec.whatwg.org/#dom-websocket-websocket step 3 asks for.
         /// </para>
         /// <para>
         /// Redirects are unaffected: a <c>Location</c> is resolved against the URL that answered it, which is

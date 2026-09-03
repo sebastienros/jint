@@ -373,6 +373,46 @@ public class WebSocketTests
     }
 
     /// <summary>
+    /// Step 2 parses the URL against the API base URL, which for an embedded engine is
+    /// <c>Options.WebApi.Fetch.BaseUrl</c> — the same setting <c>fetch</c> and <c>new Request()</c> resolve
+    /// against, since it is one browsing position rather than one per interface.
+    /// </summary>
+    /// <remarks>
+    /// https://websockets.spec.whatwg.org/#dom-websocket-websocket step 2, and
+    /// https://url.spec.whatwg.org/#concept-basic-url-parser for what a base does. The scheme mapping of
+    /// steps 4 and 5 runs afterwards, so an <c>https</c> base makes a relative URL a <c>wss</c> socket.
+    /// </remarks>
+    [TestCase("/socket", "wss://example.org/socket")]
+    [TestCase("socket", "wss://example.org/app/socket")]
+    [TestCase("./socket?x=1", "wss://example.org/app/socket?x=1")]
+    [TestCase("//other.example/socket", "wss://other.example/socket")]
+    [TestCase("ws://elsewhere.example/s", "ws://elsewhere.example/s")]
+    public void ResolvesARelativeUrlAgainstTheApiBaseUrl(string input, string expected)
+    {
+        var (engine, sockets) = SocketEngine(fetch => fetch.BaseUrl = new Uri("https://example.org/app/page.html"));
+
+        engine.Execute($"var ws = new WebSocket('{input}');");
+
+        engine.Evaluate("ws.url").AsString().Should().Be(expected);
+        sockets.Last.Url.Should().Be(new Uri(expected));
+    }
+
+    /// <summary>
+    /// With no base URL a relative one still does not parse, which is the <c>SyntaxError</c> step 3 asks for
+    /// and what every engine did before there was a base URL to resolve against.
+    /// </summary>
+    [Test]
+    public void WithNoBaseUrlARelativeUrlIsStillASyntaxError()
+    {
+        var (engine, sockets) = SocketEngine();
+
+        var thrown = Assert.Throws<JavaScriptException>(() => engine.Execute("new WebSocket('/socket');"))!;
+
+        thrown.Error.Get("name").AsString().Should().Be("SyntaxError");
+        sockets.Created.Should().BeEmpty();
+    }
+
+    /// <summary>
     /// Steps 3, 6 and 7: an unparsable URL, a scheme that is not one of the four, and a fragment.
     /// </summary>
     [TestCase("not a url")]
