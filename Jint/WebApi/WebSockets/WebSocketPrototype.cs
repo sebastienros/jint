@@ -261,88 +261,49 @@ internal sealed partial class WebSocketPrototype : Prototype
     /// https://websockets.spec.whatwg.org/#handler-websocket-onopen
     /// </summary>
     [JsAccessor("onopen", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnOpenGet(JsValue thisObject) => HandlerGet(thisObject, JsWebSocket.OpenEventType);
+    private JsValue OnOpenGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsWebSocket.OpenEventType);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onopen, setter half.
     /// </summary>
     [JsAccessor("onopen", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnOpenSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, value, JsWebSocket.OpenEventType);
+    private JsValue OnOpenSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsWebSocket.OpenEventType, value);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onmessage
     /// </summary>
     [JsAccessor("onmessage", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnMessageGet(JsValue thisObject) => HandlerGet(thisObject, JsWebSocket.MessageEventType);
+    private JsValue OnMessageGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsWebSocket.MessageEventType);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onmessage, setter half.
     /// </summary>
     [JsAccessor("onmessage", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnMessageSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, value, JsWebSocket.MessageEventType);
+    private JsValue OnMessageSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsWebSocket.MessageEventType, value);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onerror
     /// </summary>
     [JsAccessor("onerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnErrorGet(JsValue thisObject) => HandlerGet(thisObject, JsWebSocket.ErrorEventType);
+    private JsValue OnErrorGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsWebSocket.ErrorEventType);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onerror, setter half.
     /// </summary>
     [JsAccessor("onerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnErrorSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, value, JsWebSocket.ErrorEventType);
+    private JsValue OnErrorSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsWebSocket.ErrorEventType, value);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onclose
     /// </summary>
     [JsAccessor("onclose", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnCloseGet(JsValue thisObject) => HandlerGet(thisObject, JsWebSocket.CloseEventType);
+    private JsValue OnCloseGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsWebSocket.CloseEventType);
 
     /// <summary>
     /// https://websockets.spec.whatwg.org/#handler-websocket-onclose, setter half.
     /// </summary>
     [JsAccessor("onclose", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnCloseSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, value, JsWebSocket.CloseEventType);
-
-    /// <summary>
-    /// An event handler IDL attribute's getter,
-    /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes: whatever was
-    /// assigned, or null.
-    /// </summary>
-    private JsValue HandlerGet(JsValue thisObject, string type)
-        => Brand(thisObject).FindEventHandler(type)?.Callback ?? Null;
-
-    /// <summary>
-    /// An event handler IDL attribute's setter. <c>EventHandler</c> is <c>[LegacyTreatNonObjectAsNull]</c>, so
-    /// assigning anything that is not an object clears the handler instead of raising; an object that is not
-    /// callable is stored and read back but never invoked. Reassigning replaces the value in place, so the
-    /// handler keeps the position it first took among the <c>addEventListener</c> listeners.
-    /// </summary>
-    private JsValue HandlerSet(JsValue thisObject, JsValue value, string type)
-    {
-        var socket = Brand(thisObject);
-        var existing = socket.FindEventHandler(type);
-
-        if (value is not ObjectInstance)
-        {
-            if (existing is not null)
-            {
-                socket.RemoveListener(existing);
-            }
-
-            return Undefined;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return Undefined;
-        }
-
-        socket.AddListener(new EventListenerRegistration(type, value) { IsEventHandler = true });
-        return Undefined;
-    }
+    private JsValue OnCloseSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsWebSocket.CloseEventType, value);
 
     /// <summary>
     /// The bytes to put on the wire, and whether they are a text frame — the

@@ -1107,5 +1107,44 @@ public class WebSocketTests
         engine.Execute("ws.onopen = null;");
         engine.Evaluate("ws.onopen").IsNull().Should().BeTrue();
     }
+
+    /// <summary>
+    /// The rest of what an event handler IDL attribute is —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes — read on a
+    /// <c>WebSocket</c>: the handler is <b>one entry of the object's own listener list</b> that keeps the
+    /// position it first took, a non-object clears it (<c>[LegacyTreatNonObjectAsNull]</c>), and an object
+    /// that is not callable is stored and read back but never invoked.
+    /// </summary>
+    [Test]
+    public void AHandlerAttributeKeepsItsPositionAndTakesANonObjectAsNull()
+    {
+        var (engine, sockets) = OpenSocket("""
+            ws.onmessage = () => log.push('handler');
+            ws.addEventListener('message', () => log.push('listener'));
+            ws.onmessage = () => log.push('replaced');
+            """);
+
+        sockets.Last.Deliver(WebSocketReceipt.Message(isText: true, "a"u8.ToArray()));
+        PumpUntilLogged(engine, 3);
+
+        // Reassigning replaced the callback in place, so the handler still runs before a listener added after
+        // it — a remove-and-add would have put it last.
+        Log(engine).Should().Be("open:1:|replaced|listener");
+
+        engine.Execute("ws.onmessage = 42;");
+        engine.Evaluate("ws.onmessage").IsNull().Should().BeTrue();
+
+        sockets.Last.Deliver(WebSocketReceipt.Message(isText: true, "b"u8.ToArray()));
+        PumpUntilLogged(engine, 4);
+        Log(engine).Should().Be("open:1:|replaced|listener|listener");
+
+        // An object that is not callable is kept and read back, and the dispatch simply passes it over.
+        engine.Execute("var bag = {}; ws.onmessage = bag;");
+        engine.Evaluate("ws.onmessage === bag").AsBoolean().Should().BeTrue();
+
+        sockets.Last.Deliver(WebSocketReceipt.Message(isText: true, "c"u8.ToArray()));
+        PumpUntilLogged(engine, 5);
+        Log(engine).Should().Be("open:1:|replaced|listener|listener|listener");
+    }
 }
 #endif

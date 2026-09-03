@@ -74,19 +74,19 @@ internal sealed partial class EventSourcePrototype : Prototype
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onopen
     /// </summary>
     [JsAccessor("onopen", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnOpenGet(JsValue thisObject) => HandlerGet(thisObject, JsEventSource.OpenEventType);
+    private JsValue OnOpenGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsEventSource.OpenEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onopen, setter half.
     /// </summary>
     [JsAccessor("onopen", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnOpenSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, JsEventSource.OpenEventType, value);
+    private JsValue OnOpenSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsEventSource.OpenEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onmessage
     /// </summary>
     [JsAccessor("onmessage", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnMessageGet(JsValue thisObject) => HandlerGet(thisObject, EventStreamParser.DefaultEventType);
+    private JsValue OnMessageGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), EventStreamParser.DefaultEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onmessage, setter
@@ -95,13 +95,13 @@ internal sealed partial class EventSourcePrototype : Prototype
     /// custom event types worth sending.
     /// </summary>
     [JsAccessor("onmessage", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnMessageSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, EventStreamParser.DefaultEventType, value);
+    private JsValue OnMessageSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), EventStreamParser.DefaultEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onerror
     /// </summary>
     [JsAccessor("onerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnErrorGet(JsValue thisObject) => HandlerGet(thisObject, JsEventSource.ErrorEventType);
+    private JsValue OnErrorGet(JsValue thisObject) => EventHandlerAttributes.Get(Brand(thisObject), JsEventSource.ErrorEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#handler-eventsource-onerror, setter
@@ -110,7 +110,7 @@ internal sealed partial class EventSourcePrototype : Prototype
     /// whether this one is retrying (<c>CONNECTING</c>) or over (<c>CLOSED</c>).
     /// </summary>
     [JsAccessor("onerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
-    private JsValue OnErrorSet(JsValue thisObject, JsValue value) => HandlerSet(thisObject, JsEventSource.ErrorEventType, value);
+    private JsValue OnErrorSet(JsValue thisObject, JsValue value) => EventHandlerAttributes.Set(Brand(thisObject), JsEventSource.ErrorEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#dom-eventsource-close — "must abort any
@@ -121,50 +121,6 @@ internal sealed partial class EventSourcePrototype : Prototype
     private JsValue Close(JsValue thisObject)
     {
         Brand(thisObject).Close();
-        return Undefined;
-    }
-
-    /// <summary>
-    /// The getter half of an event handler IDL attribute,
-    /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes.
-    /// </summary>
-    private JsValue HandlerGet(JsValue thisObject, string type)
-        => Brand(thisObject).FindEventHandler(type)?.Callback ?? Null;
-
-    /// <summary>
-    /// The setter half. <c>EventHandler</c> is a nullable callback function annotated
-    /// <c>[LegacyTreatNonObjectAsNull]</c>, so assigning anything that is not an object clears the handler
-    /// rather than raising a <c>TypeError</c>; an object that is not callable is stored and read back but
-    /// never invoked.
-    /// </summary>
-    /// <remarks>
-    /// The handler is one entry of the object's own event listener list, so it takes its turn in registration
-    /// order among the <c>addEventListener</c> listeners rather than running before or after all of them.
-    /// Reassigning replaces the value in place — the entry keeps the position it was first given — and
-    /// assigning a non-object removes the entry outright.
-    /// </remarks>
-    private JsValue HandlerSet(JsValue thisObject, string type, JsValue value)
-    {
-        var source = Brand(thisObject);
-        var existing = source.FindEventHandler(type);
-
-        if (value is not ObjectInstance)
-        {
-            if (existing is not null)
-            {
-                source.RemoveListener(existing);
-            }
-
-            return Undefined;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return Undefined;
-        }
-
-        source.AddListener(new EventListenerRegistration(type, value) { IsEventHandler = true });
         return Undefined;
     }
 

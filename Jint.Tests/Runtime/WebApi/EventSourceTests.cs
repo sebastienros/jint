@@ -883,5 +883,51 @@ public class EventSourceTests
         engine.Evaluate("(() => { try { EventSource.prototype.close.call({}); } catch (e) { return e.constructor.name; } })()")
             .AsString().Should().Be("TypeError");
     }
+
+    /// <summary>
+    /// What an event handler IDL attribute is —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes — read on an
+    /// <c>EventSource</c>: the handler is <b>one entry of the object's own listener list</b> that keeps the
+    /// position it first took, a non-object clears it (<c>[LegacyTreatNonObjectAsNull]</c>), and an object
+    /// that is not callable is stored and read back but never invoked.
+    /// </summary>
+    [Test]
+    public void AHandlerAttributeKeepsItsPositionAndTakesANonObjectAsNull()
+    {
+        var stream = new PushStream();
+        var handler = new StubHandler { Responder = _ => Answer(stream) };
+        var (engine, _) = SseEngine(handler);
+
+        engine.Execute($"""
+            var es = new EventSource('{StreamUrl}');
+            es.onmessage = () => log.push('handler');
+            es.addEventListener('message', () => log.push('listener'));
+            es.onmessage = () => log.push('replaced');
+            """);
+
+        stream.Push("data: one\n\n");
+        PumpUntilLogHas(engine, 2, "both message handlers");
+
+        // Reassigning replaced the callback in place, so the handler still runs before a listener added after
+        // it — a remove-and-add would have put it last.
+        Log(engine, 2).Should().Be("replaced|listener");
+
+        engine.Execute("es.onmessage = 42;");
+        engine.Evaluate("es.onmessage").IsNull().Should().BeTrue();
+
+        stream.Push("data: two\n\n");
+        PumpUntilLogHas(engine, 3, "the listener alone");
+        Log(engine, 3).Should().Be("replaced|listener|listener");
+
+        // An object that is not callable is kept and read back, and the dispatch simply passes it over.
+        engine.Execute("var bag = {}; es.onmessage = bag;");
+        engine.Evaluate("es.onmessage === bag").AsBoolean().Should().BeTrue();
+
+        stream.Push("data: three\n\n");
+        PumpUntilLogHas(engine, 4, "the listener alone again");
+        Log(engine, 4).Should().Be("replaced|listener|listener|listener");
+
+        stream.Complete();
+    }
 }
 #endif
