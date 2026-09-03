@@ -139,6 +139,13 @@ server is process-wide for the reason the engine lane's is; the browser holds no
 is worth building per fixture. What *is* per case is the isolation that matters: its own cookie jar, its own
 storage partition, its own thread, its own engine, its own realm.
 
+**A page that never yields hangs the lane, and nothing here can stop it.** The driver's deadline is a wait on
+another thread, so it ends a page that is *idle and not done* and not one whose engine is in a loop; with
+`MaxTaskDuration` infinite (below) there is no constraint armed either. Four `dom/traversal/` documents found
+this — a `TreeWalker` walk that does not terminate — and they are `NotVendored` rows saying so. A new suite that
+wedges the run rather than failing it is that shape, and the reason is a defect worth filing rather than a
+document worth deleting.
+
 * **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** R6 brackets every page turn with it and
   reports a `PageErrorKind.BudgetExceeded`; a legitimately slow wpt file would be cut mid-script and the
   failure would read as an engine defect three layers from its cause. The bound here is the **driver's own**
@@ -154,15 +161,17 @@ storage partition, its own thread, its own engine, its own realm.
   `WaitForIdleAsync` in short slices until the completion callback has fired, and a slice that comes back idle
   waits off the page's own thread rather than spinning on it.
 
-### The exclusion table, the four categories, and where a divergence goes
+### The exclusion table, the five categories, and where a divergence goes
 
 The rule is the engine lane's, unchanged: **an entry must match at least one failing test and no passing one**,
 so a fix, a rename or a corpus bump makes the run fail until the table is brought back in line, and a `*` glob
 can never widen into a blanket. `WptBrowserExclusions` holds all three tables — what is not vendored, the
 minimum-test counts, and the exclusions — because the runner is a driver and those are an inventory.
 
-The vocabulary is `WptDivergence`, shared. Four of its members exist for this lane and say so on themselves:
-`NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb` and `NeedsTestDriver`. **`NeedsTestDriver` has no
+The vocabulary is `WptDivergence`, shared. Five of its members exist for this lane and say so on themselves:
+`NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb`, `NeedsTestDriver` and `NeedsXmlDocuments` — the last of
+which is `NeedsMoreEventInterfaces`'s shape rather than `NeedsTriage`'s: a page here parses HTML, AngleSharp builds
+no XML document, and the rows name what would move them rather than a fix somebody owes. **`NeedsTestDriver` has no
 entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
 `Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
 five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs

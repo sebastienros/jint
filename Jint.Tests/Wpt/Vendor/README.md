@@ -379,7 +379,15 @@ corpus.
 | `html/webappapis/scripting/events/` | 12 `.html` | HTML's event-handler attributes: compilation, ordering, source text |
 | `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |
 | `html/webappapis/scripting/processing-model-2/support/` | 2 `.js` | The two failing scripts those documents load |
-| `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — vendored alone, because without it that document silently reported **one** of its twenty-five tests |
+| `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — once vendored alone, because without it that document silently reported **one** of its twenty-five tests |
+| `dom/nodes/` | 159 `.html`/`.htm`, 15 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,364 tests |
+| `dom/collections/`, `dom/lists/` | 13 `.html` | `HTMLCollection`, `NamedNodeMap`, `DOMStringMap` and `DOMTokenList` |
+| `dom/traversal/` | 9 `.html` | `NodeIterator` and `TreeWalker` |
+| `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |
+| `dom/ranges/` | 17 `.html` | The `Range` and `StaticRange` documents that do not load `dom/common.js`; the twenty-four that do are not-vendored rows |
+| `html/dom/` | 5 `.html` | ARIA reflection, `accessKeyLabel` and HTML's historical members. **Not** the ten `reflection-*.html` documents — see the browser lane's README |
+| `dom/constants.js` | 1 | The `Node` and `NodeFilter` constant tables, shared by `dom/nodes/` and `dom/traversal/` |
+| `dom/common.js` is *not* here | — | It calls `document.createCDATASection` at file scope, which the bindings do not have, so every document that loads it reports nothing at all |
 
 **Nine more cases exist that are not files here.** wptserve manufactures a `<name>.any.html` document for each
 `.any.js`, and `WptServerWrappers` is the port of that handler — so `dom/events/`'s nine `.any.js` files run a
@@ -1598,9 +1606,9 @@ cd Jint.Tests/Wpt/Vendor
 SHA=$(grep -oE '\b[0-9a-f]{40}\b' README.md | head -1)
 
 # every extension the corpus vendors, so a bump that brings a new one in is walked rather than skipped
-TYPES='-name *.asis -o -name *.headers -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
+TYPES='-name *.asis -o -name *.headers -o -name *.htm -o -name *.html -o -name *.js -o -name *.json -o -name *.txt -o -name *.xhtml -o -name *.xml'
 
-# one call per directory that holds a vendored file (71 at this pin)
+# one call per directory that holds a vendored file (78 at this pin)
 for d in $(find . -type f \( $TYPES \) -printf '%h\n' | sort -u | sed 's|^\./||'); do
   gh api "repos/web-platform-tests/wpt/contents/$d?ref=$SHA" \
      --jq '.[] | select(.type=="file") | "\(.sha) \(.path)"'
@@ -1614,8 +1622,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 639 files in 71 directories to be silent
-about — 140 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 860 files in 78 directories to be silent
+about — 344 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->
@@ -1624,7 +1632,16 @@ Run over every one of them at this pin: **no drift, and no file absent upstream*
 walk and were checked by name in the same run — `compression/third_party/pako/`'s `LICENSE` and `README` carry
 no extension, `wpt-LICENSE.md` is upstream's own `LICENSE.md` under a name that says what it is (blob
 `39c46d03ac2988226f949ee7ab3c7347d5481bd8`, which is what upstream has at that commit), and this README is
-Jint's own — 642 files compared against upstream, and 642 agreeing.
+Jint's own — 863 files compared against upstream, and 863 agreeing.
+
+The six DOM suites the browser lane added were verified a second way, which is worth writing down because
+it needs no token and no network. A blob id is `git hash-object` of the content whoever computes it, so a
+**local clone at the pin** answers the same question the `gh api` walk does: `git -C <wpt> rev-parse
+HEAD:<path>` against `git hash-object <path>` here, over every vendored file. That is how those 222 files
+were copied in the first place — `git show HEAD:<path>` out of such a clone — and running the comparison
+over the whole tree afterwards is the check, not the copy: 862 files, no drift, nothing absent upstream
+(the 863rd is `wpt-LICENSE.md`, whose blob id the paragraph above states).
+Use it when a clone is to hand and the recipe above when one is not; they compare the same bytes.
 
 The figures above are what say which corpus that run was a run *of*: they were four vendored suites out of
 date when [#3647](https://github.com/sebastienros/jint/issues/3647) was filed, and the recipe was walking five

@@ -47,6 +47,24 @@ public class WptBrowserTestRunner
     [TestCaseSource(nameof(DomEventsCases))]
     public Task RunsTheDomEventsSuite(string path) => RunCaseAsync(path);
 
+    [TestCaseSource(nameof(DomNodesCases))]
+    public Task RunsTheDomNodesSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(DomCollectionsCases))]
+    public Task RunsTheDomCollectionsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(DomListsCases))]
+    public Task RunsTheDomListsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(DomTraversalCases))]
+    public Task RunsTheDomTraversalSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(DomRangesCases))]
+    public Task RunsTheDomRangesSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(HtmlDomCases))]
+    public Task RunsTheHtmlDomSuite(string path) => RunCaseAsync(path);
+
     [TestCaseSource(nameof(ScriptingEventsCases))]
     public Task RunsTheScriptingEventsSuite(string path) => RunCaseAsync(path);
 
@@ -66,6 +84,18 @@ public class WptBrowserTestRunner
     public Task RunsTheCustomElementsUpgradingSuite(string path) => RunCaseAsync(path);
 
     public static IEnumerable<object[]> DomEventsCases() => Cases("dom/events");
+
+    public static IEnumerable<object[]> DomNodesCases() => Cases("dom/nodes");
+
+    public static IEnumerable<object[]> DomCollectionsCases() => Cases("dom/collections");
+
+    public static IEnumerable<object[]> DomListsCases() => Cases("dom/lists");
+
+    public static IEnumerable<object[]> DomTraversalCases() => Cases("dom/traversal");
+
+    public static IEnumerable<object[]> DomRangesCases() => Cases("dom/ranges");
+
+    public static IEnumerable<object[]> HtmlDomCases() => Cases("html/dom");
 
     public static IEnumerable<object[]> ScriptingEventsCases() => Cases("html/webappapis/scripting/events");
 
@@ -155,7 +185,7 @@ public class WptBrowserTestRunner
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
 
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
-        cases.Should().HaveCountGreaterThan(130, "the lane runs the documents of seven suites");
+        cases.Should().HaveCountGreaterThan(330, "the lane runs the documents of thirteen suites");
     }
 
     /// <summary>
