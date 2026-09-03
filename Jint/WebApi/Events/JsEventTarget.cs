@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Diagnostics.CodeAnalysis;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -261,13 +262,56 @@ internal class JsEventTarget : ObjectInstance
     internal virtual JsEventTarget GetRoot()
     {
         var root = this;
+        var depth = 0;
         while (root.TreeParent is { } parent)
         {
+            if (++depth > MaxTreeDepth)
+            {
+                ThrowCyclicTree(this, nameof(TreeParent));
+            }
+
             root = parent;
         }
 
         return root;
     }
+
+    /// <summary>
+    /// The most targets one walk up a host's tree may visit before the tree is refused as cyclic.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every walk this file and <see cref="EventDispatch"/> make is over a host's answers —
+    /// <see cref="GetParent"/>, <see cref="TreeParent"/>, <see cref="ShadowHost"/> — and none of them is
+    /// script, so no execution constraint counts a step. A host that names a target twice would build an
+    /// event path without end, and a page would hang rather than throw.
+    /// </para>
+    /// <para>
+    /// The number is far above any tree an event is dispatched over: a browser's own parser caps element
+    /// nesting in the hundreds, and <c>Jint.Browser</c> bounds a whole page besides. The check costs one
+    /// increment per step, which is what a real tree may be asked to pay; a revisit set would allocate on
+    /// every dispatch to catch the broken host that never comes.
+    /// </para>
+    /// </remarks>
+    internal const int MaxTreeDepth = 10_000;
+
+    /// <summary>
+    /// Reports a host tree that does not end: the walk named by <paramref name="seam"/> passed
+    /// <see cref="MaxTreeDepth"/> targets without reaching the top.
+    /// </summary>
+    /// <remarks>
+    /// It is a host-contract violation rather than a script error, so it is the same
+    /// <see cref="InvalidOperationException"/> every other one is and script cannot catch it — a page
+    /// swallowing the engine's only report of the bug would put the host back where it started. The message
+    /// names the offending type rather than the target, because rendering a target is a way to run script.
+    /// </remarks>
+    [DoesNotReturn]
+    internal static void ThrowCyclicTree(JsEventTarget target, string seam) =>
+        Throw.InvalidOperationException(
+            "Walking up from a " + target.GetType().Name + " passed " + MaxTreeDepth
+            + " targets without reaching the top of the tree, so JsEventTarget." + seam
+            + " is answering a cycle, or a chain that does not end. It has to answer null eventually: an "
+            + "event path, and the tree root that path is measured against, are both finite.");
 
     /// <summary>
     /// Whether one dispatch of <paramref name="type"/> could invoke anything at all. The engine asks before
