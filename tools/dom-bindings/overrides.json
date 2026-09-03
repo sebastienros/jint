@@ -233,6 +233,26 @@
       "interface": "DOMImplementation",
       "member": "hasFeature",
       "reason": "DOM §4.5 declares it as `boolean hasFeature()` -- no arguments at all, and the standard's own note says it is kept only so that legacy feature detection takes the modern path. AngleSharp answers false for 133 of the 136 pairs `DOMImplementation-hasFeature.html` asks about, and its first parameter is required, so `hasFeature()` was a TypeError as well. Re-declared in `additions` as the one line the algorithm is."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "substringData",
+      "reason": "The offsets are WebIDL `unsigned long`s and AngleSharp's parameters are Int32, so the generator converted with ToInt32 and `substringData(0, -1)` reached String.Substring as -1. AngleSharp's own clamping is right; the conversion in front of it was not. Re-declared in `additions` over the same call, with DOM §4.10's ToUint32 and its two clamping steps."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "insertData",
+      "reason": "The offset half of the same conversion; see substringData."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "deleteData",
+      "reason": "The offset and the count of the same conversion; see substringData."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "replaceData",
+      "reason": "The offset and the count of the same conversion; see substringData."
     }
   ],
   "additions": [
@@ -1261,6 +1281,50 @@
         "return global::Jint.Native.JsBoolean.True;"
       ],
       "reason": "The other half of the skip above, and the whole of DOM §4.5's algorithm. The brand check stays, because calling it on the wrong receiver is still WebIDL's TypeError."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "substringData",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.substringData\");",
+        "return global::Jint.Browser.Dom.DomCharacterDataMembers.SubstringData(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above: DOM §4.10's conversion and clamping, then the AngleSharp call it replaced."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "insertData",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.insertData\");",
+        "return global::Jint.Browser.Dom.DomCharacterDataMembers.InsertData(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above; see substringData."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "deleteData",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.deleteData\");",
+        "return global::Jint.Browser.Dom.DomCharacterDataMembers.DeleteData(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above; see substringData."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "replaceData",
+      "kind": "operation",
+      "length": 3,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.replaceData\");",
+        "return global::Jint.Browser.Dom.DomCharacterDataMembers.ReplaceData(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above; see substringData."
     }
   ],
   "hooks": [

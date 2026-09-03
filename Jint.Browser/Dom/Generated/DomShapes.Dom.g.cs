@@ -386,14 +386,14 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.deleteData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.deleteData");
-                    self.Target.Delete(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CharacterData.deleteData"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CharacterData.deleteData")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomCharacterDataMembers.DeleteData(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Method("insertData",
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.insertData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.insertData");
-                    self.Target.Insert(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CharacterData.insertData"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "CharacterData.insertData")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomCharacterDataMembers.InsertData(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Accessor("length",
@@ -425,7 +425,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.replaceData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.replaceData");
-                    self.Target.Replace(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CharacterData.replaceData"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CharacterData.replaceData"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 2, "CharacterData.replaceData")); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.DomCharacterDataMembers.ReplaceData(self.Realm, self.Target, args);
                 }),
                 length: 3)
             .Method("replaceWith",
@@ -439,7 +439,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("CharacterData.substringData", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, "CharacterData.substringData");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Substring(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CharacterData.substringData"), global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 1, "CharacterData.substringData")));
+                    return global::Jint.Browser.Dom.DomCharacterDataMembers.SubstringData(self.Realm, self.Target, args);
                 }),
                 length: 2)
             .Build();
