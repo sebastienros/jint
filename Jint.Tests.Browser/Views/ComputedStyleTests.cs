@@ -245,36 +245,149 @@ public sealed class ComputedStyleTests
     }
 
     /// <summary>
-    /// A percentage anywhere in the matching cascade must not become a CLR exception in script.
+    /// Every relative length the page's own render device can resolve, for the six properties an
+    /// author writes them on.
     /// </summary>
     /// <remarks>
-    /// AngleSharp.Css 1.0.2 resolves every length against an <c>IRenderDevice</c> whose default viewport is
-    /// 0 × 0, and raises <c>ArgumentException</c> rather than skipping the declaration — so
-    /// <c>width: 50%</c>, <c>height: 100vh</c> and <c>calc(100% - 10px)</c> each made <c>getComputedStyle</c>
-    /// throw out of AngleSharp and into the page. It is the member every automation client calls on every
-    /// element it touches, so the guard is what makes the resolved values reachable on a real page at all.
-    /// Recorded as an AngleSharp divergence in <c>Jint.Browser/AGENTS.md</c>.
+    /// <para>
+    /// <b>A relative length used to abort the whole call, and that is what
+    /// <see href="https://github.com/sebastienros/jint/issues/3730">#3730</see> was.</b> AngleSharp.Css
+    /// resolves every length to pixels against an <c>IRenderDevice</c>; the page's browsing context had
+    /// none, so the <c>DefaultRenderDevice</c> it fell back to reported 0 × 0 and raised
+    /// <c>ArgumentException</c> rather than skipping the declaration. <c>Runtime/PageRenderDevice</c> is
+    /// registered on the context now, so each of these computes — against the page's viewport, which is
+    /// 1280 × 720 with a 16px root font.
+    /// </para>
+    /// <para>
+    /// <b>Two divergences are asserted here rather than hidden.</b> A percentage resolves against the
+    /// viewport <i>width</i> whichever property it is on, so <c>height: 50%</c> is 640px and not 360px —
+    /// AngleSharp.Css passes the horizontal axis for every property
+    /// (<a href="https://github.com/AngleSharp/AngleSharp.Css/issues/232">#232</a>'s neighbourhood). And
+    /// CSSOM keeps a percentage <i>as a percentage</i> in the computed value of <c>min-width</c>,
+    /// <c>margin</c> and <c>padding</c>; AngleSharp.Css resolves those too. Both are AngleSharp's model,
+    /// and the table in <c>Jint.Browser/AGENTS.md</c> records them.
+    /// </para>
     /// </remarks>
     [Test]
-    public async Task ARelativeLengthInTheCascadeDoesNotThrowIntoThePage()
+    public async Task EveryRelativeLengthResolvesAgainstTheViewportRatherThanThrowing()
     {
         await using var browser = new Browser();
         var page = await browser.NewPageAsync();
 
-        await page.SetContentAsync(
-            "<style>#sized { width: 50%; height: 100vh }</style><div id='sized'>g</div>");
+        // A percentage is horizontal for every property, so the height rows are the width answers too.
+        (string Value, string Expected)[] lengths =
+        [
+            ("100%", "1280px"),
+            ("50%", "640px"),
+            ("calc(100% - 10px)", "1270px"),
+            ("2em", "32px"),
+            ("2rem", "32px"),
+            ("10vw", "128px"),
+            ("10vh", "72px"),
+        ];
+
+        foreach (var property in new[] { "width", "height", "min-width", "margin-left", "padding-left", "font-size" })
+        {
+            foreach (var (value, expected) in lengths)
+            {
+                await page.SetContentAsync($"<style>#t {{ {property}: {value} }}</style><div id='t'>g</div>");
+
+                (await Read(page, property))
+                    .Should().Be(expected, "{0}: {1} resolves against the viewport", property, value);
+            }
+        }
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// <c>auto</c>, which is a keyword and not a length, and <c>ch</c>, which AngleSharp.Css cannot convert.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> is legal on <c>width</c>, <c>height</c> and a margin and meaningless on the other three,
+    /// so the cascade answers it where it parses and drops it where it does not —
+    /// <c>Dom/Views/ResolvedStyle</c> then answers the flat box model's <c>width</c>/<c>height</c> and the
+    /// empty string for the rest. <c>ch</c> reaches <c>default:</c> in AngleSharp.Css's unit conversion and
+    /// raises <c>InvalidOperationException</c> whatever device is registered, which is why
+    /// <c>Dom/Views/CssCascade</c> keeps its guard: the whole cascade is dropped, nothing throws, and the
+    /// resolved values answer.
+    /// </remarks>
+    [Test]
+    public async Task AKeywordAndAUnitAngleSharpCannotConvertAnswerWithoutThrowing()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+
+        foreach (var (property, expected) in new[]
+        {
+            ("width", "auto"),
+            ("height", "auto"),
+            ("margin-left", "auto"),
+            ("min-width", ""),
+            ("padding-left", ""),
+            ("font-size", ""),
+        })
+        {
+            await page.SetContentAsync($"<style>#t {{ {property}: auto }}</style><div id='t'>g</div>");
+            (await Read(page, property)).Should().Be(expected, "{0}: auto", property);
+        }
+
+        // `ch` is the unit that still cannot be computed, so this is the guard's own case: no cascade at
+        // all, which leaves the resolved values answering and nothing thrown.
+        await page.SetContentAsync("<style>#t { width: 20ch; visibility: hidden }</style><div id='t'>g</div>");
 
         (await page.EvaluateAsync<string>(
             """
             (() => {
-              try { return getComputedStyle(document.getElementById('sized')).visibility }
+              try { return getComputedStyle(document.getElementById('t')).visibility }
               catch (e) { return 'threw: ' + e }
             })()
             """))
-            .Should().Be("visible", "a cascade AngleSharp cannot compute leaves the resolved values answering");
+            .Should().Be("visible", "a cascade AngleSharp cannot compute takes its own visibility: hidden with it");
+
+        (await Read(page, "width")).Should().Be("1280px", "the flat box model answers where the cascade could not");
 
         page.Errors.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// An <c>@media</c> rule in the cascade answers the same question <c>matchMedia</c> does.
+    /// </summary>
+    /// <remarks>
+    /// Half of <see href="https://github.com/sebastienros/jint/issues/3707">#3707</see>: the cascade is
+    /// evaluated against the page's own render device, so a dimension query in a style sheet and the same
+    /// query through <c>matchMedia</c> read one viewport. The preference features are still not among them
+    /// — AngleSharp.Css has no member for <c>prefers-color-scheme</c>, so a rule naming one never matches
+    /// while <c>matchMedia</c> answers it from <c>Runtime/PageMediaEnvironment</c>.
+    /// </remarks>
+    [TestCase(1280, "absolute")]
+    [TestCase(400, "relative")]
+    public async Task ADimensionMediaRuleInTheCascadeAgreesWithMatchMedia(int width, string expected)
+    {
+        await using var browser = new Browser(new global::Jint.Browser.BrowserOptions { Viewport = new global::Jint.Browser.Viewport(width, 720) });
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <style>
+              #t { position: relative }
+              @media (min-width: 600px) { #t { position: absolute } }
+            </style>
+            <div id="t">g</div>
+            """);
+
+        (await Read(page, "position")).Should().Be(expected);
+
+        (await page.EvaluateAsync<bool>("matchMedia('(min-width: 600px)').matches"))
+            .Should().Be(expected == "absolute", "the page's own matchMedia reads the same viewport");
+
+        page.Errors.Should().BeEmpty();
+    }
+
+    private static async Task<string> Read(global::Jint.Browser.Page page, string property)
+        => await page.EvaluateAsync<string>(
+            "getComputedStyle(document.getElementById('t')).getPropertyValue('" + property + "')")
+           ?? "";
 
     [Test]
     public async Task TheComputedStyleRefusesEveryWrite()

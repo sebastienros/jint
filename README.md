@@ -2674,7 +2674,7 @@ recorded in `Page.Requests` with the reason instead — `integrity` is accepted 
 | `Fetch`'s **response** stage, and with it the `IO` domain: an observer is told about a response and cannot answer it, so a response-stage pause could only ever continue unchanged | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | `Network`'s WebSocket and EventSource events — the engine deliberately does not observe those two handshakes — and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | `BrowserOptions.UserAgent` reaches script but not the wire unless a protocol client sets it | [#3720](https://github.com/sebastienros/jint/issues/3720) |
-| A page's `@media` rules are not re-evaluated against the emulated preferences — the cascade is AngleSharp.Css's and it models none of them — so a themed page reads `matchMedia` rather than `getComputedStyle` to find out | [#3721](https://github.com/sebastienros/jint/issues/3721) |
+| A page's `@media` rules are evaluated against the page's viewport and emulated media type, but not against the emulated **preferences** — AngleSharp.Css's render device models none of them — so a themed page reads `matchMedia` rather than `getComputedStyle` to find out whether the scheme is dark | [#3707](https://github.com/sebastienros/jint/issues/3707) |
 | `ElementInternals`, so a `static formAssociated` custom element is recorded and takes part in no form; and no scoped custom element registries | [#3714](https://github.com/sebastienros/jint/issues/3714) |
 
 Two smaller ones are worth knowing before they surprise you. An element the *parser* created is upgraded at

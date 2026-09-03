@@ -146,11 +146,11 @@ internal sealed class EmulationDomain : EmulationDomainBase
     /// the environment reads first.
     /// </para>
     /// <para>
-    /// <b>The cascade is not re-evaluated</b>, and that is AngleSharp.Css's half rather than this one:
-    /// <c>getComputedStyle</c> goes through <c>ComputeCurrentStyle()</c>, whose own media evaluation is its
-    /// render device, so an <c>@media (prefers-color-scheme: dark)</c> rule in a style sheet does not become
-    /// active. What a page reads through <c>matchMedia</c> and what it reads through the cascade can
-    /// therefore disagree, and every framework that themes itself reads the first.
+    /// <b>The media type reaches the cascade and a preference does not.</b>
+    /// <c>Runtime/PageRenderDevice</c> reports the emulated type, so an <c>@media print</c> rule becomes
+    /// active with this command; <c>IRenderDevice</c> has no member for a Level 5 preference, so an
+    /// <c>@media (prefers-color-scheme: dark)</c> rule in a style sheet never does. A page that themes
+    /// itself reads <c>matchMedia</c>, which is the half that answers.
     /// </para>
     /// </remarks>
     protected override ValueTask<EmptyResult> SetEmulatedMediaAsync(SetEmulatedMediaRequest parameters, CommandContext context)

@@ -66,7 +66,7 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     public string this[int index] => _computed is null ? "" : _computed[index];
 
     /// <inheritdoc />
-    public string this[string name] => Resolve(name, _computed?[name]);
+    public string this[string name] => GetPropertyValue(name);
 
     /// <inheritdoc />
     public int Length => _computed?.Length ?? 0;
@@ -89,8 +89,15 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The read goes through <see cref="CssCascade.ValueOf"/> rather than the declaration's own member,
+    /// which is what stops a cascade that computed but cannot be <i>read</i> reaching script as a CLR
+    /// exception. That file says which read fails and why.
+    /// </remarks>
     public string GetPropertyValue(string propertyName)
-        => Resolve(propertyName, _computed?.GetPropertyValue(propertyName));
+        => Resolve(
+            propertyName,
+            _computed is null ? null : CssCascade.ValueOf(_computed, propertyName));
 
     /// <inheritdoc />
     public ICssProperty GetProperty(string propertyName) => _computed?.GetProperty(propertyName)!;

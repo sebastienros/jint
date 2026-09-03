@@ -33,7 +33,11 @@ namespace Jint.Browser.Runtime;
 internal static class MediaQuery
 {
     /// <summary>How many CSS pixels one <c>em</c> is taken to be, there being no cascade to ask.</summary>
-    private const double PixelsPerEm = 16;
+    /// <remarks>
+    /// <see cref="PageRenderDevice.FontSize"/> reports the same number, so an <c>em</c> in a
+    /// <c>matchMedia</c> query and an <c>em</c> the cascade resolves are the same length.
+    /// </remarks>
+    internal const double PixelsPerEm = 16;
 
     /// <summary>The values that make a feature false when it is written without one.</summary>
     private static readonly string[] _falsy = ["none", "no-preference", "0"];
