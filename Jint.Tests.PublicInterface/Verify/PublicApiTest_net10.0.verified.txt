@@ -1175,11 +1175,14 @@ namespace Jint.Native
         public sealed class Builder
         {
             public Builder() { }
+            public Jint.Native.JsObjectShape.Builder Accessor(Jint.Native.JsSymbol key, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? getter, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? setter = null, bool enumerable = false, bool configurable = true) { }
             public Jint.Native.JsObjectShape.Builder Accessor(string name, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? getter, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue>? setter = null, bool enumerable = true, bool configurable = true) { }
             public Jint.Native.JsObjectShape Build() { }
             public Jint.Native.JsObjectShape.Builder Constant(string name, Jint.Native.JsValue value, bool enumerable = true) { }
+            public Jint.Native.JsObjectShape.Builder Method(Jint.Native.JsSymbol key, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue> implementation, int length = 0, bool enumerable = false, bool writable = true, bool configurable = true) { }
             public Jint.Native.JsObjectShape.Builder Method(string name, System.Func<Jint.Native.JsValue, Jint.Native.JsValue[], Jint.Native.JsValue> implementation, int length = 0, bool enumerable = true, bool writable = true, bool configurable = true) { }
             public Jint.Native.JsObjectShape.Builder PerRealmSlot(string name, bool enumerable = false, bool writable = true, bool configurable = true) { }
+            public Jint.Native.JsObjectShape.Builder PerRealmSlot(Jint.Native.JsSymbol key, System.Func<Jint.Native.Object.ObjectInstance, Jint.Native.JsValue> factory, bool enumerable = false, bool writable = true, bool configurable = true) { }
             public Jint.Native.JsObjectShape.Builder PerRealmSlot(string name, System.Func<Jint.Native.Object.ObjectInstance, Jint.Native.JsValue> factory, bool enumerable = false, bool writable = true, bool configurable = true) { }
             public Jint.Native.JsObjectShape.Builder ToStringTag(string value) { }
         }

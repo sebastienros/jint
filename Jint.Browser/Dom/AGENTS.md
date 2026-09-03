@@ -92,8 +92,13 @@ Divergences from a browser that are **ours** and deliberate:
 
 - **`length` on a collection is an own property**, not a prototype accessor, because `ArrayLikeObject` owns
   it; `list.hasOwnProperty('length')` answers `true`. `Jint/Native/Object/AGENTS.md` says why it cannot move.
-- **`Symbol.iterator` is on the instance**, not the interface prototype, because `JsObjectShape` has no
-  symbol-keyed member yet. The value is the same function object; nothing a script does can tell.
+- **`Symbol.iterator` is declared by the interface that *supports* indexed properties**, never by one that
+  merely inherits the getter, which is where a browser has it too: `NodeList.prototype` and
+  `HTMLCollection.prototype` carry it, `HTMLOptionsCollection.prototype` does not. The value is a per-realm
+  slot naming `%Array.prototype.values%` itself, per
+  [WebIDL](https://webidl.spec.whatwg.org/#js-iterable), so `NodeList.prototype[Symbol.iterator] ===
+  Array.prototype[Symbol.iterator]`. `DomIterator.ArrayValues` is the factory the emitter names, and it reads
+  `DomRealm.PrincipalRealm` for the reason everything else here does.
 - **`(Node or DOMString)...` takes only the `Node` half**: `append('text')` is a `TypeError` where a browser
   inserts a text node, because a static member body has no document to create one against.
 - **`select.add` and `HTMLOptionsCollection.add` take one of their two overloads**, because HTML's union type

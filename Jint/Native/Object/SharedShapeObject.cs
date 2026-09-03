@@ -1,4 +1,3 @@
-using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -26,7 +25,7 @@ namespace Jint.Native.Object;
 /// <para>
 /// Nothing is materialized at construction. <see cref="Initialize"/> — which the base class runs on the first
 /// property access of any kind — installs the shared layout, pre-fills the value-form per-realm slots and
-/// applies <c>Symbol.toStringTag</c>; each method, accessor and factory slot then produces its descriptor on
+/// applies the symbol-keyed members; each method, accessor and factory slot then produces its descriptor on
 /// the first access of that member and caches it, so identity is stable from then on.
 /// </para>
 /// </summary>
@@ -74,12 +73,18 @@ internal sealed class SharedShapeObject : ObjectInstance, IBuiltinShaped
             SetBuiltinInstanceDescriptor(valueSlots[i].Slot, Undefined, valueSlots[i].Flags);
         }
 
-        var toStringTag = _shape.ToStringTagValue;
-        if (toStringTag is not null)
+        var symbolMembers = _shape.SymbolMembers;
+        if (symbolMembers.Length > 0)
         {
-            // Symbols live outside the shared string-keyed layout, so this is one descriptor per object.
-            var symbols = new SymbolDictionary(1);
-            symbols[GlobalSymbolRegistry.ToStringTag] = new PropertyDescriptor(toStringTag, PropertyFlag.Configurable);
+            // Symbols live outside the shared string-keyed layout, so these are one descriptor per object —
+            // and unmaterialized ones for every kind but an accessor pair, so declaring `Symbol.iterator` on
+            // a prototype costs nothing until a script reaches for it.
+            var symbols = new SymbolDictionary(symbolMembers.Length);
+            for (var i = 0; i < symbolMembers.Length; i++)
+            {
+                symbols[symbolMembers[i].Key] = _shape.MakeSymbolDescriptor(this, _engine, _realm, i);
+            }
+
             SetSymbols(symbols);
         }
     }

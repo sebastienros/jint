@@ -7,6 +7,7 @@
 using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 
@@ -79,6 +80,126 @@ public class HostPrototypeShapeTests
         engine.SetValue("proto", prototype);
         engine.Execute("var el = Object.create(proto);");
         return engine;
+    }
+
+    // One member of every symbol-keyed kind. A host declares these for the same reason it declares the
+    // string-keyed ones — so that `NodeList.prototype[Symbol.iterator]` is a property of the prototype rather
+    // than of every instance — and the three forms differ in what produces the value: a function this shape
+    // owns, an accessor pair, and a value that is whatever the *engine* has (the shape of Web IDL's
+    // `iterable<>`, whose @@iterator is the realm's own %Array.prototype.values%).
+    private static readonly JsObjectShape SymbolKeyedShape = new JsObjectShape.Builder()
+        .Method("plain", static (thisObject, args) => new JsString("plain"))
+        .Method(GlobalSymbolRegistry.Iterator, static (thisObject, args) => new JsString("iterated"), length: 1)
+        .Accessor(GlobalSymbolRegistry.ToPrimitive, getter: static (thisObject, args) => new JsString("primitive"))
+        .PerRealmSlot(GlobalSymbolRegistry.AsyncIterator, static owner => new JsObject(owner.Engine))
+        .ToStringTag("SymbolKeyed")
+        .Build();
+
+    private static Engine EngineWithSymbolKeyedPrototype()
+    {
+        var engine = new Engine();
+        engine.SetValue("proto", SymbolKeyedShape.Instantiate(engine));
+        engine.Execute("var obj = Object.create(proto);");
+        return engine;
+    }
+
+    // ---- symbol-keyed members ----
+
+    [Test]
+    public void SymbolKeyedMembersLiveOnThePrototype()
+    {
+        var engine = EngineWithSymbolKeyedPrototype();
+
+        engine.Evaluate("typeof proto[Symbol.iterator]").Should().Be("function");
+        engine.Evaluate("proto[Symbol.iterator]()").Should().Be("iterated");
+        engine.Evaluate("proto[Symbol.toPrimitive]").Should().Be("primitive");
+        engine.Evaluate("typeof proto[Symbol.asyncIterator]").Should().Be("object");
+
+        // Inherited, which is the whole point: an instance carries none of them of its own.
+        engine.Evaluate("obj[Symbol.iterator]()").Should().Be("iterated");
+        engine.Evaluate("Object.getOwnPropertySymbols(obj).length").Should().Be(0);
+
+        // And the object is still on the shared layout: symbols are orthogonal to the string-keyed one.
+        engine.Evaluate("proto.plain()").Should().Be("plain");
+        engine.Advanced.HasSharedShape(engine.Evaluate("proto").AsObject()).Should().BeTrue();
+    }
+
+    [Test]
+    public void ASymbolKeyedMemberCarriesTheDeclaredAttributes()
+    {
+        var engine = EngineWithSymbolKeyedPrototype();
+
+        // https://webidl.spec.whatwg.org/#js-iterable and ECMAScript both make a symbol-keyed member
+        // non-enumerable — the one attribute rule the two agree on.
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.iterator).enumerable").Should().Be(false);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.iterator).writable").Should().Be(true);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.iterator).configurable").Should().Be(true);
+
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.toPrimitive).enumerable").Should().Be(false);
+        engine.Evaluate("typeof Object.getOwnPropertyDescriptor(proto, Symbol.toPrimitive).get").Should().Be("function");
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.toPrimitive).set").Should().Be(JsValue.Undefined);
+
+        // https://tc39.es/ecma262/#sec-setfunctionname — a function under a symbol key is named with the
+        // description in brackets.
+        engine.Evaluate("proto[Symbol.iterator].name").Should().Be("[Symbol.iterator]");
+        engine.Evaluate("proto[Symbol.iterator].length").Should().Be(1);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(proto, Symbol.toPrimitive).get.name").Should().Be("get [Symbol.toPrimitive]");
+
+        // Every one of them enumerates as an own symbol of the prototype, alongside Symbol.toStringTag.
+        engine.Evaluate("Object.getOwnPropertySymbols(proto).length").Should().Be(4);
+    }
+
+    [Test]
+    public void ASymbolKeyedMemberHasAStableIdentityWithinAnEngineAndIsPerEngineAcrossThem()
+    {
+        var engine = EngineWithSymbolKeyedPrototype();
+
+        engine.Evaluate("proto[Symbol.iterator] === proto[Symbol.iterator]").Should().Be(true);
+        engine.Evaluate("proto[Symbol.asyncIterator] === proto[Symbol.asyncIterator]").Should().Be(true);
+
+        // A second engine instantiating the same process-shared shape gets its own function and its own
+        // per-realm value; nothing engine-affine is stored in the shape.
+        var other = EngineWithSymbolKeyedPrototype();
+        ReferenceEquals(
+            engine.Evaluate("proto[Symbol.iterator]"),
+            other.Evaluate("proto[Symbol.iterator]")).Should().BeFalse();
+        ReferenceEquals(
+            engine.Evaluate("proto[Symbol.asyncIterator]"),
+            other.Evaluate("proto[Symbol.asyncIterator]")).Should().BeFalse();
+    }
+
+    [Test]
+    public void ASymbolKeyedMemberIsAnOrdinaryPropertyScriptCanRedefineOrDelete()
+    {
+        var engine = EngineWithSymbolKeyedPrototype();
+
+        engine.Execute("proto[Symbol.iterator] = 42;");
+        engine.Evaluate("proto[Symbol.iterator]").Should().Be(42);
+
+        engine.Evaluate("delete proto[Symbol.toPrimitive]").Should().Be(true);
+        engine.Evaluate("proto[Symbol.toPrimitive]").Should().Be(JsValue.Undefined);
+
+        // Deleting a symbol never disturbs the string-keyed layout, so the object keeps its shape.
+        engine.Evaluate("proto.plain()").Should().Be("plain");
+        engine.Advanced.HasSharedShape(engine.Evaluate("proto").AsObject()).Should().BeTrue();
+    }
+
+    [Test]
+    public void BuilderRejectsADuplicateSymbolKey()
+    {
+        Invoking(() => new JsObjectShape.Builder()
+                .Method(GlobalSymbolRegistry.Iterator, static (t, a) => JsValue.Undefined)
+                .Accessor(GlobalSymbolRegistry.Iterator, getter: static (t, a) => JsValue.Undefined))
+            .Should().Throw<ArgumentException>().WithMessage("*already been declared*");
+
+        // ToStringTag declares one too, so the two spellings cannot disagree about the same key.
+        Invoking(() => new JsObjectShape.Builder()
+                .ToStringTag("A")
+                .Method(GlobalSymbolRegistry.ToStringTag, static (t, a) => JsValue.Undefined))
+            .Should().Throw<ArgumentException>().WithMessage("*already been declared*");
+
+        Invoking(() => new JsObjectShape.Builder().Method((JsSymbol) null!, static (t, a) => JsValue.Undefined))
+            .Should().Throw<ArgumentNullException>();
     }
 
     // ---- reachability and representation witness ----
@@ -836,7 +957,7 @@ public class HostPrototypeShapeTests
     [Test]
     public void BuilderRejectsInvalidNames()
     {
-        Invoking(() => new JsObjectShape.Builder().Method(null!, static (t, a) => JsValue.Undefined))
+        Invoking(() => new JsObjectShape.Builder().Method((string) null!, static (t, a) => JsValue.Undefined))
             .Should().Throw<ArgumentException>().WithMessage("*non-empty*");
         Invoking(() => new JsObjectShape.Builder().Method("", static (t, a) => JsValue.Undefined))
             .Should().Throw<ArgumentException>().WithMessage("*non-empty*");
@@ -911,6 +1032,12 @@ public class HostPrototypeShapeTests
         Invoking(() => builder.PerRealmSlot("y"))
             .Should().Throw<InvalidOperationException>();
         Invoking(() => builder.ToStringTag("y"))
+            .Should().Throw<InvalidOperationException>();
+        Invoking(() => builder.Method(GlobalSymbolRegistry.Iterator, static (t, a) => JsValue.Undefined))
+            .Should().Throw<InvalidOperationException>();
+        Invoking(() => builder.Accessor(GlobalSymbolRegistry.Iterator, getter: static (t, a) => JsValue.Undefined))
+            .Should().Throw<InvalidOperationException>();
+        Invoking(() => builder.PerRealmSlot(GlobalSymbolRegistry.Iterator, static o => JsValue.Undefined))
             .Should().Throw<InvalidOperationException>();
         Invoking(() => builder.Build())
             .Should().Throw<InvalidOperationException>();

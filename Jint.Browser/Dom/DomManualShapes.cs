@@ -25,6 +25,13 @@ internal static class DomManualShapes
         => new JsObjectShape.Builder()
             .ToStringTag("HTMLCollection")
             .PerRealmSlot("constructor", enumerable: false)
+
+            // https://webidl.spec.whatwg.org/#js-iterable — the interface supports indexed properties, so its
+            // prototype carries @@iterator; the generated collection shapes get the same line from the
+            // emitter, and this one is hand-written only because the whole shape is.
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                DomIterator.ArrayValues)
             .Method(
                 "item",
                 static (thisObj, args) =>

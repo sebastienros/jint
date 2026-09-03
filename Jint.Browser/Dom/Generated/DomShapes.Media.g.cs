@@ -61,6 +61,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("AudioTrackList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("getTrackById",
                 global::Jint.Browser.Dom.DomFailures.Guard("AudioTrackList.getTrackById", static (thisObj, args) =>
                 {
@@ -494,6 +497,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("TextTrackList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Build();
 
     /// <summary>The members of <c>TimeRanges</c>.</summary>
@@ -570,6 +576,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("VideoTrackList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("getTrackById",
                 global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.getTrackById", static (thisObj, args) =>
                 {

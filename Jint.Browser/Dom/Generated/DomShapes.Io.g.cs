@@ -77,6 +77,9 @@ internal static partial class DomInterfaces
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("FileList")
             .PerRealmSlot("constructor", enumerable: false)
+            .PerRealmSlot(
+                global::Jint.Native.Symbol.GlobalSymbolRegistry.Iterator,
+                global::Jint.Browser.Dom.Collections.DomIterator.ArrayValues)
             .Method("item",
                 global::Jint.Browser.Dom.DomFailures.Guard("FileList.item", static (thisObj, args) =>
                 {

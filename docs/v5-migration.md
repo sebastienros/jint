@@ -6308,6 +6308,48 @@ constructor body are declined rather than attributed to the script that ran them
 
 `Jint.DevTools` resolves `[[FunctionLocation]]`'s `scriptId` through it, which was the last thing in that
 package still matching a script by name.
+### 5.29 A shaped prototype can carry symbol-keyed members ([#3636](https://github.com/sebastienros/jint/issues/3636))
+
+`JsObjectShape.Builder` declared string-keyed members only, plus the one `ToStringTag` shorthand, so a host
+prototype could not carry `Symbol.iterator` at all — the value had to be written onto every *instance*, where
+a browser has none. Three overloads take a `JsSymbol` key instead of a name and cover the same three kinds:
+
+```csharp
+private static readonly JsObjectShape NodeListShape = new JsObjectShape.Builder()
+    .Method("item", static (t, args) => Dom.Item(t, args), length: 1)
+
+    // a function this shape owns
+    .Method(GlobalSymbolRegistry.HasInstance, static (t, args) => Dom.IsNodeList(args), length: 1)
+
+    // an accessor pair
+    .Accessor(GlobalSymbolRegistry.ToPrimitive, getter: static (t, _) => Dom.Describe(t))
+
+    // a value that is whatever the engine has - Web IDL's iterable<> declaration makes @@iterator the
+    // realm's own %Array.prototype.values%, and only a per-realm slot can be that
+    .PerRealmSlot(
+        GlobalSymbolRegistry.Iterator,
+        static owner => owner.Engine.Realm.Intrinsics.Array.PrototypeObject.Get(GlobalSymbolRegistry.Iterator))
+
+    .ToStringTag("NodeList")
+    .Build();
+```
+
+The defaults are the ones both Web IDL and ECMAScript give a symbol-keyed member — `{ writable: true,
+enumerable: false, configurable: true }` for a method or a slot, `{ enumerable: false, configurable: true }`
+for an accessor — which is the one attribute rule where Web IDL agrees with ECMAScript rather than diverging
+from it. A materialized function is named the way
+[SetFunctionName](https://tc39.es/ecma262/#sec-setfunctionname) names one under a symbol key:
+`[Symbol.iterator]`, `get [Symbol.toPrimitive]`.
+
+**Nothing about an existing shape changes.** Symbols live outside the shared string-keyed layout, so
+declaring one neither disturbs the layout nor costs the object its shape, and a method or per-realm slot is
+lazy: the descriptor exists from initialization, the function or value appears on the first read of that
+member. `ToStringTag` is now shorthand for one such member and behaves exactly as before, except that it and
+an explicit `Symbol.toStringTag` declaration now refuse each other rather than both applying.
+
+**One source-level nuisance.** `Method`, `Accessor` and `PerRealmSlot` are overloaded on their first
+parameter, so a call passing a bare `null` literal for the name — `Method(null, impl)` — is now ambiguous.
+Write `Method((string) null, impl)`, or, as any real call already does, pass the name.
 
 ### 5.29 An observed response says when its hop went out and when its headers came back ([#3701](https://github.com/sebastienros/jint/issues/3701))
 

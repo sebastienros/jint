@@ -97,6 +97,54 @@ public sealed class DomCollectionTests
     }
 
     [Test]
+    public void SymbolIteratorIsOnTheInterfacePrototypeAndIsTheArrayIterator()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        // https://webidl.spec.whatwg.org/#js-iterable — an interface that supports indexed properties has
+        // @@iterator on its prototype, and its value is the realm's own %Array.prototype.values%.
+        fixture.Bool("NodeList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+        fixture.Bool("HTMLCollection.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+        fixture.Bool("DOMTokenList.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+        fixture.Bool("CSSStyleDeclaration.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+        fixture.Bool("NamedNodeMap.prototype[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+
+        // And on the prototype only: a collection instance carries no own symbol, which is what a browser
+        // answers and what the instance-level workaround this replaced could not.
+        fixture.Bool("document.querySelectorAll('input').hasOwnProperty(Symbol.iterator)").Should().BeFalse();
+        fixture.Number("Object.getOwnPropertySymbols(document.querySelector('#f').childNodes).length").Should().Be(0);
+
+        // https://webidl.spec.whatwg.org/#es-iterator — { writable: true, enumerable: false, configurable: true }.
+        fixture.Bool("Object.getOwnPropertyDescriptor(NodeList.prototype, Symbol.iterator).writable").Should().BeTrue();
+        fixture.Bool("Object.getOwnPropertyDescriptor(NodeList.prototype, Symbol.iterator).enumerable").Should().BeFalse();
+        fixture.Bool("Object.getOwnPropertyDescriptor(NodeList.prototype, Symbol.iterator).configurable").Should().BeTrue();
+
+        // An interface that only *inherits* the indexed getter inherits the iterator with it, which is also
+        // what a browser answers.
+        fixture.Bool("HTMLOptionsCollection.prototype.hasOwnProperty(Symbol.iterator)").Should().BeFalse();
+        fixture.Bool("HTMLFormControlsCollection.prototype.hasOwnProperty(Symbol.iterator)").Should().BeFalse();
+        fixture.Bool("document.querySelector('#s').options[Symbol.iterator] === Array.prototype[Symbol.iterator]").Should().BeTrue();
+
+        // The prototypes are still shaped: a symbol key never disturbs the shared string-keyed layout.
+        fixture.Engine.Advanced.HasSharedShape(fixture.Evaluate("NodeList.prototype").AsObject()).Should().BeTrue();
+    }
+
+    [Test]
+    public void IterationStillReachesEveryCollectionKind()
+    {
+        using var fixture = DomTestFixture.Create(Page);
+
+        fixture.Number("[...document.querySelectorAll('input')].length").Should().Be(2);
+        fixture.Text("[...document.querySelector('#d').classList].join(',')").Should().Be("x,y,z");
+        fixture.Text("[...document.querySelector('#s').options].map(o => o.value).join(',')").Should().Be("a,b");
+        fixture.Number("[...document.querySelector('#f').elements].length").Should().Be(2);
+
+        // for..of and destructuring take the same lane.
+        fixture.Text("(() => { let n = ''; for (const o of document.querySelector('#s').options) { n += o.value; } return n; })()").Should().Be("ab");
+        fixture.Text("(() => { const [first] = document.querySelector('#s').options; return first.value; })()").Should().Be("a");
+    }
+
+    [Test]
     public void ASelectsOptionsAreAnHtmlCollectionOfOptions()
     {
         using var fixture = DomTestFixture.Create(Page);
