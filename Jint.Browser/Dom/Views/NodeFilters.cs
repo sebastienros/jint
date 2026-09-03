@@ -25,8 +25,10 @@ namespace Jint.Browser.Dom.Views;
 /// </para>
 /// <para>
 /// A filter that throws propagates out of <c>nextNode()</c>, which is what the standard requires, and the
-/// exception unwinds through AngleSharp's traversal on its way — safe because the traversal holds no state it
-/// has to unwind and the walker is left where the filter found it.
+/// exception unwinds through the traversal on its way — safe because a traversal holds no state it has to
+/// unwind and only an accepted node moves the walker, so it is left where the filter found it.
+/// <see cref="DomTreeWalker"/> is that traversal for a <c>TreeWalker</c>; a <c>NodeIterator</c>'s is still
+/// AngleSharp's.
 /// </para>
 /// </remarks>
 internal static class NodeFilters

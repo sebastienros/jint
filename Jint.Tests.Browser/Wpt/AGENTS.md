@@ -141,10 +141,13 @@ storage partition, its own thread, its own engine, its own realm.
 
 **A page that never yields hangs the lane, and nothing here can stop it.** The driver's deadline is a wait on
 another thread, so it ends a page that is *idle and not done* and not one whose engine is in a loop; with
-`MaxTaskDuration` infinite (below) there is no constraint armed either. Four `dom/traversal/` documents found
-this — a `TreeWalker` walk that does not terminate — and they are `NotVendored` rows saying so. A new suite that
-wedges the run rather than failing it is that shape, and the reason is a defect worth filing rather than a
-document worth deleting.
+`MaxTaskDuration` infinite (below) there is no constraint armed either — and a walk that never re-enters the
+engine would not meet one even if it were armed. Four `dom/traversal/` documents found this: AngleSharp's
+`TreeWalker.ToPrevious` did not terminate, which is why DOM §6.1's seven traversals are `Jint.Browser`'s own
+([`Jint.Browser/Dom/Views/DomTreeWalker.cs`](../../Jint.Browser/Dom/Views/DomTreeWalker.cs), and its file
+argues each loop's termination) and why all four are cases now. **A new suite that wedges the run rather than
+failing it is that shape**, and while it is unfixed the document is a `NotVendored` row naming the defect —
+never a document deleted, and never one left in to hang the lane.
 
 * **`BrowserOptions.MaxTaskDuration` is `Timeout.InfiniteTimeSpan`.** R6 brackets every page turn with it and
   reports a `PageErrorKind.BudgetExceeded`; a legitimately slow wpt file would be cut mid-script and the

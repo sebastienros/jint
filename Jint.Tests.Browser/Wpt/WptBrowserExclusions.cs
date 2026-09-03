@@ -374,17 +374,6 @@ internal static class WptBrowserExclusions
         ("dom/nodes/Node-lookupNamespaceURI.html", "setAttributeNode at file scope, after seventy-two of its tests have reported"),
         ("html/dom/aria-element-reflection-labelledby.html", "reads firstElementChild off a null shadow root in a promise, which testharness makes a file-wide error"),
 
-        // ------------------------------------------------------------ a document that does not terminate
-        // Four TreeWalker documents run forever: the walk loops when a filter answers FILTER_REJECT or
-        // FILTER_SKIP, and when currentNode is set outside the root. Nothing here bounds them —
-        // BrowserOptions.MaxTaskDuration is deliberately infinite, and the driver's own deadline cannot
-        // interrupt a page thread that never yields — so each one hangs the lane rather than failing it, which
-        // makes this the strongest reason in the table rather than the weakest.
-        ("dom/traversal/TreeWalker-currentNode.html", "the walk does not terminate once currentNode is set outside the root, so the document hangs the lane"),
-        ("dom/traversal/TreeWalker-previousNodeLastChildReject.html", "the walk does not terminate when the filter answers FILTER_REJECT, so the document hangs the lane"),
-        ("dom/traversal/TreeWalker-traversal-reject.html", "the same non-termination on FILTER_REJECT"),
-        ("dom/traversal/TreeWalker-traversal-skip.html", "the same non-termination on FILTER_SKIP"),
-
         // ------------------------------------------------------------ one file each
         ("dom/collections/domstringmap-supported-property-names.html", "an AngleSharp SyntaxError escapes its third test at file scope and no `error` event carries it to the harness, so the file reports three of its five and then times out"),
         ("dom/nodes/MutationObserver-attributes.html", "thirty-four of its tests report and one waits forever for a record the observer never delivers"),
@@ -713,9 +702,13 @@ internal static class WptBrowserExclusions
         ["dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html"] = 5,
         ["dom/traversal/TreeWalker-acceptNode-filter.html"] = 12,
         ["dom/traversal/TreeWalker-basic.html"] = 6,
+        ["dom/traversal/TreeWalker-currentNode.html"] = 4,
+        ["dom/traversal/TreeWalker-previousNodeLastChildReject.html"] = 1,
         ["dom/traversal/TreeWalker-previousSiblingLastChildSkip.html"] = 1,
         ["dom/traversal/TreeWalker-realm.html"] = 2,
+        ["dom/traversal/TreeWalker-traversal-reject.html"] = 6,
         ["dom/traversal/TreeWalker-traversal-skip-most.html"] = 2,
+        ["dom/traversal/TreeWalker-traversal-skip.html"] = 6,
         ["dom/traversal/TreeWalker-walking-outside-a-tree.html"] = 1,
         ["html/dom/access-key-label.html"] = 2,
         ["html/dom/aria-attribute-reflection.html"] = 41,
@@ -1454,10 +1447,11 @@ internal static class WptBrowserExclusions
         new("dom/nodes/MutationObserver-inner-outer.html", "outerHTML*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- NodeIterator's own algorithm
-        // NodeIterator's and TreeWalker's own algorithms
+        // NodeIterator's own algorithm. TreeWalker's is DOM §6.1's now — Dom/Views/DomTreeWalker — so the
+        // row that used to sit here for TreeWalker-basic.html's "Walk over nodes." is gone, and the four
+        // documents whose walk never returned are cases.
         new("dom/traversal/NodeIterator-removal-during-filtering.html", "*node", WptDivergence.NeedsTriage),
         new("dom/traversal/NodeIterator-removal-during-filtering.html", "*root", WptDivergence.NeedsTriage),
-        new("dom/traversal/TreeWalker-basic.html", "Walk*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- one assertion each
         // one assertion each; see Wpt/README.md

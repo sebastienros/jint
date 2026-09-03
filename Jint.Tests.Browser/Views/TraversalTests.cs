@@ -1,3 +1,5 @@
+using System.Runtime.ExceptionServices;
+
 namespace Jint.Tests.Browser.Views;
 
 // The test namespace sits under Jint.Tests.Browser, so the bare name Browser binds to that namespace rather
@@ -274,5 +276,188 @@ public sealed class TraversalTests
         (await page.EvaluateAsync<string>(
             "(() => { try { document.createTreeWalker(document.body, NodeFilter.SHOW_ALL, 7) } catch (e) { return e.constructor.name } return 'no throw' })()"))
             .Should().Be("TypeError");
+    }
+
+    // ---------------------------------------------------------------- termination
+    // https://dom.spec.whatwg.org/#interface-treewalker. Every one of these drives a walk that used to run
+    // forever, so each is bounded from outside rather than asserted from inside: see BoundedWalk for why an
+    // internal bound cannot work.
+
+    [Test]
+    public void PreviousNodeTerminatesWhenTheFilterRejects()
+    {
+        // dom/traversal/TreeWalker-traversal-reject.html, "Testing previousNode". FILTER_REJECT on B1 means
+        // B1 *and its subtree*, so the walk passes over B1 entirely and climbs to A1.
+        BoundedWalk(
+            RejectSkipTree,
+            """
+            var walker = document.createTreeWalker(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function (node) { return node.id === 'B1' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+            walker.currentNode = document.getElementById('B3');
+            [walker.previousNode().id, walker.previousNode().id, walker.previousNode().id,
+             walker.previousNode(), walker.currentNode.id].join(',');
+            """)
+            // The root itself is the last node previousNode() answers — its while condition is "node is not
+            // root", and the climb to a parent reports that parent even when it is the root — and the walk
+            // then ends there rather than leaving it.
+            .Should().Be("B2,A1,root,,root");
+    }
+
+    [Test]
+    public void PreviousNodeTerminatesWhenTheFilterSkips()
+    {
+        // The same document's FILTER_SKIP twin: skipping B1 keeps its subtree, so C1 is visited between B2
+        // and A1 where the rejecting filter passed over it.
+        BoundedWalk(
+            RejectSkipTree,
+            """
+            var walker = document.createTreeWalker(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function (node) { return node.id === 'B1' ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_ACCEPT });
+            walker.currentNode = document.getElementById('B3');
+            [walker.previousNode().id, walker.previousNode().id, walker.previousNode().id].join(',');
+            """)
+            .Should().Be("B2,C1,A1");
+    }
+
+    [Test]
+    public void PreviousNodeTerminatesPastARejectedLastChild()
+    {
+        // dom/traversal/TreeWalker-previousNodeLastChildReject.html: the walk descends into B1's last child,
+        // is told to reject it, and has to resume at that child's *previous sibling* rather than start over.
+        BoundedWalk(
+            """
+            <!doctype html>
+            <div id="root"><div id="A1"><div id="B1"><div id="C1"></div><div id="C2"><div id="D1"></div><div id="D2"></div></div></div><div id="B2"><div id="C3"></div><div id="C4"></div></div></div></div>
+            """,
+            """
+            var walker = document.createTreeWalker(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function (node) { return node.id === 'C2' ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+            walker.currentNode = document.getElementById('B2');
+            [walker.previousNode().id, walker.currentNode.id].join(',');
+            """)
+            .Should().Be("C1,C1");
+    }
+
+    [Test]
+    public void EveryTraversalTerminatesFromACurrentNodeOutsideTheRoot()
+    {
+        // dom/traversal/TreeWalker-currentNode.html. The setter has no root check at all — DOM §6.1's
+        // currentNode setter is "set this's current to the given value" — so it is each method's own root
+        // test that has to stop the walk, and previousNode's is reached only after it has climbed out of the
+        // document element and found no parent.
+        BoundedWalk(
+            "<!doctype html><html><body><div id='parent'><div id='subTree'><p>a<span>b</span></p></div></div></body></html>",
+            """
+            var walker = document.createTreeWalker(document.getElementById('subTree'),
+              NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT, function () { return true });
+            var out = [];
+            walker.currentNode = document.documentElement;
+            out.push(walker.previousNode() === null, walker.currentNode === document.documentElement);
+            walker.currentNode = document.documentElement;
+            out.push(walker.parentNode() === null, walker.currentNode === document.documentElement);
+            walker.currentNode = document.documentElement;
+            out.push(walker.nextSibling() === null, walker.previousSibling() === null);
+            walker.currentNode = document.documentElement;
+            out.push(walker.nextNode() === document.documentElement.firstChild);
+            out.join(',');
+            """)
+            .Should().Be("true,true,true,true,true,true,true");
+    }
+
+    [Test]
+    public void ANodeIteratorTerminatesUnderTheSameFilters()
+    {
+        // The sibling interface, checked for the same class of defect. Its two traversals step through one
+        // document-order enumeration and answer null at its ends, so a filter that never accepts is a full
+        // pass and not a loop.
+        BoundedWalk(
+            RejectSkipTree,
+            """
+            var reject = document.createNodeIterator(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function () { return NodeFilter.FILTER_REJECT });
+            var skip = document.createNodeIterator(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function () { return NodeFilter.FILTER_SKIP });
+            [reject.nextNode(), reject.previousNode(), skip.nextNode(), skip.previousNode()].join('|');
+            """)
+            .Should().Be("|||");
+    }
+
+    [Test]
+    public void AFilterThatWalksItsOwnWalkerIsAnInvalidStateError()
+    {
+        // https://dom.spec.whatwg.org/#concept-node-filter step 1: the traverser's "is active" flag. Without
+        // it a filter re-entering its own walker recurses through the traversal once per node it is handed,
+        // on the page's own thread, which is the same denial of service in a second shape.
+        BoundedWalk(
+            RejectSkipTree,
+            """
+            var walker = document.createTreeWalker(document.getElementById('root'), NodeFilter.SHOW_ELEMENT,
+              function () { walker.nextNode(); return NodeFilter.FILTER_ACCEPT });
+            (function () { try { walker.nextNode(); return 'no throw' } catch (e) { return e.name } })();
+            """)
+            .Should().Be("InvalidStateError");
+    }
+
+    /// <summary>
+    /// <a href="https://dom.spec.whatwg.org/#interface-nodefilter">DOM §6.3</a>'s own constant values.
+    /// <c>DomTestFixture</c> has no page runtime, so <c>ViewInstaller</c>'s <c>NodeFilter</c> namespace
+    /// object is not installed on it; declaring the five values the walks below use keeps them at the
+    /// binding layer rather than needing a whole page to reach a constant.
+    /// </summary>
+    private const string NodeFilterConstants =
+        "const NodeFilter = { SHOW_ELEMENT: 0x1, SHOW_COMMENT: 0x80, FILTER_ACCEPT: 1, FILTER_REJECT: 2, FILTER_SKIP: 3 }; ";
+
+    /// <summary>The tree dom/traversal's reject and skip documents build, as markup.</summary>
+    private const string RejectSkipTree =
+        """
+        <!doctype html>
+        <div id="root"><div id="A1"><div id="B1"><div id="C1"></div></div><div id="B2"></div><div id="B3"></div></div></div>
+        """;
+
+    /// <summary>
+    /// Evaluates <paramref name="script"/> against a fixture built from <paramref name="html"/>, on a thread
+    /// of its own, and fails rather than hangs when the walk does not come back.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The bound has to be outside the walk, because nothing inside it can be reached.</b> A traversal
+    /// that does not terminate spins in the binding's own C# loop, and the shapes that used to hang did not
+    /// even re-enter the engine on every turn — a node <c>whatToShow</c> excludes is <c>FILTER_SKIP</c>
+    /// without the page's filter being called at all — so no constraint, no cancellation token and no
+    /// statement budget is ever consulted. That is why a page budget cannot bound one either, and why these
+    /// were hangs rather than failures in the browser lane.
+    /// </para>
+    /// <para>
+    /// So the walk runs on a background thread and the assertion is on the join: a thread that never returns
+    /// is abandoned rather than waited for, which keeps one wedged walk from taking the suite with it.
+    /// </para>
+    /// </remarks>
+    private static string BoundedWalk(string html, string script)
+    {
+        string? answer = null;
+        ExceptionDispatchInfo? failure = null;
+
+        var walk = new Thread(() =>
+        {
+            try
+            {
+                using var fixture = DomTestFixture.Create(html);
+                answer = fixture.Evaluate(NodeFilterConstants + script).ToString();
+            }
+            catch (Exception exception)
+            {
+                failure = ExceptionDispatchInfo.Capture(exception);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "bounded DOM walk",
+        };
+
+        walk.Start();
+        walk.Join(TimeSpan.FromSeconds(20)).Should().BeTrue("a DOM traversal has to terminate");
+        failure?.Throw();
+
+        return answer!;
     }
 }

@@ -21,7 +21,9 @@ namespace Jint.Browser.Dom.Views;
 /// (<see cref="XPathEvaluation"/> says why). Everything else in this folder is a <em>view</em> onto the DOM
 /// that AngleSharp does have and that the generator already emits: <c>Range</c>, <c>TreeWalker</c> and
 /// <c>NodeIterator</c> are generated, and only the members whose signatures the conversion table could not
-/// cross arrive from <c>overrides.json</c>'s additions.
+/// cross arrive from <c>overrides.json</c>'s additions. <see cref="DomTreeWalker"/> is the one exception in
+/// the other direction — the <em>shape</em> is still generated, and only the walk behind it is this
+/// package's, because AngleSharp's does not terminate.
 /// </para>
 /// <para>
 /// Each global is lazy and non-clobbering, and the shapes are process-shared with the prototypes per engine,

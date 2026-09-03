@@ -382,7 +382,7 @@ corpus.
 | `dom/nodes/Document-createEvent.js` | 1 | The alias table `dom/events/EventTarget-dispatchEvent.html` loads by absolute path — once vendored alone, because without it that document silently reported **one** of its twenty-five tests |
 | `dom/nodes/` | 159 `.html`/`.htm`, 15 `.js`, 1 `.xml` | The DOM standard's node suite, and the biggest thing this lane runs: 4,364 tests |
 | `dom/collections/`, `dom/lists/` | 13 `.html` | `HTMLCollection`, `NamedNodeMap`, `DOMStringMap` and `DOMTokenList` |
-| `dom/traversal/` | 9 `.html` | `NodeIterator` and `TreeWalker` |
+| `dom/traversal/` | 13 `.html` | `NodeIterator` and `TreeWalker`; four of them are the walks that used to run forever ([#3765](https://github.com/sebastienros/jint/issues/3765)) |
 | `dom/traversal/support/` | 1 `.html`, 1 `.js` | An empty document a filter's realm comes from, and the node assertions |
 | `dom/ranges/` | 17 `.html` | The `Range` and `StaticRange` documents that do not load `dom/common.js`; the twenty-four that do are not-vendored rows |
 | `html/dom/` | 5 `.html` | ARIA reflection, `accessKeyLabel` and HTML's historical members. **Not** the ten `reflection-*.html` documents — see the browser lane's README |
@@ -1622,8 +1622,8 @@ find . -type f \( $TYPES \) | sort | while read -r f; do
 done
 ```
 
-Silence is a clean corpus, and at this pin there are 860 files in 78 directories to be silent
-about — 344 of them the documents the browser lane navigates to, the rest the scripts, payloads and
+Silence is a clean corpus, and at this pin there are 864 files in 78 directories to be silent
+about — 348 of them the documents the browser lane navigates to, the rest the scripts, payloads and
 sidecars every lane reads.
 
 <!-- end generated -->
