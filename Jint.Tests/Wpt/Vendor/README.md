@@ -41,8 +41,8 @@ Fourteen standards are vendored: `url/`, `encoding/`, `compression/`, `urlpatter
 `blob/`, `file/`, `reading-data-section/` and `url/`), `workers/` as **four**, `html/webappapis/` as
 **three** (timers, microtask-queuing, structured-clone), `dom/` as **two** (events, abort), `fetch/api/` as
 **seven** (abort, basic, body, headers, redirect, request, response), `WebCryptoAPI/` as **eight** and
-`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 382
-theory cases over 41,581 assertions, of which 2,932 do not pass and every one is named in the driver's
+`streams/` as **seven** — their root files plus one suite per sub-directory, because `WptCorpus.TestFiles` lists a directory's own files and never descends. That is 383
+theory cases over 41,582 assertions, of which 2,932 do not pass and every one is named in the driver's
 table; the whole driver runs in about two minutes.
 
 Those three figures are a census taken at the pin rather than a running tally, so they are restated whenever a
@@ -1423,7 +1423,13 @@ blob the script itself created — ten whitespace and boundary cases that must a
 `Content-Range`, and seventeen refusals that must be a network error rather than a whole-blob response. The
 row of `request-content-length.any.js` that used to sit in the table beside it passes for the same reason.
 
-Twenty-four files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
+`xhr-timeout-longtask.any.js` was a not-vendored row of its own until the `timeout` attribute became a
+task on the engine's timer queue ([#3627](https://github.com/sebastienros/jint/issues/3627)). Its whole
+subject is that a 200 ms busy loop entered from the very task `send()` was called in must not let a
+150 ms deadline pre-empt a response that arrived at 100 ms — an outcome a wall-clock deadline on a
+cancellation token could not promise, and which the file was excluded for depending on the machine for.
+
+Twenty-three files are not vendored, and twenty of those are one reason: the `xhr/` corpus is largely a CORS
 corpus, and every one of those files fetches `get_host_info().HTTP_REMOTE_ORIGIN`. An engine has one origin
 and no CORS model, so there is nothing in them to run. The [not-vendored table](#deliberately-not-vendored)
 has the rest.
@@ -1468,8 +1474,8 @@ their exclusions without revisiting this table.
 | HTML — timers, microtasks, structured clone | `html/webappapis/` ×3 | 11 | 154 | 3 |
 | DOM | `dom/` ×2 | 13 | 76 | 0 |
 | Fetch | `fetch/api/` ×7 | 62 | 906 | 116 |
-| XMLHttpRequest | `xhr/` | 43 | 287 | 8 |
-| **total** | **44** | **382** | **41,581** | **2,932** |
+| XMLHttpRequest | `xhr/` | 44 | 288 | 8 |
+| **total** | **44** | **383** | **41,582** | **2,932** |
 
 Re-censused whole rather than adjusted row by row, because several rows had gone stale between the changes
 that moved them: before [#3195](https://github.com/sebastienros/jint/issues/3195) the true figures were

@@ -51,6 +51,12 @@ public class XmlHttpRequestTests
 
         internal Func<HttpRequestMessage, HttpResponseMessage>? Responder { get; set; }
 
+        /// <summary>
+        /// How long the transport takes to answer, waited for on the cancellation token it was handed — so a
+        /// request the engine terminates while this is running fails at once rather than after the delay.
+        /// </summary>
+        internal TimeSpan Delay { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -69,6 +75,11 @@ public class XmlHttpRequestTests
             }
 
             Requests.Add(new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body));
+
+            if (Delay > TimeSpan.Zero)
+            {
+                await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
+            }
 
             return Responder is { } responder
                 ? responder(request)
@@ -783,8 +794,8 @@ public class XmlHttpRequestTests
 
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-timeout — the deadline fires the <c>timeout</c> event
-    /// rather than <c>error</c>, and it is enforced CLR-side so an unpumped engine still lets go of its
-    /// socket.
+    /// rather than <c>error</c>, from a task on the engine's own event loop. The transport here never answers
+    /// at all, so what is pinned is that the deadline still settles the request.
     /// </summary>
     [Test]
     public Task TheTimeoutAttributeFiresTheTimeoutEvent() => DedicatedThread.RunAsync(() =>
@@ -810,6 +821,39 @@ public class XmlHttpRequestTests
         Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the timeout and loadend events");
         engine.Evaluate("log.join('|')").AsString().Should().Be("timeout|loadend");
         engine.Evaluate("xhr.readyState").AsNumber().Should().Be(4);
+    });
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#the-timeout-attribute — the asynchronous deadline is a task on the
+    /// engine's own event loop, so a long-running task holds it off exactly as it holds off a
+    /// <c>setTimeout</c>: a response that arrives while the loop is busy is delivered, and the deadline that
+    /// came due behind it finds nothing left to terminate.
+    /// </summary>
+    /// <remarks>
+    /// This is web-platform-tests' <c>xhr/xhr-timeout-longtask.any.js</c> written as a unit test: a 50 ms
+    /// <c>timeout</c>, a response 150 ms out, and a 600 ms busy loop entered from the very task <c>send()</c>
+    /// was called in. Every number is a wide multiple of the one before it, so what the test asserts is the
+    /// ordering and never the timing.
+    /// </remarks>
+    [Test]
+    public Task ALongTaskHoldsOffTheTimeoutSoTheResponseStillArrives() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new StubHandler { Delay = TimeSpan.FromMilliseconds(150) };
+
+        var engine = XhrEngine(handler);
+        engine.Execute($@"
+            var log = [];
+            var xhr = new XMLHttpRequest();
+            for (const t of ['timeout', 'error', 'load', 'loadend']) xhr.addEventListener(t, () => log.push(t));
+            xhr.open('GET', '{Url}');
+            xhr.timeout = 50;
+            xhr.send();
+            const start = Date.now();
+            while (Date.now() - start < 600) {{ }}");
+
+        Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the load and loadend events");
+        engine.Evaluate("log.join('|')").AsString().Should().Be("load|loadend");
+        engine.Evaluate("xhr.responseText").AsString().Should().Be("ok");
     });
 
     /// <summary>

@@ -343,6 +343,28 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
     }
 
     /// <summary>
+    /// The <c>timeout</c> attribute coming due, https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send: "set
+    /// this's timed out to true and terminate this's fetch controller", and then
+    /// https://xhr.spec.whatwg.org/#handle-errors, which runs the request error steps for <c>timeout</c>.
+    /// </summary>
+    /// <remarks>
+    /// Reached from a task on the engine's timer queue, so it can never run inside another one — which is
+    /// what <c>xhr/xhr-timeout-longtask.any.js</c> is about. Handle errors' own first step is the guard: "if
+    /// xhr's send() invoked is false, then return", so a deadline the loop reached only after the response
+    /// had been delivered settles nothing a second time.
+    /// </remarks>
+    internal void HandleTimeout(XhrOperation operation)
+    {
+        if (!ReferenceEquals(CurrentOperation, operation) || !SendFlag)
+        {
+            return;
+        }
+
+        AbandonOperation();
+        RunRequestErrorSteps(TimeoutEventType, DomExceptionNames.Timeout, "The request timed out.");
+    }
+
+    /// <summary>
     /// The fence a <c>RestoreGlobalSnapshot</c> puts up, reached from the engine state. The socket is let go
     /// and the object is left <c>DONE</c> with no event at all — the evaluation cycle those listeners
     /// belonged to has ended, so there is nobody left to tell.
@@ -735,7 +757,7 @@ internal sealed class JsXmlHttpRequest : JsXmlHttpRequestEventTarget
 
         if (ReadyState == Opened && SendFlag)
         {
-            CurrentOperation?.RearmScriptDeadline(milliseconds);
+            CurrentOperation?.RearmTimeout(milliseconds);
         }
     }
 

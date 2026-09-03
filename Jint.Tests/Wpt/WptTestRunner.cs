@@ -383,7 +383,6 @@ public class WptTestRunner
         ("xhr/send-data-sharedarraybuffer.any.js", "needs WebAssembly.Memory, which Jint declines by design"),
         ("xhr/json.any.js", "its first test fetches a data: URL, which the transport has no scheme for, so that test never settles and the file stalls"),
         ("xhr/abort-after-timeout.any.js", "its one test asks for /common/blank.html?pipe=trickle(d1), a wptserve pipe directive the driver's server does not implement"),
-        ("xhr/xhr-timeout-longtask.any.js", "its outcome depends on the machine: a browser's timeout timer is a task and cannot fire during the 200 ms busy-wait the file runs, while this one is a wall-clock deadline on a cancellation token — see XhrOperation on why it is CLR-side — so a body read the runner is too busy to finish inside 150 ms times out where the file asserts it must not"),
 
         // ---------------------------------------------------------------- resources/ and common/
         // The two shared roots hold helpers rather than tests, and the rule for them is the rule for every
@@ -835,6 +834,7 @@ public class WptTestRunner
         ["xhr/send-usp.any.js"] = 135,
         ["xhr/sync-no-progress.any.js"] = 1,
         ["xhr/sync-no-timeout.any.js"] = 1,
+        ["xhr/xhr-timeout-longtask.any.js"] = 1,
 
     };
 
