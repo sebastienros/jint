@@ -89,7 +89,7 @@ than written from here.
 | [#228](https://github.com/AngleSharp/AngleSharp.Css/pull/228) | `matchMedia`'s media query list is evaluated against the render device instead of answering `false` for every query |
 | [#229](https://github.com/AngleSharp/AngleSharp.Css/pull/229) | An opt-in switch for CSSOM-compliant colour serialization, for [#227](https://github.com/AngleSharp/AngleSharp.Css/issues/227) — an opaque colour serializes as `rgba(r, g, b, 1)` where CSSOM says `rgb(r, g, b)` |
 
-**AngleSharp.Css** — open issues, each one a divergence this work measured:
+**AngleSharp.Css** — issues, each one a divergence this work measured; all five are fixed on `devel` (#230–#233 by the maintainer, #234 by our [#235](https://github.com/AngleSharp/AngleSharp.Css/pull/235), which adds `IRenderDevicePreferences`) and wait for a release, which is #3726's job to consume:
 
 | | |
 | --- | --- |
