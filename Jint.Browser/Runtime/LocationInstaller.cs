@@ -47,7 +47,7 @@ internal static class LocationInstaller
 
         Accessor(engine, wrapper, "href",
             static runtime => runtime.DocumentUrl,
-            static (runtime, value) => runtime.Page.RequestNavigation(value, replace: false));
+            static (runtime, value) => runtime.Page.RequestNavigation(value, replace: false, engine: runtime.Engine));
 
         Accessor(engine, wrapper, "protocol",
             static runtime => Read(runtime, static url => url.SerializeProtocol()),
@@ -80,8 +80,8 @@ internal static class LocationInstaller
         // Read-only: an origin is derived, and HTML declares no setter for it.
         Accessor(engine, wrapper, "origin", static runtime => Read(runtime, static url => url.SerializeOrigin()), setter: null);
 
-        Method(engine, wrapper, "assign", 1, static (runtime, value) => runtime.Page.RequestNavigation(value, replace: false));
-        Method(engine, wrapper, "replace", 1, static (runtime, value) => runtime.Page.RequestNavigation(value, replace: true));
+        Method(engine, wrapper, "assign", 1, static (runtime, value) => runtime.Page.RequestNavigation(value, replace: false, engine: runtime.Engine));
+        Method(engine, wrapper, "replace", 1, static (runtime, value) => runtime.Page.RequestNavigation(value, replace: true, engine: runtime.Engine));
 
         wrapper.DefineOwnPropertyUnchecked(
             "reload",
@@ -137,7 +137,7 @@ internal static class LocationInstaller
         }
 
         setter(url, value);
-        runtime.Page.RequestNavigation(url.Serialize(), replace: false);
+        runtime.Page.RequestNavigation(url.Serialize(), replace: false, engine: runtime.Engine);
     }
 
     private static void Accessor(

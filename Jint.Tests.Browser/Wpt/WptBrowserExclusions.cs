@@ -334,25 +334,38 @@ internal static class WptBrowserExclusions
         // group below by cause, and is here only because the file is in another suite.
         new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
-        // ---------------------------------------------------------------- 9. one click, one activation behaviour
-        // https://dom.spec.whatwg.org/#eventtarget-activation-behavior: a dispatch runs the activation
-        // behaviour of *one* element — the nearest ancestor in the event path that has one — and these rows
-        // are the two ways that goes wrong here. A nested `<a>` or `<area>` records nothing at all, because
-        // following a hyperlink to a fragment of the page's own URL is not what this activation host does;
-        // and a `<form>` nested in a `<form>` submits **both**, because the walk does not stop at the first
-        // behaviour it finds. 108 of the file's 132 shapes are right, which is what makes the two wrong ones
-        // worth naming.
+        // ---------------------------------------------------------------- 6. a bubbling `submit` the file counts as an activation
+        // `Event-dispatch-single-activation-behavior.html` builds 132 nesting shapes and asserts that exactly
+        // one activation behaviour runs. Its instrumentation is the *handler* — `<form onsubmit="activated(this)">`
+        // — and for eight of the shapes that cannot tell an activation behaviour from an ordinary bubble:
+        // the child form is a descendant of the parent form (the file appends it into the parent's `<input>`),
+        // and https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#concept-form-submit
+        // fires `submit` "with the bubbles and cancelable attributes initialized to true", as
+        // https://html.spec.whatwg.org/multipage/forms.html#dom-form-reset does `reset`. So the parent's
+        // handler runs because the child's event reached it, and no implementation may stop it.
+        //
+        // The shape of the eight says the same thing from the other side: they are exactly the pairs whose
+        // two forms listen for the *same* event. A submitting child inside a resetting parent passes, because
+        // the parent has no `onsubmit` for the bubble to find.
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=reset></BUTTON></FORM> of parent <FORM><INPUT type=reset></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
+
+        // ---------------------------------------------------------------- 7. a fragment navigation the file does not wait for
+        // The same file's twenty-two `<a>`/`<area>` shapes click a link to a fragment of the page's own URL
+        // and give it two zero-delay turns to produce a `hashchange`. The navigation happens — a unit test
+        // measures it arriving on the *next* turn, and this change moved it there from after the whole timer
+        // chain by keeping a same-document fragment move on the page loop instead of sending it round the
+        // navigation gate — but in this document it still does not land inside the file's two turns. What is
+        // left is a scheduling question about the page loop rather than anything about activation behaviour,
+        // and it is the one row of #3693 this change does not retire.
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <A></A> of parent *", WptDivergence.NeedsTriage),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <AREA></AREA> of parent *", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <LABEL><INPUT type=checkbox></INPUT><SPAN></SPAN></LABEL> of parent *", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=reset></BUTTON></FORM> of parent <FORM><INPUT type=reset></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><BUTTON type=submit></BUTTON></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=image></INPUT></FORM> of parent <FORM><INPUT type=submit></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a frame that runs script
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second

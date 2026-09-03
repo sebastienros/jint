@@ -208,8 +208,14 @@ public sealed partial class Page
     /// awaited — the document that script is running in is the one being replaced — and a failure becomes a
     /// page error rather than an unobserved faulted task, because there is nobody to hand it to.
     /// </remarks>
-    internal void RequestNavigation(string url, bool replace, bool reload = false)
-        => Start(new NavigationRequest(
+    internal void RequestNavigation(string url, bool replace, bool reload = false, Engine? engine = null)
+    {
+        if (engine is not null && !reload && TryFragmentNavigation(engine, url, replace))
+        {
+            return;
+        }
+
+        Start(new NavigationRequest(
             url,
             NavigationOptions.Default,
             replace ? HistoryMode.Replace : HistoryMode.Push,
@@ -218,6 +224,50 @@ public sealed partial class Page
             ContentType: null,
             reload,
             Referrer: null));
+    }
+
+    /// <summary>
+    /// A same-document fragment navigation, done <b>on the loop</b> rather than through <see cref="Start"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// HTML's <i>navigate</i> queues a task and its fragment arm neither fetches, replaces the engine nor can
+    /// fail, so there is nothing for the off-loop half of a navigation to do — and going there anyway is
+    /// observable: a page that clicks an <c>&lt;a href="#x"&gt;</c> and then spins zero-delay timers waiting
+    /// for <c>hashchange</c> waits out the whole chain, because the thread hop and the navigation gate put
+    /// the commit behind every timer already due.
+    /// <c>dom/events/Event-dispatch-single-activation-behavior.html</c> is written exactly that way and gives
+    /// it two turns.
+    /// </para>
+    /// <para>
+    /// It declines while a navigation is in flight — the gate is what orders those, and a fragment move that
+    /// jumped it could be overwritten by a commit already on its way — so the slow path is still there for
+    /// the case it was protecting.
+    /// </para>
+    /// </remarks>
+    private bool TryFragmentNavigation(Engine engine, string url, bool replace)
+    {
+        if (_closed || _load is null || _navigationGate.CurrentCount == 0)
+        {
+            return false;
+        }
+
+        var target = PageUrl.Parse(url, _url);
+        if (target?.Fragment is null)
+        {
+            return false;
+        }
+
+        var href = target.Serialize();
+        if (!PageUrl.IsSameDocument(_url, href))
+        {
+            return false;
+        }
+
+        var history = replace ? HistoryMode.Replace : HistoryMode.Push;
+        engine.Tasks.Post(() => FragmentNavigate(engine, href, history));
+        return true;
+    }
 
     /// <summary>The same, for a form submission that ends in a <c>POST</c>.</summary>
     internal void RequestFormPost(string url, byte[] body, string contentType)

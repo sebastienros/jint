@@ -512,6 +512,85 @@ public sealed class ActivationBehaviorTests
     }
 
     /// <summary>
+    /// https://html.spec.whatwg.org/multipage/forms.html#labeled-control — clicking inside a
+    /// <c>&lt;label&gt;</c> forwards the click to the control it labels, whether the label <i>contains</i> the
+    /// control or names it with <c>for</c>.
+    /// </summary>
+    /// <remarks>
+    /// The containing spelling is the one AngleSharp cannot answer — its <c>IHtmlLabelElement.Control</c> is
+    /// <see langword="null"/> for a control the label wraps — so the labeled control is computed here, and
+    /// this is what holds it to the two spellings and to the labelable-element list.
+    /// </remarks>
+    [Test]
+    public async Task ClickingInsideALabelForwardsToTheControlItLabels()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<label id='wrapping'><input id='inner' type='checkbox'><span id='text'>text</span></label>"
+            + "<label id='naming' for='outer'>text</label><input id='outer' type='checkbox'>"
+            + "<label id='hiddenOnly'><input type='hidden'><span id='hiddenText'>text</span></label>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              const seen = [];
+              for (const id of ['inner', 'outer']) {
+                document.getElementById(id).addEventListener('click', e => seen.push(id + ':' + e.isTrusted));
+              }
+
+              document.getElementById('text').click();
+              document.getElementById('naming').click();
+              document.getElementById('hiddenText').click();
+
+              return seen.join(',') + '|' + document.getElementById('inner').checked + document.getElementById('outer').checked;
+            })()
+            """))
+            // The forwarded click carries the original's trust, and a label whose only descendant control is
+            // a hidden input labels nothing at all.
+            .Should().Be("inner:false,outer:false|truetrue");
+    }
+
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/links.html#following-hyperlinks-2 for a link to a fragment of
+    /// the page's own URL: it is a same-document navigation, and <c>hashchange</c> arrives on the <b>next</b>
+    /// turn rather than after whatever else the page has queued.
+    /// </summary>
+    /// <remarks>
+    /// The fragment arm of <i>navigate</i> neither fetches, replaces the engine nor can fail, so it is done on
+    /// the page loop; sending it round the navigation gate put the commit behind every timer already due, and
+    /// a page that clicks a link and then spins zero-delay timers waiting for <c>hashchange</c> waited out the
+    /// whole chain. Measured before the fix: turn 20 of 20.
+    /// </remarks>
+    [Test]
+    public async Task AFragmentLinkFiresHashChangeOnTheNextTurn()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<a id='go'>go</a><p id='target'>t</p>");
+
+        await page.EvaluateAsync(
+            """
+            window.turns = 0;
+            window.seen = null;
+            window.onhashchange = e => { window.seen = window.turns + ':' + e.newURL.endsWith('#target'); };
+            // The absolute form, because resolving a bare `#target` is AngleSharp's and it mangles an
+            // `about:blank` base; what is measured here is when the navigation lands, not how it resolved.
+            document.getElementById('go').setAttribute('href', location.href + '#target');
+            document.getElementById('go').click();
+            (function tick() {
+              window.turns++;
+              if (window.turns < 20 && window.seen === null) { setTimeout(tick, 0); }
+            })();
+            """);
+
+        await page.WaitForIdleAsync(TimeSpan.FromSeconds(5));
+
+        (await page.EvaluateAsync<string>("String(window.seen)")).Should().Be("1:true");
+        page.Errors.Should().BeEmpty();
+    }
+
+    /// <summary>
     /// https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox) — step 1 of the
     /// checkbox and radio activation behaviours is "if the element is not connected, then return", so a
     /// detached control toggles silently.
