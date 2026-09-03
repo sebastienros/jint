@@ -123,48 +123,44 @@ Prefer `(uint) index < (uint) array.Length` over `index >= 0 && index < array.Le
 
 Use it for manual checks before a direct `array[i]` / `span[i]` where the index could be negative or oversized, and in `for (var i = ...; (uint) i < (uint) arr.Length; ...)` chains. Skip it for ordinary `for (var i = 0; ...)` loops, where the JIT already elides the check and the cast is noise; for indexes known non-negative by construction; and for already-unsigned types. Prefer the plain `(uint) i < (uint) arr.Length` phrasing — variants like `(uint) i <= (uint) (arr.Length - 1)` can defeat the JIT's elision. For `long` lengths use `(ulong)`.
 
+### Code patterns
+
+- **Lazy initialization** — Built-in objects and their properties initialize on first access to keep startup cheap. `JintStatement` subclasses set `_initialized = false` and override `Initialize()` for deferred setup.
+- **Error throwing** — Use the static `Throw.*` helpers (`Jint/Runtime/Throw.cs`) rather than `throw new`; they are `[DoesNotReturn]` and keep non-error paths allocation-free.
+- **Built-in JS types** follow the Constructor/Prototype/Instance split matching the spec structure.
+- **Engine carries all state** — `ObjectInstance` and most runtime types take `Engine` in their constructors; interpreter classes receive state via `EvaluationContext`.
+- **Partial classes** — Large types are split (`Engine.*.cs`, `Intrinsics.*.cs`, `ObjectInstance.*.cs`). Keep related functionality together when editing.
+- **XML doc comments** — Every declaration of the public API surface carries a `<summary>`, and a test in `Jint.Tests.PublicInterface` says which do not. Before writing or rewriting one, read [`docs/xml-doc-style.md`](../docs/xml-doc-style.md): one sentence of ≤ 25 words, no `<para>` inside `<summary>`, `<remarks>` capped at four short paragraphs of caller guidance, and no history or benchmark numbers.
+- **Type flags** — The `InternalTypes` enum enables fast type checks without casting; many hot paths depend on it.
+- **Property keys** — `KnownKeys` holds pre-computed common property names.
+- **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`). The web APIs under `Jint/WebApi/` are owned by WHATWG living standards instead, and [`Jint/WebApi/AGENTS.md`](../Jint/WebApi/AGENTS.md#citing-the-living-standard) says which document owns what. Every anchor cited here is registered in `Jint.Tests/SpecAnchors.txt`; a citation it does not hold fails `SpecCitationTests`, and `JINT_SPEC_ANCHORS=update` re-verifies the register against the living documents.
+
+### Data structures
+
+Prefer a **`readonly record struct` over a tuple** for returning multiple values — named properties beat `Item1`/`Item2` at the call site. Mark it `[StructLayout(LayoutKind.Auto)]` and pass it into methods with `in`. Use a class or plain struct instead once the type carries behavior, validation, or many fields.
+
+### Visibility: internal-first
+
+Default every new type, member, field and parameter to the **narrowest visibility that compiles**, and climb only when a real consumer requires it:
+
+1. **`private`** — single-class implementation detail.
+2. **`internal`** — shared within the Jint assembly; the default for most new runtime types.
+3. **`protected internal`** — extension points on public abstract classes that user-derived classes legitimately need.
+4. **`public`** — only when the type appears in an already-public signature, or end users must construct it directly.
+
+If a type is only referenced by `internal` members, it must be `internal`. When a public surface seems to force your hand, first check whether that surface can be split so the implementation detail stays internal — `ModuleImportPhase` stayed internal by splitting `public GetModuleNamespace(ModuleRecord)` from `internal GetModuleNamespace(ModuleRecord, ModuleImportPhase)`. Public API is a durable commitment; `internal` costs nothing to widen later.
+
 ## AOT compatibility
 
 Jint is AOT-compatible for .NET 7.0+ targets (`IsAotCompatible` is set for net7.0+ in `Jint.csproj`). See `Jint.AotExample/` for usage patterns.
 
 ### What counts as a public contract
 
-**A change to any of it is a row in [`docs/v5-migration.md`](../docs/v5-migration.md), written in the same pull request.**
-That includes a change that breaks nothing at compile time — a flipped default, a narrowed lane, a message that stops
-being detailed. A compiler cannot find those, so the guide is the only place an embedder can.
-
-| Surface | Location |
-| --- | --- |
-| `Options.AddLazyGlobal` — extension method on `OptionsExtensions` — and its per-engine counterpart `Engine.AddLazyGlobal`, whose `<TState>` overload takes the state so a `static` factory can serve it without a closure | `Jint/Options.Extensions.cs`, `Jint/Engine.Globals.cs` |
-| `Engine.HostDefined` — the `[[HostDefined]]` field of the engine's **principal** realm (`Realm.HostDefined`), reachable from an `Engine`; an opaque `object?` the engine never reads, so host code handed nothing but an `Engine` can get back to per-request state. Principal, not current: it does not move inside a `ShadowRealm`, whose own slot the spec starts empty and `Host.InitializeShadowRealm` exists to fill | `Jint/Engine.Globals.cs`, `Jint/Runtime/Realm.cs` |
-| `ReferencedGlobals` + `Prepared<T>.ReferencedGlobals` + `{Script,Module}PreparationOptions.CollectReferencedGlobals` | `Jint/ReferencedGlobals.cs`, `Jint/Prepared.cs`, `Jint/PreparationOptions.cs` |
-| `{Script,Module}PreparationOptions.StaticAnalysis` — the opt-out from the prepare-time analysis pass, plus the promise that the parse-only tree it returns is *still* safe to share across engines | `Jint/PreparationOptions.cs` |
-| `GlobalSnapshot` + `Engine.Advanced.CaptureGlobalSnapshot` / `RestoreGlobalSnapshot` / `WithRestoredGlobals` | `Jint/Engine.GlobalSnapshot.cs` |
-| `ResultLimits` + `ResultLimit` + `ResultLimitExceededException` + `Engine.ConvertResult` + the `JsonSerializer` constructor that takes them / `JavaScriptException.GetJavaScriptErrorString` | `Jint/ResultLimits.cs`, `Jint/Runtime/ResultLimitExceededException.cs`, `Jint/Engine.cs`, `Jint/Native/Json/JsonSerializer.cs`, `Jint/Runtime/JavaScriptException.cs` |
-| The `*Async` failure channel — which of the two ways out of an `*Async` entry a given failure takes | `Jint/Engine.Async.cs`, `Jint/Engine.Modules.cs`, `Jint/Engine.Pump.cs` |
-| `Engine.Options` — the frozen configuration the engine actually runs under, which for a hardened profile is the engine's private clone rather than the instance the host handed in, and which `Engine.WebApi.Enable` replaces with a copy of its own | `Jint/Engine.cs`, `Jint.Tests.PublicInterface/HostEngineConfigurationTests.cs` |
-| A `string` reaching an invocation entry — `Engine.Invoke`/`InvokeAsync` name **one property of the global object**, by that literal name, and nothing on `Engine` parses a name as source. `Call(string)`/`Construct(string)` did, and were deleted for it (#3289) | `Jint/Engine.cs`, `Jint.Tests.PublicInterface/HostCallableResolutionTests.cs` |
-| `Engine.Tasks.Post` — the one public entry that takes **no** host-call scope, so a thread that does not own the engine may hand it work; giving it one "for consistency" would refuse the very callers it exists for. It enqueues and nothing else: the action runs on the pumping thread, under the generation captured at post time, with no memory state (a host post belongs to no engine operation) | `Jint/Engine.Tasks.cs`, `Jint.Tests.PublicInterface/HostPostedWorkTests.cs` |
-
-**Five areas keep their own rows beside the code they govern**, on exactly these terms — the same rule, the
-same meaning of "breaking", the same migration-guide row. Look there as well before deciding a change is safe:
-[`ObjectInstance`'s virtuals, the access lanes and the shape factories](Native/Object/AGENTS.md#what-counts-as-a-public-contract);
-[the property descriptor and its lazy hooks](Runtime/Descriptors/AGENTS.md#what-counts-as-a-public-contract);
-[the reference resolvers, the converters, `ProxyHandler` and the CLR exception behind an interop error](Runtime/Interop/AGENTS.md#what-counts-as-a-public-contract);
-[`Constraint` and the two host-armed budgets](Constraints/AGENTS.md#what-counts-as-a-public-contract);
-[the module loaders and a module's location](Runtime/Modules/AGENTS.md#what-counts-as-a-public-contract).
-
-Three things are deliberately **not** contracts, and since [#3304](https://github.com/sebastienros/jint/pull/3304) they say so to the compiler rather than only in prose: each carries `[Experimental(JintDiagnosticIds.NonContractDiagnostic)]`, i.e. **`JINT0001`**, so reaching for one is an error at the call site until a host acknowledges it. `Jint/JintDiagnosticIds.cs` is the single place that identifier is documented; `Jint.csproj` suppresses it for the assembly that owns the types, and the suites that exercise them acknowledge it per file. Add a new non-contract to that list rather than trusting a paragraph nobody reads — and give a genuinely new *area* its own identifier instead of folding it into this one.
-
-**`JINT0002` is a second identifier with a different meaning, and mixing them up loses the distinction.** `JINT0001` says *the answer describes an internal representation*; `JINT0002` says *the capability is settled and its shape is not yet* — a preview. Today it marks `Jint.Diagnostics.ValueInspector` and the `ValueDescription` / `ValueEntry` / `ValueKind` / `ValueInspectorOptions` types it answers with, whose exact `Description` text may change in any release. A third area gets a third identifier rather than joining either.
-
-The first: `ObjectRepresentation` and `Engine.DiagnosticOperations.GetObjectRepresentation` name an internal representation for diagnostics and tests. Which representation an object lands in may change in any release and the enum may gain members; neither counts as breaking. Do not let a host branch on it in production code, and do not freeze the engine's behaviour to preserve it. What *is* stable is the one question a host actually asks of it — is this object's own string-keyed storage a layout shared with its siblings — and that has its own predicate, `Engine.Advanced.HasSharedShape`, which is a contract ([`Native/Object/AGENTS.md`](Native/Object/AGENTS.md#what-counts-as-a-public-contract)). A host may pin its answer for the documented success case of the factory it called (`JsObject.Create`, `JsObject.CreateFromEntries`, `JsObjectShape.Instantiate`); which *other* construction paths reach a shared layout can still improve release to release. Both read the same internal flags, and `HasSharedShape` is literally `GetObjectRepresentation` reduced to its shared-layout members, so they can never disagree — including that neither perturbs, so a lazily-initialized object answers for its settled representation only once something has touched it. A test asserting shaping belongs on the predicate; reach for the enum only to explain a `false`.
-
-`Engine.Diagnostics.GetMemoryReport` and the `Jint.Diagnostics` report records it returns are the second deliberate non-contract, and for the same reason: they count internal collections, so which collections are counted and how may be refined in any release and the records may gain members. That is why every one of their constructors is `internal` — a host reads the properties it knows about and a new one is not a breaking change. Two properties of it *are* load-bearing and have tests: it adds **no field to `Engine`** (every figure is derived on demand from state that already exists, so an engine nobody asks pays nothing), and reading it **materializes nothing** — no getter invoked, no lazy property factory run, no built-in's function object created — which is what lets a host log it on every request without moving the very numbers it is watching. The walks therefore read descriptor storage directly and test `PropertyFlag`s rather than calling `GetOwnProperty`, `descriptor.Get` or `descriptor.Value`; any new figure added to the report has to keep both properties, and the census in particular must never reach for `ObjectInstance.Get`. What it deliberately does *not* offer is a per-call-site breakdown of the warmed handler trees: the interpreter's node classes carry no child enumeration, and a reflection walker over their private fields would break silently on the next field added, so the report surfaces the three cache sizes (`_functionDefinitions`, `_scriptStatementLists`, `_evaluatedScripts`) as the retention roots and says so in its own documentation.
-
-`InteropConversionDiagnostics` and `Engine.DiagnosticOperations.GetInteropConversionDiagnostics` are the third, on the same terms: which internal events are counted may be refined in any release.
-
-Two public members read as if they belonged on that list and deliberately do not. `Engine.Tasks.ProcessTasks` is the canonical host loop — the *only* way a timer callback, a settled `Atomics.waitAsync` or a worker message ever runs — so its old "this API may break and change behavior!" line was a defect, not a declaration, and was corrected; `TimeUntilNextScheduledWork`'s documentation is the one to keep it consistent with. `Engine.Tasks.RegisterPromise` is a real capability rather than a report about an internal representation, so its "EXPERIMENTAL! Subject to change." banner was removed rather than promoted: with `JINT0001` in the assembly the word has to mean exactly one thing.
+The table of what an embedder may rely on — signatures, observable behaviour, the snapshot, event-loop and
+`*Async` rules — lives with the baselines that pin it, in
+[`Jint.Tests.PublicInterface/AGENTS.md`](../Jint.Tests.PublicInterface/AGENTS.md#what-counts-as-a-public-contract).
+The one rule to carry across without opening it: **changing observable behaviour is breaking even when the
+signature is untouched**, so assume an embedder depends on it before simplifying it.
 
 ### Gotchas
 

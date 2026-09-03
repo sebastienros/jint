@@ -12,7 +12,7 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 
 | If you are about to… | Read first | What is in it, and what a violation costs |
 | --- | --- | --- |
-| change a signature or observable behaviour under `Jint/`, or anything outliving one evaluation — `Prepared<T>`, `Options`, a snapshot, the event loop, an `*Async` entry | [`Jint/AGENTS.md`](Jint/AGENTS.md) | The key runtime types, the namespace map, the engine-source conventions (type co-location, the unsigned-cast bounds check), what counts as a frozen public contract, the snapshot / event-loop / async rules. Cost: a silent breaking change for embedders, or one engine's state leaking into another through a shared `Prepared<Script>`. |
+| change a signature or observable behaviour under `Jint/`, or anything outliving one evaluation — `Prepared<T>`, `Options`, a snapshot, the event loop, an `*Async` entry | [`Jint/AGENTS.md`](Jint/AGENTS.md) | The key runtime types, the namespace map, the engine-source conventions (type co-location, the unsigned-cast bounds check, the code patterns, visibility), and where the frozen-contract table lives. Cost: a silent breaking change for embedders, or one engine's state leaking into another through a shared `Prepared<Script>`. |
 | implement or change an ECMAScript built-in, intrinsic, coercion rule or new syntax | [`Jint/Native/AGENTS.md`](Jint/Native/AGENTS.md) | Which spec document is authoritative, and that test262 beats prose. Cost: implementing a dated snapshot or a compatibility table instead of the living spec — or un-gating a web API that must stay opt-in. |
 | touch `ObjectInstance`, a property descriptor, a property-access lane, or anything a host subclasses | [`Jint/Native/Object/AGENTS.md`](Jint/Native/Object/AGENTS.md), and [`Jint/Runtime/Descriptors/AGENTS.md`](Jint/Runtime/Descriptors/AGENTS.md) for the descriptor itself | The subclassing cliff, `PropertyAccessSemantics`, host-contract verification, `ArrayLikeObject`, who may reach a new fast lane. Cost: sorting every embedder into a slow path they cannot see or escape. |
 | touch CLR interop — wrappers, converters, reference resolvers, dictionary-backed reads, a host `ProxyHandler`, a CLR exception crossing into script, `[JsAccessible]`, a trimming or AOT annotation | [`Jint/Runtime/Interop/AGENTS.md`](Jint/Runtime/Interop/AGENTS.md), plus [`Jint.AotExample/AGENTS.md`](Jint.AotExample/AGENTS.md) for the native leg | Which host registrations silently disable a compiled lane engine-wide, the immutable-crossing promise, why a generated accessor is a compile-time copy of the run-time compiled one, and which generic instantiations degrade rather than throw. Cost: an engine-wide deoptimisation nobody can see, stale reads, or an `IsAotCompatible` claim nothing runs. |
@@ -25,7 +25,7 @@ whatever that edit turns out to be. Everything else lives in an `AGENTS.md` besi
 | touch the vendored web-platform-tests corpus, its shim or its driver | [`Jint.Tests/Wpt/AGENTS.md`](Jint.Tests/Wpt/AGENTS.md) | The exclusion table is the artefact — an entry must match a failing test and no passing one — and a non-zero `NeedsTriage` count means the corpus found a defect somebody still owes the engine a fix for. Cost: five thousand green cases that mean nothing. |
 | run a wpt suite in a real page — the browser lane, its overlay, its wrappers | [`Jint.Tests.Browser/Wpt/AGENTS.md`](Jint.Tests.Browser/Wpt/AGENTS.md) | One corpus and one pin shared with the lane above, upstream's real harness, the results overlay, the four browser-only categories, the census ceiling. Cost: a document that reports nothing counted as a document that passed. |
 | bump the pinned test262 SHA or triage a conformance failure | [`Jint.Tests.Test262/AGENTS.md`](Jint.Tests.Test262/AGENTS.md) | A bump is a code change, not a pin change; and the three exclusion banners, one of which is deliberately not debt. Cost: an upstream normative change landing unread. |
-| write a test proving a third party can reach an API, or read a run that died rather than failed | [`Jint.Tests.PublicInterface/AGENTS.md`](Jint.Tests.PublicInterface/AGENTS.md) | It is the only test project without `InternalsVisibleTo`, which is the whole reason a test there means anything; and what a `TestPipelineException` naming no test actually means. |
+| write a test proving a third party can reach an API, or read a run that died rather than failed | [`Jint.Tests.PublicInterface/AGENTS.md`](Jint.Tests.PublicInterface/AGENTS.md) | It is the only test project without `InternalsVisibleTo`, which is the whole reason a test there means anything; the table of what counts as a frozen public contract; and what a `TestPipelineException` naming no test actually means. |
 | touch `Jint.DevTools/` — the server, the transport, the protocol pin, the manifest | [`Jint.DevTools/AGENTS.md`](Jint.DevTools/AGENTS.md) | Which thread may touch the engine, the protocol pin and regeneration, the manifest rule. Cost: a command run on the socket thread. |
 | touch a session, a target, the mailbox, or the pause-time message loop | [`Jint.DevTools/Session/AGENTS.md`](Jint.DevTools/Session/AGENTS.md) | How a command crosses to the engine, why a target outlives its engine, what a swap tells each domain, the pause loop. Cost: a domain answering about a document that was replaced. |
 | implement or change a `Jint.DevTools` domain — a command, an event, a handle | [`Jint.DevTools/Domains/AGENTS.md`](Jint.DevTools/Domains/AGENTS.md) | What a client is promised about a value it cannot see, and what may never run script. Cost: a preview that runs a getter. |
@@ -124,32 +124,12 @@ Performance is a first-class concern; every change must consider its impact.
 - Prefer `internal` visibility — it avoids virtual dispatch and enables inlining.
 - Cache `Prepared<Script>` / `Prepared<Module>` when executing the same source repeatedly, and prefer strict mode, which executes faster.
 
-### Code patterns
+### Engine-source conventions have moved beside the engine
 
-- **Lazy initialization** — Built-in objects and their properties initialize on first access to keep startup cheap. `JintStatement` subclasses set `_initialized = false` and override `Initialize()` for deferred setup.
-- **Error throwing** — Use the static `Throw.*` helpers (`Jint/Runtime/Throw.cs`) rather than `throw new`; they are `[DoesNotReturn]` and keep non-error paths allocation-free.
-- **Built-in JS types** follow the Constructor/Prototype/Instance split matching the spec structure.
-- **Engine carries all state** — `ObjectInstance` and most runtime types take `Engine` in their constructors; interpreter classes receive state via `EvaluationContext`.
-- **Partial classes** — Large types are split (`Engine.*.cs`, `Intrinsics.*.cs`, `ObjectInstance.*.cs`). Keep related functionality together when editing.
-- **XML doc comments** — Every declaration of the public API surface carries a `<summary>`, and a test in `Jint.Tests.PublicInterface` says which do not. Before writing or rewriting one, read [`docs/xml-doc-style.md`](docs/xml-doc-style.md): one sentence of ≤ 25 words, no `<para>` inside `<summary>`, `<remarks>` capped at four short paragraphs of caller guidance, and no history or benchmark numbers.
-- **Type flags** — The `InternalTypes` enum enables fast type checks without casting; many hot paths depend on it.
-- **Property keys** — `KnownKeys` holds pre-computed common property names.
-- **Spec references** — Code cites the section it implements, in a `<summary>` or a comment, and the URL says which document is authoritative: `https://tc39.es/ecma262/#sec-...` for merged language features, `https://tc39.es/ecma402/#sec-...` for i18n, and `https://tc39.es/proposal-<name>/#sec-...` for a feature that is still a proposal. Maintain them when editing, and re-point a proposal's citations when it merges into ECMA-262 — the anchors get renamed on the way in (`sec-iteratorprototype.take` became `sec-iterator.prototype.take`). The web APIs under `Jint/WebApi/` are owned by WHATWG living standards instead, and [`Jint/WebApi/AGENTS.md`](Jint/WebApi/AGENTS.md#citing-the-living-standard) says which document owns what. Every anchor cited here is registered in `Jint.Tests/SpecAnchors.txt`; a citation it does not hold fails `SpecCitationTests`, and `JINT_SPEC_ANCHORS=update` re-verifies the register against the living documents.
-
-### Data structures
-
-Prefer a **`readonly record struct` over a tuple** for returning multiple values — named properties beat `Item1`/`Item2` at the call site. Mark it `[StructLayout(LayoutKind.Auto)]` and pass it into methods with `in`. Use a class or plain struct instead once the type carries behavior, validation, or many fields.
-
-### Visibility: internal-first
-
-Default every new type, member, field and parameter to the **narrowest visibility that compiles**, and climb only when a real consumer requires it:
-
-1. **`private`** — single-class implementation detail.
-2. **`internal`** — shared within the Jint assembly; the default for most new runtime types.
-3. **`protected internal`** — extension points on public abstract classes that user-derived classes legitimately need.
-4. **`public`** — only when the type appears in an already-public signature, or end users must construct it directly.
-
-If a type is only referenced by `internal` members, it must be `internal`. When a public surface seems to force your hand, first check whether that surface can be split so the implementation detail stays internal — `ModuleImportPhase` stayed internal by splitting `public GetModuleNamespace(ModuleRecord)` from `internal GetModuleNamespace(ModuleRecord, ModuleImportPhase)`. Public API is a durable commitment; `internal` costs nothing to widen later.
+The code patterns (lazy initialization, the `Throw.*` helpers, XML docs, type flags, spec references), the
+data-structure rule and the internal-first visibility ladder are in
+[`Jint/AGENTS.md`](Jint/AGENTS.md#code-patterns). Two of them bind before that file is open: cite the spec
+section a change implements, and default every new member to the narrowest visibility that compiles.
 
 ## The size budget, and which agents load what
 
