@@ -264,3 +264,48 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
 | `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
 | `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
+
+### The request log is the protocol's seam too
+
+`Runtime/PageNetworkRecorder` is the page's `FetchObserver`, and it is now two things rather than one: the
+log behind `Page.Requests`, and the seam the `Network` and `Fetch` domains read through
+(`Runtime/IPageNetworkListener`). One observer, two consumers — a second observer on the transport would be
+a second truth about the same request.
+
+- **Every listener call runs on the thread the observation arrived on, which is a transport thread.**
+  Delivering them through the page loop was considered and is wrong: `RequestWillBeSentAsync` is where a
+  client's `Fetch` pause blocks, and the one fetch a page cannot pump through is a `<script src>` a running
+  script inserted — `Parsing/AGENTS.md` says why it blocks the loop rather than pumping — so a pause
+  delivered on the loop would deadlock exactly there. Nothing in the listener touches an engine or a node,
+  which is what makes that safe: the frame identifier is a string, and the loader identifier and document
+  URL are read off `Page`'s own volatile fields as the request goes out.
+- **The listener may answer, so the recorder intercepts as well as watches.** The extra headers a client
+  set, its user-agent override, its blocked URLs, its offline switch and a `Fetch` pause all come back as a
+  `PageNetworkDecision`, which the recorder turns into the engine's own `FetchInterception`. With no
+  listener registered it answers `null` to every hop and copies nothing, which is what a page with no client
+  attached costs.
+- **A navigation's request is addressed by its `loaderId`**, passed into `DocumentFetch.LoadAsync` rather
+  than read from the page: the field still holds the document that is showing while the fetch is in flight,
+  and a client tells the navigation apart from every other request by exactly that string.
+- **`DocumentFetch` and `SubresourceFetch` hand their bytes to the observer.** Both read their own body, so
+  neither raises `OnData` for free; without the call the log would have a response with no body and
+  `Network.getResponseBody` would answer nothing for the document a client just navigated to. It is the same
+  debt `FetchObservation.FinalResponse` names, and the body half of it.
+- **The capture is bounded and off by default.** `BrowserOptions.MaxCapturedResponseBytes` bounds the total
+  a page holds, the oldest capture is dropped to stay under it, and the copying is armed only while a client
+  has the `Network` domain enabled.
+
+**The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
+resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
+`ILocation` instead raises `Location.Changed`, answered with a fire-and-forget `IBrowsingContext.OpenAsync` on
+the setter's own thread — the second thread in the DOM the divergence table warns about — so
+`LocationInstaller` shadows the *whole* interface and the hazard is gone rather than dormant. One divergence
+stays: `Options.WebApi.Fetch.BaseUrl` is read once per engine, so `fetch('./x')` after a `pushState` resolves
+against the URL the document *loaded* from. Closing it is an engine seam, not a second URL kept here.
+
+**The history entry is not the document.** Each loaded document gets an id and every entry carries one, so a
+traversal within a cluster (`pushState` siblings, a fragment) is same-document — `popstate`, `hashchange`, no
+fetch — and one across clusters is a navigation that reloads, there being no back/forward cache. The cluster
+is rebound to the new id afterwards, or every step among its siblings would become a reload too. A traversal
+is always queued, never inline; and navigating away from the initial `about:blank` is a **replace**, so
+`history.length` counts what a browser counts.
