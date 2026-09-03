@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+﻿#if NET8_0_OR_GREATER
 #nullable enable
 
 using System.Collections.Concurrent;
@@ -75,42 +75,43 @@ internal sealed class WptServer : IDisposable
     private readonly ConcurrentDictionary<string, int> _stash = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// What <c>/resources/testharnessreport.js</c> answers with. It is Jint's own file rather than a
-    /// vendored one — see <c>Prelude/testharnessreport.js</c> for why — and it is a constructor parameter so
-    /// that the browser lane can overlay it per server without a vendored file changing.
-    /// </summary>
-    private readonly string _harnessReport;
-
-    /// <summary>
-    /// What <c>/resources/testdriver-vendor.js</c> answers with, or <see langword="null"/> for the vendored
-    /// file — which is upstream's, and is empty.
+    /// What this server answers a path with instead of the corpus, keyed by the path exactly as a request
+    /// names it — <c>resources/testharnessreport.js</c>, with no leading slash — and empty for the shared
+    /// instance.
     /// </summary>
     /// <remarks>
-    /// The second slot upstream ships for a vendor to fill: <c>testdriver.js</c> declares every automation
-    /// call as a member of <c>window.test_driver_internal</c> that throws "not implemented by
-    /// testdriver-vendor.js", and this file is where an implementation replaces them. Unlike
-    /// <c>testharnessreport.js</c> the stub <i>is</i> vendored, because it is a real (empty) file in the tree
-    /// rather than one whose whole content is a placeholder, so the default here is to serve it.
+    /// One dictionary rather than a parameter per slot, because the slots are upstream's and there are more
+    /// of them than this lane has filled: <c>testharnessreport.js</c> and <c>testdriver-vendor.js</c> today,
+    /// and whatever the next suite wants a vendor implementation of. A parameter per slot makes each new one
+    /// a signature change that reaches every caller, and leaves adjacent <c>string?</c> parameters that can
+    /// be passed in the wrong order without a compiler noticing.
     /// </remarks>
-    private readonly string? _testDriverVendor;
+    private readonly Dictionary<string, string> _overlays;
 
     /// <summary>
     /// Starts a server on an ephemeral loopback port.
     /// </summary>
-    /// <param name="harnessReportOverlay">
-    /// What to answer <c>/resources/testharnessreport.js</c> with, or <see langword="null"/> for the stub in
-    /// <c>Prelude/</c>. The browser lane passes the script that posts a page's results back to its driver;
-    /// upstream's own file exists to be replaced exactly this way.
+    /// <param name="overlays">
+    /// What to answer named paths with instead of the corpus, or <see langword="null"/> for none. Every
+    /// value is served as a script, because what a caller overlays is one of the slots upstream ships for a
+    /// vendor to fill: <c>resources/testharnessreport.js</c>, whose vendored form is a placeholder and whose
+    /// default here is Jint's own copy in <c>Prelude/</c>, and <c>resources/testdriver-vendor.js</c>, whose
+    /// vendored form is a real and empty file. The browser lane fills both — the script that posts a page's
+    /// results back to its driver, and the one that maps <c>test_driver</c> onto the same dispatcher the
+    /// <c>Input</c> domain reaches.
     /// </param>
-    /// <param name="testDriverVendorOverlay">
-    /// What to answer <c>/resources/testdriver-vendor.js</c> with, or <see langword="null"/> for the vendored
-    /// empty file. The browser lane passes the script that maps <c>test_driver</c> onto the same dispatcher
-    /// the <c>Input</c> domain reaches.
-    /// </param>
-    internal WptServer(string? harnessReportOverlay = null, string? testDriverVendorOverlay = null)
+    internal WptServer(IReadOnlyDictionary<string, string>? overlays = null)
     {
-        _harnessReport = harnessReportOverlay ?? WptCorpus.HarnessReport;
-        _testDriverVendor = testDriverVendorOverlay;
+        _overlays = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (overlays is not null)
+        {
+            foreach (var overlay in overlays)
+            {
+                _overlays[overlay.Key] = overlay.Value;
+            }
+        }
+
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         Port = ((IPEndPoint) _listener.LocalEndpoint).Port;
@@ -224,7 +225,19 @@ internal sealed class WptServer : IDisposable
         }
     }
 
-    private Task RespondAsync(Stream stream, WptServerRequest request, CancellationToken token) => request.Path switch
+    private Task RespondAsync(Stream stream, WptServerRequest request, CancellationToken token)
+    {
+        // An overlay answers before the corpus and before every handler below, which is what makes a third
+        // one a dictionary entry rather than a case here and a parameter on the constructor.
+        if (_overlays.TryGetValue(request.Path, out var overlay))
+        {
+            return WriteAsync(stream, Script(overlay), request, token);
+        }
+
+        return Dispatch(stream, request, token);
+    }
+
+    private Task Dispatch(Stream stream, WptServerRequest request, CancellationToken token) => request.Path switch
     {
         // wptserve answers the root with a directory listing. Nothing reads what is in it; what
         // xhr/responsetype.any.js reads is that a GET of "/" has a body at all, which is what its
@@ -254,28 +267,18 @@ internal sealed class WptServer : IDisposable
         // absolute path, and upstream keeps the same handler in both places.
         "fetch/api/resources/bad-chunk-encoding.py" => BadChunkEncoding(stream, request, token),
 
-        // The one harness file that does not come out of Vendor/. Upstream's is a stub whose whole purpose
-        // is to be replaced by whoever is running the tests, so vendoring it would put bytes in the tree
-        // that the server never sends; Jint's copy lives in Prelude/ beside the shim, and a caller can pass
-        // an overlay per server. Answered here rather than in the static path because there is no corpus
-        // entry to find.
-        "resources/testharnessreport.js" => WriteAsync(stream, HarnessReport(), request, token),
-
-        // The other vendor slot. Upstream's file is vendored and is empty, so unlike the one above this
-        // falls through to the corpus when no overlay was passed — a caller that supplies none gets
+        // The one harness file that does not come out of Vendor/, and so the one slot with a default of its
+        // own: upstream's is a stub whose whole purpose is to be replaced by whoever is running the tests,
+        // so vendoring it would put bytes in the tree the server never sends, and Jint's copy lives in
+        // Prelude/ beside the shim. Answered here rather than in the static path because there is no corpus
+        // entry to find. The other vendor slot needs no case at all — upstream's testdriver-vendor.js is
+        // vendored and is empty, so with no overlay it falls through to the corpus and a suite gets
         // testdriver.js's own "not implemented by testdriver-vendor.js" rejections, which is what a driver
         // with no automation should get.
-        "resources/testdriver-vendor.js" when _testDriverVendor is not null
-            => WriteAsync(stream, Script(_testDriverVendor), request, token),
+        "resources/testharnessreport.js" => WriteAsync(stream, Script(WptCorpus.HarnessReport), request, token),
 
         _ => StaticAsync(stream, request, token),
     };
-
-    /// <summary>
-    /// <c>resources/testharnessreport.js</c>, with the content type upstream's own
-    /// <c>testharnessreport.js.headers</c> sidecar gives it.
-    /// </summary>
-    private WptServerResponse HarnessReport() => Script(_harnessReport);
 
     /// <summary>One overlay script, with the content type upstream's <c>.headers</c> sidecars give it.</summary>
     private static WptServerResponse Script(string source)
