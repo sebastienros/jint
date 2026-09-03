@@ -43,19 +43,40 @@ public class TreeDispatchTests
     }
 
     /// <summary>
+    /// How often one dispatch reached each of the tree seams, so a complexity claim about the dispatcher is a
+    /// count rather than a stopwatch.
+    /// </summary>
+    private sealed class SeamCounts
+    {
+        internal int TreeParentReads { get; set; }
+
+        internal int GetParentCalls { get; set; }
+
+        internal int GetRootCalls { get; set; }
+    }
+
+    /// <summary>
     /// A node in the fixture tree: the smallest thing that can stand in for a DOM wrapper.
     /// </summary>
     private sealed class TreeEventTarget : JsEventTarget
     {
         private readonly List<string> _log;
+        private readonly SeamCounts _counts;
 
-        internal TreeEventTarget(Engine engine, Realm realm, string name, TreeKind kind, List<string> log)
+        internal TreeEventTarget(
+            Engine engine,
+            Realm realm,
+            string name,
+            TreeKind kind,
+            List<string> log,
+            SeamCounts counts)
             : base(engine, realm)
         {
             _prototype = realm.Intrinsics.EventTarget.PrototypeObject;
             Name = name;
             Kind = kind;
             _log = log;
+            _counts = counts;
             DefineOwnDataPropertyUnchecked("name", JsString.Create(name));
         }
 
@@ -83,9 +104,28 @@ public class TreeDispatchTests
         /// <summary>Whether it also has the legacy pre- and canceled-activation pair.</summary>
         internal bool HasLegacyActivation { get; set; }
 
+        /// <summary>
+        /// The root this wrapper knows without walking, which is what a DOM has and what the engine's
+        /// default has to derive. Null leaves <see cref="JsEventTarget.GetRoot"/> at its walking default.
+        /// </summary>
+        internal TreeEventTarget? KnownRoot { get; set; }
+
         internal override bool IsNode => true;
 
-        internal override JsEventTarget? TreeParent => NodeParent;
+        internal override JsEventTarget? TreeParent
+        {
+            get
+            {
+                _counts.TreeParentReads++;
+                return NodeParent;
+            }
+        }
+
+        internal override JsEventTarget GetRoot()
+        {
+            _counts.GetRootCalls++;
+            return KnownRoot ?? base.GetRoot();
+        }
 
         internal override bool IsShadowRoot => Kind is TreeKind.OpenShadowRoot or TreeKind.ClosedShadowRoot;
 
@@ -124,6 +164,8 @@ public class TreeDispatchTests
         /// </summary>
         internal override JsEventTarget? GetParent(JsEvent ev)
         {
+            _counts.GetParentCalls++;
+
             if (IsShadowRoot)
             {
                 if (!ev.Composed
@@ -178,11 +220,14 @@ public class TreeDispatchTests
         /// <summary>What the activation hooks and the CLR-side probes record, in order.</summary>
         internal List<string> HostLog { get; } = new();
 
+        /// <summary>How often the tree seams were reached, over every dispatch this fixture has run.</summary>
+        internal SeamCounts Counts { get; } = new();
+
         private Realm Realm => Engine.Realm;
 
         internal TreeEventTarget Node(string name, TreeEventTarget? parent = null, TreeKind kind = TreeKind.Node)
         {
-            var node = new TreeEventTarget(Engine, Realm, name, kind, HostLog) { NodeParent = parent };
+            var node = new TreeEventTarget(Engine, Realm, name, kind, HostLog, Counts) { NodeParent = parent };
             Engine.SetValue(name, node);
             return node;
         }
@@ -190,9 +235,40 @@ public class TreeDispatchTests
         internal TreeEventTarget ShadowRoot(string name, TreeEventTarget host, bool closed)
         {
             var kind = closed ? TreeKind.ClosedShadowRoot : TreeKind.OpenShadowRoot;
-            var root = new TreeEventTarget(Engine, Realm, name, kind, HostLog) { Host = host };
+            var root = new TreeEventTarget(Engine, Realm, name, kind, HostLog, Counts) { Host = host };
             Engine.SetValue(name, root);
             return root;
+        }
+
+        /// <summary>
+        /// A chain of <paramref name="depth"/> nodes from a root down to the leaf it answers, published to
+        /// script as <c>leaf</c>. Nothing listens: what these tests read is the cost of building the path.
+        /// </summary>
+        internal TreeEventTarget Line(int depth, bool knowsItsRoot = false)
+        {
+            var root = new TreeEventTarget(Engine, Realm, "n0", TreeKind.Node, HostLog, Counts);
+            var node = root;
+            for (var i = 1; i < depth; i++)
+            {
+                node = new TreeEventTarget(Engine, Realm, "n" + i, TreeKind.Node, HostLog, Counts)
+                {
+                    NodeParent = node,
+                };
+            }
+
+            if (knowsItsRoot)
+            {
+                for (var current = node; current is not null; current = current.NodeParent)
+                {
+                    current.KnownRoot = root;
+                }
+            }
+
+            Counts.TreeParentReads = 0;
+            Counts.GetParentCalls = 0;
+            Counts.GetRootCalls = 0;
+            Engine.SetValue("leaf", node);
+            return node;
         }
 
         /// <summary>The <c>root &gt; mid &gt; leaf</c> chain every ordering test uses.</summary>
@@ -600,6 +676,49 @@ public class TreeDispatchTests
         engine.Evaluate("seen.length").AsNumber().Should().Be(1);
         engine.Evaluate("seen[0] === target").AsBoolean().Should().BeTrue();
         engine.Evaluate("e.composedPath().length").AsNumber().Should().Be(0);
+    }
+
+    /// <summary>
+    /// The depth the two cost pins dispatch over. Deep enough that a quadratic dispatch is unmistakable —
+    /// the walk cost 79 801 <c>TreeParent</c> reads here before the roots were derived — and shallow enough
+    /// that the test costs nothing.
+    /// </summary>
+    private const int DeepTree = 200;
+
+    [Test]
+    public void ADispatchDerivesEveryPathItemsRootFromOneWalkRatherThanOnePerItem()
+    {
+        var fixture = new Fixture();
+        fixture.Line(DeepTree);
+
+        fixture.Execute("leaf.dispatchEvent(new Event('ping', { bubbles: true }));");
+
+        // One root walk for the whole dispatch: the dispatch target's. Every item after it is in the tree
+        // the walk that produced it was already standing in, so its root is the one in hand.
+        fixture.Counts.GetRootCalls.Should().Be(1);
+
+        // Which makes the reads linear: the root walk, plus one same-tree check per hop. Before this, the
+        // dispatcher derived a root per path item and walked the ancestors again per item, so the same
+        // dispatch read TreeParent 79 801 times.
+        fixture.Counts.TreeParentReads.Should().BeLessThan(3 * DeepTree);
+
+        // And *get the parent* is unchanged: exactly once per path item, which is what a host may rely on
+        // — Jint.Browser reconciles a handler content attribute there.
+        fixture.Counts.GetParentCalls.Should().Be(DeepTree);
+    }
+
+    [Test]
+    public void AHostThatKnowsItsRootIsAskedForItRatherThanWalked()
+    {
+        var fixture = new Fixture();
+        fixture.Line(DeepTree, knowsItsRoot: true);
+
+        fixture.Execute("leaf.dispatchEvent(new Event('ping', { bubbles: true }));");
+
+        // GetRoot() is the seam, so a wrapper that knows its root answers the one question the dispatch
+        // asks and the walk disappears: what is left is the same-tree check, one TreeParent read per hop.
+        fixture.Counts.GetRootCalls.Should().Be(1);
+        fixture.Counts.TreeParentReads.Should().Be(DeepTree - 1);
     }
 
     [Test]

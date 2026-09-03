@@ -13,7 +13,8 @@ namespace Jint.WebApi.Events;
 /// <param name="InvocationTargetInShadowTree">
 /// Whether <paramref name="InvocationTarget"/> is a node whose root is a shadow root. HTML reads it to decide
 /// whether <c>window.event</c> is updated; nothing in this engine does yet, and it is carried because
-/// <i>invoke</i> passes it to <i>inner invoke</i>.
+/// <i>invoke</i> passes it to <i>inner invoke</i> — and because step 6.10 reads it back rather than asking
+/// the tree for a root a second time.
 /// </param>
 /// <param name="ShadowAdjustedTarget">
 /// https://dom.spec.whatwg.org/#event-path-shadow-adjusted-target: what <c>event.target</c> answers from this
@@ -61,6 +62,10 @@ internal readonly record struct EventPathItem(
 /// retargeting and the closed-tree hiding in <c>composedPath()</c> are written in terms of;
 /// </description></item>
 /// <item><description>
+/// optionally <see cref="JsEventTarget.GetRoot"/>, the one seam that is overridden for cost rather than
+/// for meaning: a wrapper that knows its own root spares the dispatch the walk that derives it;
+/// </description></item>
+/// <item><description>
 /// <see cref="JsEventTarget.HasActivationBehavior"/> and its three algorithms, plus
 /// <see cref="JsEvent.IsActivationEvent"/> on the event interface that carries activation — a
 /// <c>MouseEvent</c> whose type is <c>click</c>, which no engine-supplied event is.
@@ -100,7 +105,14 @@ internal static class EventDispatch
 
         try
         {
-            var relatedTarget = Retarget(ev.RelatedTarget, target);
+            // The two roots the whole dispatch is derived from. https://dom.spec.whatwg.org/#concept-tree-root
+            // is a walk up TreeParent for a host that does not answer it directly, so each is read once here
+            // rather than per path item: the target's changes only where the path crosses a shadow boundary,
+            // and the event's related target does not change at all while the path is being built.
+            var targetRoot = target.GetRoot();
+            var relatedRoot = ev.RelatedTarget is { IsNode: true } related ? related.GetRoot() : null;
+
+            var relatedTarget = Retarget(ev.RelatedTarget, relatedRoot, targetRoot);
 
             // Step 6. A dispatch whose target and related target retarget onto the same node is not
             // dispatched at all — which is what keeps a mouseover between two children of one host from
@@ -108,7 +120,7 @@ internal static class EventDispatch
             // target *is* the target, because there the equality is not a retargeting artefact.
             if (!ReferenceEquals(target, relatedTarget) || ReferenceEquals(ev.RelatedTarget, target))
             {
-                BuildPath(ev, target, relatedTarget, path, ref activationTarget);
+                BuildPath(ev, target, targetRoot, relatedTarget, relatedRoot, path, ref activationTarget);
 
                 // Step 6.10.
                 clearTargets = ComputeClearTargets(path);
@@ -163,16 +175,25 @@ internal static class EventDispatch
     /// Steps 6.1 to 6.9 of https://dom.spec.whatwg.org/#concept-event-dispatch: the walk from the target up
     /// through <see cref="JsEventTarget.GetParent"/>, appending one path item per target the event reaches.
     /// </summary>
+    /// <remarks>
+    /// The two roots come in rather than being derived here. <c>targetRoot</c> is the dispatch target's, and
+    /// the walk carries it forward: everything the path is measured against is a root, and the only thing
+    /// that changes one is step 6.9.7's crossing into the tree above. <c>relatedRoot</c> is the event's own
+    /// related target's, or null when it has none or it is not a node; it cannot change while the path is
+    /// being built, so retargeting against each item costs no walk of its own.
+    /// </remarks>
     private static void BuildPath(
         JsEvent ev,
         JsEventTarget target,
+        JsEventTarget targetRoot,
         JsEventTarget? relatedTarget,
+        JsEventTarget? relatedRoot,
         List<EventPathItem> path,
         ref JsEventTarget? activationTarget)
     {
         // Step 6.3. targetOverride is the target itself: the legacy target override flag is HTML's and is
         // never given here.
-        Append(path, target, target, relatedTarget, slotInClosedTree: false);
+        Append(path, target, targetRoot, target, relatedTarget, slotInClosedTree: false);
 
         // Steps 6.4 and 6.5.
         var isActivationEvent = ev.IsActivationEvent;
@@ -184,11 +205,19 @@ internal static class EventDispatch
         // Steps 6.6 to 6.8.
         var slottable = target.AssignedSlot is not null ? target : null;
         var slotInClosedTree = false;
+
+        // The target the walk is standing on and its root, which is what the next item's root is derived
+        // from: a step that stayed inside one node tree has not changed root, and that is every step of a
+        // walk up a node tree.
+        var child = target;
+        var childRoot = targetRoot;
         var parent = target.GetParent(ev);
 
         // Step 6.9.
         while (parent is not null)
         {
+            var parentRoot = RootOf(parent, child, childRoot);
+
             // Step 6.9.1: the parent of an assigned slottable is its assigned slot, so reaching one means the
             // event has entered a shadow tree — and a closed one has to be remembered, because
             // composedPath() hides it from listeners outside. The specification asserts that the parent is a
@@ -198,7 +227,7 @@ internal static class EventDispatch
             if (slottable is not null)
             {
                 slottable = null;
-                if (parent.IsSlot && parent.GetRoot().IsClosedShadowRoot)
+                if (parent.IsSlot && parentRoot is { IsClosedShadowRoot: true })
                 {
                     slotInClosedTree = true;
                 }
@@ -211,9 +240,10 @@ internal static class EventDispatch
             }
 
             // Step 6.9.3.
-            var parentRelatedTarget = Retarget(ev.RelatedTarget, parent);
+            var parentRelatedTarget = Retarget(ev.RelatedTarget, relatedRoot, parentRoot);
 
-            if (parent.IsGlobalScope || (parent.IsNode && IsShadowIncludingInclusiveAncestor(target.GetRoot(), parent)))
+            // A null root is a parent that is not a node, which is the other half of the condition.
+            if (parent.IsGlobalScope || (parentRoot is not null && IsShadowIncludingInclusiveAncestor(targetRoot, parentRoot)))
             {
                 // Step 6.9.5: still inside the tree the target's root spans, so the event only passes
                 // through — the item carries no shadow-adjusted target and reports the capturing or bubbling
@@ -223,7 +253,7 @@ internal static class EventDispatch
                     activationTarget = parent;
                 }
 
-                Append(path, parent, shadowAdjustedTarget: null, parentRelatedTarget, slotInClosedTree);
+                Append(path, parent, parentRoot, shadowAdjustedTarget: null, parentRelatedTarget, slotInClosedTree);
             }
             else if (ReferenceEquals(parent, parentRelatedTarget))
             {
@@ -237,17 +267,20 @@ internal static class EventDispatch
                 // the item is an AT_TARGET one — which is what makes event.target answer the host to a
                 // listener outside the shadow tree.
                 target = parent;
+                targetRoot = parentRoot ?? parent.GetRoot();
                 if (isActivationEvent && activationTarget is null && target.HasActivationBehavior)
                 {
                     activationTarget = target;
                 }
 
-                Append(path, parent, target, parentRelatedTarget, slotInClosedTree);
+                Append(path, parent, parentRoot, target, parentRelatedTarget, slotInClosedTree);
             }
 
             // Steps 6.9.8 and 6.9.9.
             if (parent is not null)
             {
+                child = parent;
+                childRoot = parentRoot;
                 parent = parent.GetParent(ev);
             }
 
@@ -256,16 +289,41 @@ internal static class EventDispatch
     }
 
     /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-tree-root of <paramref name="node"/>, or null when it is not a
+    /// node and therefore has no tree.
+    /// </summary>
+    /// <remarks>
+    /// It is derived from <paramref name="childRoot"/> whenever the walk merely went up inside one node
+    /// tree, which is every step that has not crossed a slot or a shadow boundary — so a dispatch costs one
+    /// root walk rather than one per path item. Anything else is a different tree and is asked. A host
+    /// answering <see cref="JsEventTarget.GetRoot"/> directly pays nothing either way.
+    /// </remarks>
+    private static JsEventTarget? RootOf(JsEventTarget node, JsEventTarget child, JsEventTarget? childRoot)
+    {
+        if (!node.IsNode)
+        {
+            return null;
+        }
+
+        return childRoot is not null && ReferenceEquals(child.TreeParent, node) ? childRoot : node.GetRoot();
+    }
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#concept-event-path-append — <i>append to an event path</i>.
     /// </summary>
+    /// <remarks>
+    /// <c>invocationTargetRoot</c> is that target's tree root, or null when it is not a node, and is the
+    /// whole of what the item's <i>invocation-target-in-shadow-tree</i> flag is read from.
+    /// </remarks>
     private static void Append(
         List<EventPathItem> path,
         JsEventTarget invocationTarget,
+        JsEventTarget? invocationTargetRoot,
         JsEventTarget? shadowAdjustedTarget,
         JsEventTarget? relatedTarget,
         bool slotInClosedTree)
     {
-        var invocationTargetInShadowTree = invocationTarget.IsNode && invocationTarget.GetRoot().IsShadowRoot;
+        var invocationTargetInShadowTree = invocationTargetRoot is { IsShadowRoot: true };
         var rootOfClosedTree = invocationTarget.IsClosedShadowRoot;
 
         path.Add(new EventPathItem(
@@ -291,7 +349,10 @@ internal static class EventDispatch
                 continue;
             }
 
-            return IsInShadowTree(item.ShadowAdjustedTarget) || IsInShadowTree(item.RelatedTarget);
+            // An item that has a shadow-adjusted target has *itself* as one — the first item is the
+            // dispatch target and step 6.9.7's is the host the walk had just crossed to — so the flag the
+            // item already carries answers the first half without asking the tree again.
+            return item.InvocationTargetInShadowTree || IsInShadowTree(item.RelatedTarget);
         }
 
         return false;
@@ -380,11 +441,17 @@ internal static class EventDispatch
     }
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#retarget — <i>retarget</i> <paramref name="a"/> against
-    /// <paramref name="b"/>: climb out of every shadow tree that <paramref name="b"/> is not inside, so that
-    /// a listener never sees a node it has no business knowing about.
+    /// https://dom.spec.whatwg.org/#retarget — <i>retarget</i> <paramref name="a"/> against the target whose
+    /// tree root is <paramref name="againstRoot"/>: climb out of every shadow tree that target is not
+    /// inside, so that a listener never sees a node it has no business knowing about.
     /// </summary>
-    private static JsEventTarget? Retarget(JsEventTarget? a, JsEventTarget? b)
+    /// <remarks>
+    /// <c>aRoot</c> is <paramref name="a"/>'s own tree root when the caller already has it, which is the
+    /// only hop that can be given: every hop after the first stands on a shadow host the walk has just
+    /// reached, and null asks. <paramref name="againstRoot"/> is null for a target that is not a node, which
+    /// the algorithm's "B is a node" condition makes the same answer as a target in no tree at all.
+    /// </remarks>
+    private static JsEventTarget? Retarget(JsEventTarget? a, JsEventTarget? aRoot, JsEventTarget? againstRoot)
     {
         while (a is not null)
         {
@@ -393,13 +460,15 @@ internal static class EventDispatch
                 return a;
             }
 
-            var root = a.GetRoot();
+            var root = aRoot ?? a.GetRoot();
+            aRoot = null;
+
             if (!root.IsShadowRoot)
             {
                 return a;
             }
 
-            if (b is { IsNode: true } && IsShadowIncludingInclusiveAncestor(root, b))
+            if (againstRoot is not null && IsShadowIncludingInclusiveAncestor(root, againstRoot))
             {
                 return a;
             }
@@ -411,24 +480,34 @@ internal static class EventDispatch
     }
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#concept-shadow-including-inclusive-ancestor — whether
-    /// <paramref name="ancestor"/> is <paramref name="node"/>, an ancestor of it in the node tree, or an
-    /// ancestor of the host of a shadow tree it is in.
+    /// https://dom.spec.whatwg.org/#concept-shadow-including-inclusive-ancestor, asked the way both callers
+    /// ask it: whether the tree rooted at <paramref name="ancestorRoot"/> contains — shadow trees
+    /// included — the node whose own tree root is <paramref name="nodeRoot"/>.
     /// </summary>
-    private static bool IsShadowIncludingInclusiveAncestor(JsEventTarget ancestor, JsEventTarget node)
+    /// <remarks>
+    /// The specification's walk climbs every ancestor between the node and its root before it can leave that
+    /// tree at all. Both callers pass an <i>ancestor</i> that a <see cref="JsEventTarget.GetRoot"/> produced,
+    /// and a root has no tree parent, so none of the ancestors in between can be it: stepping tree by tree is
+    /// the same predicate, and it costs one comparison per tree the node is nested in rather than one per
+    /// ancestor it has. That is what keeps a dispatch linear in the depth of the tree.
+    /// </remarks>
+    private static bool IsShadowIncludingInclusiveAncestor(JsEventTarget ancestorRoot, JsEventTarget nodeRoot)
     {
-        JsEventTarget? current = node;
-        while (current is not null)
+        var current = nodeRoot;
+        while (true)
         {
-            if (ReferenceEquals(current, ancestor))
+            if (ReferenceEquals(current, ancestorRoot))
             {
                 return true;
             }
 
-            current = current.TreeParent ?? (current.IsShadowRoot ? current.ShadowHost : null);
-        }
+            if (!current.IsShadowRoot || current.ShadowHost is not { } host)
+            {
+                return false;
+            }
 
-        return false;
+            current = host.GetRoot();
+        }
     }
 
     /// <summary>
