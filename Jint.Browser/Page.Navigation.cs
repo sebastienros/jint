@@ -240,14 +240,25 @@ public sealed partial class Page
     /// it two turns.
     /// </para>
     /// <para>
-    /// It declines while a navigation is in flight — the gate is what orders those, and a fragment move that
-    /// jumped it could be overwritten by a commit already on its way — so the slow path is still there for
-    /// the case it was protecting.
+    /// <b>The one question asked is whose document is moving</b>, and it is answered by the engine: HTML's
+    /// <i>navigate to a fragment</i> is a task on the event loop of the document whose URL it is changing, so
+    /// the request is a same-document move exactly when it came from the document the page is showing.
+    /// Neither the page's own load having returned nor the navigation gate being free is that question —
+    /// <see cref="_load"/> is null for the whole of a document's parse and the gate is held by the very
+    /// navigation that produced it, so a script running during its own document's parse was refused the
+    /// fragment arm and had a whole navigation queued behind the gate instead. It landed after the parse, out
+    /// of order with everything queued after it, and the corpus file above never saw the <c>hashchange</c>.
+    /// </para>
+    /// <para>
+    /// A commit already on its way is ordered by the queue rather than by a refusal: a job posted here runs
+    /// before it if it was posted first, and dies with the engine it was posted to if the commit wins —
+    /// which is a document that went away, exactly as a browser drops a fragment move onto a replaced
+    /// document.
     /// </para>
     /// </remarks>
     private bool TryFragmentNavigation(Engine engine, string url, bool replace)
     {
-        if (_closed || _load is null || _navigationGate.CurrentCount == 0)
+        if (_closed || !ReferenceEquals(engine, _loop.CurrentEngine))
         {
             return false;
         }

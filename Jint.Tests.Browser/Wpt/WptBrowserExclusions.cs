@@ -404,12 +404,12 @@ internal static class WptBrowserExclusions
     /// test, or by a glob over a family the file generates.
     /// </para>
     /// <para>
-    /// <b><see cref="WptDivergence.NeedsTriage"/> is five distinct things, not eleven rows.</b> The eleven
+    /// <b><see cref="WptDivergence.NeedsTriage"/> is four distinct things, not eleven rows.</b> The eleven
     /// defects this lane first recorded were filed as
     /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
     /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
     /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
-    /// emit, a custom element, and a fragment navigation this lane's own timing does not wait for.
+    /// emit, and a custom element.
     /// </para>
     /// </remarks>
     internal static readonly WptExclusion[] All =
@@ -487,17 +487,6 @@ internal static class WptBrowserExclusions
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=reset></INPUT></FORM> of parent <FORM><BUTTON type=reset></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><BUTTON type=submit></BUTTON></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
         new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <FORM><INPUT type=submit></INPUT></FORM> of parent <FORM><INPUT type=image></INPUT></FORM>, only child should be activated.", WptDivergence.AssertsWhatNothingRequires),
-
-        // ---------------------------------------------------------------- 7. a fragment navigation the file does not wait for
-        // The same file's twenty-two `<a>`/`<area>` shapes click a link to a fragment of the page's own URL
-        // and give it two zero-delay turns to produce a `hashchange`. The navigation happens — a unit test
-        // measures it arriving on the *next* turn, and this change moved it there from after the whole timer
-        // chain by keeping a same-document fragment move on the page loop instead of sending it round the
-        // navigation gate — but in this document it still does not land inside the file's two turns. What is
-        // left is a scheduling question about the page loop rather than anything about activation behaviour,
-        // and it is the one row of #3693 this change does not retire.
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <A></A> of parent *", WptDivergence.NeedsTriage),
-        new("dom/events/Event-dispatch-single-activation-behavior.html", "When clicking child <AREA></AREA> of parent *", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a frame that runs script
         // https://html.spec.whatwg.org/multipage/nav-history-apis.html#window: each of these needs a second
