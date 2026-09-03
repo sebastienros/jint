@@ -28,10 +28,16 @@ namespace Jint.Browser.DevTools;
 /// rather than writes — so a slow client slows no request and no write failure erupts into a fetch.
 /// </para>
 /// <para>
-/// <b>Three fields are honestly empty.</b> There is no connection pool, so <c>connectionId</c> is zero and
-/// <c>connectionReused</c> false; there is no cache, so <c>fromDiskCache</c> is never true and
-/// <c>requestServedFromCache</c> is never sent; and no phase of a request is timed, so <c>timing</c> is
-/// absent rather than a document of zeros that would read as a page which loaded instantly.
+/// <b>Some fields are honestly empty, and the timing document names which of its phases are among them.</b>
+/// There is no connection pool, so <c>connectionId</c> is zero and <c>connectionReused</c> false; there is no
+/// cache, so <c>fromDiskCache</c> is never true and <c>requestServedFromCache</c> is never sent. A response
+/// the network produced does carry a <c>timing</c>, because the transport measures the one interval it can
+/// see exactly: <c>requestTime</c> is the instant the hop was handed over and
+/// <c>receiveHeadersStart</c>/<c>receiveHeadersEnd</c> the instant its headers were in, so a client
+/// subtracting the two reads a real time to first byte. Every phase that happens behind the host's own
+/// <c>HttpClient</c> — proxy, DNS, connect, TLS, service worker, push — is <c>-1</c>, which is the protocol's
+/// own value for a phase that did not happen here, rather than the zero that would read as a phase which
+/// happened instantly.
 /// </para>
 /// </remarks>
 internal sealed partial class NetworkDomain
@@ -193,7 +199,72 @@ internal sealed partial class NetworkDomain
         FromDiskCache = false,
         FromServiceWorker = false,
         FromPrefetchCache = false,
+        Timing = Timing(response.Timing),
     };
+
+    /// <summary>
+    /// The two instants the transport measured, in the protocol's own timing document — and <c>-1</c> for
+    /// every phase it did not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>requestTime</c> is on the same clock as <see cref="Timestamp"/>, and has to be.</b> Every other
+    /// field of a <c>ResourceTiming</c> is milliseconds relative to it, and a client works out where a
+    /// request sits in a page's life by subtracting <c>requestTime</c> from an event's <c>timestamp</c> —
+    /// which is arithmetic on two different clocks unless they are one clock. Both are therefore the same
+    /// expression: Unix milliseconds over a thousand.
+    /// </para>
+    /// <para>
+    /// <b><c>-1</c> rather than <c>0</c> for everything else.</b> The protocol's own convention is that a
+    /// phase which does not apply is negative, which is why Chrome sends <c>-1</c> for a request that reused
+    /// a connection and so resolved no name and opened no socket. Here the reason is different and the value
+    /// is the same: the request goes out through the host's <c>HttpClient</c>, which reports neither when DNS
+    /// resolved nor when the socket connected nor when the handshake finished, and a zero would tell a client
+    /// those phases took no time at all. It is the same decision <c>connectionId = 0</c> and
+    /// <c>fromDiskCache = false</c> above already make.
+    /// </para>
+    /// <para>
+    /// <b><c>sendStart</c> and <c>sendEnd</c> are both zero, which is a bound rather than a measurement.</b>
+    /// <c>requestTime</c> <i>is</i> the moment the hop was handed to the transport, so the send began then;
+    /// when it finished is inside the handler and is not told apart, so both name that instant. A client
+    /// reading the pair sees an interval of length zero starting at the baseline, which is the narrowest
+    /// truthful thing to say about a send whose end nothing here observed.
+    /// </para>
+    /// </remarks>
+    private static ResourceTiming? Timing(Jint.WebApi.Fetch.FetchTiming? timing)
+    {
+        if (timing is not { } measured)
+        {
+            // Nothing went on the wire — a client fulfilled the request — so there is no send to describe.
+            return null;
+        }
+
+        var headers = measured.TimeToHeaders.TotalMilliseconds;
+
+        return new ResourceTiming
+        {
+            RequestTime = measured.SentAt.ToUnixTimeMilliseconds() / 1000d,
+            SendStart = 0,
+            SendEnd = 0,
+            ReceiveHeadersStart = headers,
+            ReceiveHeadersEnd = headers,
+
+            ProxyStart = -1,
+            ProxyEnd = -1,
+            DnsStart = -1,
+            DnsEnd = -1,
+            ConnectStart = -1,
+            ConnectEnd = -1,
+            SslStart = -1,
+            SslEnd = -1,
+            WorkerStart = -1,
+            WorkerReady = -1,
+            WorkerFetchStart = -1,
+            WorkerRespondWithSettled = -1,
+            PushStart = -1,
+            PushEnd = -1,
+        };
+    }
 
     /// <summary>What asked for the request, in the protocol's three words for it.</summary>
     /// <remarks>

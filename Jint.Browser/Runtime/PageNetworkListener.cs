@@ -1,3 +1,5 @@
+using Jint.WebApi.Fetch;
+
 namespace Jint.Browser.Runtime;
 
 /// <summary>What one request is for, in the vocabulary a client asks about it in.</summary>
@@ -90,6 +92,16 @@ internal sealed record PageNetworkRequest(
 /// <param name="MimeType">The essence of the <c>Content-Type</c>, or the empty string.</param>
 /// <param name="Charset">The <c>charset</c> parameter of the <c>Content-Type</c>, or the empty string.</param>
 /// <param name="FromInterception">Whether a client answered this request instead of the network.</param>
+/// <param name="Timing">
+/// When the hop that produced this response went out and when its headers came back, or
+/// <see langword="null"/> when nothing went on the wire because a client fulfilled the request.
+/// </param>
+/// <remarks>
+/// <see cref="Timing"/> is the engine's own <see cref="FetchTiming"/> rather than a mirror of it, unlike
+/// <see cref="PageHeader"/> beside it: the mirrors exist because the shapes they mirror carry the
+/// <c>JINT0002</c> preview diagnostic or a vocabulary this package does not share, and this one is neither —
+/// it is two readings of a clock with exactly the meaning the <c>Network</c> domain needs.
+/// </remarks>
 internal sealed record PageNetworkResponse(
     string RequestId,
     string Url,
@@ -98,7 +110,8 @@ internal sealed record PageNetworkResponse(
     IReadOnlyList<PageHeader> Headers,
     string MimeType,
     string Charset,
-    bool FromInterception);
+    bool FromInterception,
+    FetchTiming? Timing);
 
 /// <summary>What a listener decided about one hop.</summary>
 /// <remarks>

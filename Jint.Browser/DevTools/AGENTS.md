@@ -1,4 +1,4 @@
-# Agent instructions: the page-level protocol
+﻿# Agent instructions: the page-level protocol
 
 > **Read this when:** You are touching `Jint.Browser/DevTools/` — a page target, a page-level domain (`Page`, `DOM`,
 > `Network`, `Fetch`, `Input`, `Emulation`, `Accessibility`, `Jint`), or the request log the protocol reads.
@@ -80,15 +80,19 @@ target/runtime split and the manifest are there and none of it is repeated here.
   own state, not a request's. The document's request carries the `loaderId` as its `requestId`, which is how
   every client tells a navigation apart.
 - **What is accepted and not effective says so, in place.** `Network.setCacheDisabled` (there is no cache)
-  and `Audits.enable` are answered because a refusal fails an ordinary connection. Three whole lanes are
+  and `Audits.enable` are answered because a refusal fails an ordinary connection. Two whole lanes are
   absent with a reason rather than pending: the `Fetch` **response stage** and with it `IO` (an observer
-  cannot answer `OnResponse`, so a response-stage pause could only continue unchanged), the **WebSocket**
+  cannot answer `OnResponse`, so a response-stage pause could only continue unchanged), and the **WebSocket**
   events and `eventSourceMessageReceived` (a socket's handshake is not a fetch and is not observed; a stream
   *is*, but as bytes rather than as the events they decode into, so its requests are in the log as
-  `ResourceType: EventSource` and its messages are nowhere), and `Network`'s
-  **timing** document (no phase of a request is measured). **`Emulation` is no longer among any of it**:
-  every command of that domain is either effective or an accepted no-op whose summary says what there is
-  none of.
+  `ResourceType: EventSource` and its messages are nowhere).
+  **`Network`'s timing document is no longer among them, and the shape of the answer is the point**: the
+  transport measures the one interval it can see exactly — the hop going out and its headers coming back —
+  so `requestTime` and `receiveHeaders*` are real and every phase behind the host's own `HttpClient` (proxy,
+  DNS, connect, TLS, worker, push) is `-1`, the protocol's own value for a phase that did not happen here,
+  rather than the zero that would read as one which happened instantly. **`Emulation` is no longer among any
+  of it either**: every command of that domain is either effective or an accepted no-op whose summary says
+  what there is none of.
 - **`Accessibility` publishes the tree `Accessibility/` computes**, in Chrome's `AXNode` shape with the `DOM`
   domain's `backendNodeId` on every node — which is what makes a node a client found by role one it can then
   measure and click. It is computed per request and never maintained, which is why `loadComplete` and

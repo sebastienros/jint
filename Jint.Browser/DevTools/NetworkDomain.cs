@@ -30,10 +30,12 @@ namespace Jint.Browser.DevTools;
 /// <b>What this browser cannot report, and says so rather than inventing.</b> There is no HTTP cache, so
 /// <c>requestServedFromCache</c> is never sent and <c>setCacheDisabled</c> is accepted and changes nothing.
 /// There is no connection pool, so <c>connectionId</c> is zero and <c>connectionReused</c> false. Timing is
-/// not published at all: the transport measures none of the phases <c>ResourceTiming</c> names, and a
-/// document of zeros would read as a page that loaded instantly. <c>WebSocket</c> and <c>EventSource</c>
-/// produce no events either — the engine deliberately does not observe those two handshakes, and half a
-/// report is worse than none.
+/// published for what the transport can see exactly and for nothing else: <c>requestTime</c> is when the hop
+/// was handed over and <c>receiveHeadersStart</c>/<c>receiveHeadersEnd</c> when its headers were in, so a
+/// client reads a real time to first byte, while proxy, DNS, connect, TLS, worker and push are <c>-1</c> —
+/// the protocol's value for a phase that did not happen here — because a document of zeros would read as a
+/// page that loaded instantly. <c>WebSocket</c> and <c>EventSource</c> produce no events either — the engine
+/// deliberately does not observe those two handshakes, and half a report is worse than none.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/"/>.

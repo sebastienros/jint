@@ -1,4 +1,5 @@
 #if NET8_0_OR_GREATER
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -208,6 +209,17 @@ internal sealed class FetchExchange : IDisposable
 
     /// <summary>Whether a <see cref="FetchObserver"/> answered this hop instead of the network.</summary>
     internal bool FromInterception { get; init; }
+
+    /// <summary>
+    /// When the hop that produced this response went out and when its headers came back, or
+    /// <see langword="null"/> when an observer fulfilled it and nothing went on the wire.
+    /// </summary>
+    /// <remarks>
+    /// The redirect loop is the only place either instant exists, and every caller of
+    /// <see cref="FetchTransport.SendForStreamAsync"/> reports the final response itself — so this is what
+    /// carries the reading from the one to the others.
+    /// </remarks>
+    internal FetchTiming? Timing { get; init; }
 
     public void Dispose() => Response.Dispose();
 }
@@ -463,6 +475,14 @@ internal static class FetchTransport
             }
 
             HttpResponseMessage response;
+
+            // The two readings that make a FetchTiming, taken either side of the one call in this process
+            // that knows when the hop left and when its headers came back. The wall-clock instant is the
+            // origin a host can compare with a timestamp of its own; the monotonic pair is what the elapsed
+            // time is measured on, so a clock adjusted mid-request cannot produce a negative duration.
+            var sentAt = DateTimeOffset.UtcNow;
+            var sentTicks = Stopwatch.GetTimestamp();
+
             try
             {
                 using var message = BuildRequest(method, uri, effective, body, content);
@@ -472,6 +492,8 @@ internal static class FetchTransport
             {
                 throw new FetchFailureException(FetchFailureKind.Network, $"The request to '{uri}' failed: {ex.Message}", ex);
             }
+
+            var timing = new FetchTiming(sentAt, Stopwatch.GetElapsedTime(sentTicks));
 
             // The response is disposed here only while the loop goes on to another hop; the one it ends with
             // belongs to the caller, whose body may not have been read yet.
@@ -491,7 +513,7 @@ internal static class FetchTransport
                     || string.Equals(request.Redirect, JsRequest.RedirectManual, StringComparison.Ordinal))
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
                 }
 
                 if (string.Equals(request.Redirect, JsRequest.RedirectError, StringComparison.Ordinal))
@@ -505,14 +527,14 @@ internal static class FetchTransport
                 if (location is null)
                 {
                     handedOver = true;
-                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0 };
+                    return new FetchExchange { Response = response, Method = method, Url = url, RequestUri = uri, Redirected = redirectCount > 0, Timing = timing };
                 }
 
                 // The redirect reaches the observer before the hop it causes does, and again on that hop's
                 // own snapshot, so a protocol layer can pair the two without holding state of its own.
                 if (observation is not null)
                 {
-                    redirectResponse = Observed(observation, response, uri, isRedirect: true, fromInterception: false);
+                    redirectResponse = Observed(observation, response, uri, isRedirect: true, fromInterception: false, timing: timing);
                     observation.Response(redirectResponse);
                 }
 
@@ -739,7 +761,8 @@ internal static class FetchTransport
         HttpResponseMessage response,
         Uri uri,
         bool isRedirect,
-        bool fromInterception)
+        bool fromInterception,
+        FetchTiming? timing)
     {
         var headers = new List<HeaderEntry>();
         Collect(headers, response.Headers);
@@ -754,6 +777,7 @@ internal static class FetchTransport
             Headers = ToFetchHeaders(headers),
             FromInterception = fromInterception,
             IsRedirect = isRedirect,
+            Timing = timing,
         };
     }
 
@@ -798,6 +822,9 @@ internal static class FetchTransport
             RequestUri = uri,
             Redirected = redirectCount > 0,
             FromInterception = true,
+
+            // Timing stays null on purpose: nothing was sent, so there is no send to time, and a
+            // zero-length one would report a socket that was never opened as an instant round trip.
         };
     }
 
@@ -1084,6 +1111,7 @@ internal static class FetchTransport
             Headers = ToFetchHeaders(headers),
             FromInterception = exchange.FromInterception,
             IsRedirect = false,
+            Timing = exchange.Timing,
         });
 
         // https://fetch.spec.whatwg.org/#concept-main-fetch step 22: "If response is not a network error and

@@ -114,6 +114,56 @@ public class NetworkDomainTests
     }
 
     [Test]
+    public async Task AResponseCarriesTheOneIntervalTheTransportMeasuredAndMinusOneForEveryPhaseItDidNot()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><head><title>Timing</title></head><body>hello</body></html>");
+
+        await using var fixture = await NetworkFixture.OpenAsync(server);
+        await fixture.NavigateAsync("/page");
+
+        var received = await fixture.EventAsync("Network.responseReceived");
+        received.GetProperty("response").TryGetProperty("timing", out var timing)
+            .Should().BeTrue("a response the network produced carries the timing the transport measured");
+
+        // requestTime is the baseline every other field is relative to, and it has to be on the clock the
+        // event's own timestamp is on — a client works out where the request sits in the page's life by
+        // subtracting the two, which is arithmetic on two clocks unless they are one clock.
+        var requestTime = timing.GetProperty("requestTime").GetDouble();
+        var timestamp = received.GetProperty("timestamp").GetDouble();
+        requestTime.Should().BeGreaterThan(0);
+        requestTime.Should().BeLessThanOrEqualTo(timestamp);
+        (timestamp - requestTime).Should().BeLessThan(120, "the hop and the event it produced are seconds apart on one clock, not epochs apart on two");
+
+        // The send began at the baseline and its end is inside the handler, so both name that instant; the
+        // headers are the one later instant this process can see, and they cannot precede the send.
+        timing.GetProperty("sendStart").GetDouble().Should().Be(0);
+        timing.GetProperty("sendEnd").GetDouble().Should().Be(0);
+
+        var headersStart = timing.GetProperty("receiveHeadersStart").GetDouble();
+        headersStart.Should().BeGreaterThanOrEqualTo(0);
+        timing.GetProperty("receiveHeadersEnd").GetDouble().Should().Be(headersStart);
+
+        // And -1, never 0, for every phase that happens behind the host's own HttpClient: zero would tell a
+        // client the phase happened instantly, where -1 is the protocol's own "this did not happen here".
+        string[] unmeasured =
+        [
+            "proxyStart", "proxyEnd",
+            "dnsStart", "dnsEnd",
+            "connectStart", "connectEnd",
+            "sslStart", "sslEnd",
+            "workerStart", "workerReady", "workerFetchStart", "workerRespondWithSettled",
+            "pushStart", "pushEnd",
+        ];
+
+        foreach (var phase in unmeasured)
+        {
+            timing.GetProperty(phase).GetDouble()
+                .Should().Be(-1, $"'{phase}' is a phase this browser cannot see, and a zero would read as one that took no time");
+        }
+    }
+
+    [Test]
     public async Task ARedirectIsOneRequestWithTheHopBeforeItAttached()
     {
         using var server = new LoopbackServer();
