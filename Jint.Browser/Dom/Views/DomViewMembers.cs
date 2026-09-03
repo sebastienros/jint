@@ -45,7 +45,11 @@ internal static class DomViewMembers
         var settings = WhatToShow(arguments);
         var filter = arguments.At(2);
 
-        var walker = document.CreateTreeWalker(root, settings, NodeFilters.From(realm, filter, "createTreeWalker")!);
+        // DomTreeWalker rather than document.CreateTreeWalker: AngleSharp's walker does not terminate, and
+        // its own file says which loop and why this package owns the algorithm. It implements ITreeWalker,
+        // so DomTypeMap gives it the generated TreeWalker shape like any other walker. The `root` argument
+        // is not validated beyond being a node, which is DOM's own rule — createTreeWalker takes any node.
+        var walker = new DomTreeWalker(root, settings, NodeFilters.From(realm, filter, "createTreeWalker"));
         _filters.AddOrUpdate(walker, filter.IsNullOrUndefined() ? JsValue.Null : filter);
         return realm.Wrap(walker);
     }

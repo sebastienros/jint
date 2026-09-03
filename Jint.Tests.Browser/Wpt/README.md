@@ -29,7 +29,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/nodes/` | 159 | 0 | 4,364 | 2,000 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
 | `dom/lists/` | 5 | 0 | 189 | 15 |
-| `dom/traversal/` | 9 | 0 | 35 | 10 |
+| `dom/traversal/` | 13 | 0 | 52 | 9 |
 | `dom/ranges/` | 17 | 0 | 78 | 53 |
 | `html/dom/` | 5 | 0 | 85 | 72 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 219 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **336** | **9** | **6,211** | **2,704** |
+| **total** | **340** | **9** | **6,228** | **2,703** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -161,7 +161,7 @@ document whose subject is that resolution is in the not-vendored table for the r
 
 `dom/nodes/`, `dom/collections/`, `dom/lists/`, `dom/traversal/`, `dom/ranges/` and `html/dom/` are the DOM
 standard's own suites and HTML's DOM half — the corpus every other suite in this lane is written on top of.
-They arrived together, 203 documents and 4,794 tests, and **2,175 of those tests do not pass**. That is a
+They arrived together, 207 documents and 4,811 tests, and **2,174 of those tests do not pass**. That is a
 much worse ratio than any suite already here, and it should be: `dom/events/` is one interface's dispatch,
 where these are every member of every node interface.
 
@@ -191,16 +191,21 @@ Ordered by how many tests each accounts for:
 | 10 | 2 | **The selector engine's escapes.** `#eof\` and a surrogate escape are refused as invalid selectors where CSS Syntax §4.3.7 defines them, and `:scope` inside `:has()` resolves to the wrong element. |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. |
 | 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
-| 3 | 2 | [#3774](https://github.com/sebastienros/jint/issues/3774) **`NodeIterator` and `TreeWalker` retarget the wrong node.** `NodeIterator-removal-during-filtering.html` finds the pre-removing steps moving the reference to the removed node's sibling rather than to its predecessor, and `TreeWalker-basic.html` walks to `d` where `c` is next. |
+| 2 | 1 | [#3774](https://github.com/sebastienros/jint/issues/3774) **`NodeIterator` retargets the wrong node.** `NodeIterator-removal-during-filtering.html` finds the pre-removing steps moving the reference to the removed node's sibling rather than to its predecessor. |
 
-**Four documents do not terminate at all, and that is the finding this campaign would put first.**
+**Four documents did not terminate at all, and that was the finding this campaign put first.**
 `TreeWalker-currentNode.html`, `TreeWalker-previousNodeLastChildReject.html`, `TreeWalker-traversal-reject.html`
-and `TreeWalker-traversal-skip.html` each spin forever: the walk loops when a filter answers `FILTER_REJECT`
-or `FILTER_SKIP`, and when `currentNode` is set outside the root. Nothing in this lane bounds them —
-`BrowserOptions.MaxTaskDuration` is deliberately infinite and the driver's own 30 s deadline cannot interrupt
-a page thread that never yields — so each one *hangs* the run rather than failing it, which is why they are
-not-vendored rows and why an embedder should read them as a denial of service rather than as a conformance
-gap. That is [#3765](https://github.com/sebastienros/jint/issues/3765), and it is the finding this campaign should act on first.
+and `TreeWalker-traversal-skip.html` each spun forever: AngleSharp's `TreeWalker.ToPrevious` never advanced the
+sibling it was reading and never climbed to a parent, so `previousNode()` looped the moment the previous
+sibling was not accepted outright — a filter answering `FILTER_REJECT` or `FILTER_SKIP`, or a `currentNode`
+pointed outside the root beside a node `whatToShow` excludes. Nothing in this lane could bound that —
+`BrowserOptions.MaxTaskDuration` is deliberately infinite, the driver's own 30 s deadline cannot interrupt a
+page thread that never yields, and a node `whatToShow` excludes is `FILTER_SKIP` *without the page's filter
+being called*, so the loop never re-entered the engine for a constraint to fire in — which is why an embedder
+should read [#3765](https://github.com/sebastienros/jint/issues/3765) as a denial of service rather than as a
+conformance gap. DOM §6.1's seven traversals are `Jint.Browser`'s own now
+(`Dom/Views/DomTreeWalker`, and its file argues each loop's termination); the four documents are cases, all
+seventeen of their tests pass, and `TreeWalker-basic.html`'s "Walk over nodes." passed with them.
 
 **And one missing member is worth thirty-one documents.** `dom/common.js` is the fixture builder the whole of
 `dom/ranges/` and half of `dom/traversal/` load, and its second line calls `document.createCDATASection`. With
@@ -216,7 +221,7 @@ different from the engine lane's. **Almost every row is a document that cannot p
 — a harness `ERROR` or `TIMEOUT` — which is what puts it there rather than in the exclusion table: a harness
 error covers the whole file and no per-test exclusion can name it. The rest are the globs upstream's own
 markers and this lane's directory rule earn, and the helper files of documents nothing here runs. They fall
-into twenty-nine groups; the counts are rows rather than files, since several are globs. Ninety-eight of
+into twenty-eight groups; the counts are rows rather than files, since several are globs. Ninety-four of
 the rows belong to the six DOM suites, which is what a corpus about every member of every node interface
 costs: half of them are one member reached at file scope.
 
@@ -248,7 +253,6 @@ costs: half of them are one member reached at file scope.
 | a helper document beside its test | 5 | three frames, a fragment and an iframe body; a document under a suite would have to be a case |
 | a DOM frame that runs script | 17 | `iframe.contentDocument` is `null` and `iframe.onload` never arrives, so each of these times out |
 | a member reached at file scope | 30 | `createCDATASection` (31 documents, 24 of them `dom/ranges/`, through `dom/common.js`), `createDocument` (5) and `setAttributeNode` (1) |
-| a document that does not terminate | 4 | the four `TreeWalker` walks that loop on `FILTER_REJECT`, `FILTER_SKIP` and an out-of-root `currentNode`; see the section above |
 | one DOM file each | 3 | a `SyntaxError` no `error` event carries to the harness, and two `MutationObserver` documents waiting for a record that never comes |
 | too slow to be a case | 2 | the six `NodeList-static-length-getter-tampered*` documents and their helper: a static `NodeList` re-reads its tampered `length` getter, so each spends between 5.9 s and 18.8 s and one of them crossed the driver's 30 s deadline on a loaded machine |
 
