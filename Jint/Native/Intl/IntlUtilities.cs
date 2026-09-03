@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Globalization;
+using System.Threading;
 using System.Text.RegularExpressions;
 using Jint.Native.Function;
 using Jint.Native.Intl.Data;
@@ -103,6 +104,26 @@ internal static class IntlUtilities
 
     /// <summary>Number of cached locale tags. Exists so the growth test can assert on the bound.</summary>
     internal static int CultureCacheCount => _cultureCache.Count;
+
+    private static long _cultureLookups;
+
+    /// <summary>
+    /// How many times a locale tag has been turned into a <see cref="CultureInfo"/>, cache hits included.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Exists so a test can bound the number of lookups a sweep of locales performs, which is a count rather
+    /// than a duration and so says the same thing on a loaded machine as on an idle one. That distinction is
+    /// the whole of <see href="https://github.com/sebastienros/jint/issues/3609">#3609</see>: the cost it
+    /// records was only ever visible as a wall-clock timeout under full-suite load.
+    /// </para>
+    /// <para>
+    /// The increment is one interlocked add on a path that already costs a dictionary lookup at best and a
+    /// <c>new CultureInfo</c> at worst, and — since this change — one no <c>supportedLocalesOf</c> of an
+    /// available locale reaches at all.
+    /// </para>
+    /// </remarks>
+    internal static long CultureLookupCount => Volatile.Read(ref _cultureLookups);
 
     /// <summary>The bound <see cref="CultureCacheCount"/> can never exceed for long.</summary>
     internal static int CultureCacheBound => CultureCacheCapacity;
@@ -1692,7 +1713,39 @@ internal static class IntlUtilities
     /// <summary>
     /// https://tc39.es/ecma402/#sec-bestavailablelocale
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two passes, and the split is what <see href="https://github.com/sebastienros/jint/issues/3609">#3609</see>
+    /// is about. The spec's own algorithm is a set lookup and a truncation, and that is the first pass. The
+    /// second adds what .NET knows: it resolves each candidate to a <see cref="CultureInfo"/> and tries that
+    /// culture's name, which is how a tag the set does not hold verbatim can still be matched.
+    /// </para>
+    /// <para>
+    /// <b>Why the second pass may not run first.</b> Resolving a tag costs a <c>new CultureInfo</c> — about
+    /// 15 µs, and the cache in front of it is bounded on purpose, so a sweep over more distinct tags than it
+    /// holds resolves nearly every one. Interleaving the two made every iteration of the truncation pay it:
+    /// <c>intl402/supportedLocalesOf-unicode-extensions-ignored.js</c>, which asks six constructors about 640
+    /// tags with two matchers, made <b>70,000</b> lookups of which <b>64,000</b> were this probe, and spent
+    /// about a second of its two doing it. The probe decided the answer in 0.8% of those, and in every one of
+    /// them it was stripping a Unicode extension sequence — <c>en-US-u-nu-invalid</c> to <c>en-US</c> — which
+    /// step 2.d's singleton rule reaches by truncation anyway, one iteration later and for the price of a
+    /// hash lookup.
+    /// </para>
+    /// <para>
+    /// <b>Why the answer cannot move.</b> The truncation visits prefixes longest-first, and a name the probe
+    /// returns is either a prefix of the candidate — in which case the first pass reaches that same prefix,
+    /// and no longer one can be available because <see cref="GetAvailableLocales"/> holds .NET culture names
+    /// and none of those carries a <c>-u-</c> sequence — or it is not a prefix, which
+    /// <see href="https://tc39.es/ecma402/#sec-bestavailablelocale">the algorithm does not admit</see> as an
+    /// answer at all, and which the second pass still produces exactly as before for the tags that reach it.
+    /// Casing is not one of the cases either: the set compares ordinal-ignore-case.
+    /// </para>
+    /// </remarks>
     internal static string? BestAvailableLocale(HashSet<string> availableLocales, string locale)
+        => BestAvailableLocale(availableLocales, locale, resolveCultures: false)
+           ?? BestAvailableLocale(availableLocales, locale, resolveCultures: true);
+
+    private static string? BestAvailableLocale(HashSet<string> availableLocales, string locale, bool resolveCultures)
     {
         // 1. Let candidate be locale.
         var candidate = locale;
@@ -1706,14 +1759,18 @@ internal static class IntlUtilities
                 return candidate;
             }
 
-            // Also try matching via CultureInfo
-            var culture = GetCultureInfo(candidate);
-            if (culture != null)
+            // Also try matching via CultureInfo, on the second pass only: see the remarks above for why the
+            // first pass may not pay for this and why leaving it out of that pass cannot change the answer.
+            if (resolveCultures)
             {
-                var cultureName = culture.Name;
-                if (availableLocales.Contains(cultureName))
+                var culture = GetCultureInfo(candidate);
+                if (culture != null)
                 {
-                    return cultureName;
+                    var cultureName = culture.Name;
+                    if (availableLocales.Contains(cultureName))
+                    {
+                        return cultureName;
+                    }
                 }
             }
 
@@ -1787,6 +1844,8 @@ internal static class IntlUtilities
         {
             return null;
         }
+
+        Interlocked.Increment(ref _cultureLookups);
 
         if (_cultureCache.TryGetValue(locale, out var cached))
         {
