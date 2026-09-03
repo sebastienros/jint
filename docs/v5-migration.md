@@ -5077,6 +5077,27 @@ error while it converts the arguments and knows nothing about what the receiver 
 even for an event a dispatch has in flight, where the call would otherwise have been a silent no-op.
 `dispatchEvent()` with no arguments now says "1 argument required" where it said "1 arguments required".
 
+### 4.119 A `FetchObserver` is told which requests are `XMLHttpRequest`s, and sees their bodies ([#3575](https://github.com/sebastienros/jint/issues/3575))
+
+`XMLHttpRequest` reported itself to `Options.WebApi.Fetch.Observer` as `FetchInitiator.Script`, which is what
+`fetch()` reports, and it never raised `FetchObserver.OnData` at all — it reads its own body stream, so the
+chunks the observer is promised were never handed over. Both are now what the surface says: the initiator is
+the new `FetchInitiator.XmlHttpRequest`, and every chunk reaches `OnData` as it comes off the wire.
+
+```c#
+// 5.0:  request.Initiator is FetchInitiator.Script for an XMLHttpRequest, and OnData is never called for one
+// 5.x:  request.Initiator is FetchInitiator.XmlHttpRequest, and OnData is called once per chunk
+```
+
+The enum's own documentation already said new members may appear and that a `switch` over it wants a default
+arm; this is the first one. Nothing else about the two requests differs — the same transport, the same policy,
+the same terminal `OnCompleted`.
+
+**What could break:** an observer that compares `Initiator` with `FetchInitiator.Script` to mean "script asked
+for this" now misses `XMLHttpRequest`; compare against `FetchInitiator.Host` for the negative, or name the new
+member. An observer that keeps every `OnData` chunk now keeps an `XMLHttpRequest`'s body too, which is bytes it
+was not being charged for before.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

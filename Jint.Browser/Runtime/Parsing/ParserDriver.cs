@@ -255,7 +255,7 @@ internal sealed class ParserDriver : IDisposable
                 return null;
             }
 
-            return Fetch(url, script, "script", handedOver);
+            return Fetch(url, script, "script", PageRequestKind.Script, handedOver);
         });
     }
 
@@ -267,7 +267,7 @@ internal sealed class ParserDriver : IDisposable
         return Serve(() =>
         {
             _runtime.Document ??= link.Owner;
-            return Fetch(url, link, "stylesheet", handedOver);
+            return Fetch(url, link, "stylesheet", PageRequestKind.Stylesheet, handedOver);
         });
     }
 
@@ -282,7 +282,7 @@ internal sealed class ParserDriver : IDisposable
     /// </summary>
     internal IResponse? RefuseSubresource(IElement source, string url)
     {
-        _requests.RecordNotFetched(url, RequestInitiator.Subresource, ReasonNotFetched(source));
+        _requests.RecordNotFetched(url, RequestInitiator.Subresource, KindNotFetched(source), ReasonNotFetched(source));
         return null;
     }
 
@@ -323,7 +323,7 @@ internal sealed class ParserDriver : IDisposable
     /// during a parser-blocking load; a fetch a <i>script</i> triggered blocks instead, because pumping from
     /// inside a running script would run the page's jobs in the middle of one.
     /// </summary>
-    private IResponse? Fetch(string url, IElement source, string what, bool mayPump)
+    private IResponse? Fetch(string url, IElement source, string what, PageRequestKind kind, bool mayPump)
     {
         var target = UrlParser.Parse(url);
 
@@ -338,7 +338,7 @@ internal sealed class ParserDriver : IDisposable
         // derives the `Origin` header from it, never the path. `DocumentFetch` and `fetch()` pass the same
         // shape for the same reason.
         var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
-        var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects, RequestInitiator.Subresource);
+        var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects, RequestInitiator.Subresource, kind);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
         timeout.CancelAfter(_timeout);
 
@@ -823,6 +823,14 @@ internal sealed class ParserDriver : IDisposable
 
     private static string BaseUrlOf(IDocument document)
         => document.BaseUri ?? document.Url;
+
+    /// <summary>What kind of resource a reference the page will not follow was, for the request log.</summary>
+    private static PageRequestKind KindNotFetched(IElement source) => source switch
+    {
+        IHtmlImageElement => PageRequestKind.Image,
+        IHtmlInlineFrameElement => PageRequestKind.Frame,
+        _ => PageRequestKind.Other,
+    };
 
     private static string ReasonNotFetched(IElement source) => source switch
     {

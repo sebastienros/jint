@@ -314,20 +314,10 @@ the `StoragePartitionProvider`. Two pages of a site therefore share a session an
 visitors, and one filter bounds the document, every subresource, `fetch`, `XMLHttpRequest` and a worker's
 module loads alike.
 
-**The URL is the runtime's.** `PageRuntime.DocumentUrl` is what `location`, `document.URL` and relative
-resolution read, and `pushState` and a fragment navigation move it without reloading. Writing AngleSharp's
-`ILocation` instead raises `Location.Changed`, answered with a fire-and-forget `IBrowsingContext.OpenAsync` on
-the setter's own thread — the second thread in the DOM the divergence table warns about — so
-`LocationInstaller` shadows the *whole* interface and the hazard is gone rather than dormant. One divergence
-stays: `Options.WebApi.Fetch.BaseUrl` is read once per engine, so `fetch('./x')` after a `pushState` resolves
-against the URL the document *loaded* from. Closing it is an engine seam, not a second URL kept here.
+### The request log is the protocol's seam too
 
-**The history entry is not the document.** Each loaded document gets an id and every entry carries one, so a
-traversal within a cluster (`pushState` siblings, a fragment) is same-document — `popstate`, `hashchange`, no
-fetch — and one across clusters is a navigation that reloads, there being no back/forward cache. The cluster
-is rebound to the new id afterwards, or every step among its siblings would become a reload too. A traversal
-is always queued, never inline; and navigating away from the initial `about:blank` is a **replace**, so
-`history.length` counts what a browser counts.
+How `PageNetworkRecorder` serves the `Network` and `Fetch` domains as well as `Page.Requests`, and on which
+thread a listener is told, is in [the package file](../AGENTS.md#the-request-log-is-the-protocols-seam-too).
 
 ### The one observer, and what it is owed
 

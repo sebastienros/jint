@@ -2452,8 +2452,8 @@ await page.GoToAsync("https://example.org/");
 var title = await page.EvaluateExpressionAsync<string>("document.title");
 ```
 
-A client's `newPage` opens a real page in a real browser context, `goto` navigates and reports the lifecycle
-Chrome reports, and `evaluate` runs in the page. **Finding elements and clicking them works too** — the `DOM`
+A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
+response object, and `evaluate` runs in the page. **Finding elements and clicking them works too** — the `DOM`
 domain answers about the document a client walks, and `Input.dispatchMouseEvent` turns a coordinate into the
 pointer and mouse sequence a browser fires, with the focus and the activation behaviour that go with it:
 
@@ -2474,6 +2474,42 @@ sets the decision the next `alert`, `confirm` or `prompt` reads; and `Page.captu
 The endpoint is unauthenticated by the protocol's own design, so it listens on loopback and should stay
 there.
 
+**And the network, seen and steered.** `Network.enable` reports every request the page makes — the
+document, every script and style sheet the parse loads, every `fetch` and `XMLHttpRequest`, a worker's
+modules — with Chrome's own resource types, so `page.on('request')` and `page.on('response')` fire and a
+`goto` answers a response object with the status, the headers and the body. `Fetch.enable` is real
+interception: a request is paused before it goes on the wire, and the client continues it (rewriting the URL,
+the method, the headers or the body), fulfils it from its own bytes, or fails it. A paused request holds only
+its own connection — the page's timers go on firing, and the command that releases it is answered while it
+waits.
+
+```c#
+await page.SetRequestInterceptionAsync(true);
+
+page.Request += async (_, e) =>
+{
+    if (e.Request.Url.Contains("/analytics/", StringComparison.Ordinal))
+    {
+        await e.Request.AbortAsync();                       // never leaves the process
+    }
+    else if (e.Request.Url.EndsWith("/api/rows", StringComparison.Ordinal))
+    {
+        await e.Request.RespondAsync(new ResponseData { Status = HttpStatusCode.OK, Body = "[]" });
+    }
+    else
+    {
+        await e.Request.ContinueAsync();
+    }
+};
+```
+
+Around it: `Network.setExtraHTTPHeaders` and `setUserAgentOverride` reach every request the page makes,
+`setBlockedURLs` refuses a URL before a socket is opened, `emulateNetworkConditions(offline: true)` fails
+every request the way a browser with no network does, and the cookie commands — on `Network` and on
+`Storage`, which is where the clients actually send them — read and write the same jar `document.cookie`
+sees. `Network.getResponseBody` answers from a bounded per-page buffer
+(`BrowserOptions.MaxCapturedResponseBytes`) that is filled only while a client is watching.
+
 **And what to ask instead of a picture.** The refusal names a domain of Jint's own — described in
 `tools/devtools-protocol/jint_protocol.json` beside the vendored Chrome ones, so a client reaches it with the
 raw `send` every library has:
@@ -2491,10 +2527,14 @@ the options the extractor behind it already had.
 
 **What does not exist yet.** No iframe scripting (frames are parsed and listed; `contentWindow` is absent),
 and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
-nothing is ever side by side. Over the protocol that means no `Network` or `Fetch` events (so a client's
-`goto` answers no response object), no keyboard (`Input.dispatchKeyEvent` and `insertText` are absent, so
-`page.type` does not work yet), no `Storage` or `Accessibility` domains, and no screenshots. Those are the
-later items of the same campaign. Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
+nothing is ever side by side. Over the protocol that means no keyboard (`Input.dispatchKeyEvent` and
+`insertText` are absent, so `page.type` does not work yet), no `Accessibility` domain, and no screenshots.
+Those are the later items of the same campaign. Three network lanes are absent with a reason rather than
+pending: `Fetch`'s **response** stage and with it the `IO` domain (an observer is told about a response and
+cannot answer it, so a response-stage pause could only ever continue unchanged), the **WebSocket and
+EventSource** events (the engine deliberately does not observe those two handshakes), and `Network`'s
+**timing** document (no phase of a request is measured, and a document of zeros would read as a page that
+loaded instantly). Drag and drop and the clipboard are v1 non-goals, so `DragEvent` and `ClipboardEvent` are
 absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
 reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
 and `document.write` after a page has finished parsing is refused with a page error rather than implying

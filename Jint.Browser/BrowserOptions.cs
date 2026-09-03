@@ -26,6 +26,7 @@ public sealed class BrowserOptions
     private int _maxRecordedEvents = 1000;
     private long _maxDocumentBytes = 32 * 1024 * 1024;
     private long _maxSubresourceBytes = 8 * 1024 * 1024;
+    private long _maxCapturedResponseBytes = 16 * 1024 * 1024;
     private TimeSpan _subresourceTimeout = TimeSpan.FromSeconds(30);
     private int _maxRedirects = 20;
     private TimeSpan? _maxTaskDuration;
@@ -227,6 +228,29 @@ public sealed class BrowserOptions
         set => _maxSubresourceBytes = value > 0
             ? value
             : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxSubresourceBytes must be positive.");
+    }
+
+    /// <summary>How many bytes of response body a page holds for a client to read back; 16 MiB.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing is copied until a protocol client asks for it.</b> The capture is armed by
+    /// <c>Network.enable</c> and emptied by <c>Network.disable</c>, which is the protocol's own rule, so a
+    /// page nobody is driving pays nothing for this at all.
+    /// </para>
+    /// <para>
+    /// It is a bound on the <i>total</i> the page holds rather than on one body, and the oldest capture is
+    /// dropped to stay under it — so <c>Network.getResponseBody</c> for a request a client waited too long to
+    /// ask about answers that there is no body rather than the page growing without limit. A single response
+    /// larger than the whole budget is not kept at all, because half a body is not the body.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long MaxCapturedResponseBytes
+    {
+        get => _maxCapturedResponseBytes;
+        set => _maxCapturedResponseBytes = value >= 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "MaxCapturedResponseBytes cannot be negative.");
     }
 
     /// <summary>How long one subresource has to answer; 30 seconds by default.</summary>

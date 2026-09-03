@@ -122,12 +122,6 @@ namespace Jint.DevTools.Protocol.Network
         internal const string BlockedByResponse = "BlockedByResponse";
     }
 
-    /// <summary>Request / response headers as keys / values of JSON object.</summary>
-    /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#type-Headers"/>.</remarks>
-    internal sealed record Headers
-    {
-    }
-
     /// <summary>The strings the protocol admits for <c>Network.ConnectionType</c>.</summary>
     /// <remarks>Generated from the pinned protocol; do not edit. See <see href="https://chromedevtools.github.io/devtools-protocol/tot/Network/#type-ConnectionType"/>.</remarks>
     internal static class ConnectionTypeValues
@@ -371,7 +365,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>HTTP request headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
 
         /// <summary>HTTP POST request data.</summary>
         /// <remarks>Deprecated in the protocol. </remarks>
@@ -879,7 +873,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>HTTP response headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
 
         /// <summary>HTTP response headers text.</summary>
         /// <remarks>Deprecated in the protocol. </remarks>
@@ -898,7 +892,7 @@ namespace Jint.DevTools.Protocol.Network
         /// <summary>Refined HTTP request headers that were actually transmitted over the network.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("requestHeaders")]
         [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        public global::Jint.DevTools.Protocol.Network.Headers? RequestHeaders { get; init; }
+        public global::System.Collections.Generic.Dictionary<string, string>? RequestHeaders { get; init; }
 
         /// <summary>HTTP request headers text.</summary>
         /// <remarks>Deprecated in the protocol. </remarks>
@@ -1001,7 +995,7 @@ namespace Jint.DevTools.Protocol.Network
     {
         /// <summary>HTTP request headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
     }
 
     /// <summary>WebSocket response data.</summary>
@@ -1018,7 +1012,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>HTTP response headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
 
         /// <summary>HTTP response headers text.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headersText")]
@@ -1028,7 +1022,7 @@ namespace Jint.DevTools.Protocol.Network
         /// <summary>HTTP request headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("requestHeaders")]
         [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        public global::Jint.DevTools.Protocol.Network.Headers? RequestHeaders { get; init; }
+        public global::System.Collections.Generic.Dictionary<string, string>? RequestHeaders { get; init; }
 
         /// <summary>HTTP request headers text.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("requestHeadersText")]
@@ -1623,7 +1617,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>Signed exchange response headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("responseHeaders")]
-        public required global::Jint.DevTools.Protocol.Network.Headers ResponseHeaders { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> ResponseHeaders { get; init; }
 
         /// <summary>Signed exchange response signature.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("signatures")]
@@ -2792,7 +2786,7 @@ namespace Jint.DevTools.Protocol.Network
         /// <summary>Response headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
         [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-        public global::Jint.DevTools.Protocol.Network.Headers? Headers { get; init; }
+        public global::System.Collections.Generic.Dictionary<string, string>? Headers { get; init; }
     }
 
     /// <summary>An options object that may be extended later to better support CORS, CORB and streaming.</summary>
@@ -3275,7 +3269,7 @@ namespace Jint.DevTools.Protocol.Network
     {
         /// <summary>Map with extra HTTP headers.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
     }
 
     /// <summary>The parameters of the <c>Network.setAttachDebugStack</c> command.</summary>
@@ -4123,7 +4117,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>Raw request headers as they will be sent over the wire.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
 
         /// <summary>Connection timing information for the request.</summary>
         /// <remarks>Experimental in the protocol. </remarks>
@@ -4165,7 +4159,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>Raw response headers as they were received over the wire.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
 
         /// <summary>The IP address space of the resource.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("resourceIPAddressSpace")]
@@ -4207,7 +4201,7 @@ namespace Jint.DevTools.Protocol.Network
 
         /// <summary>Raw response headers as they were received over the wire.</summary>
         [global::System.Text.Json.Serialization.JsonPropertyName("headers")]
-        public required global::Jint.DevTools.Protocol.Network.Headers Headers { get; init; }
+        public required global::System.Collections.Generic.Dictionary<string, string> Headers { get; init; }
     }
 
     /// <summary>The parameters of the <c>Network.trustTokenOperationDone</c> event.</summary>
@@ -4559,9 +4553,27 @@ namespace Jint.DevTools.Domains
         {
             switch (method)
             {
+                case "clearBrowserCookies":
+                {
+                    var result = await ClearBrowserCookiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "deleteCookies":
+                {
+                    var result = await DeleteCookiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkDeleteCookiesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 case "disable":
                 {
                     var result = await DisableAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "emulateNetworkConditions":
+                {
+                    var result = await EmulateNetworkConditionsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkEmulateNetworkConditionsRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
@@ -4571,15 +4583,63 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
+                case "getAllCookies":
+                {
+                    var result = await GetAllCookiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyParameters), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetAllCookiesResponse);
+                }
+
+                case "getCookies":
+                {
+                    var result = await GetCookiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetCookiesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetCookiesResponse);
+                }
+
+                case "getResponseBody":
+                {
+                    var result = await GetResponseBodyAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetResponseBodyRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetResponseBodyResponse);
+                }
+
+                case "getRequestPostData":
+                {
+                    var result = await GetRequestPostDataAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetRequestPostDataRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkGetRequestPostDataResponse);
+                }
+
+                case "setBlockedURLs":
+                {
+                    var result = await SetBlockedURLsAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetBlockedURLsRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 case "setCacheDisabled":
                 {
                     var result = await SetCacheDisabledAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetCacheDisabledRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 
+                case "setCookie":
+                {
+                    var result = await SetCookieAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetCookieRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetCookieResponse);
+                }
+
+                case "setCookies":
+                {
+                    var result = await SetCookiesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetCookiesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
                 case "setExtraHTTPHeaders":
                 {
                     var result = await SetExtraHTTPHeadersAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetExtraHTTPHeadersRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
+                }
+
+                case "setUserAgentOverride":
+                {
+                    var result = await SetUserAgentOverrideAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.NetworkSetUserAgentOverrideRequest), context).ConfigureAwait(false);
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.EmptyResult);
                 }
 

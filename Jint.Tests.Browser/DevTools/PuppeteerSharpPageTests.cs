@@ -56,11 +56,14 @@ public class PuppeteerSharpPageTests
         // The client's own newPage, which is Target.createBrowserContext + createTarget through the host.
         var page = await browser.NewPageAsync().WaitAsync(Bound);
 
-        // The navigation runs and the document loads; the *response object* is null, and that is a stated
-        // gap rather than a failure -- a client builds one out of Network.responseReceived, and the Network
-        // events arrive with the interception work (campaign item C3). What the client can see today is the
-        // page it ended up on, which is what everything below reads.
-        (await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound)).Should().BeNull();
+        // The navigation runs and the client gets a response object back, which it builds out of the
+        // Network.responseReceived for the document request -- the one whose requestId is the loaderId.
+        var response = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(System.Net.HttpStatusCode.OK);
+        response.Url.Should().Be(origin.Url("/one"));
+        response.Headers.Should().ContainKey("content-type");
+        (await response.TextAsync()).Should().Contain("hello");
 
         (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("First");
         (await page.EvaluateExpressionAsync<string>("document.getElementById('greeting').textContent").WaitAsync(Bound)).Should().Be("hello");
@@ -192,6 +195,166 @@ public class PuppeteerSharpPageTests
 
         browser.Disconnect();
         await context.CloseAsync();
+    }
+
+    [Test]
+    public async Task PuppeteerSeesEveryRequestThePageMakes()
+    {
+        using var origin = new LoopbackServer();
+        origin.Map("/rows.json", _ => LoopbackResponse.Json("""{"rows":[1,2,3]}"""));
+        origin.MapHtml("/one", "<html><head><title>Requests</title></head><body>one</body></html>");
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+
+        var requested = new List<string>();
+        var answered = new List<int>();
+        page.Request += (_, e) => requested.Add(e.Request.Url);
+        page.Response += (_, e) => answered.Add((int) e.Response.Status);
+
+        await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        await page.EvaluateExpressionAsync("fetch('/rows.json').then(r => r.text())").WaitAsync(Bound);
+
+        await WaitUntilAsync(() => requested.Contains(origin.Url("/rows.json")));
+
+        requested.Should().Contain(origin.Url("/one"));
+        answered.Should().AllSatisfy(status => status.Should().Be(200));
+
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    [Test]
+    public async Task PuppeteerInterceptsRequestsAndAnswersThemItself()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml("/one", "<html><head><title>Origin</title></head><body>from the server</body></html>");
+        origin.Map("/blocked.js", _ => LoopbackResponse.Script("globalThis.__blocked = true;"));
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+        await page.SetRequestInterceptionAsync(true).WaitAsync(Bound);
+
+        page.Request += async (_, e) =>
+        {
+            if (e.Request.Url.EndsWith("/blocked.js", StringComparison.Ordinal))
+            {
+                await e.Request.AbortAsync();
+                return;
+            }
+
+            if (e.Request.Url.EndsWith("/one", StringComparison.Ordinal))
+            {
+                await e.Request.RespondAsync(new ResponseData
+                {
+                    Status = System.Net.HttpStatusCode.OK,
+                    ContentType = "text/html; charset=utf-8",
+                    Body = "<html><head><title>Fulfilled</title></head>"
+                        + "<body><script src=\"/blocked.js\"></script>from the client</body></html>",
+                });
+
+                return;
+            }
+
+            await e.Request.ContinueAsync();
+        };
+
+        var fulfilled = await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        fulfilled.Should().NotBeNull();
+        (await fulfilled!.TextAsync()).Should().Contain("from the client");
+
+        // The document the page really parsed is the client's, not the origin's.
+        (await page.EvaluateExpressionAsync<string>("document.title").WaitAsync(Bound)).Should().Be("Fulfilled");
+        origin.Received.Should().NotContain(request => request.Path == "/one",
+            because: "a request the client fulfilled never reaches the origin");
+        origin.Received.Should().NotContain(request => request.Path == "/blocked.js",
+            because: "a request the client aborted never reaches the origin either");
+
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    [Test]
+    public async Task PuppeteerSetsHeadersCookiesAndTakesThePageOffline()
+    {
+        using var origin = new LoopbackServer();
+        origin.MapHtml("/one", "<html><head><title>Headers</title></head><body>one</body></html>");
+
+        await using var pages = new global::Jint.Browser.Browser();
+        var context = await pages.NewContextAsync(new PageContextOptions { UrlFilter = origin.Owns });
+
+        await using var server = new DevToolsServer();
+        await server.AddBrowser(pages);
+        await server.StartAsync();
+
+        await using var browser = await Puppeteer.ConnectAsync(new ConnectOptions
+        {
+            BrowserWSEndpoint = server.BrowserWebSocketUrl,
+        }).WaitAsync(Bound);
+
+        var page = await browser.NewPageAsync().WaitAsync(Bound);
+
+        await page.SetExtraHttpHeadersAsync(new Dictionary<string, string> { ["X-Client"] = "puppeteer" }).WaitAsync(Bound);
+        await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+
+        origin.Received.Single(request => request.Path == "/one").Header("X-Client").Should().Be("puppeteer");
+
+        await page.SetCookieAsync(new CookieParam { Name = "seen", Value = "yes", Url = origin.Url("/one") }).WaitAsync(Bound);
+        var cookies = await page.GetCookiesAsync().WaitAsync(Bound);
+        cookies.Should().Contain(cookie => cookie.Name == "seen" && cookie.Value == "yes");
+
+        // And the page's own script reads the same jar, which is what a login flow depends on.
+        (await page.EvaluateExpressionAsync<string>("document.cookie").WaitAsync(Bound)).Should().Contain("seen=yes");
+
+        await page.SetOfflineModeAsync(true).WaitAsync(Bound);
+        var offline = async () => await page.GoToAsync(origin.Url("/one")).WaitAsync(Bound);
+        await offline.Should().ThrowAsync<Exception>("a page that believes it is offline cannot navigate");
+
+        await page.CloseAsync().WaitAsync(Bound);
+        browser.Disconnect();
+        await context.CloseAsync();
+    }
+
+    /// <summary>Polls a condition, failing rather than hanging.</summary>
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = Environment.TickCount64 + (long) Bound.TotalMilliseconds;
+
+        while (Environment.TickCount64 < deadline)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+
+        Assert.Fail($"the condition was still false after {Bound}.");
     }
 
     [Test]

@@ -484,7 +484,7 @@ internal sealed class XhrOperation : IDisposable
             ReferrerPolicy = network.ReferrerPolicy,
         };
 
-        var observation = FetchObservation.Create(network.Observer, FetchInitiator.Script);
+        var observation = FetchObservation.Create(network.Observer, FetchInitiator.XmlHttpRequest);
         _observation = observation;
 
         using var exchange = await FetchTransport
@@ -573,6 +573,10 @@ internal sealed class XhrOperation : IDisposable
             {
                 throw TooLarge(policy);
             }
+
+            // The debt every SendForStreamAsync caller owes its observer, the body half of it: this loop is
+            // what pulls the bytes off the wire, so it is the only place OnData can be raised from.
+            observation?.Data(buffer.AsSpan(0, read));
 
             // A copy per chunk, because the buffer is about to be reused and the engine thread has not read
             // it yet — for the synchronous path the copy goes straight into the collector instead.

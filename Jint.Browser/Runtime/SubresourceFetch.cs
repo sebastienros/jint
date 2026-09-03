@@ -57,13 +57,15 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
 /// <param name="MaxResponseBytes">The ceiling on the body.</param>
 /// <param name="MaxRedirects">How many hops the chain may follow.</param>
 /// <param name="Initiator">What the page's network log should call this request.</param>
+/// <param name="Kind">What the resource is for, which is what a protocol client filters requests on.</param>
 internal sealed record SubresourceRequest(
     UrlRecord Url,
     UrlRecord? Referrer,
     UrlRecord? Origin,
     long MaxResponseBytes,
     int MaxRedirects,
-    RequestInitiator Initiator);
+    RequestInitiator Initiator,
+    PageRequestKind Kind = PageRequestKind.Other);
 
 /// <summary>Raised when a subresource could not be obtained, with the sentence a page error should carry.</summary>
 internal sealed class SubresourceFetchException : Exception
@@ -111,11 +113,11 @@ internal static class SubresourceFetch
         var uri = PageUrl.ToUri(request.Url);
         if (uri is null || !network.UrlFilter(uri))
         {
-            recorder?.RecordNotFetched(url, request.Initiator, "the browser context's URL filter refused it");
+            recorder?.RecordNotFetched(url, request.Initiator, request.Kind, "the browser context's URL filter refused it");
             throw new SubresourceFetchException(url, "'" + url + "' was refused by the browser context's URL filter.");
         }
 
-        var observation = recorder?.Observe(request.Initiator);
+        var observation = recorder?.Observe(request.Initiator, request.Kind);
 
         var snapshot = new FetchRequestSnapshot
         {
@@ -159,6 +161,10 @@ internal static class SubresourceFetch
 
             var response = exchange.Response;
             var bytes = await ReadBoundedAsync(response, request.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
+
+            // The body half of that same debt: a subresource reads its own bytes, so nothing else can hand
+            // them to the observer.
+            observation?.Data(bytes);
             observation?.Completed(bytes.Length);
 
             var status = (int) response.StatusCode;

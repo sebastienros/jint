@@ -135,7 +135,7 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
         var fetched = await SubresourceFetch.LoadAsync(
             _network,
             client,
-            new SubresourceRequest(url, referrer, referrer, _maxBytes, MaxRedirects, RequestInitiator.Subresource),
+            new SubresourceRequest(url, referrer, referrer, _maxBytes, MaxRedirects, RequestInitiator.Subresource, PageRequestKind.Script),
             _requests,
             cancellationToken).ConfigureAwait(false);
 
