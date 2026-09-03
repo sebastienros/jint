@@ -225,9 +225,12 @@ internal sealed class Conversions
         if (type.IsInterface && _lookup(type) is not null)
         {
             // Optional means WebIDL's `optional`, which lets the argument be left out; the override table is
-            // what says a *required* argument may be null. AngleSharp cannot express the difference — an
-            // `INode` parameter with no default reads the same either way — so `Node? child` would otherwise
-            // become a TypeError on the `insertBefore(node, null)` every virtual DOM appends with.
+            // what says a *required* argument may be null. The two are read differently and only the first
+            // is read here: C# optionality is a default value in the signature, while nullability is
+            // nullable-reference metadata this emitter deliberately does not decode -- doing so would flip
+            // every parameter AngleSharp happens to annotate, in one unreviewable change. So `Node? child`
+            // is a table entry, and without it `insertBefore(node, null)` -- how every virtual DOM appends
+            // its last row -- is a TypeError.
             code = optional || _isNullableParameter(member, index)
                 ? "global::Jint.Browser.Dom.DomBindings.NullableArgument<" + CSharpNames.Render(type) + ">(args, " + index + ", " + CSharpNames.Literal(member) + ")"
                 : "global::Jint.Browser.Dom.DomBindings.Argument<" + CSharpNames.Render(type) + ">(args, " + index + ", " + CSharpNames.Literal(member) + ")";

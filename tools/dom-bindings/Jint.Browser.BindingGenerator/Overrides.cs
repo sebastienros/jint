@@ -185,13 +185,14 @@ internal sealed class Overrides
     }
 
     /// <summary>
-    /// One argument position that WebIDL declares nullable and the CLR signature cannot: <c>Node? child</c>
-    /// is an <c>INode</c> with no default, so nothing in the assembly says <c>null</c> is legal there.
+    /// One argument position that WebIDL declares nullable, which the emitter cannot see: it reads C#
+    /// optionality — a default value in the signature — and not nullable-reference metadata.
     /// </summary>
     /// <remarks>
-    /// It is keyed on the argument index rather than the parameter name because the index is what a script
-    /// passes and what the emitted conversion takes; the name in the reason is WebIDL's, which is the
-    /// authority anyway.
+    /// Decoding the metadata instead was considered and is a different change: it would flip every parameter
+    /// AngleSharp happens to annotate, all at once and unreviewably, where a table entry is one line naming
+    /// the clause of the standard it comes from. Keyed on the argument index rather than the parameter name,
+    /// because the index is what a script passes and what the emitted conversion takes.
     /// </remarks>
     internal sealed class NullableParameterEntry
     {
