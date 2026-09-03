@@ -132,7 +132,7 @@ here:
 | `record.addedNodes` on an attribute record | an empty `NodeList` | `null`, for both `Added` and `Removed` |
 | `IShadowRoot.Mode` | `ShadowRoot.mode` | the one member of the interface with no `[DomName]`, so nothing says it is projected |
 | `slot.assignedNodes()` | DOM §4.2.5 | named `getDistributedNodes`, the Shadow DOM v0 spelling |
-| `getComputedStyle(span).display` | `inline` | the empty string: the cascade reports only what a stylesheet *declared*, and `display: inline` is CSS's initial value, so the user-agent sheet does not declare it. A declared one (`div` → `block`) resolves |
+| `getComputedStyle(span).display` | `inline` | the empty string: the cascade reports only what a stylesheet *declared*, and `display: inline` is CSS's initial value, so the user-agent sheet does not declare it. A declared one (`div` → `block`) resolves. `Dom/Views/ResolvedStyle` answers the initial value over it for this and nine other properties, which is the whole of the exception — see [`../AGENTS.md`](../AGENTS.md)'s divergence table |
 | the computed style is writable | CSSOM's computed flag makes every write a `NoModificationAllowedError` | an ordinary writable declaration, and a detached one, so a write neither throws nor changes anything readable — see `Dom/Views/ReadOnlyStyleDeclaration` |
 | `el.click()` on a checkbox, radio, `<summary>` or `<a href>` | the element's activation behaviour runs | `DoClick` dispatches on AngleSharp's own bus and runs **no activation behaviour at all**, with or without a browsing context: nothing toggles, opens or navigates |
 | `document.activeElement` | the focused element, or the body | `null` for the life of every document — nothing in AngleSharp ever assigns it, `DoFocus()` included |

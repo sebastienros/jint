@@ -21,14 +21,15 @@ namespace Jint.Tests.Browser.DevTools;
 /// this suite found were exactly that.
 /// </para>
 /// <para>
-/// <b>Every interaction here passes <c>Force</c>, and that is a finding rather than a style.</b> Playwright's
-/// actionability check ends in <c>if (style.visibility !== "visible") return false</c>, and
-/// <c>getComputedStyle(el).visibility</c> is the <b>empty string</b> here for every element — AngleSharp's
-/// cascade reports what something declared, and <c>visibility: visible</c> is CSS's initial value, so nothing
-/// declares it. So Playwright believes every element on every page is hidden, and an unforced
-/// <c>ClickAsync</c> or <c>WaitForSelectorAsync</c> waits out its timeout. The divergence is recorded in
-/// <c>Jint.Browser/AGENTS.md</c> and pinned by <see cref="PlaywrightCallsEveryElementHidden"/>; this suite
-/// drives past it through Playwright's own documented escape hatches rather than pretending it is not there.
+/// <b>Nothing here is forced, and that is the assertion.</b> Playwright's actionability check ends in
+/// <c>if (style.visibility !== "visible") return false</c>, and until
+/// <see href="https://github.com/sebastienros/jint/issues/3713">#3713</see> <c>getComputedStyle(el).visibility</c>
+/// was the <b>empty string</b> for every element of every page — so Playwright believed the whole page was
+/// hidden, every interaction in this suite passed <c>Force</c>, and <c>GetByRole</c> needed
+/// <c>IncludeHidden</c>. <c>getComputedStyle</c> now answers a resolved value for the handful of properties
+/// that decide actionability (<c>Jint.Browser/Dom/Views/ResolvedStyle</c>), so every wait below is a wait
+/// for <i>visible</i>, every click goes through the whole actionability path, and
+/// <see cref="PlaywrightSeesARenderedElementAsVisible"/> pins the check itself.
 /// </para>
 /// <para>
 /// <b>It needs a driver, and that is the whole of why this suite is gated.</b> Playwright for .NET is a
@@ -44,12 +45,6 @@ public class PlaywrightCourseTests
 {
     /// <summary>The switch the <c>browser-clients</c> leg sets. Any non-empty value turns the suite on.</summary>
     internal const string Gate = "JINT_BROWSER_CLIENTS";
-
-    /// <summary>Waiting for an element to exist, which is as far as an actionability check can get here.</summary>
-    private static LocatorWaitForOptions Attached => new() { State = WaitForSelectorState.Attached };
-
-    /// <summary>Clicking without the actionability check that would refuse every element on every page.</summary>
-    private static LocatorClickOptions Forced => new() { Force = true };
 
     [SetUp]
     public void OnlyWhereTheDriverIsWanted()
@@ -70,37 +65,36 @@ public class PlaywrightCourseTests
         var page = await lane.NewPageAsync("todomvc-react");
 
         // The document arrives with an empty <div id="root">, so this is a real wait: React fills it in from
-        // a bundle the page had to fetch.
-        await page.Locator(".new-todo").WaitForAsync(Attached);
+        // a bundle the page had to fetch — and the state waited for is `visible`, which is the actionability
+        // check rather than mere existence.
+        await page.Locator(".new-todo").WaitForAsync();
 
         foreach (var todo in new[] { "buy milk", "write the fixture", "read the standard" })
         {
             // Fill is Playwright's own: it selects everything and writes the value through the page's own
-            // setter before firing `input`, which is why it reaches a controlled React field at all.
-            await page.Locator(".new-todo").FillAsync(todo, new LocatorFillOptions { Force = true });
-
-            // Focus and then the keyboard, rather than Locator.PressAsync, which has no Force of its own.
-            await page.Locator(".new-todo").FocusAsync();
-            await page.Keyboard.PressAsync("Enter");
+            // setter before firing `input`, which is why it reaches a controlled React field at all. It runs
+            // the whole actionability wait first — visible, enabled, editable, stable.
+            await page.Locator(".new-todo").FillAsync(todo);
+            await page.Locator(".new-todo").PressAsync("Enter");
         }
 
-        await page.Locator(".todo-list li").Nth(2).WaitForAsync(Attached);
+        await page.Locator(".todo-list li").Nth(2).WaitForAsync();
 
         (await page.Locator(".todo-list li label").AllTextContentsAsync())
             .Should().Equal("buy milk", "write the fixture", "read the standard");
 
         // A locator re-resolves on every use, so this click is a fresh query, a scrollIntoViewIfNeeded, a
         // getContentQuads and a mouse event at the point it was told -- a path PuppeteerSharp never takes.
-        await page.Locator(".todo-list li .toggle").Nth(1).ClickAsync(Forced);
+        await page.Locator(".todo-list li .toggle").Nth(1).ClickAsync();
 
-        await page.Locator(".todo-list li.completed").WaitForAsync(Attached);
+        await page.Locator(".todo-list li.completed").WaitForAsync();
         (await page.Locator(".todo-count strong").TextContentAsync()).Should().Be("2");
 
         // A filter is an ordinary link to a fragment, so this also drives a same-document navigation.
-        await page.Locator(".filters a[href='#/active']").ClickAsync(Forced);
+        await page.Locator(".filters a[href='#/active']").ClickAsync();
         await page.WaitForFunctionAsync("() => document.querySelectorAll('.todo-list li').length === 2");
 
-        await page.Locator(".filters a[href='#/']").ClickAsync(Forced);
+        await page.Locator(".filters a[href='#/']").ClickAsync();
         await page.WaitForFunctionAsync("() => document.querySelectorAll('.todo-list li').length === 3");
 
         // GetByRole goes through Playwright's *injected script*, not the Accessibility domain: its role engine
@@ -108,10 +102,10 @@ public class PlaywrightCourseTests
         // roles rather than the tree Accessibility.getFullAXTree answers with. Both paths are covered -- the
         // PuppeteerSharp suite takes the other one through Accessibility.SnapshotAsync.
         //
-        // IncludeHidden for the same reason every click here is forced: the role engine drops an element that
-        // is hidden for ARIA, and its hidden test is the visibility check that the empty `visibility` fails.
-        var destroy = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "x", IncludeHidden = true }).First;
-        await destroy.ClickAsync(Forced);
+        // No IncludeHidden: the role engine drops an element that is hidden for ARIA, and its hidden test is
+        // the same visibility check the click path makes, so this finding the button is that check passing.
+        var destroy = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "x" }).First;
+        await destroy.ClickAsync();
 
         await page.WaitForFunctionAsync("() => document.querySelectorAll('.todo-list li').length === 2");
         (await page.Locator(".todo-list li label").AllTextContentsAsync())
@@ -129,7 +123,7 @@ public class PlaywrightCourseTests
 
         (await page.Locator("#view").TextContentAsync()).Should().Be("the home view");
 
-        await page.Locator(".route[href='/spa-router/about']").ClickAsync(Forced);
+        await page.Locator(".route[href='/spa-router/about']").ClickAsync();
         await page.WaitForFunctionAsync("() => location.pathname === '/spa-router/about'");
 
         // GoBack is Page.getNavigationHistory + Page.navigateToHistoryEntry, and the entry it lands on is a
@@ -183,8 +177,8 @@ public class PlaywrightCourseTests
 
         // And the cookie half, over the same context: sign in, then read the jar the client can see.
         await page.GotoAsync(lane.Url("cookie-login"));
-        await page.Locator("#sign-in").ClickAsync(Forced);
-        await page.Locator("#welcome").WaitForAsync(Attached);
+        await page.Locator("#sign-in").ClickAsync();
+        await page.Locator("#welcome").WaitForAsync();
 
         (await page.Locator("#welcome").TextContentAsync()).Should().Be("welcome, ada");
 
@@ -196,35 +190,41 @@ public class PlaywrightCourseTests
     }
 
     /// <summary>
-    /// The reason every interaction above is forced: Playwright reads an empty <c>visibility</c> as hidden.
+    /// The actionability check itself: a rendered element is visible, and a hidden one still is not.
     /// </summary>
     /// <remarks>
-    /// <b>This asserts a defect, and it is here so that fixing the defect fails it.</b> CSSOM says
-    /// <c>getComputedStyle</c> answers the resolved value of every supported property; AngleSharp answers only
-    /// what the cascade declared, and nothing declares <c>visibility: visible</c> because it is the initial
-    /// value. Playwright's actionability check is <c>style.visibility !== "visible"</c>, so it concludes that
-    /// every element of every page is hidden — <c>IsVisibleAsync</c> is <see langword="false"/> for an element
-    /// with a real 1280×16 box, and an unforced click waits out its timeout. The repository's standing
-    /// decision (see <c>Views/ComputedStyleTests</c>) is to record this rather than paper over it with an
-    /// initial-value table; what is new is that a supported client is unusable without one.
+    /// <b>The inverse of what this test used to assert.</b> It pinned
+    /// <see href="https://github.com/sebastienros/jint/issues/3713">#3713</see> — that
+    /// <c>getComputedStyle(el).visibility</c> was the empty string, that Playwright's check is
+    /// <c>style.visibility !== "visible"</c>, and that <c>IsVisibleAsync</c> was therefore
+    /// <see langword="false"/> for an element with a real 1280×16 box. Each of those three lines now asserts
+    /// the answer instead of the defect, and the fourth is what stops the fix from being a constant:
+    /// <c>visibility: hidden</c> is still read as hidden, because the resolved value is a fallback the
+    /// cascade wins over.
     /// </remarks>
     [Test]
-    public async Task PlaywrightCallsEveryElementHidden()
+    public async Task PlaywrightSeesARenderedElementAsVisible()
     {
         await using var lane = await ClientLane.OpenAsync();
         var page = await lane.NewPageAsync("todomvc-react");
 
-        await page.Locator(".new-todo").WaitForAsync(Attached);
+        await page.Locator(".new-todo").WaitForAsync();
 
         (await page.EvaluateAsync<string>("() => getComputedStyle(document.querySelector('.new-todo')).visibility"))
-            .Should().BeEmpty("nothing in the cascade declares visibility, and AngleSharp does not resolve initial values");
+            .Should().Be("visible", "nothing declares visibility, so it resolves to CSS's initial value");
 
         (await page.EvaluateAsync<string>(
             "() => { const r = document.querySelector('.new-todo').getBoundingClientRect(); return r.width + 'x' + r.height; }"))
-            .Should().Be("1280x16", "the flat box model gives it a real box, so the box is not what is missing");
+            .Should().Be("1280x16", "the flat box model gives it a real box, and the check needs both halves");
 
         (await page.Locator(".new-todo").IsVisibleAsync())
-            .Should().BeFalse("Playwright's check ends in style.visibility !== 'visible', and the empty string is not 'visible'");
+            .Should().BeTrue("Playwright's check ends in style.visibility !== 'visible', and it is 'visible' now");
+
+        // And a declared hidden still wins, so the resolved value is a fallback rather than a constant.
+        await page.EvaluateAsync("() => document.querySelector('.new-todo').style.visibility = 'hidden'");
+
+        (await page.Locator(".new-todo").IsVisibleAsync())
+            .Should().BeFalse("an inline visibility: hidden is a declaration, and a declaration beats the resolved value");
 
         await page.CloseAsync();
     }

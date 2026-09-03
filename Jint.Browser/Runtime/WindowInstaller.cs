@@ -1,3 +1,4 @@
+using AngleSharp.Css.Dom;
 using AngleSharp.Dom;
 using Jint.Browser.Dom;
 using Jint.Browser.Events;
@@ -562,15 +563,41 @@ internal static class WindowInstaller
             return JsValue.Undefined;
         }
 
-        // AngleSharp.Css's cascade, with no layout behind it: specified and computed values resolve, and
-        // anything that would need a box — used values, offsetWidth's kind — does not. The pseudo-element
-        // argument is ignored, because the extension that takes one needs an AngleSharp IWindow and the
-        // window here is Jint's.
+        // AngleSharp.Css's cascade, with the ten resolved values Dom/Views/ResolvedStyle answers over it.
+        // The pseudo-element argument is ignored, because the extension that takes one needs an AngleSharp
+        // IWindow and the window here is Jint's.
         //
         // Wrapped read-only, because CSSOM gives the result a computed flag and AngleSharp's declaration is
         // an ordinary writable one that is also detached — so an unwrapped write would neither throw nor
         // change anything a page can read. See Dom/Views/ReadOnlyStyleDeclaration.
-        return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime.Engine, element.ComputeCurrentStyle()));
+        return runtime.Dom.Wrap(new Dom.Views.ReadOnlyStyleDeclaration(runtime, element, Cascade(element)));
+    }
+
+    /// <summary>
+    /// The cascade for <paramref name="element"/>, or none at all when AngleSharp.Css cannot compute one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A relative length is what AngleSharp.Css 1.0.2 cannot compute here, and it throws rather than
+    /// skipping the declaration.</b> <c>ComputeCurrentStyle()</c> resolves every length to pixels against an
+    /// <c>IRenderDevice</c>, no such service is registered on the page's browsing context, and the
+    /// <c>DefaultRenderDevice</c> it falls back to reports a viewport of 0×0 — so a rule as ordinary as
+    /// <c>width: 50%</c>, <c>height: 100vh</c> or <c>calc(100% - 10px)</c> anywhere in the matching cascade
+    /// makes the whole call an <c>ArgumentException</c>. Unguarded it would leave <c>getComputedStyle</c> —
+    /// the member every automation client calls on every element it touches — raising a CLR exception into
+    /// script on most real pages. No cascade at all is what a page gets instead, which leaves
+    /// <see cref="Dom.Views.ResolvedStyle"/> answering; the divergence and the render device that would close
+    /// it are recorded in <c>Jint.Browser/AGENTS.md</c>.
+    /// </remarks>
+    private static ICssStyleDeclaration? Cascade(IElement element)
+    {
+        try
+        {
+            return element.ComputeCurrentStyle();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NullReferenceException)
+        {
+            return null;
+        }
     }
 
     private static JsValue PostMessage(PageRuntime runtime, JsValue[] arguments)

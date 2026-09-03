@@ -2361,7 +2361,8 @@ array-like lane, and node wrappers that Jint's tree-aware event dispatcher can w
 runtime: a `Browser` / `BrowserContext` / `Page` API, one engine and one thread per page, a `Window` whose
 prototype the global object inherits (so `window === globalThis`, `window instanceof EventTarget`, and
 `addEventListener` on the window is on a bubbling event's path), `document`, `location`, `screen`,
-`getComputedStyle` (read-only, from the cascade, with no layout behind it), `matchMedia` (with `change`
+`getComputedStyle` (read-only: the cascade, over a resolved value for the ten properties that decide whether
+an element can be interacted with), `matchMedia` (with `change`
 fired when the viewport moves), `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
 that fire because the page's thread pumps the engine, and console output and script errors recorded on the
 page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, and a document's scripts run the
@@ -2478,11 +2479,12 @@ await page.GotoAsync("https://example.org/");
 var title = await page.TitleAsync();
 ```
 
-One caveat that is a real one rather than a footnote: Playwright's actionability check ends in
-`style.visibility !== "visible"`, and `getComputedStyle` here answers the *declared* cascade — AngleSharp
-resolves no initial values, and nothing declares `visibility: visible` — so Playwright reads every element as
-hidden and an unforced `ClickAsync` waits out its timeout. Pass `Force = true` (and `IncludeHidden` to
-`GetByRole`) until that is fixed; PuppeteerSharp has no such check and needs nothing.
+Playwright's actionability check ends in `style.visibility !== "visible"`, so it needs `getComputedStyle` to
+answer a *resolved* value rather than only what the cascade declared. It does: `visibility`, `display`,
+`opacity`, `pointer-events`, `overflow` and its two longhands and `position` answer CSS's initial value where
+nothing declares them, and `width`/`height` answer the box model's numbers — so an unforced `ClickAsync`,
+`WaitForAsync` and `GetByRole` all work. Every other property is still the declared cascade, which has no
+layout behind it.
 
 A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
 response object, and `evaluate` runs in the page. **Finding elements, clicking them and typing into them works

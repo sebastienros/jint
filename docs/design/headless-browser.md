@@ -391,6 +391,7 @@ course is a **gate on the engine as much as on the package**: the eighteen fixtu
 seven defects between them, six of which were fixed in the pull request that added them — an
 `insertBefore(node, null)` that was a `TypeError`, a selector refusal a page could not catch, a
 `Target.getTargetInfo` with no identifier, a page target that named no browser context, a missing
-`Node.getRootNode`, and `Storage.getCookies` answering on one session model of the two. The seventh is
-recorded rather than fixed: `getComputedStyle` resolves no initial values, so `visibility` is the empty
-string and Playwright's actionability check reads every element of every page as hidden.
+`Node.getRootNode`, and `Storage.getCookies` answering on one session model of the two. The seventh was
+recorded rather than fixed and then fixed on its own: `getComputedStyle` resolved no initial values, so
+`visibility` was the empty string and Playwright's actionability check read every element of every page as
+hidden — `Jint.Browser/Dom/Views/ResolvedStyle` is the ten-property exception that closed it.

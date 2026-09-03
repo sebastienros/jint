@@ -1,14 +1,16 @@
 using System.Collections;
 using AngleSharp;
 using AngleSharp.Css.Dom;
+using AngleSharp.Dom;
+using Jint.Browser.Runtime;
 using Jint.Runtime;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom.Views;
 
 /// <summary>
-/// What <c>getComputedStyle</c> answers: the cascade's declarations, with every way of writing to them
-/// refused.
+/// What <c>getComputedStyle</c> answers: the cascade's declarations over ten resolved values, with every way
+/// of writing to them refused.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,39 +29,55 @@ namespace Jint.Browser.Dom.Views;
 /// AngleSharp's own frames from here.
 /// </para>
 /// <para>
-/// Reads pass straight through, and what they can answer is the cascade with no layout behind it: a property
-/// the stylesheets, the inline style or the user-agent defaults settled resolves, and a used value that would
-/// need a box — <c>width</c>, <c>height</c>, anything resolved against a containing block — is the empty
-/// string. <c>display</c> resolves, because it comes from the cascade and not from layout.
+/// A read is the cascade first: a property the stylesheets, the inline style or the user-agent defaults
+/// settled answers exactly what they settled, inheritance included. Where the cascade declared nothing,
+/// <see cref="ResolvedStyle"/> answers for the ten properties an automation client reads to decide that an
+/// element can be interacted with, and the empty string for everything else — that file argues which ten and
+/// why no more.
+/// </para>
+/// <para>
+/// <b><c>length</c> and <c>item(i)</c> stay the declared set.</b> CSSOM enumerates every supported longhand
+/// there, which is some three hundred names a browser answers and this has no values for; publishing ten of
+/// them as if they were the list would be a worse answer than the honest short one. A page reads a resolved
+/// value by name.
+/// </para>
+/// <para>
+/// <b>The cascade can be absent altogether</b>, because AngleSharp.Css raises rather than answers for a
+/// relative length — <c>Runtime/WindowInstaller.Cascade</c> has the whole of it. Then every read is the
+/// resolved value or the empty string, and nothing throws.
 /// </para>
 /// </remarks>
 internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
 {
-    private readonly ICssStyleDeclaration _computed;
+    private readonly ICssStyleDeclaration? _computed;
     private readonly Engine _engine;
+    private readonly IElement _element;
+    private readonly PageRuntime _runtime;
 
-    internal ReadOnlyStyleDeclaration(Engine engine, ICssStyleDeclaration computed)
+    internal ReadOnlyStyleDeclaration(PageRuntime runtime, IElement element, ICssStyleDeclaration? computed)
     {
-        _engine = engine;
+        _runtime = runtime;
+        _engine = runtime.Engine;
+        _element = element;
         _computed = computed;
     }
 
     /// <inheritdoc />
-    public string this[int index] => _computed[index];
+    public string this[int index] => _computed is null ? "" : _computed[index];
 
     /// <inheritdoc />
-    public string this[string name] => _computed[name];
+    public string this[string name] => Resolve(name, _computed?[name]);
 
     /// <inheritdoc />
-    public int Length => _computed.Length;
+    public int Length => _computed?.Length ?? 0;
 
     /// <inheritdoc />
-    public ICssRule? Parent => _computed.Parent;
+    public ICssRule? Parent => _computed?.Parent;
 
     /// <inheritdoc />
     public string CssText
     {
-        get => _computed.CssText;
+        get => _computed?.CssText ?? "";
         set => Refuse("cssText");
     }
 
@@ -71,13 +89,14 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     }
 
     /// <inheritdoc />
-    public string GetPropertyValue(string propertyName) => _computed.GetPropertyValue(propertyName);
+    public string GetPropertyValue(string propertyName)
+        => Resolve(propertyName, _computed?.GetPropertyValue(propertyName));
 
     /// <inheritdoc />
-    public ICssProperty GetProperty(string propertyName) => _computed.GetProperty(propertyName)!;
+    public ICssProperty GetProperty(string propertyName) => _computed?.GetProperty(propertyName)!;
 
     /// <inheritdoc />
-    public string GetPropertyPriority(string propertyName) => _computed.GetPropertyPriority(propertyName);
+    public string GetPropertyPriority(string propertyName) => _computed?.GetPropertyPriority(propertyName) ?? "";
 
     /// <inheritdoc />
     public void SetProperty(string propertyName, string propertyValue, string? priority = null) => Refuse("setProperty");
@@ -98,12 +117,23 @@ internal sealed class ReadOnlyStyleDeclaration : ICssStyleDeclaration
     public void Update(string value) => Refuse("cssText");
 
     /// <inheritdoc />
-    public void ToCss(TextWriter writer, IStyleFormatter formatter) => _computed.ToCss(writer, formatter);
+    public void ToCss(TextWriter writer, IStyleFormatter formatter) => _computed?.ToCss(writer, formatter);
 
     /// <inheritdoc />
-    public IEnumerator<ICssProperty> GetEnumerator() => _computed.GetEnumerator();
+    public IEnumerator<ICssProperty> GetEnumerator()
+        => _computed?.GetEnumerator() ?? Enumerable.Empty<ICssProperty>().GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    /// <summary>
+    /// The cascade's answer, or the resolved value where the cascade declared nothing.
+    /// </summary>
+    /// <param name="propertyName">The property that was read.</param>
+    /// <param name="declared">What the cascade answered, which is the empty string for an undeclared one.</param>
+    private string Resolve(string propertyName, string? declared)
+        => string.IsNullOrEmpty(declared)
+            ? ResolvedStyle.ValueOf(propertyName, _element, _runtime) ?? ""
+            : declared;
 
     private void Refuse(string member)
     {
