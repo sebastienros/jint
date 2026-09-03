@@ -3,8 +3,20 @@
   // before editing: an edit here without a regeneration fails GeneratedProtocolIsCurrentTests.
 
   // The domains that get DTOs, a dispatch base and an event factory class. A domain listed here is
-  // *generated*, which is not the same as implemented: every command it declares gets a virtual whose
-  // default answers -32601, and only the entries in "implementedMethods" below are overridden.
+  // *generated*, which is not the same as implemented: a generated command gets a virtual whose default
+  // answers -32601, and only the entries in "implementedMethods" below are overridden.
+  //
+  // An entry takes one of two forms. A string generates the whole domain - every command, every event,
+  // every type. An object generates the commands and events it names and NOTHING ELSE, including nothing
+  // for a list it leaves out; the types it gets are the closure of what those members reach, which the
+  // emitter computes rather than anyone listing. A command that is not generated has no virtual and is
+  // answered by the dispatch default, which is the same -32601 it answered before - so the object form
+  // changes what is checked in, not what a client is told.
+  //
+  // Which form to use is a judgement about the domain rather than a rule: a domain whose surface is being
+  // filled in stays whole, so the next command is an override and a manifest line. A domain that answers a
+  // handful of commands out of dozens, and whose remainder describes machinery this engine does not have,
+  // names them. See #3683: Audits cost 143 KB of DTOs for an enable and a disable that are accepted no-ops.
   "generatedDomains": [
     "Runtime",
     "Debugger",
@@ -13,20 +25,88 @@
     "Log",
     "Schema",
     "Target",
-    "Browser",
+
+    // The seventeen left out are Chrome's own browser UI - window state, permissions, downloads,
+    // histograms, the crash and dev-tools-visibility commands - which a hosted engine has none of.
+    {
+      "domain": "Browser",
+      "commands": ["close", "getVersion", "getWindowForTarget", "setDownloadBehavior", "setWindowBounds"]
+    },
+
     "Page",
-    "Emulation",
+
+    // What is left out is the emulation a compositor and a sensor stack do: virtual time, sensors, vision
+    // deficiencies, media features beyond the emulated media type, and the device-posture overrides.
+    {
+      "domain": "Emulation",
+      "commands": [
+        "clearDeviceMetricsOverride", "clearGeolocationOverride", "clearIdleOverride",
+        "setAutoDarkModeOverride", "setCPUThrottlingRate", "setDefaultBackgroundColorOverride",
+        "setDeviceMetricsOverride", "setDocumentCookieDisabled", "setEmitTouchEventsForMouse",
+        "setEmulatedMedia", "setFocusEmulationEnabled", "setGeolocationOverride",
+        "setHardwareConcurrencyOverride", "setIdleOverride", "setLocaleOverride",
+        "setScriptExecutionDisabled", "setScrollbarsHidden", "setTimezoneOverride",
+        "setTouchEmulationEnabled", "setUserAgentOverride", "setVisibleSize"
+      ]
+    },
+
     "Network",
     "Fetch",
-    "Performance",
-    "Audits",
+
+    // setTimeDomain is deprecated in the protocol and no recorded client sends it.
+    {
+      "domain": "Performance",
+      "commands": ["disable", "enable", "getMetrics"]
+    },
+
+    // enable and disable are accepted no-ops because Puppeteer's page initialization fails if either
+    // errors. The other half of the domain is Chrome's audit vocabulary - 67 types describing issues an
+    // engine with no network stack, no cookie deprecation model and no CSP evaluator can never raise - and
+    // it was 143 KB of the checked-in tree.
+    {
+      "domain": "Audits",
+      "commands": ["disable", "enable"]
+    },
+
     "DOM",
-    "Input",
-    "Storage",
+
+    // Left out: touch and drag input, synthesized scroll and pinch gestures, and the input-driver commands.
+    // The flat box model dispatches a key, a mouse event and text, which is what a client uses to drive a
+    // page here.
+    {
+      "domain": "Input",
+      "commands": ["dispatchKeyEvent", "dispatchMouseEvent", "imeSetComposition", "insertText"]
+    },
+
     "Accessibility",
-    "Security",
-    "Overlay",
-    "CSS",
+
+    // Cookies are the whole of what a page target keeps; quota, IndexedDB, cache storage, shared storage,
+    // storage buckets and interest groups are the rest of the domain and none of them exist here.
+    {
+      "domain": "Storage",
+      "commands": ["clearCookies", "getCookies", "setCookies"]
+    },
+
+    // The two left out handle certificate errors, which this engine's fetch never raises to a client.
+    {
+      "domain": "Security",
+      "commands": ["disable", "enable", "setIgnoreCertificateErrors"]
+    },
+
+    // Every highlight command draws into a compositor. What is answered is the pair the front end sends on
+    // connect, hiding a highlight, and the paused-in-debugger message.
+    {
+      "domain": "Overlay",
+      "commands": ["disable", "enable", "hideHighlight", "setPausedInDebuggerMessage", "setShowViewportSizeOnResize"]
+    },
+
+    // Computed and inline styles are what the flat box model can answer for. Style sheet editing, rule
+    // matching, coverage, font and animation tracking are the other thirty-five commands.
+    {
+      "domain": "CSS",
+      "commands": ["disable", "enable", "getComputedStyleForNode", "getInlineStylesForNode"]
+    },
+
     "Jint"
   ],
 

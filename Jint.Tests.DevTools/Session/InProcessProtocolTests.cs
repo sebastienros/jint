@@ -115,6 +115,49 @@ public class InProcessProtocolTests
     }
 
     /// <summary>
+    /// A command its domain's manifest entry does not generate answers exactly what it answered when the
+    /// domain was generated whole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The manifest can name the part of a domain to generate, which is how <c>Audits</c> stopped costing
+    /// 143 KB of data transfer objects for an <c>enable</c> and a <c>disable</c>
+    /// (<see href="https://github.com/sebastienros/jint/issues/3683">#3683</see>). A command left out has no
+    /// virtual on the generated dispatch base, so it is answered by that base's <c>default</c> case rather
+    /// than by a virtual whose body is the same refusal - and this is the test that says the client cannot
+    /// tell, which is the whole claim the change rests on.
+    /// </para>
+    /// <para>
+    /// <c>Browser</c> because it is engine-level and registered on this conversation: its refusal comes from
+    /// the generated <c>BrowserDomainBase</c>, where a page-level domain's would come from the session
+    /// having no such domain at all and would prove nothing about the dispatch.
+    /// </para>
+    /// </remarks>
+    [TestCase("Browser.getHistograms")]
+    [TestCase("Browser.setPermission")]
+    [TestCase("Browser.setWindowBounds", TestName = "A command it does generate is not refused this way")]
+    public async Task ACommandAPartialDomainDoesNotGenerateIsStillMethodNotFound(string method)
+    {
+        await using var session = ProtocolSession.Create();
+        var reply = await session.SendAsync(method, "{}");
+
+        if (string.Equals(method, "Browser.setWindowBounds", StringComparison.Ordinal))
+        {
+            // Generated and implemented, so whatever it answers is not "wasn't found".
+            if (reply.TryGetProperty("error", out var refused))
+            {
+                refused.GetProperty("message").GetString().Should().NotContain("wasn't found");
+            }
+
+            return;
+        }
+
+        var error = reply.GetProperty("error");
+        error.GetProperty("code").GetInt32().Should().Be(-32601);
+        error.GetProperty("message").GetString().Should().Be($"'{method}' wasn't found");
+    }
+
+    /// <summary>
     /// The order the two failures are decided in, which a client can tell apart and would be misled by:
     /// <c>-32602</c> says "you called it wrongly" about a command that does not exist here at all.
     /// </summary>

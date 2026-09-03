@@ -97,6 +97,12 @@ Four things about the emitted code are decisions rather than accidents:
   `Network.Headers` resolves to `Dictionary<string, string>` and no type is emitted for it. An *inline*
   `"type": "object"` member is a different thing and stays a `JsonElement` — see the map-type section of
   [`tools/devtools-protocol/README.md`](../tools/devtools-protocol/README.md) for why the two differ.
+- **Every file says which description it was generated from, and which part of the manifest shaped it.**
+  Three header lines: the source file, the protocol version and pin, and a digest. `source` is per file
+  because `Jint.g.cs` comes from `jint_protocol.json` and used to cite the Chrome commit its neighbours
+  come from; a file generated from our own description names no Chrome commit, because a bump cannot move
+  it. The digest is of that domain's manifest entries rather than of the whole manifest, so one domain
+  gaining a command does not rewrite twenty-four headers.
 
 ### The manifest
 
@@ -104,7 +110,13 @@ Four things about the emitted code are decisions rather than accidents:
 *answers*, and it is load-bearing at run time rather than documentation:
 
 - `generatedDomains` — the domains that get data transfer objects, a `<Domain>DomainBase` and a
-  `<Domain>Events` factory. Every command gets a `protected virtual`, so the surface is discoverable.
+  `<Domain>Events` factory. An entry is a domain name, which generates the whole domain and gives every
+  command a `protected virtual` so the surface is discoverable — or an object naming the commands and
+  events to generate, which generates **those and nothing else**, types included, and leaves the rest to
+  the dispatch base's `default` case. That answers the same `-32601` a generated-but-unimplemented command
+  answered, so the choice is about what is checked in rather than about what a client is told: nine domains
+  name their members today and it took 30% off the generated tree, `Audits` from 143 KB to 4 KB. A domain
+  whose surface is being filled in stays whole.
 - `implementedMethods` — the commands that get a `case` in the generated dispatch. **Everything else is
   `-32601` and never a silent success**, and — the part that is easy to get wrong — it is `-32601` *before
   the parameters are looked at*: an unimplemented command is not in Chrome's dispatch table at all, so

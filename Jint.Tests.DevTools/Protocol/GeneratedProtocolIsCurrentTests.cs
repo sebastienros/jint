@@ -1,5 +1,8 @@
 using Jint.DevTools.ProtocolGenerator;
 
+// The generator's Protocol type, which an unqualified name in this namespace would bind to the namespace.
+using ProtocolDescription = Jint.DevTools.ProtocolGenerator.Protocol;
+
 namespace Jint.Tests.DevTools.Protocol;
 
 /// <summary>
@@ -81,14 +84,165 @@ public class GeneratedProtocolIsCurrentTests
     /// The pin the emitted files stamp is the pin on disk, so a bump that forgot to regenerate is caught
     /// even when nothing else about the protocol moved.
     /// </summary>
+    /// <remarks>
+    /// Every file but one, and the one is the point of the test below it: <c>Jint.g.cs</c> is generated from
+    /// a description this repository writes, so the Chrome commit is not where it came from.
+    /// </remarks>
     [Test]
-    public void TheGeneratedCodeNamesThePinnedCommit()
+    public void EveryFileGeneratedFromTheVendoredDescriptionNamesThePinnedCommit()
     {
         var pin = ProtocolPin.Read(Path.Combine(RepositoryPaths.ProtocolDirectory, "pin.json"));
 
         foreach (var path in Directory.GetFiles(RepositoryPaths.GeneratedDirectory, "*.g.cs"))
         {
-            File.ReadAllText(path).Should().Contain(pin.Commit, "'{0}' says which protocol commit it came from", Path.GetFileName(path));
+            var text = File.ReadAllText(path);
+            if (text.Contains(ProtocolDescription.OwnFile + " - this repository", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            text.Should().Contain(pin.Commit, "'{0}' says which protocol commit it came from", Path.GetFileName(path));
+        }
+    }
+
+    /// <summary>
+    /// Every generated file says which description it was read from, and which part of the manifest shaped
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Provenance that names the wrong document is worse than none, and that is what
+    /// <see href="https://github.com/sebastienros/jint/issues/3683">#3683</see> found: <c>Jint.g.cs</c> is
+    /// generated from <c>jint_protocol.json</c>, which is this repository's own file, and its header cited
+    /// the Chrome commit its twenty-one neighbours come from. A reader had no way to tell the one file whose
+    /// contents a protocol bump cannot move from the ones it can.
+    /// </para>
+    /// <para>
+    /// The manifest line is the other half. <c>TheCheckedInCodeIsWhatTheEmitterProduces</c> catches a stale
+    /// file in a build; somebody reading a diff has only what the file says about itself, and "generated
+    /// from the Audits entries at sha256:<i>x</i>" is checkable against a manifest in a way that "generated
+    /// from manifest.json" is not.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void EveryGeneratedFileNamesTheDescriptionAndTheManifestItCameFrom()
+    {
+        var manifest = GenerationManifest.Read(RepositoryPaths.ManifestPath);
+
+        foreach (var path in Directory.GetFiles(RepositoryPaths.GeneratedDirectory, "*.g.cs"))
+        {
+            var name = Path.GetFileName(path);
+            var header = string.Join("\n", File.ReadAllLines(path).Take(12));
+            var domain = Path.GetFileNameWithoutExtension(name).Replace(".g", "", StringComparison.Ordinal);
+
+            header.Should().Contain("source:", "'{0}' says which description it was generated from", name);
+            header.Should().Contain("manifest: tools/devtools-protocol/manifest.json", "'{0}' says which manifest it was generated from", name);
+
+            if (manifest.GeneratedDomainNames.Contains(domain, StringComparer.Ordinal))
+            {
+                header.Should().Contain(
+                    domain + " entries, sha256:" + manifest.DigestOf(domain),
+                    "'{0}' carries a digest of the manifest entries that shaped it",
+                    name);
+            }
+            else
+            {
+                header.Should().Contain(
+                    "whole file, sha256:" + manifest.Digest,
+                    "'{0}' is generated from all of the manifest, so it carries a digest of all of it",
+                    name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The <c>Jint</c> domain's file names our own description and does not claim to come from Chrome's.
+    /// </summary>
+    [Test]
+    public void TheJintDomainNamesItsOwnDescriptionAndNotTheChromePin()
+    {
+        var pin = ProtocolPin.Read(Path.Combine(RepositoryPaths.ProtocolDirectory, "pin.json"));
+        var header = string.Join("\n", File.ReadAllLines(Path.Combine(RepositoryPaths.GeneratedDirectory, "Jint.g.cs")).Take(12));
+
+        header.Should().Contain("tools/devtools-protocol/" + ProtocolDescription.OwnFile);
+        header.Should().NotContain(pin.Commit, "the Jint domain is not vendored from Chrome and a bump cannot move it");
+    }
+
+    /// <summary>
+    /// A domain whose manifest entry names its members generates those and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The second item of <see href="https://github.com/sebastienros/jint/issues/3683">#3683</see>: a domain
+    /// used to be generated whole or not at all, so <c>Audits</c> cost 143 KB of data transfer objects for
+    /// an <c>enable</c> and a <c>disable</c> that are accepted no-ops. What a client sees is unchanged - a
+    /// command with no virtual falls to the dispatch default, which answers the same <c>-32601</c> - so this
+    /// asserts the shape of the generated code, and <c>ACommandAPartialDomainDoesNotGenerateIsStillMethodNotFound</c> asserts
+    /// that the answer did not move.
+    /// </para>
+    /// <para>
+    /// Both directions matter. A command the entry names and the emitter did not write would be one the
+    /// manifest says is implemented and nothing can override; one it wrote and the entry does not name is
+    /// the saving quietly not being made.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void APartialDomainGeneratesTheCommandsItsEntryNamesAndNoOthers()
+    {
+        var protocol = ProtocolDescription.Read(RepositoryPaths.ProtocolDirectory);
+        var manifest = GenerationManifest.Read(RepositoryPaths.ManifestPath);
+        var partial = manifest.GeneratedDomains.Where(domain => !domain.IsWhole).ToArray();
+
+        partial.Should().NotBeEmpty("the mechanism is only exercised while something uses it");
+
+        foreach (var entry in partial)
+        {
+            var generated = File.ReadAllText(Path.Combine(RepositoryPaths.GeneratedDirectory, entry.Name + ".g.cs"));
+
+            foreach (var command in protocol.Domain(entry.Name).Commands)
+            {
+                // The emitter's own Naming.Pascal, which is internal to the generator: only the first
+                // character moves, because the protocol's casing carries information (consoleAPICalled).
+                var declaration = " " + char.ToUpperInvariant(command.Name[0]) + command.Name[1..] + "Async(";
+                generated.Contains(declaration, StringComparison.Ordinal).Should().Be(
+                    entry.GeneratesCommand(command.Name),
+                    "'{0}.{1}' is {2} by the manifest's entry for '{0}'",
+                    entry.Name,
+                    command.Name,
+                    entry.GeneratesCommand(command.Name) ? "generated" : "not generated");
+            }
+        }
+    }
+
+    /// <summary>
+    /// The emitter refuses a manifest that implements a command its own entry does not generate.
+    /// </summary>
+    /// <remarks>
+    /// Without this the mistake is silent in the worst way: the command has no virtual, so the override that
+    /// answers it does not compile - or, for a page-level domain checked by another suite, the manifest and
+    /// <c>Schema.getDomains</c> claim a command that answers <c>-32601</c>. Failing in the generator is what
+    /// makes the two lists one statement.
+    /// </remarks>
+    [Test]
+    public void TheEmitterRefusesAnImplementedCommandItsDomainDoesNotGenerate()
+    {
+        var manifest = File.ReadAllText(RepositoryPaths.ManifestPath)
+            .Replace("\"getMetrics\"]", "]", StringComparison.Ordinal);
+
+        var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+        File.WriteAllText(path, manifest);
+
+        try
+        {
+            var refusal = Assert.Throws<ProtocolGeneratorException>(
+                () => ProtocolEmitter.Emit(RepositoryPaths.ProtocolDirectory, path));
+
+            refusal!.Message.Should().Contain("Performance.getMetrics");
+            refusal.Message.Should().Contain("does not generate");
+        }
+        finally
+        {
+            File.Delete(path);
         }
     }
 }
