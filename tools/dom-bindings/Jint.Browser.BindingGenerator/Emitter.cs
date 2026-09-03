@@ -169,15 +169,16 @@ internal sealed class Emitter
 
             foreach (var member in model.Members)
             {
+                var label = model.DomName + "." + member.DomName;
+
                 if (member.Kind == MemberKind.Operation)
                 {
                     // https://webidl.spec.whatwg.org/#es-operations — { writable: true, enumerable: true,
                     // configurable: true }, which is JsObjectShape.Method's default and the opposite of
                     // ECMAScript's rule for a built-in.
                     builder.Append("            .Method(").Append(CSharpNames.Literal(member.DomName)).Append(",\n");
-                    builder.Append("                static (thisObj, args) =>\n                {\n");
-                    AppendBody(builder, member.Body, "                    ");
-                    builder.Append("                },\n");
+                    AppendGuardedBody(builder, label, member.Body);
+                    builder.Append(",\n");
                     builder.Append("                length: ").Append(member.Length).Append(")\n");
                 }
                 else
@@ -185,15 +186,12 @@ internal sealed class Emitter
                     // https://webidl.spec.whatwg.org/#es-attributes — { enumerable: true, configurable: true },
                     // JsObjectShape.Accessor's default.
                     builder.Append("            .Accessor(").Append(CSharpNames.Literal(member.DomName)).Append(",\n");
-                    builder.Append("                static (thisObj, args) =>\n                {\n");
-                    AppendBody(builder, member.Body, "                    ");
-                    builder.Append("                }");
+                    AppendGuardedBody(builder, label, member.Body);
 
                     if (member.SetterBody is { } setter)
                     {
-                        builder.Append(",\n                static (thisObj, args) =>\n                {\n");
-                        AppendBody(builder, setter, "                    ");
-                        builder.Append("                }");
+                        builder.Append(",\n");
+                        AppendGuardedBody(builder, label, setter);
                     }
 
                     builder.Append(")\n");
@@ -218,6 +216,22 @@ internal sealed class Emitter
 
         builder.Append("}\n");
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// One member body, wrapped in the invoker that turns an <c>AngleSharp.Dom.DomException</c> into the
+    /// <c>DOMException</c> the standard prescribes. Every member goes through it — an operation, both halves
+    /// of an attribute — because which of them can refuse is AngleSharp's business rather than the metadata's,
+    /// and a page's only vocabulary for a refusal is <c>e.name</c>. <c>Jint.Browser/Dom/DomFailures</c> is the
+    /// whole of the conversion; here there is deliberately no <c>catch</c> to get out of step with it.
+    /// </summary>
+    private static void AppendGuardedBody(StringBuilder builder, string label, string body)
+    {
+        builder.Append("                global::Jint.Browser.Dom.DomFailures.Guard(")
+            .Append(CSharpNames.Literal(label))
+            .Append(", static (thisObj, args) =>\n                {\n");
+        AppendBody(builder, body, "                    ");
+        builder.Append("                })");
     }
 
     private static void AppendBody(StringBuilder builder, string body, string indent)

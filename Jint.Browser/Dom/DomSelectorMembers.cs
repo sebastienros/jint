@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using AngleSharp.Dom;
 using Jint.Native;
-using Jint.Runtime;
 using Jint.WebApi.DomException;
 
 namespace Jint.Browser.Dom;
@@ -103,12 +102,9 @@ internal static class DomSelectorMembers
     /// <summary>The <c>SyntaxError</c> DOM prescribes, in the wording a browser uses.</summary>
     [DoesNotReturn]
     private static JsValue Refuse(DomRealm realm, string member, string selectors)
-    {
-        var error = realm.Engine._mainRealm.Intrinsics.DomException.CreateException(
+        => DomFailures.Refuse(
+            realm.Engine,
+            member,
             DomExceptionNames.Syntax,
-            "Failed to execute '" + member + "': '" + selectors + "' is not a valid selector.");
-
-        Throw.JavaScriptException(realm.Engine, error, realm.Engine.GetLastSyntaxElement()?.Location ?? default);
-        return JsValue.Undefined;
-    }
+            "'" + selectors + "' is not a valid selector.");
 }

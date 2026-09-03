@@ -20,40 +20,40 @@ internal static partial class DomInterfaces
             .ToStringTag("AudioTrack")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("enabled",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.enabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.enabled");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsEnabled);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.enabled", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.enabled");
                     self.Target.IsEnabled = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("id",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.id");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
-                })
+                }))
             .Accessor("kind",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.kind", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.kind");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
-                })
+                }))
             .Accessor("label",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.label", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
-                })
+                }))
             .Accessor("language",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrack.language", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrack>(thisObj, "AudioTrack.language");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>AudioTrackList</c>.</summary>
@@ -62,11 +62,11 @@ internal static partial class DomInterfaces
             .ToStringTag("AudioTrackList")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("getTrackById",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("AudioTrackList.getTrackById", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IAudioTrackList>(thisObj, "AudioTrackList.getTrackById");
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "AudioTrackList.getTrackById")));
-                },
+                }),
                 length: 1)
             .Build();
 
@@ -83,47 +83,47 @@ internal static partial class DomInterfaces
             .ToStringTag("CanvasRenderingContext2D")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("canvas",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.canvas", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.canvas");
                     return self.Realm.WrapNodeValue(self.Target.Canvas);
-                })
+                }))
             .Accessor("height",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.height", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.height");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Height);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.height", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.height");
                     self.Target.Height = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.height"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Method("restore",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.restore", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.restore");
                     self.Target.RestoreState(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Method("save",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.save", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.save");
                     self.Target.SaveState(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("width",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.width", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.width");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Width);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("CanvasRenderingContext2D.width", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ICanvasRenderingContext2D>(thisObj, "CanvasRenderingContext2D.width");
                     self.Target.Width = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "CanvasRenderingContext2D.width"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>MediaController</c>.</summary>
@@ -137,116 +137,116 @@ internal static partial class DomInterfaces
             .Constant("HAVE_METADATA", global::Jint.Native.JsNumber.Create(1))
             .Constant("HAVE_NOTHING", global::Jint.Native.JsNumber.Create(0))
             .Accessor("buffered",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.buffered", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.buffered");
                     return self.Realm.Wrap(self.Target.BufferedTime);
-                })
+                }))
             .Accessor("currentTime",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.currentTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.currentTime");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.CurrentTime);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.currentTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.currentTime");
                     self.Target.CurrentTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.currentTime"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("defaultPlaybackRate",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.defaultPlaybackRate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.defaultPlaybackRate");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.DefaultPlaybackRate);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.defaultPlaybackRate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.defaultPlaybackRate");
                     self.Target.DefaultPlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.defaultPlaybackRate"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("duration",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.duration", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.duration");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Duration);
-                })
+                }))
             .Accessor("muted",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.muted", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.muted");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsMuted);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.muted", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.muted");
                     self.Target.IsMuted = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Method("pause",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.pause", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.pause");
                     self.Target.Pause(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("paused",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.paused", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.paused");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPaused);
-                })
+                }))
             .Method("play",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.play", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.play");
                     self.Target.Play(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("playbackRate",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.playbackRate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackRate");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.PlaybackRate);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.playbackRate", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackRate");
                     self.Target.PlaybackRate = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.playbackRate"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("playbackState",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.playbackState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.playbackState");
                     return global::Jint.Browser.Dom.DomEnums.FromMediaControllerPlaybackState(self.Target.PlaybackState);
-                })
+                }))
             .Accessor("played",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.played", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.played");
                     return self.Realm.Wrap(self.Target.PlayedTime);
-                })
+                }))
             .Accessor("readyState",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.readyState", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.readyState");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.ReadyState));
-                })
+                }))
             .Accessor("seekable",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.seekable", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.seekable");
                     return self.Realm.Wrap(self.Target.SeekableTime);
-                })
+                }))
             .Accessor("volume",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.volume", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.volume");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Volume);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaController.volume", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaController>(thisObj, "MediaController.volume");
                     self.Target.Volume = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "MediaController.volume"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>MediaError</c>.</summary>
@@ -259,11 +259,11 @@ internal static partial class DomInterfaces
             .Constant("MEDIA_ERR_NETWORK", global::Jint.Native.JsNumber.Create(2))
             .Constant("MEDIA_ERR_SRC_NOT_SUPPORTED", global::Jint.Native.JsNumber.Create(4))
             .Accessor("code",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("MediaError.code", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IMediaError>(thisObj, "MediaError.code");
                     return global::Jint.Browser.Dom.DomConvert.Number((int) (self.Target.Code));
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>TextTrack</c>.</summary>
@@ -272,59 +272,59 @@ internal static partial class DomInterfaces
             .ToStringTag("TextTrack")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("activeCues",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.activeCues", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.activeCues");
                     return self.Realm.Wrap(self.Target.ActiveCues);
-                })
+                }))
             .Method("addCue",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.addCue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.addCue");
                     self.Target.Add(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, "TextTrack.addCue")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 1)
             .Accessor("cues",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.cues", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.cues");
                     return self.Realm.Wrap(self.Target.Cues);
-                })
+                }))
             .Accessor("kind",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.kind", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.kind");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
-                })
+                }))
             .Accessor("label",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.label", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
-                })
+                }))
             .Accessor("language",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.language", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.language");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
-                })
+                }))
             .Accessor("mode",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.mode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.mode");
                     return global::Jint.Browser.Dom.DomEnums.FromTextTrackMode(self.Target.Mode);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.mode", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.mode");
                     self.Target.Mode = global::Jint.Browser.Dom.DomEnums.ToTextTrackMode(global::Jint.Browser.Dom.DomConvert.At(args, 0), "TextTrack.mode"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Method("removeCue",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrack.removeCue", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrack>(thisObj, "TextTrack.removeCue");
                     self.Target.Remove(global::Jint.Browser.Dom.DomBindings.Argument<global::AngleSharp.Media.Dom.ITextTrackCue>(args, 0, "TextTrack.removeCue")); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 1)
             .Build();
 
@@ -334,139 +334,139 @@ internal static partial class DomInterfaces
             .ToStringTag("TextTrackCue")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("align",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.align", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.align");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Alignment);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.align", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.align");
                     self.Target.Alignment = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.align"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("endTime",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.endTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.endTime");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.EndTime);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.endTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.endTime");
                     self.Target.EndTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.endTime"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Method("getCueAsHTML",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.getCueAsHTML", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.getCueAsHTML");
                     return self.Realm.WrapNodeValue(self.Target.AsHtml());
-                },
+                }),
                 length: 0)
             .Accessor("id",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.id");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.id");
                     self.Target.Id = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.id"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("line",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.line", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.line");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Line);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.line", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.line");
                     self.Target.Line = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.line"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("pauseOnExit",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.pauseOnExit", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.pauseOnExit");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsPausedOnExit);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.pauseOnExit", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.pauseOnExit");
                     self.Target.IsPausedOnExit = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("position",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.position", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.position");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Position);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.position", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.position");
                     self.Target.Position = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.position"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("size",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.size", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.size");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Size);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.size", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.size");
                     self.Target.Size = global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TextTrackCue.size"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("snapToLines",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.snapToLines", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.snapToLines");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSnappedToLines);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.snapToLines", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.snapToLines");
                     self.Target.IsSnappedToLines = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("startTime",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.startTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.startTime");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.StartTime);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.startTime", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.startTime");
                     self.Target.StartTime = global::Jint.Browser.Dom.DomConvert.RequiredDouble(args, 0, "TextTrackCue.startTime"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("text",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.text");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Text);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.text", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.text");
                     self.Target.Text = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.text"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Accessor("track",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.track", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.track");
                     return self.Realm.Wrap(self.Target.Track);
-                })
+                }))
             .Accessor("vertical",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.vertical", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.vertical");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Vertical);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCue.vertical", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCue>(thisObj, "TextTrackCue.vertical");
                     self.Target.Vertical = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCue.vertical"); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>TextTrackCueList</c>.</summary>
@@ -475,18 +475,18 @@ internal static partial class DomInterfaces
             .ToStringTag("TextTrackCueList")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("getCueById",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.getCueById", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.getCueById");
                     return self.Realm.Wrap(self.Target.GetCueById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "TextTrackCueList.getCueById")));
-                },
+                }),
                 length: 1)
             .Accessor("length",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TextTrackCueList.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITextTrackCueList>(thisObj, "TextTrackCueList.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>TextTrackList</c>.</summary>
@@ -502,24 +502,24 @@ internal static partial class DomInterfaces
             .ToStringTag("TimeRanges")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("end",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TimeRanges.end", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.end");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.End(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TimeRanges.end")));
-                },
+                }),
                 length: 1)
             .Accessor("length",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TimeRanges.length", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.length");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                })
+                }))
             .Method("start",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("TimeRanges.start", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.ITimeRanges>(thisObj, "TimeRanges.start");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Start(global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "TimeRanges.start")));
-                },
+                }),
                 length: 1)
             .Build();
 
@@ -529,40 +529,40 @@ internal static partial class DomInterfaces
             .ToStringTag("VideoTrack")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("id",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.id", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.id");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Id);
-                })
+                }))
             .Accessor("kind",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.kind", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.kind");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Kind);
-                })
+                }))
             .Accessor("label",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.label", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.label");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Label);
-                })
+                }))
             .Accessor("language",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.language", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.language");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Language);
-                })
+                }))
             .Accessor("selected",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.selected", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.selected");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsSelected);
-                },
-                static (thisObj, args) =>
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrack.selected", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrack>(thisObj, "VideoTrack.selected");
                     self.Target.IsSelected = global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, false); return global::Jint.Native.JsValue.Undefined;
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>VideoTrackList</c>.</summary>
@@ -571,17 +571,17 @@ internal static partial class DomInterfaces
             .ToStringTag("VideoTrackList")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("getTrackById",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.getTrackById", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.getTrackById");
                     return self.Realm.Wrap(self.Target.GetTrackById(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "VideoTrackList.getTrackById")));
-                },
+                }),
                 length: 1)
             .Accessor("selectedIndex",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("VideoTrackList.selectedIndex", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Media.Dom.IVideoTrackList>(thisObj, "VideoTrackList.selectedIndex");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.SelectedIndex);
-                })
+                }))
             .Build();
 }

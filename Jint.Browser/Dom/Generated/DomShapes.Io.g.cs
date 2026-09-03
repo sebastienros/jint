@@ -20,37 +20,37 @@ internal static partial class DomInterfaces
             .ToStringTag("Blob")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("close",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Blob.close", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.close");
                     self.Target.Close(); return global::Jint.Native.JsValue.Undefined;
-                },
+                }),
                 length: 0)
             .Accessor("isClosed",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Blob.isClosed", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.isClosed");
                     return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.IsClosed);
-                })
+                }))
             .Accessor("size",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Blob.size", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.size");
                     return global::Jint.Browser.Dom.DomConvert.Number(self.Target.Length);
-                })
+                }))
             .Method("slice",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Blob.slice", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.slice");
                     return self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!));
-                },
+                }),
                 length: 0)
             .Accessor("type",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("Blob.type", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.type");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Type);
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>File</c>.</summary>
@@ -59,17 +59,17 @@ internal static partial class DomInterfaces
             .ToStringTag("File")
             .PerRealmSlot("constructor", enumerable: false)
             .Accessor("lastModified",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("File.lastModified", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, "File.lastModified");
                     return global::Jint.Browser.Dom.DomConvert.Timestamp(self.Target.LastModified);
-                })
+                }))
             .Accessor("name",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("File.name", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFile>(thisObj, "File.name");
                     return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Name);
-                })
+                }))
             .Build();
 
     /// <summary>The members of <c>FileList</c>.</summary>
@@ -78,11 +78,11 @@ internal static partial class DomInterfaces
             .ToStringTag("FileList")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("item",
-                static (thisObj, args) =>
+                global::Jint.Browser.Dom.DomFailures.Guard("FileList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IFileList>(thisObj, "FileList.item");
                     return self.Realm.Wrap(self.Target[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "FileList.item")]);
-                },
+                }),
                 length: 1)
             .Build();
 }
