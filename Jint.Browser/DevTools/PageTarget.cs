@@ -175,20 +175,15 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
             .Register(jint);
 
         AddDomain(page);
-
-        // The DOM domain hears about the engine being replaced under the target the way the built-in five do,
-        // and is unobserved again with them when the attachment detaches.
-        Observe(dom);
         Nodes.Add(dom);
 
-        return domains with
-        {
-            Extra =
-            [
-                page, dom, input, emulation, network, fetch, storage, performance, audits, accessibility, css,
-                security, overlay, jint,
-            ],
-        };
+        // Every one of these that listens -- the DOM domain hears about the engine being replaced under the
+        // target the way the built-in five do -- is observed by `With` and unobserved again by `Detach`.
+        return domains.With(
+        [
+            page, dom, input, emulation, network, fetch, storage, performance, audits, accessibility, css,
+            security, overlay, jint,
+        ]);
     }
 
     /// <inheritdoc/>
