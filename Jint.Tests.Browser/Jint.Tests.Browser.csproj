@@ -99,6 +99,21 @@
     <EmbeddedResource Include="Wpt\README.md" LogicalName="wpt-browser-readme.md" />
   </ItemGroup>
 
+  <!--
+    The obstacle course: the fixture documents, their vendored libraries and the driver injected into them.
+    Embedded with an explicit LogicalName for the reason the wpt corpus above is, and it matters more here:
+    a fixture's own `<script src="/vendor/react-18.3.1/react.production.min.js">` is answered by looking the
+    request path up in this table, so the resource key has to be the path.
+
+    Text extensions only, and the licences, which carry no extension at all. Nothing in the course is binary:
+    a fixture that needed an image would be a fixture about a rendering, and this browser has none.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures\**\*.html;Fixtures\**\*.js;Fixtures\**\*.mjs;Fixtures\**\*.css;Fixtures\**\*.json;Fixtures\**\*.svelte;Fixtures\**\*.md;Fixtures\**\LICENSE">
+      <LogicalName>browser-fixtures/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="AwesomeAssertions" />
     <Using Include="NUnit.Framework" />

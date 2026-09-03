@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>htmx 2</title>
+</head>
+<body>
+  <h1 id="heading">htmx</h1>
+
+  <!-- hx-trigger="load": htmx fetches this the moment it sees the element, with no interaction at all. -->
+  <div id="on-load" hx-get="/htmx/greeting.html" hx-trigger="load">pending</div>
+
+  <!-- The ordinary case: a click, a GET, and the response swapped into somewhere else. -->
+  <button id="fetch-rows" hx-get="/htmx/rows.html" hx-target="#rows" hx-swap="innerHTML">load rows</button>
+  <div id="rows">empty</div>
+
+  <!-- hx-boost: an ordinary link, turned into a fetch that replaces the body and pushes a history entry. -->
+  <div hx-boost="true">
+    <a id="boosted" href="/htmx/next.html">next page</a>
+  </div>
+
+  <script src="/vendor/htmx-2.0.10/htmx.min.js"></script>
+</body>
+</html>

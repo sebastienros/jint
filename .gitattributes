@@ -53,3 +53,7 @@ tools/devtools-protocol/jint_protocol.json text eol=lf
 # collapsed in pull-request review and excluded from language statistics for the same reason.
 Jint.DevTools/Protocol/Generated/*.g.cs linguist-generated=true
 Jint.Browser/Dom/Generated/*.g.cs linguist-generated=true
+
+# The obstacle course is vendored libraries and the small pages that drive them. The minified bundles are
+# checked in as they are published, so they are not this repository's own source.
+Jint.Tests.Browser/Fixtures/** linguist-vendored

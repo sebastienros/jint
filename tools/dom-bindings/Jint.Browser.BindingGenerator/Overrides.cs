@@ -32,6 +32,9 @@ internal sealed class Overrides
     [JsonPropertyName("nullableStrings")]
     public List<NullableStringEntry> NullableStrings { get; init; } = [];
 
+    [JsonPropertyName("nullableParameters")]
+    public List<NullableParameterEntry> NullableParameters { get; init; } = [];
+
     [JsonPropertyName("stringEnums")]
     public List<StringEnumEntry> StringEnums { get; init; } = [];
 
@@ -176,6 +179,30 @@ internal sealed class Overrides
 
         [JsonPropertyName("member")]
         public string Member { get; init; } = "";
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; init; } = "";
+    }
+
+    /// <summary>
+    /// One argument position that WebIDL declares nullable and the CLR signature cannot: <c>Node? child</c>
+    /// is an <c>INode</c> with no default, so nothing in the assembly says <c>null</c> is legal there.
+    /// </summary>
+    /// <remarks>
+    /// It is keyed on the argument index rather than the parameter name because the index is what a script
+    /// passes and what the emitted conversion takes; the name in the reason is WebIDL's, which is the
+    /// authority anyway.
+    /// </remarks>
+    internal sealed class NullableParameterEntry
+    {
+        [JsonPropertyName("interface")]
+        public string Interface { get; init; } = "";
+
+        [JsonPropertyName("member")]
+        public string Member { get; init; } = "";
+
+        [JsonPropertyName("parameter")]
+        public int Parameter { get; init; }
 
         [JsonPropertyName("reason")]
         public string Reason { get; init; } = "";

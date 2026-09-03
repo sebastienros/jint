@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sign in</title>
+</head>
+<body>
+  <p id="cookies"></p>
+
+  <form id="login" method="post" action="/cookie-login/session">
+    <input name="user" value="ada">
+    <input name="password" type="password" value="lovelace">
+    <button id="sign-in" type="submit">sign in</button>
+  </form>
+
+  <script>
+    document.getElementById('cookies').textContent = document.cookie === '' ? 'no cookies yet' : document.cookie;
+  </script>
+</body>
+</html>

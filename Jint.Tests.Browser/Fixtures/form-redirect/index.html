@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>A form, a POST and a 303</title>
+</head>
+<body>
+  <!--
+    The POST/redirect/GET pattern, which is three separate things the page runtime has to get right: the
+    entry list and its urlencoded body, a 303 turning the POST into a GET, and the resulting document
+    replacing this one.
+  -->
+  <form id="order" method="post" action="/form-redirect/submit">
+    <input name="item" value="a widget">
+    <input name="quantity" value="3">
+    <select name="colour">
+      <option value="red">red</option>
+      <option value="blue" selected>blue</option>
+    </select>
+    <input type="checkbox" name="gift" value="yes" checked>
+    <input type="hidden" name="token" value="abc123">
+    <button id="place" type="submit" name="action" value="place">place the order</button>
+  </form>
+</body>
+</html>

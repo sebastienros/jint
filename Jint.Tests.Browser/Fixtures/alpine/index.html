@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Alpine.js</title>
+</head>
+<body>
+  <!--
+    Alpine reads the document rather than a component tree: it walks for `x-data`, compiles the attributes it
+    finds into effects, and keeps watching through a MutationObserver. So this fixture is about attributes and
+    an observer as much as it is about Alpine.
+  -->
+  <div id="panel" x-data="{ open: false, name: '', greeting() { return this.name === '' ? 'nobody' : 'hello ' + this.name; } }">
+    <input id="name" type="text" x-model="name">
+    <button id="toggle" @click="open = !open">toggle</button>
+
+    <p id="greeting" x-text="greeting()"></p>
+    <div id="details" x-show="open">the details</div>
+    <span id="length" x-text="name.length"></span>
+  </div>
+
+  <script defer src="/vendor/alpinejs-3.17.1/cdn.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>A MutationObserver widget</title>
+</head>
+<body>
+  <!--
+    The widget every design system has: a container that keeps a count, a label and a validity flag in step
+    with whatever anybody puts inside it, without the code that mutates the tree knowing the widget exists.
+  -->
+  <div id="widget" data-state="ready">
+    <ul id="items"><li>one</li></ul>
+  </div>
+
+  <p id="count">0</p>
+  <p id="state">?</p>
+  <p id="text">?</p>
+  <p id="batches">0</p>
+
+  <script src="/mutation-observer/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Order placed</title>
+</head>
+<body>
+  <p id="method">unknown</p>
+  <dl id="order"></dl>
+
+  <script>
+    // Everything shown here came back through the redirect as a query string, so a page that asserts it is
+    // asserting what the server read out of the POST body.
+    document.getElementById('method').textContent = 'arrived by GET at ' + location.pathname;
+
+    var list = document.getElementById('order');
+    var parameters = new URLSearchParams(location.search);
+    var names = Array.from(parameters.keys()).sort();
+
+    for (var name of names) {
+      var term = document.createElement('dt');
+      term.textContent = name;
+      var value = document.createElement('dd');
+      value.textContent = parameters.get(name);
+      list.appendChild(term);
+      list.appendChild(value);
+    }
+  </script>
+</body>
+</html>
