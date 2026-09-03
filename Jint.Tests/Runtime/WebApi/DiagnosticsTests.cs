@@ -650,21 +650,18 @@ public class DiagnosticsTests
     }
 
     [Test]
-    public void ARejectionHandledInTheSameTurnIsReportedAndThenMarkedHandled()
+    public void ARejectionHandledInTheSameTurnIsNotReportedAtAll()
     {
         var (engine, sink, _) = Reporting();
 
-        // The channel reports at HostPromiseRejectionTracker's cadence, which is what the pre-existing
-        // PromiseRejectionTracker event has always done: the rejection is reported the instant it happens
-        // with nothing attached, and attaching .catch a moment later is a second report. HTML instead defers
-        // its unhandledrejection event to the end of the microtask checkpoint and would raise nothing here,
-        // so a host that wants that shape correlates the pair by promise identity itself.
+        // HTML's cadence: the report is read from the microtask checkpoint that ends the job the rejection
+        // happened in, over the promises still unhandled at it. A handler attached anywhere in the same
+        // turn — one statement later, or from a job queued in it — is in time, so this reports nothing.
         engine.Execute("Promise.reject(new Error('boom')).catch(() => {});");
+        sink.Reports.Should().BeEmpty();
 
-        sink.Reports.Should().HaveCount(2);
-        sink.Reports[0].RejectionHandled.Should().BeFalse();
-        sink.Reports[1].RejectionHandled.Should().BeTrue();
-        sink.Reports[1].Promise.Should().BeSameAs(sink.Reports[0].Promise);
+        engine.Execute("var p = Promise.reject(new Error('boom')); Promise.resolve().then(() => p.catch(() => {}));");
+        sink.Reports.Should().BeEmpty();
     }
 
     [Test]

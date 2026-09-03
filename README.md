@@ -1068,9 +1068,11 @@ Four rules are worth knowing before you rely on it:
   so with no sink a throwing timer callback, `queueMicrotask` callback or event listener erupts as before and
   no listener sees it.
   `reportError` is the exception, being itself a request to report: it fires the event with or without a sink.
-- **Rejection events arrive at the tracker's cadence, not HTML's microtask checkpoint** — the same documented
-  divergence `DiagnosticEvent.RejectionHandled` carries, so `Promise.reject(e).catch(f)` raises
-  `unhandledrejection` and then `rejectionhandled` where a browser would raise neither.
+- **Rejection events arrive at HTML's microtask checkpoint.** A rejection is reported only if it is *still*
+  unhandled when the job it happened in has run out of work, so `Promise.reject(e).catch(f)` raises neither
+  event — exactly as in a browser — and `unhandledrejection` means nothing in that whole turn handled it. A
+  handler attached in a later turn is what raises `rejectionhandled`, and `preventDefault()` on the first
+  event is what stops the pair being completed.
 
 **A script's own `error` listener is only as live as your sink.** `GlobalEvents` is part of
 `WebApiFeatures.Default`, so a script written for a browser registers `self.addEventListener('error', …)` on a

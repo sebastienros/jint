@@ -2888,10 +2888,134 @@ public sealed partial class Engine : IDisposable
     }
 
     /// <summary>
-    /// Called by the host when a promise rejection is tracked/untracked.
-    /// Raises the <see cref="TaskOperations.PromiseRejectionTracker"/> event.
+    /// <c>HostPromiseRejectionTracker</c>: what the engine does with the two operations
+    /// <see cref="PromiseRejectionOperation"/> names.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://tc39.es/ecma262/#sec-host-promise-rejection-tracker,
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections
+    /// </para>
+    /// <para>
+    /// <b>Nothing is reported from here.</b> HTML's host hook only moves the promise between two lists, and
+    /// the report is <see cref="NotifyAboutRejectedPromises"/>, run from the microtask checkpoint that ends
+    /// the job the rejection happened in. That is the whole reason <c>Promise.reject(e).catch(f)</c> is
+    /// silent: the <c>"handle"</c> operation below takes the promise back out of the list before anything
+    /// has looked at it.
+    /// </para>
+    /// </remarks>
     internal void OnPromiseRejectionTracker(JsPromise promise, PromiseRejectionOperation operation)
+    {
+        if (operation == PromiseRejectionOperation.Reject)
+        {
+            // "Add promise to settings object's global object's relevant agent's event loop's
+            // about-to-be-notified rejected promises."
+            promise.RejectionNotification = PromiseRejectionNotification.AboutToBeNotified;
+            (_rejectionNotifications ??= new List<JsPromise>()).Add(promise);
+            return;
+        }
+
+        switch (promise.RejectionNotification)
+        {
+            case PromiseRejectionNotification.AboutToBeNotified:
+                // Handled before the checkpoint that would have announced it, so HTML removes it from the
+                // list and returns: neither event fires. The entry itself is left in the list and skipped by
+                // the pass, which reads this field — removing it would be a scan of a list the pass clears
+                // wholesale a moment later anyway.
+                promise.RejectionNotification = PromiseRejectionNotification.None;
+                break;
+
+            case PromiseRejectionNotification.Outstanding:
+                // Already announced, so the pair is worth completing: leave the weak set and owe a
+                // rejectionhandled, which HTML also queues as a task rather than firing here.
+                promise.RejectionNotification = PromiseRejectionNotification.HandledNotificationPending;
+                (_rejectionNotifications ??= new List<JsPromise>()).Add(promise);
+                break;
+
+            default:
+                // In neither list: nothing was announced and nothing is owed.
+                break;
+        }
+    }
+
+    /// <summary>
+    /// HTML's <i>notify about rejected promises</i>: reports every rejection that is <em>still</em>
+    /// unhandled, and every promise that has since acquired a handler after being reported.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#notify-about-rejected-promises
+    /// </para>
+    /// <para>
+    /// Run at a microtask checkpoint — where the job queue has run dry, and at the end of a host entry that
+    /// completed — which is what makes a report mean "nothing in this turn handled it" rather than "nothing
+    /// had handled it at the instant it was rejected". A handler attached anywhere in between, synchronously
+    /// or from a job queued in the same turn, is therefore in time.
+    /// </para>
+    /// <para>
+    /// The list is copied and cleared before anything is fired, exactly as HTML's steps 1-3 do: firing runs
+    /// script, and a promise that script rejects belongs to the <em>next</em> checkpoint. Returns whether
+    /// there was anything at all to look at, so the event loop can give what a listener queued a turn before
+    /// it promotes a timer.
+    /// </para>
+    /// <para>
+    /// <b><see cref="CleanUpAfterRunningScript"/> deliberately does not run it</b>, although that is a
+    /// microtask checkpoint too. HTML's step 4 only <i>drains</i> the list there; the events are fired from a
+    /// task it queues, so a rejection a listener leaves unhandled is announced after the dispatch either
+    /// way — and firing one inline would put an event dispatch inside another dispatch to reach the same
+    /// answer. Nothing is lost by waiting: the queue running dry and the end of the host entry are both
+    /// downstream of every listener boundary.
+    /// </para>
+    /// </remarks>
+    internal bool NotifyAboutRejectedPromises()
+    {
+        var pending = _rejectionNotifications;
+        if (pending is null || pending.Count == 0)
+        {
+            return false;
+        }
+
+        var list = pending.ToArray();
+        pending.Clear();
+
+        foreach (var promise in list)
+        {
+            var state = promise.RejectionNotification;
+
+            // Cleared before the event rather than after it: a handler attached by a listener finds the
+            // promise in neither list, which is the state HTML's copy-and-clear leaves it in, so it neither
+            // owes a rejectionhandled nor re-enters this pass.
+            promise.RejectionNotification = PromiseRejectionNotification.None;
+
+            if (state == PromiseRejectionNotification.HandledNotificationPending)
+            {
+                RaisePromiseRejectionNotification(promise, PromiseRejectionOperation.Handle);
+                continue;
+            }
+
+            // Step 5.1, and the entry a "handle" operation neutralized above.
+            if (state != PromiseRejectionNotification.AboutToBeNotified || promise.PromiseIsHandled)
+            {
+                continue;
+            }
+
+            var notHandled = RaisePromiseRejectionNotification(promise, PromiseRejectionOperation.Reject);
+
+            // Steps 5.3 and 5.4. preventDefault() on the event is HTML's "the promise rejection is
+            // handled", so a handler attached afterwards completes no pair.
+            if (notHandled && !promise.PromiseIsHandled)
+            {
+                promise.RejectionNotification = PromiseRejectionNotification.Outstanding;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Tells both channels about one rejection notification, and answers HTML's <i>notHandled</i>.
+    /// </summary>
+    private bool RaisePromiseRejectionNotification(JsPromise promise, PromiseRejectionOperation operation)
     {
         // Through the backing field, not the property: a host that never reached for the facet cannot have
         // subscribed to the event, so materializing it here would allocate on a path that has nothing to
@@ -2903,9 +3027,31 @@ public sealed partial class Engine : IDisposable
         // pre-existing one behave exactly as it always did, which it cannot if a sink can run first. Null on
         // every engine whose host set no diagnostics sink, which is one predictable null test on a path that
         // only runs when a rejection had no handler.
-        _webApi?.ReportPromiseRejection(promise, operation);
+        return _webApi?.ReportPromiseRejection(promise, operation) ?? true;
+#else
+        return true;
 #endif
     }
+
+    /// <summary>
+    /// HTML's <i>about-to-be-notified rejected promises</i> list, with the promises owing a
+    /// <c>rejectionhandled</c> notification in it too — <see cref="JsPromise.RejectionNotification"/> is
+    /// what tells the two apart. Null until this engine's first unhandled rejection, which is every engine
+    /// whose script never rejected without a handler.
+    /// </summary>
+    private List<JsPromise>? _rejectionNotifications;
+
+    /// <summary>
+    /// Drops every notification this engine still owes, for
+    /// <see cref="AdvancedOperations.RestoreGlobalSnapshot"/>.
+    /// </summary>
+    /// <remarks>
+    /// The promises keep whatever <see cref="JsPromise.RejectionNotification"/> they had, which is what a
+    /// promise a restore left unsettled has always kept: nothing further is reported about it, and a handler
+    /// attached to one that was already announced completes no pair, because the pass that would pay it has
+    /// been discarded along with the cycle that owed it.
+    /// </remarks>
+    private void DiscardPendingRejectionNotifications() => _rejectionNotifications?.Clear();
 
     internal void AddToKeptObjects(JsValue target)
     {
@@ -3845,9 +3991,12 @@ public sealed partial class Engine : IDisposable
         // script that called the host is not on its way out; see the field's own remarks.
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
+        var completed = false;
         try
         {
-            return callback(source, state);
+            var result = callback(source, state);
+            completed = true;
+            return result;
         }
         finally
         {
@@ -3856,6 +4005,19 @@ public sealed partial class Engine : IDisposable
             {
                 ReplaceTopStrict(previousStrict);
             }
+
+            // HTML's "clean up after running script" performs a microtask checkpoint once the execution
+            // context stack is empty, which is what makes this the second place a rejection nothing handled
+            // is reported: Invoke and Call run script and do not drain the event loop, so without this an
+            // embedder whose only entry is predicate.Call(row) would be told nothing at all until something
+            // else happened to pump the engine. Only for an entry that completed — reporting runs script,
+            // and a CLR exception is on its way out of this frame otherwise — and before the depth comes
+            // down, so a listener re-entering the engine is nested and cannot re-arm the constraints.
+            if (completed && !isNested)
+            {
+                NotifyAboutRejectedPromises();
+            }
+
             _hostEntryDepth--;
             if (!isNested)
             {
@@ -3888,11 +4050,13 @@ public sealed partial class Engine : IDisposable
         // Same host-entry boundary as the constraint-only path above.
         var previousTryCatchDepth = _tryCatchDepth;
         _tryCatchDepth = 0;
+        var completed = false;
         try
         {
             memoryLimit.Check();
             var result = callback(source, state);
             memoryLimit.Check();
+            completed = true;
             return result;
         }
         catch (Exception exception) when (!ConstraintFailure.MustPropagate(exception))
@@ -3907,6 +4071,14 @@ public sealed partial class Engine : IDisposable
             {
                 ReplaceTopStrict(previousStrict);
             }
+
+            // The checkpoint the constraint-only path above argues for, inside this entry's memory segment
+            // so that what a listener allocates is charged to the entry that reported to it.
+            if (completed && !isNested)
+            {
+                NotifyAboutRejectedPromises();
+            }
+
             _hostEntryDepth--;
             memoryLimit.EndSegment(in memorySegment);
             if (!isNested)

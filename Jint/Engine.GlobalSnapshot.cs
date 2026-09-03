@@ -299,6 +299,11 @@ public partial class Engine
         // depend on whether a wait happened to have a timeout.
         DiscardAtomicsWaiterDeadlines();
 
+        // A rejection announced into the globals just restored would be a report about a promise from a
+        // cycle the engine has ended, and its listener is one a restore has already removed. The list is
+        // the engine's rather than the event loop's, so clearing the loop above does not reach it.
+        DiscardPendingRejectionNotifications();
+
 #if NET8_0_OR_GREATER
         // A timer registered by the cycle that is ending must never fire into the globals just restored. The
         // queue is the engine's, not the event loop's, so clearing the loop above does not reach it; the

@@ -62,26 +62,20 @@ public class ExceptionSessionTests
     }
 
     /// <summary>
-    /// A rejection handled on the very same line is reported and immediately revoked, where Chrome reports
-    /// neither. That is the engine's rejection tracker firing at the moment of rejection rather than at the
-    /// end of the microtask checkpoint, and it is why the revocation exists: a client that acts on the pair
-    /// ends up where Chrome's would, one event later.
+    /// A rejection handled on the very same line produces no event at all, which is what Chrome produces:
+    /// the engine reads its notification at the end of the microtask checkpoint and skips a promise that is
+    /// handled by then, so there is nothing to report and therefore nothing to revoke.
     /// </summary>
     [Test]
-    public async Task ARejectionHandledOnTheSameLineIsReportedAndAtOnceRevoked()
+    public async Task ARejectionHandledOnTheSameLineIsNeverReported()
     {
         await using var session = await AttachedSession.CreateAsync();
 
         await session.ResultAsync("Runtime.enable");
         await session.EvaluateAsync("Promise.reject(new Error('caught')).catch(function () {})", awaitPromise: true);
 
-        var thrown = session.EventsOf("Runtime.exceptionThrown");
-        var revoked = session.EventsOf("Runtime.exceptionRevoked");
-
-        thrown.Should().HaveCount(1);
-        revoked.Should().HaveCount(1);
-        revoked[0].GetProperty("params").GetProperty("exceptionId").GetInt32()
-            .Should().Be(thrown[0].GetProperty("params").GetProperty("exceptionDetails").GetProperty("exceptionId").GetInt32());
+        session.EventsOf("Runtime.exceptionThrown").Should().BeEmpty();
+        session.EventsOf("Runtime.exceptionRevoked").Should().BeEmpty();
     }
 
     /// <summary>A promise that never rejects is never reported, which is the base case worth pinning.</summary>

@@ -454,7 +454,7 @@ public class FetchEventTests
     }
 
     [Test]
-    public void AnAlreadyRejectedWaitUntilPromiseIsNotAnnouncedASecondTime()
+    public void AnAlreadyRejectedWaitUntilPromiseIsNotAnnouncedAtAll()
     {
         var sink = new RecordingSink();
         var engine = Worker("""
@@ -469,12 +469,12 @@ public class FetchEventTests
 
         Answer(engine).Should().Be("ok");
 
-        // Promise.reject() went through the rejection tracker as that very expression was evaluated, before
-        // waitUntil() could attach anything — so this is the engine's ordinary announce-then-handle pair and
-        // not a third report of the same failure.
-        engine.Evaluate("log.join(',')").AsString().Should().Be("unhandled:already,handled");
-        sink.Reports.Count(report => report.Kind == DiagnosticEventKind.UnhandledPromiseRejection && !report.RejectionHandled)
-            .Should().Be(1);
+        // waitUntil() attaches its reaction one statement after Promise.reject() built the promise, which is
+        // inside the same microtask checkpoint — so HTML's deferred notification finds it handled and
+        // announces nothing. The failure is not lost: the event's own extend-lifetime promise is what
+        // reports it, which is the sibling test above.
+        engine.Evaluate("log.join(',')").AsString().Should().Be("");
+        sink.Reports.Should().BeEmpty();
     }
 
     [Test]

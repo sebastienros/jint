@@ -219,14 +219,18 @@ internal static class WptBrowserExclusions
         ("custom-elements/pseudo-class-defined-print.html", "a print reftest, which needs a rendering to compare"),
         ("custom-elements/pseudo-class-defined-print-ref.html", "the reference of the reftest above"),
 
-        // ------------------------------------------------------------ two findings, each a whole-file error
+        // ------------------------------------------------------------ one finding, one whole-file error
         // `CustomElementRegistry.html` is the corpus's largest file and it reaches `customElements.whenDefined`
         // with an invalid name, which HTML makes a rejected promise. The file attaches a handler on the very
-        // next line, so a browser raises nothing — but Jint reports HostPromiseRejectionTracker at the
-        // tracker's own cadence rather than at HTML's microtask checkpoint (`WebApi/DiagnosticsSink` states
-        // that divergence), so `unhandledrejection` fires before the handler exists and testharness makes it a
-        // file-wide ERROR. It is the engine's cadence rather than anything about custom elements.
-        ("custom-elements/CustomElementRegistry.html", "an `unhandledrejection` the engine raises at the tracker's cadence rather than at the microtask checkpoint, which testharness turns into a file-wide error"),
+        // next line, so a browser raises nothing — and Jint used to report HostPromiseRejectionTracker at the
+        // tracker's own cadence rather than at HTML's microtask checkpoint, so `unhandledrejection` fired
+        // before the handler existed and testharness made it a file-wide ERROR. That was the engine's cadence
+        // rather than anything about custom elements, and sebastienros/jint#3711 fixed it: the engine now
+        // notifies from the checkpoint over the promises still unhandled at it, which is what
+        // `Engine.NotifyAboutRejectedPromises` is. So this row's cause is spent, exactly like the four above,
+        // and vendoring the file is the same change of its own that they are — it moves the census's
+        // Documents and Tests columns, which the change that fixes an engine deliberately does not.
+        ("custom-elements/CustomElementRegistry.html", "not vendored: an `unhandledrejection` the engine raised at the tracker's cadence made it a file-wide error, and the cadence is HTML's now"),
         // A constructor that constructs a *second* instance of its own name before calling `super()`. HTML has
         // the parser *construct* a custom element, so the nested construction starts with an empty construction
         // stack and makes an element of its own; here the parser creates the element and the driver upgrades

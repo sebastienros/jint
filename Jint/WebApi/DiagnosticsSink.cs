@@ -167,22 +167,22 @@ public sealed class DiagnosticEvent
     /// https://html.spec.whatwg.org/multipage/webappapis.html#unhandled-promise-rejections
     /// </para>
     /// <para>
-    /// <b>The two arrive at <c>HostPromiseRejectionTracker</c>'s cadence, not HTML's.</b> HTML defers its
-    /// <c>unhandledrejection</c> event to the end of a microtask checkpoint and skips any promise handled
-    /// before then, so <c>Promise.reject(e).catch(f)</c> raises nothing at all in a browser. Jint reports the
-    /// tracker's two operations as they happen — which is exactly what
-    /// <see cref="Engine.TaskOperations.PromiseRejectionTracker"/> has always done, and what keeps the two
-    /// channels telling one story — so the same code produces a report with this
-    /// <see langword="false"/> followed by one with it <see langword="true"/>. A host that wants the browser's
-    /// shape correlates the pair by <see cref="Promise"/> identity.
+    /// <b>The two arrive at HTML's cadence.</b> A rejection is not reported where it happens: it joins HTML's
+    /// <i>about-to-be-notified rejected promises</i> list, and the report is read from the microtask
+    /// checkpoint that ends the job it happened in, over the promises that are <em>still</em> unhandled at
+    /// it. So <c>Promise.reject(e).catch(f)</c> — and every API that hands script an already-rejected
+    /// promise — reports nothing at all, and a report with this <see langword="false"/> means nothing in that
+    /// whole turn handled the rejection. A handler attached in a <i>later</i> turn then produces the second
+    /// report, with this <see langword="true"/>, which a host correlates to the first by
+    /// <see cref="Promise"/> identity.
     /// </para>
     /// <para>
     /// <b>The <c>unhandledrejection</c> and <c>rejectionhandled</c> events of
-    /// <see cref="WebApiFeatures.GlobalEvents"/> inherit that cadence whole</b>, being fired from this very
-    /// call. A script that registers those listeners therefore sees the same pair a sink does, in the same
-    /// order and at the same moment, rather than the single deferred event a browser would raise; and
-    /// cancelling <c>unhandledrejection</c> suppresses nothing here, for the reason
-    /// <see cref="DiagnosticsSink"/> gives.
+    /// <see cref="WebApiFeatures.GlobalEvents"/> ride the same notification</b>, so a script that registers
+    /// those listeners sees what a browser fires, in the same order a sink is told. One thing is not shared:
+    /// <c>preventDefault()</c> on <c>unhandledrejection</c> is HTML's <i>notHandled</i> and does decide
+    /// whether a later handler completes the pair, but it suppresses nothing on this channel — the sink is
+    /// deliberately unsuppressible by script, for the reason <see cref="DiagnosticsSink"/> gives.
     /// </para>
     /// </remarks>
     public bool RejectionHandled { get; }

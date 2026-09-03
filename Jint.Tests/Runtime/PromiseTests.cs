@@ -818,11 +818,13 @@ return Promise.all(promiseArray);") // Returning and array through Promise.any()
         engine.Tasks.ProcessTasks();
 
         engine.GetValue("caught").AsString().Should().Be("boom");
-        // Promise.reject creates an already-rejected promise (fires Reject), and the await's
-        // internal continuation attaches a handler via PerformPromiseThen (fires Handle).
-        // The internal-continuation path must keep firing BOTH tracker operations, exactly
-        // like an explicit .catch() would — the rejection is ultimately handled.
-        operations.Should().Equal([PromiseRejectionOperation.Reject, PromiseRejectionOperation.Handle]);
+        // Promise.reject creates an already-rejected promise, and the await's internal continuation
+        // attaches a handler via PerformPromiseThen — which must keep calling HostPromiseRejectionTracker
+        // with "handle" exactly as an explicit .catch() does. Nothing is reported, and that silence is what
+        // pins it: the "handle" operation is what takes the promise out of HTML's about-to-be-notified list
+        // before the checkpoint reads it, so an internal continuation that stopped calling the tracker
+        // would announce this caught rejection as unhandled.
+        operations.Should().BeEmpty();
     }
 
     [Test]

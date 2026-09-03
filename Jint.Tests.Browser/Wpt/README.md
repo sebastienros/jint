@@ -178,7 +178,7 @@ into twelve groups; the counts are rows rather than files, since several are glo
 | a `custom-elements/` frame that runs script | 37 | `create_window_in_test` and `document_types()`; see the section above |
 | `custom-elements/` needs `ElementInternals` | 5 | `attachInternals()` at file scope, so none of them registers a test |
 | a `custom-elements/` crash test or reftest | 4 | neither loads `testharness.js`, so the driver's own deadline is what ends them |
-| two `custom-elements/` findings | 2 | an `unhandledrejection` the engine raises at the tracker's cadence rather than at the checkpoint, and the parser's upgrade-instead-of-construct |
+| a `custom-elements/` finding, and one whose cause is spent | 2 | the parser's upgrade-instead-of-construct, and the file whose `unhandledrejection` the engine used to raise at the tracker's cadence rather than at the checkpoint (fixed; vendoring it is a change of its own) |
 
 **The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
 upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the
