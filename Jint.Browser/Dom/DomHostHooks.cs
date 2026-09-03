@@ -197,12 +197,12 @@ internal class DomHostHooks
             return false;
         }
 
-        runtime.Recorder.Add(new PageError(
+        runtime.Recorder.Add(
             PageErrorKind.ReportedError,
             "document." + member + "() after the document finished parsing implies document.open(), which "
             + "would replace the document; Jint.Browser does not implement it, so the call did nothing. "
             + "Build the markup with the DOM, or set the page's content again.",
-            document.Url));
+            document.Url);
 
         return true;
     }

@@ -32,6 +32,16 @@ internal sealed class PageRecorder
         _max = max;
     }
 
+    /// <summary>
+    /// The URL of the document the page is showing, read as each entry is taken.
+    /// </summary>
+    /// <remarks>
+    /// <b>Assigned by the page, because the recorder is built before the page it belongs to.</b> It is the
+    /// same volatile field <c>PageNetworkRecorder</c> reads and for the same reason: an entry has to name the
+    /// document it came from, and by the time a host looks at the list the page may be showing its third.
+    /// </remarks>
+    internal Func<string>? DocumentUrl { get; set; }
+
     /// <summary>A snapshot of the errors recorded so far, oldest first.</summary>
     internal IReadOnlyList<PageError> Errors
     {
@@ -56,8 +66,19 @@ internal sealed class PageRecorder
         }
     }
 
-    internal void Add(PageError error)
+    /// <summary>
+    /// Records one error, stamped with the moment and the document it belongs to.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one place a <see cref="PageError"/> is built.</b> Twenty-odd call sites report one, and a
+    /// constructor they each reach is a constructor one of them forgets to stamp; here the stamp cannot be
+    /// left off. Callable from any thread — a worker's failure and the pump's own eruption both arrive here
+    /// — which is why it takes the same lock the reads do.
+    /// </remarks>
+    internal void Add(PageErrorKind kind, string message, string? source)
     {
+        var error = new PageError(kind, message, source, DateTimeOffset.UtcNow, DocumentUrl?.Invoke() ?? "");
+
         lock (_gate)
         {
             _errors.Enqueue(error);
@@ -100,7 +121,7 @@ internal sealed class PageRecorder
                 _ => PageErrorKind.ReportedError,
             };
 
-            _recorder.Add(new PageError(kind, Describe(report.Value, report.Exception), report.CallbackSource?.ToString()));
+            _recorder.Add(kind, Describe(report.Value, report.Exception), report.CallbackSource?.ToString());
         }
 
         /// <summary>

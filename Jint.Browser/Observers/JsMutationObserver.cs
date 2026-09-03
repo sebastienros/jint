@@ -182,10 +182,10 @@ internal sealed class JsMutationObserver : ObjectInstance
         {
             // WebIDL's "report the exception": the page survives a callback that threw, exactly as it
             // survives a timer callback that threw.
-            _runtime.Recorder.Add(new PageError(
+            _runtime.Recorder.Add(
                 PageErrorKind.UncaughtCallbackError,
                 PageRecorder.Diagnostics.Describe(exception.Error, exception),
-                "MutationObserver"));
+                "MutationObserver");
         }
     }
 

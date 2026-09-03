@@ -118,10 +118,10 @@ internal sealed class JsResizeObserver : ObjectInstance
         }
         catch (JavaScriptException exception)
         {
-            _runtime.Recorder.Add(new PageError(
+            _runtime.Recorder.Add(
                 PageErrorKind.UncaughtCallbackError,
                 PageRecorder.Diagnostics.Describe(exception.Error, exception),
-                "ResizeObserver"));
+                "ResizeObserver");
         }
     }
 

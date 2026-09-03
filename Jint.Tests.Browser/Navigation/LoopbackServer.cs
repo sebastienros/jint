@@ -35,6 +35,8 @@ internal sealed class LoopbackServer : IDisposable
     private readonly ConcurrentDictionary<string, Func<LoopbackRequest, LoopbackResponse>> _routes = new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<LoopbackRequest> _received = new();
 
+    private volatile bool _disposed;
+
     internal LoopbackServer()
     {
         _listener = new TcpListener(IPAddress.Loopback, 0);
@@ -80,8 +82,20 @@ internal sealed class LoopbackServer : IDisposable
     internal LoopbackServer MapHtml(string path, string html)
         => Map(path, _ => LoopbackResponse.Html(html));
 
+    /// <summary>Stops the listener and ends every connection. Calling it twice does nothing the second time.</summary>
+    /// <remarks>
+    /// A suite that hands its server to a <c>LoopbackPage</c> and also writes <c>using var server = …</c>
+    /// disposes it twice, and cancelling an already-disposed source throws — which fails whichever test
+    /// happens to be shaped that way rather than the one that owns the mistake.
+    /// </remarks>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         _stopping.Cancel();
         _listener.Stop();
         _stopping.Dispose();

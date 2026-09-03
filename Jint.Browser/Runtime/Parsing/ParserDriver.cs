@@ -945,7 +945,7 @@ internal sealed class ParserDriver : IDisposable
     }
 
     private void Report(PageErrorKind kind, string message, string source)
-        => _runtime.Recorder.Add(new PageError(kind, message, source));
+        => _runtime.Recorder.Add(kind, message, source);
 
     /// <summary>
     /// What erupted out of the baton's pump — a job the diagnostics sink does not cover, or a constraint
