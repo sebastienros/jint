@@ -130,6 +130,14 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
     /// what several clients match on to decide a navigation raced their command.
     /// </para>
     /// <para>
+    /// <b>Except for a command that was never addressed to a context.</b> An <c>Input</c> command is
+    /// addressed to the <i>page</i>: Chrome dispatches a key or a mouse event to whatever document is
+    /// current when it runs, and a key-up that arrives while its document is being replaced is delivered to
+    /// the new one rather than refused. So such a command is handed to the runtime that replaced this one
+    /// and runs there — which is also where <see cref="IsAddressedToTheTarget"/> says the line is, since
+    /// <c>Runtime.callFunctionOn</c> and its kin really do name a context and must keep the refusal.
+    /// </para>
+    /// <para>
     /// Idempotent, and it drains on every call rather than only the first: the flag is what a command
     /// arriving <i>after</i> the swap reads, and that command still has to be answered.
     /// </para>
@@ -140,6 +148,12 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 
         while (_commands.TryDequeue(out var item))
         {
+            if (IsAddressedToTheTarget(item.Method) && Successor() is { } successor)
+            {
+                successor.Hand(item);
+                continue;
+            }
+
             item.Abandon();
         }
 
@@ -268,6 +282,50 @@ internal sealed class EngineDispatcher : ICommandGateway, IDisposable
 
     /// <inheritdoc/>
     public void Dispose() => _arrivals.Dispose();
+
+    /// <summary>
+    /// Whether a command names the engine it is answered on, or only the target it was sent to.
+    /// </summary>
+    /// <remarks>
+    /// <b>One domain, and the list is Chrome's own addressing rather than a convenience.</b> Every
+    /// <c>Input</c> command — a mouse event, a key event, an inserted string — is delivered to the page's
+    /// widget and dispatched at whichever document is current when it runs; nothing in the request names an
+    /// execution context, and a client sends the two halves of one key press as two commands with a
+    /// navigation free to happen between them. Everything else a mailbox carries is addressed to a context,
+    /// however indirectly — a handle, a script identifier, a realm — so a swap under it really is a
+    /// destroyed context and the refusal is the truthful answer.
+    /// </remarks>
+    private static bool IsAddressedToTheTarget(string method)
+        => method.StartsWith("Input.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The mailbox that replaced this one, or <see langword="null"/> when nothing did.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DevToolsTarget.Replace"/> installs the new runtime <i>before</i> disposing the previous
+    /// one, so by the time this runs the target already answers with the runtime a handed-over command
+    /// belongs to. A target that is going away rather than navigating answers with this same mailbox, and a
+    /// command for a page that has closed therefore keeps the refusal.
+    /// </remarks>
+    private EngineDispatcher? Successor()
+    {
+        var current = _target.Runtime;
+        return !current.IsDisposed && !ReferenceEquals(current.Dispatcher, this) ? current.Dispatcher : null;
+    }
+
+    /// <summary>Takes over a command the mailbox it was queued on could not answer.</summary>
+    private void Hand(CommandItem item)
+    {
+        _commands.Enqueue(item);
+        ScheduleDrain();
+
+        if (Volatile.Read(ref _abandoned) != 0)
+        {
+            // This mailbox was abandoned too — two navigations in the time the command spent queued — so the
+            // item moves on again, or is refused when there is nowhere left to move it to.
+            Abandon();
+        }
+    }
 
     /// <summary>
     /// Whether a command may be answered while the engine is paused.
