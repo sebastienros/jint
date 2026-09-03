@@ -213,6 +213,21 @@
       "interface": "DOMSettableTokenList",
       "member": "value",
       "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016, and AngleSharp's ISettableTokenList.Value is the *serialized* token set where DOM's `value` is the attribute verbatim -- `sandbox=\"  x  y \"` reads back as `x y`. Skipped rather than re-declared: the inherited DOMTokenList.value is already the standard's, so this interface is left with no members of its own, which is what the standard leaves it with too."
+    },
+    {
+      "interface": "CharacterData",
+      "member": "replace",
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "DocumentType",
+      "member": "replace",
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "Element",
+      "member": "replace",
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
     }
   ],
   "additions": [
@@ -1037,6 +1052,176 @@
         "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, \"HTMLOutputElement.htmlFor\");",
         "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"for\", args);"
       ]
+    },
+    {
+      "interface": "CharacterData",
+      "member": "replaceWith",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ICharacterData>(thisObj, \"CharacterData.replaceWith\");",
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"CharacterData.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "DocumentType",
+      "member": "replaceWith",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocumentType>(thisObj, \"DocumentType.replaceWith\");",
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"DocumentType.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "Element",
+      "member": "replaceWith",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.replaceWith\");",
+        "self.Target.Replace(global::Jint.Browser.Dom.DomConvert.ObjectRest<global::AngleSharp.Dom.INode>(args, 0, \"Element.replaceWith\")); return global::Jint.Native.JsValue.Undefined;"
+      ],
+      "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "Element",
+      "member": "hasAttributes",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.hasAttributes\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.HasAttributes(self.Target);"
+      ],
+      "reason": "DOM §4.9. AngleSharp has `Attributes`, and this is the question about it that the standard names."
+    },
+    {
+      "interface": "Element",
+      "member": "getAttributeNames",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.getAttributeNames\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.GetAttributeNames(self.Realm, self.Target);"
+      ],
+      "reason": "DOM §4.9's `sequence<DOMString>` of qualified names, which AngleSharp has no member for."
+    },
+    {
+      "interface": "Element",
+      "member": "toggleAttribute",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.toggleAttribute\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.ToggleAttribute(self.Target, args);"
+      ],
+      "reason": "DOM §4.9, and the same given-versus-not-given `force` DOMTokenList.toggle has: it decides whether an absent attribute is created and whether a present one survives."
+    },
+    {
+      "interface": "Element",
+      "member": "getAttributeNode",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.getAttributeNode\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.GetAttributeNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9's Attr-node spelling of getAttribute. AngleSharp has it on INamedNodeMap as getNamedItem, which is WebIDL's other spelling of the same lookup."
+    },
+    {
+      "interface": "Element",
+      "member": "getAttributeNodeNS",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.getAttributeNodeNS\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.GetAttributeNodeNS(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9, the namespaced half."
+    },
+    {
+      "interface": "Element",
+      "member": "setAttributeNode",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.setAttributeNode\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.SetAttributeNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9, over INamedNodeMap.setNamedItem."
+    },
+    {
+      "interface": "Element",
+      "member": "setAttributeNodeNS",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.setAttributeNodeNS\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.SetAttributeNodeNS(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9, over INamedNodeMap.setNamedItemNS."
+    },
+    {
+      "interface": "Element",
+      "member": "removeAttributeNode",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.removeAttributeNode\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.RemoveAttributeNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9: it removes an attribute *node*, so one the element does not hold is a NotFoundError rather than a silent miss."
+    },
+    {
+      "interface": "Element",
+      "member": "insertAdjacentElement",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.insertAdjacentElement\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.InsertAdjacentElement(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9. AngleSharp's IElement.Insert is insertAdjacentHTML and takes markup; this takes a node, and answers null for a position that needs a parent the element has not got."
+    },
+    {
+      "interface": "Element",
+      "member": "insertAdjacentText",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.insertAdjacentText\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.InsertAdjacentText(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §4.9, and the one member here that is not only a conformance gap: upstream's own testharness result renderer calls it, which is why Jint.Tests.Browser/Wpt turns that renderer off."
+    },
+    {
+      "interface": "Element",
+      "member": "webkitMatchesSelector",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.webkitMatchesSelector\");",
+        "return global::Jint.Browser.Dom.DomSelectorMembers.Matches(self.Realm, self.Target, args, \"Element.webkitMatchesSelector\");"
+      ],
+      "reason": "DOM §4.9 requires the alias, and it is not decoration: a library that feature-detects `matches` still falls back to this one."
+    },
+    {
+      "interface": "Node",
+      "member": "isSameNode",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.isSameNode\");",
+        "return global::Jint.Browser.Dom.DomElementMembers.IsSameNode(self.Target, args);"
+      ],
+      "reason": "DOM §4.4. Legacy, and normative; AngleSharp's INode.Equals is value equality rather than identity, so it is not the same question."
+    },
+    {
+      "interface": "NodeList",
+      "extend": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
+      "reason": "WebIDL's `iterable<Node>`, the same four members DOMTokenList's declaration gives and for the same reason: their values are %Array.prototype%'s own, which is a per-realm data slot rather than an operation with a body."
     }
   ],
   "hooks": [

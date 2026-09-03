@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,364 | 1,350 |
+| `dom/nodes/` | 159 | 0 | 4,364 | 1,280 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 9 |
@@ -36,9 +36,9 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
 | `custom-elements/` | 16 | 0 | 510 | 257 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 217 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 200 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,228** | **2,041** |
+| **total** | **340** | **9** | **6,228** | **1,954** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -139,11 +139,13 @@ What the rest found is six causes, and every exclusion in the four new suites is
    and [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each. `classList` was the
    third and is not any more: DOM §7.1's update steps are a plain set-an-attribute-value now, the same door
    `setAttribute` already came through, so `reactions/DOMTokenList.html`'s two "must not enqueue" rows pass.
-4. **Members the binding does not have.** `toggleAttribute`, `setAttributeNode`, `getAttributeNode`,
-   `insertAdjacentElement`, `replaceWith`, `Element.animate` and the whole ARIA
-   reflection mixin: a test that reaches for one fails with `Property '…' of object is not a function`
-   before it can say anything about a reaction. `reactions/AriaMixin-*.html` is ninety-six rows of exactly
-   that, and `reactions/HTMLElement.html` is twenty-one.
+4. **Members the binding does not have.** `Element.animate` and the whole ARIA reflection mixin: a test that
+   reaches for one fails with `Property '…' of object is not a function` before it can say anything about a
+   reaction. `reactions/AriaMixin-*.html` is ninety-six rows of exactly that, and `reactions/HTMLElement.html`
+   is twenty-one. `toggleAttribute`, `setAttributeNode`, `getAttributeNode`, `insertAdjacentElement` and
+   `replaceWith` were here too and are not any more ([#3768](https://github.com/sebastienros/jint/issues/3768)):
+   seventeen rows of `reactions/ChildNode.html`, `Element.html` and `Node.html` pass with them, and the four
+   that are left are an `Attr` write reaching the attribute observer without its value.
 5. **AngleSharp's CSS serialization**, already recorded as a divergence: `reactions/CSSStyleDeclaration.html`
    compares the style attribute the reaction reported against `"color: blue;"` and gets
    `"color: rgba(0, 0, 255, 1)"`. The reaction fired; the value did not match.
@@ -174,12 +176,12 @@ Ordered by how many tests each accounts for:
 | ---: | ---: | --- |
 | 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given an engine.** `iframe.contentDocument` is `null` and `iframe.onload` never arrives, so 488 of these are one line — `Document-createElement*.html` runs its whole table three times, once per document, and two of the three are frames. `NeedsIframeScripting`, the category this lane already had. |
-| 182 | 18 | [#3768](https://github.com/sebastienros/jint/issues/3768) **Members the bindings do not have.** `replaceWith` (34), `getAttributeNode`/`setAttributeNode`/`getAttributeNodeNS` (29), `replaceChildren` (24), `insertAdjacentElement`/`insertAdjacentText` (17), `toggleAttribute`, `hasAttributes`, `isSameNode`, `getAttributeNames`, `webkitMatchesSelector`, `NodeList`'s and `DOMTokenList`'s iterator helpers. Each is `Property '…' of object is not a function` before the test can say anything else. |
+| 50 | 6 | [#3768](https://github.com/sebastienros/jint/issues/3768) **Members the bindings do not have.** Ten of the eleven are there now — `replaceWith`, the five `Attr`-node spellings, `insertAdjacentElement`/`insertAdjacentText`, `toggleAttribute`, `hasAttributes`, `isSameNode`, `getAttributeNames`, `webkitMatchesSelector` and `NodeList`'s iterator helpers — and what is left of the 182 rows is not the members: it is `IChildNode.Replace`'s own algorithm (six rows of `ChildNode-replaceWith.html`) and four `Attr` writes whose reaction is handed a `null` value. **`replaceChildren` is the eleventh and is deliberately still absent**, and `XMLDocument` is still not a name; `Dom/AGENTS.md` argues both. |
 | 165 | 17 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** `DOMImplementation.createDocument` is not on AngleSharp's `IImplementation` at all and `Document.createCDATASection` is not projected, so a processing instruction is not an element and `XMLDocument` is not a name. `NeedsXmlDocuments`, which is a scope decision rather than debt — and the most expensive one in this table, because `dom/common.js` calls `createCDATASection` at file scope and **31 documents therefore register no test at all**. |
 | 133 | 1 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`DOMImplementation.hasFeature` is not unconditionally true.** DOM says "return true" with no qualification; AngleSharp answers true for three of the 136 pairs `hasFeature` is asked about. |
 | 107 | 28 | [#3772](https://github.com/sebastienros/jint/issues/3772) **A collection's named and indexed properties, and its liveness.** An empty name is a supported property name (`HTMLCollection-empty-name.html`, 7 rows), `getElementsByTagName` matches where the standard matches nothing (23 rows), and `namednodemap-supported-property-names.html` sees names a browser does not. The six `NodeList-static-length-getter-tampered*` documents are the same interface from a seventh angle and are not vendored, because a static `NodeList` re-reads its tampered `length` getter and each of them takes between 5.9 s and 18.8 s. |
 | 65 | 3 | [#3773](https://github.com/sebastienros/jint/issues/3773) **The ARIA reflection mixin is not there.** `element.role`, `ariaLabel`, `ariaDescribedByElements` and the rest are `undefined`, which `custom-elements/reactions/AriaMixin-*.html` already said 96 times and `html/dom/aria-*.html` now says from the reflection side. |
-| 62 | 4 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". |
+| 80 | 5 | [#3769](https://github.com/sebastienros/jint/issues/3769) **A `(Node or DOMString)` union parameter takes only a `Node`.** `before`, `after`, `append`, `prepend` and `replaceWith` all accept a string in DOM §4.2.7; here a string is "parameter 1 is not of the expected type". `replaceWith` joined the row when the member arrived: eighteen of its twenty-four remaining assertions are the union and nothing else. |
 | 50 | 13 | One assertion each: `Node.isEqualNode` compares data it should not, `Element.removeAttribute` removes one attribute of two, an attribute's order in `element.attributes` differs, `cloneNode` copies a `value` a browser leaves behind. |
 | 49 | 2 | [#3772](https://github.com/sebastienros/jint/issues/3772) **The XML name productions are wrong.** `createDocumentType("edi:root", …)` and 43 of its siblings are refused as "Invalid character detected" where DOM's Name production allows them, and `name-validation.html` finds five code-point ranges refused in both directions. |
 | 40 | 5 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal the standard requires and AngleSharp does not make.** `createElementNS(null, "a:b")` is a `NamespaceError` in DOM's validate-and-extract and no error at all here — `Dom/AGENTS.md` records it — and `createElement` refuses eight names DOM allows. |
