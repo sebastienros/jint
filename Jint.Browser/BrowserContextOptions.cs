@@ -104,10 +104,11 @@ public sealed class BrowserContextOptions
     /// deployment that loads pages a stranger named wants it on, and wants a <see cref="UrlFilter"/> as well.
     /// </para>
     /// <para>
-    /// <b><see cref="BrowserOptions.ForUntrustedContent"/> turns it on for every context of that browser</b>
-    /// — unless the context's own options assigned this property, in which case the context keeps its choice
-    /// and <see langword="false"/> really means "and I mean it". Assigning <see langword="true"/> is what a
-    /// context that must block regardless of the browser's posture does.
+    /// <b><see cref="BrowserOptions.BlockPrivateNetwork"/> is the browser-wide default</b>, which
+    /// <see cref="BrowserOptions.ForUntrustedContent"/> turns on — unless the context's own options assigned
+    /// this property, in which case the context keeps its choice and <see langword="false"/> really means
+    /// "and I mean it". Assigning <see langword="true"/> is what a context that must block regardless of the
+    /// browser's posture does.
     /// </para>
     /// <para>
     /// <b>It is a coarse rule and cannot be otherwise.</b> It refuses an address literal in the private,

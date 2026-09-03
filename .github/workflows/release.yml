@@ -99,6 +99,17 @@ jobs:
         -p:FileVersion=${{ steps.version.outputs.numeric }}
         -p:ContinuousIntegrationBuild=True
 
+    # The jint-browser dotnet tool, from the same tag and the same version again: it is a shell over
+    # Jint.Browser, referenced by project, so a version of its own would be a second number saying nothing.
+    # PackAsTool means the asset is framework-dependent — there is no PublishAot here and cannot be.
+    - name: Pack Jint.Browser.Tool with dotnet
+      run: >
+        dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release
+        -p:Version=${{ steps.version.outputs.version }}
+        -p:AssemblyVersion=${{ steps.version.outputs.numeric }}
+        -p:FileVersion=${{ steps.version.outputs.numeric }}
+        -p:ContinuousIntegrationBuild=True
+
     # Kept next to the push: the minted key is short-lived, so it must not be requested
     # before the (slow) test and pack steps.
     - name: NuGet login

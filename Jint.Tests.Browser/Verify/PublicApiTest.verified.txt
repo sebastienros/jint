@@ -37,6 +37,7 @@ namespace Jint.Browser
     public sealed class BrowserOptions
     {
         public BrowserOptions() { }
+        public bool BlockPrivateNetwork { get; set; }
         public System.TimeSpan FetchTimeout { get; set; }
         public int MaxActiveTimers { get; set; }
         public long MaxCapturedResponseBytes { get; set; }
@@ -117,17 +118,21 @@ namespace Jint.Browser
         public string Url { get; }
         public int Workers { get; }
         public event System.EventHandler<Jint.Browser.DialogEventArgs>? DialogOpened;
+        public System.Threading.Tasks.Task<string> AccessibilitySnapshotAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task CloseAsync() { }
         public System.Threading.Tasks.Task<string> ContentAsync() { }
         public System.Threading.Tasks.ValueTask DisposeAsync() { }
         public System.Threading.Tasks.Task<object?> EvaluateAsync(string script) { }
         public System.Threading.Tasks.Task<T?> EvaluateAsync<T>(string script) { }
+        public System.Threading.Tasks.Task<string> MarkdownAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> NavigateAsync(string url, Jint.Browser.NavigationOptions? options = null) { }
         public System.Threading.Tasks.Task SetContentAsync(string html, string? baseUrl = null) { }
         public System.Threading.Tasks.Task<Jint.Browser.PageResponse?> SubmitFormAsync(string selector, Jint.Browser.NavigationOptions? options = null) { }
+        public System.Threading.Tasks.Task<string> TextAsync(bool mainContentOnly = false, int maxLength = 0) { }
         public System.Threading.Tasks.Task<string> TitleAsync() { }
         public System.Threading.Tasks.Task<bool> WaitForIdleAsync(System.TimeSpan timeout) { }
         public System.Threading.Tasks.Task<bool> WaitForNavigationAsync(System.TimeSpan timeout) { }
+        public System.Threading.Tasks.Task<bool> WaitForNetworkIdleAsync(System.TimeSpan timeout) { }
     }
     public sealed class PageError
     {

@@ -74,6 +74,9 @@ jobs:
     - name: Pack Jint.Browser with dotnet
       run: dotnet pack Jint.Browser/Jint.Browser.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
+    - name: Pack Jint.Browser.Tool with dotnet
+      run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
+
     - name: Push with dotnet
       run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package
 
