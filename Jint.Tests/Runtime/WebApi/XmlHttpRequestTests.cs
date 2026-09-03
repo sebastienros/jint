@@ -383,6 +383,40 @@ public class XmlHttpRequestTests
     });
 
     /// <summary>
+    /// https://xhr.spec.whatwg.org/#handle-response-end-of-body fires <c>load</c> and <c>loadend</c> from one
+    /// task, and a browser still runs a microtask checkpoint in between, because each listener returns to an
+    /// empty JavaScript execution context stack —
+    /// https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script. So an
+    /// <c>await</c> resumed by the <c>load</c> handler runs before <c>loadend</c> is dispatched, which is
+    /// what an <c>EventWatcher</c> asking for the two in order depends on (sebastienros/jint#3668).
+    /// </summary>
+    /// <remarks>
+    /// Upstream's own XHR suites use plain handlers rather than an <c>EventWatcher</c>, which is why the
+    /// divergence this pins was latent rather than red.
+    /// </remarks>
+    [Test]
+    public Task AMicrotaskQueuedByTheLoadListenerRunsBeforeLoadend() => DedicatedThread.RunAsync(() =>
+    {
+        var engine = XhrEngine(new StubHandler());
+
+        engine.Execute($@"
+            var log = [];
+            var xhr = new XMLHttpRequest();
+            xhr.addEventListener('load', () => {{
+                log.push('load');
+                Promise.resolve().then(() => log.push('microtask'));
+            }});
+            xhr.addEventListener('loadend', () => log.push('loadend'));
+            xhr.open('GET', '{Url}');
+            xhr.send();");
+
+        PumpUntilDone(engine);
+        Pump(engine, () => engine.Evaluate("log.indexOf('loadend') >= 0").AsBoolean(), "loadend");
+
+        engine.Evaluate("log.join('|')").AsString().Should().Be("load|microtask|loadend");
+    });
+
+    /// <summary>
     /// The upload object gets its own sequence, and only when it has a listener — the standard's
     /// <i>upload listener flag</i>.
     /// </summary>

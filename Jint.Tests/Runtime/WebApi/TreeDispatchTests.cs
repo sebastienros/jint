@@ -530,6 +530,55 @@ public class TreeDispatchTests
         exception!.Message.Should().Contain("not an EventTarget");
     }
 
+    /// <summary>
+    /// The microtask checkpoint reaches the path dispatcher too, because both lanes invoke a listener through
+    /// the same <c>InvokeListeners</c> — https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script.
+    /// A host that dispatches its own event leaves the JavaScript execution context stack empty each time a
+    /// listener on the path returns, so a reaction the capturing listener queued runs before the next item is
+    /// invoked. <c>ListenerMicrotaskCheckpointTests</c> is the whole of the rule.
+    /// </summary>
+    [Test]
+    public void AHostDispatchOverATreeCheckpointsBetweenTwoItemsOnThePath()
+    {
+        var fixture = new Fixture();
+        var (_, _, leaf) = fixture.Chain();
+
+        fixture.Execute("""
+            root.addEventListener('ping', function () {
+                note('root');
+                Promise.resolve().then(function () { note('microtask'); });
+            }, true);
+            leaf.addEventListener('ping', function () { note('leaf'); });
+            """);
+
+        // The host's own dispatch, which is how a DOM package's input dispatcher fires one: no script frame.
+        leaf.DispatchEvent((JsEvent) fixture.Evaluate("new Event('ping')"));
+
+        fixture.Log.Should().Be("root,microtask,leaf");
+    }
+
+    /// <summary>
+    /// The same dispatch from a script keeps today's order, which is what a browser does as well: the script
+    /// is on the stack, so there is no checkpoint and the reaction waits for the end of the turn.
+    /// </summary>
+    [Test]
+    public void AScriptDispatchOverATreeIsNotCheckpointed()
+    {
+        var fixture = new Fixture();
+        fixture.Chain();
+
+        fixture.Execute("""
+            root.addEventListener('ping', function () {
+                note('root');
+                Promise.resolve().then(function () { note('microtask'); });
+            }, true);
+            leaf.addEventListener('ping', function () { note('leaf'); });
+            leaf.dispatchEvent(new Event('ping'));
+            """);
+
+        fixture.Log.Should().Be("root,leaf,microtask");
+    }
+
     [Test]
     public void ATreeLessDispatchBuildsNoPath()
     {

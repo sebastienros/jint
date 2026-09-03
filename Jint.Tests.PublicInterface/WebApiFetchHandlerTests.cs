@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Jint;
 using Jint.Constraints;
 using Jint.Native;
+using Jint.Native.Promise;
 using Jint.Runtime;
 using Jint.WebApi;
 using Jint.WebApi.Fetch;
@@ -1004,6 +1005,21 @@ public class WebApiFetchHandlerTests
         Text(response).Should().Be("late");
     }
 
+    /// <summary>
+    /// The listener answers with a promise the <i>host</i> settles, on a turn of its own, rather than with
+    /// one that is already resolved.
+    /// </summary>
+    /// <remarks>
+    /// A reaction the listener queues itself no longer runs after the dispatch at all: the microtask
+    /// checkpoint a listener returns to runs it inside <c>InvokeFetchHandler</c>
+    /// (<see href="https://github.com/sebastienros/jint/issues/3668">#3668</see>). What this test is about is
+    /// a reaction that genuinely belongs to a later turn, which is what its name says, so the promise has to
+    /// be one nothing in the dispatch can settle.
+    /// </remarks>
+    private const string DeferredAllocatingResponder =
+        "addEventListener('fetch', event => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); "
+        + "event.respondWith(pending.then(() => { var b = []; for (var j = 0; j < 20000; j++) { b.push({ y: j }); } return new Response('late'); })); });";
+
     [Test, IgnoreUnless(nameof(MemoryAccountingAvailable), "Managed allocation accounting is unavailable on this runtime.")]
     public void TheTurnsPumpedAfterTheDispatchStayInsideTheDispatchsAllocationBudget()
     {
@@ -1012,21 +1028,26 @@ public class WebApiFetchHandlerTests
         // bytes the reaction allocates are charged to the request that is still outstanding. The statement
         // allowance above and the wall-clock deadline do not work that way, which is why this is its own test
         // rather than another assertion in that one.
-        var deferred =
-            "addEventListener('fetch', event => { var a = []; for (var i = 0; i < 20000; i++) { a.push({ x: i }); } note(); "
-            + "event.respondWith(Promise.resolve().then(() => { var b = []; for (var j = 0; j < 20000; j++) { b.push({ y: j }); } return new Response('late'); })); });";
-
         var synchronousHalf = 0L;
+        ManualPromise? meteredPending = null;
         var metered = Listener(
-            deferred,
+            DeferredAllocatingResponder,
             options => options.LimitMemory(1L << 40),
             prepare: e =>
             {
                 var meter = e.Constraints.Find<MemoryLimitConstraint>()!;
                 e.SetValue("note", new Action(() => synchronousHalf = meter.AllocatedBytes));
+                meteredPending = e.Tasks.RegisterPromise();
+                e.SetValue("pending", meteredPending.Promise);
             });
 
-        using var response = Pump(metered, metered.WebApi.InvokeFetchHandler(Get()));
+        var meteredOperation = metered.WebApi.InvokeFetchHandler(Get());
+
+        // Posted rather than called outright, so the settle runs on the pump's thread and its reaction is a
+        // turn of its own rather than a drain the host's own call performs.
+        metered.Tasks.Post(() => meteredPending!.Resolve(null));
+
+        using var response = Pump(metered, meteredOperation);
         Text(response).Should().Be("late");
         synchronousHalf.Should().BeGreaterThan(0);
 
@@ -1035,11 +1056,23 @@ public class WebApiFetchHandlerTests
         // budget of its own would allocate the same bytes again from zero and this request would be served.
         var limit = synchronousHalf + synchronousHalf / 2;
 
-        var engine = Listener(deferred, options => options.LimitMemory(limit), prepare: NoNote);
+        ManualPromise? pending = null;
+        var engine = Listener(
+            DeferredAllocatingResponder,
+            options => options.LimitMemory(limit),
+            prepare: e =>
+            {
+                NoNote(e);
+                pending = e.Tasks.RegisterPromise();
+                e.SetValue("pending", pending.Promise);
+            });
+
         var operation = engine.WebApi.InvokeFetchHandler(Get());
 
         // The dispatch itself fits.
         operation.IsFaulted.Should().BeFalse();
+
+        engine.Tasks.Post(() => pending!.Resolve(null));
 
         // The reaction does not, and where it fails is where the host is standing: Tasks.ProcessTasks is
         // not a constraint bracket, so the failure erupts from the pump. A host that answers requests out of a

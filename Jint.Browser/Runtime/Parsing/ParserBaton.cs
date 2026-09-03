@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.ExceptionServices;
+using Jint.Runtime;
 
 namespace Jint.Browser.Runtime.Parsing;
 
@@ -86,7 +87,7 @@ internal sealed class ParserBaton : IDisposable
         // The engine's own cross-thread entry, used for nothing but its documented side effect: it ends the
         // loop's park. The queue write happens first, so the wake can never be lost.
         _arrived.Release();
-        _tasks.Post(static () => { });
+        _tasks.Post(EventLoop.WakeJob);
 
         // Polled rather than waited outright, so that a parse the loop has given up on cannot leave this
         // thread parked for ever: the abandoned flag is the only thing that can arrive after the loop stops
@@ -197,7 +198,7 @@ internal sealed class ParserBaton : IDisposable
         // The completion is a wake for the same reason the parse's is: without it the loop would sit out an
         // idle interval after the network answered.
         var tasks = _tasks;
-        task.ContinueWith(static (_, state) => ((Engine.TaskOperations) state!).Post(static () => { }), tasks, TaskScheduler.Default);
+        task.ContinueWith(static (_, state) => ((Engine.TaskOperations) state!).Post(EventLoop.WakeJob), tasks, TaskScheduler.Default);
 
         while (!task.IsCompleted)
         {

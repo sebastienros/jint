@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Jint.Runtime;
 
 namespace Jint.Browser.Runtime;
 
@@ -134,7 +135,11 @@ internal sealed class PageLoop : IDisposable
         // The engine's own cross-thread entry, used here for nothing but its documented side effect: it ends
         // a park. Without it a request would wait out the idle interval before the loop looked at the
         // mailbox again, and a page that had nothing else to do would answer every call late.
-        _tasks?.Post(static () => { });
+        //
+        // EventLoop.WakeJob rather than an empty lambda of this file's own, because a checkpoint identifies a
+        // wake by reference: this job sits on the queue for as long as the request takes, and any other
+        // Action there would cost a listener returning to an empty stack the microtask checkpoint it is owed.
+        _tasks?.Post(EventLoop.WakeJob);
 
         return completion.Task;
     }

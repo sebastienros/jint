@@ -5120,6 +5120,48 @@ for this" now misses `XMLHttpRequest`; compare against `FetchInitiator.Host` for
 member. An observer that keeps every `OnData` chunk now keeps an `XMLHttpRequest`'s body too, which is bytes it
 was not being charged for before.
 
+### 4.120 An event dispatch a host starts runs the microtask checkpoint between listeners ([#3668](https://github.com/sebastienros/jint/issues/3668))
+
+WebIDL invokes an event listener through *call a user object's operation*, which runs HTML's [clean up after
+running script](https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script) — a
+**microtask checkpoint** whenever the callback returns to an empty JavaScript execution context stack. Jint
+performed none, so a promise reaction an event listener queued ran after every remaining listener of that
+dispatch, and after every further event fired from the same job. It now runs where a browser runs it.
+
+**What decides is the stack, not the API.** A dispatch a script started has that script on the stack, so
+nothing changes for it; a dispatch entered from a task — an event-loop job, or a host calling straight into
+`dispatchEvent` — is checkpointed.
+
+```csharp
+var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events));
+engine.Execute("""
+    globalThis.target = new EventTarget();
+    target.addEventListener('ping', () => { log('first'); Promise.resolve().then(() => log('microtask')); });
+    target.addEventListener('ping', () => log('second'));
+    """);
+
+// A host dispatch: no script on the stack.
+engine.Call(engine.Evaluate("EventTarget.prototype.dispatchEvent"), engine.GetValue("target"),
+    [engine.Evaluate("new Event('ping')")]);
+// 5.0: first, second — and "microtask" only on the next drain.
+// 5.x: first, microtask, second — the reaction runs before dispatchEvent returns.
+
+// A script dispatch: unchanged in both.
+engine.Execute("target.dispatchEvent(new Event('ping'))");   // first, second, microtask
+```
+
+The same checkpoint is what now separates two events fired from one job, so an `XMLHttpRequest`'s `load` and
+`loadend` and a `FileReader`'s `load` and `loadend` order the way a browser orders them, and each
+`requestAnimationFrame` callback of one frame returns to a checkpoint of its own. It runs the promise
+reactions at the head of the job queue and stops at anything else, so a `queueMicrotask` callback and a task
+queued behind one still wait for the turn's own drain, exactly as before.
+
+**What could break:** a host that dispatches events itself and relied on every listener of one dispatch
+running before any promise reaction the first one queued. There is no switch: a reaction now runs inside
+`dispatchEvent`, which is what the standard requires. A host that needs the old grouping has to queue the
+work it wants deferred as a task rather than as a promise reaction — `engine.Tasks.Post`, or a `setTimeout`
+on an engine with `WebApiFeatures.Timers`.
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

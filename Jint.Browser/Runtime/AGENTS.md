@@ -178,6 +178,8 @@ second bus:
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
 | a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing`, `Events/ContentEditing` ([the keyboard's own rules](../AGENTS.md#the-keyboard-and-the-editor-under-it)) |
 
+Every listener on that table returns to a microtask checkpoint, because the point that fires it is a turn of the loop rather than a script — see [`Jint/WebApi/AGENTS.md`](../../Jint/WebApi/AGENTS.md#web-apis). `AnimationFrameLane` owes the same cleanup by hand, since one frame is one job over many callbacks.
+
 `toggle` is the one that is **queued** rather than fired in place, on the engine's own task queue, because
 HTML's details notification task steps say so — a test that clicks a `<summary>` has to pump before it sees it.
 
