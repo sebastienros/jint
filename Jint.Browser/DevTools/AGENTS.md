@@ -44,7 +44,7 @@ target/runtime split and the manifest are there and none of it is repeated here.
   `imeSetComposition` that is accepted and changes nothing; touch, drag and the synthesized gestures are
   honestly `-32601`, and the public `Page.ClickAsync`/`TypeAsync`/`PressAsync` reach the same dispatcher
   rather than a second one. The keyboard's own rules are
-  [above](../AGENTS.md#the-keyboard-and-the-editor-under-it).
+  [above](../Events/AGENTS.md#the-keyboard-and-the-editor-under-it).
 - **A named isolated world is made again over every document.** Chrome does that, and Puppeteer and
   Playwright each create one utility world when they attach and then use it for the life of the page — so a
   world that ended with the first document leaves `$`, `$$` and `waitForSelector` waiting for a context that
