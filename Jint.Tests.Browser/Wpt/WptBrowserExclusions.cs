@@ -274,10 +274,12 @@ internal static class WptBrowserExclusions
     /// test, or by a glob over a family the file generates.
     /// </para>
     /// <para>
-    /// <b><see cref="WptDivergence.NeedsTriage"/> is eleven distinct defects, not eighty rows.</b>
-    /// <c>Wpt/README.md</c> has one section per defect with what it is and which rows it earns; they are what
-    /// this PR owes the engine and the package, recorded rather than fixed so that the change which first ran
-    /// these suites is not also the change that moved them.
+    /// <b><see cref="WptDivergence.NeedsTriage"/> is five distinct things, not eleven rows.</b> The eleven
+    /// defects this lane first recorded were filed as
+    /// https://github.com/sebastienros/jint/issues/3686 to 3695 and are fixed; what is left is named in
+    /// <c>Wpt/README.md</c>, one section per cause, and every one of them is bounded — a scheme a subresource
+    /// cannot fetch, a member AngleSharp reflects wrong, an <c>@@unscopables</c> object the binding does not
+    /// emit, a custom element, and a fragment navigation this lane's own timing does not wait for.
     /// </para>
     /// </remarks>
     internal static readonly WptExclusion[] All =
@@ -373,10 +375,8 @@ internal static class WptBrowserExclusions
         // frame's realm, an exception reported in the realm of the listener that threw. A page here parses
         // child frames and gives none of them an engine.
         //
-        // The eleventh defect this lane found is visible in every one of them and is *not* what puts them
-        // here: `window` has no named properties, so `<iframe name=x>` and `<div id=x>` do not reach script
-        // as `x`. That is https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object,
-        // and it is what these files meet first — but a fix for it would leave them needing the frame.
+        // Named access on the window is what these files used to meet first, and it is implemented now
+        // (Runtime/WindowNamedProperties); the frame is what is left, and no fix short of one moves them.
         new("dom/events/EventListener-handleEvent-cross-realm.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html", "*", WptDivergence.NeedsIframeScripting),
         new("dom/events/event-global-is-still-set-when-reporting-exception-onerror.html", "*", WptDivergence.NeedsIframeScripting),
@@ -388,8 +388,8 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- a rendering
         // `MouseEvent.offsetX` against a `body { margin: 8px }`, which is a used value and not a computed
-        // one. It reaches the assertion by way of named access, so today it fails on that instead — but no
-        // fix short of campaign item C4's flat renderer moves the row.
+        // one. Named access now carries it as far as the assertion, which is where no fix short of campaign
+        // item C4's flat renderer moves it.
         new("dom/events/mouse-event-retarget.html", "*", WptDivergence.NeedsLayout),
     ];
 }
