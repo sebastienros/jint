@@ -753,10 +753,11 @@ public sealed class ScriptFunction : Function, IConstructor
             result = constructorEnv.DisposeResources(result);
 
             // The DebugHandler needs the current execution context before the return for stepping through the return point
-            // We exclude the empty constructor generated for classes without an explicit constructor.
+            // We exclude the constructors Jint synthesizes for classes without an explicit one: their body
+            // belongs to no program the host was handed, so its end is not a position anything can name.
             bool isStep = context.DebugMode &&
                           result.Type != CompletionType.Throw &&
-                          _functionDefinition.Function != ClassDefinition._emptyConstructor.Value;
+                          !ClassDefinition.IsSynthesizedConstructor(_functionDefinition.Function);
             if (isStep)
             {
                 // We don't have a statement, but we still need a Location for debuggers. DebugHandler will infer one from

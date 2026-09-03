@@ -1,4 +1,5 @@
-using Jint.Native;
+﻿using Jint.Native;
+using Jint.Native.Function;
 using Jint.Runtime.Environments;
 using Jint.Runtime.Interpreter;
 using Environment = Jint.Runtime.Environments.Environment;
@@ -596,8 +597,10 @@ public class DebugHandler
 
     internal void OnStep(Node node)
     {
-        // Don't reenter if we're already paused (e.g. when evaluating a getter in a Break/Step handler)
-        if (_paused)
+        // Don't reenter if we're already paused (e.g. when evaluating a getter in a Break/Step handler),
+        // and never pause inside a constructor Jint synthesized: the node belongs to no program the host
+        // was handed, so GetStepLocations cannot report it and no editor can open the source it names.
+        if (_paused || ClassDefinition.IsSynthesizedConstructorStatement(node))
         {
             return;
         }

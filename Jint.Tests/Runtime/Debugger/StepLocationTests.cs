@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Globalization;
 using Jint.Runtime.Debugger;
@@ -19,9 +19,10 @@ namespace Jint.Tests.Runtime.Debugger;
 /// no unreachable code in the corpus.
 /// </para>
 /// <para>
-/// Two known divergences are deliberately kept out of it and pinned by tests of their own below: a derived
-/// class without an explicit constructor, whose implicit <c>super(...args)</c> the engine runs from a
-/// separately parsed AST, and code reached through <c>eval</c>, which is a program of its own.
+/// One known divergence is deliberately kept out of it: code reached through <c>eval</c>, which is a
+/// program of its own. A derived class without an explicit constructor is in the corpus instead - the
+/// engine runs its implicit <c>super(...args)</c> from a separately parsed AST and steps over the whole
+/// of it, which <see cref="AnImplicitDerivedConstructorIsSteppedOverAsOneUnit"/> states directly.
 /// </para>
 /// </remarks>
 public class StepLocationTests
@@ -72,6 +73,8 @@ public class StepLocationTests
             _visited.Add(Describe(info));
             return StepMode.Into;
         }
+
+        public IReadOnlyList<Program> Programs => _programs;
 
         public IReadOnlyList<StepLocation> Visited => Ordered(_visited);
 
@@ -371,6 +374,11 @@ public class StepLocationTests
                     return super.area();
                 }
             }
+            class Implicit extends Shape {
+                describe() {
+                    return this.size;
+                }
+            }
             const shape = Shape.create(2);
             shape.area();
             shape.doubled;
@@ -378,6 +386,8 @@ public class StepLocationTests
             shape.reveal();
             const square = new Square(3);
             square.area();
+            const implicit = new Implicit(4);
+            implicit.describe();
             const anonymous = class {
                 run() {
                     return 9;
@@ -702,12 +712,12 @@ public class StepLocationTests
     }
 
     [Test]
-    public void AnImplicitDerivedConstructorStepsThroughASourceOfItsOwn()
+    public void AnImplicitDerivedConstructorIsSteppedOverAsOneUnit()
     {
         // The engine runs `constructor(...args) { super(...args); }` from an AST parsed once, statically,
-        // when a derived class declares no constructor - so the debugger pauses at positions that belong to
-        // no program the host ever handed it, and GetStepLocations cannot report them. Pinned rather than
-        // fixed: giving each class its own synthesized constructor is a change to ClassDefinition.
+        // when a derived class declares no constructor - a program no host was ever handed, whose positions
+        // GetStepLocations therefore cannot report. Stepping is transparent to it: `new Derived()` steps
+        // straight into the base constructor's body, so every pause names the running program.
         const string Script = """
             class Base {
                 constructor() {
@@ -722,8 +732,20 @@ public class StepLocationTests
         var recorder = new Recorder();
         recorder.Engine.Execute(Script, SourceName);
 
-        recorder.Visited.Where(l => l.Source != SourceName).Should().NotBeEmpty(
-            "the implicit super call is stepped through, and it has no source of its own");
-        recorder.Visited.Where(l => l.Source == SourceName).Should().BeSubsetOf(recorder.Expected);
+        var program = recorder.Programs.Should().ContainSingle().Subject;
+        foreach (var location in recorder.Visited)
+        {
+            location.Source.Should().Be(SourceName, "a pause outside the program names a source no editor can open");
+            location.Line.Should().BeInRange(
+                program.Location.Start.Line,
+                program.Location.End.Line,
+                "a pause outside the program's range names a line the host was never handed");
+        }
+
+        recorder.Visited.Should().Contain(
+            l => l.Line == 3,
+            "stepping into the implicit constructor lands in the base constructor's body");
+
+        AssertSetsMatch(recorder, Script, nameof(Script));
     }
 }

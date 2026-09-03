@@ -1,4 +1,4 @@
-using Jint.Native.Object;
+﻿using Jint.Native.Object;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Environments;
@@ -14,7 +14,10 @@ internal sealed class ClassDefinition
     private static readonly MethodDefinition _superConstructor;
     internal static CallExpression _defaultSuperCall;
 
-    internal static readonly MethodDefinition _emptyConstructor;
+    /// <summary>The only statement of <see cref="_superConstructor"/>: <c>super(...args);</c>.</summary>
+    private static readonly Statement _defaultSuperCallStatement;
+
+    private static readonly MethodDefinition _emptyConstructor;
 
     internal readonly string? _className;
     private readonly Expression? _superClass;
@@ -33,9 +36,31 @@ internal sealed class ClassDefinition
         }
 
         _superConstructor = CreateConstructorMethodDefinition(parser, "class temp extends X { constructor(...args) { super(...args); } }");
-        _defaultSuperCall = (CallExpression) ((NonSpecialExpressionStatement) _superConstructor.Value.Body.Body[0]).Expression;
+        _defaultSuperCallStatement = _superConstructor.Value.Body.Body[0];
+        _defaultSuperCall = (CallExpression) ((NonSpecialExpressionStatement) _defaultSuperCallStatement).Expression;
         _emptyConstructor = CreateConstructorMethodDefinition(parser, "class temp { constructor() {} }");
     }
+
+    /// <summary>
+    /// Whether <paramref name="function"/> is one of the two constructors Jint synthesizes for a class
+    /// that declares none.
+    /// </summary>
+    /// <remarks>
+    /// Both are parsed once, at type initialization, from a source no host was ever handed, and every class
+    /// borrowing one shares that single AST. The debugger is therefore transparent to them: it raises no
+    /// return point for either, and <see cref="IsSynthesizedConstructorStatement"/> suppresses the one
+    /// statement the derived form has, so stepping crosses an implicit constructor as one unit and lands in
+    /// the base constructor's body.
+    /// </remarks>
+    internal static bool IsSynthesizedConstructor(IFunction function)
+        => ReferenceEquals(function, _superConstructor.Value) || ReferenceEquals(function, _emptyConstructor.Value);
+
+    /// <summary>
+    /// Whether <paramref name="node"/> is the <c>super(...args);</c> statement of the constructor Jint
+    /// synthesizes for a derived class that declares none.
+    /// </summary>
+    internal static bool IsSynthesizedConstructorStatement(Node node)
+        => ReferenceEquals(node, _defaultSuperCallStatement);
 
     private readonly IClass _class;
 
