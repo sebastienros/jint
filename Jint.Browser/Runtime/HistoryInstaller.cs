@@ -92,7 +92,7 @@ internal static class HistoryInstaller
 
     private static JsValue Traverse(PageRuntime runtime, int delta)
     {
-        runtime.Page.RequestTraversal(delta);
+        runtime.Page.RequestTraversal(delta, rendererInitiated: true);
         return JsValue.Undefined;
     }
 

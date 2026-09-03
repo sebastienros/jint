@@ -338,6 +338,68 @@ public sealed class NavigationTests
     }
 
     [Test]
+    public async Task AQueuedRendererNavigationKeepsTheBaseUrlItWasRequestedAgainst()
+    {
+        using var releaseFirst = new ManualResetEventSlim();
+        using var releaseSecond = new ManualResetEventSlim();
+        var firstRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondRequested = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nextFilterChecks = 0;
+        LoopbackServer? origin = null;
+
+        LoopbackResponse Next(LoopbackRequest request)
+        {
+            secondRequested.TrySetResult(request.Path);
+            releaseSecond.Wait(TimeSpan.FromSeconds(10));
+            return LoopbackResponse.Html("<title>next</title>");
+        }
+
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server =>
+            {
+                origin = server;
+                server.MapHtml("/base/index.html", "<title>base</title>");
+                server.Map("/other/index.html", _ =>
+                {
+                    firstRequested.TrySetResult();
+                    releaseFirst.Wait(TimeSpan.FromSeconds(10));
+                    return LoopbackResponse.Html("<title>other</title>");
+                });
+                server.Map("/base/next.html", Next);
+                server.Map("/other/next.html", Next);
+            },
+            options => options.UrlFilter = uri =>
+            {
+                if (uri.AbsolutePath.EndsWith("/next.html", StringComparison.Ordinal))
+                {
+                    Interlocked.Increment(ref nextFilterChecks);
+                }
+
+                return origin!.Owns(uri);
+            });
+
+        await fixture.Page.NavigateAsync(fixture.Url("/base/index.html"));
+
+        var first = fixture.Page.NavigateAsync(fixture.Url("/other/index.html"));
+        await firstRequested.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await fixture.Page.EvaluateAsync("location.href = 'next.html'");
+        releaseFirst.Set();
+        await first;
+
+        var secondPath = await secondRequested.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var committed = fixture.Page.WaitForNavigationAsync(TimeSpan.FromSeconds(10));
+        releaseSecond.Set();
+
+        (await committed).Should().BeTrue();
+        secondPath.Should().Be("/base/next.html");
+        nextFilterChecks.Should().Be(1, "the request-time filter result is reused for the same absolute URL");
+        fixture.Page.Url.Should().Be(fixture.Url("/base/next.html"));
+        fixture.Server.Received.Single(request => request.Path == secondPath).Header("Referer")
+            .Should().Be(fixture.Url("/base/index.html"));
+        (await fixture.Page.EvaluateAsync<string>("document.referrer")).Should().Be(fixture.Url("/base/index.html"));
+    }
+
+    [Test]
     public async Task TheNetworkLogRecordsTheDocumentFetchAndAScriptsOwnRequest()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server
