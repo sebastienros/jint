@@ -207,6 +207,10 @@ jobs:
     # h2 server is off with TLS, and a test whose protocol has no port would be an internal error rather
     # than a result.
     #
+    # The product and the test paths come *last*, after every option, and not by taste: `wpt run`'s parser
+    # takes `product [test_list ...]` as one block of positionals, so a path that follows an option after
+    # the product is "unrecognized arguments" -- which is exactly how the first run of this workflow died.
+    #
     # There is deliberately no --timeout-multiplier, and it is worth knowing why before one is added back.
     # Every per-test timeout in the corpus is the test author's, and wpt.fyi's own numbers are taken at the
     # default of 1, so a scoreboard measured at 2 would be more generous than the figures it invites
@@ -227,7 +231,7 @@ jobs:
         SUITES: ${{ inputs.suites || env.DEFAULT_SUITES }}
       run: |
         set -o pipefail
-        ./wpt --venv "$RUNNER_TEMP/wpt-venv" run jint-browser \
+        ./wpt --venv "$RUNNER_TEMP/wpt-venv" run \
           --jint-browser-url "$JINT_BROWSER_URL" \
           --ssl-type none \
           --no-manifest-download \
@@ -242,7 +246,7 @@ jobs:
           --exclude fetch/api/basic/status.h2.any.js \
           --exclude fetch/api/redirect/redirect-upload.h2.any.js \
           --exclude xhr/status.h2.window.js \
-          $SUITES
+          jint-browser $SUITES
 
     - name: Stop jint-browser serve
       if: always()

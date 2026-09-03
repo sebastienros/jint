@@ -106,11 +106,13 @@ dotnet build Jint.Browser.Tool/Jint.Browser.Tool.csproj -c Release -f net10.0
 dotnet artifacts/bin/Jint.Browser.Tool/release_net10.0/Jint.Browser.Tool.dll serve --max-task-duration 0 &
 
 # 4. the run
-cd wpt && ./wpt --venv ../.wpt-venv run jint-browser \
+cd wpt && ./wpt --venv ../.wpt-venv run \
   --ssl-type none --no-manifest-download --processes 1 --test-types testharness \
   --no-fail-on-unexpected \
   --log-wptreport ../wptreport.json --log-mach - \
-  dom/
+  jint-browser dom/
+# the product and the paths go last, after every option: `wpt run` parses `product [test_list ...]` as
+# one block, and a path that follows an option after the product is "unrecognized arguments"
 
 # 5. the page
 .wpt-venv/bin/python -m wpt_jint_browser.scoreboard wptreport.json --markdown docs/wpt-scoreboard.md
