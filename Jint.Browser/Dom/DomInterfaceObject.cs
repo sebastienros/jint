@@ -69,11 +69,22 @@ internal sealed class DomInterfaceObject : Constructor
 
     /// <inheritdoc />
     /// <remarks>
-    /// <see cref="DomConstructors"/> is the one exception, and it names a single interface: WebIDL gives
-    /// <c>Document</c> a constructor and the generator cannot learn that from AngleSharp's metadata.
+    /// There are two exceptions. <see cref="DomConstructors"/> names a single interface — WebIDL gives
+    /// <c>Document</c> a constructor and the generator cannot learn that from AngleSharp's metadata —
+    /// and <c>CustomElements/CustomElementCreation</c> is HTML's <c>HTMLElement</c> constructor, which
+    /// answers only when <c>newTarget</c> is a constructor <c>customElements.define</c> registered.
     /// </remarks>
     public override ObjectInstance Construct(JsValue[] arguments, JsValue newTarget)
     {
+        // https://html.spec.whatwg.org/multipage/custom-elements.html#html-element-constructors:
+        // `super()` inside a registered custom element constructor is a `new` on this object, and it
+        // answers the element being created. Every other `new`, `new HTMLElement()` included, falls
+        // through to the refusal below.
+        if (CustomElements.CustomElementCreation.TryConstruct(_domRealm, _definition, newTarget, out var element))
+        {
+            return element;
+        }
+
         if (DomConstructors.TryConstruct(_domRealm, _definition, out var instance))
         {
             return instance;

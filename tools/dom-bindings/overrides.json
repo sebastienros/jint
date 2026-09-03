@@ -32,6 +32,21 @@
       "reason": "Returns an AngleSharp Event. Every script-visible event in this design is a Jint Event dispatched through the engine's own tree dispatcher (design doc §5), and letting AngleSharp's event objects reach script would create a second event bus with a second brand."
     },
     {
+      "interface": "Document",
+      "member": "createElement",
+      "reason": "For a defined custom element name the element is the CONSTRUCTOR's, not AngleSharp's: DOM's \"create an element\" runs the constructor with the synchronous custom elements flag set, and a customized built-in is upgraded before the call returns. AngleSharp knows nothing of a registry. Re-declared in `additions` over the same AngleSharp call plus the lookup, so a document with no definition behaves exactly as it did before."
+    },
+    {
+      "interface": "Document",
+      "member": "createElementNS",
+      "reason": "The namespaced half of createElement, and the same reason: only an element in the HTML namespace can be a custom element, which is a test the re-declared body makes."
+    },
+    {
+      "interface": "Node",
+      "member": "cloneNode",
+      "reason": "A clone of a custom element is a custom element: DOM clones with the synchronous custom elements flag unset and the upgrade reaction runs before the [CEReactions] operation returns, which is what `template.content.cloneNode(true)` relies on. Re-declared in `additions` over the same AngleSharp call plus that upgrade; a document with no definition behaves exactly as it did before."
+    },
+    {
       "interface": "DOMImplementation",
       "member": "createHTMLDocument",
       "reason": "AngleSharp's parameter is non-optional, so the projection would make DOM's `optional DOMString title` required and `document.implementation.createHTMLDocument()` a TypeError. Re-declared in `additions` over the same AngleSharp call with the argument optional."
@@ -126,6 +141,39 @@
         "return global::Jint.Browser.Events.LegacyEventCreation.CreateEvent(self.Realm, args);"
       ],
       "reason": "DOM §4.5's legacy creation surface, which the standard still requires and half the events corpus is written against. AngleSharp's own is skipped because it answers an AngleSharp Event; this builds the Jint event the alias names, with the empty type and the initialized flag unset that make it undispatchable until initEvent() has named it."
+    },
+    {
+      "interface": "Document",
+      "member": "createElement",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createElement\");",
+        "return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElement(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above: HTML §4.13's \"create an element\". The body is AngleSharp's own call while nothing is defined, and the custom element creation path once something is."
+    },
+    {
+      "interface": "Document",
+      "member": "createElementNS",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, \"Document.createElementNS\");",
+        "return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElementNS(self.Realm, self.Target, args);"
+      ],
+      "reason": "The namespaced half, which answers a plain element for every namespace but HTML's."
+    },
+    {
+      "interface": "Node",
+      "member": "cloneNode",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, \"Node.cloneNode\");",
+        "return global::Jint.Browser.CustomElements.CustomElementCreation.CloneNode(self.Realm, self.Target, args);"
+      ],
+      "reason": "The other half of the skip above: the same AngleSharp call, and then the upgrade DOM's clone steps enqueue."
     },
     {
       "interface": "Document",

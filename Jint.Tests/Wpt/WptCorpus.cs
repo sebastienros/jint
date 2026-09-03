@@ -87,6 +87,10 @@ internal static class WptCorpus
         "dom/events",
         "html/webappapis/scripting/events",
         "html/webappapis/scripting/processing-model-2",
+        "custom-elements",
+        "custom-elements/parser",
+        "custom-elements/reactions",
+        "custom-elements/upgrading",
     ];
 
     /// <summary>

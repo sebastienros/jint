@@ -60,7 +60,7 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.INode>(thisObj, "Node.cloneNode");
-                    return self.Realm.WrapNodeValue(self.Target.Clone(global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 0, true)));
+                    return global::Jint.Browser.CustomElements.CustomElementCreation.CloneNode(self.Realm, self.Target, args);
                 },
                 length: 0)
             .Method("compareDocumentPosition",
@@ -701,14 +701,14 @@ internal static partial class DomInterfaces
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElement");
-                    return self.Realm.WrapNodeValue(self.Target.CreateElement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createElement")));
+                    return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElement(self.Realm, self.Target, args);
                 },
                 length: 1)
             .Method("createElementNS",
                 static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IDocument>(thisObj, "Document.createElementNS");
-                    return self.Realm.WrapNodeValue(self.Target.CreateElement(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "Document.createElementNS"), global::Jint.Browser.Dom.DomConvert.RequiredText(args, 1, "Document.createElementNS")));
+                    return global::Jint.Browser.CustomElements.CustomElementCreation.CreateElementNS(self.Realm, self.Target, args);
                 },
                 length: 2)
             .Method("createEvent",

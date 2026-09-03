@@ -154,6 +154,7 @@ None of the five interface objects is generated, so they are hand-written `JsObj
 
 ### Emulation, and the media environment it moves
 
+<<<<<<< HEAD
 **`Runtime/PageMediaEnvironment` is the one value every media query is answered from**, and
 `PageRuntime.SetMedia` is its only writer. It holds the viewport, the emulated media type, whether the
 primary pointer is coarse, whether the document's own scripts run, and the features a client emulated — as
@@ -162,6 +163,61 @@ the media type *and* a preference, so a change that moved two of them has to rea
 with both already in place. Every `MediaQueryList` the page holds then recomputes and fires a real
 `MediaQueryListEvent` — `e => e.matches` is how the listener is written — only if its own answer moved. No
 `resize` fires at the window: HTML fires that from update-the-rendering, and there is none.
+=======
+### Custom elements, and where a reaction actually runs
+
+`CustomElements/` is HTML §4.13 over a DOM that has none of it: AngleSharp builds an `HtmlUnknownElement`
+for `<my-el>` and carries no custom element state, no definition and no reaction queue. What this package
+adds is the registry, the three creation paths and the reaction lane; the element state hangs off a
+`ConditionalWeakTable` keyed on the AngleSharp element, exactly as the wrapper cache does, and a document
+that never mentions `customElements` builds no registry at all and pays for none of it.
+
+- **The registry is per document**, which here is per engine, so a definition does not survive a navigation.
+  `define` reads the constructor once, in the specification's order, so a page that changes
+  `observedAttributes` afterwards changes nothing. `formAssociated` and `disabledFeatures` are parsed;
+  `disabledFeatures: ['shadow']` is honoured by the upgrade and `formAssociated` is recorded on the element
+  and consulted by nothing — there is no `ElementInternals` here, so a form-associated custom element takes
+  part in no entry list.
+- **An undefined `<my-el>` is an `HTMLElement`, not an `HTMLUnknownElement`.** That is HTML's element
+  interface rule, and `DomManualInterfaces.For` is where it is made: AngleSharp builds the same class for
+  both, so the name is the only thing separating them.
+- **Three creation paths, all ending in one constructor.** `document.createElement` and `createElementNS` are
+  `skip`ped in the override table and re-declared, because for a defined name the element is the
+  *constructor's* rather than AngleSharp's; `new MyElement()` reaches `DomInterfaceObject.Construct`, which
+  is HTML's `HTMLElement` constructor and the only `new` that object ever answers; and a parser-created
+  element is **upgraded**. `cloneNode` is re-declared too, so a clone of a custom element is one.
+- **The construction stack is the specification's**, which is what makes `super()` answer the element being
+  upgraded rather than a second one, and a constructor that reaches the base twice an `InvalidStateError`.
+
+**The `[CEReactions]` approximation, which is the one thing to know before changing any of it.** HTML
+processes the element queue when the outermost `[CEReactions]` operation returns to script. Nothing here can
+see a generated member return, so the queue is drained **at the moment a reaction arrives** instead — which
+for everything a script does is inside the DOM call that caused it, and therefore before that call returns.
+Two channels deliver those arrivals and both run inline, for the reason
+[the observer section](#the-observers-and-when-each-of-them-delivers) gives: AngleSharp's mutation records
+say what entered and left the document, and its `IAttributeObserver` service says what attribute changed —
+the service and not the records, because a record needs the element to be under the observed document and
+`el.setAttribute` before insertion is the commonest thing a component does. What is deliberately **not**
+drained on arrival is a reaction that arrived on the parser's thread or while the queue was already
+draining: those wait for the enclosing drain, or for the microtask checkpoint. So
+`el.setAttribute('x', 1); assert(calls === 1)` holds as it does in a browser, and a reaction from a mutation
+inside a *host* operation — one the page loop makes with no script to return to — runs at the checkpoint
+rather than before that operation returns.
+
+**A parser-created element is upgraded, not constructed, and that costs one shape of test.** AngleSharp
+creates a parser element with no notification to hook, so `<my-el>` written in the markup is *undefined*
+until the driver's next boundary: before each script it runs, and once when the parse ends, both of which are
+`UpgradeParsedElements`. A page cannot tell, because a script only ever sees the document at those
+boundaries — except for a constructor that constructs its own name *before* calling `super()`, which HTML
+gives an empty construction stack and this gives the element being upgraded.
+`Jint.Tests.Browser/Wpt/README.md` names the one corpus file about exactly that.
+
+**Two attribute writes reach neither channel, and both are AngleSharp's**: `classList` writes the content
+attribute without notifying its own `IAttributeObserver` or queueing a record, and `setAttributeNS` notifies
+only the record channel. Both are in [`Dom/AGENTS.md`](Dom/AGENTS.md)'s divergence table.
+
+### The protocol layer
+>>>>>>> 5714944e3 (Custom elements: a page defines one, the constructor runs where HTML says, and its callbacks run before the call that caused them returns)
 
 **The Level 5 preference features are the page's own answer, not AngleSharp.Css's**, and they had to be: that
 library evaluates `width` and its kind, has no notion of `prefers-color-scheme`, `forced-colors`, `hover` or

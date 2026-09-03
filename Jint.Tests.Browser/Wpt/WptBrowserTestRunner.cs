@@ -53,11 +53,31 @@ public class WptBrowserTestRunner
     [TestCaseSource(nameof(ScriptingProcessingModelCases))]
     public Task RunsTheScriptingProcessingModelSuite(string path) => RunCaseAsync(path);
 
+    [TestCaseSource(nameof(CustomElementsCases))]
+    public Task RunsTheCustomElementsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(CustomElementsParserCases))]
+    public Task RunsTheCustomElementsParserSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(CustomElementsReactionsCases))]
+    public Task RunsTheCustomElementsReactionsSuite(string path) => RunCaseAsync(path);
+
+    [TestCaseSource(nameof(CustomElementsUpgradingCases))]
+    public Task RunsTheCustomElementsUpgradingSuite(string path) => RunCaseAsync(path);
+
     public static IEnumerable<object[]> DomEventsCases() => Cases("dom/events");
 
     public static IEnumerable<object[]> ScriptingEventsCases() => Cases("html/webappapis/scripting/events");
 
     public static IEnumerable<object[]> ScriptingProcessingModelCases() => Cases("html/webappapis/scripting/processing-model-2");
+
+    public static IEnumerable<object[]> CustomElementsCases() => Cases("custom-elements");
+
+    public static IEnumerable<object[]> CustomElementsParserCases() => Cases("custom-elements/parser");
+
+    public static IEnumerable<object[]> CustomElementsReactionsCases() => Cases("custom-elements/reactions");
+
+    public static IEnumerable<object[]> CustomElementsUpgradingCases() => Cases("custom-elements/upgrading");
 
     private static IEnumerable<object[]> Cases(string suite)
     {
@@ -135,7 +155,7 @@ public class WptBrowserTestRunner
         string.Join(Environment.NewLine, problems).Should().BeEmpty();
 
         // The theory cases are generated from the corpus, so an empty corpus would be an empty, green run.
-        cases.Should().HaveCountGreaterThan(60, "the lane runs the documents of three suites");
+        cases.Should().HaveCountGreaterThan(130, "the lane runs the documents of seven suites");
     }
 
     /// <summary>

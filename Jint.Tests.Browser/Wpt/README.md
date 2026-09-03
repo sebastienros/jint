@@ -18,10 +18,14 @@ wrappers, the environment a document runs in, where a divergence goes — is
 
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
-| `dom/events/` | 55 | 9 | 543 | 42 |
+| `dom/events/` | 56 | 9 | 544 | 42 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
-| **total** | **92** | **9** | **624** | **61** |
+| `custom-elements/` | 16 | 0 | 510 | 257 |
+| `custom-elements/parser/` | 8 | 0 | 20 | 11 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 219 |
+| `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
+| **total** | **133** | **9** | **1,417** | **551** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -65,9 +69,11 @@ What `NeedsTriage` holds now is five things, each bounded and each named by the 
    `replaceChildren` among them — and the generator emits none, because AngleSharp's metadata does not say
    which members are unscopable. `compile-event-handler-symbol-unscopables.html` never reaches its subject:
    it *writes* to `document[Symbol.unscopables]`.
-4. **`window.customElements` is absent**, which one row of
-   `compile-event-handler-lexical-scopes-form-owner.html` needs to define a form-associated custom element.
-   The file's other three rows pass.
+4. **A form-associated custom element has no form owner.** `window.customElements` exists now, and the one
+   row of `compile-event-handler-lexical-scopes-form-owner.html` that is left asserts that a compiled handler
+   on an `<x-foo static formAssociated>` sees the *form's* lexical scope — which needs the element to be a
+   form-associated element and take part in `form.elements`. This package records the flag and nothing
+   consults it: there is no `ElementInternals`. The file's other three rows pass.
 5. **A fragment navigation does not land inside two turns.** Following an `<a href="#x">` of the page's own
    URL now happens on the page loop and fires `hashchange` on the next turn — measured, and moved there from
    after the whole timer chain — but `Event-dispatch-single-activation-behavior.html` gives it two zero-delay
@@ -81,6 +87,51 @@ device events a sensor — so four rows of `EventTarget-dispatchEvent.html` are 
 which names what would move them. And eight rows of `Event-dispatch-single-activation-behavior.html` moved to
 `AssertsWhatNothingRequires`: the file's instrumentation is a `<form onsubmit>` handler and cannot tell an
 activation behaviour from an ordinary bubble, and `submit` and `reset` both bubble.
+
+## What the custom element corpus says
+
+`custom-elements/` and its `parser/`, `reactions/` and `upgrading/` sub-directories arrived with the
+implementation of HTML §4.13, and **the shape of what is missing from that corpus is one sentence: most of
+it is written against a second global.** `resources/custom-elements-helpers.js` gives it
+`create_window_in_test`, which loads an iframe and resolves with its window, and `document_types()`, which
+makes every assertion in five documents — this one, a `new Document()`, a `createHTMLDocument()`, an
+iframe's and an XHR-fetched one. A page here parses child frames and gives none of them an engine, so a file
+built on either waits for a load that never comes and reports nothing at all; thirty-seven documents are in
+the not-vendored table for that reason alone, and they are the ones about adoption, cross-realm constructors
+and the reaction queue.
+
+What the rest found is six causes, and every exclusion in the four new suites is one of them:
+
+1. **The parser upgrades a custom element where HTML constructs one.** AngleSharp creates a parser element
+   with no notification to hook, so `<my-el>` in the markup is undefined until the driver's next script
+   boundary. A page cannot see the difference — a script only ever sees the document at those boundaries —
+   except in `parser/`, which is about exactly this: an element's attributes and children are already there
+   when its constructor runs, and a constructor that constructs its own name before `super()` takes the
+   element being upgraded rather than making a second one. That last file cannot report at all, so it is in
+   the not-vendored table with the same reason.
+2. **A namespaced attribute is not a namespace here.** `getAttributeNS(null, name)` answers `null` where a
+   browser answers the value, because the binding converts a `DOMString?` *parameter* with
+   `TypeConverter.ToString` and `null` becomes the string `"null"`; the same conversion is why
+   `createElementNS(null, …)` and `setAttributeNS` behave as they do. It is the single biggest cause here:
+   `attribute-changed-callback.html` asserts the callback's `actualValue` through `getAttributeNS`, so all
+   thirteen of its rows fail on it, and `Document-createElementNS*.html` is the same conversion from the
+   other side. Nothing about custom elements would move it; a nullable-string parameter in the generator
+   would move all of it.
+3. **Three attribute writes reach neither notification channel**, and all three are AngleSharp's:
+   `classList`, `setAttributeNS` and a write through an `Attr` node. `reactions/DOMTokenList.html`,
+   `reactions/Attr.html` and part of `reactions/Element.html` are that, and
+   [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each.
+4. **Members the binding does not have.** `toggleAttribute`, `setAttributeNode`, `getAttributeNode`,
+   `insertAdjacentElement`, `replaceWith`, `DOMTokenList.replace`, `Element.animate` and the whole ARIA
+   reflection mixin: a test that reaches for one fails with `Property '…' of object is not a function`
+   before it can say anything about a reaction. `reactions/AriaMixin-*.html` is ninety-six rows of exactly
+   that, and `reactions/HTMLElement.html` is twenty-one.
+5. **AngleSharp's CSS serialization**, already recorded as a divergence: `reactions/CSSStyleDeclaration.html`
+   compares the style attribute the reaction reported against `"color: blue;"` and gets
+   `"color: rgba(0, 0, 255, 1)"`. The reaction fired; the value did not match.
+6. **`builtin-coverage.html`'s two hundred and twenty rows** are the `'new'` and `createElement` halves of a
+   table over every HTML local name. Its `innerHTML` and parser halves pass for all one hundred and eight
+   tags, which is what says the customized-built-in path itself works.
 
 Two more things the corpus found are **not** defects and are recorded where they belong instead.
 `Element.insertAdjacentText` is missing, which upstream's own result renderer calls — the overlay turns the
@@ -104,7 +155,7 @@ into twelve groups; the counts are rows rather than files, since several are glo
 | not a document, or a directory this PR does not vendor | 7 | `.window.js`, `.worker.js`, and four directories of the scripting tree |
 | upstream's own markers | 5 | `.tentative.`, `-manual.`, and `.sub.html`, which needs a second origin to substitute into |
 | a cause that has gone | 4 | they met `document.createEvent` before a test could report; it exists now, and vendoring them moves the census's Documents and Tests columns, so it is a change of its own |
-| a name this browser does not have | 3 | `customElements`, a `javascript:` URL, and one that read `window.event` before it existed |
+| a name this browser does not have | 2 | a `javascript:` URL, and one that read `window.event` before it existed |
 | a rendering | 6 | a CSS animation or transition event, a pseudo-element, and the coarse-clock assertion |
 | a focus event that does not arrive | 1 | the one row that is a finding rather than an environment; see its reason |
 | a frame that runs script | 11 | a second global with a document in it, and the helper documents of those tests |
@@ -112,6 +163,11 @@ into twelve groups; the counts are rows rather than files, since several are glo
 | the timer's string handler | 2 | `setTimeout("{", 10)`, which `TimerFunctions` documents declining |
 | a second origin | 1 | `location.href.replace('://', '://www1.')`, and there is one origin here |
 | a helper of a document above | 2 | the bodies two of those tests load |
+| a `custom-elements/` directory or marker | 12 | `form-associated/` and `registries/` and `state/` (`ElementInternals` and scoped registries), `htmlconstructor/` (both of its documents build their subject in an iframe), the `.tentative.`/`.window.js`/`.xhtml`/`.svg` globs |
+| a `custom-elements/` frame that runs script | 37 | `create_window_in_test` and `document_types()`; see the section above |
+| `custom-elements/` needs `ElementInternals` | 5 | `attachInternals()` at file scope, so none of them registers a test |
+| a `custom-elements/` crash test or reftest | 4 | neither loads `testharness.js`, so the driver's own deadline is what ends them |
+| two `custom-elements/` findings | 2 | an `unhandledrejection` the engine raises at the tracker's cadence rather than at the checkpoint, and the parser's upgrade-instead-of-construct |
 
 **The `testdriver.js` group is gone, which is what recording it by name was for.** Campaign item C4 mapped
 upstream's automation API onto the same `InputDispatcher` the `Input` domain reaches, through the
@@ -126,9 +182,12 @@ all; and `click-on-absolute-pseudo.html` reads `event.pseudoTarget` and `element
 need a pseudo-element model. Both are `a rendering` rows now. **The mapping found no new defect**, which is
 the outcome running documents through an existing dispatcher should have.
 
+The `customElements` row that used to sit in the "a name this browser does not have" group has gone the same
+way: `window.customElements` exists, and `EventTarget-add-listener-platform-object.html` is a case again.
+
 ## What runs, and what it costs
 
-The whole lane is **about seven seconds** — one `WptServer`, one `Browser`, and a fresh `BrowserContext` and
+The whole lane is **about ten seconds** — one `WptServer`, one `Browser`, and a fresh `BrowserContext` and
 `Page` per document. Nothing in it waits on a real clock except upstream's own harness timeout, and no document
 reaches it: every case reports, which is the property `EveryVendoredDocumentIsAccountedFor` and the
 minimum-test table together keep true.

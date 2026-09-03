@@ -88,9 +88,15 @@ internal sealed class ParserDriver : IDisposable
         // styling service <link rel=stylesheet> needs; the resource loader is what makes AngleSharp ask for
         // anything at all, and is therefore what makes the baton necessary. There is deliberately no
         // WithDefaultLoader: every byte a document pulls goes through the page's own network position.
+        // The attribute observer is the last of them, and it is what a custom element's
+        // `attributeChangedCallback` is answered from: it is called for every element of this document,
+        // attached or not, where a mutation record needs the element to be under the observed document
+        // and `el.setAttribute` before insertion is the commonest thing a component does. `.With` adds a
+        // service rather than replacing one, so AngleSharp's own observer keeps working.
         var configuration = Configuration.Default
             .WithCss()
-            .With(new PageResourceLoader(this));
+            .With(new PageResourceLoader(this))
+            .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime));
 
         // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled
         // — the scripting service is simply not registered, which is how AngleSharp is told a document has
@@ -309,6 +315,13 @@ internal sealed class ParserDriver : IDisposable
             // AngleSharp advances its own readiness before it runs the deferred queue, which is the one
             // moment this driver cannot observe from outside the parse — so it is read here, on the way in.
             ObserveReadiness(options.Document);
+
+            // A script boundary is one of the two moments a parser-created custom element can become
+            // custom (the other is the end of the parse): AngleSharp creates a parser element with no
+            // notification to hook, so an element written in the markup before this script is upgraded
+            // here, which is where a browser would already have constructed it. It costs nothing for a
+            // document that has defined nothing.
+            _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
 
             // And the import map, for the same reason: a classic script's dynamic import() runs during the
             // parse, so the map has to be in force by then rather than only when the modules run.
@@ -558,6 +571,10 @@ internal sealed class ParserDriver : IDisposable
         {
             Events.EventHandlerContentAttributes.InstallBodyHandlers(_runtime.Dom, document);
         }
+
+        // The last parse boundary: everything the tokenizer wrote after the final inline script becomes
+        // custom before DOMContentLoaded, which is where a page looks for it.
+        _runtime.CustomElementsIfCreated?.UpgradeParsedElements();
 
         // https://html.spec.whatwg.org/multipage/parsing.html#the-end step 2. AngleSharp advances its own
         // readiness during the parse and its setter is not reachable from outside its assembly
