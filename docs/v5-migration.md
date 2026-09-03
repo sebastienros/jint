@@ -5061,6 +5061,22 @@ built, not when it is declared, so a token registered after it was already lost 
 a cancellation the host had requested. Withdrawing the token still withdraws it (`ObserveCancellation(default)`
 before the profile leaves the engine unobserved), and the profile still clears every other constraint.
 
+### 4.118 `initEvent()` and `initCustomEvent()` require a type ([#3686](https://github.com/sebastienros/jint/issues/3686))
+
+`type` is a required argument of both legacy initializers, so calling one with no arguments is WebIDL's arity
+`TypeError`. It used to re-initialize the event with the type `"undefined"`.
+
+```js
+new Event('a').initEvent();            // 5.0: type becomes "undefined";  5.x: TypeError
+new Event('a').initEvent(undefined);   // both: type becomes "undefined" — the argument is there, and a
+                                       // DOMString stringifies it
+```
+
+The check runs before the "if this's dispatch flag is set, then return" step, because WebIDL raises an arity
+error while it converts the arguments and knows nothing about what the receiver is doing: `initEvent()` throws
+even for an event a dispatch has in flight, where the call would otherwise have been a silent no-op.
+`dispatchEvent()` with no arguments now says "1 argument required" where it said "1 arguments required".
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
@@ -5842,6 +5858,44 @@ API makes and why the standard's own note tells authors to revoke; a script that
 never revokes grows the store, and no execution constraint describes that memory. And a
 `RestoreGlobalSnapshot` **empties the store**, the way it empties the timer queue: the URLs were minted by
 the cycle that has ended and their strings are unreachable once its globals are gone.
+
+### 5.23 `addEventListener` implements DOM's default passive value ([#3692](https://github.com/sebastienros/jint/issues/3692))
+
+[DOM's *default passive value*](https://dom.spec.whatwg.org/#default-passive-value) makes a `touchstart`,
+`touchmove`, `wheel` or `mousewheel` listener passive when the target is a `Window`, a document, a document
+element or a body element and the `passive` member was left out — so its `preventDefault()` does nothing.
+`addEventListener` now applies that rule instead of defaulting `passive` to false unconditionally, and it
+reads `{ passive: undefined }` as WebIDL does: the member does not exist, so the default applies rather than
+`false`.
+
+**Nothing changes for an engine without a DOM.** The rule is a conjunction, and the half that names the four
+targets is answered by the host: an engine with no document has no `Window` and no body element, so every
+target Jint ships answers false and every listener stays active exactly as before. `Jint.Browser` is what
+answers otherwise, for its window, its `document`, its `documentElement` and its `body`.
+
+### 5.24 A dispatch maintains DOM's current event for a `Window` global ([#3687](https://github.com/sebastienros/jint/issues/3687))
+
+[DOM's *current event*](https://dom.spec.whatwg.org/#window-current-event) is what `window.event` answers: the
+event a listener is running for, set before each invocation and restored after it — after a nested dispatch,
+and after a listener that threw. It cannot be kept anywhere but in the dispatch, so the engine keeps it, and a
+host with a document is what installs the `event` property that reads it.
+
+**Nothing changes for an engine without a DOM.** The slot is maintained only for a global object a host has
+declared to be a `Window`, which no engine the box ships is, so a dispatch on a stock engine reads one field
+and writes none. There is no `window.event` global either way: the slot is DOM's, the property is HTML's, and
+`Jint.Browser` is what puts the two together.
+
+### 5.25 An event's initialized flag is real ([#3686](https://github.com/sebastienros/jint/issues/3686))
+
+[DOM's *initialized flag*](https://dom.spec.whatwg.org/#initialized-flag) is what makes
+`document.createEvent("Event")` undispatchable until `initEvent()` has named it: `dispatchEvent` throws an
+`InvalidStateError` for an event whose flag is unset, and `initEvent` sets it. The flag used to be assumed
+rather than stored, because the only algorithm that unsets it is `createEvent` and an engine with no document
+has none.
+
+**Nothing changes for an engine without a DOM.** Every event a constructor makes has the flag set, so the
+guard can only fire for an event a host's own `createEvent` produced — `Jint.Browser`'s — and a re-entrant
+dispatch still reports the message it always did.
 
 ## 6. AOT and trimming
 

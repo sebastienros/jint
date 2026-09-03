@@ -1,7 +1,9 @@
 #if NET8_0_OR_GREATER
 #nullable enable
 
+using Jint.Native;
 using Jint.Runtime;
+using Jint.WebApi.Events;
 
 namespace Jint.Tests.Runtime.WebApi;
 
@@ -423,6 +425,184 @@ public class EventTargetTests
 
         Assert.Throws<JavaScriptException>(() => engine.Evaluate("EventTarget.prototype.dispatchEvent.call({}, new Event('x'))"))!
             .Message.Should().Contain("EventTarget");
+    }
+
+    // https://dom.spec.whatwg.org/#default-passive-value
+
+    /// <summary>
+    /// The engine's answer to DOM's <i>default passive value</i> is false for every type and every target it
+    /// ships, because the rule names a <c>Window</c>, a document, a document element and a body element and
+    /// an engine with no DOM has none of them.
+    /// </summary>
+    /// <remarks>
+    /// Both spellings of "the member is absent" are checked, because WebIDL treats an explicit
+    /// <c>undefined</c> as absent and it would be easy to make one of the two take a different path.
+    /// </remarks>
+    [TestCase("touchstart")]
+    [TestCase("touchmove")]
+    [TestCase("wheel")]
+    [TestCase("mousewheel")]
+    [TestCase("touchend")]
+    public void TheDefaultPassiveValueIsFalseWithoutADocument(string type)
+    {
+        var engine = WebEngine();
+        engine.SetValue("type", type);
+
+        foreach (var options in new[] { "", ", undefined", ", {}", ", { passive: undefined }", ", { capture: false }" })
+        {
+            engine.Execute($$"""
+                var e = new Event(type, { cancelable: true });
+                var handler = function (ev) { ev.preventDefault(); };
+                target.addEventListener(type, handler{{options}});
+                var result = target.dispatchEvent(e);
+                target.removeEventListener(type, handler);
+                """);
+
+            engine.Evaluate("e.defaultPrevented").AsBoolean().Should().BeTrue($"a listener added with \"{options}\" is not passive");
+            engine.Evaluate("result").AsBoolean().Should().BeFalse();
+        }
+    }
+
+    /// <summary>
+    /// A host that installs a document says which targets DOM's rule names, and the engine then answers true
+    /// for the four types and false for every other. The global scope's half of that is
+    /// <c>GlobalEventTarget.IsWindow</c>.
+    /// </summary>
+    /// <remarks>
+    /// A test rather than a page, because the point is that the engine holds the type list and the host holds
+    /// nothing but the classification: <c>Jint.Browser</c>'s window installer is the only caller that sets
+    /// this, and its own half is pinned by the browser package's tests and by the web-platform-tests document
+    /// <c>dom/events/passive-by-default.html</c>.
+    /// </remarks>
+    [TestCase("touchstart", true)]
+    [TestCase("touchmove", true)]
+    [TestCase("wheel", true)]
+    [TestCase("mousewheel", true)]
+    [TestCase("touchend", false)]
+    [TestCase("click", false)]
+    public void AGlobalScopeAHostCallsAWindowTakesTheDefaultPassiveValue(string type, bool passive)
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        engine._webApi!.GlobalEventTarget.IsWindow = true;
+        engine.SetValue("type", type);
+
+        engine.Execute("""
+            var e = new Event(type, { cancelable: true });
+            addEventListener(type, function (ev) { ev.preventDefault(); });
+            var result = dispatchEvent(e);
+            """);
+
+        engine.Evaluate("e.defaultPrevented").AsBoolean().Should().Be(!passive);
+        engine.Evaluate("result").AsBoolean().Should().Be(passive);
+
+        // The explicit spellings are unaffected by the rule, which is what makes it a *default*.
+        engine.Execute("""
+            var forced = new Event(type, { cancelable: true });
+            addEventListener(type, function (ev) { ev.preventDefault(); }, { passive: false });
+            var forcedResult = dispatchEvent(forced);
+            """);
+
+        engine.Evaluate("forced.defaultPrevented").AsBoolean().Should().BeTrue();
+        engine.Evaluate("forcedResult").AsBoolean().Should().BeFalse();
+    }
+
+    // https://dom.spec.whatwg.org/#initialized-flag
+
+    /// <summary>
+    /// An event whose initialized flag is unset cannot be dispatched, and <c>initEvent()</c> is what makes it
+    /// dispatchable — DOM's <c>dispatchEvent</c> step 1.
+    /// </summary>
+    /// <remarks>
+    /// The only algorithm that unsets the flag is <c>document.createEvent()</c>, which a host with a document
+    /// supplies, so the test stands in for that host. Every event the engine constructs has the flag set,
+    /// which the first assertion is there to keep true.
+    /// </remarks>
+    [Test]
+    public void AnEventWhoseInitializedFlagIsUnsetCannotBeDispatched()
+    {
+        var engine = WebEngine();
+        var ev = (JsEvent) engine.Evaluate("var e = new Event(''); e");
+
+        ev.InitializedFlag.Should().BeTrue("a constructed event is initialized");
+
+        ev.InitializedFlag = false;
+        var caught = Assert.Throws<JavaScriptException>(() => engine.Evaluate("target.dispatchEvent(e)"))!;
+        caught.Error.Get("name").AsString().Should().Be("InvalidStateError");
+
+        // initEvent is the whole of "initialize an event", step 1 included.
+        engine.Execute("""
+            target.addEventListener('ping', function () { log.push('ran'); });
+            e.initEvent('ping', false, false);
+            """);
+
+        ev.InitializedFlag.Should().BeTrue();
+        engine.Evaluate("target.dispatchEvent(e)").AsBoolean().Should().BeTrue();
+        Log(engine).Should().Be("ran");
+    }
+
+    // https://dom.spec.whatwg.org/#window-current-event
+
+    /// <summary>
+    /// An engine whose global object is not a <c>Window</c> does not maintain DOM's <i>current event</i> at
+    /// all — the slot stays undefined right through a dispatch.
+    /// </summary>
+    /// <remarks>
+    /// The point of the negative test is the cost: the read is one field on a target that already exists, and
+    /// an engine that installs no document never writes it, so nothing about a dispatch changed for the
+    /// engines that ship.
+    /// </remarks>
+    [Test]
+    public void TheCurrentEventIsNotMaintainedForAGlobalThatIsNotAWindow()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        var scope = engine._webApi!.GlobalEventTarget;
+        engine.SetValue("readEvent", new Func<JsValue>(() => scope.CurrentEvent));
+
+        engine.Execute("""
+            var during = 'unset';
+            addEventListener('ping', function () { during = readEvent(); });
+            dispatchEvent(new Event('ping'));
+            """);
+
+        engine.Evaluate("during === undefined").AsBoolean().Should().BeTrue();
+        scope.CurrentEvent.Should().Be(JsValue.Undefined);
+    }
+
+    /// <summary>
+    /// Once a host says the global object is a <c>Window</c>, the current event is the event whose listener is
+    /// running and is restored when it returns — after a nested dispatch, and after a listener that threw.
+    /// </summary>
+    [Test]
+    public void TheCurrentEventOfAWindowIsSetPerInvocationAndAlwaysRestored()
+    {
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.GlobalEvents));
+        var scope = engine._webApi!.GlobalEventTarget;
+        scope.IsWindow = true;
+        engine.SetValue("readEvent", new Func<JsValue>(() => scope.CurrentEvent));
+
+        engine.Execute("""
+            var outer = new Event('outer');
+            var inner = new Event('inner');
+            var seen = [];
+            var nested = new EventTarget();
+
+            nested.addEventListener('inner', function () { seen.push('inner:' + (readEvent() === inner)); });
+            addEventListener('outer', function () {
+                seen.push('outer:' + (readEvent() === outer));
+                nested.dispatchEvent(inner);
+                seen.push('after:' + (readEvent() === outer));
+            });
+
+            dispatchEvent(outer);
+            seen.push('done:' + (readEvent() === undefined));
+            """);
+
+        engine.Evaluate("seen.join(',')").AsString().Should().Be("outer:true,inner:true,after:true,done:true");
+
+        // A listener that throws erupts on an engine with no diagnostics sink, and the slot is still restored.
+        engine.Execute("addEventListener('boom', function () { throw new Error('x'); });");
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("dispatchEvent(new Event('boom'))"));
+        scope.CurrentEvent.Should().Be(JsValue.Undefined);
     }
 }
 #endif

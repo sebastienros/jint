@@ -140,7 +140,7 @@ internal static class EventTargetArguments
 
         var type = TypeConverter.ToString(arguments.At(0));
         var callback = ReadCallback(realm, arguments.At(1), "addEventListener");
-        var options = FlattenMoreOptions(realm, arguments.At(2));
+        var options = FlattenMoreOptions(realm, target, type, arguments.At(2));
 
         target.AddListener(new EventListenerRegistration(type, callback)
         {
@@ -177,13 +177,17 @@ internal static class EventTargetArguments
             return false;
         }
 
-        // Step 1. Every event this engine can produce has its initialized flag set from construction, so the
-        // only way here is a re-entrant dispatch of an event that is already being dispatched.
-        if (ev.DispatchFlag)
+        // Step 1, both halves. Every event this engine constructs has its initialized flag set, so on an
+        // engine with no document the second is a re-entrant dispatch of an event already being dispatched
+        // and nothing else; a host with `document.createEvent()` is what can produce the first, and an event
+        // it made is undispatchable until `initEvent()` has named it.
+        if (ev.DispatchFlag || !ev.InitializedFlag)
         {
             var invalidState = realm.Intrinsics.DomException.CreateException(
                 DomExceptionNames.InvalidState,
-                "Failed to execute 'dispatchEvent' on 'EventTarget': the event is already being dispatched.");
+                ev.DispatchFlag
+                    ? "Failed to execute 'dispatchEvent' on 'EventTarget': the event is already being dispatched."
+                    : "Failed to execute 'dispatchEvent' on 'EventTarget': the event has not been initialized.");
 
             var location = engine._lastSyntaxElement?.Location ?? default;
             Throw.JavaScriptException(engine, invalidState, in location);
@@ -216,20 +220,27 @@ internal static class EventTargetArguments
     /// inherited dictionary's members in: <c>capture</c> first, then <c>once</c>, <c>passive</c>,
     /// <c>signal</c>.
     /// </summary>
-    private static ListenerOptions FlattenMoreOptions(Realm realm, JsValue options)
+    private static ListenerOptions FlattenMoreOptions(Realm realm, JsEventTarget target, string type, JsValue options)
     {
         var capture = FlattenOptions(options);
 
         if (options is not ObjectInstance dictionary)
         {
-            return new ListenerOptions(capture, Passive: false, Once: false, Signal: null);
+            // No dictionary at all is the commonest way for the `passive` member to be absent, so this arm
+            // owes the default passive value exactly as the one below does.
+            return new ListenerOptions(capture, DefaultPassiveValue(target, type), Once: false, Signal: null);
         }
 
         var once = TypeConverter.ToBoolean(dictionary.Get(CommonEventProperties.Once));
 
-        // "If options["passive"] exists" — an absent member leaves passive null, and the default passive
-        // value is false for every type an engine without a document can see.
-        var passive = TypeConverter.ToBoolean(dictionary.Get(CommonEventProperties.Passive));
+        // "If options["passive"] exists, then set passive to options["passive"]; otherwise set passive to the
+        // default passive value given type and eventTarget." A WebIDL dictionary member whose value is
+        // `undefined` does not exist, so `{passive: undefined}` takes the default and `{passive: null}` — a
+        // value that does exist — converts to false.
+        var passiveValue = dictionary.Get(CommonEventProperties.Passive);
+        var passive = passiveValue.IsUndefined()
+            ? DefaultPassiveValue(target, type)
+            : TypeConverter.ToBoolean(passiveValue);
 
         // `AbortSignal signal` is a non-nullable interface type with no default: an absent member means no
         // signal, and anything present that is not an AbortSignal — null included — is a TypeError.
@@ -246,6 +257,24 @@ internal static class EventTargetArguments
 
         return new ListenerOptions(capture, passive, once, signal);
     }
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#default-passive-value — a <c>touchstart</c>, <c>touchmove</c>,
+    /// <c>wheel</c> or <c>mousewheel</c> listener added to a <c>Window</c>, a document, a document element or
+    /// a body element with no <c>passive</c> member is passive.
+    /// </summary>
+    /// <remarks>
+    /// The type is tested first because it is the cheap half and the one that is nearly always false: every
+    /// other listener a page adds costs one switch over four names and never reaches the virtual. The target
+    /// half is <see cref="JsEventTarget.IsDefaultPassiveTarget"/>, which is false for every target this engine
+    /// ships — an engine with no document has no <c>Window</c> and no body — so nothing changes for an engine
+    /// that installs no DOM.
+    /// </remarks>
+    private static bool DefaultPassiveValue(JsEventTarget target, string type) => type switch
+    {
+        "touchstart" or "touchmove" or "wheel" or "mousewheel" => target.IsDefaultPassiveTarget,
+        _ => false,
+    };
 
     /// <summary>
     /// The <c>EventListener?</c> callback interface conversion,
@@ -272,13 +301,19 @@ internal static class EventTargetArguments
     /// WebIDL's arity check: an operation whose required arguments were not all supplied raises a
     /// <c>TypeError</c> before anything else is converted.
     /// </summary>
-    private static void RequireArguments(Realm realm, JsCallArguments arguments, int required, string operationName)
+    internal static void RequireArguments(
+        Realm realm,
+        JsCallArguments arguments,
+        int required,
+        string operationName,
+        string interfaceName = "EventTarget")
     {
         if (arguments.Length < required)
         {
+            var plural = required == 1 ? "argument" : "arguments";
             Throw.TypeError(
                 realm,
-                $"Failed to execute '{operationName}' on 'EventTarget': {required} arguments required, but only {arguments.Length} present.");
+                $"Failed to execute '{operationName}' on '{interfaceName}': {required} {plural} required, but only {arguments.Length} present.");
         }
     }
 

@@ -319,20 +319,28 @@ internal sealed partial class EventPrototype : Prototype
     /// Step 1 is what stops a listener re-initializing the very event it is being handed: the dispatch flag is
     /// set for the whole of <c>dispatchEvent</c>, so the call is a silent no-op there rather than an error.
     /// </para>
+    /// <para>
+    /// The required argument is checked <b>before</b> the dispatch flag, because WebIDL's arity error is
+    /// raised while the arguments are being converted and knows nothing about what the receiver is doing:
+    /// <c>initEvent()</c> is a <c>TypeError</c> even for an event a dispatch has in flight. Passing an
+    /// explicit <c>undefined</c> is not the same call — the member exists, so it stringifies.
+    /// </para>
     /// </remarks>
     [JsFunction(Name = "initEvent", Length = 1, Flags = PropertyFlag.ConfigurableEnumerableWritable)]
-    private JsValue InitEvent(JsValue thisObject, JsValue type, JsValue bubbles, JsValue cancelable)
+    private JsValue InitEvent(JsValue thisObject, JsCallArguments arguments)
     {
         var ev = Brand(thisObject);
+        EventTargetArguments.RequireArguments(_realm, arguments, 1, "initEvent", "Event");
+
         if (ev.DispatchFlag)
         {
             return Undefined;
         }
 
         ev.InitializeEvent(
-            TypeConverter.ToJsString(type),
-            TypeConverter.ToBoolean(bubbles),
-            TypeConverter.ToBoolean(cancelable));
+            TypeConverter.ToJsString(arguments.At(0)),
+            TypeConverter.ToBoolean(arguments.At(1)),
+            TypeConverter.ToBoolean(arguments.At(2)));
 
         return Undefined;
     }

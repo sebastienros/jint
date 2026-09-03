@@ -140,6 +140,26 @@ internal class JsEventTarget : ObjectInstance
     internal virtual bool IsNode => false;
 
     /// <summary>
+    /// The target half of https://dom.spec.whatwg.org/#default-passive-value: whether this target is a
+    /// <c>Window</c>, a document, a document element or a body element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// DOM's rule is a conjunction of two conditions, and this is the one only a host can answer. The other —
+    /// the type being <c>touchstart</c>, <c>touchmove</c>, <c>wheel</c> or <c>mousewheel</c> — is the
+    /// engine's, and <c>EventTargetArguments</c> tests it <i>first</i>, so a listener of any other type never
+    /// reaches this virtual at all.
+    /// </para>
+    /// <para>
+    /// <b>False for every target this engine ships</b>, including the synthetic global one: DOM says
+    /// "<c>Window</c> object", and an engine with no document has none. A host that installs a document says
+    /// so — <c>Jint.Browser</c>'s node wrappers override this, and its window installer sets
+    /// <c>GlobalEventTarget.IsWindow</c>.
+    /// </para>
+    /// </remarks>
+    internal virtual bool IsDefaultPassiveTarget => false;
+
+    /// <summary>
     /// https://dom.spec.whatwg.org/#get-the-parent — the target the event travels to next, or
     /// <see langword="null"/> to end the path.
     /// </summary>
@@ -441,13 +461,26 @@ internal class JsEventTarget : ObjectInstance
     /// exists only to drive the second pass over the four <c>webkit</c>-prefixed animation and transition
     /// event types, and no algorithm in this engine can produce one.
     /// </remarks>
-    internal void InvokeListeners(JsEvent ev, bool capturePass)
+    /// <param name="ev">The event being dispatched.</param>
+    /// <param name="capturePass">Which of the two passes this is, which decides which listeners run in it.</param>
+    /// <param name="invocationTargetInShadowTree">
+    /// The path item's <i>invocation-target-in-shadow-tree</i>, which is what stops a listener inside a
+    /// shadow tree from being told the event through the Window's <c>event</c>. Always false for the flat
+    /// dispatch, where the target is not a node and has no root.
+    /// </param>
+    internal void InvokeListeners(JsEvent ev, bool capturePass, bool invocationTargetInShadowTree = false)
     {
         var listeners = _listeners;
         if (listeners is null || !HasListenerFor(listeners, ev.TypeName, capturePass))
         {
             return;
         }
+
+        // Inner invoke steps 2.6 to 2.8 and 2.12: while a listener runs, a `Window` global's `event` is the
+        // event being dispatched, and afterwards it is whatever it was — a throw included. Null for every
+        // engine whose global object is not a `Window`, which is every engine that installs no document, so
+        // the slot is not merely unread there but not maintained at all.
+        var window = _engine._webApi?.GlobalEventTargetIfCreated is { IsWindow: true } windowScope ? windowScope : null;
 
         // Invoke step 7: "Let listeners be a clone of ... event listener list. This avoids event listeners
         // added after this point from being run." The scan above keeps that clone off the common paths — a
@@ -481,6 +514,14 @@ internal class JsEventTarget : ObjectInstance
                 ev.InPassiveListenerFlag = true;
             }
 
+            // Steps 2.7 and 2.8: the previous value is kept per invocation rather than per pass, because a
+            // listener may dispatch an event of its own and must find its own event again when that returns.
+            var previousEvent = window?.CurrentEvent;
+            if (window is not null && !invocationTargetInShadowTree)
+            {
+                window.CurrentEvent = ev;
+            }
+
             try
             {
                 InvokeCallback(listener, ev);
@@ -503,10 +544,18 @@ internal class JsEventTarget : ObjectInstance
             }
             finally
             {
+                // Step 2.12, after step 2.10's report and before the next listener: a listener that threw
+                // must not leave the Window's `event` pointing at an event whose dispatch is over.
+                if (previousEvent is not null)
+                {
+                    window!.CurrentEvent = previousEvent;
+                }
+
+                // Step 2.11.
                 ev.InPassiveListenerFlag = false;
             }
 
-            // Step 2.11.
+            // Step 2.13.
             if (ev.StopImmediatePropagationFlag)
             {
                 break;

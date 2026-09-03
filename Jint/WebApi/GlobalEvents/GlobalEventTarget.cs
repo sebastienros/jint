@@ -57,6 +57,35 @@ internal sealed class GlobalEventTarget : JsEventTarget
     internal override bool IsGlobalScope => true;
 
     /// <summary>
+    /// Whether this global scope is a <c>Window</c> — a global object with a document behind it — rather than
+    /// the bare global of an engine that has none.
+    /// </summary>
+    /// <remarks>
+    /// False for every engine the box ships, and set by a host that installs a document on the global
+    /// (<c>Jint.Browser</c>'s window installer). DOM's <i>default passive value</i> is the one rule that turns
+    /// on it, which is why the property says what it is rather than what it is for: HTML's other
+    /// <c>Window</c>-only rules — <i>special error event handling</i> and dispatch's "parent is a
+    /// <c>Window</c> object" branch — already hold for a worker's global too and read
+    /// <see cref="JsEventTarget.IsGlobalScope"/> instead.
+    /// </remarks>
+    internal bool IsWindow { get; set; }
+
+    /// <inheritdoc />
+    internal override bool IsDefaultPassiveTarget => IsWindow;
+
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#window-current-event — what <c>window.event</c> answers: the event whose
+    /// listener is running right now, and <see cref="JsValue.Undefined"/> the rest of the time.
+    /// </summary>
+    /// <remarks>
+    /// Maintained by <c>JsEventTarget.InvokeListeners</c> and only while <see cref="IsWindow"/> is true, so
+    /// an engine with no document neither writes nor reads it. A host installs the <c>event</c> accessor
+    /// itself: the slot is DOM's, the global property is HTML's, and an engine whose global is not a
+    /// <c>Window</c> must not grow one.
+    /// </remarks>
+    internal JsValue CurrentEvent { get; set; } = Undefined;
+
+    /// <summary>
     /// Whether a report is being dispatched at this target right now — HTML's <i>in error reporting mode</i>,
     /// and the reason <see cref="FireReport"/> declines a second one.
     /// </summary>

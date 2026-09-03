@@ -446,6 +446,43 @@ public class EventTests
     }
 
     /// <summary>
+    /// <c>type</c> is a required argument of both legacy initializers, so calling one with none is WebIDL's
+    /// arity <c>TypeError</c> — and an explicit <c>undefined</c> is not the same call, because the argument
+    /// is there and a <c>DOMString</c> stringifies it.
+    /// </summary>
+    /// <remarks>
+    /// The check is before the dispatch flag: WebIDL raises the arity error while it converts the arguments,
+    /// which happens whatever the receiver is doing, so <c>initEvent()</c> throws even for an event whose
+    /// dispatch would have made the call a no-op.
+    /// </remarks>
+    [Test]
+    public void TheLegacyInitializersRequireAType()
+    {
+        var engine = WebEngine();
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new Event('a').initEvent()"))!
+            .Message.Should().Contain("1 argument required");
+
+        Assert.Throws<JavaScriptException>(() => engine.Evaluate("new CustomEvent('a').initCustomEvent()"))!
+            .Message.Should().Contain("1 argument required");
+
+        engine.Evaluate("new Event('a').initEvent(undefined) === undefined").AsBoolean().Should().BeTrue();
+        engine.Execute("var arity = new Event('a'); arity.initEvent(undefined);");
+        engine.Evaluate("arity.type").AsString().Should().Be("undefined");
+
+        // Even while a dispatch is in flight, where the call itself would otherwise be a silent no-op.
+        engine.Execute("""
+            var target = new EventTarget();
+            var caught = null;
+            var dispatched = new Event('a');
+            target.addEventListener('a', function (e) { try { e.initEvent(); } catch (err) { caught = err; } });
+            target.dispatchEvent(dispatched);
+            """);
+
+        engine.Evaluate("caught instanceof TypeError").AsBoolean().Should().BeTrue();
+    }
+
+    /// <summary>
     /// "Initialize event's target to null" and "Set event's isTrusted attribute to false" — the two steps of
     /// <i>initialize an event</i> that are not about the type or the flags.
     /// </summary>

@@ -373,8 +373,10 @@ internal static class EventDispatch
         // Step 6.
         ev.CurrentTarget = item.InvocationTarget.EventTargetValue;
 
-        // Steps 7 to 9.
-        item.InvocationTarget.InvokeListeners(ev, capturePass);
+        // Steps 7 to 9. The struct's invocation-target-in-shadow-tree flag travels with them, because inner
+        // invoke reads it: a listener whose invocation target is inside a shadow tree runs without the
+        // Window's `event` being set to the event it is handling.
+        item.InvocationTarget.InvokeListeners(ev, capturePass, item.InvocationTargetInShadowTree);
     }
 
     /// <summary>
