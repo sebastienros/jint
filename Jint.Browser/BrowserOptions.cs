@@ -35,6 +35,7 @@ public sealed class BrowserOptions
     private long _maxResponseBytes = 32 * 1024 * 1024;
     private TimeSpan _fetchTimeout = TimeSpan.FromSeconds(30);
     private int _maxDomNodes;
+    private bool? _blockPrivateNetwork;
 
     /// <summary>What a page reports itself as, in script and on the wire.</summary>
     /// <remarks>
@@ -57,6 +58,25 @@ public sealed class BrowserOptions
 
     /// <summary>The size and pixel ratio every page reports; 1280 × 720 at a ratio of 1 by default.</summary>
     public Viewport Viewport { get; set; } = Viewport.Default;
+
+    /// <summary>Whether every context of this browser refuses loopback and private addresses.</summary>
+    /// <remarks>
+    /// <para>
+    /// It is the browser-wide default that <see cref="BrowserContextOptions.BlockPrivateNetwork"/> overrides
+    /// per context, so it reaches a context a protocol client mints as well as one the host opened — which
+    /// is what a switch on a command line or a configuration file has to do to mean anything.
+    /// </para>
+    /// <para>
+    /// <b>Reading it back says what the contexts will actually be given.</b> Unset, it is whatever
+    /// <see cref="ForUntrustedContent"/> decided — on for content nobody vouches for, off otherwise — and
+    /// assigning it is a choice the profile then leaves alone, the same way an assignment on a context is.
+    /// </para>
+    /// </remarks>
+    public bool BlockPrivateNetwork
+    {
+        get => _blockPrivateNetwork ?? UntrustedContent is not null;
+        set => _blockPrivateNetwork = value;
+    }
 
     /// <summary>Whether a page records what its scripts got wrong into <see cref="Page.Errors"/>.</summary>
     /// <remarks>
@@ -345,8 +365,9 @@ public sealed class BrowserOptions
     /// <b>What it changes here.</b> <see cref="MaxTaskDuration"/> and <see cref="MemoryLimit"/> take their
     /// values from the limits unless the host has already set them, and a value the host does set is what the
     /// page engines are given — so the turn bracket and the profile can never disagree about the budget.
-    /// Every <see cref="BrowserContext"/> of this browser gets <see cref="BrowserContextOptions.BlockPrivateNetwork"/>
-    /// on, unless its own options assigned that property, in which case the context keeps its choice.
+    /// <see cref="BlockPrivateNetwork"/> comes on unless it was assigned, so every
+    /// <see cref="BrowserContext"/> of this browser refuses the private network unless its own options
+    /// assigned <see cref="BrowserContextOptions.BlockPrivateNetwork"/>, in which case it keeps its choice.
     /// </para>
     /// <para>
     /// <b>Workers of an untrusted page are untrusted.</b> A worker's options are built by
@@ -419,7 +440,7 @@ public sealed class BrowserOptions
     /// <summary>
     /// Whether a context of this browser blocks the private network unless its own options say otherwise.
     /// </summary>
-    internal bool BlocksPrivateNetworkByDefault => UntrustedContent is not null;
+    internal bool BlocksPrivateNetworkByDefault => BlockPrivateNetwork;
 
     internal static string DefaultUserAgent { get; } =
         "Mozilla/5.0 (compatible; Jint.Browser/" + typeof(BrowserOptions).Assembly.GetName().Version?.ToString(3) + "; +https://github.com/sebastienros/jint)";

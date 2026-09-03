@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <OutputType>Exe</OutputType>
+
+    <!-- The package's own two target frameworks, for the same reason Jint.Browser has them: this is host
+         surface on the modern BCL, and a tool package carries one asset per framework so that whichever
+         runtime the user has installed is the one `dotnet tool install` resolves. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+
+    <AssemblyOriginatorKeyFile>..\Jint\Jint.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>jint-browser</ToolCommandName>
+    <PackageId>Jint.Browser.Tool</PackageId>
+    <Description>The jint-browser command line: a headless browser that serves the Chrome DevTools Protocol and dumps a page as HTML, text, markdown or its accessibility tree.</Description>
+    <PackageTags>javascript, interpreter, jint, anglesharp, headless, browser, devtools, cdp, scraping, dotnet-tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <Nullable>enable</Nullable>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!--
+      Trim and AOT analysis is off for the same reason Jint.Browser's is, and it is that package's reason
+      rather than this one's: AngleSharp resolves services, element factories and attribute handlers by
+      reflection over its own assembly and carries no DynamicallyAccessedMembers claim, so a native binary
+      built from this project would fail at run time in code no analyzer here can see. A tool package is
+      framework-dependent anyway — PackAsTool and PublishAot cannot both be true — so nothing is lost by
+      saying so.
+    -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
+    <!-- The protocol server `serve` publishes the browser on. Jint.Browser references it too, and the
+         dependency stays one way: nothing in Jint.DevTools knows what a document is. -->
+    <ProjectReference Include="..\Jint.DevTools\Jint.DevTools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The package README NuGet shows, which is also this project's own documentation. -->
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The abstract syntax tree does not reach this assembly at all, so the repository-wide Acornima global
+         usings would be noise; the same call Jint.DevTools and Jint.Browser make. -->
+    <Using Remove="Acornima" />
+    <Using Remove="Acornima.Ast" />
+  </ItemGroup>
+
+</Project>

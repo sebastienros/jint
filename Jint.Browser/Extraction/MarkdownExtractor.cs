@@ -49,7 +49,9 @@ internal static class MarkdownExtractor
         return Truncate(Normalize(body), options.MaxLength);
     }
 
-    private static IElement? MainContentOf(IDocument document) =>
+    /// <summary>The main content: the first <c>&lt;main&gt;</c>, <c>[role=main]</c> or <c>&lt;article&gt;</c>.</summary>
+    /// <remarks>Shared with <see cref="PageContent"/>, so every representation narrows to the same element.</remarks>
+    internal static IElement? MainContentOf(IDocument document) =>
         document.QuerySelector("main")
         ?? document.QuerySelector("[role=main]")
         ?? document.QuerySelector("article");
@@ -90,7 +92,13 @@ internal static class MarkdownExtractor
         return builder.ToString();
     }
 
-    private static string Truncate(string text, int maxLength)
+    /// <summary>Cuts <paramref name="text"/> to <paramref name="maxLength"/> at a word boundary.</summary>
+    /// <remarks>
+    /// Shared with <see cref="PageContent"/>: a text or an accessibility answer is cut the same way a
+    /// markdown one is and carries the same <see cref="TruncationMarker"/>, so a reader can tell a short page
+    /// from a cut one whichever representation it asked for.
+    /// </remarks>
+    internal static string Truncate(string text, int maxLength)
     {
         if (maxLength <= 0 || text.Length <= maxLength)
         {

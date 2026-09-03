@@ -141,6 +141,48 @@ public sealed class NavigationTests
     }
 
     [Test]
+    public async Task TheBrowsersOwnBlockPrivateNetworkReachesEveryContextThatDidNotChoose()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/index.html", "<title>never</title>"),
+            options => options.UrlFilter = null,
+            browser => browser.BlockPrivateNetwork = true);
+
+        var act = async () => await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        (await act.Should().ThrowAsync<NavigationFailedException>()).WithMessage("*URL filter*");
+        fixture.Server.Received.Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task AContextKeepsItsOwnChoiceOverTheBrowsersAndOverTheProfile()
+    {
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/index.html", "<title>loaded</title>"),
+            options =>
+            {
+                options.UrlFilter = null;
+                options.BlockPrivateNetwork = false;
+            },
+            browser => browser.ForUntrustedContent());
+
+        await fixture.Page.NavigateAsync(fixture.Url("/index.html"));
+
+        (await fixture.Page.TitleAsync()).Should().Be("loaded", "false really means 'and I mean it'");
+    }
+
+    [Test]
+    public void BlockPrivateNetworkReadsBackWhatTheContextsWillBeGiven()
+    {
+        new BrowserOptions().BlockPrivateNetwork.Should().BeFalse();
+        new BrowserOptions().ForUntrustedContent().BlockPrivateNetwork.Should().BeTrue();
+
+        var chosen = new BrowserOptions { BlockPrivateNetwork = false };
+        chosen.ForUntrustedContent();
+        chosen.BlockPrivateNetwork.Should().BeFalse("a value the host assigned is one the profile leaves alone");
+    }
+
+    [Test]
     public async Task ATemporaryRedirectKeepsTheMethodAndTheBody()
     {
         await using var fixture = await LoopbackPage.CreateAsync(server => server

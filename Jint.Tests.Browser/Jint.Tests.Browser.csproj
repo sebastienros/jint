@@ -17,6 +17,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Jint.Browser\Jint.Browser.csproj" />
     <!--
+      The jint-browser command line. Tool/ runs its entry point in process rather than spawning it: an exit
+      code, what went to standard output and what went to standard error are one assertion that way, the
+      suite needs no published binary on disk, and a failure names a line of the tool rather than a process
+      that exited with 1. Everything in that project is internal, so it names this assembly as a friend.
+    -->
+    <ProjectReference Include="..\Jint.Browser.Tool\Jint.Browser.Tool.csproj" />
+    <!--
       The web-platform-tests corpus, its server and its exclusion vocabulary, which Wpt/ runs the browser lane
       on. One corpus and one pin: copying WptCorpus, WptServer and WptExclusion here would give the two lanes
       two of each, and nothing would say when they drifted. Jint.Tests targets net8.0/net10.0 (plus net472 on

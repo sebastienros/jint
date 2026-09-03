@@ -2588,7 +2588,29 @@ var markdown = answer!.Value.GetProperty("markdown").GetString();
 `Jint.getMarkdown` renders the document as CommonMark, `Jint.getText` as `innerText` would, and
 `Jint.getAccessibilitySnapshot` as the indented accessibility outline an agent reads. All three are computed
 from the DOM — no layout, no rendering, and nothing that runs a line of the page's script — and each takes
-the options the extractor behind it already had.
+the options the extractor behind it already had. `Page.MarkdownAsync`, `Page.TextAsync` and
+`Page.AccessibilitySnapshotAsync` are the same three answers for a host in the same process, over the same
+code, so a caller here and a client on the socket cannot be told different things about one document.
+
+**And a command line.** `Jint.Browser.Tool` is a `dotnet tool` that serves the protocol and dumps pages, and
+it drives the package through its published surface exactly as any other consumer would:
+
+```bash
+dotnet tool install -g Jint.Browser.Tool
+
+# A page as CommonMark, narrowed to its main content and capped — or as its accessibility tree
+jint-browser fetch https://example.org/article --main-content --max-length 4000
+jint-browser fetch https://example.org/ --dump ax --wait-until networkidle
+
+# …or a browser on 127.0.0.1:9222 that Puppeteer and Playwright connect to
+jint-browser serve --port 9222
+```
+
+`fetch --dump html|text|markdown|ax` writes the document to standard output and the page's own errors to
+standard error, `eval <url> <expression>` answers the page's own `JSON.stringify` of a result, and the exit
+code separates a bad command line from a page that would not load from one that ran out of its budget.
+`--untrusted` hardens every page and blocks the private network. Its README is
+[`Jint.Browser.Tool/README.md`](Jint.Browser.Tool/README.md).
 
 **What does not exist yet.** No `ElementInternals` and no scoped custom element registries, no iframe
 scripting (frames are parsed and listed; `contentWindow` is absent),
