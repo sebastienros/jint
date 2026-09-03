@@ -31,6 +31,16 @@ free of a browser.
 reason per row, what the corpus says about this browser, and the census. Read it for *what* is here; this file
 is *how* it works.
 
+**There is a second wpt number and it is not this one.** `.github/workflows/wpt-scoreboard.yml` runs
+*upstream's* `wpt run` nightly against `jint-browser serve` and publishes a page; the plugin that makes it
+possible is [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md). It runs the same corpus at the
+same pin — it reads the commit out of `Vendor/README.md` — but it is not a gate, it has no exclusion table,
+and it runs whole suites rather than a vendored subset. So: **a failure there is never an entry here.** A
+divergence the scoreboard finds in a suite this lane does not vendor is a candidate for vendoring, and one it
+finds in a suite this lane *does* vendor is a defect this table should already name — if it does not, the
+table is what is wrong. Nothing under `tools/wpt-scoreboard/` may become a second answer to "did this
+subtest pass": every judgement there is upstream's `testharness_result_converter`, on purpose.
+
 ### A suite is a directory, and a case is a path on the server
 
 `WptCorpus.BrowserSuites` names them and `WptCorpus.BrowserTestFiles` lists a directory's own documents without

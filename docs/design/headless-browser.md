@@ -354,8 +354,30 @@ upstream's other vendor slot, `testdriver-vendor.js`, so a document that drives 
 reaches the same `InputDispatcher` a protocol client does — one implementation, so the two cannot disagree.
 The suites arrive a PR at a
 time; the first are `dom/events` and `html/webappapis/scripting`'s events and processing-model halves, and the
-rest of the list above follows through the same lane. A nightly
-real `wpt run` over CDP produces a public scoreboard later; it is not a PR gate. Next to it, an obstacle course
+rest of the list above follows through the same lane.
+
+**The nightly `wpt run` over CDP is built**, and the two numbers it leaves the project with are not two
+measurements of the same thing — which is the sentence this paragraph used to leave implied. **The census**
+is *ours*: our driver, in our process, over the vendored subset, with an exclusion table that names every
+failure one at a time, and it **is a gate** — `Not passing` only ever goes down. **The scoreboard** is
+*upstream's*: `wpt run` over `wptserve`, across the whole of ten suites — `dom/`, `html/dom/`,
+`html/semantics/scripting-1/`, `html/webappapis/`, `html/browsers/history/`, `xhr/`, `url/`, `fetch/api/`,
+`FileAPI/` and `custom-elements/` — including every wrapper the manifest generates for a global this engine
+has no lane for, and it **gates nothing** — a failure there is a
+number on a page. The census is the one an engine change has to keep; the scoreboard is the one that can be
+compared with what another engine publishes, because wpt measured it. A suite in the scoreboard that the
+census does not have is a suite nobody has vendored yet, never a disagreement.
+
+`wpt run chrome` cannot produce it: that product requires a `--webdriver-binary`, launches that
+`chromedriver`, and speaks WebDriver classic — its CDP is tunnelled through `chromedriver`'s
+`goog/cdp/execute` extension command, and no `debuggerAddress` capability exists anywhere in the wpt tree.
+Lightpanda ships a WebDriver front end beside its CDP for exactly this reason. What is here instead is a
+**wptrunner product plugin**, [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md), registered
+through upstream's `wptrunner.products` entry-point group so that no fork of wpt is needed: its executor
+navigates a page over CDP and reads the results upstream's own `testharnessreport.js` posts, through a
+`Runtime.addBinding` binding, and every judgement about whether a subtest passed stays upstream's.
+`.github/workflows/wpt-scoreboard.yml` runs it nightly and commits the page to a `wpt-scoreboard` branch;
+it fails only when the runner could not reach the browser or produced no report. Next to it, an obstacle course
 of offline fixtures (React, Vue, Preact and Svelte TodoMVC, SSR hydration, jQuery 3 with `async: false`, htmx,
 Alpine, a `pushState` router, custom elements, modules with an import map, forms with redirects, a cookie login,
 `localStorage` persistence, `IntersectionObserver` and `MutationObserver` widgets, dialogs) each asserting a DOM

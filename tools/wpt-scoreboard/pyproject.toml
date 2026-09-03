@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wpt-jint-browser"
+version = "0.1.0"
+description = "A wptrunner product that drives Jint.Browser over the Chrome DevTools Protocol"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-2-Clause" }
+
+# Deliberately none. `wptrunner` is not declared because this is installed *into* the virtualenv that
+# already has it, and declaring it would make pip try to resolve a package that is not on PyPI under that
+# name. Everything else is the standard library, including the WebSocket client, so installing this adds
+# nothing to the environment `wpt run` builds for itself.
+dependencies = []
+
+[project.entry-points."wptrunner.products"]
+jint_browser = "wpt_jint_browser.product:load"
+
+[project.scripts]
+wpt-scoreboard = "wpt_jint_browser.scoreboard:main"
+
+[tool.setuptools]
+packages = ["wpt_jint_browser"]
+
+[tool.setuptools.package-data]
+wpt_jint_browser = ["bridge.js"]

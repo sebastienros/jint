@@ -50,6 +50,16 @@ without opening it: **standard output is the protocol and nothing else** while `
 prints no banner and every diagnostic goes to standard error; and `mcp` **hardens the pages by default**,
 which is the opposite of every other command here and is why it takes `--trusted` rather than `--untrusted`.
 
+**`serve` has a second consumer now, and it is the one that would find a missing switch.**
+`.github/workflows/wpt-scoreboard.yml` runs upstream's own `wpt run` against `jint-browser serve` nightly
+(the plugin is [`tools/wpt-scoreboard/`](../tools/wpt-scoreboard/README.md)). It needed no new seam — but it
+did need two options to *not* be defaults, and the reasons are worth knowing before either is changed.
+`--max-task-duration 0` is passed because a five-second turn cuts a legitimately slow conformance file
+mid-script, and `--untrusted` is deliberately **not**, because `ForUntrustedContent` applies
+`UntrustedCodeLimits.Default` — one second per engine entry, 50 000 statements, 10 000-element arrays,
+recursion depth 64 — and no option here can move any of the five. A measurement taken under that profile
+would be a report on the profile.
+
 ### What is deliberately absent
 
 - **No command-line library.** A `dotnet tool` is restored by everyone who runs it, so every dependency is

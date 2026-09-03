@@ -2725,6 +2725,16 @@ does not pass is named by the exclusion table with the cause it belongs to.
 
 ### Where to read further
 
+**And there is a second web-platform-tests number, measured by somebody else.**
+[The scoreboard](https://github.com/sebastienros/jint/blob/wpt-scoreboard/docs/wpt-scoreboard.md) — which the
+first nightly run publishes onto a branch of its own — is what
+*upstream's own runner* reports: a nightly `wpt run` over upstream's `wptserve`, driving `Jint.Browser`
+through the DevTools Protocol, across ten suites and every case the manifest generates for them. It is the
+figure that can be compared with what other engines publish, because wpt measured it rather than Jint. The
+census above is ours, is a subset, and is a gate; the scoreboard is upstream's, is the whole of those
+suites, and gates nothing. How it is run — and what it deliberately leaves out — is
+[`tools/wpt-scoreboard/README.md`](tools/wpt-scoreboard/README.md).
+
 The design, including what a v1 will and will not do, is
 [`docs/design/headless-browser.md`](docs/design/headless-browser.md), and the protocol half is
 [`docs/design/devtools-protocol.md`](docs/design/devtools-protocol.md); the tracking issue is

@@ -14,6 +14,13 @@ this project holds no copy of a vendored file. How the lane works — the result
 wrappers, the environment a document runs in, where a divergence goes — is
 [`AGENTS.md`](AGENTS.md) beside this file. What follows is what the lane *found*.
 
+**This is not the only web-platform-tests number, and the other one is not a rival.** The census below is
+*ours* — our driver, a vendored subset, an exclusion row per failure — and it is a **gate**. The
+[scoreboard](https://github.com/sebastienros/jint/blob/wpt-scoreboard/docs/wpt-scoreboard.md) is
+*upstream's*: a nightly `wpt run` over `wptserve`, across ten whole suites, and it gates nothing. It runs
+the same corpus at the same pin, so a suite it reports that this table does not have is a suite nobody has
+vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md).
+
 ## The lane, suite by suite
 
 | Suite | Documents | Synthesized | Tests | Not passing |
