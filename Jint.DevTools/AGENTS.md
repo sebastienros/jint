@@ -214,9 +214,6 @@ Not oversights, and not to be added without a decision:
 - **Per-session debugging.** Breakpoints and the step mode live on the engine's `DebugHandler`, so a second
   session's `Debugger.enable` is refused with `-32000` rather than silently sharing the first one's. Making
   them per-session means a filter on every pause.
-- **`Runtime.globalLexicalScopeNames`.** The realm's global declarative record publishes a binding *count*
-  and no names, so answering means either an engine seam nobody has asked for or an empty list that tells a
-  client there are no `let`s when there are.
 - **`Runtime.queryObjects`.** It enumerates a heap by prototype; the heap is the CLR's.
 - **`Runtime.terminateExecution`.** Execution is bounded by `Options.Constraints`, the host's decision; a
   client that could stop a host's script at will is a different security posture.
