@@ -104,7 +104,7 @@ internal sealed class WptBrowserHarness : IDisposable
 
     private WptBrowserHarness()
     {
-        _server = new WptServer(HarnessReportOverlay);
+        _server = new WptServer(HarnessReportOverlay, TestDriverVendorOverlay);
 
         var options = new BrowserOptions
         {
@@ -118,7 +118,10 @@ internal sealed class WptBrowserHarness : IDisposable
         };
 
         options.ConfigureEngine(o => o.Configure(engine =>
-            engine.SetValue("__jintWptReport", new Action<string>(json => Report(engine, json)))));
+        {
+            engine.SetValue("__jintWptReport", new Action<string>(json => Report(engine, json)));
+            engine.SetValue("__jintWptInput", new Action<string>(json => WptBrowserInput.Dispatch(engine, json)));
+        }));
 
         _browser = new Browser(options);
     }
@@ -291,15 +294,21 @@ internal sealed class WptBrowserHarness : IDisposable
     /// <summary>
     /// The lane's <c>testharnessreport.js</c>, embedded so the check reads the bytes the build compiled.
     /// </summary>
-    private static string HarnessReportOverlay { get; } = ReadOverlay();
+    private static string HarnessReportOverlay { get; } = ReadOverlay("testharnessreport.js");
 
-    private static string ReadOverlay()
+    /// <summary>
+    /// The lane's <c>testdriver-vendor.js</c> — the second slot upstream ships for a vendor to fill, and what
+    /// turns a document that drives input through <c>test_driver</c> into one that reports.
+    /// </summary>
+    private static string TestDriverVendorOverlay { get; } = ReadOverlay("testdriver-vendor.js");
+
+    private static string ReadOverlay(string name)
     {
-        const string ResourceName = "wpt-browser-prelude/testharnessreport.js";
+        var resourceName = "wpt-browser-prelude/" + name;
 
         var assembly = typeof(WptBrowserHarness).Assembly;
-        using var stream = assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new FileNotFoundException($"Embedded resource \"{ResourceName}\" is missing.", ResourceName);
+        using var stream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new FileNotFoundException($"Embedded resource \"{resourceName}\" is missing.", resourceName);
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
     }

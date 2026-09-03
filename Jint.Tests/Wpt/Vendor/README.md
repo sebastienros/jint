@@ -322,7 +322,7 @@ here:
 | --- | --- | --- |
 | `resources/testharness.js` (+ `.headers`) | 1764 | The real upstream harness — see the two-file note below |
 | `resources/testdriver.js` (+ `.headers`) | 98 | The automation API a test drives input through |
-| `resources/testdriver-vendor.js` (+ `.headers`) | 98 | Upstream's **empty** vendor hook, which `testdriver.js` expects to be replaced |
+| `resources/testdriver-vendor.js` (+ `.headers`) | 98 | Upstream's **empty** vendor hook, which `testdriver.js` expects to be replaced — the browser lane replaces it with an overlay |
 | `resources/testdriver-actions.js` (+ `.headers`) | 85 | The action-sequence builder `testdriver.js` layers on top |
 | `common/get-host-info.sub.js` | 68 | The origins helper, and the corpus's most-used `.sub.` file |
 | `common/utils.js` | 37 | Already vendored: `token()`, the stash key generator |
@@ -374,7 +374,7 @@ corpus.
 
 | Directory | Files | What they are |
 | --- | --- | --- |
-| `dom/events/` | 50 `.html` | The `.html` half of the DOM events suite, which used to be a single not-vendored row |
+| `dom/events/` | 55 `.html` | The `.html` half of the DOM events suite, which used to be a single not-vendored row |
 | `dom/events/resources/` | 2 `.html` | An empty document and a `beforeunload` frame, loaded by two of them |
 | `html/webappapis/scripting/events/` | 12 `.html` | HTML's event-handler attributes: compilation, ordering, source text |
 | `html/webappapis/scripting/processing-model-2/` | 25 `.html` | `window.onerror` and `<body onerror>` over every way a script can fail |

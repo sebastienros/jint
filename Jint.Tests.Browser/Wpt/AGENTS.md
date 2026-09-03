@@ -84,6 +84,32 @@ browser lane's replacement. Nothing under `Vendor/` changes for it, which is the
   — so a throw there took every result with it and every document in the lane timed out with no report at all.
   The missing member is recorded in `README.md` rather than left as something this line quietly hides.
 
+### The second overlay: `testdriver-vendor.js`
+
+`Wpt/Prelude/testdriver-vendor.js` is the other slot upstream ships for a vendor to fill, and it is what turns
+a document that drives input through `test_driver` into one that reports. Upstream's file at that path is
+**empty** and *is* vendored — unlike `testharnessreport.js`, whose whole content is a placeholder — so
+`WptServer`'s second overlay parameter defaults to serving the corpus copy, and a caller that passes none gets
+`testdriver.js`'s own "not implemented by testdriver-vendor.js" rejections.
+
+* **It dispatches nothing itself.** `__jintWptInput` is a delegate installed on every page engine beside
+  `__jintWptReport` — `testharnessreport.js` makes it non-enumerable on the way past, because a document that
+  never loads this file would otherwise leave it among the names an enumeration of `window` finds, and this
+  file deletes it outright when it runs. Every call hands it one JSON string describing one input event, and
+  `WptBrowserInput` decodes it into `Jint.Browser`'s `InputDispatcher` — the same flat hit test `Input.dispatchMouseEvent`
+  reaches and the same key dispatch `Input.dispatchKeyEvent` reaches. **A second implementation here would be
+  a second answer to "what does a click do",** and the whole value of running these documents is that a wpt
+  case and a Puppeteer client cannot disagree.
+* **What is here is coordinate resolution and unpacking, because that is all that can be.** A WebDriver
+  `origin` is an element, and turning one into a point needs `getClientRects` — the page's DOM, on the page's
+  thread. So the resolution happens in the page and only numbers cross, which is the results overlay's
+  boundary in the other direction. `duration` is ignored: there is no rendering to animate a move across.
+* **Three calls are implemented and the rest stay upstream's rejections.** `click`, `send_keys` and
+  `action_sequence` are what the vendored documents use. Cookies, permissions, window rects and the BiDi
+  surface are *not* accepted-and-ignored: a call that silently succeeds and changes nothing turns a missing
+  environment into an assertion failure three lines later, which is the harder failure to read. Adding one
+  means a vendored document needs it.
+
 **Uncaught exceptions are upstream's business here, not the driver's, and that is the one place this lane
 deliberately does not mirror the other one.** `testharness.js` registers `error` and `unhandledrejection`
 listeners at the global scope, and Jint fires both (`Jint/WebApi/GlobalEvents/GlobalEventTarget.cs`), so an
@@ -126,10 +152,13 @@ can never widen into a blanket. `WptBrowserExclusions` holds all three tables �
 minimum-test counts, and the exclusions — because the runner is a driver and those are an inventory.
 
 The vocabulary is `WptDivergence`, shared. Four of its members exist for this lane and say so on themselves:
-`NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb` and `NeedsTestDriver`. Only the last is debt with an
-owner — campaign item C4 maps `testdriver.js` onto the same `InputDispatcher` the protocol's `Input` domain
-already reaches, so every entry under it is a row that change is expected to move. `NeedsTriage` means what it
-means everywhere: **a genuine defect the corpus found, recorded rather than fixed so that the change which
+`NeedsLayout`, `NeedsIframeScripting`, `NeedsIndexedDb` and `NeedsTestDriver`. **`NeedsTestDriver` has no
+entries any more**: campaign item C4 mapped `testdriver.js` onto the same `InputDispatcher` the protocol's
+`Input` domain reaches, and the seven documents that were waiting for it were re-examined one at a time —
+five are cases now, and the two that still cannot report are `NotVendored` rows naming what each really needs
+(a rendering, and a pseudo-element model) rather than the driver. The member stays, because the rest of
+`test_driver` is deliberately still upstream's rejections and the next suite this lane vendors may need it. `NeedsTriage` means what it means
+everywhere: **a genuine defect the corpus found, recorded rather than fixed so that the change which
 first runs a suite is not also the change that moves the engine.** A non-zero count there is a list somebody
 owes a fix for, and `README.md` names each one.
 

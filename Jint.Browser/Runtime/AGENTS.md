@@ -174,7 +174,7 @@ second bus:
 | a click's activation behaviour | `input` + `change` (checkbox, radio, `<option>`), `submit`, `reset`, `toggle`, a forwarded `click` | `Events/ActivationBehaviors` |
 | a form submits or resets | `invalid` at each failing control, `submit` (cancelable, carrying the `submitter`), `reset` (cancelable) | `Events/FormSubmission` |
 | focus moves | `blur`, `focusout`, `focus`, `focusin`, and `change` for a control the user edited | `Events/FocusController` |
-| a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing` |
+| a key edits a text control | `keydown`, `keypress`, `beforeinput` (cancelable), `input`, `keyup` | `Events/InputDispatcher`, `Events/TextEditing`, `Events/ContentEditing` ([the keyboard's own rules](../AGENTS.md#the-keyboard-and-the-editor-under-it)) |
 
 `toggle` is the one that is **queued** rather than fired in place, on the engine's own task queue, because
 HTML's details notification task steps say so — a test that clicks a `<summary>` has to pump before it sees it.

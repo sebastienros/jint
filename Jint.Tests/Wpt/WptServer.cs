@@ -82,6 +82,19 @@ internal sealed class WptServer : IDisposable
     private readonly string _harnessReport;
 
     /// <summary>
+    /// What <c>/resources/testdriver-vendor.js</c> answers with, or <see langword="null"/> for the vendored
+    /// file — which is upstream's, and is empty.
+    /// </summary>
+    /// <remarks>
+    /// The second slot upstream ships for a vendor to fill: <c>testdriver.js</c> declares every automation
+    /// call as a member of <c>window.test_driver_internal</c> that throws "not implemented by
+    /// testdriver-vendor.js", and this file is where an implementation replaces them. Unlike
+    /// <c>testharnessreport.js</c> the stub <i>is</i> vendored, because it is a real (empty) file in the tree
+    /// rather than one whose whole content is a placeholder, so the default here is to serve it.
+    /// </remarks>
+    private readonly string? _testDriverVendor;
+
+    /// <summary>
     /// Starts a server on an ephemeral loopback port.
     /// </summary>
     /// <param name="harnessReportOverlay">
@@ -89,9 +102,15 @@ internal sealed class WptServer : IDisposable
     /// <c>Prelude/</c>. The browser lane passes the script that posts a page's results back to its driver;
     /// upstream's own file exists to be replaced exactly this way.
     /// </param>
-    internal WptServer(string? harnessReportOverlay = null)
+    /// <param name="testDriverVendorOverlay">
+    /// What to answer <c>/resources/testdriver-vendor.js</c> with, or <see langword="null"/> for the vendored
+    /// empty file. The browser lane passes the script that maps <c>test_driver</c> onto the same dispatcher
+    /// the <c>Input</c> domain reaches.
+    /// </param>
+    internal WptServer(string? harnessReportOverlay = null, string? testDriverVendorOverlay = null)
     {
         _harnessReport = harnessReportOverlay ?? WptCorpus.HarnessReport;
+        _testDriverVendor = testDriverVendorOverlay;
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         Port = ((IPEndPoint) _listener.LocalEndpoint).Port;
@@ -242,6 +261,13 @@ internal sealed class WptServer : IDisposable
         // entry to find.
         "resources/testharnessreport.js" => WriteAsync(stream, HarnessReport(), request, token),
 
+        // The other vendor slot. Upstream's file is vendored and is empty, so unlike the one above this
+        // falls through to the corpus when no overlay was passed — a caller that supplies none gets
+        // testdriver.js's own "not implemented by testdriver-vendor.js" rejections, which is what a driver
+        // with no automation should get.
+        "resources/testdriver-vendor.js" when _testDriverVendor is not null
+            => WriteAsync(stream, Script(_testDriverVendor), request, token),
+
         _ => StaticAsync(stream, request, token),
     };
 
@@ -249,8 +275,11 @@ internal sealed class WptServer : IDisposable
     /// <c>resources/testharnessreport.js</c>, with the content type upstream's own
     /// <c>testharnessreport.js.headers</c> sidecar gives it.
     /// </summary>
-    private WptServerResponse HarnessReport()
-        => new(200, "OK", [("Content-Type", "text/javascript; charset=utf-8")], Encoding.UTF8.GetBytes(_harnessReport));
+    private WptServerResponse HarnessReport() => Script(_harnessReport);
+
+    /// <summary>One overlay script, with the content type upstream's <c>.headers</c> sidecars give it.</summary>
+    private static WptServerResponse Script(string source)
+        => new(200, "OK", [("Content-Type", "text/javascript; charset=utf-8")], Encoding.UTF8.GetBytes(source));
 
     // ------------------------------------------------------------------ handlers
 

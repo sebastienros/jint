@@ -56,6 +56,20 @@ internal sealed class JsSelection : ObjectInstance
         return null!;
     }
 
+    /// <summary>
+    /// The one range, for the editor rather than for script.
+    /// </summary>
+    /// <remarks>
+    /// <c>contenteditable</c> keeps its caret here (<c>Events/ContentEditing</c>) rather than in a second
+    /// selection of its own, so a page that types into an editing host and then reads
+    /// <c>getSelection().focusOffset</c> is told where the next character will go.
+    /// </remarks>
+    internal IRange? Range
+    {
+        get => _range;
+        set => _range = value;
+    }
+
     /// <summary>https://w3c.github.io/selection-api/#dom-selection-rangecount.</summary>
     internal int RangeCount => _range is null ? 0 : 1;
 

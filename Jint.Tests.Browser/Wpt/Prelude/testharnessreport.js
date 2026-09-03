@@ -16,9 +16,13 @@
  *    belonging to a thread the driver is not on. One `JSON.stringify` here is what makes the boundary
  *    obvious rather than a rule somebody has to remember.
  *
- * 2. IT REMOVES ITS OWN GLOBAL. The report function is captured into this closure and then deleted from the
- *    global object, before the test file is fetched and long before any of it runs. A wpt test may enumerate
- *    `window`, and this lane's own plumbing must not be one of the names it finds.
+ * 2. IT REMOVES ITS OWN GLOBAL, AND HIDES THE OTHER ONE. The report function is captured into this closure
+ *    and then deleted from the global object, before the test file is fetched and long before any of it runs.
+ *    A wpt test may enumerate `window`, and this lane's own plumbing must not be one of the names it finds.
+ *    The driver installs a second hook, `__jintWptInput`, which belongs to `testdriver-vendor.js` — loaded
+ *    later, and only by a document that drives input — so this file cannot delete it. What it does instead is
+ *    take it off the *enumerable* surface, which is what that rule actually asks for; `testdriver-vendor.js`
+ *    deletes it outright when it runs.
  *
  * 3. IT DOES NOT REPORT UNCAUGHT EXCEPTIONS, AND THAT IS UPSTREAM DOING IT. `testharness.js` registers its
  *    own `error` and `unhandledrejection` listeners at the global scope, and Jint fires both — see
@@ -36,6 +40,13 @@
 
     var report = self.__jintWptReport;
     delete self.__jintWptReport;
+
+    // The input hook, hidden rather than removed: see point 2 of the header.
+    if (typeof self.__jintWptInput === "function") {
+        var input = self.__jintWptInput;
+        delete self.__jintWptInput;
+        Object.defineProperty(self, "__jintWptInput", { value: input, configurable: true });
+    }
 
     if (typeof report !== "function") {
         // Nothing to report to. A page loaded by something other than this driver — `common/blank.html`

@@ -13,8 +13,10 @@ namespace Jint.Tests.Browser.DevTools;
 /// Playwright and Playwright for .NET actually put on the wire while driving one Chrome through one scenario.
 /// <c>matrix.md</c>'s "minimum must-answer set" is the first five steps of it — <c>connect</c>,
 /// <c>newContext</c>, <c>newPage</c>, <c>goto</c>, the two evaluations — and its "what <c>$</c>,
-/// <c>$$</c>, <c>click</c> and <c>waitForSelector</c> add on top" is the four after them. This replays
-/// all ten, in the order each client sent them, on the session each belongs on.
+/// <c>$$</c>, <c>click</c> and <c>waitForSelector</c> add on top" is the four after them. <c>type</c> — six
+/// <c>Input.dispatchKeyEvent</c> in every one of the five recordings — and the cookie and interception steps
+/// are the four after <i>those</i>. This replays all of them, in the order each client sent them, on the
+/// session each belongs on.
 /// </para>
 /// <para>
 /// <b>Two properties, and the second is the interesting one.</b> Nothing may answer <c>-32601</c> or
@@ -46,18 +48,19 @@ public class PageHandshakeReplayTests
     };
 
     /// <summary>
-    /// The thirteen steps of the scenario this replay covers, in the order the recording has them.
+    /// The fourteen steps of the scenario this replay covers, in the order the recording has them.
     /// </summary>
     /// <remarks>
-    /// Everything up to and including the network work: a page's cookies are read and written through
-    /// <c>Storage</c> by every recorded client, and <c>interception</c> is where <c>Fetch.enable</c> and
-    /// <c>Fetch.continueRequest</c> appear. The steps still left out — <c>type</c>, <c>screenshot</c>,
-    /// <c>pdf</c> — need domains later campaign items bring, or are refused by design.
+    /// Everything up to and including the network work and the typing: a page's cookies are read and written
+    /// through <c>Storage</c> by every recorded client, <c>interception</c> is where <c>Fetch.enable</c> and
+    /// <c>Fetch.continueRequest</c> appear, and <c>type</c> is six <c>Input.dispatchKeyEvent</c> in every one
+    /// of the five recordings. The steps still left out — <c>screenshot</c> and <c>pdf</c> — are refused by
+    /// design, because this browser renders no pixels.
     /// </remarks>
     private static readonly string[] ReplayedSteps =
     [
         "connect", "newContext", "newPage", "goto", "evaluateTitle", "evaluateObject",
-        "querySelector", "querySelectorAll", "click", "waitForSelector",
+        "querySelector", "querySelectorAll", "click", "waitForSelector", "type",
         "cookies", "setCookie", "interception",
     ];
 
@@ -254,6 +257,14 @@ public class PageHandshakeReplayTests
         "DOM.getContentQuads" => $$"""{"objectId":"{{node}}"}""",
         "DOM.scrollIntoViewIfNeeded" => $$"""{"objectId":"{{node}}"}""",
         "Input.dispatchMouseEvent" => """{"type":"mouseMoved","x":4,"y":4,"button":"none"}""",
+
+        // Every member of it is one a real client sends: `paramsKeys` in the recording's `type` step names
+        // `type`, `modifiers`, `windowsVirtualKeyCode`, `code`, `commands`, `key`, `text`, `unmodifiedText`,
+        // `autoRepeat`, `location` and `isKeypad`, and Playwright is the one that adds `commands`.
+        "Input.dispatchKeyEvent" => """
+            {"type":"keyDown","modifiers":0,"windowsVirtualKeyCode":72,"code":"KeyH","commands":[],
+             "key":"h","text":"h","unmodifiedText":"h","autoRepeat":false,"location":0,"isKeypad":false}
+            """,
         "Runtime.callFunctionOn" => $$"""{"functionDeclaration":"function () { return this.answer; }","objectId":"{{handle}}","returnByValue":true}""",
         "Runtime.getProperties" => $$"""{"objectId":"{{handle}}"}""",
         "Runtime.releaseObject" => $$"""{"objectId":"{{handle}}"}""",
@@ -293,13 +304,12 @@ public class PageHandshakeReplayTests
     };
 
     /// <summary>
-    /// The methods one client sent in the ten steps this replay covers.
+    /// The methods one client sent in the fourteen steps this replay covers.
     /// </summary>
     /// <remarks>
     /// Taken from the recording's own per-step breakdown rather than from its whole method list, because the
-    /// steps after these — typing, screenshots, the network interception — need the domains later campaign
-    /// items bring, and a replay that included them would be asserting against work nobody has claimed is
-    /// done.
+    /// two steps after these — the screenshot and the PDF — are refused by design, and a replay that included
+    /// them would be asserting that a refusal is an answer.
     /// </remarks>
     private static IReadOnlyList<string> RecordedMethods(string client)
     {

@@ -44,6 +44,17 @@ internal static class BrowserTestAccess
             return true;
         });
 
+    /// <summary>
+    /// Runs the input dispatcher's text entry point — what <c>Input.insertText</c> maps onto: an edit with no
+    /// key events at all, which is the shape an IME commit and a paste arrive in.
+    /// </summary>
+    internal static Task InsertTextAsync(Page page, string text)
+        => page.RunOnLoopAsync(engine =>
+        {
+            InputDispatcher.InsertText(engine, text);
+            return true;
+        });
+
     /// <summary>Types <paramref name="text"/> one key at a time, the way a protocol client would.</summary>
     internal static Task TypeAsync(Page page, string text)
         => page.RunOnLoopAsync(engine =>
