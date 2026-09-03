@@ -118,8 +118,10 @@ public class SamplingProfilerTests
         // middle and outermost do nothing but delegate, so they own almost no self time and almost all of
         // the inclusive time - which is the shape a call tree has to show for a profile to be worth reading.
         Weight(self, "middle").Should().BeLessThan(self["innermost"]);
-        (inclusive["outermost"] / total).Should().BeGreaterThan(0.9);
-        (inclusive["middle"] / total).Should().BeGreaterThan(0.9);
+        // The inclusive shares drift the same way the self share does on a loaded runner (0.885 seen on a
+        // docs-only pull request); 0.8 still says every frame above the loop carries it.
+        (inclusive["outermost"] / total).Should().BeGreaterThan(0.8);
+        (inclusive["middle"] / total).Should().BeGreaterThan(0.8);
         inclusive["(program)"].Should().BeApproximately(total, 1e-9, "every sample is rooted at the program");
     }
 
