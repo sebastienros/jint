@@ -418,6 +418,82 @@ public class ConsoleTests
             .Should().Equal("{ a: 1 }");
     }
 
+    /// <summary>
+    /// The same promise, for the one value a console is most often handed. <c>name</c> and <c>message</c>
+    /// are both configurable on every error and definable on any subclass, so rendering an error through
+    /// <c>Get</c> made <c>console.log(err)</c> a way to run script — and to throw out of a log statement.
+    /// https://github.com/sebastienros/jint/issues/3598.
+    /// </summary>
+    [Test]
+    public void NeverRunsScriptWhileInspectingAnError()
+    {
+        var (engine, sink) = Recording();
+        engine.Execute("globalThis.ran = 0;");
+
+        // An own accessor on the instance, on the property the renderer wants most.
+        engine.Execute("""
+            var e = new Error('the message');
+            Object.defineProperty(e, 'message', { get() { ran++; throw new Error('message ran'); }, configurable: true });
+            console.log(e);
+            """);
+
+        // A getter on a subclass prototype, which is where a script most naturally puts one.
+        engine.Execute("""
+            class Bad extends Error { get name() { ran++; throw new Error('name ran'); } }
+            console.log(new Bad('boom'));
+            """);
+
+        // An error whose prototype chain is a proxy: the walk stops at it rather than reaching a trap.
+        engine.Execute("""
+            var behindProxy = new Error('inherited from a proxy');
+            Object.setPrototypeOf(behindProxy, new Proxy(Error.prototype, {
+                get() { ran++; throw new Error('get ran'); },
+                getOwnPropertyDescriptor() { ran++; throw new Error('gopd ran'); },
+            }));
+            console.log(behindProxy);
+            """);
+
+        // A proxy around the error itself, which #3316 already pinned for an ordinary object. Through
+        // console.error, because every level shares one formatter and the error one is where an error goes.
+        engine.Execute("""
+            console.error(new Proxy(new Error('behind a proxy'), {
+                get() { ran++; throw new Error('get ran'); },
+                ownKeys() { ran++; throw new Error('ownKeys ran'); },
+            }));
+            """);
+
+        engine.Evaluate("ran").AsNumber().Should().Be(0);
+        sink.Messages.Should().Equal(
+            // The refused message is absent rather than guessed at, so the name stands alone.
+            "Error",
+            // A refused `name` falls back to the constructor's, read as a descriptor off the same chain.
+            "Bad: boom",
+            "Error: inherited from a proxy",
+            "Error: behind a proxy");
+    }
+
+    /// <summary>
+    /// A <c>DOMException</c> keeps its text, which is the reason a getter-free read is not a one-liner: its
+    /// <c>name</c> and <c>message</c> are WebIDL prototype accessors by design, so a renderer that refuses
+    /// every accessor would turn <c>AbortError: x</c> into <c>Error</c>.
+    /// </summary>
+    [Test]
+    public void RendersADomExceptionByItsSlots()
+    {
+        Run("console.log(new DOMException('aborted', 'AbortError'))").Should().Equal("AbortError: aborted");
+        Run("console.log(new DOMException())").Should().Equal("Error");
+        Run("console.log(new DOMException('just a message'))").Should().Equal("Error: just a message");
+        Run("console.log(new QuotaExceededError('too much'))").Should().Equal("QuotaExceededError: too much");
+
+        // A WebIDL attribute is configurable like any other, so an own data property defined over one is
+        // what the property is — and the walk, which reaches it first, is what prints it.
+        Run("""
+            var e = new DOMException('aborted', 'AbortError');
+            Object.defineProperty(e, 'name', { value: 'Renamed' });
+            console.log(e);
+            """).Should().Equal("Renamed: aborted");
+    }
+
     [Test]
     public void AnExoticContainerIsDepthCappedAndCycleSafe()
     {

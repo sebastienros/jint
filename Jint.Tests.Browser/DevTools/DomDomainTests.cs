@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Jint.Browser;
 
 namespace Jint.Tests.Browser.DevTools;
@@ -167,6 +167,37 @@ public class DomDomainTests
 
         (await session.EventAsync("DOM.childNodeRemoved", sessionId: attachment))
             .GetProperty("parentNodeId").GetInt32().Should().Be(inserted.GetProperty("parentNodeId").GetInt32());
+    }
+
+    /// <summary>
+    /// A client that enabled the domain before a document committed hears that document's mutations.
+    /// </summary>
+    /// <remarks>
+    /// The mutation bridge is armed per document, because a commit throws the previous document's observer
+    /// away with its node identifiers; the arming happens on the page's <c>DocumentParsed</c> call, the first
+    /// moment there is a tree to observe. Every other test here enables the domain after the content is in
+    /// place, which is the path <c>DOM.enable</c> arms for itself — this is the other order, and nothing
+    /// covered it.
+    /// </remarks>
+    [Test]
+    public async Task MutationsOfADocumentCommittedAfterEnableStillReachTheClient()
+    {
+        await using var session = await PageSession.CreateAsync();
+        var attachment = await session.OpenPageAsync();
+
+        // Enabled first, and only then does a document commit under it.
+        await session.ResultAsync("DOM.enable", "{}", attachment);
+        await Content(session, attachment, "<ul id='list'><li id='first'>one</li></ul>");
+
+        // The client walks the tree, so the list is a node it has been sent.
+        await session.ResultAsync("DOM.getDocument", """{"depth":-1}""", attachment);
+
+        await session.EvaluateAsync(
+            "document.getElementById('list').appendChild(document.createElement('li')) && true",
+            attachment);
+
+        var inserted = await session.EventAsync("DOM.childNodeInserted", sessionId: attachment);
+        inserted.GetProperty("node").GetProperty("nodeName").GetString().Should().Be("LI");
     }
 
     [Test]

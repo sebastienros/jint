@@ -102,6 +102,53 @@ public class DefaultTypeConverter : ClrTypeConverter
         return TryConvertInternal(value, type, formatProvider, propagateException: false, out converted, out _);
     }
 
+    /// <summary>
+    /// Converts one part of a composite - an array element, a collection item, a target dictionary's value,
+    /// a member of a POCO built from a dictionary - under the same <paramref name="propagateException"/>
+    /// contract as the frame that is assembling the composite.
+    /// </summary>
+    /// <remarks>
+    /// Every one of those sites reached for the public, throwing <see cref="Convert"/> whatever its own frame
+    /// had been asked, so a part that could not be converted escaped <see cref="TryConvert"/> as a CLR
+    /// exception rather than as the <see langword="false"/> that method documents - and an exception is not
+    /// something <c>MethodInfoFunction.Call</c> can move on from: it tries candidates in score order and
+    /// declines its way to the next one, so a throwing conversion ends the call rather than the candidate
+    /// (<see href="https://github.com/sebastienros/jint/issues/3754">#3754</see>). The body mirrors
+    /// <see cref="Convert"/> so that behaviour under <paramref name="propagateException"/> is unchanged: the
+    /// virtual <see cref="TryConvert"/> first, so a subclass override still answers for the parts, and only
+    /// then the internal pipeline that produces the detailed message and honours
+    /// <see cref="Options.InteropOptions.ExceptionHandler"/>.
+    /// </remarks>
+    private bool TryConvertPart(
+        object? value,
+        [DynamicallyAccessedMembers(InteropHelper.DefaultDynamicallyAccessedMemberTypes)] Type type,
+        IFormatProvider formatProvider,
+        bool propagateException,
+        out object? converted,
+        out string? problemMessage)
+    {
+        problemMessage = null;
+
+        if (TryConvert(value, type, formatProvider, out converted))
+        {
+            return true;
+        }
+
+        if (!propagateException)
+        {
+            converted = null;
+            problemMessage = $"Unable to convert a value of type '{value?.GetType()}' to '{type}'";
+            return false;
+        }
+
+        if (!TryConvertInternal(value, type, formatProvider, propagateException: true, out converted, out problemMessage))
+        {
+            Throw.Error(_engine, problemMessage ?? $"Unable to convert {value} to type {type}");
+        }
+
+        return true;
+    }
+
     private static readonly ConditionalWeakTable<IFunction, TypeKeyedCache<Func<object, Delegate>>> _targetBinderDelegateCache = new();
     private static readonly ConditionalWeakTable<object, TypeKeyedCache<Delegate>> _boundTargetDelegateCache = new();
     private static readonly ConditionalWeakTable<Delegate, ObjectInstance> _hostCallbackDelegates = new();
@@ -224,7 +271,12 @@ public class DefaultTypeConverter : ClrTypeConverter
                     var targetList = (IList) Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
                     foreach (var item in sourceArray)
                     {
-                        targetList.Add(item is null ? null : Convert(item, elementType, formatProvider));
+                        if (!TryConvertPart(item, elementType, formatProvider, propagateException, out var convertedItem, out problemMessage))
+                        {
+                            return false;
+                        }
+
+                        targetList.Add(convertedItem);
                     }
                     converted = targetList;
                     return true;
@@ -236,7 +288,12 @@ public class DefaultTypeConverter : ClrTypeConverter
                     var innerList = (IList) Activator.CreateInstance(innerListType)!;
                     foreach (var item in sourceArray)
                     {
-                        innerList.Add(item is null ? null : Convert(item, elementType, formatProvider));
+                        if (!TryConvertPart(item, elementType, formatProvider, propagateException, out var convertedItem, out problemMessage))
+                        {
+                            return false;
+                        }
+
+                        innerList.Add(convertedItem);
                     }
                     converted = Activator.CreateInstance(type, innerList)!;
                     return true;
@@ -343,7 +400,10 @@ public class DefaultTypeConverter : ClrTypeConverter
             var itemsConverted = new object?[source.Length];
             for (var i = 0; i < source.Length; i++)
             {
-                itemsConverted[i] = Convert(source[i], targetElementType, formatProvider);
+                if (!TryConvertPart(source[i], targetElementType, formatProvider, propagateException, out itemsConverted[i], out problemMessage))
+                {
+                    return false;
+                }
             }
             var result = Array.CreateInstance(targetElementType, source.Length);
             itemsConverted.CopyTo(result, 0);
@@ -423,7 +483,12 @@ public class DefaultTypeConverter : ClrTypeConverter
                 {
                     if (typeDescriptor.TryGetDictionaryValue(value, key, out var sourceVal))
                     {
-                        targetDict[key] = Convert(sourceVal, targetValueType, formatProvider);
+                        if (!TryConvertPart(sourceVal, targetValueType, formatProvider, propagateException, out var convertedValue, out problemMessage))
+                        {
+                            return false;
+                        }
+
+                        targetDict[key] = convertedValue;
                     }
                 }
             }
@@ -436,28 +501,48 @@ public class DefaultTypeConverter : ClrTypeConverter
                 // each of them only to discard it. Same public instance-and-static set.
                 foreach (var member in type.GetProperties())
                 {
-                    CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider);
+                    if (!CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider, propagateException, out problemMessage))
+                    {
+                        return false;
+                    }
                 }
 
                 foreach (var member in type.GetFields())
                 {
-                    CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider);
+                    if (!CopyDictionaryEntryToMember(this, typeDescriptor, value, obj, member, formatProvider, propagateException, out problemMessage))
+                    {
+                        return false;
+                    }
                 }
 
-                static void CopyDictionaryEntryToMember(
+                // propagateException is threaded in as a parameter because this is a static local function,
+                // and it has to be threaded in at all for the same reason the other four composite sites take
+                // it: a member the dictionary supplies but the target cannot hold is a decline of the whole
+                // conversion, not an exception out of a Try method.
+                static bool CopyDictionaryEntryToMember(
                     DefaultTypeConverter converter,
                     TypeDescriptor typeDescriptor,
                     object value,
                     object target,
                     MemberInfo member,
-                    IFormatProvider formatProvider)
+                    IFormatProvider formatProvider,
+                    bool propagateException,
+                    out string? problemMessage)
                 {
+                    problemMessage = null;
+
                     if (typeDescriptor.TryGetDictionaryValue(value, member.Name, out var val)
                         || typeDescriptor.TryGetDictionaryValue(value, member.Name.UpperToLowerCamelCase(), out val))
                     {
-                        var output = converter.Convert(val, member.GetDefinedType(), formatProvider);
+                        if (!converter.TryConvertPart(val, member.GetDefinedType(), formatProvider, propagateException, out var output, out problemMessage))
+                        {
+                            return false;
+                        }
+
                         member.SetValue(target, output);
                     }
+
+                    return true;
                 }
             }
 

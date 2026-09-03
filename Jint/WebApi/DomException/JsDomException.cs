@@ -50,7 +50,7 @@ namespace Jint.WebApi.DomException;
 /// are themselves sealed.
 /// </para>
 /// </remarks>
-internal class JsDomException : ErrorInstance, IErrorData
+internal class JsDomException : ErrorInstance, IErrorData, IErrorTextSlots
 {
     internal JsDomException(Engine engine, JsString name, JsString message)
         : base(engine, ObjectClass.Error)
@@ -68,5 +68,15 @@ internal class JsDomException : ErrorInstance, IErrorData
 
     /// <summary>The legacy code the name maps to, or <c>0</c>. Computed once, since the name never changes.</summary>
     internal JsNumber Code { get; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The two accessors <see cref="DomExceptionPrototype"/> serves, answered for a reader that may call
+    /// nothing. Same brand check, same slots, no <c>[[Call]]</c>.
+    /// </remarks>
+    JsString? IErrorTextSlots.ErrorNameSlot => Name;
+
+    /// <inheritdoc cref="IErrorTextSlots.ErrorNameSlot" />
+    JsString? IErrorTextSlots.ErrorMessageSlot => Message;
 }
 #endif

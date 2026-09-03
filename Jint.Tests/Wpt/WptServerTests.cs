@@ -1,4 +1,4 @@
-#if NET8_0_OR_GREATER
+﻿#if NET8_0_OR_GREATER
 #nullable enable
 
 using System.Globalization;
@@ -930,8 +930,8 @@ public class WptServerTests
     /// Upstream's file is a stub that exists to be replaced — "intended for vendors to implement code needed
     /// to integrate testharness.js tests with their own test systems" — so vendoring it would put bytes in
     /// the tree the server never sends. The overlay is the slot the browser lane fills with the script that
-    /// posts a page's results back to the driver; nothing supplies one yet, which is why this test starts
-    /// its own server.
+    /// posts a page's results back to the driver; the shared server here supplies none, which is why this
+    /// test starts one of its own.
     /// </remarks>
     [Test]
     public async Task TheHarnessReportComesFromThePreludeAndCanBeOverlaid()
@@ -946,13 +946,62 @@ public class WptServerTests
         WptCorpus.HarnessReport.Should().Contain("Jint's `resources/testharnessreport.js`");
         WptCorpus.Contains("resources/testharnessreport.js").Should().BeFalse();
 
-        using var overlaid = new WptServer("window.__jintReport = true;");
+        using var overlaid = new WptServer(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["resources/testharnessreport.js"] = "window.__jintReport = true;",
+        });
+
         using var fromOverlay = await _client.GetAsync(overlaid.Origin + "/resources/testharnessreport.js");
         (await fromOverlay.Content.ReadAsStringAsync()).Should().Be("window.__jintReport = true;");
 
         // And the overlay is per server: the shared one is untouched.
         using var again = await GetAsync("/resources/testharnessreport.js");
         (await again.Content.ReadAsStringAsync()).Should().Be(WptCorpus.HarnessReport);
+    }
+
+    /// <summary>
+    /// An overlay is a path and a source, so a slot the constructor has never heard of is answered too — and
+    /// it wins over the vendored file at the same path.
+    /// </summary>
+    /// <remarks>
+    /// Upstream ships more than one file for a vendor to fill, and this lane has filled two of them. Both
+    /// were constructor parameters, so the third was going to be a third <c>string?</c> beside two others of
+    /// the same type that nothing but their order distinguishes. <c>testdriver-vendor.js</c> is the case
+    /// worth asserting, because unlike <c>testharnessreport.js</c> it really is in the corpus: the answer
+    /// with no overlay is upstream's empty file, and the answer with one is the overlay rather than a merge
+    /// or a 404.
+    /// </remarks>
+    [Test]
+    public async Task AnOverlayAnswersAnyPathItNames()
+    {
+        // With no overlay, both vendor slots answer what they answered before: the prelude's report file,
+        // and the vendored (empty) testdriver-vendor.js.
+        using var vendored = await GetAsync("/resources/testdriver-vendor.js");
+        ((int) vendored.StatusCode).Should().Be(200);
+        (await vendored.Content.ReadAsStringAsync()).Should().BeEmpty();
+        WptCorpus.Contains("resources/testdriver-vendor.js").Should().BeTrue("upstream vendors an empty stub");
+
+        using var overlaid = new WptServer(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["resources/testdriver-vendor.js"] = "window.__jintDriver = true;",
+            ["common/get-host-info.sub.js"] = "window.__jintHostInfo = true;",
+        });
+
+        // The slot that has a vendored file behind it: the overlay wins.
+        using var driver = await _client.GetAsync(overlaid.Origin + "/resources/testdriver-vendor.js");
+        ((int) driver.StatusCode).Should().Be(200);
+        driver.Content.Headers.ContentType!.ToString().Should().Be("text/javascript; charset=utf-8");
+        (await driver.Content.ReadAsStringAsync()).Should().Be("window.__jintDriver = true;");
+
+        // And a path no version of this server has ever special-cased, which is the whole point: a third
+        // overlay is an entry in the map and nothing else.
+        using var hostInfo = await _client.GetAsync(overlaid.Origin + "/common/get-host-info.sub.js");
+        ((int) hostInfo.StatusCode).Should().Be(200);
+        (await hostInfo.Content.ReadAsStringAsync()).Should().Be("window.__jintHostInfo = true;");
+
+        // The one it was not given still comes from the prelude.
+        using var report = await _client.GetAsync(overlaid.Origin + "/resources/testharnessreport.js");
+        (await report.Content.ReadAsStringAsync()).Should().Be(WptCorpus.HarnessReport);
     }
 
     /// <summary>

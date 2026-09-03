@@ -1,4 +1,4 @@
-namespace Jint.Browser.Runtime;
+﻿namespace Jint.Browser.Runtime;
 
 /// <summary>
 /// What one watcher of a page is told, in the order a page does it.
@@ -52,6 +52,30 @@ internal interface IPageObserver
     /// <param name="runtime">The page runtime of the new engine.</param>
     /// <param name="loaderId">The identifier this document carries.</param>
     void DocumentCreated(PageRuntime runtime, string loaderId)
+    {
+    }
+
+    /// <summary>
+    /// The document exists and is parsed, and this is the runtime it belongs to.
+    /// </summary>
+    /// <param name="runtime">The page runtime of the parsed document.</param>
+    /// <param name="loaderId">The identifier this document carries.</param>
+    /// <remarks>
+    /// <para>
+    /// Raised immediately before <see cref="Phase"/> with <see cref="NavigationPhase.Committed"/>, which is
+    /// the same moment: what it adds is the runtime, which <see cref="Phase"/> cannot carry because the other
+    /// two phases are reported after a document may already have navigated away.
+    /// </para>
+    /// <para>
+    /// This is the first point at which a watcher can look at the tree, so it is where anything that observes
+    /// a document arms itself. The alternative is to remember the runtime from
+    /// <see cref="DocumentCreated"/> — which fires before the parse, when there is nothing to observe — and
+    /// then act on a phase; that is two steps and one field for one event, and the field is a second answer
+    /// to "which document is showing" that can disagree with the page's.
+    /// </para>
+    /// <para>Runs on the page loop thread, with the parsed document's engine.</para>
+    /// </remarks>
+    void DocumentParsed(PageRuntime runtime, string loaderId)
     {
     }
 

@@ -51,6 +51,22 @@ public class XmlHttpRequestTests
 
         internal Func<HttpRequestMessage, HttpResponseMessage>? Responder { get; set; }
 
+        /// <summary>
+        /// How long the transport takes to answer, waited for on the cancellation token it was handed — so a
+        /// request the engine terminates while this is running fails at once rather than after the delay.
+        /// </summary>
+        internal TimeSpan Delay { get; set; }
+
+        /// <summary>
+        /// Set to make the transport wait for <see cref="Release"/> instead of for a duration, so a test can
+        /// say when the response arrives rather than hope it arrives in time. Waited for on the cancellation
+        /// token, so a terminated request still fails at once.
+        /// </summary>
+        internal TaskCompletionSource? Gate { get; set; }
+
+        /// <summary>Lets a gated response through.</summary>
+        internal void Release() => Gate!.TrySetResult();
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -69,6 +85,15 @@ public class XmlHttpRequestTests
             }
 
             Requests.Add(new RecordedRequest(request.Method.Method, request.RequestUri!.ToString(), headers, body));
+
+            if (Gate is { } gate)
+            {
+                await gate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            else if (Delay > TimeSpan.Zero)
+            {
+                await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
+            }
 
             return Responder is { } responder
                 ? responder(request)
@@ -783,20 +808,17 @@ public class XmlHttpRequestTests
 
     /// <summary>
     /// https://xhr.spec.whatwg.org/#dom-xmlhttprequest-timeout — the deadline fires the <c>timeout</c> event
-    /// rather than <c>error</c>, and it is enforced CLR-side so an unpumped engine still lets go of its
-    /// socket.
+    /// rather than <c>error</c>, from a task on the engine's own event loop. The transport here never answers
+    /// at all, so what is pinned is that the deadline still settles the request.
     /// </summary>
     [Test]
     public Task TheTimeoutAttributeFiresTheTimeoutEvent() => DedicatedThread.RunAsync(() =>
     {
-        var handler = new StubHandler
-        {
-            Responder = _ =>
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(30));
-                return new HttpResponseMessage(HttpStatusCode.OK);
-            },
-        };
+        // Gated rather than slow: a transport that sleeps answers on whichever thread the pipeline happens to
+        // put it on, so whether its response was queued before the deadline came due was up to the machine —
+        // and macOS and ARM answered differently from Linux. A gate nothing releases cannot answer at all, so
+        // the deadline is the only thing that can settle the request, which is what this test is about.
+        var handler = new StubHandler { Gate = new TaskCompletionSource() };
 
         var engine = XhrEngine(handler);
         engine.Execute($@"
@@ -810,6 +832,41 @@ public class XmlHttpRequestTests
         Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the timeout and loadend events");
         engine.Evaluate("log.join('|')").AsString().Should().Be("timeout|loadend");
         engine.Evaluate("xhr.readyState").AsNumber().Should().Be(4);
+    });
+
+    /// <summary>
+    /// https://xhr.spec.whatwg.org/#the-timeout-attribute — the asynchronous deadline is a task on the
+    /// engine's own event loop, so it comes due rather than fires: a loop that is not running cannot run it,
+    /// and a response that arrived first is delivered before it is reached.
+    /// </summary>
+    /// <remarks>
+    /// This is what web-platform-tests' <c>xhr/xhr-timeout-longtask.any.js</c> asserts, written so that it
+    /// cannot depend on the machine — which is why that file itself stays out of the vendored corpus. The
+    /// transport is gated rather than delayed, and nothing pumps the engine for four times the deadline: a
+    /// wall-clock deadline on a cancellation token terminates the request in that window, and a task on the
+    /// timer queue is still sitting behind the response when the loop next runs.
+    /// </remarks>
+    [Test]
+    public Task ADeadlineComingDueWhileNothingPumpsDoesNotTerminateTheRequest() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new StubHandler { Gate = new TaskCompletionSource() };
+
+        var engine = XhrEngine(handler);
+        engine.Execute($@"
+            var log = [];
+            var xhr = new XMLHttpRequest();
+            for (const t of ['timeout', 'error', 'load', 'loadend']) xhr.addEventListener(t, () => log.push(t));
+            xhr.open('GET', '{Url}');
+            xhr.timeout = 50;
+            xhr.send();");
+
+        // Four times the deadline with the loop stopped, which is what a long task looks like from here.
+        Thread.Sleep(200);
+        handler.Release();
+
+        Pump(engine, () => engine.Evaluate("log.length").AsNumber() >= 2, "the load and loadend events");
+        engine.Evaluate("log.join('|')").AsString().Should().Be("load|loadend");
+        engine.Evaluate("xhr.responseText").AsString().Should().Be("ok");
     });
 
     /// <summary>

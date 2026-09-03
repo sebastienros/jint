@@ -85,6 +85,12 @@ internal static class WptCorpus
     internal static readonly string[] BrowserSuites =
     [
         "dom/events",
+        "dom/nodes",
+        "dom/collections",
+        "dom/lists",
+        "dom/traversal",
+        "dom/ranges",
+        "html/dom",
         "html/webappapis/scripting/events",
         "html/webappapis/scripting/processing-model-2",
         "custom-elements",

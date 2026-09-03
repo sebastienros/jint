@@ -14,8 +14,8 @@
 # The 'verified' date is the only thing bounding anchor rot: a clause renamed upstream keeps
 # resolving here until somebody re-runs that.
 #
-verified: 2026-09-02
-anchors: 1253
+verified: 2026-09-03
+anchors: 1254
 absent: 2
 !proposal-decorators sec-autoaccessordefinitionevaluation  # tc39.es still renders the 2018 descriptor design, which has no such clause
 !proposal-decorators sec-createdecoratorcontextobject  # tc39.es still renders the 2018 descriptor design, which has no such clause
@@ -266,6 +266,7 @@ ecma262 sec-enumerate-object-properties
 ecma262 sec-environment-records
 ecma262 sec-error-handling-and-language-extensions
 ecma262 sec-error.iserror
+ecma262 sec-error.prototype.tostring
 ecma262 sec-escape-string
 ecma262 sec-evaldeclarationinstantiation
 ecma262 sec-evaluatecall
