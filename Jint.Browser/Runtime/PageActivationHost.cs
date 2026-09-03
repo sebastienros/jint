@@ -50,11 +50,11 @@ internal sealed class PageActivationHost : BrowserActivationHost
 
         if (target.Length != 0 && !string.Equals(target, "_self", StringComparison.OrdinalIgnoreCase))
         {
-            _runtime.Recorder.Add(new PageError(
+            _runtime.Recorder.Add(
                 PageErrorKind.ReportedError,
                 "A link targeting '" + target + "' was followed in the same page: this version opens no second "
                 + "page, so _blank, a frame name and _top all load here.",
-                source.LocalName));
+                source.LocalName);
         }
 
         _runtime.Page.RequestNavigation(url, replace: false, engine: _runtime.Engine);
@@ -74,9 +74,9 @@ internal sealed class PageActivationHost : BrowserActivationHost
     /// replaces the body without moving the seam.
     /// </summary>
     internal override void OpenFileChooser(BrowserEventRealm realm, IHtmlInputElement input)
-        => _runtime.Recorder.Add(new PageError(
+        => _runtime.Recorder.Add(
             PageErrorKind.ReportedError,
             "A file chooser was opened by clicking an <input type=file>, and this version has no file chooser "
             + "to open; the file list is unchanged.",
-            input.Id is { Length: > 0 } id ? id : input.Name ?? "input"));
+            input.Id is { Length: > 0 } id ? id : input.Name ?? "input");
 }

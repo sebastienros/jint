@@ -17,11 +17,13 @@ namespace Jint.Browser;
 /// </remarks>
 public sealed class PageError
 {
-    internal PageError(PageErrorKind kind, string message, string? source)
+    internal PageError(PageErrorKind kind, string message, string? source, DateTimeOffset timestamp, string documentUrl)
     {
         Kind = kind;
         Message = message;
         Source = source;
+        Timestamp = timestamp;
+        DocumentUrl = documentUrl;
     }
 
     /// <summary>What produced the error.</summary>
@@ -32,6 +34,24 @@ public sealed class PageError
 
     /// <summary>Which callback the engine was running, when it was running one; otherwise <c>null</c>.</summary>
     public string? Source { get; }
+
+    /// <summary>When the page recorded it, on the wall clock in UTC.</summary>
+    /// <remarks>
+    /// <see cref="DateTimeOffset.UtcNow"/> rather than the engine's configured <c>TimeProvider</c>, for the
+    /// reason <c>PageRuntime.Now</c> gives about its own clock: a host that substituted a clock for its
+    /// timers did not thereby ask for its diagnostics to be stamped with a time that never happened.
+    /// </remarks>
+    public DateTimeOffset Timestamp { get; }
+
+    /// <summary>The URL of the document the page was showing when it was recorded.</summary>
+    /// <remarks>
+    /// <b>It is what a host cannot reconstruct afterwards.</b> <see cref="Page.Errors"/> is one list for the
+    /// life of the page while <see cref="Page.Url"/> answers where the page is <i>now</i>, so without this a
+    /// host that has driven several navigations cannot say which document an entry came from. It is
+    /// <c>about:blank</c> for a page that has loaded nothing, and the <i>outgoing</i> document's URL for an
+    /// error raised while a navigation is still in flight — the new one has not been committed yet.
+    /// </remarks>
+    public string DocumentUrl { get; }
 
     /// <inheritdoc />
     public override string ToString() => Source is null ? Message : Source + ": " + Message;

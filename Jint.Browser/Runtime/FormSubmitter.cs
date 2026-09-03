@@ -78,10 +78,10 @@ internal static class FormSubmitter
         var target = PageUrl.Parse(action!, runtime.DocumentUrl);
         if (target is null)
         {
-            runtime.Recorder.Add(new PageError(
+            runtime.Recorder.Add(
                 PageErrorKind.ReportedError,
                 "A form was submitted to '" + action + "', which is not a URL.",
-                "form"));
+                "form");
             return;
         }
 
@@ -90,10 +90,10 @@ internal static class FormSubmitter
 
         if (string.Equals(method, "dialog", StringComparison.Ordinal))
         {
-            runtime.Recorder.Add(new PageError(
+            runtime.Recorder.Add(
                 PageErrorKind.ReportedError,
                 "A form was submitted with method='dialog', and <dialog> is not implemented in this version.",
-                "form"));
+                "form");
             return;
         }
 
@@ -105,11 +105,11 @@ internal static class FormSubmitter
         if (!string.IsNullOrEmpty(frameTarget)
             && !string.Equals(frameTarget, "_self", StringComparison.OrdinalIgnoreCase))
         {
-            runtime.Recorder.Add(new PageError(
+            runtime.Recorder.Add(
                 PageErrorKind.ReportedError,
                 "A form targeting '" + frameTarget + "' was submitted into the same page: this version opens no "
                 + "second page, so _blank, a frame name and _top all load here.",
-                "form"));
+                "form");
         }
 
         if (string.Equals(method, "get", StringComparison.Ordinal))

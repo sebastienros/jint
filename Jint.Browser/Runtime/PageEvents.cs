@@ -54,10 +54,10 @@ internal static class PageEvents
         }
         catch (JavaScriptException exception)
         {
-            runtime.Recorder.Add(new PageError(
+            runtime.Recorder.Add(
                 PageErrorKind.UncaughtCallbackError,
                 PageRecorder.Diagnostics.Describe(exception.Error, exception),
-                ev.TypeName));
+                ev.TypeName);
             return true;
         }
     }

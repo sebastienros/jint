@@ -166,6 +166,39 @@ public sealed class PageTests
         (await page.EvaluateAsync<bool?>("undefined")).Should().BeNull();
     }
 
+    /// <summary>
+    /// An error says <b>when</b> it happened and <b>which document</b> was showing, so a host that has driven
+    /// a page through several navigations can attribute one.
+    /// </summary>
+    /// <remarks>
+    /// The URL is the page's at the instant the recorder took the entry, which is the one thing a host cannot
+    /// reconstruct afterwards: <c>Page.Url</c> answers where the page is <i>now</i>, and the errors of three
+    /// documents are one list.
+    /// </remarks>
+    [Test]
+    public async Task AnErrorSaysWhenItHappenedAndWhichDocumentItCameFrom()
+    {
+        await using var fixture = await Navigation.LoopbackPage.CreateAsync(s => s
+            .MapHtml("/first", "<script>reportError(new Error('from the first'))</script>")
+            .MapHtml("/second", "<script>reportError(new Error('from the second'))</script>"));
+
+        var before = DateTimeOffset.UtcNow;
+        await fixture.Page.NavigateAsync(fixture.Url("/first"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.Page.NavigateAsync(fixture.Url("/second"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        var after = DateTimeOffset.UtcNow;
+
+        fixture.Page.Errors.Should().HaveCount(2);
+
+        var first = fixture.Page.Errors.Single(error => error.Message.Contains("from the first", StringComparison.Ordinal));
+        var second = fixture.Page.Errors.Single(error => error.Message.Contains("from the second", StringComparison.Ordinal));
+
+        first.DocumentUrl.Should().Be(fixture.Url("/first"));
+        second.DocumentUrl.Should().Be(fixture.Url("/second"));
+
+        first.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        first.Timestamp.Should().BeOnOrBefore(second.Timestamp);
+    }
+
     [Test]
     public async Task AMalformedDataUrlAssignedFromScriptIsAPageErrorAndNotAFault()
     {

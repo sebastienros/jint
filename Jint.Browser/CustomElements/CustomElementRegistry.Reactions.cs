@@ -364,10 +364,10 @@ internal sealed partial class CustomElementRegistry
             // A page whose own error handler throws is not a reason to lose the original report.
         }
 
-        _runtime.Recorder.Add(new PageError(
+        _runtime.Recorder.Add(
             PageErrorKind.UncaughtCallbackError,
             PageRecorder.Diagnostics.Describe(exception.Error, exception),
-            "custom element '" + name + "'"));
+            "custom element '" + name + "'");
     }
 
     /// <summary>Remembers the current value of every observed attribute, so the next change has an old one.</summary>

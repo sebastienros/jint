@@ -380,7 +380,7 @@ public sealed partial class Page
             }
             catch (NavigationFailedException failure)
             {
-                _recorder.Add(new PageError(PageErrorKind.ReportedError, failure.Message, "Navigation"));
+                _recorder.Add(PageErrorKind.ReportedError, failure.Message, "Navigation");
             }
             catch (OperationCanceledException)
             {
@@ -391,7 +391,7 @@ public sealed partial class Page
             }
             catch (Exception exception)
             {
-                _recorder.Add(new PageError(PageErrorKind.ReportedError, exception.Message, "Navigation"));
+                _recorder.Add(PageErrorKind.ReportedError, exception.Message, "Navigation");
             }
         });
     }
@@ -529,7 +529,7 @@ public sealed partial class Page
                 {
                     if (task.Exception is { } exception)
                     {
-                        ((Page) state!)._recorder.Add(new PageError(PageErrorKind.ReportedError, exception.GetBaseException().Message, "Navigation"));
+                        ((Page) state!)._recorder.Add(PageErrorKind.ReportedError, exception.GetBaseException().Message, "Navigation");
                     }
                 },
                 this,

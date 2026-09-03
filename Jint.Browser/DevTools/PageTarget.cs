@@ -400,17 +400,17 @@ internal sealed class NewDocumentScripts
             }
             catch (JavaScriptException exception)
             {
-                runtime.Recorder.Add(new PageError(
+                runtime.Recorder.Add(
                     PageErrorKind.ScriptError,
                     exception.Message,
-                    "Page.addScriptToEvaluateOnNewDocument#" + id));
+                    "Page.addScriptToEvaluateOnNewDocument#" + id);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException)
             {
-                runtime.Recorder.Add(new PageError(
+                runtime.Recorder.Add(
                     PageErrorKind.ScriptError,
                     exception.Message,
-                    "Page.addScriptToEvaluateOnNewDocument#" + id));
+                    "Page.addScriptToEvaluateOnNewDocument#" + id);
             }
         }
     }

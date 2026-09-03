@@ -97,18 +97,20 @@ public sealed partial class Page : IAsyncDisposable
             "Jint.Browser page loop",
             options.PumpIdle,
             () => BuildEngine("about:blank", ""),
-            exception => recorder.Add(PumpError(exception)));
+            exception => recorder.Add(PumpErrorKind(exception), exception.Message, "PageLoop"));
+
+        // The recorder is built before the page, so it is told here where to read the page's URL from — the
+        // same volatile field the network log reads, so an error and a request name one document.
+        recorder.DocumentUrl = () => _url;
     }
 
-    /// <summary>What a page records when something erupts from its pump rather than from a callback.</summary>
+    /// <summary>What a page calls something that erupts from its pump rather than from a callback.</summary>
     /// <remarks>
     /// A turn that ran out of its budget is not a callback that threw, and a host reading the log needs to
     /// tell "this page's script is in a loop" from "this page's script has a bug".
     /// </remarks>
-    private static PageError PumpError(Exception exception) => new(
-        PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError,
-        exception.Message,
-        "PageLoop");
+    private static PageErrorKind PumpErrorKind(Exception exception)
+        => PageBudget.IsBudgetFailure(exception) ? PageErrorKind.BudgetExceeded : PageErrorKind.UncaughtCallbackError;
 
     /// <summary>The context this page belongs to.</summary>
     public BrowserContext Context { get; }
@@ -472,7 +474,7 @@ public sealed partial class Page : IAsyncDisposable
 
     /// <summary>Records what a worker's pump got wrong, from the worker's own thread.</summary>
     internal void RecordWorkerError(Exception exception, string name)
-        => _recorder.Add(new PageError(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name));
+        => _recorder.Add(PageErrorKind.WorkerError, exception.Message, name.Length == 0 ? "Worker" : name);
 
     /// <summary>The engine one document runs in, built with that document's URL, origin and referrer.</summary>
     private Engine BuildEngine(string url, string referrer)
@@ -536,7 +538,7 @@ public sealed partial class Page : IAsyncDisposable
             {
                 // A job that ran out of budget ends; the wait does not, because the next drain gets a budget
                 // of its own and the caller's own ceiling is what bounds this loop.
-                _recorder.Add(new PageError(PageErrorKind.BudgetExceeded, exception.Message, "PageLoop"));
+                _recorder.Add(PageErrorKind.BudgetExceeded, exception.Message, "PageLoop");
             }
 
             if (engine.Tasks.TimeUntilNextScheduledWork is not { } next)

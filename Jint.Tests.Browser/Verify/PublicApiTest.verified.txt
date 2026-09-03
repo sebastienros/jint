@@ -149,9 +149,11 @@ namespace Jint.Browser
     }
     public sealed class PageError
     {
+        public string DocumentUrl { get; }
         public Jint.Browser.PageErrorKind Kind { get; }
         public string Message { get; }
         public string? Source { get; }
+        public System.DateTimeOffset Timestamp { get; }
         public override string ToString() { }
     }
     public enum PageErrorKind
