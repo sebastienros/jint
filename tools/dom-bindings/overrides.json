@@ -228,6 +228,11 @@
       "interface": "Element",
       "member": "replace",
       "reason": "DOM §4.2.7 names it `replaceWith` and AngleSharp's IChildNode carries [DomName(\"replace\")], so the mixin projected a member the standard does not have under a name it does not use. Re-declared in `additions` over the same call; the divergence is in Dom/AGENTS.md's table."
+    },
+    {
+      "interface": "DOMImplementation",
+      "member": "hasFeature",
+      "reason": "DOM §4.5 declares it as `boolean hasFeature()` -- no arguments at all, and the standard's own note says it is kept only so that legacy feature detection takes the modern path. AngleSharp answers false for 133 of the 136 pairs `DOMImplementation-hasFeature.html` asks about, and its first parameter is required, so `hasFeature()` was a TypeError as well. Re-declared in `additions` as the one line the algorithm is."
     }
   ],
   "additions": [
@@ -1244,6 +1249,18 @@
       "interface": "NodeList",
       "extend": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
       "reason": "WebIDL's `iterable<Node>`, the same four members DOMTokenList's declaration gives and for the same reason: their values are %Array.prototype%'s own, which is a per-realm data slot rather than an operation with a body."
+    },
+    {
+      "interface": "DOMImplementation",
+      "member": "hasFeature",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, \"DOMImplementation.hasFeature\");",
+        "// https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature is one step: \"return true\".",
+        "return global::Jint.Native.JsBoolean.True;"
+      ],
+      "reason": "The other half of the skip above, and the whole of DOM §4.5's algorithm. The brand check stays, because calling it on the wrong receiver is still WebIDL's TypeError."
     }
   ],
   "hooks": [

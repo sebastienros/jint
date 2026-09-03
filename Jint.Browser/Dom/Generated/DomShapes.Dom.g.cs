@@ -493,10 +493,11 @@ internal static partial class DomInterfaces
             .Method("hasFeature",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMImplementation.hasFeature", static (thisObj, args) =>
                 {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.hasFeature");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.HasFeature(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMImplementation.hasFeature"), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 1, null)!));
+                    global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IImplementation>(thisObj, "DOMImplementation.hasFeature");
+                    // https://dom.spec.whatwg.org/#dom-domimplementation-hasfeature is one step: "return true".
+                    return global::Jint.Native.JsBoolean.True;
                 }),
-                length: 1)
+                length: 0)
             .Build();
 
     /// <summary>The members of <c>DOMTokenList</c>.</summary>
