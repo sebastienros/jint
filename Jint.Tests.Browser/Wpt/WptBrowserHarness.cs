@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -104,7 +104,7 @@ internal sealed class WptBrowserHarness : IDisposable
 
     private WptBrowserHarness()
     {
-        _server = new WptServer(HarnessReportOverlay, TestDriverVendorOverlay);
+        _server = new WptServer(Overlays);
 
         var options = new BrowserOptions
         {
@@ -292,15 +292,20 @@ internal sealed class WptBrowserHarness : IDisposable
     }
 
     /// <summary>
-    /// The lane's <c>testharnessreport.js</c>, embedded so the check reads the bytes the build compiled.
+    /// What this lane answers upstream's vendor slots with, keyed by the path the server serves each at.
     /// </summary>
-    private static string HarnessReportOverlay { get; } = ReadOverlay("testharnessreport.js");
-
-    /// <summary>
-    /// The lane's <c>testdriver-vendor.js</c> — the second slot upstream ships for a vendor to fill, and what
-    /// turns a document that drives input through <c>test_driver</c> into one that reports.
-    /// </summary>
-    private static string TestDriverVendorOverlay { get; } = ReadOverlay("testdriver-vendor.js");
+    /// <remarks>
+    /// Both are embedded rather than read from the tree, so the server sends the bytes the build compiled;
+    /// and both are entries in one map rather than parameters, so a third slot is a line here and nothing
+    /// else. <c>testharnessreport.js</c> is the script that posts a page's results back to the driver, and
+    /// <c>testdriver-vendor.js</c> is what turns a document that drives input through <c>test_driver</c>
+    /// into one that reports.
+    /// </remarks>
+    private static Dictionary<string, string> Overlays { get; } = new(StringComparer.Ordinal)
+    {
+        ["resources/testharnessreport.js"] = ReadOverlay("testharnessreport.js"),
+        ["resources/testdriver-vendor.js"] = ReadOverlay("testdriver-vendor.js"),
+    };
 
     private static string ReadOverlay(string name)
     {
