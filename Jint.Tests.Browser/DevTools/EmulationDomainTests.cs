@@ -318,6 +318,51 @@ public class EmulationDomainTests
         (await Text(session, attachment, "navigator.userAgent")).Should().Be("ViaEmulation/2.0");
     }
 
+    /// <summary>
+    /// A page a client attached to but never overrode still names itself: the document's own request and a
+    /// <c>fetch</c> the page makes both carry <see cref="BrowserOptions.UserAgent"/>, and an override set
+    /// afterwards moves the next request without a reload.
+    /// </summary>
+    /// <remarks>
+    /// The two halves are two mechanisms — <c>Options.WebApi.Fetch.UserAgent</c>, fixed when this document's
+    /// engine was built, and <c>PageNetworkPolicy.Apply</c> rewriting the header per hop — and before #3720
+    /// the first of them did not exist, so a page nobody had overridden sent no <c>User-Agent</c> at all.
+    /// </remarks>
+    [Test]
+    public async Task WithNoOverrideThePagesOwnUserAgentIsWhatEveryRequestCarries()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/page", "<html><body>ok</body></html>");
+        server.Map("/data.json", _ => LoopbackResponse.Json("{\"ok\":true}"));
+
+        await using var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = server.Owns });
+        var page = await session.NewPageAsync();
+        var target = await session.TargetForAsync(page);
+        var attachment = await session.AttachAsync(target);
+        await session.EnablePageAsync(attachment);
+
+        await page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await page.EvaluateAsync("window.first = false; fetch('/data.json').then(() => { window.first = true; });");
+        (await page.WaitForAsync("window.first === true", TimeSpan.FromSeconds(10))).Should().BeTrue();
+
+        var expected = await page.EvaluateAsync<string>("navigator.userAgent");
+        expected.Should().Contain("Jint.Browser");
+        server.Received.Single(received => received.Path == "/page").Header("User-Agent").Should().Be(expected);
+        server.Received.Single(received => received.Path == "/data.json").Header("User-Agent").Should().Be(expected);
+
+        // An override reaches the document that is already loaded, which is what makes it an override.
+        await session.ResultAsync(
+            "Emulation.setUserAgentOverride",
+            "{\"userAgent\":\"Late/3.0\"}",
+            attachment);
+
+        await page.EvaluateAsync("window.second = false; fetch('/data.json?again').then(() => { window.second = true; });");
+        (await page.WaitForAsync("window.second === true", TimeSpan.FromSeconds(10))).Should().BeTrue();
+
+        server.Received.Single(received => received.Query == "again").Header("User-Agent").Should().Be("Late/3.0");
+        (await Text(session, attachment, "navigator.userAgent")).Should().Be("Late/3.0");
+    }
+
     [Test]
     public async Task TheTimeZoneOverrideReachesTheNextDocument()
     {

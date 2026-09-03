@@ -59,11 +59,12 @@ public class WebSocketTests
         private TaskCompletionSource<WebSocketReceipt>? _waiting;
         private bool _aborted;
 
-        internal FakeConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes)
+        internal FakeConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
         {
             Url = url;
             Protocols = protocols;
             MaxMessageBytes = maxMessageBytes;
+            UserAgent = userAgent;
         }
 
         internal Uri Url { get; }
@@ -71,6 +72,9 @@ public class WebSocketTests
         internal IReadOnlyList<string> Protocols { get; }
 
         internal long MaxMessageBytes { get; }
+
+        /// <summary>The <c>User-Agent</c> the opening handshake was asked to carry.</summary>
+        internal string? UserAgent { get; }
 
         /// <summary>Completed by the test to finish the handshake, or faulted to fail it.</summary>
         internal TaskCompletionSource Handshake { get; } = new();
@@ -219,9 +223,9 @@ public class WebSocketTests
 
         internal FakeConnection Last => Created[^1];
 
-        public IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes)
+        public IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
         {
-            var connection = new FakeConnection(url, protocols, maxMessageBytes);
+            var connection = new FakeConnection(url, protocols, maxMessageBytes, userAgent);
             Created.Add(connection);
             return connection;
         }
@@ -284,6 +288,31 @@ public class WebSocketTests
         PumpUntilLogged(engine, 1);
 
         return (engine, sockets);
+    }
+
+    /// <summary>
+    /// The opening handshake is an HTTP request, so it carries the same <c>User-Agent</c> a <c>fetch</c>
+    /// would — the engine's own token by default, and whatever the host named instead.
+    /// </summary>
+    /// <remarks>
+    /// https://fetch.spec.whatwg.org/#default-user-agent-value. What the transport does with the value is
+    /// two lines of <c>ClientWebSocketConnection</c>; what a host can get wrong is the wiring, which is what
+    /// this reads.
+    /// </remarks>
+    [Test]
+    public void TheHandshakeCarriesTheConfiguredUserAgent()
+    {
+        var (engine, sockets) = SocketEngine();
+        engine.Execute("new WebSocket('wss://example.org/socket');");
+        sockets.Last.UserAgent.Should().Be("Jint/" + typeof(Engine).Assembly.GetName().Version!.ToString(3));
+
+        var (named, namedSockets) = SocketEngine(fetch => fetch.UserAgent = "Named/1.0");
+        named.Execute("new WebSocket('wss://example.org/socket');");
+        namedSockets.Last.UserAgent.Should().Be("Named/1.0");
+
+        var (silent, silentSockets) = SocketEngine(fetch => fetch.UserAgent = null);
+        silent.Execute("new WebSocket('wss://example.org/socket');");
+        silentSockets.Last.UserAgent.Should().BeNull("a host that cleared the value sends no such header");
     }
 
     [Test]

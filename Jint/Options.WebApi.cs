@@ -420,9 +420,10 @@ public sealed partial class Options
     /// outright works too); <see cref="UrlFilter"/> is shown the <c>ws:</c> URL itself;
     /// <see cref="MaxResponseBytes"/> is the ceiling on one incoming message and on the bytes <c>send()</c>
     /// may have unwritten; <see cref="MaxConcurrentRequests"/> is how many sockets one engine may have open,
-    /// counted separately from the requests in flight; and <see cref="Timeout"/> bounds the opening and
-    /// closing handshakes rather than the connection, which is meant to be long-lived. The other three
-    /// members are about HTTP alone and a socket ignores them: <see cref="HttpClient"/>,
+    /// counted separately from the requests in flight; <see cref="Timeout"/> bounds the opening and
+    /// closing handshakes rather than the connection, which is meant to be long-lived; and
+    /// <see cref="UserAgent"/> is carried by the opening handshake, which is an HTTP request like any other.
+    /// The other three members are about HTTP alone and a socket ignores them: <see cref="HttpClient"/>,
     /// <see cref="HttpClientFactory"/> and <see cref="MaxRedirects"/> — the WebSocket handshake is not
     /// allowed to be redirected at all.
     /// </para>
@@ -564,6 +565,31 @@ public sealed partial class Options
         /// effectively unbounded; zero or less refuses every request.
         /// </remarks>
         public int MaxConcurrentRequests { get; set { ThrowIfReadOnly(); field = value; } } = 10;
+
+        /// <summary>
+        /// The <c>User-Agent</c> every request carries. Defaults to <c>Jint/&lt;version&gt;</c>, the same
+        /// string <c>navigator.userAgent</c> answers; <see langword="null"/> or the empty string sends no
+        /// such header at all.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// This is the <i>default <c>User-Agent</c> value</i> of
+        /// https://fetch.spec.whatwg.org/#default-user-agent-value, appended by HTTP-network-or-cache fetch
+        /// (https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch) only when the request's own
+        /// header list does not already contain one — so a script that sets <c>User-Agent</c> in a
+        /// <c>fetch</c> init or through <c>setRequestHeader</c> still decides for that request.
+        /// </para>
+        /// <para>
+        /// <b>Every lane reads it</b>, not only <c>fetch</c>: <c>XMLHttpRequest</c>, an <c>EventSource</c>
+        /// stream and a <c>WebSocket</c>'s opening handshake carry the same value, and a host embedding Jint
+        /// behind a browsing context sets it once so that what a page reports and what it sends cannot
+        /// disagree.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built.
+        /// </para>
+        /// </remarks>
+        public string? UserAgent { get; set { ThrowIfReadOnly(); field = value; } } = ProductToken.UserAgent;
 
         /// <summary>
         /// The API base URL a relative URL is resolved against. Defaults to <see langword="null"/>, which

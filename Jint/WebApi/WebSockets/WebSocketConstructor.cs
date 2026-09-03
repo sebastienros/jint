@@ -170,7 +170,7 @@ internal sealed partial class WebSocketConstructor : Constructor
         if (WebSocketPolicy.Allows(options, url, out var uri))
         {
             var factory = state.WebSocketConnections ?? ClientWebSocketConnectionFactory.Instance;
-            connection = factory.Create(uri, protocols, options.MaxResponseBytes);
+            connection = factory.Create(uri, protocols, options.MaxResponseBytes, options.UserAgent);
         }
 
         var operation = new WebSocketOperation(_engine, _realm, socket, connection, options.Timeout);

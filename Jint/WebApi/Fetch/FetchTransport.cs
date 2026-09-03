@@ -122,6 +122,17 @@ internal sealed class FetchPolicy
     internal CookieJar? CookieJar { get; init; }
 
     /// <summary>
+    /// The <c>User-Agent</c> a hop carries when the request named none itself, or <see langword="null"/> to
+    /// send no such header — https://fetch.spec.whatwg.org/#default-user-agent-value.
+    /// </summary>
+    /// <remarks>
+    /// It is <c>Options.WebApi.Fetch.UserAgent</c> for every request an <i>engine</i> makes; a host driving
+    /// its own pipeline through this transport — a document fetch, a subresource — passes the one its
+    /// browsing context reports, so that a page's script and its requests cannot say different things.
+    /// </remarks>
+    internal string? UserAgent { get; init; }
+
+    /// <summary>
     /// The whole check one hop passes: the scheme list, the <see cref="Uri"/> grammar and the host's filter.
     /// Refusing is what stops a redirect to <c>http://169.254.169.254/</c> from reaching the socket.
     /// </summary>
@@ -575,6 +586,15 @@ internal static class FetchTransport
         if (origin is not null && !Contains(headers, "origin"))
         {
             headers.Add(new HeaderEntry("origin", origin));
+        }
+
+        // https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch: "If httpRequest's header list
+        // does not contain `User-Agent`, then user agents should append (`User-Agent`, default `User-Agent`
+        // value) to httpRequest's header list." The condition is the standard's own, so unlike the three
+        // headers around it this one needs no divergence to honour what the script set.
+        if (policy.UserAgent is { Length: > 0 } userAgent && !Contains(headers, "user-agent"))
+        {
+            headers.Add(new HeaderEntry("user-agent", userAgent));
         }
 
         if (policy.CookieJar is { } jar && CredentialsAllow(request.Credentials, policy, url) && !Contains(headers, "cookie"))

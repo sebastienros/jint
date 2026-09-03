@@ -81,8 +81,8 @@ where one is configured, `BrowserOptions.MemoryLimit`. Four consequences are eas
 
 A worker's pump takes the same bracket over its own engine's constraints, which it has because
 `WorkerRequest.CreateDefaultOptions` replays the parent's constraint **factories**. What that replay does
-*not* carry is a web-API setting, so `MaxActiveTimers`, `MaxResponseBytes` and `FetchTimeout` are named again
-in `ThreadPerWorkerProvider`; a new page-sized limit needs the same second call or a worker keeps the engine
+*not* carry is a web-API setting, so `MaxActiveTimers`, `MaxResponseBytes`, `FetchTimeout` and the page's
+user agent are named again in `ThreadPerWorkerProvider`; a new page-sized limit needs the same second call or a worker keeps the engine
 default.
 
 `BrowserOptions.ForUntrustedContent` applies `Options.ForUntrustedCode` from inside the factory's own

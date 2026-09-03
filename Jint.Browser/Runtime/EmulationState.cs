@@ -33,14 +33,18 @@ internal sealed class EmulationState
     private static readonly FrozenDictionary<string, string> _noFeatures =
         FrozenDictionary<string, string>.Empty;
 
-    internal EmulationState(Viewport defaultViewport)
+    internal EmulationState(Viewport defaultViewport, string defaultUserAgent)
     {
         DefaultViewport = defaultViewport;
+        DefaultUserAgent = defaultUserAgent;
         Viewport = defaultViewport;
     }
 
     /// <summary>The viewport the page opened with, which clearing an override restores.</summary>
     internal Viewport DefaultViewport { get; }
+
+    /// <summary><see cref="BrowserOptions.UserAgent"/>, which is what a page with no override reports.</summary>
+    internal string DefaultUserAgent { get; }
 
     /// <summary>What the page currently believes its window to be.</summary>
     /// <remarks>
@@ -82,6 +86,18 @@ internal sealed class EmulationState
     /// <c>navigator.userAgent</c> answers and what every request the page makes carries.
     /// </remarks>
     internal string? UserAgent { get; set; }
+
+    /// <summary>
+    /// The user agent this page reports and sends: the client's override, or the browser's own.
+    /// </summary>
+    /// <remarks>
+    /// <b>There is exactly one answer to that question and this is it.</b> <c>navigator.userAgent</c>, the
+    /// document's own request, every subresource, a script's <c>fetch</c> and <c>XMLHttpRequest</c> and a
+    /// worker's engine all read this one property — a second resolution of the same precedence somewhere
+    /// else is how a page came to report one string and send another
+    /// ([#3720](https://github.com/sebastienros/jint/issues/3720)).
+    /// </remarks>
+    internal string EffectiveUserAgent => UserAgent is { Length: > 0 } overridden ? overridden : DefaultUserAgent;
 
     /// <summary>What <c>navigator.language</c> answers when a user agent override named one.</summary>
     internal string? AcceptLanguage { get; set; }

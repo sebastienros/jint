@@ -88,7 +88,7 @@ public sealed partial class Page : IAsyncDisposable
         Context = context;
         _options = options;
         _recorder = recorder;
-        Emulation = new EmulationState(options.Viewport);
+        Emulation = new EmulationState(options.Viewport, options.UserAgent);
         _requests = new PageNetworkRecorder(options.MaxRecordedEvents, options.MaxCapturedResponseBytes, () => _loaderId, () => _url);
         _network = context.Network;
         _workers = new ThreadPerWorkerProvider(this, _network, _requests, options);

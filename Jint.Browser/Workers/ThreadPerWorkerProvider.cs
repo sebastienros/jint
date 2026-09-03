@@ -100,6 +100,12 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
         options.WebApi.Fetch.MaxResponseBytes = _options.MaxResponseBytes;
         options.WebApi.Fetch.Timeout = _options.FetchTimeout;
 
+        // A worker is the page making a request, so it says what the page says — the client's user agent
+        // override included, which is why this is read from the page's emulation state rather than from
+        // BrowserOptions. Read here, once per worker: a worker's engine options are frozen the moment it is
+        // built, exactly as its parent document's are.
+        options.WebApi.Fetch.UserAgent = _page.Emulation.EffectiveUserAgent;
+
         // On the parent's thread, inside the constructor, so the host's factory sees the engine that asked
         // for the worker — which is the engine whose HostDefined carries whatever varies per page.
         var client = _network.ClientFor(request.Parent);
@@ -126,7 +132,8 @@ internal sealed class ThreadPerWorkerProvider : WorkerProvider
                 client,
                 baseUrl,
                 options.WebApi.Fetch.MaxResponseBytes,
-                options.WebApi.Fetch.Timeout);
+                options.WebApi.Fetch.Timeout,
+                options.WebApi.Fetch.UserAgent);
         }
 
         return new Engine(options);

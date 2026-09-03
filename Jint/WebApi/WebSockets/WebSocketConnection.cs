@@ -124,7 +124,12 @@ internal interface IWebSocketConnectionFactory
     /// The largest message the connection may reassemble before it raises
     /// <see cref="WebSocketMessageTooLargeException"/>, from <c>Options.WebApi.Fetch.MaxResponseBytes</c>.
     /// </param>
-    IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes);
+    /// <param name="userAgent">
+    /// The <c>User-Agent</c> the opening handshake carries, from <c>Options.WebApi.Fetch.UserAgent</c>, or
+    /// <see langword="null"/> for none. The handshake is an HTTP request like any other, so it says what the
+    /// rest of the engine says.
+    /// </param>
+    IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent);
 }
 
 /// <summary>

@@ -360,7 +360,15 @@ internal sealed class ParserDriver : IDisposable
         // derives the `Origin` header from it, never the path. `DocumentFetch` and `fetch()` pass the same
         // shape for the same reason.
         var documentUrl = UrlParser.Parse(_runtime.DocumentUrl);
-        var request = new SubresourceRequest(target, documentUrl, documentUrl, _maxBytes, _maxRedirects, RequestInitiator.Subresource, kind);
+        var request = new SubresourceRequest(
+            target,
+            documentUrl,
+            documentUrl,
+            _maxBytes,
+            _maxRedirects,
+            RequestInitiator.Subresource,
+            _runtime.Emulation.EffectiveUserAgent,
+            kind);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
         timeout.CancelAfter(_timeout);
 

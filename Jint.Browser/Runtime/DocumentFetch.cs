@@ -85,6 +85,7 @@ internal static class DocumentFetch
             Origin = request.Origin,
             SameOriginReference = request.Origin,
             CookieJar = network.CookieJar,
+            UserAgent = request.UserAgent,
         };
 
         try
@@ -333,6 +334,7 @@ internal static class DocumentFetch
 /// <param name="Origin">The origin the request reports, or <see langword="null"/> for an opaque one.</param>
 /// <param name="MaxResponseBytes">The ceiling on the document's size.</param>
 /// <param name="MaxRedirects">How many hops the chain may follow.</param>
+/// <param name="UserAgent">The user agent the page reports, which its own request carries too.</param>
 internal sealed record DocumentRequest(
     UrlRecord Url,
     string Method,
@@ -341,4 +343,5 @@ internal sealed record DocumentRequest(
     UrlRecord? Referrer,
     UrlRecord? Origin,
     long MaxResponseBytes,
-    int MaxRedirects);
+    int MaxRedirects,
+    string UserAgent);

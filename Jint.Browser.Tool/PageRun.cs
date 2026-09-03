@@ -98,7 +98,16 @@ internal sealed class PageRun : IAsyncDisposable
     internal static async Task<PageRun> OpenAsync(BrowserSettings browser, LoadSettings load, PageSource source)
     {
         var options = browser.ToBrowserOptions();
-        var client = BrowserSettings.CreateRequestClient(options.UserAgent, load.Headers);
+
+        // A --header 'User-Agent: …' names the page's user agent rather than a client default, because the
+        // package puts the page's own on every request and a default header cannot replace one that is
+        // already on the request. It wins over --user-agent, being the more specific of the two.
+        if (BrowserSettings.UserAgentFrom(load.Headers) is { } named)
+        {
+            options.UserAgent = named;
+        }
+
+        var client = BrowserSettings.CreateRequestClient(load.Headers);
         var instance = new Browser(options);
 
         try

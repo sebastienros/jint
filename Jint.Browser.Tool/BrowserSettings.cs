@@ -103,8 +103,7 @@ internal sealed class BrowserSettings
         return options;
     }
 
-    /// <summary>A client that carries the user agent and <paramref name="headers"/> on every request.</summary>
-    /// <param name="userAgent">What the pages report themselves as, which is what they should also send.</param>
+    /// <summary>A client that carries <paramref name="headers"/> on every request.</summary>
     /// <param name="headers">The header lines <c>--header</c> gave, already split.</param>
     /// <returns>The client to hand the context, which the caller disposes.</returns>
     /// <remarks>
@@ -115,22 +114,27 @@ internal sealed class BrowserSettings
     /// that request, which is what "extra" has to mean.
     /// </para>
     /// <para>
-    /// <b>The user agent is one of them, and it has to be.</b> <c>BrowserOptions.UserAgent</c> is what a page
-    /// reports in script; the request header is set by the <c>Network</c> domain's override and therefore
-    /// only when a protocol client is attached, so a <c>fetch</c> from this tool would otherwise send no
-    /// <c>User-Agent</c> at all and a server that varies on it would answer the wrong thing. An explicit
-    /// <c>--header 'User-Agent: …'</c> replaces it rather than adding a second value.
+    /// <b>The user agent is not one of them any more.</b> The package puts the page's own user agent on
+    /// every request it makes ([#3720](https://github.com/sebastienros/jint/issues/3720)), which is a header
+    /// on the request itself and therefore beats any default this client could carry — so a
+    /// <c>--header 'User-Agent: …'</c> is turned into <see cref="UserAgent"/> by
+    /// <see cref="UserAgentFrom"/> and dropped here, and what the page reports and what it sends stay one
+    /// string.
     /// </para>
     /// </remarks>
-    internal static HttpClient CreateRequestClient(string userAgent, IReadOnlyList<(string Name, string Value)> headers)
+    internal static HttpClient CreateRequestClient(IReadOnlyList<(string Name, string Value)> headers)
     {
         // Redirects stay off and so do the handler's own cookies: the redirect loop and the jar are the
         // package's, so that every hop is re-checked against the URL filter and the Cookie header recomputed.
         var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
-        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
 
         foreach (var (name, value) in headers)
         {
+            if (IsUserAgent(name))
+            {
+                continue;
+            }
+
             client.DefaultRequestHeaders.Remove(name);
 
             if (!client.DefaultRequestHeaders.TryAddWithoutValidation(name, value))
@@ -142,4 +146,28 @@ internal sealed class BrowserSettings
 
         return client;
     }
+
+    /// <summary>
+    /// The user agent a <c>--header 'User-Agent: …'</c> named, or <see langword="null"/> when none did.
+    /// </summary>
+    /// <remarks>
+    /// The last one wins, which is what the header loop above does with every other name.
+    /// </remarks>
+    internal static string? UserAgentFrom(IReadOnlyList<(string Name, string Value)> headers)
+    {
+        string? named = null;
+
+        foreach (var (name, value) in headers)
+        {
+            if (IsUserAgent(name))
+            {
+                named = value;
+            }
+        }
+
+        return named;
+    }
+
+    private static bool IsUserAgent(string name)
+        => string.Equals(name, "User-Agent", StringComparison.OrdinalIgnoreCase);
 }

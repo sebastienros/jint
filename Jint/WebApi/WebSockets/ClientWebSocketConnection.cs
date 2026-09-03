@@ -37,7 +37,7 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
     private readonly Uri _url;
     private readonly long _maxMessageBytes;
 
-    internal ClientWebSocketConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes)
+    internal ClientWebSocketConnection(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
     {
         _url = url;
         _maxMessageBytes = maxMessageBytes;
@@ -51,6 +51,14 @@ internal sealed class ClientWebSocketConnection : IWebSocketConnection
 
         _socket.Options.UseDefaultCredentials = false;
         _socket.Options.Cookies = null;
+
+        // The opening handshake is an HTTP request, so it carries the engine's own default `User-Agent`
+        // value (https://fetch.spec.whatwg.org/#default-user-agent-value) exactly as a fetch does. .NET
+        // sends none of its own, which is what made a socket the one lane that said nothing.
+        if (userAgent is { Length: > 0 })
+        {
+            _socket.Options.SetRequestHeader("User-Agent", userAgent);
+        }
     }
 
     public string SubProtocol => _socket.SubProtocol ?? string.Empty;
@@ -161,7 +169,7 @@ internal sealed class ClientWebSocketConnectionFactory : IWebSocketConnectionFac
     {
     }
 
-    public IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes)
-        => new ClientWebSocketConnection(url, protocols, maxMessageBytes);
+    public IWebSocketConnection Create(Uri url, IReadOnlyList<string> protocols, long maxMessageBytes, string? userAgent)
+        => new ClientWebSocketConnection(url, protocols, maxMessageBytes, userAgent);
 }
 #endif
