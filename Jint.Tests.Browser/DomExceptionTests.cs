@@ -74,7 +74,8 @@ public sealed class DomExceptionTests
                 .Select(field => Enum.Parse<DomError>(field))
                 .Select(error => (int) error + " " + Enum.GetName(error) + " -> " + DomFailures.NameOf(new DomException(error))));
 
-        table.Should().Be(
+        // The literal takes the source file's line endings, so both sides are normalized before they meet.
+        table.ReplaceLineEndings("\n").Should().Be(
             """
             1 IndexSizeError -> IndexSizeError
             2 DomStringSize -> DOMStringSizeError
@@ -101,7 +102,7 @@ public sealed class DomExceptionTests
             23 Timeout -> TimeoutError
             24 InvalidNodeType -> InvalidNodeTypeError
             25 DataClone -> DataCloneError
-            """);
+            """.ReplaceLineEndings("\n"));
     }
 
     /// <summary>
