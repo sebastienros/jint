@@ -814,14 +814,11 @@ public class XmlHttpRequestTests
     [Test]
     public Task TheTimeoutAttributeFiresTheTimeoutEvent() => DedicatedThread.RunAsync(() =>
     {
-        var handler = new StubHandler
-        {
-            Responder = _ =>
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(30));
-                return new HttpResponseMessage(HttpStatusCode.OK);
-            },
-        };
+        // Gated rather than slow: a transport that sleeps answers on whichever thread the pipeline happens to
+        // put it on, so whether its response was queued before the deadline came due was up to the machine —
+        // and macOS and ARM answered differently from Linux. A gate nothing releases cannot answer at all, so
+        // the deadline is the only thing that can settle the request, which is what this test is about.
+        var handler = new StubHandler { Gate = new TaskCompletionSource() };
 
         var engine = XhrEngine(handler);
         engine.Execute($@"
