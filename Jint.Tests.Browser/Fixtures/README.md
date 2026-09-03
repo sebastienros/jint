@@ -116,5 +116,7 @@ web-platform-tests corpus uses, and for the same reason: a suite that read a wor
 differently under `dotnet test`, under an IDE and under a single-file publish. `FixtureCorpus` is the index and
 `FixtureOrigin` is what serves it.
 
-`.gitattributes` marks this directory `linguist-vendored`, so the minified bundles do not count as this
-repository's own source.
+`.gitattributes` marks `vendor/` (and the compiled Svelte bundle) `linguist-vendored`, so the minified files
+do not count as this repository's own source, and pins `vendor/` to LF so that re-downloading a bundle at the
+version above produces no diff on a Windows checkout. The fixture pages and the C# beside them are ours and
+are deliberately not marked.
