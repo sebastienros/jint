@@ -63,7 +63,9 @@ internal static class DomViewMembers
         var settings = WhatToShow(arguments);
         var filter = arguments.At(2);
 
-        var iterator = document.CreateNodeIterator(root, settings, NodeFilters.From(realm, filter, "createNodeIterator")!);
+        // DOM §6.1's own iterator rather than AngleSharp's: the standard's traversal turns on a second
+        // position that AngleSharp's has no field for. See DomNodeIterator.
+        var iterator = new DomNodeIterator(document, root, settings, NodeFilters.From(realm, filter, "createNodeIterator"));
         _filters.AddOrUpdate(iterator, filter.IsNullOrUndefined() ? JsValue.Null : filter);
         return realm.Wrap(iterator);
     }
