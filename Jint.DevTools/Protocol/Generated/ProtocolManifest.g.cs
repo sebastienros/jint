@@ -232,6 +232,7 @@ namespace Jint.DevTools.Protocol
             "Runtime.getHeapUsage",
             "Runtime.getIsolateId",
             "Runtime.getProperties",
+            "Runtime.globalLexicalScopeNames",
             "Runtime.releaseObject",
             "Runtime.releaseObjectGroup",
             "Runtime.removeBinding",

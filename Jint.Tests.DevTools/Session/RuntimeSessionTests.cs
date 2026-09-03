@@ -298,13 +298,12 @@ public class RuntimeSessionTests
     /// error a client feature-detects on rather than with a made-up success.
     /// </summary>
     /// <remarks>
-    /// <c>globalLexicalScopeNames</c> would need the realm's global declarative record to publish its
-    /// binding <i>names</i>, which it does not — <c>engine.Diagnostics.GetMemoryReport()</c> answers a count
-    /// and nothing else. <c>queryObjects</c> would need the heap enumerated by prototype, which is the CLR's
-    /// heap. <c>terminateExecution</c> would let a client stop a host's script at will, which is a
-    /// different security posture from the one the constraints define.
+    /// <c>queryObjects</c> would need the heap enumerated by prototype, which is the CLR's heap.
+    /// <c>terminateExecution</c> would let a client stop a host's script at will, which is a different
+    /// security posture from the one the constraints define. <c>globalLexicalScopeNames</c> used to be here
+    /// beside them and is answered now, over the engine seam that closed it — see
+    /// <see cref="RuntimeGlobalLexicalScopeNamesTests"/>.
     /// </remarks>
-    [TestCase("Runtime.globalLexicalScopeNames")]
     [TestCase("Runtime.queryObjects")]
     [TestCase("Runtime.terminateExecution")]
     public async Task TheCommandsThisPackageCannotAnswerAreMethodNotFound(string method)

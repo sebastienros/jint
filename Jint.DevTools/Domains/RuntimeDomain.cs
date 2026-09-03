@@ -161,6 +161,32 @@ internal sealed partial class RuntimeDomain : RuntimeDomainBase, IBindingListene
         });
     }
 
+    /// <summary>
+    /// Answers the names of the global <c>let</c>, <c>const</c> and <c>class</c> declarations, which is what
+    /// the console's completion list is built from.
+    /// </summary>
+    /// <remarks>
+    /// The specification keeps these beside the global object rather than on it, so a client enumerating
+    /// <c>globalThis</c> sees the <c>var</c>s and the function declarations and none of these. They come from
+    /// <c>engine.Advanced.GetGlobalLexicalNames()</c>, in declaration order, and reading them runs no script:
+    /// the names are the environment record's own, and no value is produced for any of them.
+    /// </remarks>
+    protected override ValueTask<GlobalLexicalScopeNamesResponse> GlobalLexicalScopeNamesAsync(
+        GlobalLexicalScopeNamesRequest parameters,
+        CommandContext context)
+    {
+        _target.RequireContext(parameters.ExecutionContextId);
+
+        var names = _target.Runtime.Engine.Advanced.GetGlobalLexicalNames();
+        var result = new string[names.Count];
+        for (var i = 0; i < result.Length; i++)
+        {
+            result[i] = names[i];
+        }
+
+        return new ValueTask<GlobalLexicalScopeNamesResponse>(new GlobalLexicalScopeNamesResponse { Names = result });
+    }
+
     /// <inheritdoc/>
     protected override ValueTask<EvaluateResponse> EvaluateAsync(EvaluateRequest parameters, CommandContext context)
     {

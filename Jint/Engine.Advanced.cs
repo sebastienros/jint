@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -54,6 +55,38 @@ public partial class Engine
         {
             using var ownership = _engine.EnterHostCall();
             _engine.ResetCallStack();
+        }
+
+        /// <summary>
+        /// Gets the names of the principal realm's global lexical bindings, in declaration order.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// These are the <c>let</c>, <c>const</c> and <c>class</c> declarations top-level script made, which
+        /// the specification keeps in the global environment record rather than on the global object — so
+        /// <c>globalThis</c> carries none of them, and neither <see cref="Engine.SetValue(string, JsValue)"/>
+        /// nor a <c>var</c> nor a function declaration adds one.
+        /// </para>
+        /// <para>
+        /// Names only: read a value with <see cref="Engine.Evaluate(string, string, ScriptParsingOptions)"/> over the name. A binding whose
+        /// declaration has been hoisted but not yet evaluated is named too, and evaluating it throws a
+        /// <c>ReferenceError</c>.
+        /// </para>
+        /// <para>
+        /// Each call answers a fresh list, so a declaration made afterwards does not change one already
+        /// handed out. <see cref="AdvancedOperations.RestoreGlobalSnapshot(GlobalSnapshot)"/> clears the
+        /// bindings, and <see cref="Diagnostics.EngineMemoryReport.LexicalGlobalBindingCount"/> counts them.
+        /// </para>
+        /// </remarks>
+        /// <returns>The binding names, in the order they were declared.</returns>
+        public IReadOnlyList<string> GetGlobalLexicalNames()
+        {
+            using var ownership = _engine.EnterHostCall();
+
+            // The principal realm, not the current one: inside a ShadowRealm evaluation `engine.Realm` names
+            // the shadow realm, and this answers a question about the engine. Same reading as the memory
+            // report's LexicalGlobalBindingCount, so the count and the names can never disagree.
+            return _engine._mainRealm.GlobalEnv._declarativeRecord.GetAllBindingNames();
         }
 
         /// <summary>

@@ -5213,6 +5213,7 @@ none of it changes an engine that does not.
 | The Chrome DevTools Protocol over a WebSocket, so a debugging client can attach to an engine your host is already running | `dotnet add package Jint.DevTools`, then `options.UseDevTools()` | [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) |
 | A headless browser — AngleSharp's DOM under Jint, drivable by Puppeteer and Playwright, plus a `jint-browser` command line | `dotnet add package Jint.Browser`, or `dotnet tool install -g Jint.Browser.Tool` | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
 | A Model Context Protocol server over that browser, so an agent reads a page as its accessibility tree and clicks its way through it | `jint-browser mcp`, or `AddMcpServer().AddJintBrowser()` in a host of your own | [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package) |
+| The names of the global `let`/`const`/`class` declarations, which `globalThis` does not carry | `engine.Advanced.GetGlobalLexicalNames()` | [§5.27](#527-a-host-can-list-the-global-lexical-bindings-3610) |
 | `LazyJsString` — one base class for a host string whose text is expensive to produce | `class Field : LazyJsString { public Field(int len) : base(len) {} protected override string Materialize() => … }` | [Lazy strings](../README.md#embedding-performance) |
 
 The last row is the only one that replaces an existing spelling rather than adding a capability, so it is
@@ -6035,6 +6036,29 @@ cannot do, the per-page budgets and how much of it is measured rather than claim
 [Chrome DevTools Protocol (opt-in package)](../README.md#chrome-devtools-protocol-opt-in-package) and
 [Headless browser (opt-in package)](../README.md#headless-browser-opt-in-package), and
 [`docs/releases/headless-browser.md`](releases/headless-browser.md) is the same thing package by package.
+
+### 5.27 A host can list the global lexical bindings ([#3610](https://github.com/sebastienros/jint/issues/3610))
+
+`let`, `const` and `class` declared at the top level of a script are bindings of the global *environment
+record*, which the specification keeps beside the global object rather than on it — so nothing a host could
+enumerate saw them. `engine.Diagnostics.GetMemoryReport().LexicalGlobalBindingCount` answered how many there
+were and nothing else.
+
+```csharp
+var engine = new Engine();
+engine.Execute("var v = 1; function f() {} let a; const b = 2; class C {}");
+
+// The var and the function declaration, and neither of the three lexical bindings.
+engine.Evaluate("Object.getOwnPropertyNames(globalThis)");
+
+// The three, in declaration order, and no var and no function.
+IReadOnlyList<string> names = engine.Advanced.GetGlobalLexicalNames();   // [ "a", "b", "C" ]
+```
+
+Names only — read a value with `engine.Evaluate(name)` — and a fresh list per call, so a declaration made
+afterwards does not change one already handed out. A binding still in its temporal dead zone is named too.
+`Jint.DevTools` answers `Runtime.globalLexicalScopeNames` over it, which is the console completion list in
+Chrome's front end; that command was `-32601` before.
 
 ## 6. AOT and trimming
 

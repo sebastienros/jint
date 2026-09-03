@@ -1749,6 +1749,12 @@ namespace Jint.DevTools.Domains
                     return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGetPropertiesResponse);
                 }
 
+                case "globalLexicalScopeNames":
+                {
+                    var result = await GlobalLexicalScopeNamesAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGlobalLexicalScopeNamesRequest), context).ConfigureAwait(false);
+                    return global::System.Text.Json.JsonSerializer.Serialize(result, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeGlobalLexicalScopeNamesResponse);
+                }
+
                 case "releaseObject":
                 {
                     var result = await ReleaseObjectAsync(global::Jint.DevTools.Protocol.ProtocolPayload.Read(parameters, global::Jint.DevTools.Protocol.ProtocolJsonContext.Default.RuntimeReleaseObjectRequest), context).ConfigureAwait(false);
