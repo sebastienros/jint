@@ -33,6 +33,39 @@ public class FileReaderTests
         }
     }
 
+    /// <summary>
+    /// https://w3c.github.io/FileAPI/#readOperation fires <c>load</c> and <c>loadend</c> from one task, and
+    /// what separates them is the microtask checkpoint the dispatch performs when a listener returns to an
+    /// empty JavaScript execution context stack — so an <c>await</c> the <c>load</c> handler resumed runs
+    /// first, which is the <c>EventWatcher</c> shape
+    /// <c>FileAPI/reading-data-section/filereader_events.any.js</c> is written in.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are pinned here because until sebastienros/jint#3668 the engine had no such checkpoint and
+    /// <c>loadend</c> was fired from a task of its own to stand in for one; this order has to survive the
+    /// workaround's removal.
+    /// </remarks>
+    [Test]
+    public void AnAwaitResumedByTheLoadListenerRunsBeforeLoadend()
+    {
+        var engine = ReaderEngine();
+
+        engine.Execute("""
+            var log = [];
+            var reader = new FileReader();
+            var arrived;
+            var waiting = new Promise(function (resolve) { arrived = resolve; });
+            (async function () { await waiting; log.push('resumed'); })();
+            reader.addEventListener('load', function () { log.push('load'); arrived(); });
+            reader.addEventListener('loadend', function () { log.push('loadend'); });
+            reader.readAsText(new Blob(['x']));
+            """);
+
+        Pump(engine);
+
+        engine.Evaluate("log.join('|')").AsString().Should().Be("load|resumed|loadend");
+    }
+
     [Test]
     public void TheInterfaceArrivesWithTheFilesFlagAndNotWithout()
     {

@@ -98,6 +98,20 @@ public sealed partial class Engine : IDisposable
     /// </summary>
     private int _hostEntryDepth;
 
+    /// <summary>
+    /// The execution-context depth at which the JavaScript execution context stack counts as <i>empty</i>
+    /// for the unit of work currently running: 1 — the base global context, which is never popped — outside
+    /// any job, and whatever depth <see cref="RunEventLoopJob"/> found while a job is running.
+    /// <see cref="CleanUpAfterRunningScript"/> is the only reader.
+    /// </summary>
+    /// <remarks>
+    /// The second case is what makes the field necessary rather than a constant: <c>ScriptEvaluation</c>
+    /// drains the event loop before popping the script's own execution context, so a job run on the way out
+    /// of an <c>Execute</c> sits one context deeper than the same job run by a host pump while nothing is
+    /// executing — and a job is exactly the shape that runs on an empty stack.
+    /// </remarks>
+    private int _emptyStackContextDepth = 1;
+
     private const string ConcurrentUseMessage =
         "This Engine is already in use by another thread or has an asynchronous operation in progress. " +
         "Engine instances may only be used by one host operation at a time.";
@@ -2791,6 +2805,25 @@ public sealed partial class Engine : IDisposable
 
     internal void RunEventLoopJob(in EventLoopJob job)
     {
+        // A job runs on an empty JavaScript execution context stack — that is what a job is — whatever depth
+        // the drain that dequeued it happens to sit at. ScriptEvaluation drains before it pops its own
+        // context, so the depth here is 2 for a job run on the way out of Execute and 1 for one run by a
+        // host pump; recording it is what lets CleanUpAfterRunningScript tell "a script is on the stack"
+        // from "a job is running", which a bare comparison against the base frame cannot.
+        var previousEmptyStackDepth = _emptyStackContextDepth;
+        _emptyStackContextDepth = _executionContexts.Count;
+        try
+        {
+            RunEventLoopJobCore(in job);
+        }
+        finally
+        {
+            _emptyStackContextDepth = previousEmptyStackDepth;
+        }
+    }
+
+    private void RunEventLoopJobCore(in EventLoopJob job)
+    {
         var memoryLimit = _memoryLimitConstraint;
         if (memoryLimit is null)
         {
@@ -2883,6 +2916,42 @@ public sealed partial class Engine : IDisposable
     {
         using var ownership = EnterHostCall();
         _eventLoop.RunAvailableContinuations(this);
+    }
+
+    /// <summary>
+    /// HTML's <i>clean up after running script</i>
+    /// (https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script): once a
+    /// callback the engine invoked has returned, perform a microtask checkpoint if the JavaScript execution
+    /// context stack is now empty.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The stack, not the host-entry depth, is what decides.</b> A dispatch a script started — <c>
+    /// target.dispatchEvent(e)</c>, <c>el.click()</c> — has that script's execution context on the stack, so
+    /// there is no checkpoint between two listeners and every reaction waits for the end of the turn, which
+    /// is what a browser does too. A dispatch entered from a task — an event-loop job, or a host that called
+    /// straight into <c>dispatchEvent</c> — has nothing above <see cref="_emptyStackContextDepth"/>, and
+    /// that is the empty stack the algorithm means. <see cref="_hostEntryDepth"/> cannot answer this: it is
+    /// raised by a host <see cref="Call(JsValue, JsValue, JsCallArguments)"/> with no script on the stack at
+    /// all, which is precisely the case that <i>does</i> owe a checkpoint. It is the same reading
+    /// <see cref="CheckAmortizedConstraintsAtHostBoundary"/> takes, for the mirror-image reason.
+    /// </para>
+    /// <para>
+    /// This is a checkpoint <i>inside</i> the run that is already in progress, so it neither claims the
+    /// engine nor re-arms any constraint: the budget the enclosing entry armed keeps applying to everything
+    /// the checkpoint runs, exactly as it does to a reaction the enclosing entry's own drain would have run.
+    /// </para>
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void CleanUpAfterRunningScript()
+    {
+        // Step 4's condition.
+        if (_executionContexts.Count > _emptyStackContextDepth)
+        {
+            return;
+        }
+
+        _eventLoop.RunMicrotaskCheckpoint(this);
     }
 
     /// <summary>

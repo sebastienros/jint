@@ -524,7 +524,22 @@ internal class JsEventTarget : ObjectInstance
 
             try
             {
-                InvokeCallback(listener, ev);
+                try
+                {
+                    InvokeCallback(listener, ev);
+                }
+                finally
+                {
+                    // https://webidl.spec.whatwg.org/#call-a-user-objects-operation's return step: "clean up
+                    // after running script with settings", which performs a microtask checkpoint when the
+                    // callback returned to an empty JavaScript execution context stack. So a reaction the
+                    // listener queued runs before the next listener starts — but only when the dispatch was
+                    // entered from a task rather than from a script, which is what the engine decides. The
+                    // inner finally is that step's position: it runs whether the callback returned or threw,
+                    // before inner invoke's step 2.10 reports the exception, and while `event` and the
+                    // passive flag below still say a listener is running.
+                    _engine.CleanUpAfterRunningScript();
+                }
             }
             catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
             {

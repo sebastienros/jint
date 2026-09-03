@@ -150,11 +150,11 @@ internal sealed class FileReadOperation
 
                 break;
 
-            case 2:
-                Complete();
-                break;
-
             default:
+                // Steps 10.5 and 10.5.5 in one task, which is what the algorithm says: the microtask
+                // checkpoint that separates the two events is the one the dispatch performs when a listener
+                // returns to an empty stack, not a task of its own. See Complete's remarks.
+                Complete();
                 FireLoadEnd();
 
                 // The read is over. Clearing the reference is what lets the queue drop it, and what stops the
@@ -173,16 +173,16 @@ internal sealed class FileReadOperation
     /// the packaging threw.
     /// </summary>
     /// <remarks>
-    /// <b><c>loadend</c> is a task of its own, and that is a faithful reading of the algorithm rather than a
-    /// departure from it.</b> The specification fires both from one task, but a browser's event dispatch
-    /// leaves the JavaScript stack empty when the listener returns, which is a <i>microtask checkpoint</i>:
-    /// an <c>await</c> resumed by the <c>load</c> handler runs before <c>loadend</c> is fired. Jint's
-    /// dispatch does not drain the job queue after a listener, so the checkpoint has to come from the loop,
-    /// and one job per event is where it falls. Without it
+    /// <b><c>load</c> and <c>loadend</c> are fired from one task, which is what the algorithm says, and the
+    /// microtask checkpoint between them is the dispatch's.</b> An <c>await</c> resumed by the <c>load</c>
+    /// handler has to run before <c>loadend</c> is fired, or
     /// <c>FileAPI/reading-data-section/filereader_events.any.js</c> sees <c>loadend</c> before its
-    /// <c>EventWatcher</c> has been told to expect it. The <c>abort()</c> path deliberately keeps both events
-    /// in one turn, because there a browser has no checkpoint either — the stack is not empty, script called
-    /// <c>abort()</c>.
+    /// <c>EventWatcher</c> has been told to expect it — and that checkpoint is
+    /// <c>Engine.CleanUpAfterRunningScript</c>, performed when a listener returns to an empty JavaScript
+    /// execution context stack, which a step running as an event-loop job leaves it at. Until
+    /// sebastienros/jint#3668 the engine had no such checkpoint and <c>loadend</c> was given a task of its
+    /// own to stand in for one; the <c>abort()</c> path never needed the workaround, because there a browser
+    /// has no checkpoint either — the stack is not empty, script called <c>abort()</c>.
     /// <para>
     /// The <c>error</c> arm is unreachable for a blob whose bytes are already in memory — none of the four
     /// packagings can fail, and the failure the algorithm has in mind is a stream that errored mid-read. It

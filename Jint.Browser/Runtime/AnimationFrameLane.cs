@@ -17,7 +17,8 @@ namespace Jint.Browser.Runtime;
 /// </para>
 /// <para>
 /// A callback that throws is recorded and the rest of the batch still runs, which is what a browser does: the
-/// callbacks of one frame are independent of each other.
+/// callbacks of one frame are independent of each other — and each of them returns to a microtask checkpoint,
+/// for the reason <see cref="Engine.CleanUpAfterRunningScript"/> gives.
 /// </para>
 /// <para>
 /// The interval is fixed at 16 ms. A frame rate that tracked how long the callbacks took would be a rendering
@@ -132,7 +133,20 @@ internal sealed class AnimationFrameLane
 
                 try
                 {
-                    entry.Callback.Call(global, arguments);
+                    try
+                    {
+                        entry.Callback.Call(global, arguments);
+                    }
+                    finally
+                    {
+                        // HTML invokes an animation frame callback the way it invokes an event listener, so
+                        // the same cleanup is owed: the whole batch is one job, and each callback therefore
+                        // returns to an empty JavaScript execution context stack, which is a microtask
+                        // checkpoint. Without it a reaction the first callback queued would run after the
+                        // last callback of the frame.
+                        // https://html.spec.whatwg.org/multipage/webappapis.html#clean-up-after-running-script
+                        _runtime.Engine.CleanUpAfterRunningScript();
+                    }
                 }
                 catch (JavaScriptException exception)
                 {

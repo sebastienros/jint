@@ -65,6 +65,15 @@ internal readonly struct EventLoopJob
     public int Generation => _generation;
     public MemoryLimitConstraint.OperationState? MemoryState => _memoryState;
 
+    /// <summary>
+    /// Whether <see cref="EventLoop.RunMicrotaskCheckpoint"/> may run this job: a promise reaction, which is
+    /// the one job kind that is a <i>microtask</i> in every specification that has both, or
+    /// <see cref="EventLoop.WakeJob"/>, which is not work at all. Every other entry on this single queue is
+    /// either a task or something only the turn's own drain may run.
+    /// </summary>
+    internal bool MayRunInMicrotaskCheckpoint
+        => _state is PromiseReaction || ReferenceEquals(_state, EventLoop.WakeJob);
+
     public void Run(Engine engine)
     {
         if (_state is PromiseReaction reaction)
@@ -80,6 +89,20 @@ internal readonly struct EventLoopJob
 
 internal sealed record EventLoop
 {
+    /// <summary>
+    /// The job that carries no work: enqueued only for <see cref="Enqueue(in EventLoopJob)"/>'s side effect
+    /// of ending a park, which is how a thread wakes a pumped engine for something that is not itself an
+    /// event-loop job — a page's mailbox request, a parser handing the document back.
+    /// </summary>
+    /// <remarks>
+    /// It exists as a shared instance because <see cref="RunMicrotaskCheckpoint"/> identifies it by
+    /// reference: a checkpoint runs the promise reactions at the head of the queue and stops at anything
+    /// else, and a wake is neither a microtask to run nor a task to stop at, so an equivalent empty lambda
+    /// posted from a call site would silently cost every callback that returned while it was queued its
+    /// checkpoint.
+    /// </remarks>
+    internal static readonly Action WakeJob = static () => { };
+
     private readonly ConcurrentQueue<EventLoopJob> _events = new();
 
     /// <summary>
@@ -406,6 +429,83 @@ internal sealed record EventLoop
         finally
         {
             Interlocked.Exchange(ref _isProcessing, 0);
+        }
+    }
+
+    /// <summary>
+    /// HTML's <i>perform a microtask checkpoint</i>
+    /// (https://html.spec.whatwg.org/multipage/webappapis.html#perform-a-microtask-checkpoint), run from
+    /// inside whatever is already executing rather than from a drain of its own — which is what a callback
+    /// returning to an empty execution context stack owes, and the reason
+    /// <see cref="Engine.CleanUpAfterRunningScript"/> exists.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It runs the promise reactions at the head of the queue and stops at the first job that is not
+    /// one.</b> Jint has a single queue where HTML has a microtask queue and a set of task queues, and
+    /// <see cref="EventLoopJob.MayRunInMicrotaskCheckpoint"/> is the only classification of it that cannot
+    /// be wrong: a reaction is a microtask in every specification that distinguishes the two, while the
+    /// <see cref="Action"/> entries are a mix — a <c>queueMicrotask</c> callback, but also a
+    /// <c>FileReader</c> step, a <c>scheduler.postTask</c> task, an <c>XMLHttpRequest</c> delivery, a worker
+    /// message. Running one of those from here would run a <i>task</i> inside a checkpoint, which no event
+    /// loop does; skipping past it to a reaction behind it would reorder the queue. So the checkpoint stops,
+    /// and everything from that job on runs in the turn's own drain exactly as it always did — which is the
+    /// behaviour every dispatch had before this method existed, so the incompleteness costs nothing that was
+    /// ever promised. <see cref="WakeJob"/> is the one <see cref="Action"/> it looks past, because a wake is
+    /// not work; classifying the rest is what would make the checkpoint complete.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is promoted.</b> A due timer and an idle callback are tasks that
+    /// <see cref="RunAvailableContinuations"/> promotes when the queue runs dry; a checkpoint reaching them
+    /// would let a <c>setTimeout(f, 0)</c> beat a listener that had not run yet.
+    /// </para>
+    /// <para>
+    /// <see cref="_isProcessing"/> is raised for the duration and put back, rather than claimed with the
+    /// compare-and-swap above: the checkpoint is deliberately re-entrant — the case it exists for is a
+    /// dispatch that a job started — and while it runs, a job <i>is</i> running, which is what
+    /// <see cref="IsRunningJob"/> is asked about by everything that has to choose between throwing to a
+    /// caller and settling a failure into the operation it belongs to.
+    /// </para>
+    /// </remarks>
+    internal void RunMicrotaskCheckpoint(Engine engine)
+    {
+        // The whole cost on the common path: one queue-emptiness read per callback that returns to an empty
+        // stack. Nothing is allocated, and a dispatch with no reaction pending behaves exactly as before.
+        if (_events.IsEmpty)
+        {
+            return;
+        }
+
+        // Same rule as the drain above: with a thread registered as the drainer, only that thread may run
+        // script on this engine.
+        var waitingThreadId = _waitingThreadId;
+        if (waitingThreadId != -1 && Environment.CurrentManagedThreadId != waitingThreadId)
+        {
+            return;
+        }
+
+        var wasProcessing = Interlocked.Exchange(ref _isProcessing, 1);
+        try
+        {
+            while (_events.TryPeek(out var head) && head.MayRunInMicrotaskCheckpoint)
+            {
+                if (!_events.TryDequeue(out var job))
+                {
+                    break;
+                }
+
+                // The generation fence, re-read per job for the reason RunAvailableContinuations re-reads it.
+                if (job.Generation != Generation)
+                {
+                    continue;
+                }
+
+                engine.RunEventLoopJob(in job);
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isProcessing, wasProcessing);
         }
     }
 }
