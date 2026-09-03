@@ -110,6 +110,16 @@ public class TreeDispatchTests
         /// </summary>
         internal TreeEventTarget? KnownRoot { get; set; }
 
+        /// <summary>
+        /// What <see cref="GetParent"/> answers whatever the tree says, which is how a broken host is built
+        /// here. It stops answering once the fixture's own ceiling is passed, so a dispatcher that fails to
+        /// bound the walk fails the test rather than hanging it.
+        /// </summary>
+        internal TreeEventTarget? CyclicParent { get; set; }
+
+        /// <summary>The same, for the node-tree parent the root walk climbs.</summary>
+        internal TreeEventTarget? CyclicTreeParent { get; set; }
+
         internal override bool IsNode => true;
 
         internal override JsEventTarget? TreeParent
@@ -117,6 +127,12 @@ public class TreeDispatchTests
             get
             {
                 _counts.TreeParentReads++;
+
+                if (CyclicTreeParent is { } cyclic)
+                {
+                    return _counts.TreeParentReads > FixtureCeiling ? null : cyclic;
+                }
+
                 return NodeParent;
             }
         }
@@ -165,6 +181,11 @@ public class TreeDispatchTests
         internal override JsEventTarget? GetParent(JsEvent ev)
         {
             _counts.GetParentCalls++;
+
+            if (CyclicParent is { } cyclic)
+            {
+                return _counts.GetParentCalls > FixtureCeiling ? null : cyclic;
+            }
 
             if (IsShadowRoot)
             {
@@ -685,6 +706,12 @@ public class TreeDispatchTests
     /// </summary>
     private const int DeepTree = 200;
 
+    /// <summary>
+    /// Where the two cycle fixtures below give up answering. It is far above the engine's own bound, so a
+    /// dispatch that reaches it is one the engine did not stop — which is a failing test, not a hung one.
+    /// </summary>
+    private const int FixtureCeiling = 50_000;
+
     [Test]
     public void ADispatchDerivesEveryPathItemsRootFromOneWalkRatherThanOnePerItem()
     {
@@ -719,6 +746,45 @@ public class TreeDispatchTests
         // asks and the walk disappears: what is left is the same-tree check, one TreeParent read per hop.
         fixture.Counts.GetRootCalls.Should().Be(1);
         fixture.Counts.TreeParentReads.Should().Be(DeepTree - 1);
+    }
+
+    [Test]
+    public void AGetParentOverrideThatFormsACycleIsRefusedRatherThanWalkedForever()
+    {
+        var fixture = new Fixture();
+        var a = fixture.Node("a");
+        var b = fixture.Node("b");
+        a.CyclicParent = b;
+        b.CyclicParent = a;
+
+        // Host code is trusted, so this is not a script error and script may not catch it: it reaches the
+        // embedder as the host-contract violation it is, naming the type and the seam that is answering.
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => fixture.Execute("a.dispatchEvent(new Event('ping', { bubbles: true }));"));
+
+        exception!.Message.Should().Contain(nameof(JsEventTarget.GetParent));
+        exception.Message.Should().Contain("TreeEventTarget");
+
+        // And it was the engine that stopped, well before the fixture stopped answering.
+        fixture.Counts.GetParentCalls.Should().BeLessThan(FixtureCeiling);
+    }
+
+    [Test]
+    public void ATreeParentOverrideThatFormsACycleIsRefusedByTheRootWalk()
+    {
+        var fixture = new Fixture();
+        var a = fixture.Node("a");
+        var b = fixture.Node("b");
+        a.CyclicTreeParent = b;
+        b.CyclicTreeParent = a;
+
+        // The path walk is not the only walk a dispatch makes: *tree root* climbs TreeParent, and a cycle
+        // there hangs the same dispatch. Same bound, and the message names that seam instead.
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => fixture.Execute("a.dispatchEvent(new Event('ping'));"));
+
+        exception!.Message.Should().Contain(nameof(JsEventTarget.TreeParent));
+        fixture.Counts.TreeParentReads.Should().BeLessThan(FixtureCeiling);
     }
 
     [Test]

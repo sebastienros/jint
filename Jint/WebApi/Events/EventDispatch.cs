@@ -214,8 +214,16 @@ internal static class EventDispatch
         var parent = target.GetParent(ev);
 
         // Step 6.9.
+        var depth = 0;
         while (parent is not null)
         {
+            // The walk is the host's answers rather than script, so nothing else bounds it: a *get the
+            // parent* that names a target twice would append path items until the process ran out of them.
+            if (++depth > JsEventTarget.MaxTreeDepth)
+            {
+                JsEventTarget.ThrowCyclicTree(parent, nameof(JsEventTarget.GetParent));
+            }
+
             var parentRoot = RootOf(parent, child, childRoot);
 
             // Step 6.9.1: the parent of an assigned slottable is its assigned slot, so reaching one means the
@@ -453,6 +461,7 @@ internal static class EventDispatch
     /// </remarks>
     private static JsEventTarget? Retarget(JsEventTarget? a, JsEventTarget? aRoot, JsEventTarget? againstRoot)
     {
+        var hops = 0;
         while (a is not null)
         {
             if (!a.IsNode)
@@ -471,6 +480,12 @@ internal static class EventDispatch
             if (againstRoot is not null && IsShadowIncludingInclusiveAncestor(root, againstRoot))
             {
                 return a;
+            }
+
+            // A shadow host inside the tree it hosts is not a tree, and climbing one is not a walk that ends.
+            if (++hops > JsEventTarget.MaxTreeDepth)
+            {
+                JsEventTarget.ThrowCyclicTree(a, nameof(JsEventTarget.ShadowHost));
             }
 
             a = root.ShadowHost;
@@ -494,6 +509,7 @@ internal static class EventDispatch
     private static bool IsShadowIncludingInclusiveAncestor(JsEventTarget ancestorRoot, JsEventTarget nodeRoot)
     {
         var current = nodeRoot;
+        var hops = 0;
         while (true)
         {
             if (ReferenceEquals(current, ancestorRoot))
@@ -504,6 +520,11 @@ internal static class EventDispatch
             if (!current.IsShadowRoot || current.ShadowHost is not { } host)
             {
                 return false;
+            }
+
+            if (++hops > JsEventTarget.MaxTreeDepth)
+            {
+                JsEventTarget.ThrowCyclicTree(current, nameof(JsEventTarget.ShadowHost));
             }
 
             current = host.GetRoot();
