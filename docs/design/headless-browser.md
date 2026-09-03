@@ -4,7 +4,10 @@
 of [sebastienros/jint#3575](https://github.com/sebastienros/jint/issues/3575); where this
 document and that issue disagree, the issue wins and this file is brought back into line. What this file adds is
 the longer form: the mechanisms each decision rests on, named so that a reader can find them. The protocol half
-is [`devtools-protocol.md`](devtools-protocol.md).
+is [`devtools-protocol.md`](devtools-protocol.md), and
+[§12](#12-what-shipped-and-where-it-differs) is the index of what was built against this design and the one
+line in which each item differs from it. For what the package does rather than why, read
+[the README](../../README.md#headless-browser-opt-in-package) instead of this file.
 
 Everything normative here was read from the [DOM](https://dom.spec.whatwg.org/), [HTML](https://html.spec.whatwg.org/multipage/),
 [Fetch](https://fetch.spec.whatwg.org/), [XMLHttpRequest](https://xhr.spec.whatwg.org/) and
@@ -398,3 +401,38 @@ seven defects between them, six of which were fixed in the pull request that add
 recorded rather than fixed and then fixed on its own: `getComputedStyle` resolved no initial values, so
 `visibility` was the empty string and Playwright's actionability check read every element of every page as
 hidden — `Jint.Browser/Dom/Views/ResolvedStyle` is the ten-property exception that closed it.
+
+## 12. What shipped, and where it differs
+
+The sections above are the design, kept as the design. This table is the index of what was built against it:
+one row per item, the pull request that built it, and the one line in which what shipped is not what was
+planned. A blank last column means the section above describes what exists.
+
+| § | What shipped | PR | Where it differs |
+| --- | --- | --- | --- |
+| 3 | One `PageLoop` thread per page, a new engine per navigation, and the global's `Window.prototype` chain | [#3648](https://github.com/sebastienros/jint/pull/3648) | — |
+| 3 | Frames, parsed and listed | [#3667](https://github.com/sebastienros/jint/pull/3667) | Nothing gives a child frame an engine, so `contentWindow` is absent and a document that needs a second global cannot run here at all — which is what puts thirty-seven `custom-elements/` files in the not-vendored table |
+| 4 | The generator over the two pinned AngleSharp assemblies, and the checked-in `Dom/Generated/` | [#3634](https://github.com/sebastienros/jint/pull/3634) | A DOM prototype carries no `@@unscopables`, because AngleSharp's metadata does not say which members are unscopable; and a nullable `DOMString` parameter converts `null` to the string `"null"` ([#3712](https://github.com/sebastienros/jint/issues/3712)) |
+| 4 | HTML §4.13: the registry, the construction stack, the element state and the reaction lane | [#3709](https://github.com/sebastienros/jint/pull/3709) | The element queue is drained as a reaction *arrives* rather than when the outermost `[CEReactions]` operation returns, and a parser-created element is upgraded at the driver's next script boundary rather than constructed by the tokenizer. There is no `ElementInternals`, so `static formAssociated` is recorded and consulted by nothing |
+| 5 | The UI event interfaces, HTML's handler content attributes and every activation behaviour a click has | [#3671](https://github.com/sebastienros/jint/pull/3671), engine seams [#3696](https://github.com/sebastienros/jint/pull/3696) | — |
+| 6 | The `ParserDriver` and the baton: classic, `defer` and `async` scripts, modules through the import map, `document.write`, `<link rel=stylesheet>` | [#3676](https://github.com/sebastienros/jint/pull/3676) | The refinement §6 already records: a subresource fetch finishes *before* AngleSharp's `IResourceLoader` returns, so the parse never suspends and stays on the thread it started on |
+| 6 | A navigation is a fetch and a new engine; forms, history, cookies, storage and workers | [#3667](https://github.com/sebastienros/jint/pull/3667) | Images and frame documents are recorded in `Page.Requests` as *not* fetched, there being nothing to render them with |
+| 5, 6 | The observers and the DOM views: `MutationObserver`, `IntersectionObserver`, `ResizeObserver`, `Range`, `TreeWalker`, `NodeIterator`, `DOMParser`, `XMLSerializer`, `getSelection` | [#3669](https://github.com/sebastienros/jint/pull/3669) | The two stubs the design named now carry real numbers from §8's model — but with no layout nothing can stop intersecting, so an observed target is reported once, fully intersecting, and a lazy list loads every page at once |
+| 7 | `PageBudget`: `MaxTaskDuration` and `MemoryLimit` over a turn, `ForUntrustedContent`, `MaxDomNodes` | [#3679](https://github.com/sebastienros/jint/pull/3679) | — |
+| 8 | `Layout/FlatLayout`, the hit test, the virtual scroll, `dispatchMouseEvent` and the activation behaviours | [#3697](https://github.com/sebastienros/jint/pull/3697) | Boxes are rows, so an excluded element takes its subtree with it — right for `display: none` and wrong for `visibility: hidden`, whose `visibility: visible` descendant CSS lets escape |
+| 8 | `dispatchKeyEvent`, `insertText`, the editor, and `testdriver.js` over the same dispatcher | [#3703](https://github.com/sebastienros/jint/pull/3703) | `imeSetComposition` is accepted and changes nothing; `contenteditable` splices one text node, so <kbd>Enter</kbd> there does nothing rather than something structural |
+| 8a | `PageTarget`, `AddBrowser`, `BrowserTargetHost` and the lifecycle events of a navigation | [#3680](https://github.com/sebastienros/jint/pull/3680), the target split [#3678](https://github.com/sebastienros/jint/pull/3678) | A **`tab` target** is published in front of every page, found by driving Puppeteer rather than by reading the protocol; and `frameNavigated` precedes the engine swap where Chrome interleaves it between the two context events |
+| 8a | A domain of Jint's own — `Jint.getMarkdown`, `getText`, `getAccessibilitySnapshot` — and the screenshot refusal that names it | [#3681](https://github.com/sebastienros/jint/pull/3681), the extractors [#3657](https://github.com/sebastienros/jint/pull/3657) | — |
+| 8a | `Network` reporting every request, and `Fetch` pausing one at the request stage | [#3700](https://github.com/sebastienros/jint/pull/3700) | The notifications and the interception run on the **transport thread**, not the page loop: moving them would deadlock the one fetch a page cannot pump through. The three absent lanes are [#3701](https://github.com/sebastienros/jint/issues/3701) |
+| 8a | `Emulation` effective rather than accepted, and `Accessibility` in Chrome's `AXNode` shape | [#3704](https://github.com/sebastienros/jint/pull/3704) | A page's `@media` rules are not re-evaluated against the emulated preferences, because the cascade models none of them, so a themed page reads `matchMedia` rather than `getComputedStyle` ([#3721](https://github.com/sebastienros/jint/issues/3721)) |
+| 9 | The web-platform-tests browser lane, and the eleven defects it first recorded | [#3685](https://github.com/sebastienros/jint/pull/3685), fixes [#3699](https://github.com/sebastienros/jint/pull/3699) | The four differences §9 already records — one corpus and one pin, strings through a host function rather than values through a binding, only the window wrapper synthesized, and an uncaught exception left to upstream's harness |
+| 9 | The obstacle course: eighteen offline fixtures through the `Page` API, three of them again over the protocol | [#3710](https://github.com/sebastienros/jint/pull/3710) | The Playwright suite is gated on `JINT_BROWSER_CLIENTS` because its driver is a Node process; PuppeteerSharp's runs on every leg. Two fixtures are `needs triage` rather than passing |
+| 10 | The `jint-browser` command line: `serve`, `fetch`, `eval`, `version` | [#3715](https://github.com/sebastienros/jint/pull/3715) | It takes no `InternalsVisibleTo` grant, so the three seams it needed were promoted onto the package rather than reached around |
+| 10 | `Jint.Browser.Mcp`, the Model Context Protocol server, and `jint-browser mcp` serving it on stdio | [#3717](https://github.com/sebastienros/jint/pull/3717) | **`--http` did not ship** — the protocol's 2026-07-28 revision removed the session header from streamable HTTP, and the two ways to hold per-session state either need an `[Experimental]` handler or put an ASP.NET Core framework reference in a `dotnet tool`; and a `ref=` is the accessibility tree's own identifier rather than a `backendNodeId`, which belongs to a protocol target an MCP session has none of |
+
+Two decisions in the v1/not-v1 table of §2 turned out differently and are worth naming here rather than
+leaving a reader to compare tables. `IntersectionObserver` and `ResizeObserver` are no longer stubs, since
+§8's model gives them numbers to report. And `getComputedStyle` answers a *resolved* value for the ten
+properties an automation client reads to decide whether an element can be interacted with
+([#3716](https://github.com/sebastienros/jint/pull/3716)) — the smallest exception to the standing decision
+against an initial-value table of our own, made because without it no supported client can drive a page.

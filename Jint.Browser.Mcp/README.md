@@ -125,6 +125,6 @@ against the latter does not open.
 The engine underneath is an interpreter, so a page costs a fraction of Chromium's memory and CPU and some
 multiple of its wall-clock time. What the whole stack can and cannot do — and how much of it the
 web-platform-tests measure rather than claim — is in
-[Jint's README](https://github.com/sebastienros/jint#jintbrowser-opt-in-package-in-progress).
+[Jint's README](https://github.com/sebastienros/jint#headless-browser-opt-in-package).
 
 Licensed under BSD-2-Clause, like the rest of Jint.

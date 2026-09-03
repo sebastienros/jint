@@ -4,6 +4,9 @@
 of [sebastienros/jint#3575](https://github.com/sebastienros/jint/issues/3575); where this
 document and that issue disagree, the issue wins and this file is brought back into line. What this file adds is
 the longer form: the engine mechanisms each decision rests on, named so that a reader can find them.
+[§9](#9-what-shipped-and-where-it-differs) is the index of what was built against this design and the one line
+in which each item differs from it. For what the package does rather than why, read
+[the README](../../README.md#chrome-devtools-protocol-opt-in-package) instead of this file.
 
 Everything normative here was read from the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
 (the pinned `js_protocol.json` / `browser_protocol.json` under `tools/devtools-protocol/`), from V8's inspector
@@ -191,3 +194,31 @@ All of it is in place, and each layer claims something the one below it cannot:
   `IL2xxx`/`IL3xxx` diagnostic is attributed to a file in the package.
 - **The host-contract verification leg** with `JINT_HOST_CONTRACT_VERIFICATION=1`, which makes the thread rule
   exact rather than asserted: a `JsValue` touched from a transport thread fails loudly under it.
+
+## 9. What shipped, and where it differs
+
+The sections above are the design, kept as the design. This table is the index of what was built against it:
+one row per item, the pull request that built it, and the one line in which what shipped is not what was
+planned. A blank last column means the section above describes what exists.
+
+| § | What shipped | PR | Where it differs |
+| --- | --- | --- | --- |
+| 4 | The package itself: the pinned vendored protocol JSON, the manifest, the emitter and `Protocol/Generated/` | [#3586](https://github.com/sebastienros/jint/pull/3586) | — |
+| 4 | The handshakes four automation clients and the front end actually send, recorded rather than assumed | [#3599](https://github.com/sebastienros/jint/pull/3599) | — |
+| 2, 3 | `EngineDispatcher`, the two drains, `ThreadMode`, the transport and flattened sessions | [#3602](https://github.com/sebastienros/jint/pull/3602) | `flatten: false` is refused outright with `-32000` rather than supported, and breakpoints are the **target's** rather than the session's — V8 keeps them per session |
+| 3 | A target that outlives its engine: the `DevToolsTarget` / `TargetRuntime` split, and `ITargetHost` for a client's `Target.createTarget` | [#3678](https://github.com/sebastienros/jint/pull/3678) | `ITargetHost` is `internal`. `Jint.Browser` is its only implementer today, and it is promoted when there is a second — the seam a third party needs meanwhile is [#3684](https://github.com/sebastienros/jint/issues/3684) |
+| 5 | `Runtime`: handles, `getProperties`, `callFunctionOn`, `awaitPromise`, bindings | [#3605](https://github.com/sebastienros/jint/pull/3605), engine seam [#3597](https://github.com/sebastienros/jint/pull/3597) | — |
+| 5 | `Console` and `Log`: what a script logged and what it threw, values still attached | [#3606](https://github.com/sebastienros/jint/pull/3606) | — |
+| 5 | `Debugger`: breakpoints by URL or script, the three steps, `continueToLocation`, frames, scopes, `setVariableValue` | [#3620](https://github.com/sebastienros/jint/pull/3620), engine seams [#3587](https://github.com/sebastienros/jint/pull/3587) and [#3614](https://github.com/sebastienros/jint/pull/3614) | — |
+| 5 | Pausing where a script throws, and evaluating in any frame of the stack | [#3625](https://github.com/sebastienros/jint/pull/3625), engine seams [#3623](https://github.com/sebastienros/jint/pull/3623), [#3622](https://github.com/sebastienros/jint/pull/3622) and [#3662](https://github.com/sebastienros/jint/pull/3662) | — |
+| 5 | `Profiler`: a sampled CPU profile, and precise and best-effort coverage | [#3629](https://github.com/sebastienros/jint/pull/3629), engine seams [#3608](https://github.com/sebastienros/jint/pull/3608) and [#3654](https://github.com/sebastienros/jint/pull/3654) | — |
+| 5 | Describing a value: a function's declaration site, a console message's anchor, an error's details, a path published as a URL | [#3640](https://github.com/sebastienros/jint/pull/3640) | A function value does not publish the `Program` it was parsed in, so `[[FunctionLocation]]` still resolves its script by name ([#3666](https://github.com/sebastienros/jint/issues/3666)) |
+| 5 | A position resolves to its script by identity rather than by source name | [#3652](https://github.com/sebastienros/jint/pull/3652), engine seam [#3651](https://github.com/sebastienros/jint/pull/3651) | — |
+| 8 | The REPL's `--inspect`/`--inspect-brk`, the driven front end, and the native binary as a client | [#3633](https://github.com/sebastienros/jint/pull/3633) | Neither `tools/devtools-frontend-smoke/` nor `docs/manual-checklist.md` runs in CI — one downloads a browser and the other is a person — which is why the four layers below them exist |
+
+Two things a reader of §5 should know are decisions rather than omissions. The eight engine seams the table
+in that section names all merged, and every one is public and additive, so a third party can build the same
+server without an `InternalsVisibleTo` grant — `Jint.DevTools` consumes only Jint's published API, and that is
+what proves it. And the page domains (`Page`, `DOM`, `Network`, `Fetch`, `Input`, `Emulation`, `Storage`,
+`Accessibility`) are in the same manifest but are implemented in `Jint.Browser`; on an engine target every one
+of them is `-32601`.
