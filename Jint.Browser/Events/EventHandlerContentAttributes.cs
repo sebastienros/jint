@@ -606,6 +606,21 @@ internal static class EventHandlerContentAttributes
         /// </remarks>
         private static IHtmlFormElement? FormOwner(IElement element)
         {
+            // https://html.spec.whatwg.org/multipage/forms.html#form-associated-element — only these have a
+            // form owner at all, which is why a `<div>` inside a `<form>` resolves an unqualified name against
+            // the document and the window and never against the form.
+            if (element is not (IHtmlButtonElement
+                or IHtmlFieldSetElement
+                or IHtmlInputElement
+                or IHtmlObjectElement
+                or IHtmlOutputElement
+                or IHtmlSelectElement
+                or IHtmlTextAreaElement
+                or IHtmlImageElement))
+            {
+                return null;
+            }
+
             if (element.GetAttribute("form") is { Length: > 0 } id)
             {
                 return element.Owner?.GetElementById(id) as IHtmlFormElement;

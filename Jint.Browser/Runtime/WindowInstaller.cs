@@ -90,7 +90,16 @@ internal static class WindowInstaller
         var realm = engine._mainRealm;
         var global = realm.GlobalObject;
 
-        var windowPrototype = _windowShape.Instantiate(engine, realm.Intrinsics.EventTarget.PrototypeObject);
+        // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object —
+        // WebIDL's named properties object sits between the interface prototype object and its parent, which
+        // is what makes named access a *miss* path: `document`, `alert` and every other name the global owns
+        // or `Window.prototype` declares is found before it is asked. See WindowNamedProperties.
+        var namedProperties = new WindowNamedProperties(runtime)
+        {
+            Prototype = realm.Intrinsics.EventTarget.PrototypeObject,
+        };
+
+        var windowPrototype = _windowShape.Instantiate(engine, namedProperties);
         var windowInterface = new WindowInterfaceObject(engine, realm, windowPrototype);
 
         // The per-realm `constructor` slot, filled the way the DOM binding fills its own: the shape declared

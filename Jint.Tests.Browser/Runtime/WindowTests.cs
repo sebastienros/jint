@@ -34,7 +34,10 @@ public sealed class WindowTests
         (await page.EvaluateAsync<bool>("window instanceof Window")).Should().BeTrue();
         (await page.EvaluateAsync<bool>("window instanceof EventTarget")).Should().BeTrue();
         (await page.EvaluateAsync<bool>("Object.getPrototypeOf(window) === Window.prototype")).Should().BeTrue();
-        (await page.EvaluateAsync<bool>("Object.getPrototypeOf(Window.prototype) === EventTarget.prototype")).Should().BeTrue();
+        // https://webidl.spec.whatwg.org/#named-properties-object — the named properties object is the
+        // interface prototype object's [[Prototype]], so `EventTarget.prototype` is one hop further out than
+        // it used to be. See Runtime/WindowNamedProperties.
+        (await page.EvaluateAsync<bool>("Object.getPrototypeOf(Object.getPrototypeOf(Window.prototype)) === EventTarget.prototype")).Should().BeTrue();
         (await page.EvaluateAsync<bool>("Object.getPrototypeOf(Window) === EventTarget")).Should().BeTrue();
         (await page.EvaluateAsync<string>("Object.prototype.toString.call(window)")).Should().Be("[object Window]");
     }
@@ -317,5 +320,71 @@ public sealed class WindowTests
         (await navigated).Should().BeTrue();
 
         (await page.EvaluateAsync<string>("document.getElementById('moved').textContent")).Should().Be("moved");
+    }
+
+    // https://html.spec.whatwg.org/multipage/nav-history-apis.html#named-access-on-the-window-object
+
+    [Test]
+    public async Task AnElementReachesScriptByItsIdAndByItsName()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<div id='byId'></div><form name='byName'></form><iframe name='frame'></iframe><p name='notAKind'></p>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            [
+              byId.tagName,
+              window.byId === document.getElementById('byId'),
+              byName.tagName,
+              frame.tagName,
+              typeof window.notAKind,
+              'byId' in window,
+              Object.getOwnPropertyNames(window).includes('byId')
+            ].join(',')
+            """))
+            // `name` is a supported property name only for the element kinds HTML lists, so a `<p name>` is
+            // not one; and the names live on the prototype chain, not on the window itself.
+            .Should().Be("DIV,true,FORM,IFRAME,undefined,true,false");
+    }
+
+    /// <summary>
+    /// What named access costs an ordinary global read: nothing. The names are on the <i>named properties
+    /// object</i>, which WebIDL puts below <c>Window.prototype</c>, so every name the global owns and every
+    /// member the prototype declares is found before the document is consulted — and an element cannot
+    /// shadow one.
+    /// </summary>
+    [Test]
+    public async Task NamedAccessIsAMissPathAndShadowsNothing()
+    {
+        await using var browser = new Browser();
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync(
+            "<div id='document'></div><div id='alert'></div><div id='shadowMe'></div>");
+
+        (await page.EvaluateAsync<string>(
+            """
+            (() => {
+              var seen = [];
+
+              // An own global and a Window.prototype member both win over an element of the same name.
+              seen.push('document:' + (document.nodeType === 9));
+              seen.push('alert:' + (typeof alert));
+
+              // An assignment through the chain creates an own property of the window, which then wins too.
+              seen.push('before:' + (shadowMe.tagName === 'DIV'));
+              window.shadowMe = 'mine';
+              seen.push('after:' + shadowMe);
+              seen.push('own:' + Object.getOwnPropertyNames(window).includes('shadowMe'));
+
+              // A name nothing answers is still a ReferenceError rather than undefined.
+              try { nothingAnswersThis; seen.push('resolved'); }
+              catch (e) { seen.push('miss:' + (e instanceof ReferenceError)); }
+
+              return seen.join(',');
+            })()
+            """))
+            .Should().Be("document:true,alert:function,before:true,after:mine,own:true,miss:true");
     }
 }

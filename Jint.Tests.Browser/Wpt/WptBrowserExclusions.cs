@@ -322,12 +322,11 @@ internal static class WptBrowserExclusions
         // `document[Symbol.unscopables]`, which is undefined here.
         new("html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html", "*", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 4b. named access on the window
-        // `compile-event-handler-lexical-scopes-form-owner.html` reaches its own `<form id=form>` as the bare
-        // identifier `form`, which is HTML's named access on the Window object — the eleventh defect this
-        // corpus found. Its subject, the form owner in a handler's scope chain, is implemented; the file
-        // cannot say so until the name resolves. Its fourth row needs custom elements as well.
-        new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "*", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 4b. a custom element
+        // The file's other three rows pass. This one defines a form-associated custom element, and
+        // `window.customElements` is a name this browser does not have — the same reason
+        // `EventTarget-add-listener-platform-object.html` is not vendored.
+        new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- 5. a frame that runs script
         // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window; a
