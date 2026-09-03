@@ -26,9 +26,9 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,364 | 2,000 |
+| `dom/nodes/` | 159 | 0 | 4,364 | 1,350 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
-| `dom/lists/` | 5 | 0 | 189 | 15 |
+| `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 9 |
 | `dom/ranges/` | 17 | 0 | 78 | 53 |
 | `html/dom/` | 5 | 0 | 85 | 72 |
@@ -36,9 +36,9 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
 | `custom-elements/` | 16 | 0 | 510 | 257 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
-| `custom-elements/reactions/` | 14 | 0 | 255 | 219 |
+| `custom-elements/reactions/` | 14 | 0 | 255 | 217 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,228** | **2,703** |
+| **total** | **340** | **9** | **6,228** | **2,041** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -134,12 +134,13 @@ What the rest found is six causes, and every exclusion in the four new suites is
    thirteen of its rows fail on it, and `Document-createElementNS*.html` is the same conversion from the
    other side. Nothing about custom elements would move it; a nullable-string parameter in the generator
    would move all of it.
-3. **Three attribute writes reach neither notification channel**, and all three are AngleSharp's:
-   `classList`, `setAttributeNS` and a write through an `Attr` node. `reactions/DOMTokenList.html`,
-   `reactions/Attr.html` and part of `reactions/Element.html` are that, and
-   [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each.
+3. **Two attribute writes reach neither notification channel**, and both are AngleSharp's: `setAttributeNS`
+   and a write through an `Attr` node. `reactions/Attr.html` and part of `reactions/Element.html` are that,
+   and [`Jint.Browser/Dom/AGENTS.md`](../../Jint.Browser/Dom/AGENTS.md) records each. `classList` was the
+   third and is not any more: DOM §7.1's update steps are a plain set-an-attribute-value now, the same door
+   `setAttribute` already came through, so `reactions/DOMTokenList.html`'s two "must not enqueue" rows pass.
 4. **Members the binding does not have.** `toggleAttribute`, `setAttributeNode`, `getAttributeNode`,
-   `insertAdjacentElement`, `replaceWith`, `DOMTokenList.replace`, `Element.animate` and the whole ARIA
+   `insertAdjacentElement`, `replaceWith`, `Element.animate` and the whole ARIA
    reflection mixin: a test that reaches for one fails with `Property '…' of object is not a function`
    before it can say anything about a reaction. `reactions/AriaMixin-*.html` is ninety-six rows of exactly
    that, and `reactions/HTMLElement.html` is twenty-one.
@@ -171,7 +172,7 @@ Ordered by how many tests each accounts for:
 
 | Tests | Documents | What it is |
 | ---: | ---: | --- |
-| 661 | 6 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList` validates nothing, indexes nothing and iterates nothing.** DOM §7.1 makes `add("")` a `SyntaxError` and `add("a b")` an `InvalidCharacterError`; AngleSharp takes both, which `Dom/AGENTS.md` already records as a divergence, and `Element-classlist.html` asks it 405 times. `replace()` is absent altogether (125 rows die on `list[funcName].apply`), `item(n)` throws `ArgumentOutOfRange` where the standard returns `null`, and `keys`/`values`/`entries`/`forEach` are not there. |
+| 5 | 1 | [#3767](https://github.com/sebastienros/jint/issues/3767) **`DOMTokenList`** was the largest single cause this corpus found — 661 rows across six documents, more than a quarter of everything the DOM suites reported. DOM §7.1's mutating half is `Dom/Collections/DomTokenListMembers` now: the validation steps, `toggle`'s given-versus-not-given `force`, `replace`, `supports`, `item`'s `null`, the update steps and WebIDL's value iterator. What is left is five rows of one document: `sandbox`, `link.sizes` and `output.htmlFor` land on `DOMSettableTokenList`, an interface the standard merged away in 2016 and AngleSharp still carries a `[DomName]` for, and two `a.relList` rows are in namespaces HTML does not reflect `rel` in. `Element-classlist.html` passes all 1,420. |
 | 540 | 13 | [#3771](https://github.com/sebastienros/jint/issues/3771) **A frame is never given an engine.** `iframe.contentDocument` is `null` and `iframe.onload` never arrives, so 488 of these are one line — `Document-createElement*.html` runs its whole table three times, once per document, and two of the three are frames. `NeedsIframeScripting`, the category this lane already had. |
 | 182 | 18 | [#3768](https://github.com/sebastienros/jint/issues/3768) **Members the bindings do not have.** `replaceWith` (34), `getAttributeNode`/`setAttributeNode`/`getAttributeNodeNS` (29), `replaceChildren` (24), `insertAdjacentElement`/`insertAdjacentText` (17), `toggleAttribute`, `hasAttributes`, `isSameNode`, `getAttributeNames`, `webkitMatchesSelector`, `NodeList`'s and `DOMTokenList`'s iterator helpers. Each is `Property '…' of object is not a function` before the test can say anything else. |
 | 165 | 17 | [#3766](https://github.com/sebastienros/jint/issues/3766) **An XML document, and the two members that make one.** `DOMImplementation.createDocument` is not on AngleSharp's `IImplementation` at all and `Document.createCDATASection` is not projected, so a processing instruction is not an element and `XMLDocument` is not a name. `NeedsXmlDocuments`, which is a scope decision rather than debt — and the most expensive one in this table, because `dom/common.js` calls `createCDATASection` at file scope and **31 documents therefore register no test at all**. |

@@ -378,7 +378,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.relList");
-                    return self.Realm.Wrap(self.Target.RelationList);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.relList", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, "HTMLAnchorElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAnchorElement.search", static (thisObj, args) =>
@@ -591,7 +596,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.relList");
-                    return self.Realm.Wrap(self.Target.RelationList);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.relList", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, "HTMLAreaElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("search",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLAreaElement.search", static (thisObj, args) =>
@@ -1815,7 +1825,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.sandbox", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.sandbox");
-                    return self.Realm.Wrap(self.Target.Sandbox);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sandbox", self.Target.Sandbox);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.sandbox", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, "HTMLIFrameElement.sandbox");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sandbox", args);
                 }))
             .Accessor("seamless",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLIFrameElement.seamless", static (thisObj, args) =>
@@ -2762,7 +2777,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.relList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.relList");
-                    return self.Realm.Wrap(self.Target.RelationList);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "rel", self.Target.RelationList);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.relList", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.relList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "rel", args);
                 }))
             .Accessor("rev",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.rev", static (thisObj, args) =>
@@ -2785,7 +2805,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sizes", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.sizes");
-                    return self.Realm.Wrap(self.Target.Sizes);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "sizes", self.Target.Sizes);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.sizes", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, "HTMLLinkElement.sizes");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "sizes", args);
                 }))
             .Accessor("type",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLLinkElement.type", static (thisObj, args) =>
@@ -3484,7 +3509,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.htmlFor", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.htmlFor");
-                    return self.Realm.Wrap(self.Target.HtmlFor);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "for", self.Target.HtmlFor);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.htmlFor", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, "HTMLOutputElement.htmlFor");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "for", args);
                 }))
             .Accessor("labels",
                 global::Jint.Browser.Dom.DomFailures.Guard("HTMLOutputElement.labels", static (thisObj, args) =>

@@ -487,14 +487,15 @@ internal static partial class DomInterfaces
 
     /// <summary>The members of <c>DOMTokenList</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDOMTokenList()
-        => new global::Jint.Native.JsObjectShape.Builder()
+    {
+        var builder = new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DOMTokenList")
             .PerRealmSlot("constructor", enumerable: false)
             .Method("add",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.add", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.add");
-                    self.Target.Add(global::Jint.Browser.Dom.DomConvert.TextRest(args, 0)); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Add(self.Realm, self.Target, args);
                 }),
                 length: 0)
             .Method("contains",
@@ -508,41 +509,65 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.item", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.item");
-                    return global::Jint.Browser.Dom.DomConvert.Text(((global::System.Collections.Generic.IReadOnlyList<global::System.String>) self.Target)[global::Jint.Browser.Dom.DomConvert.RequiredInt32(args, 0, "DOMTokenList.item")]);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);
                 }),
                 length: 1)
             .Method("remove",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.remove", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.remove");
-                    self.Target.Remove(global::Jint.Browser.Dom.DomConvert.TextRest(args, 0)); return global::Jint.Native.JsValue.Undefined;
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Remove(self.Realm, self.Target, args);
+                }),
+                length: 0)
+            .Method("replace",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.replace", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.replace");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Replace(self.Realm, self.Target, args);
+                }),
+                length: 2)
+            .Method("supports",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.supports", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.supports");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Supports(self.Realm, args);
+                }),
+                length: 1)
+            .Method("toString",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.toString", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.toString");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);
                 }),
                 length: 0)
             .Method("toggle",
                 global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.toggle", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.toggle");
-                    return global::Jint.Browser.Dom.DomConvert.Bool(self.Target.Toggle(global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMTokenList.toggle"), global::Jint.Browser.Dom.DomConvert.OptionalBool(args, 1, false)));
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Toggle(self.Realm, self.Target, args);
                 }),
                 length: 1)
-            .Build();
+            .Accessor("value",
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.value", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.value");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("DOMTokenList.value", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, "DOMTokenList.value");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);
+                }));
+
+        global::Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator(builder);
+        return builder.Build();
+    }
 
     /// <summary>The members of <c>DOMSettableTokenList</c>.</summary>
     private static global::Jint.Native.JsObjectShape BuildDOMSettableTokenList()
         => new global::Jint.Native.JsObjectShape.Builder()
             .ToStringTag("DOMSettableTokenList")
             .PerRealmSlot("constructor", enumerable: false)
-            .Accessor("value",
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMSettableTokenList.value", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ISettableTokenList>(thisObj, "DOMSettableTokenList.value");
-                    return global::Jint.Browser.Dom.DomConvert.Text(self.Target.Value);
-                }),
-                global::Jint.Browser.Dom.DomFailures.Guard("DOMSettableTokenList.value", static (thisObj, args) =>
-                {
-                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ISettableTokenList>(thisObj, "DOMSettableTokenList.value");
-                    self.Target.Value = global::Jint.Browser.Dom.DomConvert.RequiredText(args, 0, "DOMSettableTokenList.value"); return global::Jint.Native.JsValue.Undefined;
-                }))
             .Build();
 
     /// <summary>The members of <c>DOMStringList</c>.</summary>
@@ -1340,7 +1365,12 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.classList", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.classList");
-                    return self.Realm.Wrap(self.Target.ClassList);
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, "class", self.Target.ClassList);
+                }),
+                global::Jint.Browser.Dom.DomFailures.Guard("Element.classList", static (thisObj, args) =>
+                {
+                    var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, "Element.classList");
+                    return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, "class", args);
                 }))
             .Accessor("className",
                 global::Jint.Browser.Dom.DomFailures.Guard("Element.className", static (thisObj, args) =>

@@ -185,12 +185,17 @@ public sealed class CustomElementReactionTests
     }
 
     /// <summary>
-    /// The one attribute write neither channel reports, which is AngleSharp's gap rather than a deferral:
-    /// <c>TokenList</c> writes the content attribute without notifying its <c>IAttributeObserver</c> and
-    /// without queueing a mutation record, so nothing arrives at all — not now and not at the checkpoint.
+    /// A <c>classList</c> write is an ordinary attribute change, and reaches the reaction like one.
     /// </summary>
+    /// <remarks>
+    /// It did not use to. AngleSharp's <c>TokenList</c> writes the content attribute through its own
+    /// <c>Changed</c> event, which notifies no <c>IAttributeObserver</c> and queues no mutation record, so
+    /// nothing arrived at all — not then and not at the checkpoint. DOM §7.1's <i>update steps</i> are
+    /// <c>Dom/Collections/DomTokenListMembers</c>' now and they are a plain <i>set an attribute value</i>,
+    /// which is the same door <c>setAttribute</c> comes through; the notification is what that buys.
+    /// </remarks>
     [Test]
-    public async Task AClassListWriteReachesNeitherNotificationChannel()
+    public async Task AClassListWriteIsAnOrdinaryAttributeChange()
     {
         await using var browser = new Browser();
         var page = await PageWith(browser,
@@ -212,8 +217,8 @@ public sealed class CustomElementReactionTests
 
         (await page.WaitForIdleAsync(TimeSpan.FromSeconds(5))).Should().BeTrue();
 
-        // Pumped to the checkpoint first, so a failure here would mean a deferral rather than a gap.
-        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("sync:0");
+        // Synchronously, at the write, which is where DOM's attribute change steps enqueue the reaction.
+        (await page.EvaluateAsync<string>("window.log.join('|')")).Should().Be("attr:one|sync:1");
         (await page.EvaluateAsync<string>("document.querySelector('x-thing').className")).Should().Be("one");
     }
 }

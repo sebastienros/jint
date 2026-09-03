@@ -9,14 +9,12 @@
     "",
     "The lists are read by tools/dom-bindings/Jint.Browser.BindingGenerator/Overrides.cs."
   ],
-
   "excludedInterfaces": [
     {
       "interface": "AngleSharp.Dom.IWindow",
       "reason": "Window is the browser runtime's, not the binding's: the global object stays Jint's GlobalObject and gains Window.prototype in its chain (campaign item R1). Generating a second Window here would produce an interface object nothing could ever be an instance of. document.defaultView is skipped with it, by the conversion table rather than by name."
     }
   ],
-
   "manual": [
     {
       "interface": "AngleSharp.Dom.IHtmlCollection`1",
@@ -24,7 +22,6 @@
       "reason": "AngleSharp's IHtmlCollection<T> is generic and invariant, so a static member body cannot name the receiver type. item() and namedItem() are hand-written against DomCollectionBase's two virtuals instead, and the interface contributes no members to any closure — its refinements inherit them through the prototype chain, which is where a browser has them too."
     }
   ],
-
   "skip": [
     {
       "interface": "Document",
@@ -156,9 +153,68 @@
       "member": "href",
       "half": "setter",
       "reason": "Assigning location.href is a navigation (campaign item R5). The getter stays, because reading the document's URL is not."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "add",
+      "reason": "Re-declared in `additions`: DOM §7.1's validation steps, `toggle`'s \"force is either not given or\" distinction, and the update steps that rewrite the attribute even when the token set did not change are all outside what `ITokenList` can express. See Dom/Collections/DomTokenListMembers."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "item",
+      "reason": "Re-declared in `additions`: WebIDL's indexed getter answers null for an index past the end, and AngleSharp's List<string> indexer throws ArgumentOutOfRange."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "remove",
+      "reason": "Re-declared in `additions`: DOM §7.1's validation steps, `toggle`'s \"force is either not given or\" distinction, and the update steps that rewrite the attribute even when the token set did not change are all outside what `ITokenList` can express. See Dom/Collections/DomTokenListMembers."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "toggle",
+      "reason": "Re-declared in `additions`: DOM §7.1's validation steps, `toggle`'s \"force is either not given or\" distinction, and the update steps that rewrite the attribute even when the token set did not change are all outside what `ITokenList` can express. See Dom/Collections/DomTokenListMembers."
+    },
+    {
+      "interface": "Element",
+      "member": "classList",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "relList",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLAreaElement",
+      "member": "relList",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "sandbox",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "relList",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "sizes",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "htmlFor",
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither."
+    },
+    {
+      "interface": "DOMSettableTokenList",
+      "member": "value",
+      "reason": "DOM merged DOMSettableTokenList into DOMTokenList in 2016, and AngleSharp's ISettableTokenList.Value is the *serialized* token set where DOM's `value` is the attribute verbatim -- `sandbox=\"  x  y \"` reads back as `x y`. Skipped rather than re-declared: the inherited DOMTokenList.value is already the standard's, so this interface is left with no members of its own, which is what the standard leaves it with too."
     }
   ],
-
   "additions": [
     {
       "interface": "Node",
@@ -787,9 +843,202 @@
       "interface": "Document",
       "extend": "Jint.Browser.Events.DomShapeAdditions.DocumentHandlers",
       "reason": "The same two mixins plus onreadystatechange and onvisibilitychange, for the same reason."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "add",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.add\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Add(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §7.1: every token is validated before any is appended, and the update steps run whether or not the set moved."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "item",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.item\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Item(self.Target, args);"
+      ],
+      "reason": "DOM §7.1: an index at or past the end is null. WebIDL's indexed getters never throw for one."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "remove",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.remove\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Remove(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §7.1, the same validation and the same update steps as add."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "replace",
+      "kind": "operation",
+      "length": 2,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.replace\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Replace(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §7.1, in the standard since 2016. `ITokenList` has no member for it, and it is an in-place replacement rather than a remove and an add, so the rest of the set keeps its order."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "supports",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.supports\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Supports(self.Realm, args);"
+      ],
+      "reason": "DOM §7.1: a TypeError when the associated attribute defines no supported tokens, which `class` does not. See DomTokenListMembers for what it costs `rel` and `sandbox`."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "toggle",
+      "kind": "operation",
+      "length": 1,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.toggle\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Toggle(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §7.1: `toggle(token, false)` on an element without the token adds nothing and answers false, which a CLR `bool force = false` parameter cannot tell from a toggle."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "toString",
+      "kind": "operation",
+      "length": 0,
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.toString\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);"
+      ],
+      "reason": "DOM §7.1's stringifier, which the standard defines as `value`'s own steps: the attribute value verbatim, and the empty string when the attribute is absent."
+    },
+    {
+      "interface": "DOMTokenList",
+      "member": "value",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.value\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Value(self.Target);"
+      ],
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.ITokenList>(thisObj, \"DOMTokenList.value\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.SetValue(self.Realm, self.Target, args);"
+      ],
+      "reason": "DOM §7.1: the getter is get-an-attribute-value and the setter is set-an-attribute-value, both verbatim, so neither normalises. AngleSharp's ITokenList has no member for it at all."
+    },
+    {
+      "interface": "DOMTokenList",
+      "extend": "Jint.Browser.Dom.Collections.DomIterableMembers.ValueIterator",
+      "reason": "WebIDL's `iterable<DOMString>`, whose four members are the *values* of %Array.prototype%'s own entries, keys, values and forEach rather than forwarders onto them - dom/lists/DOMTokenList-iteration.html asserts the identity. That is a per-realm data slot, which the member form cannot say, because a member entry is an operation and an operation has a body."
+    },
+    {
+      "interface": "Element",
+      "member": "classList",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.classList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"class\", self.Target.ClassList);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Dom.IElement>(thisObj, \"Element.classList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"class\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLAnchorElement",
+      "member": "relList",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, \"HTMLAnchorElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAnchorElement>(thisObj, \"HTMLAnchorElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLAreaElement",
+      "member": "relList",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, \"HTMLAreaElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlAreaElement>(thisObj, \"HTMLAreaElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLIFrameElement",
+      "member": "sandbox",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.sandbox\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sandbox\", self.Target.Sandbox);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlInlineFrameElement>(thisObj, \"HTMLIFrameElement.sandbox\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sandbox\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "relList",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, \"HTMLLinkElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"rel\", self.Target.RelationList);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, \"HTMLLinkElement.relList\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"rel\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLLinkElement",
+      "member": "sizes",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, \"HTMLLinkElement.sizes\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"sizes\", self.Target.Sizes);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlLinkElement>(thisObj, \"HTMLLinkElement.sizes\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"sizes\", args);"
+      ]
+    },
+    {
+      "interface": "HTMLOutputElement",
+      "member": "htmlFor",
+      "kind": "attribute",
+      "body": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, \"HTMLOutputElement.htmlFor\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.Project(self.Realm, self.Target, \"for\", self.Target.HtmlFor);"
+      ],
+      "reason": "Re-declared in `additions` so the projected `ITokenList` records the element and attribute it reflects: DOM §7.1 defines `value`, the stringifier and the update steps in terms of both, and AngleSharp's `ITokenList` names neither. Its setter is WebIDL's [PutForwards=value], which the generator has no way to see: a read-only CLR property is a read-only accessor, and `el.classList = 'a b'` is a TypeError in strict mode rather than a write of the attribute.",
+      "setter": [
+        "var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Html.Dom.IHtmlOutputElement>(thisObj, \"HTMLOutputElement.htmlFor\");",
+        "return global::Jint.Browser.Dom.Collections.DomTokenListMembers.PutForwards(self.Target, \"for\", args);"
+      ]
     }
   ],
-
   "hooks": [
     {
       "interface": "Element",
@@ -810,7 +1059,7 @@
       "member": "setAttribute",
       "half": "operation",
       "hook": "SetAttribute",
-      "reason": "HTML activates an event handler when its content attribute is set, and the listener it creates keeps its position among the addEventListener listeners for ever. This is the one write of an attribute the package can see, so it is where `onclick=\"\u2026\"` takes its place in the list; the hook's body is the AngleSharp call it replaced, plus that reconciliation."
+      "reason": "HTML activates an event handler when its content attribute is set, and the listener it creates keeps its position among the addEventListener listeners for ever. This is the one write of an attribute the package can see, so it is where `onclick=\"…\"` takes its place in the list; the hook's body is the AngleSharp call it replaced, plus that reconciliation."
     },
     {
       "interface": "Element",
@@ -841,7 +1090,6 @@
       "reason": "document.write with a newline appended (campaign item R3)."
     }
   ],
-
   "nullableStrings": [
     {
       "interface": "Element",
@@ -909,7 +1157,6 @@
       "reason": "DOM §4.4: `DOMString? lookupNamespaceURI(DOMString? prefix)`."
     }
   ],
-
   "nullableParameters": [
     {
       "interface": "Node",
@@ -918,9 +1165,7 @@
       "reason": "DOM §4.4: `Node insertBefore(Node node, Node? child)` — a null child appends, which is how every virtual DOM adds its last row. AngleSharp annotates the parameter nullable and implements it, but the emitter reads C# optionality rather than nullable-reference metadata, so the table is where WebIDL's nullability is stated."
     }
   ],
-
   "stringEnums": [],
-
   "constants": {
     "add": [
       {
