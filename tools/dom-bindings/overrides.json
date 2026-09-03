@@ -1430,6 +1430,141 @@
       "reason": "document.write with a newline appended (campaign item R3)."
     }
   ],
+
+  "$reflectedComment": [
+    "HTML \u00a72.6.1's reflected content attributes: https://html.spec.whatwg.org/multipage/common-dom-interfaces.html#reflecting-content-attributes-in-idl-attributes.",
+    "",
+    "This is the one list whose entries come from the STANDARD rather than from AngleSharp. Every other list",
+    "in this file corrects what the pinned assemblies say; a row here states what HTML says about one",
+    "attribute -- which of the thirteen reflection algorithms it takes, its keywords, its invalid and missing",
+    "value defaults, its range -- none of which any CLR signature carries. A `long` and a `long` limited to",
+    "only non-negative numbers are the same Int32 property, and <col span> defaulting to 1 while <select size>",
+    "defaults to 0 is nowhere in the metadata at all.",
+    "",
+    "An entry REPLACES the member AngleSharp projects under that name, which is the opposite of what",
+    "`additions` does and is deliberate: most reflected attributes are projected already, from a property that",
+    "hands back the raw attribute value or parses it with a different default. Neither the presence nor the",
+    "absence of the AngleSharp member is an error, so the generated report says which of the two each row was.",
+    "",
+    "The type names are HTML's own, which are also the ones web-platform-tests' html/dom/reflection.js uses,",
+    "so a row can be read straight off the corpus table that tests it."
+  ],
+
+  "reflected": [
+    {
+      "interface": "HTMLElement",
+      "member": "dir",
+      "attribute": "dir",
+      "type": "enum",
+      "keywords": ["ltr", "rtl", "auto"],
+      "reason": "HTML \u00a73.2.6.4: `dir` is an enumerated attribute with an empty invalid and missing value default, so an unknown value reads back as \"\" and a known one in its canonical case. AngleSharp's Direction is the raw attribute, so `el.dir = '5%'` answered \"5%\" and `dir=LTR` answered \"LTR\"."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "lang",
+      "attribute": "lang",
+      "type": "string",
+      "reason": "HTML \u00a73.2.6.2: `lang` reflects the content attribute and nothing else. AngleSharp's Language walks to the nearest ancestor that has the attribute and falls back to the current culture, so an element with no `lang` anywhere above it answered \"en-US\" -- a page asking what language THIS element declares was told what machine it was running on."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "tabIndex",
+      "attribute": "tabindex",
+      "type": "long",
+      "default": 0,
+      "reason": "HTML \u00a76.6.3: `tabIndex` is a reflected long, so HTML's rules for parsing integers decide it -- they take a prefix, which is why `tabindex=\"1.5\"` is 1 and `tabindex=\"5%\"` is 5 where AngleSharp answered 0 for both. The default stays 0 rather than HTML's -1-unless-inherently-focusable, which needs a focusability model this package does not have; Dom/AGENTS.md records it."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "autofocus",
+      "attribute": "autofocus",
+      "type": "boolean",
+      "reason": "HTML \u00a76.6.6 puts `autofocus` on HTMLElement, not on the form controls: AngleSharp declares it only on the elements HTML4 could focus, so `div.autofocus` was undefined and setting it made an expando that wrote no attribute."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "enterKeyHint",
+      "attribute": "enterkeyhint",
+      "type": "enum",
+      "keywords": ["enter", "done", "go", "next", "previous", "search", "send"],
+      "reason": "HTML \u00a76.8.5: an enumerated attribute of the ElementContentEditable mixin, which HTMLElement includes. AngleSharp has no member for it at all."
+    },
+    {
+      "interface": "HTMLElement",
+      "member": "inputMode",
+      "attribute": "inputmode",
+      "type": "enum",
+      "keywords": ["none", "text", "tel", "url", "email", "numeric", "decimal", "search"],
+      "reason": "HTML \u00a76.8.4: an enumerated attribute of the ElementContentEditable mixin, which HTMLElement includes. AngleSharp has no member for it at all."
+    },
+    {
+      "interface": "HTMLHtmlElement",
+      "member": "version",
+      "attribute": "version",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLScriptElement",
+      "member": "src",
+      "attribute": "src",
+      "type": "url",
+      "reason": "HTML \u00a74.12.1 reflects `src` AS A URL, so it answers the absolute URL the attribute resolves to against the element's node document. AngleSharp's Source is the raw attribute value, which is the divergence Dom/AGENTS.md recorded and the browser lane's html/webappapis/scripting/ rows were triaged against."
+    },
+    {
+      "interface": "HTMLScriptElement",
+      "member": "noModule",
+      "attribute": "nomodule",
+      "type": "boolean",
+      "reason": "HTML \u00a74.12.1: a boolean attribute AngleSharp has no member for, so `script.noModule` was undefined -- and a page feature-detecting module support reads exactly this."
+    },
+    {
+      "interface": "HTMLScriptElement",
+      "member": "crossOrigin",
+      "attribute": "crossorigin",
+      "type": "enum",
+      "keywords": ["anonymous", "use-credentials"],
+      "nullable": true,
+      "invalid": "anonymous",
+      "reason": "HTML \u00a72.6.7: a CORS settings attribute is an enumerated attribute whose IDL type is DOMString?, so an absent attribute is null and any unknown value -- including the empty string -- is the Anonymous state. AngleSharp handed back the raw value, so `crossorigin=\"\"` answered \"\" where a browser answers \"anonymous\"."
+    },
+    {
+      "interface": "HTMLScriptElement",
+      "member": "event",
+      "attribute": "event",
+      "type": "string",
+      "reason": "HTML \u00a716.2: an obsolete attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLScriptElement",
+      "member": "htmlFor",
+      "attribute": "for",
+      "type": "string",
+      "reason": "HTML \u00a716.2: `htmlFor` reflects `for`, the one member of this group whose IDL name and content attribute name differ. AngleSharp has no member for it."
+    },
+    {
+      "interface": "HTMLModElement",
+      "member": "cite",
+      "attribute": "cite",
+      "type": "url",
+      "reason": "HTML \u00a74.7.1: `cite` is reflected as a URL. AngleSharp's Citation is the raw attribute value, the same divergence script.src has."
+    },
+    {
+      "interface": "HTMLModElement",
+      "member": "dateTime",
+      "attribute": "datetime",
+      "type": "string",
+      "reason": "HTML \u00a74.7.1: `dateTime` is a plain reflected DOMString -- the value is a date string but the IDL attribute does not parse it. AngleSharp types it as a DateTime, so the conversion table had nothing to project it as and the member was absent."
+    },
+    {
+      "interface": "HTMLMenuElement",
+      "member": "compact",
+      "attribute": "compact",
+      "type": "boolean",
+      "reason": "HTML \u00a716.2: an obsolete boolean attribute the standard still requires the IDL attribute for. AngleSharp has no member for it."
+    }
+  ],
+
   "nullableStrings": [
     {
       "interface": "Element",

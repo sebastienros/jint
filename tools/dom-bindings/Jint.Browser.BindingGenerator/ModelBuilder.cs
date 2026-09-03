@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 using static Jint.Browser.BindingGenerator.Inventory;
@@ -442,6 +443,8 @@ internal sealed class ModelBuilder
             }
         }
 
+        BuildReflectedMembers(model);
+
         // The curated additions last, and against what was actually emitted rather than against what was
         // seen: half of them name a member AngleSharp does declare and the generator skipped, which is
         // exactly the case an addition exists for. A collision with an *emitted* member is a real one — the
@@ -480,6 +483,152 @@ internal sealed class ModelBuilder
 
         model.Members.Sort((a, b) => string.CompareOrdinal(a.DomName, b.DomName));
     }
+
+    /// <summary>
+    /// HTML §2.6.1's reflected content attributes: the accessor pair is the reflection algorithm its type
+    /// names, over the content attribute, and it <b>replaces</b> whatever the pinned assemblies projected
+    /// under that name.
+    /// </summary>
+    /// <remarks>
+    /// The replacement is the whole point and is the opposite of what <c>additions</c> does. A reflected
+    /// attribute is usually one AngleSharp <em>does</em> project, from a CLR property whose getter hands back
+    /// the raw attribute value, or parses it with a different default, or lower-cases nothing; the entry says
+    /// which of HTML's thirteen algorithms it really is. What the entry can never do is silently shadow: the
+    /// report names every one and says whether it replaced a projection or added a member.
+    /// </remarks>
+    private void BuildReflectedMembers(InterfaceModel model)
+    {
+        foreach (var entry in _overrides.Reflected)
+        {
+            if (entry.Interface != model.DomName)
+            {
+                continue;
+            }
+
+            if (!TryReflectedFactory(model, entry, out var factory))
+            {
+                continue;
+            }
+
+            var qualified = model.DomName + "." + entry.Member;
+            var field = model.FieldName + char.ToUpperInvariant(entry.Member[0]) + entry.Member[1..];
+            var replaced = model.Members.RemoveAll(m => m.DomName == entry.Member) > 0;
+
+            _model.Reflected.Add(new ReflectedModel(field, qualified, entry.Attribute, entry.Type, factory, replaced));
+
+            var descriptor = "global::Jint.Browser.Dom.DomReflected." + field;
+
+            model.Members.Add(new MemberModel
+            {
+                DomName = entry.Member,
+                Kind = MemberKind.Attribute,
+                Body = Bind(model, qualified) + "return " + descriptor + ".Get(self.Target);",
+                SetterBody = Bind(model, qualified) + "return " + descriptor + ".Set(self.Realm, self.Target, args);",
+                Origin = "overrides.json (reflected)",
+            });
+        }
+    }
+
+    /// <summary>
+    /// The C# expression that builds one entry's descriptor, or a diagnostic saying what the entry does not
+    /// carry. Every parameter HTML gives a reflection type is checked here rather than at run time, because
+    /// an <c>enum</c> with no keywords or a <c>clamped unsigned long</c> with no range would otherwise be a
+    /// member that answers a plausible wrong value.
+    /// </summary>
+    private bool TryReflectedFactory(InterfaceModel model, Overrides.ReflectedEntry entry, out string factory)
+    {
+        factory = "";
+
+        var qualified = CSharpNames.Literal(model.DomName + "." + entry.Member);
+        var attribute = CSharpNames.Literal(entry.Attribute);
+
+        if (entry.Type == "enum")
+        {
+            if (entry.Keywords.Count == 0)
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                    + ") as an enumerated attribute with no keywords.");
+                return false;
+            }
+
+            var keywords = "[" + string.Join(", ", entry.Keywords.Select(CSharpNames.Literal)) + "]";
+
+            // A nullable enumeration's missing value default is null; every other enumeration's is the empty
+            // string unless the entry names one. `invalid: null` means "the missing value default", which is
+            // what HTML says an enumerated attribute with no invalid value default falls back to.
+            var missing = entry.Nullable ? "null" : CSharpNames.Literal(entry.Missing ?? "");
+            var invalid = entry.Invalid is null ? "null" : CSharpNames.Literal(entry.Invalid);
+
+            factory = "ReflectedAttribute.Enumerated(" + qualified + ", " + attribute + ", " + keywords
+                + ", missing: " + missing + ", invalid: " + invalid + ")";
+            return true;
+        }
+
+        if (entry.Type == "string")
+        {
+            factory = "ReflectedAttribute.Text(" + qualified + ", " + attribute + (entry.Nullable ? ", nullable: true" : "") + ")";
+            return true;
+        }
+
+        if (entry.Type == "url")
+        {
+            factory = "ReflectedAttribute.Url(" + qualified + ", " + attribute + ")";
+            return true;
+        }
+
+        if (entry.Type == "boolean")
+        {
+            factory = "ReflectedAttribute.Boolean(" + qualified + ", " + attribute + ")";
+            return true;
+        }
+
+        if (!_numericKinds.TryGetValue(entry.Type, out var numeric))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as '" + entry.Type + "', which is not one of HTML's reflection types.");
+            return false;
+        }
+
+        var (kind, standardDefault) = numeric;
+        var clamped = entry.Type == "clamped unsigned long";
+
+        if (clamped && (entry.Min is null || entry.Max is null || entry.Default is null))
+        {
+            _model.Diagnostics.Add(
+                "overrides.json reflects " + model.DomName + "." + entry.Member + " (" + entry.Reason
+                + ") as a clamped unsigned long without all of 'min', 'max' and 'default'.");
+            return false;
+        }
+
+        factory = "ReflectedAttribute.Numeric(" + qualified + ", " + attribute + ", ReflectedKind." + kind
+            + ", " + Number(entry.Default ?? standardDefault)
+            + (clamped ? ", min: " + entry.Min!.Value.ToString(CultureInfo.InvariantCulture) + ", max: " + entry.Max!.Value.ToString(CultureInfo.InvariantCulture) : "")
+            + ")";
+        return true;
+    }
+
+    /// <summary>A C# <c>double</c> literal that round-trips, for a reflected attribute's default value.</summary>
+    private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// HTML's numeric reflection types and the default each one falls back to when the entry names none:
+    /// −1 for a long limited to non-negative numbers, 1 for an unsigned long limited to positive numbers,
+    /// and 0 for the rest. §2.6.1 states each of those, and getting one wrong is invisible until a page
+    /// reads an attribute nobody set.
+    /// </summary>
+    private static readonly Dictionary<string, (string Kind, double Default)> _numericKinds = new(StringComparer.Ordinal)
+    {
+        ["long"] = ("Long", 0),
+        ["limited long"] = ("LimitedLong", -1),
+        ["unsigned long"] = ("UnsignedLong", 0),
+        ["limited unsigned long"] = ("LimitedUnsignedLong", 1),
+        ["limited unsigned long with fallback"] = ("LimitedUnsignedLongWithFallback", 1),
+        ["clamped unsigned long"] = ("ClampedUnsignedLong", 0),
+        ["double"] = ("Double", 0),
+        ["limited double"] = ("LimitedDouble", 0),
+    };
 
     private HashSet<string> DeclaredKeys(Type type)
         => ClosureMembers(type).Select(entry => Key(entry.Declaring, entry.Member)).ToHashSet(StringComparer.Ordinal);
@@ -1280,6 +1429,20 @@ internal sealed class ModelBuilder
                 _model.Diagnostics.Add(
                     "overrides.json's addition hands the builder of '" + entry.Interface + "' to '" + named
                     + "' (" + entry.Reason + "), but that interface's shape is hand-written by 'manual', so the generator emits no builder for it.");
+            }
+        }
+
+        // A reflection entry is checked for the interface only. Unlike an addition, the member it names is
+        // usually one the pinned assemblies DO project — that is the case the list mostly exists for — so
+        // neither its presence nor its absence can be an error; what BuildReflectedMembers reports instead is
+        // which of the two each entry turned out to be.
+        foreach (var entry in _overrides.Reflected)
+        {
+            if (!_byClrName.Values.Any(m => m.DomName == entry.Interface))
+            {
+                _model.Diagnostics.Add(
+                    "overrides.json reflects '" + entry.Interface + "." + entry.Member + "' (" + entry.Reason
+                    + ") onto an interface the pinned assemblies do not project.");
             }
         }
 

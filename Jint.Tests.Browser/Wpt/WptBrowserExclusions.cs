@@ -283,20 +283,34 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions, of which 22,028 do not pass. This package projects
-        // AngleSharp's properties and does not implement HTML's reflection algorithms — the limited-to-known-
-        // values enumerations, the unsigned long clamping and defaulting, the URL reflection, the nullable
-        // string cases — so the failures are spread over nearly every content attribute of nearly every
-        // element. **They are not slow**: the whole set runs in 22.5 s and the largest of them
-        // (reflection-embedded.html, 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What stops
-        // them being vendored is the artefact: the smallest table of patterns that covers those failures and
-        // no passing test is over four thousand rows, and every one of them says the same thing. One issue
-        // saying it once is the better record, and the day reflection is implemented these become cases.
-        ("html/dom/reflection-*.html", "HTML's reflection suite: 22,028 of 56,660 assertions fail because reflection is not implemented, and no readable exclusion table can name them"),
-        ("html/dom/reflection.js", "the body of the reflection suite above"),
-        ("html/dom/elements-*.js", "the per-family attribute tables the reflection suite above runs"),
-        ("html/dom/new-harness.js", "the reflection suite's own harness"),
-        ("html/dom/original-harness.js", "the reflection suite's own harness, in the aggregating spelling reflection-original.html uses"),
+        // Ten generated documents, 56,660 assertions. reflection-misc.html is a case now: HTML §2.6.1's
+        // reflection algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs), driven by
+        // overrides.json's `reflected` list, and all 4,877 of its tests pass with nothing excluded.
+        //
+        // The other nine are still out, and the reason is no longer "reflection is not implemented" — it is
+        // the per-element attribute table each of them needs, one `reflected` row per content attribute, which
+        // is #3770's remaining work. The fifteen rows that made misc a case were mostly the GLOBAL attributes
+        // every element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they
+        // moved the others a long way already: measured against the four next-cheapest documents, text,
+        // metadata, grouping and sections fell from 8,773 failing assertions to 2,437, and what is left in
+        // them is `align`, `as`, `referrerPolicy`, `compact`, `charset` and their kind — element-specific
+        // attributes, each one row.
+        //
+        // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
+        // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
+        // artefact — a table of patterns naming thousands of failures, every one of them saying the same
+        // thing — and that is the thing this suite stops needing one family at a time.
+        ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
+        ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
+        ("html/dom/*-forms-weekmonth.*", "#3770: the week and month input types and their attribute table; 420 of 1,579"),
+        ("html/dom/*-grouping.*", "#3770: the grouping-content elements and their attribute table; 2,006 of 5,358 at the measurement, 620 with this change's rows in"),
+        ("html/dom/*-metadata.*", "#3770: the document-metadata elements and their attribute table; 1,218 of 3,110 at the measurement, 624 with this change's rows in"),
+        ("html/dom/*-obsolete.*", "#3770: the obsolete elements and their attribute table; 1,483 of 2,621"),
+        ("html/dom/*-sections.*", "#3770: the sectioning elements and their attribute table; 2,189 of 5,604 at the measurement, 489 with this change's rows in"),
+        ("html/dom/*-tabular.*", "#3770: the tabular-data elements and their attribute table; 3,552 of 6,116"),
+        ("html/dom/*-text.*", "#3770: the text-level semantics elements and their attribute table; 3,360 of 10,202 at the measurement, 704 with this change's rows in"),
+        ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
+        ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
 
         // ------------------------------------------------------------ not a testharness document at all
         ("dom/nodes/*crash.html", "a crash reproduction: it loads no harness and asserts nothing"),
@@ -720,6 +734,7 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection-disconnected.html"] = 2,
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
+        ["html/dom/reflection-misc.html"] = 4877,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
         ["html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html"] = 4,
         ["html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html"] = 3,
@@ -809,16 +824,17 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/runtime-error-data-url.html", "*", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/body-onerror-compile-error-data-url.html", "<body onerror> - compile error in <script src=data:...>", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 3. `script.src` does not reflect a URL
-        // HTML: the `src` IDL attribute of a `<script>` reflects the content attribute **as a URL**, so it
-        // answers the resolved absolute URL. AngleSharp's `IHtmlScriptElement.Source` answers the raw
-        // attribute value, so the four rows below compare the report's filename — which is correct, and
-        // absolute — against the unresolved string the document wrote. It is AngleSharp's divergence and it
-        // is recorded in `Jint.Browser/Dom/AGENTS.md`; working around it in the binding is the thing that
-        // file says not to do.
-        new("html/webappapis/scripting/processing-model-2/compile-error-same-origin.html", "window.onerror - compile error in <script src=...>", WptDivergence.NeedsTriage),
+        // ---------------------------------------------------------------- 3. a URL's fragment is dropped
+        // This group used to be four rows and the cause was `script.src` not reflecting a URL: HTML says the
+        // `src` IDL attribute reflects the content attribute AS A URL, so it answers the resolved absolute
+        // one, and AngleSharp's `IHtmlScriptElement.Source` answered the raw attribute value. #3770's
+        // reflection machinery took the member over and two of the four are cases now.
+        // The two that remain are a different defect wearing the same shape: each loads
+        // `<script src="support/syntax-error.js#">` and the URL `onerror` reports has lost the trailing `#`,
+        // so what goes missing is the (empty) FRAGMENT and not the resolution. That happens on the
+        // script-loading path — the URL is re-serialized between the element and the error report — and is a
+        // change to `Runtime/`, not to the binding.
         new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
-        new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin.html", "window.onerror - runtime error in <script src=...>", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- 4. a DOM prototype has no @@unscopables

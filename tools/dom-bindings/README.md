@@ -63,8 +63,11 @@ analyzer-free.
 - **`pin.json`** — the versions above.
 - **`overrides.json`** — the curated half of the binding: the interfaces the runtime owns instead, the shapes
   that are hand-written, the members a later campaign item owns, the members routed through a host hook, the
-  `DOMString?` list, and the two enum decisions the heuristics cannot make. Every entry carries a reason, and
-  an entry naming a member the pinned assemblies no longer have becomes a diagnostic.
+  reflected content attributes, the `DOMString?` list, and the two enum decisions the heuristics cannot make.
+  Every entry carries a reason, and an entry naming a member the pinned assemblies no longer have becomes a
+  diagnostic. One list is the exception to that shape and says so in the file: `reflected` states what **HTML**
+  says about an attribute rather than correcting what AngleSharp says, so its entries replace a projection
+  rather than colliding with one, and the report names every one of them.
   [`Jint.Browser/AGENTS.md`](../../Jint.Browser/AGENTS.md) explains each list and why it exists.
 
 A member the generator simply could not convert is **not** in `overrides.json`. It is skipped with the reason
