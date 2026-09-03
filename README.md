@@ -2250,17 +2250,16 @@ reverts global bindings, not host storage. A deployment running untrusted script
 itself: that is where a size limit, an eviction policy and a per-tenant partition belong. See
 [THREAT_MODEL.md](.github/THREAT_MODEL.md) TM-23 for the full analysis.
 
-
-
 ## Chrome DevTools Protocol (opt-in package)
 
 The `Jint.DevTools` package lets a debugging client attach to an engine your host is already running. It
 speaks the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) over a WebSocket,
 so a Jint engine appears to a client the way a Node process does — a target it can list, attach to and
-evaluate in — with no browser anywhere in the picture.
+evaluate in — with no browser anywhere in the picture. It is the engine half of the protocol;
+[the browser package](#headless-browser-opt-in-package) adds the page half on the same session core.
 
 ```csharp
-// dotnet add package Jint.DevTools   (net8.0 and later)
+// dotnet add package Jint.DevTools   (net8.0 and net10.0)
 using Jint.DevTools;
 
 var engine = new Engine(options => options.UseDevTools());
@@ -2277,9 +2276,10 @@ while (running)
 }
 ```
 
-Point a client at `http://127.0.0.1:9222` — `chrome://inspect` lists it, PuppeteerSharp's
+Point a client at `http://127.0.0.1:9222` — PuppeteerSharp's
 `Puppeteer.ConnectAsync(new ConnectOptions { BrowserURL = "http://127.0.0.1:9222" })` connects to it, and
-`server.BrowserWebSocketUrl` is the address for a client that wants the socket directly. Leave
+`server.BrowserWebSocketUrl` is the address for a client that wants the socket directly. Chrome's
+`chrome://inspect` lists the target once `127.0.0.1:9222` has been added to it under **Configure…**. Leave
 `DevToolsServerOptions.Port` at its default of `0` for an ephemeral port and read `server.BoundPort`.
 
 **Which thread answers a command is yours to choose.** `ThreadMode.HostOwned`, the default, means your own
@@ -2291,13 +2291,14 @@ so touching it from anywhere else still fails fast rather than corrupting anythi
 
 **The endpoint is unauthenticated**, exactly as it is in Chrome: anything that can reach it can evaluate
 arbitrary script in your process. `DevToolsServerOptions.Host` therefore defaults to `127.0.0.1`; do not
-bind it to a routable address.
+bind it to a routable address. The browser section below publishes its pages on this same server, so the
+warning covers that too.
 
 ### What answers today
 
-- **`Runtime`** — list targets, attach, hear about the execution context, and evaluate, including
-  `returnByValue`, object handles you can walk with `getProperties`, `callFunctionOn`, bindings and awaiting
-  a promise.
+- **`Runtime`** — evaluate, including `returnByValue`, object handles you can walk with `getProperties`,
+  `callFunctionOn`, bindings, and awaiting a promise; plus the execution context, console calls and uncaught
+  exceptions a client is told about without asking.
 - **`Debugger`** — breakpoints by URL or script, the three steps, `continueToLocation`, call frames, scopes
   (a getter-free snapshot, with a binding still in its temporal dead zone absent rather than `undefined`),
   `setVariableValue`, evaluation in any frame, and **pausing where a script throws**.
@@ -2305,10 +2306,17 @@ bind it to a routable address.
   which a function that never ran is reported with a zero count rather than being absent. Coverage is the
   one switch with a running cost, so it is opt-in: `options.UseDevTools(devTools => devTools.Coverage = true)`.
 - **`Console`, `Log`** — what a script logged, with its values still attached, and what it threw.
-- **`Target`, `Browser`, `Schema`** — the session core, flattened sessions only.
+- **`Target`, `Browser`, `Schema`** — the session core: listing targets, a flattened attach (`flatten: false`
+  is refused; no client sends it), and the domain list. These three are answered on the *browser* session, and
+  `Runtime`, `Debugger`, `Profiler`, `Console` and `Log` on a target's own — sending one down the other's
+  session identifier is a `-32601` like any other.
 
-Everything else answers `'Domain.method' wasn't found`, which is what a client feature-detects on, and the
-package's `AGENTS.md` says why for each. Page-level domains are not this package's business.
+Everything else answers `'Domain.method' wasn't found`, the `-32601` a client feature-detects on. The page
+domains (`Page`, `DOM`, `Network`, `Fetch`, `Input`, `Emulation`, `Storage`, `Accessibility`) belong to
+`Jint.Browser` and are absent on an engine target; for the rest, `Jint.Tests.DevTools`'s `Absent` table names
+a reason for every method the four recorded clients actually send, and the package's `AGENTS.md` argues the
+notable ones — async call stacks, source maps, blackboxing, `HeapProfiler` and per-session breakpoints among
+them.
 
 ### Trying it without writing a host
 
@@ -2318,11 +2326,11 @@ The REPL serves the protocol over `--inspect`:
 dotnet run --project Jint.Repl -c Release -- --inspect -f script.js -t 60
 ```
 
-It prints the WebSocket endpoint, the `devtools://` front-end address and what to type into
-`chrome://inspect`. `--inspect=[host:]port` chooses where to listen — `0` takes an ephemeral port and the
-banner names it — and `--inspect-brk` runs nothing until a client has attached and sent
-`Runtime.runIfWaitingForDebugger`. The engine stays attached after the script finishes, so a timer still
-fires and a client can still read it.
+It listens on `127.0.0.1:9229` — Node's port, not the `9222` used above — and prints the WebSocket endpoint,
+the `devtools://` front-end address and what to type into `chrome://inspect`. `--inspect=[host:]port` chooses
+where to listen; `0` takes an ephemeral port and the banner names it, and `--inspect-brk` runs nothing until a
+client has attached and sent `Runtime.runIfWaitingForDebugger`. The engine stays attached after the script
+finishes, so a timer still fires and a client can still read it.
 
 `Jint.DevTools/docs/manual-checklist.md` is what each panel should show, and
 `tools/devtools-frontend-smoke/` drives most of that walk against a real Chrome automatically.
@@ -2336,15 +2344,32 @@ if any trim or AOT analysis diagnostic is attributed to a file in `Jint.DevTools
 serializes goes through a source-generated `System.Text.Json` context, and the first reflective member would
 show up there and nowhere else.
 
-## Jint.Browser (opt-in package, in progress)
+## Headless browser (opt-in package)
 
-`Jint.Browser` is **AngleSharp + Jint**: AngleSharp is the HTML parser, the DOM and (with `AngleSharp.Css`)
-the CSSOM; Jint is the engine, and this package is the layer between them. It is the beginning of a headless
-browser — one that runs a page's scripts against a real DOM without rendering anything — and it is not
-finished. What ships today is a page runtime that navigates, submits forms, keeps cookies and storage and
-runs workers; what it still cannot do is listed below rather than left to be discovered.
+`Jint.Browser` is **AngleSharp + Jint**. AngleSharp is the HTML parser, the DOM and — with `AngleSharp.Css` —
+the CSSOM; Jint is the engine that runs the document's scripts; this package is the binding layer between
+them and the page runtime on top of it. It loads a URL, runs what the document loads, and answers what the
+page turned out to be.
+
+**It renders nothing.** There is no layout, no pixels, no screenshot and no PDF, and there is no browser
+binary to download or launch: this is one .NET process, on every platform .NET runs on. What that buys is a
+page you can drive from inside your own application; what it costs is everything that depends on knowing
+where a box really is.
+
+The principle the package is built to, and the one that decides its arguments, is the project founder's:
+
+> Jint should add value to AngleSharp without competing too much.
+
+So AngleSharp owns the parser, the DOM and the CSSOM, nothing here re-implements any of them, and an
+AngleSharp behaviour that disagrees with the standard is reported upstream and recorded rather than worked
+around in the binding.
+
+### Four ways in, and they are the same browser
+
+**The `Page` API**, in your own process — the whole package is reachable from it:
 
 ```c#
+// dotnet add package Jint.Browser   (net8.0 and net10.0)
 await using var browser = new Browser();
 var page = await browser.NewPageAsync();
 
@@ -2363,106 +2388,9 @@ neither an element nor a piece of text can state — a URL a router moved, a lis
 expression that throws is *not yet true*, so a condition written against an element a framework has not
 rendered is usable; a timeout reports that failure rather than a bare `false`.
 
-**What exists.** Generated bindings for every WebIDL interface AngleSharp describes: one prototype per
-interface built on Jint's own `JsObjectShape`, the interface objects (`Node`, `Element`, `HTMLDivElement`,
-`NodeList`, …) as globals so `instanceof` works, collections that index and iterate through the engine's
-array-like lane, and node wrappers that Jint's tree-aware event dispatcher can walk. On top of them, a page
-runtime: a `Browser` / `BrowserContext` / `Page` API, one engine and one thread per page, a `Window` whose
-prototype the global object inherits (so `window === globalThis`, `window instanceof EventTarget`, and
-`addEventListener` on the window is on a bubbling event's path), `document`, `location`, `screen`,
-`getComputedStyle` (read-only: the cascade, over a resolved value for the ten properties that decide whether
-an element can be interacted with), `matchMedia` (with `change`
-fired when the viewport moves), `requestAnimationFrame`, `postMessage`, dialogs as a host event, timers
-that fire because the page's thread pumps the engine, and console output and script errors recorded on the
-page. Content from `SetContentAsync`, `about:blank` and `data:text/html`, and a document's scripts run the
-way HTML says: inline and external classic scripts in document order as the parse reaches them, `defer` and
-`async` ones after it, then module scripts resolved through the document's import map, then
-`DOMContentLoaded`, `load` and `pageshow`, with `document.readyState` moving `loading` → `interactive` →
-`complete`. `document.write` during a parse writes at the insertion point, a script a script inserted runs
-and one `innerHTML` inserted does not, `import()` works from a classic script, and `<link rel=stylesheet>` is
-fetched so `getComputedStyle` answers from it.
-
-**And custom elements.** `window.customElements` is HTML's registry: `define` with `extends` and the
-reserved-name rules, `get`, `getName`, `whenDefined` and `upgrade`, with `connectedCallback`,
-`disconnectedCallback` and `attributeChangedCallback` running where a browser runs them — inside the DOM call
-that caused them, so `el.setAttribute('x', 1)` has already called back by the time it returns.
-`document.createElement`, `new MyElement()`, `innerHTML`, `cloneNode` and an element written in the markup
-all end in the same constructor, autonomous elements and customized built-ins (`extends: 'button'`,
-`<button is="my-button">`) alike, and a constructor or a callback that throws is reported to the page rather
-than crashing it. Two things differ from a browser and say so: an element the *parser* created is upgraded at
-the next script boundary rather than constructed as the tokenizer reaches it, and there is no
-`ElementInternals`, so `static formAssociated` is recorded and takes part in no form.
-
-**And the observers and views a page written this decade expects.** A `MutationObserver` whose records come
-from AngleSharp and are delivered at Jint's microtask checkpoint; `IntersectionObserver` and `ResizeObserver`
-as documented stubs that report every observed target once, since there is no layout for either to measure;
-`DOMParser` (HTML, and XML through `AngleSharp.Xml`) and `XMLSerializer`, `Range`, `TreeWalker`,
-`NodeIterator`, `getSelection()`, `<template>` content and `attachShadow`, with events crossing a shadow
-boundary the way the DOM says.
-
-**And XPath.** `document.evaluate`, `createExpression`, `createNSResolver`, `XPathEvaluator`,
-`XPathExpression` and `XPathResult` with its ten result types, evaluated by `System.Xml.XPath` over
-`AngleSharp.XPath`'s navigator — which is what htmx 2 needs before it reads a single `hx-` attribute.
-Namespaces are ignored, so an unprefixed `//div` matches an HTML element the way a page expects, and a
-node set is taken whole at evaluation rather than kept live. CSSOM's `CSS.escape` and `CSS.supports` are
-there too, the second answered by AngleSharp.Css's own condition evaluator.
-
-**And the network half.** `Page.NavigateAsync` loads an `http(s)` URL through Jint's own fetch pipeline and
-parses the result into a new engine — the document being left gets `beforeunload`, `pagehide` and `unload`,
-its pending requests are abandoned and its engine is disposed. Forms run HTML's submission algorithm
-(`submit` and `formdata` events, the entry list, `GET` query strings and `POST` in all three encodings);
-`history` and `location` travel a real session history with `popstate` and `hashchange`; `document.cookie`
-and every request share one jar per browser context; `localStorage` is partitioned by origin and
-`sessionStorage` by page, and a document with an opaque origin gets the `SecurityError` a browser gives;
-`Worker` runs on a thread the package starts, with its modules fetched over the page's own network. One
-`BrowserContextOptions.UrlFilter` bounds every load a page makes, on the first hop and on every redirect, and
-`Page.Requests` is the network log of what it made.
-
-**Events and input.** The UI Events family — `MouseEvent`, `PointerEvent`, `KeyboardEvent`, `InputEvent`,
-`FocusEvent`, `WheelEvent`, `CompositionEvent` — plus HTML's `SubmitEvent`, `FormDataEvent`,
-`HashChangeEvent`, `PopStateEvent`, `PageTransitionEvent` and `BeforeUnloadEvent`, each constructible from its
-init dictionary and each on the prototype chain below Jint's own `Event`. `onclick="…"` and its kind compile
-with HTML's own scope and share one slot with `el.onclick`, `<body onload>` included. The activation
-behaviours a click has a default action for are implemented against the standards rather than approximated: a
-link is followed, a submit button submits with itself as the `submitter`, a checkbox or radio toggles with the
-legacy pre-activation rollback a canceled click asks for, a `<label>` forwards to its control, a `<summary>`
-opens its `<details>`, an `<option>` selects. Focus is real — `document.activeElement`, `focus()`/`blur()`
-with the four events in HTML's order, `tabindex`-aware traversal, `autofocus` on load — and typing into an
-`<input>` or `<textarea>` edits the value at the selection with `beforeinput`, `input` and `change`,
-<kbd>Enter</kbd>'s implicit submission and <kbd>Tab</kbd>'s focus traversal. None of it needs a layout.
-
-**And a box for every element, without one.** Nothing is laid out, so every rendered element is given a
-deterministic box instead: one row of sixteen pixels per element in tree order, a container as tall as its
-whole subtree, the viewport wide. `getBoundingClientRect`, `getClientRects`, `offsetWidth`/`offsetTop` and
-their family, `clientWidth`, `scrollHeight`, `document.elementFromPoint`, `scrollIntoView` and the page's own
-`scrollY` all come from that one model — so a coordinate a script computes from a box is a coordinate that
-hits the element it came from, and `IntersectionObserver` and `ResizeObserver` entries report real numbers.
-The page scrolls virtually: `window.scrollTo`, `element.scrollIntoView` and
-`document.scrollingElement.scrollTop` move an offset every rectangle subtracts, and a `scroll` event fires at
-the document. An element that is `hidden`, `display: none` or `visibility: hidden` has no box, answers zeros,
-and is not hit. It is not a layout and does not pretend to be one: nothing wraps, nothing is measured, and two
-elements are never side by side.
-
-**And the budgets.** A page is a host-driven sequence of entries whose event loop is pumped, so neither of
-the engine's per-entry limits bounds one: `BrowserOptions.MaxTaskDuration` (five seconds) brackets every
-*turn* instead — one `Page` call, one drain of the event loop, one inline `<script>` — with the two
-constraints a per-entry reset never rewinds, and `BrowserOptions.MemoryLimit` is the allocation half of the
-same bracket. A `Page` call that runs out fails its own task with a `TimeoutException`; a runaway timer or a
-runaway `<script>` becomes a `PageError` and the page goes on answering. Workers are bracketed the same way.
-`MaxActiveTimers`, `MaxResponseBytes`, `FetchTimeout` and `MaxDomNodes` bound the rest, and
-`BrowserOptions.ForUntrustedContent()` is the one call that hardens a whole browser for content nobody
-vouches for: it applies `Options.ForUntrustedCode` to every page engine before any of your own configuration
-runs, derives the two budgets above from its limits, and turns `BlockPrivateNetwork` on for every context
-that did not choose for itself.
-
-```c#
-var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(2) }.ForUntrustedContent();
-await using var browser = new Browser(options);
-```
-
-**And the automation protocol.** `AddBrowser` publishes every page of a browser on a
+**An automation client**, over the protocol. `AddBrowser` publishes every page of a browser on a
 `Jint.DevTools` server as a Chrome DevTools Protocol `page` target, so Puppeteer, PuppeteerSharp, Playwright
-and Playwright for .NET can drive it — in the same process, with no native binary and nothing to download:
+and Playwright for .NET drive it — in the same process, with no native binary and nothing to download:
 
 ```c#
 await using var browser = new Browser();
@@ -2471,13 +2399,151 @@ await using var server = new DevToolsServer(new DevToolsServerOptions { Port = 9
 await server.AddBrowser(browser);
 server.Start();
 
-// …and from anywhere that can reach the port:
 await using var client = await Puppeteer.ConnectAsync(
     new ConnectOptions { BrowserWSEndpoint = server.BrowserWebSocketUrl });
+```
 
-var page = await client.NewPageAsync();
-await page.GoToAsync("https://example.org/");
-var title = await page.EvaluateExpressionAsync<string>("document.title");
+**The command line.** `Jint.Browser.Tool` is a `dotnet tool` that serves that same protocol and dumps pages,
+and it drives the package through its published surface exactly as any other consumer would:
+
+```bash
+dotnet tool install -g Jint.Browser.Tool
+
+jint-browser fetch https://example.org/article --main-content --max-length 4000
+jint-browser serve --port 9222
+```
+
+`fetch --dump html|text|markdown|ax` writes the document to standard output and the page's own errors to
+standard error, `eval <url> <expression>` answers the page's own `JSON.stringify` of a result, and the exit
+codes separate a bad command line from a page that would not load, one that ran out of its budget, and an
+expression that threw. `--untrusted` hardens every page and blocks the private network. Its own README is
+[`Jint.Browser.Tool/README.md`](Jint.Browser.Tool/README.md).
+
+**An agent, over the Model Context Protocol.** `Jint.Browser.Mcp` is an
+[MCP](https://modelcontextprotocol.io/) server over the same `Page` API, and `jint-browser mcp` serves it on
+standard input and output — so a coding agent gets a real browser in one .NET process with nothing to
+download:
+
+```json
+{
+  "mcpServers": {
+    "jint-browser": { "command": "jint-browser", "args": ["mcp"] }
+  }
+}
+```
+
+Eighteen tools: `navigate`, `back`, `forward`, `reload`; `snapshot`, whose `ax` mode is the accessibility tree
+with a `ref=` on every element; `click`, `fill`, `type`, `press`, `select`, `hover` and `scroll`, each taking
+one of those references or a CSS selector; and `evaluate`, `wait_for`, `network_requests`, `cookies`,
+`set_cookie` and `close`. The page is a resource too — `jint://page/markdown` and `jint://page/requests`. The
+references are what make a snapshot actionable: an agent reading `- button "Save" [ref=42]` has a handle it
+can act on, where a selector is something it would have to invent. Every tool answers an error object rather
+than throwing through the transport, pages are hardened for untrusted content by default, and a host that
+already runs a server of its own composes the same tools with one call:
+
+```c#
+builder.Services.AddMcpServer().WithStdioServerTransport().AddJintBrowser();
+```
+
+Its README, including why stdio is the only transport the tool serves, is
+[`Jint.Browser.Mcp/README.md`](Jint.Browser.Mcp/README.md).
+
+### What a page does
+
+**It parses and it schedules like HTML says.** Inline and external classic scripts run in document order as
+the parse reaches them, `defer` and `async` ones after it, then module scripts resolved through the
+document's import map, then `DOMContentLoaded`, `load` and `pageshow`, with `document.readyState` moving
+`loading` → `interactive` → `complete`. `document.write` during a parse writes at the insertion point, a
+script that a script inserted runs and one that `innerHTML` inserted does not, `import()` works from a
+classic script, and `<link rel=stylesheet>` is fetched so `getComputedStyle` answers from it. Content also
+comes from `SetContentAsync`, `about:blank` and `data:text/html`.
+
+**The DOM is generated from AngleSharp's own WebIDL metadata.** One prototype per interface, built on Jint's
+`JsObjectShape`; the interface objects (`Node`, `Element`, `HTMLDivElement`, `NodeList`, …) as globals so
+`instanceof` works; collections that index and iterate through the engine's array-like lane; and node
+wrappers Jint's tree-aware event dispatcher can walk. A `Window` whose prototype the global object inherits
+sits over it, so `window === globalThis`, `window instanceof EventTarget`, and a listener on the window is on
+a bubbling event's path — with `document`, `location`, `screen`, `getComputedStyle` (the declared cascade,
+over a resolved value for the ten properties that decide whether an element can be interacted with),
+`matchMedia`, `requestAnimationFrame`, `postMessage`, dialogs raised as a host event, and timers that fire
+because the page's thread pumps the engine.
+
+**A host drives it too, not only a protocol client.** `Page.ClickAsync`, `HoverAsync`, `FillAsync`,
+`TypeAsync`, `PressAsync`, `SelectAsync` and `ScrollToAsync` take a CSS selector or an accessibility-snapshot
+reference and go through the same `InputDispatcher`, box model and activation paths the `Input` domain does,
+so a caller here and a client on the socket cannot make a page do two different things.
+`GoBackAsync`, `GoForwardAsync` and `ReloadAsync` travel the same session history, and
+`WaitForSelectorAsync`, `WaitForTextAsync` and `WaitForNetworkIdleAsync` are what a caller waits on.
+
+**Events, and input that does not need a layout.** The UI Events family — `MouseEvent`, `PointerEvent`,
+`KeyboardEvent`, `InputEvent`, `FocusEvent`, `WheelEvent`, `CompositionEvent` — plus HTML's `SubmitEvent`,
+`FormDataEvent`, `HashChangeEvent`, `PopStateEvent`, `PageTransitionEvent` and `BeforeUnloadEvent`, each
+constructible from its init dictionary and each below Jint's own `Event`. `onclick="…"` and its kind compile
+with HTML's own scope and share one slot with `el.onclick`, `<body onload>` included. The activation
+behaviours are implemented against the standards rather than approximated: a link is followed, a submit
+button submits with itself as the `submitter`, a checkbox or radio toggles with the legacy pre-activation
+rollback a canceled click asks for, a `<label>` forwards to its control, a `<summary>` opens its `<details>`,
+an `<option>` selects. Focus is real — `document.activeElement`, `focus()`/`blur()` with the four events in
+HTML's order, `tabindex`-aware traversal, `autofocus` on load — and typing into an `<input>` or `<textarea>`
+edits the value at the selection with `beforeinput`, `input` and `change`, <kbd>Enter</kbd>'s implicit
+submission and <kbd>Tab</kbd>'s focus traversal.
+
+**Custom elements are HTML's, not an approximation of them.** `window.customElements` has `define` with
+`extends` and the reserved-name rules, `get`, `getName`, `whenDefined` and `upgrade`, and
+`connectedCallback`, `disconnectedCallback` and `attributeChangedCallback` run where a browser runs them —
+inside the DOM call that caused them, so `el.setAttribute('x', 1)` has already called back by the time it
+returns. `document.createElement`, `new MyElement()`, `innerHTML`, `cloneNode` and an element written in the
+markup all end in the same constructor, autonomous elements and customized built-ins
+(`extends: 'button'`, `<button is="my-button">`) alike, and a constructor or a callback that throws is
+reported to the page rather than crashing it.
+
+**The observers and views a page written this decade expects.** A `MutationObserver` whose records come from
+AngleSharp and are delivered at Jint's microtask checkpoint; `IntersectionObserver` and `ResizeObserver`,
+whose entries carry real numbers from the box model below; `DOMParser` (HTML, and XML through
+`AngleSharp.Xml`) and `XMLSerializer`, `Range`, `TreeWalker`, `NodeIterator`, `getSelection()`, `<template>`
+content and `attachShadow`, with events crossing a shadow boundary the way the DOM says.
+
+**A network half, and a session.** `Page.NavigateAsync` loads an `http(s)` URL through Jint's own fetch
+pipeline and parses the result into a new engine — the document being left gets `beforeunload`, `pagehide`
+and `unload`, its pending requests are abandoned and its engine is disposed. Forms run HTML's submission
+algorithm (`submit` and `formdata` events, the entry list, `GET` query strings and `POST` in all three
+encodings); `history` and `location` travel a real session history with `popstate` and `hashchange`;
+`document.cookie` and every request share one jar per browser context; `localStorage` is partitioned by
+origin and `sessionStorage` by page, and a document with an opaque origin gets the `SecurityError` a browser
+gives; `Worker` runs on a thread the package starts, with its modules fetched over the page's own network.
+`BrowserContextOptions.UrlFilter` bounds every load a page makes, on the first hop and on every redirect, and
+`Page.Requests` is the log of what it made.
+
+**A box for every element, without a layout behind it.** Nothing is laid out, so every rendered element is
+given a deterministic box instead: sixteen pixels of height per element in tree order, a container as tall as
+its whole subtree, the viewport wide. `getBoundingClientRect`, `getClientRects`, `offsetWidth`/`offsetTop`
+and their family, `clientWidth`, `scrollHeight`, `document.elementFromPoint`, `scrollIntoView` and the page's
+own `scrollY` all come from that one model, so a coordinate a script computes from a box is a coordinate that
+hits the element it came from. The page scrolls virtually: `window.scrollTo`, `element.scrollIntoView` and
+`document.scrollingElement.scrollTop` move an offset every rectangle subtracts, and a `scroll` event fires at
+the document. An element that is `hidden`, `display: none` or `visibility: hidden` has no box, answers zeros,
+and is not hit. It is not a layout and does not pretend to be one: nothing wraps, nothing is measured, and
+two elements are never side by side.
+
+### What a client can do over the protocol
+
+A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
+response object, and `evaluate` runs in the page. Finding elements, clicking them and typing into them works
+too: the `DOM` domain answers about the document a client walks, `Input.dispatchMouseEvent` turns a
+coordinate into the pointer and mouse sequence a browser fires, and `Input.dispatchKeyEvent` and
+`Input.insertText` turn a key into `keydown`, `keypress` and `keyup` at whatever the page has focused, with
+the focus, the editing and the activation behaviour that go with them.
+
+```c#
+var button = await page.QuerySelectorAsync("#submit");
+var box = await button.BoundingBoxAsync();      // the flat model's box, the same one the page reads
+await button.ClickAsync();                       // a trusted click at its centre; a link here would navigate
+
+await page.TypeAsync("#search", "hello");        // one key press per character, editing the value as it goes
+await page.Keyboard.PressAsync("Enter");         // …and Enter is HTML's implicit submission
+
+await page.WaitForSelectorAsync("#result");
+var rows = await page.QuerySelectorAllAsync("tr.row");
 ```
 
 Playwright for .NET connects to the same server, over the HTTP discovery document rather than the socket —
@@ -2495,41 +2561,15 @@ await page.GotoAsync("https://example.org/");
 var title = await page.TitleAsync();
 ```
 
-Playwright's actionability check ends in `style.visibility !== "visible"`, so it needs `getComputedStyle` to
-answer a *resolved* value rather than only what the cascade declared. It does: `visibility`, `display`,
-`opacity`, `pointer-events`, `overflow` and its two longhands and `position` answer CSS's initial value where
-nothing declares them, and `width`/`height` answer the box model's numbers — so an unforced `ClickAsync`,
-`WaitForAsync` and `GetByRole` all work. Every other property is still the declared cascade, which has no
-layout behind it.
-
-A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
-response object, and `evaluate` runs in the page. **Finding elements, clicking them and typing into them works
-too** — the `DOM` domain answers about the document a client walks, `Input.dispatchMouseEvent` turns a
-coordinate into the pointer and mouse sequence a browser fires, and `Input.dispatchKeyEvent` and
-`Input.insertText` turn a key into `keydown`, `keypress` and `keyup` at whatever the page has focused, with
-the focus, the editing and the activation behaviour that go with them:
-
-```c#
-var button = await page.QuerySelectorAsync("#submit");
-var box = await button.BoundingBoxAsync();      // the flat model's box, the same one the page reads
-await button.ClickAsync();                       // a trusted click at its centre; a link here would navigate
-
-await page.TypeAsync("#search", "hello");        // one key press per character, editing the value as it goes
-await page.Keyboard.PressAsync("Enter");         // …and Enter is HTML's implicit submission
-
-await page.WaitForSelectorAsync("#result");
-var rows = await page.QuerySelectorAllAsync("tr.row");
-```
-
-**And the page a client asks it to pretend to be.** `Emulation` is effective rather than merely accepted. The
-viewport, the emulated media type and the Level 5 preference features move the document that is loaded — so
+**`Emulation` is effective rather than merely accepted.** The viewport, the emulated media type and the
+Media Queries Level 5 preference features move the document that is loaded — so
 `matchMedia('(prefers-color-scheme: dark)').matches` flips and every `MediaQueryList` whose answer moved
 hears `change` — while the time zone and the locale are read when the *next* document's engine is built,
 which is where every client sets them and what makes `new Date()` and `Intl` agree with each other. Touch
 emulation reaches `navigator.maxTouchPoints`, `'ontouchstart' in window` and `(pointer: coarse)`;
 `setGeolocationOverride` is what `navigator.geolocation` answers with; `setScriptExecutionDisabled` stops the
 next document's own scripts and leaves `evaluate` working. Whatever is not effective is an accepted no-op
-whose reason is stated in place — there is no renderer for auto dark mode or a CPU throttle to change:
+whose reason is stated in place — there is no renderer for auto dark mode and no CPU to throttle.
 
 ```c#
 await page.EmulateTimezoneAsync("Asia/Tokyo");                    // read when the next document loads
@@ -2541,59 +2581,36 @@ await page.EmulateMediaFeaturesAsync(
 var snapshot = await page.Accessibility.SnapshotAsync();          // roles and names, computed with no layout
 ```
 
-**And the accessibility tree over the protocol.** `Accessibility` answers the tree this package already
-computes — HTML-AAM's roles, accname's names, the CSS cascade's hidden verdict — in Chrome's own `AXNode`
-shape, with the `DOM` domain's `backendNodeId` on every node. That is what `page.accessibility.snapshot()`,
-an `aria/` selector and Playwright's `getByRole` read, and it means a node found by its role is a node the
-same client can then measure and click. `Security`, `Overlay` and `CSS` answer what a DevTools front end
-sends while attaching; `CSS.getComputedStyleForNode` is the same cascade `getComputedStyle` gives the page,
-and every command that would edit a style sheet is honestly absent.
-
-Three things a client may notice are decisions rather than
-gaps, and each is stated in the code that makes it: an isolated world is a second *name* for the document's
-own realm rather than a realm of its own; a dialog does not block the page, so `Page.handleJavaScriptDialog`
-sets the decision the next `alert`, `confirm` or `prompt` reads; and `Page.captureScreenshot` and
-`Page.printToPDF` answer an error saying this browser renders no pixels and naming what to ask for instead.
-The endpoint is unauthenticated by the protocol's own design, so it listens on loopback and should stay
-there.
-
-**And the network, seen and steered.** `Network.enable` reports every request the page makes — the
+**`Network` reports and `Fetch` steers.** `Network.enable` reports every request the page makes — the
 document, every script and style sheet the parse loads, every `fetch` and `XMLHttpRequest`, a worker's
 modules — with Chrome's own resource types, so `page.on('request')` and `page.on('response')` fire and a
 `goto` answers a response object with the status, the headers and the body. `Fetch.enable` is real
 interception: a request is paused before it goes on the wire, and the client continues it (rewriting the URL,
 the method, the headers or the body), fulfils it from its own bytes, or fails it. A paused request holds only
 its own connection — the page's timers go on firing, and the command that releases it is answered while it
-waits.
-
-```c#
-await page.SetRequestInterceptionAsync(true);
-
-page.Request += async (_, e) =>
-{
-    if (e.Request.Url.Contains("/analytics/", StringComparison.Ordinal))
-    {
-        await e.Request.AbortAsync();                       // never leaves the process
-    }
-    else if (e.Request.Url.EndsWith("/api/rows", StringComparison.Ordinal))
-    {
-        await e.Request.RespondAsync(new ResponseData { Status = HttpStatusCode.OK, Body = "[]" });
-    }
-    else
-    {
-        await e.Request.ContinueAsync();
-    }
-};
-```
-
-Around it: `Network.setExtraHTTPHeaders` and `setUserAgentOverride` reach every request the page makes,
-`setBlockedURLs` refuses a URL before a socket is opened, `emulateNetworkConditions(offline: true)` fails
-every request the way a browser with no network does, and the cookie commands — on `Network` and on
-`Storage`, which is where the clients actually send them — read and write the same jar `document.cookie`
-sees. `Network.getResponseBody` answers from a bounded per-page buffer
+waits. Around them, `Network.setExtraHTTPHeaders` and `setUserAgentOverride` reach every request the page
+makes, `setBlockedURLs` refuses a URL before a socket is opened,
+`emulateNetworkConditions(offline: true)` fails every request the way a browser with no network does, and the
+cookie commands — on `Network` and on `Storage`, which is where the clients actually send them — read and
+write the same jar `document.cookie` sees. `Network.getResponseBody` answers from a bounded per-page buffer
 (`BrowserOptions.MaxCapturedResponseBytes`) that is filled only while a client is watching.
 
-**And what to ask instead of a picture.** The refusal names a domain of Jint's own — described in
+**`Accessibility` answers the tree this package computes** — HTML-AAM's roles, accname's names, the CSS
+cascade's hidden verdict — in Chrome's own `AXNode` shape, with the `DOM` domain's `backendNodeId` on every
+node. That is what `page.accessibility.snapshot()`, an `aria/` selector and Playwright's `getByRole` read,
+and it means a node found by its role is a node the same client can then measure and click. `CSS`, `Security`
+and `Overlay` answer what a DevTools front end sends while attaching — `CSS.getComputedStyleForNode` is the
+same cascade `getComputedStyle` gives the page, and every command that would edit a style sheet is honestly
+absent — and `Performance.getMetrics` and `Audits.enable` are answered because refusing them fails an
+ordinary connection.
+
+Three things a client may notice are decisions rather than gaps, and each is stated in the code that makes
+it: an isolated world is a second *name* for the document's own realm rather than a realm of its own; a
+dialog does not block the page, so `Page.handleJavaScriptDialog` sets the decision the next `alert`,
+`confirm` or `prompt` reads; and `Page.captureScreenshot` and `Page.printToPDF` answer an error saying this
+browser renders no pixels and naming what to ask for instead.
+
+**What to ask instead of a picture.** That refusal names a domain of Jint's own — described in
 `tools/devtools-protocol/jint_protocol.json` beside the vendored Chrome ones, so a client reaches it with the
 raw `send` every library has:
 
@@ -2605,82 +2622,76 @@ var markdown = answer!.Value.GetProperty("markdown").GetString();
 
 `Jint.getMarkdown` renders the document as CommonMark, `Jint.getText` as `innerText` would, and
 `Jint.getAccessibilitySnapshot` as the indented accessibility outline an agent reads. All three are computed
-from the DOM — no layout, no rendering, and nothing that runs a line of the page's script — and each takes
-the options the extractor behind it already had. `Page.MarkdownAsync`, `Page.TextAsync` and
-`Page.AccessibilitySnapshotAsync` are the same three answers for a host in the same process, over the same
-code, so a caller here and a client on the socket cannot be told different things about one document.
+from the DOM — no layout, no rendering, and nothing that runs a line of the page's script.
+`Page.MarkdownAsync`, `Page.TextAsync` and `Page.AccessibilitySnapshotAsync` are the same three answers for a
+host in the same process, over the same extractors, so a caller here and a client on the socket cannot be
+told different things about one document.
 
-**And a command line.** `Jint.Browser.Tool` is a `dotnet tool` that serves the protocol and dumps pages, and
-it drives the package through its published surface exactly as any other consumer would:
+Playwright's actionability check ends in `style.visibility !== "visible"`, so it needs `getComputedStyle` to
+answer a *resolved* value rather than only what the cascade declared. It does: `visibility`, `display`,
+`opacity`, `pointer-events`, `overflow` and its two longhands and `position` answer CSS's initial value where
+nothing declares them, and `width`/`height` answer the box model's numbers, so an unforced `ClickAsync`,
+`WaitForAsync` and `GetByRole` all work. Every other property is still the declared cascade, which has no
+layout behind it.
 
-```bash
-dotnet tool install -g Jint.Browser.Tool
+### Budgets, and content nobody vouches for
 
-# A page as CommonMark, narrowed to its main content and capped — or as its accessibility tree
-jint-browser fetch https://example.org/article --main-content --max-length 4000
-jint-browser fetch https://example.org/ --dump ax --wait-until networkidle
+A page is a host-driven sequence of entries whose event loop is pumped, so neither of the engine's per-entry
+limits bounds one: `BrowserOptions.MaxTaskDuration` (five seconds) brackets every *turn* instead — one `Page`
+call, one drain of the event loop, one inline `<script>` — with the two constraints a per-entry reset never
+rewinds, and `BrowserOptions.MemoryLimit` is the allocation half of the same bracket. A `Page` call that runs
+out fails its own task with a `TimeoutException`; a runaway timer or a runaway `<script>` becomes a
+`PageError` and the page goes on answering. Workers are bracketed the same way. `MaxActiveTimers`,
+`MaxResponseBytes`, `FetchTimeout` and `MaxDomNodes` bound the rest.
 
-# …or a browser on 127.0.0.1:9222 that Puppeteer and Playwright connect to
-jint-browser serve --port 9222
-```
-
-`fetch --dump html|text|markdown|ax` writes the document to standard output and the page's own errors to
-standard error, `eval <url> <expression>` answers the page's own `JSON.stringify` of a result, and the exit
-code separates a bad command line from a page that would not load from one that ran out of its budget.
-`--untrusted` hardens every page and blocks the private network. Its README is
-[`Jint.Browser.Tool/README.md`](Jint.Browser.Tool/README.md).
-
-**And a browser an agent can drive.** `Jint.Browser.Mcp` is a [Model Context
-Protocol](https://modelcontextprotocol.io/) server over the same page API, and `jint-browser mcp` serves it
-on standard input and output — so a coding agent gets `navigate`, `snapshot`, `click`, `fill`, `type`,
-`press`, `select`, `hover`, `scroll`, `back`, `forward`, `reload`, `evaluate`, `wait_for`,
-`network_requests`, `cookies` and `set_cookie`, plus the page as a resource:
-
-```json
-{
-  "mcpServers": {
-    "jint-browser": { "command": "jint-browser", "args": ["mcp"] }
-  }
-}
-```
-
-`snapshot` is the one that matters: its `ax` mode is the accessibility tree with a `ref=` on every element,
-and `click`, `fill`, `type`, `select` and `hover` take one of those in place of a CSS selector — which is
-what an agent has, where a selector is something it would have to invent. Every tool answers an error object
-rather than throwing through the transport, the pages are hardened for untrusted content by default, and a
-host that already runs a server of its own composes the same tools with one call:
+`BrowserOptions.ForUntrustedContent()` is the one call that hardens a whole browser for content nobody
+vouches for: it applies `Options.ForUntrustedCode` to every page engine before any of your own configuration
+runs, derives the two budgets above from its limits, and turns `BlockPrivateNetwork` on for every context
+that did not choose for itself.
 
 ```c#
-builder.Services.AddMcpServer().WithStdioServerTransport().AddJintBrowser();
+var options = new BrowserOptions { MaxTaskDuration = TimeSpan.FromSeconds(2) }.ForUntrustedContent();
+await using var browser = new Browser(options);
 ```
 
-Its README, including why stdio is the only transport the tool serves, is
-[`Jint.Browser.Mcp/README.md`](Jint.Browser.Mcp/README.md).
+### What it cannot do
 
-**What does not exist yet.** No `ElementInternals` and no scoped custom element registries, no iframe
-scripting (frames are parsed and listed; `contentWindow` is absent),
-and no rendering — every box comes from the flat model above rather than from a layout, so nothing wraps and
-nothing is ever side by side. Over the protocol that means no touch or drag input and no screenshots; those are
-the later items of the same campaign. Three network lanes are absent with a reason rather than pending: `Fetch`'s
-**response** stage and with it the `IO` domain (an observer is told about a response and cannot answer it, so a
-response-stage pause could only ever continue unchanged), the **WebSocket and EventSource** events (the engine
-deliberately does not observe those two handshakes), and `Network`'s **timing** document (no phase of a request is
-measured, and a document of zeros would read as a page that loaded instantly). A page's `@media` rules are not
-re-evaluated against the emulated preferences either — the cascade is AngleSharp.Css's and it models none of them —
-so a themed page reads `matchMedia` rather than `getComputedStyle` to find out; and touch emulation changes what a
-page *detects* without a touch event ever being dispatched. Drag and drop and the clipboard are v1 non-goals, so
-`DragEvent` and `ClipboardEvent` are
-absent rather than stubbed. Deliberately absent for good: images and frame documents are never fetched — the
-reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
-and `document.write` after a page has finished parsing is refused with a page error rather than implying
+**Absent by design.** There is no rendering, so no screenshots, no PDF, no `canvas`, no WebGL and no media —
+every box comes from the flat model above rather than from a layout, so nothing wraps and nothing is ever
+side by side, and over the protocol that means no touch or drag input and no screenshot commands. There is no
+iframe scripting: frames are parsed and listed, and an `<iframe>`'s `contentWindow` is absent and its `src`
+is not fetched. There is no `IndexedDB`, no `WebAssembly` (which the engine declines as well), no
+`SharedWorker` or `ServiceWorker`, and no CSP enforcement. Drag and drop and the clipboard are non-goals, so
+`DragEvent` and `ClipboardEvent` are absent rather than stubbed. Images are never fetched — the reference is
+recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced, and
+`document.write` after a page has finished parsing is refused with a page error rather than implying
 `document.open()`.
 
-**What works today, on real pages rather than on paper.**
-[`Jint.Tests.Browser/Fixtures/`](Jint.Tests.Browser/Fixtures/README.md) is an obstacle course of eighteen
+**Absent for now**, each with the issue that would close it:
+
+| What is missing | Tracked by |
+| --- | --- |
+| No XPath at all — no `XPathEvaluator`, no `document.evaluate`, and `DOM.performSearch` takes a selector or plain text and not an expression | [#3714](https://github.com/sebastienros/jint/issues/3714) |
+| `Fetch`'s **response** stage, and with it the `IO` domain: an observer is told about a response and cannot answer it, so a response-stage pause could only ever continue unchanged | [#3701](https://github.com/sebastienros/jint/issues/3701) |
+| `Network`'s WebSocket and EventSource events — the engine deliberately does not observe those two handshakes — and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
+| `BrowserOptions.UserAgent` reaches script but not the wire unless a protocol client sets it | [#3720](https://github.com/sebastienros/jint/issues/3720) |
+| A page's `@media` rules are not re-evaluated against the emulated preferences — the cascade is AngleSharp.Css's and it models none of them — so a themed page reads `matchMedia` rather than `getComputedStyle` to find out | [#3721](https://github.com/sebastienros/jint/issues/3721) |
+| `ElementInternals`, so a `static formAssociated` custom element is recorded and takes part in no form; and no scoped custom element registries | [#3714](https://github.com/sebastienros/jint/issues/3714) |
+
+Two smaller ones are worth knowing before they surprise you. An element the *parser* created is upgraded at
+the next script boundary rather than constructed as the tokenizer reaches it — a page cannot see the
+difference, since a script only ever sees the document at those boundaries. And touch emulation changes what
+a page *detects* without a touch event ever being dispatched.
+
+### How much of this is measured rather than claimed
+
+Two suites answer that, and they answer different questions.
+
+[`Jint.Tests.Browser/Fixtures/`](Jint.Tests.Browser/Fixtures/README.md) is an obstacle course of **eighteen**
 offline pages built out of the libraries' own published bundles, served over a loopback socket and driven
 through the `Page` API — and three of them are driven again over the protocol by PuppeteerSharp and by
 Playwright for .NET. Each case asserts a DOM end state *and* that the page reported no errors at all, which
-is what tells a half-working page from a working one. All eighteen pass:
+is what tells a half-working page from a working one. **All eighteen pass:**
 
 | Works | Fixture |
 | --- | --- |
@@ -2705,15 +2716,24 @@ behaviour is a divergence: with no layout nothing can stop intersecting, so an o
 once and an infinite list loads every page at once — which is the readable outcome rather than the correct
 one, and is asserted as such.
 
-**How much of that is measured rather than claimed** is
-[`Jint.Tests.Browser/Wpt/README.md`](Jint.Tests.Browser/Wpt/README.md): the web-platform-tests browser lane
-loads the vendored `.html` corpus into a real page under upstream's own `testharness.js`, and its census
-counts, suite by suite, how many of those tests pass — a figure that is a ceiling and only ever goes down.
+[`Jint.Tests.Browser/Wpt/`](Jint.Tests.Browser/Wpt/README.md) is the other answer, and a harder one. The
+web-platform-tests browser lane loads the vendored `.html` corpus into a real page under upstream's own
+`testharness.js`, so the harness deciding what passed is upstream's and there is nothing of Jint's between
+the corpus and the verdict. It runs **133 documents and 1,417 of upstream's own tests, of which 866 pass** —
+`dom/events`, HTML's scripting events and processing model, and the whole of `custom-elements`. That figure
+is a ceiling, suite by suite: a rise fails as a regression and a fall fails as staleness, and every test that
+does not pass is named by the exclusion table with the cause it belongs to.
+
+### Where to read further
 
 The design, including what a v1 will and will not do, is
-[`docs/design/headless-browser.md`](docs/design/headless-browser.md); the tracking issue is
-[#3575](https://github.com/sebastienros/jint/issues/3575). The package targets `net8.0` and later and is
-**not** trim- or AOT-compatible in this version, because AngleSharp is not trim-annotated.
+[`docs/design/headless-browser.md`](docs/design/headless-browser.md), and the protocol half is
+[`docs/design/devtools-protocol.md`](docs/design/devtools-protocol.md); the tracking issue is
+[#3575](https://github.com/sebastienros/jint/issues/3575).
+[`docs/releases/headless-browser.md`](docs/releases/headless-browser.md) is what shipped package by package,
+the engine seams it rides, the AngleSharp contributions it produced, and what is knowingly left. The package
+targets `net8.0` and `net10.0` and is **not** trim- or AOT-compatible in this version, because AngleSharp is
+not trim-annotated.
 
 ## Performance
 

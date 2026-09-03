@@ -150,6 +150,6 @@ recorded in the request log with the reason instead.
 
 Full documentation of the package under it — what a page can and cannot do, and how much of it the
 web-platform-tests measure rather than claim — is in
-[Jint's README](https://github.com/sebastienros/jint#jintbrowser-opt-in-package-in-progress).
+[Jint's README](https://github.com/sebastienros/jint#headless-browser-opt-in-package).
 
 Licensed under BSD-2-Clause, like the rest of Jint.

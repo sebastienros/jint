@@ -23,6 +23,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
 
     <!--
@@ -39,6 +40,11 @@
     -->
     <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The package README NuGet shows. -->
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Jint\Jint.csproj" />
