@@ -57,12 +57,12 @@ internal static class DomConstructors
     }
 
     /// <summary>
-    /// An empty XML document. AngleSharp's <c>IImplementation</c> has no <c>createDocument</c> at all and its
-    /// <c>CreateHtmlDocument</c> answers an HTML one, so the empty parse is what is left — and it is exact,
-    /// because an XML document with no content has no document element, which is what the constructor
-    /// promises.
+    /// An empty XML document, and what <c>DOMImplementation.createDocument</c> starts from too. AngleSharp's
+    /// <c>IImplementation</c> has no <c>createDocument</c> at all and its <c>CreateHtmlDocument</c> answers an
+    /// HTML one, so the empty parse is what is left — and it is exact, because an XML document with no content
+    /// has no document element, which is what the constructor promises.
     /// </summary>
-    private static IDocument NewXmlDocument()
+    internal static IDocument NewXmlDocument()
         => new XmlParser(new XmlParserOptions { IsSuppressingErrors = true }, BrowsingContext.New(Views.ViewInstaller.ParserConfiguration))
             .ParseDocument(string.Empty);
 }

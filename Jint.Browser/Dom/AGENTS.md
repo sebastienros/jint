@@ -123,6 +123,10 @@ Divergences that are **AngleSharp's** — where it answers differently from the 
 work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
 and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
 silently; never open an issue on the AngleSharp repositories without being asked to.
+Divergences that are **AngleSharp's** — where it answers differently from the standard and the binding has to
+work around it — are the register in [`divergences.md`](divergences.md), which is data rather than instruction
+and so is not budgeted here. **Add a row there for every one you find**, and never work around a divergence
+silently; never open an issue on the AngleSharp repositories without being asked to.
 
 The `dataset` one has a visible consequence inside the binding, and the one place a workaround is legitimate:
 the generated `SupportedNames` filters out a `null` value, because the projection's three hooks must agree at

@@ -26,11 +26,11 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,364 | 1,280 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,612 |
 | `dom/collections/` | 8 | 0 | 43 | 25 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 9 |
-| `dom/ranges/` | 17 | 0 | 78 | 53 |
+| `dom/ranges/` | 17 | 0 | 78 | 52 |
 | `html/dom/` | 5 | 0 | 85 | 72 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
 | `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 200 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,228** | **1,954** |
+| **total** | **340** | **9** | **6,660** | **2,285** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes
@@ -190,7 +190,7 @@ Ordered by how many tests each accounts for:
 | 18 | 1 | **An event interface this browser does not build**, which is `NeedsMoreEventInterfaces` and the alias table `dom/events/EventTarget-dispatchEvent.html` already names: `DragEvent`, `StorageEvent`, `TouchEvent` and the two device events. |
 | 14 | 4 | [#3772](https://github.com/sebastienros/jint/issues/3772) **`CharacterData` does not clamp its offsets.** `deleteData(-1, 10)` is `IndexSizeError` in DOM §4.10 after the unsigned-long conversion; here `-1` reaches the implementation and either throws an `ArgumentOutOfRange` or deletes the wrong run. |
 | 11 | 4 | **A document with no browsing context still has a `location`**, `createHTMLDocument` gives it one child too few, and `characterSet` answers `"utf-8"` where the standard's encoding name is `"UTF-8"`. |
-| 11 | 2 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal carries the wrong `DOMException`.** Ten `createElementNS` rows expect `NamespaceError` and get `InvalidCharacterError`; `attributes.html` expects one for `b:` and gets none. This is the half [#3732](https://github.com/sebastienros/jint/pull/3732) did not reach: the name crosses correctly now, and *which* name a refusal picks is a separate question. |
+| 29 | 3 | [#3774](https://github.com/sebastienros/jint/issues/3774) **A refusal carries the wrong `DOMException`.** Ten `createElementNS` rows expect `NamespaceError` and get `InvalidCharacterError`, eighteen `createDocument` rows expect one for an empty prefix or an empty local part and get a `NamespaceError` or nothing at all, and `attributes.html` expects one for `b:` and gets none. This is the half [#3732](https://github.com/sebastienros/jint/pull/3732) did not reach: the name crosses correctly now, and *which* name a refusal picks is a separate question. |
 | 10 | 2 | **The selector engine's escapes.** `#eof\` and a surrogate escape are refused as invalid selectors where CSS Syntax §4.3.7 defines them, and `:scope` inside `:has()` resolves to the wrong element. |
 | 6 | 1 | **Members the standard removed are still here**, which is exactly what `html/dom/historical.html` exists to find. |
 | 4 | 2 | **A `MutationObserver` record too few, or too many.** `classList.add` of an existing token reports one record where two are due, and an observer of the document itself never fires — both already recorded as AngleSharp divergences. |
@@ -210,12 +210,22 @@ conformance gap. DOM §6.1's seven traversals are `Jint.Browser`'s own now
 (`Dom/Views/DomTreeWalker`, and its file argues each loop's termination); the four documents are cases, all
 seventeen of their tests pass, and `TreeWalker-basic.html`'s "Walk over nodes." passed with them.
 
-**And one missing member is worth thirty-one documents.** `dom/common.js` is the fixture builder the whole of
-`dom/ranges/` and half of `dom/traversal/` load, and its second line calls `document.createCDATASection`. With
-that member absent the file throws before a single `test()` runs, so twenty-four Range documents, three
-traversal documents and four more under `dom/nodes/` report nothing and are not-vendored rows rather than
-cases. Adding one member turns all thirty-one into cases in a single change, which is the largest single
-return the corpus has found — [#3766](https://github.com/sebastienros/jint/issues/3766).
+**And two missing members were worth thirty-six documents.** `dom/common.js` is the fixture builder the
+whole of `dom/ranges/` and half of `dom/traversal/` load; it calls `document.createCDATASection` on a
+`new Document()` and `document.implementation.createDocument` two lines later, both before a single
+`test()` runs, so twenty-four Range documents, three traversal documents and nine more under `dom/nodes/`
+and `dom/events/` reported nothing at all. **Both members exist now**
+([#3766](https://github.com/sebastienros/jint/issues/3766)), their not-vendored rows say so, and vendoring
+the thirty-six is a change of its own: it moves this table's Documents and Tests columns, which the change
+that fixes an engine deliberately does not — the same standing the four `dom/events/` documents that were
+waiting on `document.createEvent` already have.
+
+**Adding `createDocument` raised the ceiling, deliberately and once.** `DOMImplementation-createDocument.html`
+builds its own table of 434 cases *inside its first test*, and the builder called the missing member — so
+the file reported **two** tests and the other 432 were never registered at all. They are registered now,
+348 of them fail, and `dom/nodes/`'s not-passing figure went from 2,000 to 2,333 with them. That is what
+`JINT_WPT_BROWSER_CENSUS=update-raising-the-ceiling` is for, and it is used here for exactly that: the
+failures are not new, only newly *counted*.
 
 ## What is not vendored, and why
 
