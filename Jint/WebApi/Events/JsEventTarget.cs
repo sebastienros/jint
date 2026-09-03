@@ -244,7 +244,21 @@ internal class JsEventTarget : ObjectInstance
     /// https://dom.spec.whatwg.org/#concept-tree-root — the topmost <see cref="TreeParent"/>, which is this
     /// target itself when it has none.
     /// </summary>
-    internal JsEventTarget GetRoot()
+    /// <remarks>
+    /// <para>
+    /// The default is that walk, and it is the one seam here a host overrides for cost rather than for
+    /// meaning: retargeting, <c>composedPath()</c>'s closed-tree hiding and the shadow-including-ancestor
+    /// test are all written in terms of roots, so a wrapper that knows its own — a DOM's node usually does —
+    /// answers the question instead of having it derived one <see cref="TreeParent"/> at a time.
+    /// </para>
+    /// <para>
+    /// <b>An override must agree with <see cref="TreeParent"/>:</b> what it answers has to be the target the
+    /// walk would have ended on, and therefore a target whose own <see cref="TreeParent"/> is null. The
+    /// dispatcher trusts that — it steps from tree to tree rather than from node to node — so a root that is
+    /// not one makes an event cross a shadow boundary it should not have.
+    /// </para>
+    /// </remarks>
+    internal virtual JsEventTarget GetRoot()
     {
         var root = this;
         while (root.TreeParent is { } parent)

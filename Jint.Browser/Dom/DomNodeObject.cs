@@ -125,6 +125,26 @@ internal class DomNodeObject : JsEventTarget, IDomWrapper
     internal override JsEventTarget? TreeParent
         => Node.Parent is { } parent ? DomRealm.WrapNode(parent) : null;
 
+    /// <summary>
+    /// https://dom.spec.whatwg.org/#concept-tree-root, walked over AngleSharp's nodes rather than over their
+    /// wrappers.
+    /// </summary>
+    /// <remarks>
+    /// The engine's default climbs <see cref="TreeParent"/>, and every step of that projects a wrapper the
+    /// walk then throws away; this reads <see cref="INode.Parent"/> and projects the root alone. Dispatch
+    /// asks once per event, so what it saves is one wrapper lookup per ancestor of the target.
+    /// </remarks>
+    internal override JsEventTarget GetRoot()
+    {
+        var root = Node;
+        while (root.Parent is { } parent)
+        {
+            root = parent;
+        }
+
+        return ReferenceEquals(root, Node) ? this : DomRealm.WrapNode(root);
+    }
+
     /// <inheritdoc />
     internal override bool IsShadowRoot => Node is IShadowRoot;
 
