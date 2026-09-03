@@ -23,13 +23,13 @@ namespace Jint.Browser.DevTools;
 /// thinks about a request.
 /// </para>
 /// <para>
-/// <b>One case is not covered by that sentence, and it is stated rather than hidden.</b> A
-/// <c>&lt;script src&gt;</c> that a <i>running script</i> inserted is fetched with the loop blocked rather
-/// than pumping — <c>Runtime/Parsing/AGENTS.md</c> says why: pumping from inside a running script would run
-/// the page's jobs in the middle of one. So a client's answer to a pause on that one fetch cannot be
-/// delivered until the fetch ends, and it ends at <c>BrowserOptions.SubresourceTimeout</c>. Every other
-/// request the page makes — the document, a parser-driven subresource, <c>fetch</c>,
-/// <c>XMLHttpRequest</c>, a worker's module — is answered while the loop is free.
+/// <b>That sentence has no exception left, and the reason is that the answer no longer comes from the
+/// loop.</b> A <c>&lt;script src&gt;</c> that a <i>running script</i> inserted is still fetched with the
+/// loop blocked rather than pumping — <c>Runtime/Parsing/AGENTS.md</c> says why: pumping from inside a
+/// running script would run the page's jobs in the middle of one. So <c>PageTarget.RunsOffThread</c> names
+/// <see cref="ContinueRequestAsync"/>, <see cref="FailRequestAsync"/> and <see cref="FulfillRequestAsync"/>,
+/// which look one entry up and complete a promise and touch no engine state at all: they are answered on the
+/// thread that read them, and what they release is the fetch the loop is blocked on.
 /// </para>
 /// <para>
 /// <b>The <c>Request</c> stage only, and that is an engine seam rather than an omission.</b> A pattern

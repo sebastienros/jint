@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Jint.Browser;
@@ -191,6 +192,67 @@ public class FetchDomainTests
         await fixture.ContinueAsync(paused);
     }
 
+    /// <summary>
+    /// The one fetch the page loop blocks on rather than pumping through, and the command that releases it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A <c>&lt;script src&gt;</c> a <i>running script</i> inserted is fetched with the loop held, because
+    /// pumping from inside a running script would run the page's jobs in the middle of one
+    /// (<c>Runtime/Parsing/AGENTS.md</c>). So the answer to a pause on that fetch cannot come from the loop,
+    /// and until <c>PageTarget.RunsOffThread</c> it was queued on it: the client's <c>continueRequest</c> sat
+    /// in the mailbox until the fetch gave up at <c>BrowserOptions.SubresourceTimeout</c>, by which point
+    /// the pause it named was gone.
+    /// </para>
+    /// <para>
+    /// The timeout is shortened so that a regression fails in seconds rather than in half a minute; the
+    /// assertion is on the round trip, which is milliseconds when the command never reaches the loop at all.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ContinuingTheOneFetchTheLoopBlocksOnIsAnsweredWhileItBlocks()
+    {
+        using var server = new LoopbackServer();
+        server.Map("/inserted.js", _ => LoopbackResponse.Script("globalThis.__inserted = true;"));
+        server.MapHtml("/page", """
+            <html><head><title>Blocked</title><script>
+              var el = document.createElement('script');
+              el.src = '/inserted.js';
+              document.head.appendChild(el);
+            </script></head><body>ok</body></html>
+            """);
+
+        await using var fixture = await InterceptionFixture.OpenAsync(
+            server,
+            new BrowserOptions { SubresourceTimeout = TimeSpan.FromSeconds(8) });
+
+        await fixture.EnableAsync("""{"patterns":[{"urlPattern":"*/inserted.js"}]}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/page"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        var paused = await fixture.PausedAsync();
+        paused.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/inserted.js"));
+        paused.GetProperty("resourceType").GetString().Should().Be("Script");
+
+        var clock = Stopwatch.StartNew();
+        var reply = await fixture.Session.SendAsync(
+            "Fetch.continueRequest",
+            $$"""{"requestId":"{{paused.GetProperty("requestId").GetString()}}"}""",
+            fixture.Attachment);
+        clock.Stop();
+
+        clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(3),
+            "the command touches no engine state, so it is answered on the thread that read it rather than queued behind the fetch the loop is blocked on");
+
+        reply.TryGetProperty("error", out var error).Should().BeFalse(
+            "the pause was still there to be released, and it answered {0}", error);
+
+        await navigation.WaitAsync(Bound);
+
+        (await fixture.Page.EvaluateAsync<bool>("globalThis.__inserted === true")).Should().BeTrue(
+            "the inserted script really was paused, really was continued, and really did run");
+    }
+
     [Test]
     public async Task DetachingContinuesEverythingThatWasPaused()
     {
@@ -266,9 +328,9 @@ public class FetchDomainTests
 
         internal string FrameId { get; }
 
-        internal static async Task<InterceptionFixture> OpenAsync(LoopbackServer server)
+        internal static async Task<InterceptionFixture> OpenAsync(LoopbackServer server, BrowserOptions? options = null)
         {
-            var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = server.Owns });
+            var session = await PageSession.CreateAsync(new BrowserContextOptions { UrlFilter = server.Owns }, options);
             var page = await session.NewPageAsync();
             var target = await session.TargetForAsync(page);
             var attachment = await session.AttachAsync(target);

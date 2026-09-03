@@ -175,10 +175,48 @@ public abstract class DevToolsTarget : ICommandGateway
     /// <inheritdoc/>
     /// <remarks>
     /// Read per command rather than captured, because the mailbox belongs to the engine and the engine is
-    /// replaced under the target on every navigation.
+    /// replaced under the target on every navigation. A method <see cref="RunsOffThread"/> names is the one
+    /// exception: it is answered here, on the thread that read it, and never reaches the mailbox at all.
     /// </remarks>
     ValueTask<string> ICommandGateway.DispatchAsync(DevToolsSession session, ProtocolRequest request, CommandContext context)
-        => Runtime.Dispatcher.DispatchAsync(session, request, context);
+        => RunsOffThread(request.Method)
+            ? session.DispatchAsync(in request, context)
+            : Runtime.Dispatcher.DispatchAsync(session, request, context);
+
+    /// <summary>Whether one command is answered on the thread that read it rather than on the engine's.</summary>
+    /// <param name="method">The qualified method a client sent, such as <c>Fetch.continueRequest</c>.</param>
+    /// <returns>
+    /// <see langword="true"/> to answer the command in place, <see langword="false"/> — the default — to
+    /// queue it on the current engine's mailbox.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>The one documented exception to "every domain method runs on the engine thread", and the bar is
+    /// what keeps it one.</b> A method may be named here only if it provably touches no engine state, no
+    /// <c>JsValue</c> and no AngleSharp node — nothing but its own parameters and structures that are
+    /// thread-safe by construction. One that reads a <c>RemoteObjectTable</c>, a <c>ScriptRegistry</c>, a
+    /// <c>DebugHandler</c>, an <c>Engine</c> or a DOM node may never be, whatever it costs on the loop.
+    /// </para>
+    /// <para>
+    /// <b>What it buys is a command that is answerable while the loop is not.</b> A pause a client is asked
+    /// to answer holds a transport thread, and the answer has to reach that thread — so a command queued
+    /// behind a loop the pause itself is blocking could not be delivered until the block ended.
+    /// <c>PageTarget</c> names the three <c>Fetch</c> commands that release such a pause and nothing else.
+    /// </para>
+    /// <para>
+    /// <b>It needs no clone of its parameters, unlike a queued command.</b> It runs inside
+    /// <c>DevToolsSession.HandleMessageAsync</c>'s own <see langword="try"/>, so the caller's
+    /// <c>JsonDocument</c> is still open; the mailbox clones because an item it answered on a timeout is
+    /// read by the engine thread after that document has gone back to the pool.
+    /// </para>
+    /// <para>
+    /// <b>And a navigation never abandons it.</b> Abandoning is for a command addressed to a context that
+    /// was replaced; a command that reaches no engine names no context, and it is answered before a swap
+    /// could reach it. <see langword="internal"/> so that <c>Jint.Browser</c> overrides it and nothing
+    /// outside this repository can widen the thread rule.
+    /// </para>
+    /// </remarks>
+    internal virtual bool RunsOffThread(string method) => false;
 
     /// <summary>Registers what one attachment to this target answers, on <paramref name="session"/>.</summary>
     /// <param name="session">The session node the attachment answers on.</param>

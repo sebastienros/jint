@@ -33,8 +33,15 @@ WebSocket receive loop happens to be on, the only thing it may hand a `DevToolsS
 
 Everything downstream of that follows:
 
-- **Every domain method runs on the engine thread.** A `DevToolsDomain` may hold engine state — a
-  `RemoteObjectTable`, a `ScriptRegistry`, a `DebugHandler` subscription — none of it thread-safe.
+- **Every domain method runs on the engine thread, except the ones a target names.** A `DevToolsDomain` may
+  hold engine state — a `RemoteObjectTable`, a `ScriptRegistry`, a `DebugHandler` subscription — none of it
+  thread-safe. `DevToolsTarget.RunsOffThread(method)` is the gateway hook a target overrides to answer one
+  command on the thread that read it instead, and **the bar for naming a method is that it provably touches
+  no engine state, no `JsValue` and no AngleSharp node** — a method that reads any of the three above, an
+  `Engine` or a DOM node may never be named, because nothing here would catch it. What it buys is a command
+  answerable while the loop is not: today the three `Fetch` commands that release a paused request
+  ([`Jint.Browser/DevTools/AGENTS.md`](../Jint.Browser/DevTools/AGENTS.md)), since the pause holds a
+  transport thread and the loop may be blocked on the very fetch it is about.
 - **Nothing a command returns may outlive the command.** A `CommandContext` is valid for the command that
   received it, and must not be captured.
 - **Serialization happens on the engine thread too**, because that is where the `JsValue` is. That is why

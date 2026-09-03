@@ -36,6 +36,14 @@ Four consequences that are not negotiable:
   commands around it. The single exception is `WaitForDebuggerOnStart`: host work is held and protocol
   commands are not, because otherwise the command that ends the wait could never be answered.
 
+**A target may take one command out of that path entirely.** The gateway reads
+`DevToolsTarget.RunsOffThread(method)` before the enqueue, and a method it names is answered by
+`DevToolsSession.DispatchAsync` on the thread that read it — no clone of the parameters (the caller's
+`JsonDocument` is still open, which is the only reason the mailbox clones), no queue, and no `Abandon`,
+since a command that reaches no engine names no context. The bar for naming one is in
+[`Jint.DevTools/AGENTS.md`](../AGENTS.md#the-thread-rule), and today it is the three `Fetch` commands that
+release a paused request: the page loop can be blocked on the very fetch the pause is about.
+
 The two thread modes are `EngineTargetOptions.ThreadMode`. `HostOwned` (the default) is the host's own loop;
 `EngineTarget.Pump` is a convenience over `engine.Tasks.ProcessTasks()`, not a second mechanism.
 `LibraryOwned` starts one thread running drain → `ProcessTasks` → `WaitForScheduledWork`, and the host

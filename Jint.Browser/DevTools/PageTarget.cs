@@ -187,6 +187,32 @@ internal sealed partial class PageTarget : DevToolsTarget, IPageObserver
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
+    /// <b>Three commands, and they are the three that release a paused request.</b>
+    /// <c>FetchDomain.ContinueRequestAsync</c>, <c>FailRequestAsync</c> and <c>FulfillRequestAsync</c> look
+    /// one entry up in a <c>ConcurrentDictionary</c> and complete a <c>TaskCompletionSource</c>; between
+    /// them they touch no engine, no <c>JsValue</c> and no node, which is the bar the base class sets.
+    /// </para>
+    /// <para>
+    /// <b>What that makes unconditional is that a pause never blocks the answer to it.</b> A
+    /// <c>&lt;script src&gt;</c> a running script inserted is fetched with the loop blocked rather than
+    /// pumping (<c>Runtime/Parsing/AGENTS.md</c>), so the one command that could end that block used to be
+    /// queued behind it and could not be answered until the fetch gave up.
+    /// </para>
+    /// <para>
+    /// <b><c>Fetch.enable</c> and <c>Fetch.disable</c> are deliberately not here.</b> They mark the domain
+    /// enabled and emit through the session, which is a domain's own state rather than a request's, so they
+    /// keep the ordering every other command has.
+    /// </para>
+    /// </remarks>
+    internal override bool RunsOffThread(string method) => method switch
+    {
+        "Fetch.continueRequest" or "Fetch.failRequest" or "Fetch.fulfillRequest" => true,
+        _ => false,
+    };
+
+    /// <inheritdoc/>
     internal override ValueTask CloseAsync() => new(Page.CloseAsync());
 
     /// <summary>Registers one attachment's <c>Page</c> domain as a listener.</summary>
