@@ -228,7 +228,7 @@ gives an empty construction stack and this gives the element being upgraded.
 
 **Two attribute writes reach neither channel, and both are AngleSharp's**: `classList` writes the content
 attribute without notifying its own `IAttributeObserver` or queueing a record, and `setAttributeNS` notifies
-only the record channel. Both are in [`Dom/AGENTS.md`](Dom/AGENTS.md)'s divergence table.
+only the record channel. Both are in the register [`Dom/divergences.md`](Dom/divergences.md).
 
 ### The protocol layer has a file of its own
 
