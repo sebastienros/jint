@@ -238,6 +238,52 @@ public class FlatLayoutTests
         (await page.EvaluateAsync<double>("document.getElementById('r3').offsetHeight")).Should().Be(Row);
     }
 
+    /// <summary>
+    /// A box query on a page whose cascade contains a relative length, which is
+    /// <see href="https://github.com/sebastienros/jint/issues/3730">#3730</see>'s own page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The rendered set is read from the cascade, so every box query went through the cascade too.</b>
+    /// <c>FlatLayout.IsRendered</c> asks <c>Accessibility/ElementVisibility</c> for
+    /// <c>display</c> and <c>visibility</c>, that asked AngleSharp.Css, and AngleSharp.Css raised
+    /// <c>ArgumentException</c> for a percentage with no render device registered — so
+    /// <c>getBoundingClientRect</c> on <i>any</i> element of a page with a single <c>width: 100%</c> rule
+    /// was a CLR exception. Over the protocol that is a <c>-32000</c> rather than an
+    /// <c>exceptionDetails</c>, which Playwright reads as the element having been detached, and its
+    /// <c>FillAsync</c> retried until it timed out.
+    /// </para>
+    /// <para>
+    /// The second half is what the cascade being available again buys: a <c>display: none</c> rule on the
+    /// same page is honoured rather than lost with the whole cascade, so the hidden element has no box.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task APercentageWidthInTheCascadeDoesNotStopABoxQuery()
+    {
+        await using var browser = new global::Jint.Browser.Browser();
+        var page = await browser.NewPageAsync();
+
+        await page.SetContentAsync(
+            """
+            <style>
+              .form-control { width: 100%; display: block }
+              #hidden { display: none }
+            </style>
+            <input id="SiteName" class="form-control" type="text">
+            <div id="hidden">gone</div>
+            """);
+
+        // html, body, input: the input is the third rendered element, and the hidden div is not one.
+        (await Rect(page, "document.getElementById('SiteName')")).Should().Be($"0,{2 * Row},1280,{Row}");
+        (await Rect(page, "document.getElementById('hidden')")).Should().Be("0,0,0,0", "display: none takes the box away");
+
+        (await page.EvaluateAsync<string>("getComputedStyle(document.getElementById('SiteName')).width"))
+            .Should().Be("1280px", "the declared 100% resolves against the viewport");
+
+        page.Errors.Should().BeEmpty();
+    }
+
     /// <summary>The four numbers of a rectangle, as one string, which makes a failure readable.</summary>
     private static async Task<string> Rect(Page page, string expression)
         => await page.EvaluateAsync<string>(

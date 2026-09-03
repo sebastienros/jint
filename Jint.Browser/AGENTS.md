@@ -47,7 +47,7 @@ a swap to a source generator later is mechanical.
 | — | `DomSelectorMembers` and `DomNodeMembers` — the five members whose *failure* has to be WebIDL's rather than AngleSharp's, and the one (`getRootNode`) AngleSharp has no `[DomName]` for |
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them falls through to CSS's initial value and `getComputedStyle` reads `inline` |
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
-| a relative length through `getComputedStyle` | the used value in `px` | **`ArgumentException`, aborting the whole call**: lengths resolve against an `IRenderDevice`, none is registered, and the `DefaultRenderDevice` it falls back to reports a viewport of 0 × 0 — so `width: 50%`, `height: 100vh` or `calc(100% - 10px)` anywhere in the matching cascade throws. `Runtime/WindowInstaller.Cascade` catches it, answers no cascade at all, and says there what registering a device would buy and why that is its own decision |
+| a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
@@ -191,11 +191,19 @@ two. And `Events/EventHandlerContentAttributes.Reconcile` is the one place scrip
 because it is the one place every path arrives at; the parse's own half is that the `IScriptingService` is
 not registered at all, which is how AngleSharp is told, and `Runtime.evaluate` is unaffected either way.
 
-**`getComputedStyle` is not re-evaluated against the emulated media**, and that is the one divergence this
-buys: the cascade is AngleSharp.Css's `ComputeCurrentStyle()`, whose media evaluation is its own render
-device, so an `@media (prefers-color-scheme: dark)` rule never becomes active. What a page reads through
-`matchMedia` and through the cascade can therefore disagree — and a framework that themes itself reads the
-first.
+**The cascade is evaluated against the page's own device, and that closes half of the divergence this used
+to buy.** `Runtime/PageRenderDevice` is registered on the browsing context `Parsing/ParserDriver` builds and
+holds no numbers of its own — every member is read off `PageMediaEnvironment` at the moment
+`ComputeCurrentStyle()` asks — so a dimension query and `@media print` in a style sheet answer from the same
+viewport and media type `matchMedia` does, with nothing to re-register when a client emulates
+([#3721](https://github.com/sebastienros/jint/issues/3721)). What still disagrees was measured rather than
+assumed, and it is two kinds of thing. `IRenderDevice` has no member for a Level 5 preference, so
+`@media (prefers-color-scheme: dark)` never becomes active while `matchMedia` answers it from the table
+above — a framework that themes itself reads the second. And `(scripting)`, `(color)`, both `orientation`
+values and every `min-resolution` answer the same whatever the device reports, so they are AngleSharp.Css's
+own arithmetic rather than anything a device can fix: `scripting` is
+[#233](https://github.com/AngleSharp/AngleSharp.Css/issues/233) and `orientation`
+[#232](https://github.com/AngleSharp/AngleSharp.Css/issues/232); the other two are not filed.
 
 ### Custom elements, and where a reaction actually runs
 

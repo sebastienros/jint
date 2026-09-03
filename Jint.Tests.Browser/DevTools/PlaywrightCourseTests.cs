@@ -229,6 +229,59 @@ public class PlaywrightCourseTests
         await page.CloseAsync();
     }
 
+    /// <summary>
+    /// <c>FillAsync</c> on an input whose CSS rule uses a percentage width, which is
+    /// <see href="https://github.com/sebastienros/jint/issues/3730">#3730</see>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The failure was a protocol error read as a detached element.</b> The actionability check calls
+    /// <c>getBoundingClientRect</c> in the utility world; the flat box model reads the cascade to decide
+    /// which elements are rendered; AngleSharp.Css raised <c>ArgumentException</c> for <c>width: 100%</c>
+    /// because the page's browsing context had no <c>IRenderDevice</c>; and a CLR exception escaping
+    /// <c>Runtime.callFunctionOn</c> is <c>-32000 "A non null render device with a font size is required to
+    /// calculate em or rem units."</c>. Playwright turns anything that is <em>not</em> an
+    /// <c>exceptionDetails</c> answer into <c>error:notconnected</c>, which its retry loop prints as
+    /// <c>element was detached from the DOM, retrying</c> — fourteen times, then a timeout. Changing the
+    /// rule to <c>width: 50px</c> made the same program pass, which is what named the cause.
+    /// </para>
+    /// <para>
+    /// The page is a route rather than a fixture because it is a reduction with no library in it: the
+    /// obstacle course is for pages a framework drives.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task PlaywrightFillsAnInputWhoseRuleUsesAPercentageWidth()
+    {
+        await using var lane = await ClientLane.OpenAsync(server => server.MapHtml(
+            "/percentage-width/index.html",
+            """
+            <!doctype html>
+            <html>
+              <head><style>.form-control { width: 100%; display: block }</style></head>
+              <body><input id="SiteName" class="form-control" type="text"></body>
+            </html>
+            """));
+
+        var page = await lane.Context.NewPageAsync();
+        await page.GotoAsync(lane.Url("percentage-width"));
+
+        var siteName = page.Locator("#SiteName");
+        (await siteName.CountAsync()).Should().Be(1);
+
+        // Unforced, and with a short timeout: this is the whole actionability path — visible, enabled,
+        // editable — and before the fix every attempt of it answered "detached" until the clock ran out.
+        await siteName.FillAsync("Testing Blog", new LocatorFillOptions { Timeout = 10_000 });
+
+        (await siteName.InputValueAsync()).Should().Be("Testing Blog");
+
+        // And the box the check reads is a real one, computed against the viewport rather than refused.
+        (await page.EvaluateAsync<string>(
+            "() => getComputedStyle(document.getElementById('SiteName')).width")).Should().Be("1280px");
+
+        await page.CloseAsync();
+    }
+
     /// <summary>A server serving the course, a browser, a protocol server and a connected Playwright.</summary>
     private sealed class ClientLane : IAsyncDisposable
     {

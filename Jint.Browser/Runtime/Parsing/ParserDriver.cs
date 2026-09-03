@@ -88,6 +88,8 @@ internal sealed class ParserDriver : IDisposable
         // styling service <link rel=stylesheet> needs; the resource loader is what makes AngleSharp ask for
         // anything at all, and is therefore what makes the baton necessary. There is deliberately no
         // WithDefaultLoader: every byte a document pulls goes through the page's own network position.
+        // The render device is what the cascade resolves a relative length and an `@media` rule against;
+        // without one AngleSharp.Css raises rather than answering for `width: 100%` (see PageRenderDevice).
         // The attribute observer is the last of them, and it is what a custom element's
         // `attributeChangedCallback` is answered from: it is called for every element of this document,
         // attached or not, where a mutation record needs the element to be under the observed document
@@ -96,6 +98,7 @@ internal sealed class ParserDriver : IDisposable
         var configuration = Configuration.Default
             .WithCss()
             .With(new PageResourceLoader(this))
+            .With<AngleSharp.Css.IRenderDevice>(_ => new PageRenderDevice(_runtime))
             .With<AngleSharp.Dom.IAttributeObserver>(_ => new CustomElements.CustomElementAttributeObserver(_runtime));
 
         // https://chromedevtools.github.io/devtools-protocol/tot/Emulation/#method-setScriptExecutionDisabled

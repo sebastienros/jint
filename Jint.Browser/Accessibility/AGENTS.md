@@ -53,7 +53,7 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 
 | What | The standard | AngleSharp.Css 1.0.2 |
 | --- | --- | --- |
-| `el.ComputeCurrentStyle()` without the CSS services | an empty declaration, or a documented failure | throws `InvalidOperationException("Sequence contains no elements")`, which is why every call here is guarded and the guard latches |
+| `el.ComputeCurrentStyle()` without the CSS services | an empty declaration, or a documented failure | throws `InvalidOperationException("Sequence contains no elements")`, which is why every call goes through `Dom/Views/CssCascade` and why `ElementVisibility` latches on a refusal — one throw per document rather than one per node of a tree walk. **It latches only while the cascade has never answered**: a refusal after one has is about *this* element's own declarations (`width: 20ch` is a unit AngleSharp.Css cannot convert, and ordinary modern CSS), and latching there would take the page's `display: none` rules down with it |
 | the default style sheet's `display` rules | HTML's rendering section gives `display: block` to `section`, `article`, `nav`, `aside`, `header`, `footer`, `main`, `figure`, `figcaption`, `details`, `summary`, `dialog`, `hgroup` | no rule at all, so every one of them computes to nothing and reads as inline |
 | `[hidden] { display: none }` | in HTML's rendering section | absent, so `<div hidden>` computes `display: block` |
 | `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |

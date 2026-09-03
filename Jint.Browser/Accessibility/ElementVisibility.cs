@@ -16,6 +16,7 @@ internal sealed class ElementVisibility
 {
     private readonly bool _useComputedStyle;
     private bool _cascadeAvailable = true;
+    private bool _cascadeAnswered;
 
     internal ElementVisibility(bool useComputedStyle) => _useComputedStyle = useComputedStyle;
 
@@ -79,18 +80,15 @@ internal sealed class ElementVisibility
     {
         if (_useComputedStyle && _cascadeAvailable)
         {
-            try
+            if (Dom.Views.CssCascade.Of(element) is { } computed
+                && Dom.Views.CssCascade.ValueOf(computed, "display") is { } display
+                && Dom.Views.CssCascade.ValueOf(computed, "visibility") is { } visibility)
             {
-                var computed = element.ComputeCurrentStyle();
-                return (computed.GetPropertyValue("display"), computed.GetPropertyValue("visibility"));
+                _cascadeAnswered = true;
+                return (display, visibility);
             }
-            catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException)
-            {
-                // AngleSharp.Css's ComputeCurrentStyle throws "Sequence contains no elements" rather than
-                // answering an empty declaration when the CSS service is not registered on the browsing
-                // context. Ask once, then stay on the inline-style path for the rest of the walk.
-                _cascadeAvailable = false;
-            }
+
+            Latch();
         }
 
         return InlineStyle(element);
@@ -107,14 +105,33 @@ internal sealed class ElementVisibility
             return null;
         }
 
-        try
+        if (Dom.Views.CssCascade.Of(element) is { } computed
+            && Dom.Views.CssCascade.ValueOf(computed, "white-space") is { } whiteSpace)
         {
-            return element.ComputeCurrentStyle().GetPropertyValue("white-space");
+            _cascadeAnswered = true;
+            return whiteSpace;
         }
-        catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException)
+
+        Latch();
+        return null;
+    }
+
+    /// <summary>
+    /// Stops asking AngleSharp.Css, but only while it has never answered.
+    /// </summary>
+    /// <remarks>
+    /// The two failures <c>Dom/Views/CssCascade</c> guards are not the same kind of thing. A document whose
+    /// browsing context has no CSS services cannot answer for <i>any</i> element, and asking once per node
+    /// of a whole tree walk would be one thrown exception per node — so the first refusal latches. A cascade
+    /// that has already answered for some other element is available, and a refusal is then about this
+    /// element's own declarations (a unit AngleSharp.Css cannot convert, and <c>width: 20ch</c> is ordinary
+    /// modern CSS): latching there would take a page's <c>display: none</c> rules down with it.
+    /// </remarks>
+    private void Latch()
+    {
+        if (!_cascadeAnswered)
         {
             _cascadeAvailable = false;
-            return null;
         }
     }
 

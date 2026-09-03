@@ -26,17 +26,17 @@ namespace Jint.Browser.DevTools;
 /// </para>
 /// <para>
 /// <b>A computed value here has no layout behind it.</b> A property the style sheets, the inline style or
-/// the user-agent defaults settled resolves; a <i>used</i> value that would need a box — a percentage width,
-/// anything resolved against a containing block — is the empty string.
+/// the user-agent defaults settled resolves; a percentage resolves against the page's viewport rather than
+/// a containing block, which is what <c>Runtime/PageRenderDevice</c> reports.
 /// <c>Dom/Views/ReadOnlyStyleDeclaration</c> says the same thing about the script-side member, and both are
 /// the same declaration.
 /// </para>
 /// <para>
-/// <b>The one thing that can go wrong is AngleSharp.Css not being registered</b>, and it is not a
-/// hypothetical: <c>ComputeCurrentStyle()</c> throws <c>InvalidOperationException("Sequence contains no
-/// elements")</c> rather than answering an empty declaration when the CSS services are absent
-/// (<c>Accessibility/ElementVisibility</c> carries the same guard for the same reason). A page's own
-/// browsing context always registers them; a refusal names the cause rather than erupting.
+/// <b>The cascade can refuse to compute, and it is not a hypothetical</b>: a unit AngleSharp.Css has no
+/// conversion for, or a document whose browsing context has no CSS services at all, is a CLR exception out
+/// of <c>ComputeCurrentStyle()</c> rather than a declaration it skipped. <c>Dom/Views/CssCascade</c> is the
+/// one guard every caller shares, and here a cascade it cannot compute is a refusal naming the cause rather
+/// than an exception erupting into the protocol.
 /// </para>
 /// <para>
 /// See <see href="https://chromedevtools.github.io/devtools-protocol/tot/CSS/"/>.
@@ -87,7 +87,7 @@ internal sealed class CssDomain : CSSDomainBase
             properties.Add(new ProtocolCss.CSSComputedStyleProperty
             {
                 Name = name,
-                Value = computed.GetPropertyValue(name) ?? "",
+                Value = Dom.Views.CssCascade.ValueOf(computed, name) ?? "",
             });
         }
 
@@ -151,18 +151,15 @@ internal sealed class CssDomain : CSSDomainBase
         return node as IElement ?? Throw.ServerError<IElement>("Node is not an Element");
     }
 
-    /// <summary>The cascade for one element, or a refusal naming the service that is missing.</summary>
+    /// <summary>The cascade for one element, or a refusal naming what could not be resolved.</summary>
+    /// <remarks>
+    /// A refusal rather than an empty declaration, because this domain has no way to say "some of it":
+    /// a client reading an empty list would read it as a page that declares nothing.
+    /// </remarks>
     private static ICssStyleDeclaration Computed(IElement element)
-    {
-        try
-        {
-            return element.ComputeCurrentStyle();
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException)
-        {
-            return Throw.ServerError<ICssStyleDeclaration>(
-                "Computed style is not available",
-                "the document's browsing context has no AngleSharp.Css services registered, so the cascade cannot be resolved");
-        }
-    }
+        => Dom.Views.CssCascade.Of(element)
+        ?? Throw.ServerError<ICssStyleDeclaration>(
+            "Computed style is not available",
+            "the document's cascade could not be resolved: either its browsing context has no AngleSharp.Css "
+            + "services registered, or a declaration in the matching cascade uses a unit AngleSharp.Css cannot convert");
 }
