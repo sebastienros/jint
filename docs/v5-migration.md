@@ -5256,6 +5256,76 @@ that accessor's value — in a console line, in a `console.table` cell, in `%o`/
 sets `this.name` in its constructor, because that is an own data property. A host that wants the accessor's
 value calls it itself and logs the string.
 
+### 4.124 An array parameter is chosen by the elements it holds, and a failing element declines ([#3754](https://github.com/sebastienros/jint/issues/3754))
+
+A `params` call bundles its trailing arguments into one JavaScript array before overload resolution runs, so
+candidates differing only in the element type of an array or collection parameter were rated by a single rule
+— "is an array, wants an array" — that answered the same number for every one of them. The element type was
+never consulted, the converter probe below that rule (§4.33) was never reached, and declaration order decided.
+
+```csharp
+public sealed class MathHost
+{
+    public CDecimal Add(params CDecimal[] args) => …;
+    public CInteger Add(params CInteger[] args) => …;
+    public CLong    Add(params CLong[] args)    => …;
+}
+
+public sealed class Host
+{
+    public string Join(params string[] values) => string.Concat(values);
+    public string Join(params int[] values)    => Sum(values).ToString();
+}
+```
+
+```js
+// 5.0                                                        5.x
+math.Add(a, b);   // System.InvalidCastException              the CInteger overload
+h.Join(1, 2);     // "12" — the string overload               "3" — the int overload
+math.Add('text'); // System.InvalidCastException              TypeError: No public methods…
+```
+
+Up to the first eight elements are now rated against the parameter's element type, and the parameter scores
+the base it always did plus its **worst** element, so an exact-typed array answers exactly what it answered
+before and a long array cannot outweigh the parameters beside it. An element no conversion can produce makes
+the whole candidate unbindable, which is the same rule §4.33 applies one level up: the last word belongs to
+the converter that will actually perform the conversion. An **empty** array is deliberately unchanged — there
+is no element to read, the candidates are genuinely indistinguishable, and today's declaration-order answer
+stands.
+
+Two element types are carved out and keep the flat score: `object` and `JsValue` — that is, anything a
+`JsValue` is already assignable to. `params object[]` and `params JsValue[]` are what a host writes for
+"anything", and rating their elements would rank them below whatever scalar overload sits beside them.
+
+The second half is in the converter. `DefaultTypeConverter.TryConvert` converted the *parts* of a composite —
+a `List<T>` or `Collection<T>` item, a `T[]` element, a target dictionary's value, a member of a POCO built
+from a dictionary — through the public, throwing `Convert`, whatever its own frame had been asked. So a method
+documented as returning `false` threw a CLR exception, which is not something the candidate loop in
+`MethodInfoFunction.Call` can move on from: it tries candidates in score order and declines its way to the
+next, and an exception ended the call instead of the candidate. Those five sites now honour the flag their
+frame was called with.
+
+**What could break.** Three things, all of them narrow.
+
+A host API overloaded on the element type of an array or collection parameter now selects by that element
+type, so a call that previously reached the first-declared overload — and either answered from it or died
+converting to it — reaches the one the arguments actually fit. There is no switch that restores the old
+selection.
+
+`DefaultTypeConverter.TryConvert` returns `false` for a composite with an unconvertible part where it used to
+throw. `Convert` is unchanged and still throws the very same exception for the very same input, so code that
+wanted the exception asks for it by name. A subclass overriding `TryConvert` is now also consulted for the
+*parts* of a composite, which it was not before — it was consulted only for the composite as a whole, the
+parts going through the base `Convert`.
+
+An overloaded call whose arguments no candidate accepts now raises the ordinary catchable interop resolution
+error rather than whatever the first candidate's conversion threw, and the CLR exception's detail is no longer
+in the message. The argument and candidate types are, once the host asks:
+
+```csharp
+var engine = new Engine(options => options.Interop.ExposeDetailedResolutionErrors = true);
+```
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so
