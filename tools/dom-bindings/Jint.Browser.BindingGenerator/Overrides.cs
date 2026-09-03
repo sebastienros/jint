@@ -35,6 +35,9 @@ internal sealed class Overrides
     [JsonPropertyName("nullableParameters")]
     public List<NullableParameterEntry> NullableParameters { get; init; } = [];
 
+    [JsonPropertyName("nonNullableParameters")]
+    public List<NullableParameterEntry> NonNullableParameters { get; init; } = [];
+
     [JsonPropertyName("stringEnums")]
     public List<StringEnumEntry> StringEnums { get; init; } = [];
 
@@ -94,6 +97,19 @@ internal sealed class Overrides
         /// <summary>Which half the hook replaces: <c>setter</c>, <c>getter</c> or <c>operation</c>.</summary>
         [JsonPropertyName("half")]
         public string Half { get; init; } = "operation";
+
+        /// <summary>
+        /// Whether the hook <em>answers</em> the operation rather than performing it: the emitted body
+        /// returns what the hook returned instead of <c>undefined</c>. Operation half only.
+        /// </summary>
+        /// <remarks>
+        /// Without it a member whose answer belongs to the host had to be written as a <c>skip</c> plus an
+        /// <c>additions</c> entry - two rows of the table re-implementing a member instead of standing in
+        /// front of it, and a member the generator no longer names, so a collision with something AngleSharp
+        /// later grows under that name would be silent rather than reported.
+        /// </remarks>
+        [JsonPropertyName("returns")]
+        public bool Returns { get; init; }
 
         /// <summary>The method on <c>DomHostHooks</c> the generated body calls.</summary>
         [JsonPropertyName("hook")]
@@ -185,14 +201,25 @@ internal sealed class Overrides
     }
 
     /// <summary>
-    /// One argument position that WebIDL declares nullable, which the emitter cannot see: it reads C#
-    /// optionality — a default value in the signature — and not nullable-reference metadata.
+    /// One argument position whose nullability the emitter has to be told, in either direction. Keyed on the
+    /// argument index rather than the parameter name, because the index is what a script passes and what the
+    /// emitted conversion takes.
     /// </summary>
     /// <remarks>
-    /// Decoding the metadata instead was considered and is a different change: it would flip every parameter
-    /// AngleSharp happens to annotate, all at once and unreviewably, where a table entry is one line naming
-    /// the clause of the standard it comes from. Keyed on the argument index rather than the parameter name,
-    /// because the index is what a script passes and what the emitted conversion takes.
+    /// <para>
+    /// <c>nullableParameters</c> is the <b>widening</b> list, and it is where every <em>interface</em>-typed
+    /// argument Web IDL declares nullable is stated: the emitter reads C# optionality — a default value in
+    /// the signature — and deliberately not nullable-reference metadata for those, because decoding it would
+    /// flip every parameter AngleSharp happens to annotate, all at once and unreviewably, where a table entry
+    /// is one line naming the clause of the standard it comes from.
+    /// </para>
+    /// <para>
+    /// <c>nonNullableParameters</c> is the <b>narrowing</b> list, and it exists because a <c>DOMString</c>
+    /// argument <em>is</em> read from the metadata (see <c>Nullability</c>, which says why the two types are
+    /// decided differently). AngleSharp annotates a handful of arguments <c>String?</c> that Web IDL declares
+    /// a plain <c>DOMString</c> — its own method accepts null to mean "unspecified" — and for those a page
+    /// is owed the string <c>"null"</c>. Each entry is one such argument.
+    /// </para>
     /// </remarks>
     internal sealed class NullableParameterEntry
     {

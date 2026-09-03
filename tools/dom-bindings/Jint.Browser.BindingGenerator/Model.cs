@@ -19,6 +19,20 @@ internal enum MemberKind
     Attribute,
 }
 
+/// <summary>
+/// Which position a converted parameter sits in, which is the whole of what decides whether AngleSharp's
+/// nullable-reference annotation is read as Web IDL nullability. <c>Nullability</c> says why the two answer
+/// differently.
+/// </summary>
+internal enum ParameterRole
+{
+    /// <summary>An operation's argument: the annotation is read.</summary>
+    Operation,
+
+    /// <summary>The value assigned to an IDL attribute: the annotation is ignored.</summary>
+    AttributeValue,
+}
+
 /// <summary>One JavaScript-visible member of one interface.</summary>
 internal sealed class MemberModel
 {

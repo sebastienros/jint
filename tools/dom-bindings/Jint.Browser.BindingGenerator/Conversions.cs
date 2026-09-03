@@ -13,17 +13,20 @@ internal sealed class Conversions
     private readonly Func<Type, InterfaceModel?> _lookup;
     private readonly Func<Type, bool> _isStringEnum;
     private readonly Func<string, int, bool> _isNullableParameter;
+    private readonly Func<string, int, bool> _isNonNullableParameter;
 
     internal Conversions(
         BindingModel model,
         Func<Type, InterfaceModel?> lookup,
         Func<Type, bool> isStringEnum,
-        Func<string, int, bool> isNullableParameter)
+        Func<string, int, bool> isNullableParameter,
+        Func<string, int, bool> isNonNullableParameter)
     {
         _model = model;
         _lookup = lookup;
         _isStringEnum = isStringEnum;
         _isNullableParameter = isNullableParameter;
+        _isNonNullableParameter = isNonNullableParameter;
     }
 
     /// <summary>
@@ -120,9 +123,10 @@ internal sealed class Conversions
 
     /// <summary>
     /// The expression that reads parameter <paramref name="index"/> of <paramref name="member"/> as
-    /// <paramref name="parameter"/>'s CLR type.
+    /// <paramref name="parameter"/>'s CLR type. <paramref name="role"/> is the whole of what decides whether
+    /// C#'s nullable annotation is read as Web IDL nullability; see <see cref="ParameterRole"/>.
     /// </summary>
-    internal bool TryParameter(ParameterInfo parameter, int index, string member, string? dictionaryMemberName, out string code, out string reason)
+    internal bool TryParameter(ParameterInfo parameter, int index, string member, string? dictionaryMemberName, ParameterRole role, out string code, out string reason)
     {
         code = "";
         reason = "";
@@ -143,6 +147,17 @@ internal sealed class Conversions
         switch (type.FullName)
         {
             case "System.String":
+                // https://webidl.spec.whatwg.org/#es-nullable-type — a `DOMString?` argument takes null and
+                // undefined as null; anything else converts. Which arguments those are comes from AngleSharp's
+                // own nullable-reference metadata, read for an operation only: see ParameterRole.
+                if (role == ParameterRole.Operation
+                    && Nullability.IsNullableReference(parameter)
+                    && !_isNonNullableParameter(member, index))
+                {
+                    code = "global::Jint.Browser.Dom.DomConvert.NullableText(args, " + index + ")";
+                    return true;
+                }
+
                 code = optional
                     ? "global::Jint.Browser.Dom.DomConvert.OptionalText(args, " + index + ", " + DefaultString(parameter) + ")!"
                     : "global::Jint.Browser.Dom.DomConvert.RequiredText(args, " + index + ", " + CSharpNames.Literal(member) + ")";

@@ -33,15 +33,24 @@ internal static class CustomElementCreation
             document,
             DomConvert.RequiredText(arguments, 0, "Document.createElement"),
             namespaceUri: null,
+            namespaced: false,
             DomConvert.At(arguments, 1));
 
     /// <summary>https://dom.spec.whatwg.org/#dom-document-createelementns.</summary>
+    /// <remarks>
+    /// The namespace is DOM's `DOMString? namespace`, so <c>createElementNS(null, 'x')</c> creates an element
+    /// in no namespace rather than one in a namespace spelled <c>"null"</c>. It is read here rather than by
+    /// the generated conversion because this member's whole body is the host's; every other namespaced
+    /// member takes the same argument through <c>DomConvert.NullableText</c>, which the emitter now selects
+    /// from AngleSharp's own nullable-reference metadata.
+    /// </remarks>
     internal static JsValue CreateElementNS(DomRealm realm, IDocument document, JsValue[] arguments)
         => Create(
             realm,
             document,
             DomConvert.RequiredText(arguments, 1, "Document.createElementNS"),
-            DomConvert.RequiredText(arguments, 0, "Document.createElementNS"),
+            DomConvert.NullableText(arguments, 0),
+            namespaced: true,
             DomConvert.At(arguments, 2));
 
     /// <summary>
@@ -88,11 +97,11 @@ internal static class CustomElementCreation
         return true;
     }
 
-    private static JsValue Create(DomRealm realm, IDocument document, string localName, string? namespaceUri, JsValue options)
+    private static JsValue Create(DomRealm realm, IDocument document, string localName, string? namespaceUri, bool namespaced, JsValue options)
     {
         if (CustomElementRegistry.Of(realm.Engine) is not { HasDefinitions: true } registry)
         {
-            return realm.WrapNodeValue(Build(document, localName, namespaceUri));
+            return realm.WrapNodeValue(Build(document, localName, namespaceUri, namespaced));
         }
 
         // The lower-casing AngleSharp does for an HTML document, done here as well because the lookup happens
@@ -100,11 +109,14 @@ internal static class CustomElementCreation
         // `createElement('X-THING')` find one.
         var lowered = document is AngleSharp.Html.Dom.IHtmlDocument ? localName.ToLowerInvariant() : localName;
         var isValue = ReadIs(realm, options);
-        var definition = registry.Lookup(namespaceUri ?? CustomElementRegistry.HtmlNamespace, lowered, isValue);
+        // A definition is only ever in the HTML namespace, so the namespaced member looks up under the
+        // namespace it was given — `createElementNS(null, 'x-thing')` is in *no* namespace and matches none —
+        // while `createElement` is the HTML one by definition.
+        var definition = registry.Lookup(namespaced ? namespaceUri : CustomElementRegistry.HtmlNamespace, lowered, isValue);
 
         if (definition is null)
         {
-            var plain = Build(document, localName, namespaceUri);
+            var plain = Build(document, localName, namespaceUri, namespaced);
 
             if (isValue is not null)
             {
@@ -123,15 +135,22 @@ internal static class CustomElementCreation
 
         // Step 5: a customized built-in is created as its built-in and then upgraded, so `super()` answers
         // the button that already exists.
-        var element = Build(document, localName, namespaceUri);
+        var element = Build(document, localName, namespaceUri, namespaced);
         registry.RecordFor(element).IsValue = isValue;
         registry.Upgrade(element, definition);
         registry.Drain();
         return realm.WrapNodeValue(element);
     }
 
-    private static IElement Build(IDocument document, string localName, string? namespaceUri)
-        => namespaceUri is null ? document.CreateElement(localName) : document.CreateElement(namespaceUri, localName);
+    /// <remarks>
+    /// The two members are two AngleSharp overloads, and which one is called is decided by the *member* and
+    /// never by whether the namespace happens to be null: `createElement` is the one-argument overload, which
+    /// is where an HTML document lower-cases the name and puts the element in the HTML namespace, and
+    /// `createElementNS` is the two-argument one, which takes a null namespace as no namespace and leaves the
+    /// name exactly as the script wrote it.
+    /// </remarks>
+    private static IElement Build(IDocument document, string localName, string? namespaceUri, bool namespaced)
+        => namespaced ? document.CreateElement(namespaceUri, localName) : document.CreateElement(localName);
 
     /// <summary>
     /// <c>ElementCreationOptions</c>'s one member. A dictionary is only read when it is an object, which is

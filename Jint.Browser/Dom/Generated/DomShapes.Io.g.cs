@@ -42,7 +42,7 @@ internal static partial class DomInterfaces
                 global::Jint.Browser.Dom.DomFailures.Guard("Blob.slice", static (thisObj, args) =>
                 {
                     var self = global::Jint.Browser.Dom.DomBindings.Bind<global::AngleSharp.Io.Dom.IBlob>(thisObj, "Blob.slice");
-                    return self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.OptionalText(args, 2, null)!));
+                    return self.Realm.Wrap(self.Target.Slice(global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 0, 0), global::Jint.Browser.Dom.DomConvert.OptionalInt32(args, 1, 2147483647), global::Jint.Browser.Dom.DomConvert.NullableText(args, 2)));
                 }),
                 length: 0)
             .Accessor("type",
