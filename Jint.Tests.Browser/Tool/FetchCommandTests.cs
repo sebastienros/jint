@@ -239,6 +239,23 @@ public sealed class FetchCommandTests
         server.Received[0].Header("user-agent").Should().Be("Agent/1.0");
     }
 
+    /// <summary>
+    /// A <c>--header 'User-Agent: …'</c> is the page's user agent, not a client default: the package puts
+    /// the page's own on every request, so a default could no longer replace it.
+    /// </summary>
+    [Test]
+    public async Task AUserAgentGivenAsAHeaderIsWhatThePageSendsAndReports()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml("/", "<!doctype html><html><body><script>document.body.textContent = navigator.userAgent;</script></body></html>");
+
+        var run = await ToolRun.RunAsync("fetch", server.Url("/"), "--header", "User-Agent: Header/2.0", "--dump", "text");
+
+        run.ExitCode.Should().Be(0);
+        run.Output.Should().Contain("Header/2.0");
+        server.Received[0].Header("user-agent").Should().Be("Header/2.0");
+    }
+
     [Test]
     public async Task NetworkIdleWaitsForWhatAScriptFetchedAfterLoad()
     {

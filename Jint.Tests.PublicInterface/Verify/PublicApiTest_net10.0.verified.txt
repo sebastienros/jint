@@ -328,6 +328,7 @@ namespace Jint
             public Jint.WebApi.Fetch.ReferrerPolicy ReferrerPolicy { get; set; }
             public System.TimeSpan Timeout { get; set; }
             public System.Func<System.Uri, bool> UrlFilter { get; set; }
+            public string? UserAgent { get; set; }
         }
         public sealed class HostOptions
         {

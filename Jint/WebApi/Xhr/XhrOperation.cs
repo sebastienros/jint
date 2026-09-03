@@ -379,6 +379,7 @@ internal sealed class XhrOperation : IDisposable
             Origin = network.Origin,
             SameOriginReference = network.SameOriginReference,
             CookieJar = network.CookieJar,
+            UserAgent = options.UserAgent,
         };
 
         // The first hop's policy check runs here, on the engine thread, so a refused URL never reaches a

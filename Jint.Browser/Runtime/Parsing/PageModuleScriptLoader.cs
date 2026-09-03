@@ -35,13 +35,20 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
 {
     private readonly PageNetwork _network;
     private readonly PageNetworkRecorder _requests;
+    private readonly EmulationState _emulation;
     private readonly Dictionary<string, string> _inline = new(StringComparer.Ordinal);
     private readonly long _maxBytes;
 
     private int _inlineCount;
 
-    internal PageModuleScriptLoader(PageNetwork network, PageNetworkRecorder requests, string documentUrl, long maxBytes)
+    internal PageModuleScriptLoader(
+        PageNetwork network,
+        PageNetworkRecorder requests,
+        EmulationState emulation,
+        string documentUrl,
+        long maxBytes)
     {
+        _emulation = emulation;
         _network = network;
         _requests = requests;
         _maxBytes = maxBytes;
@@ -135,7 +142,15 @@ internal sealed class PageModuleScriptLoader : AsyncModuleLoader
         var fetched = await SubresourceFetch.LoadAsync(
             _network,
             client,
-            new SubresourceRequest(url, referrer, referrer, _maxBytes, MaxRedirects, RequestInitiator.Subresource, PageRequestKind.Script),
+            new SubresourceRequest(
+                url,
+                referrer,
+                referrer,
+                _maxBytes,
+                MaxRedirects,
+                RequestInitiator.Subresource,
+                _emulation.EffectiveUserAgent,
+                PageRequestKind.Script),
             _requests,
             cancellationToken).ConfigureAwait(false);
 

@@ -37,6 +37,7 @@ internal sealed class PageModuleLoader : ModuleLoader
     private readonly Uri _baseUrl;
     private readonly long _maxBytes;
     private readonly TimeSpan _timeout;
+    private readonly string? _userAgent;
 
     internal PageModuleLoader(
         PageNetwork network,
@@ -44,8 +45,10 @@ internal sealed class PageModuleLoader : ModuleLoader
         HttpClient client,
         Uri baseUrl,
         long maxBytes,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        string? userAgent)
     {
+        _userAgent = userAgent;
         _network = network;
         _requests = requests;
         _client = client;
@@ -121,6 +124,7 @@ internal sealed class PageModuleLoader : ModuleLoader
             Origin = origin,
             SameOriginReference = origin,
             CookieJar = _network.CookieJar,
+            UserAgent = _userAgent,
         };
 
         using var cancellation = new CancellationTokenSource(_timeout);

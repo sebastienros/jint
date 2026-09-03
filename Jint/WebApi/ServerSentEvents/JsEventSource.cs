@@ -125,6 +125,7 @@ internal sealed class JsEventSource : JsEventTarget
             UrlFilter = urlFilter,
             MaxResponseBytes = _options.MaxResponseBytes,
             MaxRedirects = _options.MaxRedirects,
+            UserAgent = _options.UserAgent,
         };
 
         // The first hop's check runs on the engine thread, so a refused URL never reaches a socket. Every

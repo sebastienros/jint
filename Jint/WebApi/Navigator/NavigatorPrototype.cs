@@ -1,5 +1,4 @@
 #if NET8_0_OR_GREATER
-using System.Globalization;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -65,9 +64,11 @@ internal sealed partial class NavigatorPrototype : Prototype
 
     /// <summary>
     /// The user agent string, built once for the process: the assembly version cannot change while it is
-    /// loaded, so every engine and every realm hands out this one <see cref="JsString"/>.
+    /// loaded, so every engine and every realm hands out this one <see cref="JsString"/>. The token is
+    /// <see cref="ProductToken.UserAgent"/>, which is also the <c>User-Agent</c> a request carries when the
+    /// host named none of its own — what a script reads and what the wire carries are one string.
     /// </summary>
-    private static readonly JsString UserAgent = new("Jint/" + ProductVersion());
+    private static readonly JsString UserAgent = new(ProductToken.UserAgent);
 
     internal NavigatorPrototype(
         Engine engine,
@@ -99,25 +100,6 @@ internal sealed partial class NavigatorPrototype : Prototype
         }
 
         return UserAgent;
-    }
-
-    /// <summary>
-    /// The <c>product-version</c> half of the token: Jint's own assembly version, as
-    /// <c>major.minor.patch</c>. The fourth component is dropped because Jint never sets one, and the whole
-    /// thing degrades to <c>"0.0.0"</c> rather than throwing if the assembly somehow carries no version.
-    /// </summary>
-    private static string ProductVersion()
-    {
-        var version = typeof(Engine).Assembly.GetName().Version;
-        if (version is null)
-        {
-            return "0.0.0";
-        }
-
-        var build = version.Build < 0 ? 0 : version.Build;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"{version.Major}.{version.Minor}.{build}");
     }
 }
 #endif

@@ -51,6 +51,7 @@ internal static class BrowserEngineFactory
         var modules = new Parsing.PageModuleScriptLoader(
             request.Network,
             request.Requests,
+            request.Emulation,
             request.Url,
             options.MaxSubresourceBytes);
 
@@ -175,6 +176,12 @@ internal static class BrowserEngineFactory
         fetch.UrlFilter = request.Network.UrlFilter;
         fetch.CookieJar = request.Network.CookieJar;
         fetch.Observer = request.Requests;
+
+        // https://fetch.spec.whatwg.org/#default-user-agent-value: what this document's fetches, its
+        // XMLHttpRequests and — through the worker provider — its workers put on the wire is the same string
+        // navigator.userAgent answers. An override a client sets *after* the engine was built reaches the
+        // wire through PageNetworkState.Apply, which rewrites the header per hop.
+        fetch.UserAgent = request.Emulation.EffectiveUserAgent;
 
         if (request.Network.Client is { } client)
         {

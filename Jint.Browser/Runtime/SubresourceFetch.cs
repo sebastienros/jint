@@ -57,6 +57,7 @@ internal sealed record FetchedSubresource(byte[] Bytes, string? ContentType, str
 /// <param name="MaxResponseBytes">The ceiling on the body.</param>
 /// <param name="MaxRedirects">How many hops the chain may follow.</param>
 /// <param name="Initiator">What the page's network log should call this request.</param>
+/// <param name="UserAgent">The user agent the page reports, which every resource it asks for carries.</param>
 /// <param name="Kind">What the resource is for, which is what a protocol client filters requests on.</param>
 internal sealed record SubresourceRequest(
     UrlRecord Url,
@@ -65,6 +66,7 @@ internal sealed record SubresourceRequest(
     long MaxResponseBytes,
     int MaxRedirects,
     RequestInitiator Initiator,
+    string UserAgent,
     PageRequestKind Kind = PageRequestKind.Other);
 
 /// <summary>Raised when a subresource could not be obtained, with the sentence a page error should carry.</summary>
@@ -148,6 +150,7 @@ internal static class SubresourceFetch
             Origin = request.Origin,
             SameOriginReference = request.Origin,
             CookieJar = network.CookieJar,
+            UserAgent = request.UserAgent,
         };
 
         try

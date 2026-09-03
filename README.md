@@ -510,7 +510,9 @@ carries all four, with `onerror` in HTML's legacy five-argument shape.
 
 §7 asks that `navigator.userAgent` be a single opaque RFC 7231 product token identifying the runtime; Jint
 answers `Jint/<version>`, which `Options.WebApi` does not let you change — a script that branches on the
-runtime should get the truth.
+runtime should get the truth. `Options.WebApi.Fetch.UserAgent` names what a *request* carries and leaves that
+answer alone; a host that wants the two to move together — a browsing context, say — shadows the member the
+way `Jint.Browser` does.
 
 ### Enabling web APIs on an engine that already exists
 
@@ -1218,6 +1220,13 @@ var body = engine.Evaluate("fetch('https://api.example.org/x').then(r => r.json(
 Enabling it also brings `Events`, `Url`, `Files` and `Streams`, because fetch's own surface is built out of
 them: a `Request` always has an `AbortSignal`, its URL is a WHATWG URL, `response.blob()` answers with a
 `Blob`, and `response.body` is a `ReadableStream`.
+
+**Every request names the engine.** `fetch.UserAgent` is the `User-Agent` a `fetch`, an `XMLHttpRequest`, an
+`EventSource` stream and a `WebSocket`'s opening handshake carry. It defaults to `Jint/<version>` — the token
+`navigator.userAgent` answers — and `null` sends no such header at all; a request that sets `User-Agent`
+itself still decides for itself, which is the [standard's own
+condition](https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch). It changes what the wire sees
+and not what a script reads, for the reason the WinterTC note above gives.
 
 `Headers`, `Request` and `Response` are the standard's own classes — the full `Headers` (sorted, combined
 iteration, `getSetCookie`), method normalization, `redirect` modes, `clone()`, `Response.error()`,
@@ -2675,7 +2684,6 @@ recorded in `Page.Requests` with the reason instead — `integrity` is accepted 
 | --- | --- |
 | `Fetch`'s **response** stage, and with it the `IO` domain: an observer is told about a response and cannot answer it, so a response-stage pause could only ever continue unchanged | [#3701](https://github.com/sebastienros/jint/issues/3701) |
 | `Network`'s WebSocket and EventSource events — the engine deliberately does not observe those two handshakes — and its **timing** document, since no phase of a request is measured and a document of zeros would read as a page that loaded instantly | [#3701](https://github.com/sebastienros/jint/issues/3701) |
-| `BrowserOptions.UserAgent` reaches script but not the wire unless a protocol client sets it | [#3720](https://github.com/sebastienros/jint/issues/3720) |
 | A page's `@media` rules are evaluated against the page's viewport and emulated media type, but not against the emulated **preferences** — AngleSharp.Css's render device models none of them — so a themed page reads `matchMedia` rather than `getComputedStyle` to find out whether the scheme is dark | [#3707](https://github.com/sebastienros/jint/issues/3707) |
 | `ElementInternals`, so a `static formAssociated` custom element is recorded and takes part in no form; and no scoped custom element registries | [#3714](https://github.com/sebastienros/jint/issues/3714) |
 

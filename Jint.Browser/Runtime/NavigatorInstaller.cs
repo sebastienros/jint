@@ -70,8 +70,7 @@ internal static class NavigatorInstaller
     }
 
     /// <summary>What <c>navigator.userAgent</c> answers and what every request the page makes carries.</summary>
-    internal static string UserAgentOf(PageRuntime runtime)
-        => runtime.Emulation.UserAgent is { Length: > 0 } overridden ? overridden : runtime.Options.UserAgent;
+    internal static string UserAgentOf(PageRuntime runtime) => runtime.Emulation.EffectiveUserAgent;
 
     /// <summary>
     /// What <c>navigator.language</c> answers: the first tag of the <c>Accept-Language</c> a user-agent

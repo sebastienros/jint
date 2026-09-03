@@ -566,7 +566,8 @@ public sealed partial class Page
             referrerUrl.Length == 0 ? null : UrlParser.Parse(referrerUrl),
             PageUrl.HasOrigin(currentUrl) ? UrlParser.Parse(currentUrl) : null,
             fetchOptions.MaxDocumentBytes,
-            fetchOptions.MaxRedirects);
+            fetchOptions.MaxRedirects,
+            Emulation.EffectiveUserAgent);
 
         // Resolved on the page's own thread, because that is where a host's client factory is documented to
         // be called and where the engine it is handed belongs. The engine it sees is the one the outgoing

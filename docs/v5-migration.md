@@ -1,4 +1,4 @@
-﻿# Migrating from Jint 4.16 to Jint 5
+# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -5223,7 +5223,6 @@ effect beyond cancelling the event: it is HTML's *notHandled*, so a handler atta
 There is no option that restores the old timing. A host that wants the report where the rejection happened
 can subscribe to `PromiseRejectionTracker` and read `Operation`, which still names the two
 `HostPromiseRejectionTracker` operations — what changed is *when* the event is raised, not what it carries.
-
 ### 4.123 An error is rendered without running its `name` or `message` accessor ([#3598](https://github.com/sebastienros/jint/issues/3598))
 
 `console.log(err)` and `console.error(err)` rendered an error through `Error.prototype.toString`, which is
@@ -5325,6 +5324,30 @@ in the message. The argument and candidate types are, once the host asks:
 ```csharp
 var engine = new Engine(options => options.Interop.ExposeDetailedResolutionErrors = true);
 ```
+
+### 4.125 Every request the engine makes carries a `User-Agent` ([#3720](https://github.com/sebastienros/jint/issues/3720))
+
+`fetch`, `XMLHttpRequest`, an `EventSource` stream and a `WebSocket`'s opening handshake sent no
+`User-Agent` header at all, while `navigator.userAgent` answered `Jint/<version>` — so an engine said one
+thing to script and nothing on the wire. They now send that same token, which is what
+[HTTP-network-or-cache fetch](https://fetch.spec.whatwg.org/#concept-http-network-or-cache-fetch) asks a
+user agent to append when the request's own header list does not contain one.
+
+```csharp
+var engine = new Engine(options => options.UseFetch(fetch =>
+{
+    // 5.0: no User-Agent header was sent.
+    // 5.x: "Jint/<version>", the string navigator.userAgent answers.
+    fetch.UserAgent = "MyApp/2.1";   // or null / "" to send none at all
+}));
+```
+
+`navigator.userAgent` is unchanged and still not configurable: this names what a *request* carries. A
+request that sets `User-Agent` itself still wins, because the standard's own condition is "does not contain".
+
+**What could break:** a server or a test double that asserts on the exact set of request headers, and a
+host that deliberately made anonymous requests. `fetch.UserAgent = null` restores the 4.16 behaviour for
+every lane at once.
 
 ## 5. New in v5
 

@@ -13,6 +13,14 @@ byte-for-byte as it did before they existed: `BaseUrl` (the API base URL a relat
 are ordinary settings any embedder can use. Three things about them are decisions rather than
 implementations.
 
+**`UserAgent` is a sixth setting and is deliberately not one of the five**: it is on by default, because the
+standard's *default `User-Agent` value* is what a user agent appends when the request named none
+([#3720](https://github.com/sebastienros/jint/issues/3720)), and an engine that answered `Jint/<version>` to
+`navigator.userAgent` while sending nothing said two different things. Every lane reads it — `fetch`, XHR,
+`EventSource`, a `WebSocket` handshake — so it lives on `FetchPolicy` rather than being appended per lane,
+and a host driving its own pipeline through `FetchTransport` (`Jint.Browser`'s document and subresource
+fetches) puts its own there.
+
 **The referrer, the `Origin` header and the `Cookie` header are recomputed per redirect hop, not per fetch.**
 That is [main fetch](https://fetch.spec.whatwg.org/#concept-main-fetch) step 6 being re-run because a
 redirect re-enters main fetch, and it is what makes a chain that leaves the referrer's origin narrow the
