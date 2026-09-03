@@ -61,44 +61,17 @@ both directions, wrapper identity and the shape discipline are [`Dom/AGENTS.md`]
 carry across without opening it: **never hand-edit a file under `Dom/Generated/`**; regenerate with
 `JINT_DOM_BINDINGS=update`, and report an AngleSharp divergence upstream rather than working around it.
 
-### The events bridge lives with the runtime
+### The events bridge has a file of its own
 
 Every script-visible event is a Jint `Event` dispatched through the engine's tree-aware dispatcher, at the
 algorithm points the package owns (design doc §5) — never AngleSharp's own bus, which holds nothing a script
 registered. What that costs the binding is the `skip` and `additions` rows above: `click`, `focus`, `blur`,
 `form.reset`, `document.activeElement` and `document.hasFocus` are all AngleSharp members that do nothing
 useful, so they are skipped and re-declared — and `document.createEvent`, whose AngleSharp `Event` must never
-reach script, is re-declared against Jint's in `Events/LegacyEventCreation`. The behaviour behind them — which algorithm point raises which
-event, what activation means with no layout, and why the handler content attributes need no notification from
-AngleSharp — is [`Runtime/AGENTS.md`](Runtime/AGENTS.md#the-events-bridge).
-
-### The keyboard, and the editor under it
-
-The other half of the events bridge, and it lives here rather than beside the rest of it only because
-`Runtime/AGENTS.md` has no room left.
-
-**`Input.dispatchKeyEvent`'s four types are three questions**, and `Events/InputDispatcher.DispatchKey` is
-where the answers are: which event fires, whether a `keypress` follows, and whether a character may be
-inserted. `keyDown` fires `keydown` and — for a key that produces text — `keypress`, then runs the whole
-default action; `rawKeyDown` fires `keydown` and runs it **without the insertion**, because that is what every
-client sends for a key whose character is coming separately or not at all, which is every editing key; `char`
-is that character alone; `keyUp` fires `keyup` always. Modifier state is the client's, never this package's:
-each event carries its own bit field.
-
-**The editor is a string and two offsets, and the direction is load-bearing.** `Events/TextEditing` splices a
-control's value; <kbd>Shift</kbd> extends from the *anchor*, so `selectionDirection` decides which offset moves
-and a selection dragged back through its anchor flips it. `ArrowUp`/`ArrowDown` are line moves computed from
-the newlines in the value, exact here and not in a browser: nothing wraps, so a visual line and a logical one
-are the same. `maxlength` bounds an insertion and nothing else, because HTML applies it to what a *user*
-enters. **`change` fires from two places** — the focus update steps on the way out, and <kbd>Enter</kbd> in a
-single-line control, which commits the value and re-arms the snapshot so a later blur does not fire again.
-
-**`contenteditable` is light and the boundary is one text node.** `Events/ContentEditing` splices a `Text`
-node's data; nothing splits, merges or inserts an element, so <kbd>Enter</kbd> there does nothing rather than
-something structural and wrong. The caret is the document's own `Selection`, so a page reading
-`getSelection().focusOffset` is told where typing goes. AngleSharp's `IsContentEditable` cannot be used for
-any of it — it answers `false` for `<div contenteditable>` — and the divergence table below records why.
-
+reach script, is re-declared against Jint's in `Events/LegacyEventCreation`. The behaviour behind them — which
+algorithm point raises which event, what activation means with no layout, why the handler content attributes
+need no notification from AngleSharp, and the keyboard and the editor under it — is
+[`Events/AGENTS.md`](Events/AGENTS.md).
 ### The page runtime is a file of its own
 
 `Page`, the loop that owns its engine, the `Window` installer, navigation, forms, history, cookies, storage
