@@ -97,7 +97,15 @@ Four consequences:
 - **The gateway is the target, not a mailbox.** `TargetSession` calls `UseGateway(target)` and the target
   forwards to the current runtime's dispatcher, so a command is queued on the engine that is running now. A
   command already queued on the engine being replaced is answered `-32000 "Execution context was
-  destroyed."` rather than left to the client's own timeout.
+  destroyed."` rather than left to the client's own timeout — **unless it never named a context**, which is
+  every `Input` command and only those (`EngineDispatcher.IsAddressedToTheTarget`). A mouse event, a key
+  event and an inserted string are delivered to the *page* and dispatched at whichever document is current
+  when they run; a client sends the two halves of one key press as two commands and a navigation is free to
+  happen between them, so `Abandon` hands such a command to the runtime that replaced this one instead of
+  refusing it (#3723, found as a `Keyboard.PressAsync` flake whose `keyDown` submitted a form). It reaches
+  the new document, or nothing at all when that document has not been parsed yet — never an error. Everything
+  else names a context however indirectly — a handle, a script identifier, a realm — so the refusal is the
+  truthful answer and stays.
 - **The context counter is the target's**, so the second document's default context is `2` and never `1`
   again. That is what makes a stale `contextId` distinguishable, and `DevToolsTarget.RequireContext` answers
   one with `-32000 "Cannot find context with specified id"` — Chrome's text, which the recordings show
