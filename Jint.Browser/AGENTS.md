@@ -44,6 +44,7 @@ a swap to a source generator later is mechanical.
 | `DomTypeMap`'s candidate list, most derived first | `DomManualShapes` — the shapes the generator cannot express |
 | `DomEnums`, both directions, for the WebIDL string enumerations | `DomTypeMap.For` and its per-`Type` cache |
 | — | `DomManualInterfaces` and `DomConstructors` — the interface AngleSharp has no `[DomName]` for (`HTMLFrameSetElement`) and the one WebIDL really does give a constructor (`Document`) |
+| — | `DomSelectorMembers` and `DomNodeMembers` — the five members whose *failure* has to be WebIDL's rather than AngleSharp's, and the one (`getRootNode`) AngleSharp has no `[DomName]` for |
 
 **Never hand-edit a `.g.cs`.** `DomBindingsStalenessTests` runs the same emitter in memory and fails on any
 difference; `JINT_DOM_BINDINGS=update` writes the difference back, which is also the shortest regeneration
@@ -199,6 +200,27 @@ Page targets, the page-level domains and the request log they read are [`DevTool
 The one rule to carry across without opening it: a domain reads the target's *current* runtime per command and
 never caches an engine, and a `JsValue` never leaves the page loop.
 
+### The obstacle course, and what a red fixture means
+
+`Jint.Tests.Browser/Fixtures/` is eighteen offline pages built out of vendored libraries — TodoMVC on React,
+Vue 3, Preact and Svelte, React hydrating server markup, jQuery, htmx, Alpine, a `pushState` router, custom
+elements, an import map, `fetch`, a form that redirects, a cookie login, storage across navigations, both
+observers, dialogs — served over a real socket and driven through the public `Page` API. Three of them are
+driven again over the protocol by PuppeteerSharp and by Playwright for .NET.
+[`Fixtures/README.md`](../Jint.Tests.Browser/Fixtures/README.md) is the inventory, what each proves, and how
+one is added; `FixtureInventoryTests` holds it to the corpus so it cannot drift.
+
+Two rules are worth carrying across without opening it:
+
+- **A case asserts a DOM end state *and* that `Page.Errors` is empty.** A framework that threw half way
+  through still renders something, so the error sink is what tells a half-working page from a working one.
+- **A fixture that does not pass is never deleted and never quietly ignored.** It becomes a `needs triage`
+  row in that README with the failing assertion and a one-line diagnosis, and its case is marked
+  `[Explicit("<fixture>: …")]` — and `FixtureInventoryTests` fails unless the two sets are exactly equal, the
+  way the web-platform-tests exclusion table is the artefact for that lane. Two rows stand today: `htmx`
+  (htmx 2 builds an `XPathEvaluator` at the top level of its bundle and this browser has no XPath at all) and
+  `custom-elements` (campaign item C6).
+
 ### The seams promoted later
 
 The package publishes the host API — `Browser`, `BrowserContext`, `BrowserOptions`,
@@ -265,10 +287,13 @@ Divergences that are **AngleSharp's**, found by this work, to be reported upstre
 | `textarea { white-space: pre-wrap }` | in HTML's rendering section | absent, though `pre { white-space: pre }` is there |
 | `CssMediaQueryList.matches` | evaluate the query against the device and answer | a stub: `ComputeMatched` returns `false` for every query, so a page asking whether it is on a narrow screen is always told no — which is why `Runtime/MediaQuery` exists at all |
 | Media Queries Level 5's preference features | `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`, `forced-colors`, `hover`, `pointer`, `scripting`, `color-gamut` are media features the cascade evaluates | not modelled: `IRenderDevice` has no member for any of them, so an `@media` rule naming one can never match and `Runtime/PageMediaEnvironment` answers them itself |
+| a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value — `visibility` is `visible` | the empty string. **This is the one that stops an automation client.** Playwright's actionability check ends in `style.visibility !== "visible"`, so it reads every element of every page as hidden: `IsVisibleAsync` is false for an element with a real 1280×16 box, an unforced `ClickAsync` or `WaitForSelectorAsync` waits out its timeout, and the ARIA role engine drops the element as hidden. `Jint.Tests.Browser/DevTools/PlaywrightCourseTests` drives past it with `Force` and `IncludeHidden` and pins the reason; the standing decision (`Views/ComputedStyleTests`) is to record this rather than keep an initial-value table here, and what is new is that a supported client is unusable without one |
+| the selector parser on `:has(*,:jqfake)` | a parse failure the caller can act on | `CssSelectorConstructor.HasFunctionState.Produce()` dereferences null, so the failure is a `NullReferenceException` rather than the `DomException` every other bad selector raises. jQuery 3.7 asks for exactly that selector inside a `try` during its support detection, so an unwrapped binding refuses to load jQuery at all — `Dom/DomSelectorMembers` contains both shapes and answers the `SyntaxError` the standard names |
 
 One more, in AngleSharp itself rather than in `AngleSharp.Css`:
 
 | What | The standard | AngleSharp 1.7.2 |
 | --- | --- | --- |
 | `IHtmlElement.IsContentEditable` on `<div contenteditable>` | `true`: HTML's [`contenteditable`](https://html.spec.whatwg.org/multipage/interaction.html#attr-contenteditable) is an enumerated attribute whose `true` keyword has the **empty string** as its other spelling, which is how nearly every page in the world writes it | `false` — the attribute is mapped through an enumeration that does not admit the empty string, so only `contenteditable="true"` reads as editable. `Events/ContentEditing.HostOf` computes the state itself for the editor and for focusability; the script-visible `el.isContentEditable` is still AngleSharp's answer, because that member is the binding forwarding it |
+| `Node.getRootNode()` | DOM §4.4: `Node getRootNode(optional GetRootNodeOptions options = {})` | absent — there is no `[DomName("getRootNode")]` anywhere in the assembly, so nothing could generate it. `Dom/DomNodeMembers` declares it over `INode.Parent`, and it is not a corner: Playwright's injected script calls it on every element it touches |
 

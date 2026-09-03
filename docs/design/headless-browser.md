@@ -368,3 +368,19 @@ path, the full SunSpider/Dromaeo tables. The browser lane's exclusion table and 
 four CI legs, and the two .NET client smoke suites gate `Jint.Browser`. The benchmark that closes the campaign
 runs the same PuppeteerSharp script against `Jint.Browser`, headless Chromium and, where installed, Lightpanda,
 and records wall time, CPU and peak memory per page load in the honest framing of §2.
+
+**What was built** is `Jint.Tests.Browser/Fixtures/` and the two client suites beside it, and three things
+about them differ from the paragraph above. The course runs on all four legs, as promised — but the
+**Playwright** suite does not: its driver is a Node process the package carries, so the suite reads
+`JINT_BROWSER_CLIENTS` and a `browser-clients` CI leg sets it, while PuppeteerSharp's stays on every leg
+because it costs nothing. A fixture that does not pass is a **`needs triage` row** in
+[`Fixtures/README.md`](../../Jint.Tests.Browser/Fixtures/README.md) with the failing assertion and a
+one-line diagnosis, and `FixtureInventoryTests` fails unless that set is exactly the set of cases marked
+`[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. And the
+course is a **gate on the engine as much as on the package**: the eighteen fixtures and the two clients found
+seven defects between them, six of which were fixed in the pull request that added them — an
+`insertBefore(node, null)` that was a `TypeError`, a selector refusal a page could not catch, a
+`Target.getTargetInfo` with no identifier, a page target that named no browser context, a missing
+`Node.getRootNode`, and `Storage.getCookies` answering on one session model of the two. The seventh is
+recorded rather than fixed: `getComputedStyle` resolves no initial values, so `visibility` is the empty
+string and Playwright's actionability check reads every element of every page as hidden.

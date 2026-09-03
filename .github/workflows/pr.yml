@@ -215,6 +215,55 @@ jobs:
   # built from one project: net472, whose C# language version is 7.3 and where the run-time compiled
   # member lanes decline outright — so it has the most to gain and the oldest compiler — and net10.0
   # with nullable reference types on and warnings as errors.
+  # The two .NET automation clients, driving the obstacle course over a real socket. PuppeteerSharp's half
+  # runs on every leg above — it is pure .NET, it launches nothing and it downloads nothing — so what this
+  # leg adds is Playwright for .NET, which is a wrapper over a Node program. The Microsoft.Playwright package
+  # carries that program *and* a node runtime for the host's RID, so nothing is installed here either:
+  # `connectOverCDP` attaches to an endpoint that already exists and never wants a browser, which is why
+  # there is no `playwright install` step below and why its absence is deliberate rather than an omission.
+  # What it does cost is a driver process and an IPC handshake per run, so the default legs stay Node-free
+  # and DevTools/PlaywrightCourseTests reads JINT_BROWSER_CLIENTS to decide whether to run at all.
+  #
+  # One OS is enough: what is under test is which protocol messages this server answers, and that is the same
+  # everywhere. The fixtures themselves are not gated — they run on all four legs above as part of an
+  # ordinary Jint.Tests.Browser run.
+  browser-clients:
+
+    name: 'linux - browser clients'
+
+    runs-on: ubuntu-latest
+
+    env:
+      JINT_BROWSER_CLIENTS: 1
+
+    steps:
+
+    - name: Setup NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: |
+          8.0
+          10.0
+
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Test Jint.Tests.Browser with both client suites
+      run: dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj --configuration Release --logger "console;verbosity=quiet" --logger "GitHubActions;summary-include-passed=false;summary-include-skipped=false"
+
+    # The gate is only a gate if it is switched: a suite that ignored the variable and ran everywhere would
+    # make the leg above pointless, and one that ignored it and ran nowhere would make this leg a lie. So the
+    # same project runs again with the variable unset and the Playwright cases have to come back skipped.
+    - name: Without the switch, the Playwright suite is skipped rather than run
+      shell: bash
+      run: |
+        set -o pipefail
+        env -u JINT_BROWSER_CLIENTS dotnet test Jint.Tests.Browser/Jint.Tests.Browser.csproj \
+          --configuration Release --framework net10.0 \
+          --filter "FullyQualifiedName~PlaywrightCourseTests" \
+          --logger "console;verbosity=normal" | tee gate.log
+        grep -qE 'Skipped:[[:space:]]+4' gate.log
+
   package-consumer:
 
     name: 'windows - packaged generator'

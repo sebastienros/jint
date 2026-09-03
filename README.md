@@ -2452,6 +2452,27 @@ await page.GoToAsync("https://example.org/");
 var title = await page.EvaluateExpressionAsync<string>("document.title");
 ```
 
+Playwright for .NET connects to the same server, over the HTTP discovery document rather than the socket —
+and, like PuppeteerSharp, it downloads nothing: the `Microsoft.Playwright` package carries its driver, and
+`connectOverCDP` attaches to a browser that already exists, so `playwright install` is never needed.
+
+```c#
+using var playwright = await Playwright.CreateAsync();
+
+var client = await playwright.Chromium.ConnectOverCDPAsync(server.BrowserHttpUrl);
+var context = client.Contexts[0];                 // connectOverCDP adopts the contexts the browser has
+var page = await context.NewPageAsync();
+
+await page.GotoAsync("https://example.org/");
+var title = await page.TitleAsync();
+```
+
+One caveat that is a real one rather than a footnote: Playwright's actionability check ends in
+`style.visibility !== "visible"`, and `getComputedStyle` here answers the *declared* cascade — AngleSharp
+resolves no initial values, and nothing declares `visibility: visible` — so Playwright reads every element as
+hidden and an unforced `ClickAsync` waits out its timeout. Pass `Force = true` (and `IncludeHidden` to
+`GetByRole`) until that is fixed; PuppeteerSharp has no such check and needs nothing.
+
 A client's `newPage` opens a real page in a real browser context, `goto` navigates and answers a real
 response object, and `evaluate` runs in the page. **Finding elements, clicking them and typing into them works
 too** — the `DOM` domain answers about the document a client walks, `Input.dispatchMouseEvent` turns a
@@ -2574,6 +2595,35 @@ absent rather than stubbed. Deliberately absent for good: images and frame docum
 reference is recorded in `Page.Requests` with the reason instead — `integrity` is accepted and not enforced,
 and `document.write` after a page has finished parsing is refused with a page error rather than implying
 `document.open()`.
+
+**What works today, on real pages rather than on paper.**
+[`Jint.Tests.Browser/Fixtures/`](Jint.Tests.Browser/Fixtures/README.md) is an obstacle course of eighteen
+offline pages built out of the libraries' own published bundles, served over a loopback socket and driven
+through the `Page` API — and three of them are driven again over the protocol by PuppeteerSharp and by
+Playwright for .NET. Each case asserts a DOM end state *and* that the page reported no errors at all, which
+is what tells a half-working page from a working one. Sixteen of the eighteen pass:
+
+| Works | Fixture |
+| --- | --- |
+| **TodoMVC on React 18, Vue 3, Preact and Svelte 5** — add three rows, toggle one, filter through three hash routes, delete one | `todomvc-react`, `todomvc-vue`, `todomvc-preact`, `todomvc-svelte` |
+| **React hydration of server-rendered markup** — the server's nodes are adopted rather than rebuilt, and `onRecoverableError` stays empty | `ssr-hydration` |
+| **jQuery 3.7**, including `$.ajax({ async: false })` — a synchronous `XMLHttpRequest` that blocks the page's own thread — and delegated events on rows added later | `jquery` |
+| **Alpine 3** — `x-data`, `x-model`, `x-text`, `x-show`, compiled from attributes it found by walking the document and kept live by a `MutationObserver` | `alpine` |
+| **A `pushState` router** — intercepted clicks, `popstate`, `back()`/`forward()`, and a link the router does not claim navigating for real | `spa-router` |
+| **An import map** — a bare specifier, a mapped directory prefix, and a dynamic `import()` that still resolves through it | `modules-importmap` |
+| **`fetch` and JSON**, with the request in `Page.Requests` and the header the script set really on the wire | `fetch-json` |
+| **A form that redirects** — the entry list, a urlencoded `POST`, a `303`, and the `GET` that shows what the server read | `form-redirect` |
+| **A cookie login** — `Set-Cookie` on a redirect, the jar carrying it to a protected page, and `HttpOnly` staying invisible to `document.cookie` | `cookie-login` |
+| **Storage that outlives a navigation** — `localStorage` across two loads and a second page of the same context, `sessionStorage` not leaving the page | `local-storage` |
+| **Both observers** — a `MutationObserver` widget batching a turn's mutations into one callback, and an `IntersectionObserver` lazy list | `mutation-observer`, `intersection-observer` |
+| **Dialogs** — `alert`, `confirm` and `prompt` answered through `Page.DialogOpened`, and dismissed by default | `dialogs` |
+
+Two do not, and both say why in the inventory rather than being quietly dropped: **htmx 2** builds an
+`XPathEvaluator` expression at the top level of its bundle and this browser has no XPath at all, and
+**custom elements** are a later item of the same campaign. The lazy list is the one whose *passing*
+behaviour is a divergence: with no layout nothing can stop intersecting, so an observed target is reported
+once and an infinite list loads every page at once — which is the readable outcome rather than the correct
+one, and is asserted as such.
 
 **How much of that is measured rather than claimed** is
 [`Jint.Tests.Browser/Wpt/README.md`](Jint.Tests.Browser/Wpt/README.md): the web-platform-tests browser lane

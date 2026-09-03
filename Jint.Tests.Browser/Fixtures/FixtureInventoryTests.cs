@@ -105,7 +105,7 @@ public class FixtureInventoryTests
 
     /// <summary>The fixtures whose inventory row says they do not pass.</summary>
     private static IReadOnlyList<string> TriageRows()
-        => Regex.Matches(_readme, @"^\| `(?<name>[a-z0-9-]+)` \|.*\| \*\*needs triage\*\* \|$", RegexOptions.Multiline)
+        => Regex.Matches(_readme, @"^\| `(?<name>[a-z0-9-]+)` \|.*\| \*\*needs triage\*\* \|?$", RegexOptions.Multiline)
             .Select(match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
