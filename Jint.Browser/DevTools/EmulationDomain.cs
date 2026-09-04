@@ -172,17 +172,7 @@ internal sealed class EmulationDomain : EmulationDomainBase
         // One override for two commands: Chrome treats Emulation.setUserAgentOverride and
         // Network.setUserAgentOverride as the same setting, and the page's EmulationState is the one place
         // both write — what navigator.userAgent answers and what PageNetworkPolicy puts on every request.
-        State.UserAgent = parameters.UserAgent;
-
-        if (parameters.AcceptLanguage is { Length: > 0 } language)
-        {
-            State.AcceptLanguage = language;
-        }
-
-        if (parameters.Platform is { Length: > 0 } platform)
-        {
-            State.Platform = platform;
-        }
+        State.ApplyUserAgentOverride(parameters.UserAgent, parameters.AcceptLanguage, parameters.Platform);
 
         return new ValueTask<EmptyResult>(EmptyResult.Instance);
     }

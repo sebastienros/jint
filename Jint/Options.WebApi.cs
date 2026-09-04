@@ -124,6 +124,14 @@ public sealed partial class Options
         private XhrOptions? _xhr;
 
         /// <summary>
+        /// Settings for the <c>navigator</c> object, installed when <see cref="Features"/> contains
+        /// <see cref="WebApiFeatures.Navigator"/>.
+        /// </summary>
+        public NavigatorOptions Navigator => Materialize(ref _navigator, ref _readOnly);
+
+        private NavigatorOptions? _navigator;
+
+        /// <summary>
         /// Where the engine reports script errors nobody caught. Unlike everything else in this group it is
         /// not tied to a feature flag: setting <see cref="DiagnosticsOptions.Sink"/> arms the channel by
         /// itself, and <see cref="WebApiFeatures.Reporting"/> additionally gives script the
@@ -176,6 +184,7 @@ public sealed partial class Options
             clone._timers = _timers?.Clone();
             clone._fetch = _fetch?.Clone();
             clone._xhr = _xhr?.Clone();
+            clone._navigator = _navigator?.Clone();
             clone._diagnostics = _diagnostics?.Clone();
             clone._storage = _storage?.Clone();
             clone._cache = _cache?.Clone();
@@ -218,6 +227,56 @@ public sealed partial class Options
         public BroadcastChannelBroker? Broker { get; set { ThrowIfReadOnly(); field = value; } }
 
         internal MessagingOptions Clone() => (MessagingOptions) MemberwiseClone();
+    }
+
+    /// <summary>
+    /// Settings for the <c>navigator</c> object. Requires .NET 8 or higher.
+    /// </summary>
+    /// <remarks>
+    /// Like every other option group this may be shared by any number of engines, including concurrent ones:
+    /// nothing on it is engine-affine.
+    /// </remarks>
+    public sealed partial class NavigatorOptions
+    {
+        /// <summary>
+        /// Creates the group with its defaults, which is what an engine that names none of them gets.
+        /// </summary>
+        /// <remarks>
+        /// Declared rather than left implicit because <c>Jint.Tests.PublicInterface</c>'s allowlist of
+        /// undocumented public declarations may only ever shrink, and every other option group's constructor
+        /// is already on it.
+        /// </remarks>
+        public NavigatorOptions()
+        {
+        }
+
+        /// <summary>
+        /// What <c>navigator.userAgent</c> answers. <see langword="null"/> or the empty string — the default —
+        /// is the engine's own product token, <c>Jint/&lt;version&gt;</c>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The default is deliberately the truth</b>, and README's WinterTC section says why: a script that
+        /// branches on the runtime it is on should get the runtime it is on, and an embedded interpreter
+        /// claiming to be a browser is a lie a page cannot check. The host that this is wrong for is a
+        /// <i>browser</i> — a page's scripts sniff <c>navigator.userAgent</c>, and CDP's
+        /// <c>Emulation.setUserAgentOverride</c> exists to set it — so naming one is the host's decision to
+        /// make explicitly rather than a default anybody inherits.
+        /// </para>
+        /// <para>
+        /// Read once, when the engine is built; <see cref="Engine.WebApiOperations.UserAgent"/> is the same
+        /// value afterwards and may be moved on a live engine, which is what an override a client sets
+        /// between navigations needs.
+        /// </para>
+        /// <para>
+        /// It names <i>script's</i> answer alone. What a request carries is
+        /// <see cref="FetchOptions.UserAgent"/>, which defaults to the same token — an engine that says one
+        /// thing to script and another on the wire is a defect, so a host naming one usually names both.
+        /// </para>
+        /// </remarks>
+        public string? UserAgent { get; set { ThrowIfReadOnly(); field = value; } }
+
+        internal NavigatorOptions Clone() => (NavigatorOptions) MemberwiseClone();
     }
 
     /// <summary>

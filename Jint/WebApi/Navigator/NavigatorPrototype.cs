@@ -62,14 +62,6 @@ internal sealed partial class NavigatorPrototype : Prototype
     [JsSymbol("ToStringTag", Flags = PropertyFlag.Configurable)]
     private static readonly JsString NavigatorToStringTag = new("Navigator");
 
-    /// <summary>
-    /// The user agent string, built once for the process: the assembly version cannot change while it is
-    /// loaded, so every engine and every realm hands out this one <see cref="JsString"/>. The token is
-    /// <see cref="ProductToken.UserAgent"/>, which is also the <c>User-Agent</c> a request carries when the
-    /// host named none of its own — what a script reads and what the wire carries are one string.
-    /// </summary>
-    private static readonly JsString UserAgent = new(ProductToken.UserAgent);
-
     internal NavigatorPrototype(
         Engine engine,
         Realm realm,
@@ -91,15 +83,24 @@ internal sealed partial class NavigatorPrototype : Prototype
     /// <c>NavigatorID</c> mixin's <c>userAgent</c> attribute, which is where WinterTC's
     /// <c>globalThis.navigator.userAgent</c> requirement lands.
     /// </summary>
+    /// <remarks>
+    /// The value is the engine's — <see cref="Engine.WebApiOperations.UserAgent"/>, which starts as
+    /// <c>Options.WebApi.Navigator.UserAgent</c> and defaults to <see cref="ProductToken.UserAgent"/>. It is
+    /// read here rather than captured, because a host may move it after the engine was built: a browser's is
+    /// whatever a client's <c>Emulation.setUserAgentOverride</c> last said, and the page reads this one
+    /// accessor rather than shadowing it with an own property of its own
+    /// (<see href="https://github.com/sebastienros/jint/issues/3655">#3655</see>).
+    /// </remarks>
     [JsAccessor("userAgent", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsString UserAgentGet(JsValue thisObject)
     {
-        if (thisObject is not JsNavigator)
+        if (thisObject is not JsNavigator navigator)
         {
             Throw.TypeError(_realm, "Failed to read the 'userAgent' property from 'Navigator': illegal invocation, receiver is not a Navigator object.");
+            return JsString.Empty;
         }
 
-        return UserAgent;
+        return navigator.Engine.NavigatorUserAgentValue;
     }
 }
 #endif

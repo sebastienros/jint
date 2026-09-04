@@ -24,6 +24,12 @@ internal static class ProductToken
     internal static string UserAgent { get; } = "Jint/" + ProductVersion();
 
     /// <summary>
+    /// The same token as a <see cref="Native.JsString"/>, for the engines that took the default: the version
+    /// cannot change while the assembly is loaded, so every realm of every such engine hands out this one.
+    /// </summary>
+    internal static Native.JsString UserAgentString { get; } = new(UserAgent);
+
+    /// <summary>
     /// The <c>product-version</c> half of the token: Jint's own assembly version, as
     /// <c>major.minor.patch</c>. The fourth component is dropped because Jint never sets one, and the whole
     /// thing degrades to <c>"0.0.0"</c> rather than throwing if the assembly somehow carries no version.

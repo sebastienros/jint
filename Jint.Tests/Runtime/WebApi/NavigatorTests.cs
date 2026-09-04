@@ -32,6 +32,80 @@ public class NavigatorTests
         userAgent.Should().Be($"Jint/{version.Major}.{version.Minor}.{version.Build}");
     }
 
+    /// <summary>
+    /// https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-useragent - the user agent is
+    /// the host's to name. A browser is the host for which the engine's own product token is wrong: a page's
+    /// scripts sniff it and CDP's <c>Emulation.setUserAgentOverride</c> exists to set it, so
+    /// <c>Options.WebApi.Navigator.UserAgent</c> is what names it and the default is unchanged.
+    /// </summary>
+    [Test]
+    public void TheHostCanNameTheUserAgent()
+    {
+        var engine = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.Navigator);
+            options.WebApi.Navigator.UserAgent = "Pretend/1.0 (compatible)";
+        });
+
+        engine.Evaluate("navigator.userAgent").AsString().Should().Be("Pretend/1.0 (compatible)");
+
+        // Still the prototype accessor WebIDL asks for, not an own property of the instance.
+        engine.Evaluate("Object.getOwnPropertyNames(navigator).length").AsNumber().Should().Be(0);
+        engine.Evaluate("Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent').get.call(navigator)")
+            .AsString().Should().Be("Pretend/1.0 (compatible)");
+    }
+
+    /// <summary>
+    /// The empty string and <see langword="null"/> both mean "the engine's own", so a host clearing the
+    /// option gets the default back rather than an empty user agent - which is a string a page branches on.
+    /// </summary>
+    [TestCase(null)]
+    [TestCase("")]
+    public void ClearingTheOptionRestoresTheProductToken(string? value)
+    {
+        var engine = new Engine(options =>
+        {
+            options.UseWebApis(WebApiFeatures.Navigator);
+            options.WebApi.Navigator.UserAgent = value;
+        });
+
+        Regex.IsMatch(engine.Evaluate("navigator.userAgent").AsString(), @"^Jint/\d+\.\d+\.\d+$").Should().BeTrue();
+    }
+
+    /// <summary>
+    /// And it moves on a live engine, because a browser's does: an override a client sets reaches the
+    /// document that is already loaded rather than the next one.
+    /// </summary>
+    [Test]
+    public void ThePerEngineValueMovesAfterTheEngineIsBuilt()
+    {
+        var engine = NavigatorEngine();
+
+        engine.WebApi.UserAgent = "Moved/2.0";
+        engine.Evaluate("navigator.userAgent").AsString().Should().Be("Moved/2.0");
+        engine.WebApi.UserAgent.Should().Be("Moved/2.0");
+
+        engine.WebApi.UserAgent = null;
+        Regex.IsMatch(engine.Evaluate("navigator.userAgent").AsString(), @"^Jint/\d+\.\d+\.\d+$").Should().BeTrue();
+    }
+
+    /// <summary>
+    /// One engine naming its user agent says nothing about another's: the value is the engine's, not the
+    /// shared <see cref="Options"/> group's.
+    /// </summary>
+    [Test]
+    public void ThePerEngineValueIsNotSharedBetweenEngines()
+    {
+        var options = new Options().UseWebApis(WebApiFeatures.Navigator);
+        var first = new Engine(options);
+        var second = new Engine(options);
+
+        first.WebApi.UserAgent = "First/1.0";
+
+        first.Evaluate("navigator.userAgent").AsString().Should().Be("First/1.0");
+        Regex.IsMatch(second.Evaluate("navigator.userAgent").AsString(), @"^Jint/\d+\.\d+\.\d+$").Should().BeTrue();
+    }
+
     [Test]
     public void IsOneStableObjectWithTheInterfacesToStringTag()
     {

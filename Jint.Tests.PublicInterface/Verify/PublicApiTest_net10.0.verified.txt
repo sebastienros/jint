@@ -142,6 +142,7 @@ namespace Jint
         {
             public Jint.WebApiFeatures Features { get; }
             public bool HasFetchHandler { get; }
+            public string UserAgent { get; set; }
             public System.Threading.Tasks.Task<long> CopyReadableStreamAsync(Jint.Native.JsValue readableStream, System.IO.Stream destination, Jint.WebApi.HostStreamCopyOptions? options = null, System.Threading.CancellationToken cancellationToken = default) { }
             public Jint.Native.JsValue CreateAbortSignal(System.Threading.CancellationToken cancellationToken) { }
             public Jint.WebApi.MessagePortPair CreateMessagePortPair(Jint.Engine other) { }
@@ -404,6 +405,11 @@ namespace Jint
             public Jint.Runtime.Modules.IModuleLoader ModuleLoader { get; set; }
             public bool RegisterRequire { get; set; }
         }
+        public sealed class NavigatorOptions
+        {
+            public NavigatorOptions() { }
+            public string? UserAgent { get; set; }
+        }
         public sealed class ParsingOptions
         {
             public ParsingOptions() { }
@@ -446,6 +452,7 @@ namespace Jint
             public Jint.WebApiFeatures Features { get; set; }
             public Jint.Options.FetchOptions Fetch { get; }
             public Jint.Options.MessagingOptions Messaging { get; }
+            public Jint.Options.NavigatorOptions Navigator { get; }
             public Jint.Options.StorageOptions Storage { get; }
             public Jint.Options.TimerOptions Timers { get; }
             public Jint.Options.WorkerOptions Workers { get; }

@@ -109,6 +109,50 @@ public partial class Engine
     internal WebApiFeatures _webApiFeatures;
 
     /// <summary>
+    /// The string <c>navigator.userAgent</c> answers, and the <see cref="JsString"/> the getter hands out.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Engine state rather than an <c>Options</c> value read per get, because it moves after the engine is
+    /// built: a browser's user agent is whatever <c>Emulation.setUserAgentOverride</c> last said, and the
+    /// document already loaded is expected to report it. <see cref="WebApiOperations.UserAgent"/> is the
+    /// public door; <c>Options.WebApi.Navigator.UserAgent</c> is what it starts as.
+    /// </para>
+    /// <para>
+    /// Both fields are <see langword="null"/> until something asks, so an engine whose script never mentions
+    /// <c>navigator</c> allocates neither — and an engine on the default keeps handing out
+    /// <see cref="Jint.WebApi.ProductToken.UserAgentString"/>, the one instance built for the process.
+    /// </para>
+    /// </remarks>
+    private string? _navigatorUserAgent;
+    private JsString? _navigatorUserAgentValue;
+
+    /// <inheritdoc cref="WebApiOperations.UserAgent"/>
+    [System.Diagnostics.CodeAnalysis.AllowNull]
+    internal string NavigatorUserAgent
+    {
+        get => _navigatorUserAgent ??= NamedUserAgent() ?? Jint.WebApi.ProductToken.UserAgent;
+        set
+        {
+            _navigatorUserAgent = string.IsNullOrEmpty(value) ? Jint.WebApi.ProductToken.UserAgent : value;
+            _navigatorUserAgentValue = null;
+        }
+    }
+
+    /// <summary>The <see cref="JsString"/> form, built once per distinct value.</summary>
+    internal JsString NavigatorUserAgentValue
+        => _navigatorUserAgentValue ??= ReferenceEquals(NavigatorUserAgent, Jint.WebApi.ProductToken.UserAgent)
+            ? Jint.WebApi.ProductToken.UserAgentString
+            : JsString.Create(NavigatorUserAgent);
+
+    /// <summary>What the host named, or <see langword="null"/> for an engine that took the default.</summary>
+    private string? NamedUserAgent()
+    {
+        var named = Options.WebApi.Navigator.UserAgent;
+        return string.IsNullOrEmpty(named) ? null : named;
+    }
+
+    /// <summary>
     /// Whether <see cref="Options"/> is a copy this engine took for itself, whose web-API subtree therefore
     /// no other engine reads.
     /// </summary>
