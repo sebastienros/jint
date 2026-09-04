@@ -71,6 +71,9 @@ public sealed partial class Page : IAsyncDisposable
     /// </summary>
     private readonly string _loaderIdPrefix = Guid.NewGuid().ToString("N").ToUpperInvariant() + ".";
 
+    /// <summary>The title the watcher was last told, so that only a move is reported. Loop thread only.</summary>
+    private string _reportedTitle = "";
+
     private readonly System.Threading.Lock _idleGate = new();
     private Timer? _idleTimer;
     private string _idleLoaderId = "";
@@ -99,11 +102,71 @@ public sealed partial class Page : IAsyncDisposable
             "Jint.Browser page loop",
             options.PumpIdle,
             () => BuildEngine("about:blank", ""),
-            exception => recorder.Add(PumpErrorKind(exception), exception.Message, "PageLoop"));
+            exception => recorder.Add(PumpErrorKind(exception), exception.Message, "PageLoop"),
+            ReportTitleAtEndOfTurn);
 
         // The recorder is built before the page, so it is told here where to read the page's URL from — the
         // same volatile field the network log reads, so an error and a request name one document.
         recorder.DocumentUrl = () => _url;
+    }
+
+    /// <summary>
+    /// Looks at <c>document.title</c> at the end of one of the loop's turns, and reports a move.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why here and not from the DOM.</b> The navigation phases report the title too, and until this hook
+    /// existed they were the only ones that did — so a title a script set after <c>load</c> reached a client
+    /// only at the next navigation. A DOM-side notification would mean AngleSharp's own
+    /// <c>MutationObserver</c>, which queues a record for <i>every</i> mutation of <i>every</i> page whether
+    /// or not anyone is watching; that is the wrong trade for one string, and it is the same trade
+    /// <c>Layout/FlatLayout</c> declines for the same reason. The end of a turn is the moment a script has
+    /// finished running and the loop is about to go and do something else, which is where a browser would
+    /// have painted.
+    /// </para>
+    /// <para>
+    /// <b>What it costs, exactly.</b> A page nobody is watching pays <i>nothing</i>: the observer is checked
+    /// first, and a page with none returns before touching the document. A watched page pays one
+    /// <c>IDocument.Title</c> read per turn, which for an HTML document is AngleSharp's
+    /// <c>DocumentElement.FindDescendant&lt;IHtmlTitleElement&gt;()</c> — a depth-first walk that <b>stops at
+    /// the first title element</b>. So a document with a <c>&lt;title&gt;</c> in its <c>&lt;head&gt;</c>
+    /// costs a handful of node visits, and one <i>without</i> a title costs a walk of its whole tree, once
+    /// per turn, for as long as a watcher is attached. The cheap-looking short circuit — search
+    /// <c>document.Head</c> only — is <i>not</i> taken: it is not exactly correct, because HTML's
+    /// <c>document.title</c> is the first <c>title</c> element in tree order wherever it sits, and a page
+    /// that puts one in its body would silently stop being reported.
+    /// </para>
+    /// <para>Runs on the loop thread, outside the turn's budget bracket. See <see cref="PageLoop"/>.</para>
+    /// </remarks>
+    private void ReportTitleAtEndOfTurn(Engine engine)
+    {
+        if (_observer is null)
+        {
+            return;
+        }
+
+        ReportTitle(PageRuntime.Find(engine)?.Document?.Title ?? "");
+    }
+
+    /// <summary>Tells the watcher the title, if it has moved since the last time it was told.</summary>
+    /// <remarks>
+    /// The one place <see cref="IPageObserver.TitleChanged"/> is called from, so that the three navigation
+    /// phases and every turn of the loop cannot between them report one title more than once. A client
+    /// dedupes as well — <c>DevToolsTarget.UpdateInfo</c> raises nothing unless the value moved — but the
+    /// watcher is a seam a host may implement, and it is owed one call per move rather than one per look.
+    /// The last-reported title is the <i>page's</i>, not a watcher's, so one that registers mid-life reads
+    /// the current title for itself — <c>PageTarget</c> does, as the target is created — rather than being
+    /// told it here.
+    /// </remarks>
+    private void ReportTitle(string title)
+    {
+        if (_observer is not { } observer || string.Equals(_reportedTitle, title, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _reportedTitle = title;
+        observer.TitleChanged(title);
     }
 
     /// <summary>What a page calls something that erupts from its pump rather than from a callback.</summary>

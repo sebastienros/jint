@@ -827,9 +827,12 @@ public sealed partial class Page
 
     /// <summary>Tells the watcher how far the load got, and arms the quiet period once it is loaded.</summary>
     /// <remarks>
-    /// The title is reported at each of the three, because it is what a client shows for the target and the
-    /// parse is what settles it: a document's <c>&lt;title&gt;</c> is in place by the commit, and a script
-    /// that rewrites it does so before <c>load</c> far more often than after.
+    /// The title is looked at again at each of the three, because it is what a client shows for the target
+    /// and the parse is what settles it: a document's <c>&lt;title&gt;</c> is in place by the commit, and a
+    /// script that rewrites it does so before <c>load</c> far more often than after. <i>Far more often</i> is
+    /// not <i>always</i>, which is why <see cref="ReportTitleAtEndOfTurn"/> looks at it every turn as well;
+    /// both go through <see cref="ReportTitle"/>, so a title that has not moved is reported by neither and a
+    /// title that has is reported once, at whichever of them saw it first.
     /// </remarks>
     private void Reached(PageRuntime runtime, NavigationPhase phase, string loaderId)
     {
@@ -847,7 +850,7 @@ public sealed partial class Page
         }
 
         observer.Phase(phase, loaderId);
-        observer.TitleChanged(runtime.Document?.Title ?? "");
+        ReportTitle(runtime.Document?.Title ?? "");
 
         if (phase == NavigationPhase.Loaded)
         {

@@ -450,5 +450,75 @@ public class PageDomainTests
         (await session.EvaluateAsync("1 + 1", attachment)).GetProperty("value").GetInt32().Should().Be(2);
     }
 
+    /// <summary>
+    /// A title a script sets <b>after</b> <c>load</c> reaches the client, with no navigation to carry it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The page used to report its title only at the three navigation phases, and
+    /// <c>Page.Navigation.cs</c>'s own remark admitted the gap — "a script that rewrites it does so before
+    /// <c>load</c> far more often than after". Far more often is not always: a single-page application that
+    /// sets <c>document.title</c> from its router does it after <c>load</c> every time, and until the page
+    /// looked at the title at the end of each of its loop's turns, a client was told the old one until the
+    /// next navigation.
+    /// </para>
+    /// <para>
+    /// <c>Target.targetInfoChanged</c> is what a client reads <c>page.title()</c> from, and it needs
+    /// <c>Target.setDiscoverTargets</c> — the first thing every recorded client turns on — to reach one at
+    /// all. The event is deduped by the target, so what is asserted here is that one arrives carrying the new
+    /// title, while the page is still showing the document it loaded.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ATitleSetAfterLoadReachesTheClientWithoutANavigation()
+    {
+        using var server = new LoopbackServer();
+        server.MapHtml(
+            "/one",
+            """
+            <html><head><title>Before load</title></head><body>
+            <script>addEventListener('load', () => setTimeout(() => { document.title = 'After load' }, 5))</script>
+            </body></html>
+            """);
+
+        await using var session = await PageSession.CreateAsync(Options(server));
+
+        // Discovery is what makes targetInfoChanged reach a client at all, and it is the first thing every
+        // recorded client turns on.
+        await session.ResultAsync("Target.setDiscoverTargets", """{"discover":true}""");
+
+        var page = await session.NewPageAsync();
+        var target = await session.TargetForAsync(page);
+        var attachment = await session.AttachAsync(target);
+        await session.EnablePageAsync(attachment);
+
+        await page.NavigateAsync(server.Url("/one"));
+
+        // Nothing else is driven from here: the page's own loop turns, the timer fires in one of its drains,
+        // and the end of that turn is what tells the target.
+        var deadline = Environment.TickCount64 + 30_000L;
+        string? announced = null;
+
+        while (Environment.TickCount64 < deadline && announced is null)
+        {
+            announced = session.EventsOf("Target.targetInfoChanged")
+                .Select(message => message.GetProperty("params").GetProperty("targetInfo").GetProperty("title").GetString())
+                .LastOrDefault(title => string.Equals(title, "After load", StringComparison.Ordinal));
+
+            if (announced is null)
+            {
+                await Task.Delay(20);
+            }
+        }
+
+        announced.Should().Be("After load", "a watched page looks at its title at the end of every turn");
+
+        // And it got there without a navigation: the document, and the loader identifier naming it, are the
+        // ones the one navigation of this test produced.
+        page.Url.Should().Be(server.Url("/one"));
+        (await page.TitleAsync()).Should().Be("After load");
+        page.Errors.Should().BeEmpty();
+    }
+
     private static BrowserContextOptions Options(LoopbackServer server) => new() { UrlFilter = server.Owns };
 }
