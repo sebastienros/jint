@@ -61,11 +61,12 @@ compare-and-swap is what makes `OnCompleted`/`OnFailed` fire exactly once betwee
 throws is ignored — there is no engine thread to report it to — while a throw from `OnRequestAsync` or
 `OnResponseAsync` fails the fetch, because those are the callbacks that were asked to decide.
 
-**Two callbacks answer, and each is asked in the one place every lane passes.** `OnRequestAsync` is asked per
-hop, inside the redirect loop. `OnResponseAsync` is asked once, for the response that *ends* the chain, in
-`SendForStreamAsync` — deliberately not in `SendAsync`, because a document fetch, a subresource, an
-`XMLHttpRequest` and an `EventSource` all take the stream lane and only `fetch()` takes the other, so an ask
-placed there would have served the one caller that needed it least. **The ask is not the notification**: who
+**Three callbacks answer, and where each is asked is the decision.** `OnRequestAsync` is asked per hop,
+inside the redirect loop. `OnAuthRequiredAsync` is asked beside it, in the loop's core, because a `401` on a
+document fetch, a subresource and an `XMLHttpRequest` is the case it is for. `OnResponseAsync` is asked once,
+for the response that *ends* the chain, in `SendForStreamAsync` — deliberately not in `SendAsync`, because a
+document fetch, a subresource, an `XMLHttpRequest` and an `EventSource` all take the stream lane and only
+`fetch()` takes the other, so an ask placed there would have served the one caller that needed it least. **The ask is not the notification**: who
 tells the observer about the final response is still per lane (`BeginResponseAsync` for `SendAsync`,
 `FetchObservation.FinalResponse` for everyone else), so both report what the answer produced rather than what
 the socket said. What `Continue` may not rewrite is the body — it has not been read and is still coming — and
@@ -73,7 +74,24 @@ that is the whole difference from `Fulfill`, which discards the socket's bytes u
 onto a protocol: **a refusal before the transport** (a `UrlFilter` denial, the concurrency cap, an
 already-aborted signal) reports `OnFailed` with no `OnRequest` before it, because `fetch`'s synchronous half
 cannot await one; and **a body nobody reads never completes**, because it is only pulled when script consumes
-it. **`EventSource` is observed whole, and a `WebSocket` has an observer of its own; the line between them is
+it. **An authentication challenge is asked about and only `Basic` can be answered, and the second half is a
+*stated* behaviour rather than a shortfall.** A `401` carrying a `WWW-Authenticate` reaches
+`OnAuthRequiredAsync` whatever scheme it names, because being asked is the only way an observer tells "this
+engine does not do `Digest`" from "the server never challenged" — and `ObservedFetchAuthChallenge`
+`.CanProvideCredentials` answers which it is *before* the observer decides. `Basic` is honoured with one
+`Authorization` header built in `FetchTransport.AuthorizeAsync`; `Digest` needs a nonce exchange and
+`Negotiate` and `NTLM` a handshake bound to the connection, none of which a transport that hands the socket
+back after every response can hold. Credentials offered for one of those are **refused, not dropped**: a host
+driving this through a protocol answers `Fetch.continueWithAuth` and gets an error naming the scheme, because
+an ask that cannot be honoured must fail visibly — an ask that silently does nothing is the defect this seam
+removes. **Exactly one retry per request** (`authRetried`), since an observer has one credential to offer and
+a loop is worse than a `401`; the retry is not a redirect and spends none of `MaxRedirects`. A `407` is not
+reported at all — the proxy is the host's `HttpClient`'s — so `Source` is always `Server`. The header the
+retry carries is stripped by `_crossOriginHeaderNames` if a later redirect leaves the origin, which is
+[HTTP-redirect fetch](https://fetch.spec.whatwg.org/#http-redirect-fetch) step 13 and needed no new code
+([#3828](https://github.com/sebastienros/jint/issues/3828)).
+
+**`EventSource` is observed whole, and a `WebSocket` has an observer of its own; the line between them is
 whether *this* observer can be told everything.** A stream reaches `FetchTransport`, so the request and every
 redirect hop cost nothing to report — but it reads its own body, which is why it was left unobserved until
 `EventSourceConnection` paid the same two debts a document fetch pays: `FinalResponse`, which every caller of

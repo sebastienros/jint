@@ -506,6 +506,8 @@ public class WebApiFetchDocumentTests
 
         internal Func<ObservedFetchResponse, FetchResponseInterception?>? OnResponseHandler { get; init; }
 
+        internal Func<ObservedFetchAuthChallenge, FetchAuthDecision?>? OnAuthHandler { get; init; }
+
         public override int RequestBodyPreviewBytes => 16;
 
         public override ValueTask<FetchInterception?> OnRequestAsync(ObservedFetchRequest request, CancellationToken cancellationToken)
@@ -526,6 +528,16 @@ public class WebApiFetchDocumentTests
             }
 
             return new ValueTask<FetchResponseInterception?>(OnResponseHandler?.Invoke(response));
+        }
+
+        public override ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(ObservedFetchAuthChallenge challenge, CancellationToken cancellationToken)
+        {
+            lock (Events)
+            {
+                Events.Add($"auth {challenge.Id} {challenge.Status} {challenge.Source} {challenge.Scheme} realm={challenge.Realm} answerable={challenge.CanProvideCredentials}");
+            }
+
+            return new ValueTask<FetchAuthDecision?>(OnAuthHandler?.Invoke(challenge));
         }
 
         public override void OnResponse(ObservedFetchResponse response)
@@ -827,6 +839,158 @@ public class WebApiFetchDocumentTests
             """)
             .UnwrapIfPromise(TransportSignalCeiling).AsString()
             .Should().Be("true|200|Fine now|yes|the real body");
+    });
+
+    // ---- Fetch.Observer: authentication challenges ----
+
+    /// <summary>
+    /// Builds a handler that challenges the first request with <paramref name="challenge"/> and answers every
+    /// later one with <c>200 authorized</c>, so a test reads the retry off <c>Requests</c>.
+    /// </summary>
+    private static RecordingHandler Challenging(string challenge)
+    {
+        RecordingHandler handler = null!;
+        handler = new RecordingHandler
+        {
+            Responder = _ =>
+            {
+                if (handler.Requests.Count > 1)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("authorized") };
+                }
+
+                var refused = new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("no") };
+                refused.Headers.TryAddWithoutValidation("WWW-Authenticate", challenge);
+                return refused;
+            },
+        };
+
+        return handler;
+    }
+
+    /// <summary>
+    /// The whole of it: a <c>401</c> reaches the observer, the observer answers with credentials, and the hop
+    /// goes again carrying them — which is what <c>Fetch.continueWithAuth</c> is mapped onto.
+    /// </summary>
+    [Test]
+    public Task AnObserverAnswersABasicChallengeAndTheHopGoesAgainWithTheCredentials() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = Challenging("Basic realm=\"the vault\"");
+        var observer = new RecordingObserver
+        {
+            OnAuthHandler = _ => FetchAuthDecision.ProvideCredentials("ada", "l0velace"),
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/private').then(r => r.status + '|' + r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling);
+
+        engine.Evaluate("fetch('https://a.test/private').then(r => r.text())")
+            .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("authorized");
+
+        // RFC 7617: base64 of "ada:l0velace", and the scheme spelled as the server spelled it.
+        var expected = "Basic " + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("ada:l0velace"));
+        handler.Requests.Should().HaveCountGreaterThan(1);
+        handler.HeaderOf(0, "Authorization").Should().BeNull("the first hop is what provokes the challenge");
+        handler.HeaderOf(1, "Authorization").Should().Be(expected);
+
+        observer.Events.Should().Contain(entry => entry.Contains("Basic realm=the vault answerable=True", StringComparison.Ordinal));
+    });
+
+    /// <summary>
+    /// A challenge the observer declines, and one it is simply not interested in, both deliver the
+    /// <c>401</c> — which is the protocol's <c>CancelAuth</c> and its <c>Default</c>.
+    /// </summary>
+    [Test]
+    public Task ADeclinedChallengeDeliversTheFourHundredAndOne() => DedicatedThread.RunAsync(() =>
+    {
+        foreach (var decision in new Func<ObservedFetchAuthChallenge, FetchAuthDecision?>[]
+                 {
+                     static _ => FetchAuthDecision.Cancel(),
+                     static _ => null,
+                 })
+        {
+            var handler = Challenging("Basic realm=\"the vault\"");
+            var observer = new RecordingObserver { OnAuthHandler = decision };
+            var engine = WebEngine(handler, f => f.Observer = observer);
+
+            engine.Evaluate("fetch('https://a.test/private').then(r => r.status + '|' + r.ok)")
+                .UnwrapIfPromise(TransportSignalCeiling).AsString().Should().Be("401|false");
+
+            handler.Requests.Should().HaveCount(1, "a declined challenge sends nothing again");
+            observer.Events.Should().Contain(entry => entry.StartsWith("auth ", StringComparison.Ordinal));
+        }
+    });
+
+    /// <summary>
+    /// A scheme this engine cannot answer is <b>still reported</b>, and credentials offered for it are
+    /// refused rather than quietly dropped.
+    /// </summary>
+    /// <remarks>
+    /// Being asked is how an observer tells "this engine does not support Digest" from "the server never
+    /// challenged", and <see cref="ObservedFetchAuthChallenge.CanProvideCredentials"/> is the answer it gets
+    /// before it decides. Answering with credentials anyway changes nothing about the request, which is what
+    /// makes the refusal visible rather than silent: the <c>401</c> arrives, one request was sent, and no
+    /// <c>Authorization</c> header was invented for a scheme that would not have accepted it.
+    /// </remarks>
+    [Test]
+    public Task ASchemeTheEngineCannotAnswerIsReportedAndItsCredentialsAreRefused() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = Challenging("Digest realm=\"the vault\", nonce=\"abc\"");
+        var observer = new RecordingObserver
+        {
+            OnAuthHandler = _ => FetchAuthDecision.ProvideCredentials("ada", "l0velace"),
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/private').then(r => r.status)")
+            .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(401);
+
+        handler.Requests.Should().HaveCount(1);
+        handler.HeaderOf(0, "Authorization").Should().BeNull();
+        observer.Events.Should().Contain(entry => entry.Contains("Digest realm=the vault answerable=False", StringComparison.Ordinal));
+    });
+
+    /// <summary>
+    /// Exactly one retry: a server that challenges the answered request too gets no third attempt, and the
+    /// second <c>401</c> is delivered.
+    /// </summary>
+    /// <remarks>
+    /// An observer has one credential to offer, so a second ask has nothing new to answer with — and a loop
+    /// is worse than a <c>401</c>.
+    /// </remarks>
+    [Test]
+    public Task ACredentialIsOfferedOnceAndASecondChallengeIsDelivered() => DedicatedThread.RunAsync(() =>
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ =>
+            {
+                var refused = new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("no") };
+                refused.Headers.TryAddWithoutValidation("WWW-Authenticate", "Basic realm=\"the vault\"");
+                return refused;
+            },
+        };
+
+        var asks = 0;
+        var observer = new RecordingObserver
+        {
+            OnAuthHandler = _ =>
+            {
+                asks++;
+                return FetchAuthDecision.ProvideCredentials("ada", "wrong");
+            },
+        };
+
+        var engine = WebEngine(handler, f => f.Observer = observer);
+
+        engine.Evaluate("fetch('https://a.test/private').then(r => r.status)")
+            .UnwrapIfPromise(TransportSignalCeiling).AsNumber().Should().Be(401);
+
+        asks.Should().Be(1, "the retry's own challenge is delivered rather than asked about");
+        handler.Requests.Should().HaveCount(2, "one first attempt and one retry, and no third");
     });
 
     /// <summary>

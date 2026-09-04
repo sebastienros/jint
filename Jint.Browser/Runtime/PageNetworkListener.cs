@@ -113,6 +113,56 @@ internal sealed record PageNetworkResponse(
     bool FromInterception,
     FetchTiming? Timing);
 
+/// <summary>An authentication challenge one hop was answered with.</summary>
+/// <remarks>
+/// <c>Source</c> is always <c>Server</c>: a <c>407</c> is a proxy's, and the proxy belongs to the
+/// <c>HttpClient</c> the context was given rather than to this browser.
+/// </remarks>
+/// <param name="Id">The request the challenge answered.</param>
+/// <param name="Url">The absolute URL of the hop that was challenged.</param>
+/// <param name="Status">The status the challenge arrived with, always <c>401</c>.</param>
+/// <param name="Source">Who is challenging, always <c>Server</c>.</param>
+/// <param name="Scheme">The authentication scheme, as the server spelled it.</param>
+/// <param name="Realm">The realm the challenge named, or the empty string.</param>
+/// <param name="CanProvideCredentials">
+/// Whether this browser can turn a username and a password into an answer for <paramref name="Scheme"/> —
+/// true only for <c>Basic</c>.
+/// </param>
+internal sealed record PageNetworkAuthChallenge(
+    string Id,
+    string Url,
+    int Status,
+    string Source,
+    string Scheme,
+    string Realm,
+    bool CanProvideCredentials);
+
+/// <summary>What a listener decided about one authentication challenge.</summary>
+/// <remarks>
+/// The three the protocol's <c>AuthChallengeResponse</c> admits: <c>Default</c> and <c>CancelAuth</c> both
+/// deliver the <c>401</c> and are one answer here, because nothing downstream can tell them apart;
+/// <c>ProvideCredentials</c> is the one that re-sends the hop.
+/// </remarks>
+internal sealed class PageNetworkAuthDecision
+{
+    private PageNetworkAuthDecision()
+    {
+    }
+
+    /// <summary>Deliver the <c>401</c> — the protocol's <c>Default</c> and its <c>CancelAuth</c>.</summary>
+    internal static PageNetworkAuthDecision Proceed { get; } = new();
+
+    internal bool HasCredentials { get; private init; }
+
+    internal string Username { get; private init; } = string.Empty;
+
+    internal string Password { get; private init; } = string.Empty;
+
+    /// <summary>Answer the challenge and send the hop again — <c>Fetch.continueWithAuth</c>.</summary>
+    internal static PageNetworkAuthDecision Credentials(string username, string password)
+        => new() { HasCredentials = true, Username = username, Password = password };
+}
+
 /// <summary>What a listener decided about one response.</summary>
 /// <remarks>
 /// The response half of <see cref="PageNetworkDecision"/>, and deliberately a separate type: what a client
@@ -307,6 +357,24 @@ internal interface IPageNetworkListener
     ValueTask<PageNetworkResponseDecision> ResponseWillBeDeliveredAsync(
         PageNetworkRequest request,
         PageNetworkResponse response,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A server answered a hop with <c>401</c> and an authentication challenge; answer what should be done
+    /// about it.
+    /// </summary>
+    /// <param name="request">The hop that was challenged, as it went out.</param>
+    /// <param name="challenge">What the server asked for, and whether this browser can answer it.</param>
+    /// <param name="cancellationToken">Cancelled when the fetch is abandoned or times out.</param>
+    /// <remarks>
+    /// <b>There is no notification beside this one</b>, unlike the request and the response: a challenge is
+    /// only ever a question. A listener that is not interested answers
+    /// <see cref="PageNetworkAuthDecision.Proceed"/> and the <c>401</c> is delivered to the page as any other
+    /// response, having already been reported as one.
+    /// </remarks>
+    ValueTask<PageNetworkAuthDecision> AuthRequiredAsync(
+        PageNetworkRequest request,
+        PageNetworkAuthChallenge challenge,
         CancellationToken cancellationToken);
 
     /// <summary>The final response, after any answer above has been applied.</summary>

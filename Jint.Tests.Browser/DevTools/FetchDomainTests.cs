@@ -309,6 +309,162 @@ public class FetchDomainTests
         error.GetProperty("message").GetString().Should().Be("Invalid InterceptionId.");
     }
 
+    // ---------------------------------------------------------------- authentication
+
+    /// <summary>
+    /// Maps a route that challenges the first request with <paramref name="challenge"/> and answers every
+    /// later one, so a test reads the retry off <see cref="LoopbackServer.Received"/>.
+    /// </summary>
+    private static void MapChallenged(LoopbackServer server, string path, string challenge)
+    {
+        var served = 0;
+        server.Map(path, _ =>
+        {
+            if (Interlocked.Increment(ref served) > 1)
+            {
+                return LoopbackResponse.Html("<html><head><title>Let in</title></head><body>ok</body></html>");
+            }
+
+            return new LoopbackResponse { Status = 401, Reason = "Unauthorized", Body = "no" }
+                .With("WWW-Authenticate", challenge)
+                .With("Content-Type", "text/html; charset=utf-8");
+        });
+    }
+
+    /// <summary>
+    /// The whole lane: a <c>401</c> pauses as <c>Fetch.authRequired</c>, the client answers with
+    /// credentials, and the hop goes again carrying them —
+    /// https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-continueWithAuth.
+    /// </summary>
+    /// <remarks>
+    /// It is the gap <see href="https://github.com/sebastienros/jint/issues/3828">#3828</see>'s survey put
+    /// first: both client families send <c>handleAuthRequests: true</c> unconditionally whenever they
+    /// intercept, so before this the credentials a client configured were discarded with no error anywhere.
+    /// </remarks>
+    [Test]
+    public async Task AChallengePausesAndContinueWithAuthSendsTheHopAgainWithCredentials()
+    {
+        using var server = new LoopbackServer();
+        MapChallenged(server, "/private", "Basic realm=\"the vault\"");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"handleAuthRequests":true}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/private"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+
+        // The request stage pauses first, because a default pattern is the request stage's.
+        await fixture.ContinueAsync(await fixture.PausedAsync());
+
+        var challenged = await fixture.Session.EventAsync("Fetch.authRequired", sessionId: fixture.Attachment, timeoutSeconds: 30);
+        var challenge = challenged.GetProperty("authChallenge");
+        challenge.GetProperty("source").GetString().Should().Be("Server");
+        challenge.GetProperty("scheme").GetString().Should().Be("Basic");
+        challenge.GetProperty("realm").GetString().Should().Be("the vault");
+        challenge.GetProperty("origin").GetString().Should().Be(server.Origin);
+        challenged.GetProperty("request").GetProperty("url").GetString().Should().Be(server.Url("/private"));
+
+        await fixture.Session.ResultAsync(
+            "Fetch.continueWithAuth",
+            $$$"""{"requestId":"{{{challenged.GetProperty("requestId").GetString()}}}","authChallengeResponse":{"response":"ProvideCredentials","username":"ada","password":"l0velace"}}""",
+            fixture.Attachment);
+
+        // The retry is a second hop of the same request, so it pauses at the request stage too.
+        await fixture.ContinueAsync(await fixture.PausedAsync(1));
+
+        await navigation.WaitAsync(Bound);
+        (await fixture.Page.TitleAsync()).Should().Be("Let in");
+
+        var expected = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("ada:l0velace"));
+        var attempts = server.Received.Where(received => received.Path == "/private").ToArray();
+        attempts.Should().HaveCount(2);
+        attempts[0].Header("Authorization").Should().BeNull();
+        attempts[1].Header("Authorization").Should().Be(expected);
+    }
+
+    /// <summary>
+    /// <c>CancelAuth</c> delivers the <c>401</c> to the page, which is what a browser does when the user
+    /// dismisses the dialog.
+    /// </summary>
+    [Test]
+    public async Task CancellingAChallengeDeliversTheFourHundredAndOne()
+    {
+        using var server = new LoopbackServer();
+        MapChallenged(server, "/private", "Basic realm=\"the vault\"");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"handleAuthRequests":true}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/private"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.ContinueAsync(await fixture.PausedAsync());
+
+        var challenged = await fixture.Session.EventAsync("Fetch.authRequired", sessionId: fixture.Attachment, timeoutSeconds: 30);
+        await fixture.Session.ResultAsync(
+            "Fetch.continueWithAuth",
+            $$$"""{"requestId":"{{{challenged.GetProperty("requestId").GetString()}}}","authChallengeResponse":{"response":"CancelAuth"}}""",
+            fixture.Attachment);
+
+        await navigation.WaitAsync(Bound);
+        server.Received.Count(received => received.Path == "/private").Should().Be(1, "a cancelled challenge sends nothing again");
+    }
+
+    /// <summary>
+    /// A scheme this browser cannot answer is still reported, and <c>ProvideCredentials</c> for it is refused
+    /// <b>by name</b> rather than accepted and quietly dropped.
+    /// </summary>
+    /// <remarks>
+    /// Being asked is how a client tells "this browser does not do Digest" from "the server never
+    /// challenged"; the error on the command is how it learns its credentials were understood and could not
+    /// be used. An ask that cannot be honoured must fail visibly, because an ask that silently does nothing
+    /// is the defect this lane exists to remove.
+    /// </remarks>
+    [Test]
+    public async Task CredentialsForASchemeThatCannotBeAnsweredAreRefusedByName()
+    {
+        using var server = new LoopbackServer();
+        MapChallenged(server, "/private", "Digest realm=\"the vault\", nonce=\"abc\"");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync("""{"handleAuthRequests":true}""");
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/private"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.ContinueAsync(await fixture.PausedAsync());
+
+        var challenged = await fixture.Session.EventAsync("Fetch.authRequired", sessionId: fixture.Attachment, timeoutSeconds: 30);
+        challenged.GetProperty("authChallenge").GetProperty("scheme").GetString().Should().Be("Digest");
+
+        var error = await fixture.Session.ErrorAsync(
+            "Fetch.continueWithAuth",
+            $$$"""{"requestId":"{{{challenged.GetProperty("requestId").GetString()}}}","authChallengeResponse":{"response":"ProvideCredentials","username":"ada","password":"l0velace"}}""",
+            fixture.Attachment);
+
+        error.GetProperty("code").GetInt32().Should().Be(-32000);
+        error.GetProperty("message").GetString().Should().Be("Credentials cannot be provided for a 'Digest' challenge.");
+
+        // Refused, and the request was still released rather than left hanging on the error.
+        await navigation.WaitAsync(Bound);
+        server.Received.Count(received => received.Path == "/private").Should().Be(1);
+    }
+
+    /// <summary>
+    /// Without <c>handleAuthRequests</c> nothing is reported, which is the protocol's own rule and what keeps
+    /// a client that never asked from being shown a pause it will not answer.
+    /// </summary>
+    [Test]
+    public async Task AChallengeIsNotReportedToAClientThatDidNotAskForOne()
+    {
+        using var server = new LoopbackServer();
+        MapChallenged(server, "/private", "Basic realm=\"the vault\"");
+
+        await using var fixture = await InterceptionFixture.OpenAsync(server);
+        await fixture.EnableAsync();
+
+        var navigation = fixture.Page.NavigateAsync(server.Url("/private"), new NavigationOptions { WaitUntil = WaitUntilState.Load });
+        await fixture.ContinueAsync(await fixture.PausedAsync());
+
+        await navigation.WaitAsync(Bound);
+        server.Received.Count(received => received.Path == "/private").Should().Be(1);
+    }
+
     /// <summary>A page, its target, and an attachment ready to intercept.</summary>
     // ---------------------------------------------------------------- the response stage
 

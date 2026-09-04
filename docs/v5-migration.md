@@ -1,4 +1,4 @@
-﻿# Migrating from Jint 4.16 to Jint 5
+# Migrating from Jint 4.16 to Jint 5
 
 Jint 5 is under development on `main`. This document is the running record of every change a
 4.16.x embedder has to react to; it is written for someone upgrading, so it says what broke and
@@ -5439,6 +5439,57 @@ only an observed socket pays.
 transport, so there is no hop to intercept and nothing to substitute; and it carries a `WebSocketId` rather
 than a `FetchRequestId`, because a socket counted as an outstanding request would leave a host waiting for a
 network that never goes quiet.
+
+### 4.130 `EventSource` resolves a relative URL against `BaseUrl` ([#3701](https://github.com/sebastienros/jint/issues/3701))
+
+`new EventSource('/events')` used to throw a `SyntaxError` on every engine, because the constructor parsed
+its URL with no base while `Request` and `WebSocket` both parsed theirs against
+`Options.WebApi.Fetch.BaseUrl`. It now reads that base too, which is the standard's *"relative to settings"*
+and what makes one relative URL mean the same thing to all three interfaces.
+
+```csharp
+options.WebApi.Fetch.BaseUrl = new Uri("https://example.org/pages/one.html");
+// new EventSource('../stream')  ->  https://example.org/stream
+```
+
+**An engine that sets no `BaseUrl` is unchanged**: with nothing to resolve against, a relative URL is still
+a `SyntaxError` rather than a request to a host nobody named. The only scripts affected are ones that were
+throwing.
+
+### 4.131 A `FetchObserver` can answer an authentication challenge ([#3828](https://github.com/sebastienros/jint/issues/3828))
+
+A `401` carrying a `WWW-Authenticate` used to be delivered and nothing else. `FetchObserver` grows a third
+ask beside `OnRequestAsync` and `OnResponseAsync`:
+
+```csharp
+public override ValueTask<FetchAuthDecision?> OnAuthRequiredAsync(
+    ObservedFetchAuthChallenge challenge,
+    CancellationToken cancellationToken)
+    => new(challenge.CanProvideCredentials
+        ? FetchAuthDecision.ProvideCredentials("ada", "l0velace")   // sends the hop again
+        : null);                                                    // delivers the 401
+```
+
+Nothing has to be done to migrate: the default answers `null`, and an engine whose observer does not override
+it behaves exactly as before.
+
+**Only `Basic` can be answered**, and `CanProvideCredentials` says so before the decision is made. `Digest`
+needs a nonce exchange and `Negotiate` and `NTLM` a handshake bound to the connection; a transport that hands
+the socket back after every response holds neither. Every scheme is still *reported*, because being asked is
+how an observer tells "unsupported" from "never challenged" — and credentials offered for one that cannot be
+answered are refused rather than quietly dropped.
+
+**One retry per request.** An observer has one credential to offer, so a challenge on the retry is delivered
+rather than asked about again. The retry is not a redirect and spends none of `MaxRedirects`, and the
+`Authorization` header it carries is dropped if a later redirect crosses to another origin, which is the Fetch
+Standard's own rule.
+
+**A `407` is not reported.** The proxy belongs to the `HttpClient` the host supplied, so a challenge's
+`Source` is always `Server`.
+
+Over the protocol this is `Fetch.enable`'s `handleAuthRequests`, the `Fetch.authRequired` event and
+`Fetch.continueWithAuth` — which both Puppeteer and Playwright send unconditionally whenever they intercept,
+and which used to be accepted and do nothing.
 
 ## 5. New in v5
 

@@ -53,7 +53,7 @@ fraction of Chromium's CPU and memory per page, at some multiple of its wall-clo
 
 | v1 delivers | Out of v1 (absent, so feature detection is honest) |
 | --- | --- |
-| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
+| Full HTML5 parse with inline, external, `defer`, `async` and module scripts, import maps, `document.write`; generated DOM and CSSOM bindings; tree event dispatch; forms, history, cookies, storage, workers, `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource`; `MutationObserver`; stub `IntersectionObserver`/`ResizeObserver`; deterministic coordinate input; accessibility tree and markdown snapshots; CDP for Puppeteer/Playwright `connect`; a WPT lane; constraints per page | Layout-dependent APIs (`offsetWidth` is synthetic, `cssom-view`), rendering, screenshots, PDF, WebGL, canvas 2D, media, IndexedDB, `caches` (the engine has it; a page has no origin-partitioned provider to grant it on), WebAssembly, CSP enforcement, TLS-fingerprint stealth, iframe scripting (v1.1), `WindowProxy`, SharedWorker/ServiceWorker, drag and drop, real isolated worlds (v1.1) |
 
 `Page.captureScreenshot` answers a CDP error with a sentence, the way Lightpanda does.
 
@@ -300,18 +300,22 @@ What is accepted and not yet effective is accepted because refusing it fails an 
 each says which campaign item makes it real: `Network.setCacheDisabled` (there is no cache to bypass) and
 `Audits.enable` (nothing to report).
 
-**The network domains are real, and three lanes of them are absent with a reason rather than pending.**
-`Network` reports every request the page makes and `Fetch` pauses one at the **request** stage, both over
-the page's own request log, which is the engine's `FetchObserver`; the document's request carries the
-`loaderId` as its `requestId`, which is what makes a client's `goto` answer a response object. What is not
-there: the `Fetch` **response** stage and with it the `IO` domain, because `FetchObserver.OnResponse` is a
-notification an observer cannot answer, so a response-stage pause could only ever continue unchanged and a
-client that fulfilled from one would be ignored; the **WebSocket and EventSource** events, because the
-engine deliberately does not observe those two handshakes and a socket reported as a request that never
-finishes would also stop `networkIdle` firing; and `Network`'s **timing** document, because no phase of a
-request is measured and a document of zeros reads as a page that loaded instantly. A paused request holds
-the transport thread it is being sent on and never the page loop — the one exception is a `<script src>` a
-running script inserted, which blocks the loop by design.
+**The network domains are real, and what is still absent is absent with a reason rather than pending.**
+`Network` reports every request the page makes, and `Fetch` pauses one at the **request** stage or the
+**response** stage, all over the page's own request log, which is the engine's `FetchObserver`; the
+document's request carries the `loaderId` as its `requestId`, which is what makes a client's `goto` answer a
+response object. A page's `WebSocket` takes the four events the protocol gives a socket — its creation, both
+handshakes and its close — over the engine's own `WebSocketObserver`, and is deliberately *not* in the
+request log, because a socket stays open for as long as the page wants it and an entry would stop
+`networkIdle` firing. What is not there: `Fetch.getResponseBody` and `takeResponseBodyAsStream` and with
+them the `IO` domain, because a response-stage pause has the response's *headers* while its body is still on
+the socket, so handing a client bytes means buffering them first — a budget decision, and
+`Network.getResponseBody` is what answers a body here; the three `webSocketFrame*` events and
+`eventSourceMessageReceived`, because the socket observer is never told about a frame and a stream is
+observed as bytes rather than as the events they decode into; and `Network`'s **timing** document, because
+no phase of a request is measured and a document of zeros reads as a page that loaded instantly. A paused
+request holds the transport thread it is being sent on and never the page loop — the one exception is a
+`<script src>` a running script inserted, which blocks the loop by design.
 
 **`Emulation` is effective, and the question each command answers is *when*.** The viewport, the emulated
 media type and its Level 5 preference features, touch, focus, geolocation, the user agent and the hardware
