@@ -1,10 +1,13 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using AngleSharp;
 using Jint.Browser.Runtime;
 using Jint.Browser.Workers;
+using Jint.Diagnostics;
 using Jint.Native;
+using Jint.Native.Object;
 using Jint.Native.Promise;
+using Jint.Runtime;
 using Jint.Runtime.Interop;
 using Jint.WebApi;
 
@@ -365,8 +368,18 @@ public sealed partial class Page : IAsyncDisposable
 
             var onRejected = new ClrFunction(engine, "", (_, arguments) =>
             {
-                completion.TrySetException(
-                    new InvalidOperationException($"Promise was rejected with value {arguments[0]}"));
+                try
+                {
+                    completion.TrySetException(new InvalidOperationException(
+                        "Promise was rejected with value " + Describe(arguments.At(0))));
+                }
+                catch (Exception exception)
+                {
+                    // A reaction that throws is a job nobody catches, and the awaiting task would never
+                    // settle: whatever went wrong is the answer rather than a hang.
+                    completion.TrySetException(exception);
+                }
+
                 return JsValue.Undefined;
             });
 
@@ -383,6 +396,33 @@ public sealed partial class Page : IAsyncDisposable
             _loop.Closing,
             documentClosing);
         return await completion.Task.WaitAsync(linked.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>The one line a rejected value renders as, read without running any of the page's script.</summary>
+    /// <remarks>
+    /// <para>
+    /// The rejected value belongs to the page, and <c>toString</c>, <c>name</c> and <c>message</c> are all
+    /// definable on it - so interpolating it into the message runs whatever a script left there. That is
+    /// worse here than in a log statement: the render happens inside a promise reaction, where a throw is a
+    /// job nobody catches, so a value whose <c>toString</c> throws left the awaiting task pending for ever.
+    /// </para>
+    /// <para>
+    /// <see cref="ValueSlotReader.ErrorText"/> is the getter-free read the console already uses
+    /// (https://github.com/sebastienros/jint/issues/3598): own data property first, the prototype chain for
+    /// data properties only, an accessor treated as absent rather than called. A primitive answers from its
+    /// own <c>ToString</c>, which runs nothing and - unlike
+    /// <see cref="Jint.Runtime.TypeConverter.ToString(JsValue)"/> - does not throw for a symbol.
+    /// </para>
+    /// </remarks>
+    private static string Describe(JsValue reason)
+    {
+        if (reason is not ObjectInstance error)
+        {
+            return reason.ToString();
+        }
+
+        ValueSlotReader.ErrorText(error, out var name, out var message);
+        return ValueSlotReader.ErrorLine(name, message);
     }
 
     /// <summary>The document's serialized markup, including the doctype.</summary>

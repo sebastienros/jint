@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using AngleSharp.Dom;
 using Jint.Browser.Accessibility;
 
@@ -58,6 +58,13 @@ internal static class ElementLocator
 
         try
         {
+            if (index == 0)
+            {
+                // The first match is what nearly every caller wants, and QuerySelector stops at it rather
+                // than walking the whole tree to build a collection the caller reads one element of.
+                return document.QuerySelector(target);
+            }
+
             var elements = document.QuerySelectorAll(target);
             var resolved = index >= 0 ? index : elements.Length + index;
             return (uint) resolved < (uint) elements.Length ? elements[resolved] : null;
