@@ -42,7 +42,7 @@ jobs:
     # can restore caches from the base branch, but a cache saved inside a PR is scoped to that PR
     # and invisible to other PRs. Restore/save are split (rather than the combined actions/cache)
     # so the suite is cached even when a later step fails. The combined action saves in a post-step
-    # gated on success(); the "Push with dotnet" publish can fail (e.g. MyGet quota) and would then
+    # gated on success(); the "Push with dotnet" publish can fail (e.g. Feedz quota) and would then
     # skip the save, leaving the main-scoped cache empty so no PR ever gets a hit. The explicit save
     # below runs right after the suite is generated, before publishing.
     - name: Restore Test262 generated suite
@@ -84,7 +84,7 @@ jobs:
       run: dotnet pack Jint.Browser.Tool/Jint.Browser.Tool.csproj --output artifacts --configuration Release -p:VersionSuffix=preview-$GITHUB_RUN_NUMBER -p:ContinuousIntegrationBuild=True
 
     - name: Push with dotnet
-      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate --source https://www.myget.org/F/jint/api/v2/package
+      run: dotnet nuget push artifacts/*.nupkg --api-key ${{ secrets.FEEDZ_IO_API_KEY }} --skip-duplicate --source https://f.feedz.io/sebastienros/jint/nuget/index.json
 
   # The mirror of the PR workflow's "linux - native aot" job, and there for the reason the Test step above is:
   # a merge is not the commit CI ran on. Its own file documents what it verifies; the short version is that

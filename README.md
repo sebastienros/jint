@@ -1,7 +1,7 @@
 [![Build](https://github.com/sebastienros/jint/actions/workflows/build.yml/badge.svg)](https://github.com/sebastienros/jint/actions/workflows/build.yml)
 [![NuGet](https://img.shields.io/nuget/v/Jint.svg)](https://www.nuget.org/packages/Jint)
 [![NuGet](https://img.shields.io/nuget/vpre/Jint.svg)](https://www.nuget.org/packages/Jint)
-[![MyGet](https://img.shields.io/myget/jint/vpre/jint.svg?label=MyGet)](https://www.myget.org/feed/jint/package/nuget/Jint)
+[![Feedz](https://img.shields.io/feedz/vpre/sebastienros/jint/Jint.svg?label=Feedz)](https://feedz.io/org/sebastienros/repository/jint/packages/Jint)
 [![Join the chat at https://gitter.im/sebastienros/jint](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/sebastienros/jint)
 
 # Jint
@@ -4748,7 +4748,9 @@ observable behaviour.
 
 - Open a pull request against __main__ unless the change is a backport, in which case target the
   maintenance branch it belongs to
-- __main__, __4.x__ and __3.x__ are automatically built and published on [MyGet](https://www.myget.org/feed/Packages/jint). Add this feed to your NuGet sources to use it: https://www.myget.org/F/jint/api/v3/index.json
+- __main__, __4.x__ and __3.x__ are automatically built and published on
+  [Feedz.io](https://feedz.io/org/sebastienros/repository/jint/packages). Add this feed to your NuGet
+  sources to use it: https://f.feedz.io/sebastienros/jint/nuget/index.json
 - A release to [NuGet](https://www.nuget.org/packages/jint) is cut by pushing a `vX.Y.Z` tag to the
   branch being released; the tag, not `Directory.Build.props`, is the version the package carries
 
