@@ -1179,6 +1179,48 @@ public class WorkerMechanismTests
         parent.Evaluate("Object.prototype.toString.call(w)").AsString().Should().Be("[object Worker]");
     }
 
+    /// <summary>
+    /// And they are the same three rules every other event handler IDL attribute obeys
+    /// (https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes), read on the one
+    /// façade that needs a thread to exist at all: the handler is a single entry of the worker object's own
+    /// listener list that keeps the position it first took, a non-object clears it, and an object that is not
+    /// callable is stored and read back but never invoked.
+    /// </summary>
+    /// <remarks>
+    /// The event is dispatched by hand rather than posted from the worker, because what is under test is the
+    /// listener list the attribute writes to and not the arrival — <c>EventHandlerAttributeTests</c> reads the
+    /// same three rules on every interface that can be built without a thread.
+    /// </remarks>
+    [Test]
+    public void TheWorkerObjectsHandlerAttributeKeepsItsPositionAndTakesANonObjectAsNull()
+    {
+        var host = new TestWorkerHost(Module(""));
+        var parent = Parent(host);
+
+        parent.Execute("""
+            var log = [];
+            var w = new Worker('./worker.js', { type: 'module' });
+            var fire = () => w.dispatchEvent(new Event('message'));
+
+            w.onmessage = () => log.push('handler');
+            w.addEventListener('message', () => log.push('listener'));
+            w.onmessage = () => log.push('replaced');
+            fire();
+            """);
+
+        parent.Evaluate("log.join('|')").AsString().Should().Be("replaced|listener");
+
+        parent.Execute("w.onmessage = 42; fire();");
+        parent.Evaluate("w.onmessage").IsNull().Should().BeTrue();
+        parent.Evaluate("log.join('|')").AsString().Should().Be("replaced|listener|listener");
+
+        parent.Execute("var bag = {}; w.onmessage = bag; fire();");
+        parent.Evaluate("w.onmessage === bag").AsBoolean().Should().BeTrue();
+        parent.Evaluate("log.join('|')").AsString().Should().Be("replaced|listener|listener|listener");
+
+        parent.Execute("w.terminate();");
+    }
+
     // -------------------------------------------------------------------------------------------------------
     // Threading and the transferable-stream interaction
     // -------------------------------------------------------------------------------------------------------

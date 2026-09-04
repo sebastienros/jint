@@ -5,6 +5,7 @@ using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
 using Jint.Runtime.Interop;
+using Jint.WebApi.Events;
 using Jint.WebApi.GlobalEvents;
 using Jint.WebApi.Messaging;
 using Jint.WebApi.StructuredClone;
@@ -215,12 +216,8 @@ internal sealed class WorkerGlobalScope
     /// </summary>
     private void InstallEventHandler(ObjectInstance global, string attribute, string eventType)
     {
-        var getter = CreateFunction(attribute, 0, (_, _) => WorkerErrors.GetEventHandler(Target, eventType));
-        var setter = CreateFunction(attribute, 1, (_, arguments) =>
-        {
-            WorkerErrors.SetEventHandler(Target, eventType, arguments.At(0));
-            return JsValue.Undefined;
-        });
+        var getter = CreateFunction(attribute, 0, (_, _) => EventHandlerAttributes.Get(Target, eventType));
+        var setter = CreateFunction(attribute, 1, (_, arguments) => EventHandlerAttributes.Set(Target, eventType, arguments.At(0)));
 
         InstallDescriptor(global, attribute, new GetSetPropertyDescriptor(getter, setter, PropertyFlag.Configurable | PropertyFlag.Enumerable));
     }

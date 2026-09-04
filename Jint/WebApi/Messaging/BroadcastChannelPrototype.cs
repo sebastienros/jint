@@ -94,9 +94,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// </remarks>
     [JsAccessor("onmessage", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsBroadcastChannel.MessageEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsBroadcastChannel.MessageEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#handler-broadcastchannel-onmessage, setter
@@ -104,10 +102,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// </summary>
     [JsAccessor("onmessage", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageSet(JsValue thisObject, JsValue value)
-    {
-        SetEventHandler(Brand(thisObject), JsBroadcastChannel.MessageEventType, value);
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsBroadcastChannel.MessageEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#handler-broadcastchannel-onmessageerror.
@@ -117,9 +112,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// </remarks>
     [JsAccessor("onmessageerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsBroadcastChannel.MessageErrorEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsBroadcastChannel.MessageErrorEventType);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/web-messaging.html#handler-broadcastchannel-onmessageerror,
@@ -127,40 +120,7 @@ internal sealed partial class BroadcastChannelPrototype : Prototype
     /// </summary>
     [JsAccessor("onmessageerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorSet(JsValue thisObject, JsValue value)
-    {
-        SetEventHandler(Brand(thisObject), JsBroadcastChannel.MessageErrorEventType, value);
-        return Undefined;
-    }
-
-    /// <summary>
-    /// HTML's "set the current value of the event handler". <c>EventHandler</c> is a nullable callback
-    /// function annotated <c>[LegacyTreatNonObjectAsNull]</c>, so assigning anything that is not an object
-    /// clears the handler rather than raising a <c>TypeError</c>. Reassigning replaces the value in place, so
-    /// the listener keeps the position it was first given.
-    /// </summary>
-    private static void SetEventHandler(JsBroadcastChannel channel, string type, JsValue value)
-    {
-        var existing = channel.FindEventHandler(type);
-
-        if (value is not ObjectInstance)
-        {
-            // "Deactivate an event handler": the listener goes away entirely.
-            if (existing is not null)
-            {
-                channel.RemoveListener(existing);
-            }
-
-            return;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return;
-        }
-
-        channel.AddListener(new EventListenerRegistration(type, value) { IsEventHandler = true });
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsBroadcastChannel.MessageErrorEventType, value);
 
     private JsBroadcastChannel Brand(JsValue thisObject)
     {

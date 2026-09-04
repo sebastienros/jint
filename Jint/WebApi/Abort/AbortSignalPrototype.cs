@@ -59,53 +59,20 @@ internal sealed partial class AbortSignalPrototype : Prototype
     /// https://html.spec.whatwg.org/multipage/webappapis.html#event-handler-idl-attributes.
     /// </summary>
     /// <remarks>
-    /// The handler is one entry of the signal's own event listener list, so it takes its turn in registration
-    /// order among the <c>addEventListener('abort', …)</c> listeners rather than running before or after all
-    /// of them. Reassigning the attribute replaces the value in place — the entry keeps the position it was
-    /// first given, which is HTML's "activate an event handler" doing nothing once a listener exists — and
-    /// assigning a non-object removes the entry outright, so a later assignment appends a fresh one at the
-    /// end. It is invisible to <c>removeEventListener</c>, because in the specification its callback is the
-    /// event handler processing algorithm rather than the function the script assigned.
+    /// <see cref="EventHandlerAttributes"/> is what one is, on every interface that has one: the handler is a
+    /// single entry of the signal's own event listener list, so it takes its turn in registration order among
+    /// the <c>addEventListener('abort', …)</c> listeners rather than running before or after all of them.
     /// </remarks>
     [JsAccessor("onabort", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnAbortGet(JsValue thisObject)
-    {
-        return Brand(thisObject).FindEventHandler(JsAbortSignal.AbortEventType)?.Callback ?? Null;
-    }
+        => EventHandlerAttributes.Get(Brand(thisObject), JsAbortSignal.AbortEventType);
 
     /// <summary>
-    /// https://dom.spec.whatwg.org/#dom-abortsignal-onabort, setter half. <c>EventHandler</c> is a nullable
-    /// callback function annotated <c>[LegacyTreatNonObjectAsNull]</c>, so assigning anything that is not an
-    /// object clears the handler rather than raising a <c>TypeError</c>. An object that is not callable is
-    /// stored and read back — the getter returns what was assigned — but is never invoked, which is what
-    /// HTML's processing algorithm amounts to for a value that cannot be called.
+    /// https://dom.spec.whatwg.org/#dom-abortsignal-onabort, setter half.
     /// </summary>
     [JsAccessor("onabort", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnAbortSet(JsValue thisObject, JsValue value)
-    {
-        var signal = Brand(thisObject);
-        var existing = signal.FindEventHandler(JsAbortSignal.AbortEventType);
-
-        if (value is not ObjectInstance)
-        {
-            // "Deactivate an event handler": the listener goes away entirely.
-            if (existing is not null)
-            {
-                signal.RemoveListener(existing);
-            }
-
-            return Undefined;
-        }
-
-        if (existing is not null)
-        {
-            existing.Callback = value;
-            return Undefined;
-        }
-
-        signal.AddListener(new EventListenerRegistration(JsAbortSignal.AbortEventType, value) { IsEventHandler = true });
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsAbortSignal.AbortEventType, value);
 
     /// <summary>
     /// https://dom.spec.whatwg.org/#dom-abortsignal-throwifaborted

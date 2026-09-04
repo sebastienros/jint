@@ -4,6 +4,7 @@ using Jint.Native.Object;
 using Jint.Native.Symbol;
 using Jint.Runtime;
 using Jint.Runtime.Descriptors;
+using Jint.WebApi.Events;
 using Jint.WebApi.StructuredClone;
 
 namespace Jint.WebApi.Workers;
@@ -94,22 +95,23 @@ internal sealed partial class WorkerPrototype : Prototype
     /// https://html.spec.whatwg.org/multipage/workers.html#handler-worker-onmessage.
     /// </summary>
     /// <remarks>
-    /// The handler is one entry of this object's own event listener list, so it takes its turn in registration
-    /// order among the <c>addEventListener('message', …)</c> listeners. <b>Assigning it starts nothing</b> —
-    /// the parent's queue is enabled by the engine when the worker is created, so a listener registered either
-    /// way receives; see <c>WorkerErrors.SetEventHandler</c>.
+    /// <see cref="EventHandlerAttributes"/> is what one is: the handler is one entry of this object's own
+    /// event listener list, so it takes its turn in registration order among the
+    /// <c>addEventListener('message', …)</c> listeners. <b>Assigning it starts nothing</b>, and that is a
+    /// difference from <c>MessagePort</c> rather than an oversight — the specification scopes the implicit
+    /// <c>start()</c> to the <c>MessagePort</c> interface, and the <c>MessageEventTarget</c> mixin a
+    /// <c>Worker</c> and a worker's global scope include carries no such rule. So on both façades
+    /// <c>addEventListener('message', …)</c> alone has to receive, which is why the engine enables the
+    /// parent's queue when the worker is created.
     /// </remarks>
     [JsAccessor("onmessage", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageGet(JsValue thisObject)
-        => WorkerErrors.GetEventHandler(Brand(thisObject), JsWorker.MessageEventType);
+        => EventHandlerAttributes.Get(Brand(thisObject), JsWorker.MessageEventType);
 
     /// <inheritdoc cref="OnMessageGet" />
     [JsAccessor("onmessage", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageSet(JsValue thisObject, JsValue value)
-    {
-        WorkerErrors.SetEventHandler(Brand(thisObject), JsWorker.MessageEventType, value);
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsWorker.MessageEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/workers.html#handler-worker-onmessageerror. Present because the
@@ -117,15 +119,12 @@ internal sealed partial class WorkerPrototype : Prototype
     /// </summary>
     [JsAccessor("onmessageerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorGet(JsValue thisObject)
-        => WorkerErrors.GetEventHandler(Brand(thisObject), JsWorker.MessageErrorEventType);
+        => EventHandlerAttributes.Get(Brand(thisObject), JsWorker.MessageErrorEventType);
 
     /// <inheritdoc cref="OnMessageErrorGet" />
     [JsAccessor("onmessageerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnMessageErrorSet(JsValue thisObject, JsValue value)
-    {
-        WorkerErrors.SetEventHandler(Brand(thisObject), JsWorker.MessageErrorEventType, value);
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsWorker.MessageErrorEventType, value);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/workers.html#handler-abstractworker-onerror — the <i>plain</i>
@@ -156,15 +155,12 @@ internal sealed partial class WorkerPrototype : Prototype
     /// </remarks>
     [JsAccessor("onerror", Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnErrorGet(JsValue thisObject)
-        => WorkerErrors.GetEventHandler(Brand(thisObject), JsWorker.ErrorEventType);
+        => EventHandlerAttributes.Get(Brand(thisObject), JsWorker.ErrorEventType);
 
     /// <inheritdoc cref="OnErrorGet" />
     [JsAccessor("onerror", AccessorKind.Set, Flags = PropertyFlag.Configurable | PropertyFlag.Enumerable)]
     private JsValue OnErrorSet(JsValue thisObject, JsValue value)
-    {
-        WorkerErrors.SetEventHandler(Brand(thisObject), JsWorker.ErrorEventType, value);
-        return Undefined;
-    }
+        => EventHandlerAttributes.Set(Brand(thisObject), JsWorker.ErrorEventType, value);
 
     /// <summary>
     /// Resolves <c>postMessage</c>'s second argument to a transfer list. See the operation's remarks for the
