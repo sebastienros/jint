@@ -33,9 +33,11 @@ internal sealed class DomInterfaceDefinition
         bool hasInterfaceObject,
         DomWrapperKind wrapperKind,
         DomCollectionAccessor? collectionAccessor = null,
-        DomConstant[]? constants = null)
+        DomConstant[]? constants = null,
+        int constructorLength = 0)
     {
         Constants = constants ?? [];
+        ConstructorLength = constructorLength;
         Name = name;
         ClrInterface = clrInterface;
         _shapeFactory = shapeFactory;
@@ -45,6 +47,15 @@ internal sealed class DomInterfaceDefinition
         WrapperKind = wrapperKind;
         CollectionAccessor = collectionAccessor;
     }
+
+    /// <summary>
+    /// https://webidl.spec.whatwg.org/#es-interface-call — the interface object's <c>length</c>, which is
+    /// the number of arguments the constructor <em>requires</em>. Zero for every interface the generator
+    /// produces: an interface with no constructor has no required arguments, and the handful
+    /// <c>DomConstructors</c> gives one to all take optional arguments only. <c>StaticRange</c> is the
+    /// exception, and the reason this is a value rather than a constant.
+    /// </summary>
+    internal int ConstructorLength { get; }
 
     /// <summary>The WebIDL interface name — <c>HTMLDivElement</c>, the value of <c>[DomName]</c>.</summary>
     internal string Name { get; }
