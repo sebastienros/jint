@@ -205,7 +205,7 @@ internal sealed partial class CustomElementRegistry
         }
 
         _scheduled = true;
-        _runtime.Engine.AddToEventLoop(_checkpoint);
+        _runtime.Engine.AddToEventLoop(_checkpoint, EventLoopJobKind.Microtask);
     }
 
     private void RunCheckpoint()

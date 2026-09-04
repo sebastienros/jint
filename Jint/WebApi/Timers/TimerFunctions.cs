@@ -185,7 +185,7 @@ internal sealed class TimerFunctions
 
         // The current generation, unlike a timer's: this job is registered and queued in one act, so there is
         // no window in which the cycle could have ended in between.
-        _engine.AddToEventLoop(() => InvokeMicrotask(callback));
+        _engine.AddToEventLoop(() => InvokeMicrotask(callback), EventLoopJobKind.Microtask);
         return JsValue.Undefined;
     }
 

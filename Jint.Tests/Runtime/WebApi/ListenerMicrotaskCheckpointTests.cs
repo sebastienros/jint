@@ -258,6 +258,99 @@ public class ListenerMicrotaskCheckpointTests
     }
 
     /// <summary>
+    /// A <c>queueMicrotask</c> callback is a microtask, so the checkpoint runs it exactly as it runs a
+    /// promise reaction — https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#dom-queuemicrotask
+    /// queues one, and HTML's <i>perform a microtask checkpoint</i> runs the queue rather than one kind of
+    /// entry on it (sebastienros/jint#3734).
+    /// </summary>
+    [Test]
+    public void AQueueMicrotaskCallbackRunsInTheCheckpointToo()
+    {
+        var log = new List<string>();
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.Timers));
+        engine.SetValue("record", new Action<string>(entry => log.Add(entry)));
+
+        engine.Execute("""
+            globalThis.target = new EventTarget();
+            globalThis.ev = new Event('ping');
+            target.addEventListener('ping', () => {
+                record('first');
+                queueMicrotask(() => record('microtask'));
+            });
+            target.addEventListener('ping', () => record('second'));
+            """);
+
+        DispatchFromTheHost(engine);
+
+        log.Should().Equal("first", "microtask", "second");
+    }
+
+    /// <summary>
+    /// Every microtask at the head, not merely the first: a <c>queueMicrotask</c> callback that queues a
+    /// reaction, and a reaction that queues a <c>queueMicrotask</c>, are all one checkpoint's work.
+    /// </summary>
+    [Test]
+    public void TheCheckpointDrainsMicrotasksTheMicrotasksThemselvesQueue()
+    {
+        var log = new List<string>();
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.Timers));
+        engine.SetValue("record", new Action<string>(entry => log.Add(entry)));
+
+        engine.Execute("""
+            globalThis.target = new EventTarget();
+            globalThis.ev = new Event('ping');
+            target.addEventListener('ping', () => {
+                record('first');
+                queueMicrotask(() => {
+                    record('micro-1');
+                    Promise.resolve().then(() => {
+                        record('reaction');
+                        queueMicrotask(() => record('micro-2'));
+                    });
+                });
+            });
+            target.addEventListener('ping', () => record('second'));
+            """);
+
+        DispatchFromTheHost(engine);
+
+        log.Should().Equal("first", "micro-1", "reaction", "micro-2", "second");
+    }
+
+    /// <summary>
+    /// And the half that must not change: the checkpoint still stops at a <i>task</i>. Jint has one queue
+    /// where HTML has a microtask queue and a set of task queues, so a microtask queued behind a task cannot
+    /// be run without reordering the queue - it waits for the turn's own drain, exactly as it did before the
+    /// classification existed.
+    /// </summary>
+    [Test]
+    public void TheCheckpointStopsAtATaskEvenWhenAMicrotaskIsQueuedBehindIt()
+    {
+        var log = new List<string>();
+        var engine = new Engine(options => options.UseWebApis(WebApiFeatures.Events | WebApiFeatures.Timers));
+        engine.SetValue("record", new Action<string>(entry => log.Add(entry)));
+        engine.SetValue("postTask", new Action(() => engine.Tasks.Post(() => log.Add("task"))));
+
+        engine.Execute("""
+            globalThis.target = new EventTarget();
+            globalThis.ev = new Event('ping');
+            target.addEventListener('ping', () => {
+                record('first');
+                postTask();
+                queueMicrotask(() => record('microtask'));
+            });
+            target.addEventListener('ping', () => record('second'));
+            """);
+
+        DispatchFromTheHost(engine);
+
+        log.Should().Equal("first", "second");
+
+        engine.Tasks.ProcessTasks();
+        log.Should().Equal("first", "second", "task", "microtask");
+    }
+
+    /// <summary>
     /// The fast path: a dispatch with nothing queued behind it neither runs nor observes a job, whichever
     /// side started it.
     /// </summary>

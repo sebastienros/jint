@@ -21,6 +21,42 @@ internal readonly record struct EventLoopRegistration(
     MemoryLimitConstraint.OperationState? MemoryState);
 
 /// <summary>
+/// Which of HTML's two queues an entry on Jint's single job queue would have been on: its <i>microtask
+/// queue</i>, or one of its <i>task queues</i>.
+/// <para>
+/// https://html.spec.whatwg.org/multipage/webappapis.html#event-loop-processing-model
+/// </para>
+/// </summary>
+/// <remarks>
+/// <para>
+/// Jint has one queue, and running it in order is right for everything except one question:
+/// <see cref="EventLoop.RunMicrotaskCheckpoint"/> has to know where the microtasks end. So every enqueue
+/// site says which it is, at the site, and the two <see cref="Engine.AddToEventLoop(Action, EventLoopJobKind)"/>
+/// overloads take it with no default — a new source of deferred work has to decide rather than inherit.
+/// </para>
+/// <para>
+/// The rule is the specification that defines the work, not what the work does. "Queue a microtask" and
+/// ECMAScript's <i>jobs</i> — a promise reaction, a resolve-thenable job — are
+/// <see cref="Microtask"/>; "queue a task", "queue a global task" and everything a host hands the engine
+/// from outside are <see cref="Task"/>. When a source says neither, it is a <see cref="Task"/>: that is what
+/// every entry was before the classification existed, so nothing that was promised can change by leaving one
+/// alone.
+/// </para>
+/// </remarks>
+internal enum EventLoopJobKind : byte
+{
+    /// <summary>
+    /// A task. The checkpoint stops at it, and it runs in the turn's own drain.
+    /// </summary>
+    Task,
+
+    /// <summary>
+    /// A microtask. The checkpoint runs it, and so does the drain when no checkpoint reached it first.
+    /// </summary>
+    Microtask,
+}
+
+/// <summary>
 /// A single queued event-loop entry: either an opaque <see cref="Action"/> continuation or a
 /// promise reaction job carried as its (reaction, argument) pair so that enqueueing a reaction
 /// does not allocate a closure per job.
@@ -30,6 +66,7 @@ internal readonly struct EventLoopJob
     private readonly object _state;
     private readonly JsValue? _argument;
     private readonly MemoryLimitConstraint.OperationState? _memoryState;
+    private readonly EventLoopJobKind _kind;
 
     /// <summary>
     /// The <see cref="EventLoop.Generation"/> this job belongs to. A job whose generation is no longer the
@@ -42,12 +79,14 @@ internal readonly struct EventLoopJob
     public EventLoopJob(
         Action continuation,
         int generation,
-        MemoryLimitConstraint.OperationState? memoryState)
+        MemoryLimitConstraint.OperationState? memoryState,
+        EventLoopJobKind kind)
     {
         _state = continuation;
         _argument = null;
         _generation = generation;
         _memoryState = memoryState;
+        _kind = kind;
     }
 
     public EventLoopJob(
@@ -60,19 +99,21 @@ internal readonly struct EventLoopJob
         _argument = argument;
         _generation = generation;
         _memoryState = memoryState;
+
+        // A promise reaction is a microtask in every specification that has both, so this one is not asked.
+        _kind = EventLoopJobKind.Microtask;
     }
 
     public int Generation => _generation;
     public MemoryLimitConstraint.OperationState? MemoryState => _memoryState;
 
     /// <summary>
-    /// Whether <see cref="EventLoop.RunMicrotaskCheckpoint"/> may run this job: a promise reaction, which is
-    /// the one job kind that is a <i>microtask</i> in every specification that has both, or
-    /// <see cref="EventLoop.WakeJob"/>, which is not work at all. Every other entry on this single queue is
-    /// either a task or something only the turn's own drain may run.
+    /// Whether <see cref="EventLoop.RunMicrotaskCheckpoint"/> may run this job: a
+    /// <see cref="EventLoopJobKind.Microtask"/>, which is what the checkpoint exists to run, or
+    /// <see cref="EventLoop.WakeJob"/>, which is not work at all and so is neither run nor stopped at.
     /// </summary>
     internal bool MayRunInMicrotaskCheckpoint
-        => _state is PromiseReaction || ReferenceEquals(_state, EventLoop.WakeJob);
+        => _kind == EventLoopJobKind.Microtask || ReferenceEquals(_state, EventLoop.WakeJob);
 
     public void Run(Engine engine)
     {
@@ -96,10 +137,9 @@ internal sealed record EventLoop
     /// </summary>
     /// <remarks>
     /// It exists as a shared instance because <see cref="RunMicrotaskCheckpoint"/> identifies it by
-    /// reference: a checkpoint runs the promise reactions at the head of the queue and stops at anything
-    /// else, and a wake is neither a microtask to run nor a task to stop at, so an equivalent empty lambda
-    /// posted from a call site would silently cost every callback that returned while it was queued its
-    /// checkpoint.
+    /// reference: a checkpoint runs the microtasks at the head of the queue and stops at the first task, and
+    /// a wake is neither a microtask to run nor a task to stop at, so an equivalent empty lambda posted from
+    /// a call site would silently cost every callback that returned while it was queued its checkpoint.
     /// </remarks>
     internal static readonly Action WakeJob = static () => { };
 
@@ -205,8 +245,8 @@ internal sealed record EventLoop
     /// </summary>
     internal int QueueDepth => _events.Count;
 
-    public void Enqueue(Action continuation)
-        => Enqueue(new EventLoopJob(continuation, Generation, memoryState: null));
+    public void Enqueue(Action continuation, EventLoopJobKind kind)
+        => Enqueue(new EventLoopJob(continuation, Generation, memoryState: null, kind));
 
     public void Enqueue(in EventLoopJob job)
     {
@@ -454,18 +494,16 @@ internal sealed record EventLoop
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It runs the promise reactions at the head of the queue and stops at the first job that is not
-    /// one.</b> Jint has a single queue where HTML has a microtask queue and a set of task queues, and
-    /// <see cref="EventLoopJob.MayRunInMicrotaskCheckpoint"/> is the only classification of it that cannot
-    /// be wrong: a reaction is a microtask in every specification that distinguishes the two, while the
-    /// <see cref="Action"/> entries are a mix — a <c>queueMicrotask</c> callback, but also a
-    /// <c>FileReader</c> step, a <c>scheduler.postTask</c> task, an <c>XMLHttpRequest</c> delivery, a worker
-    /// message. Running one of those from here would run a <i>task</i> inside a checkpoint, which no event
-    /// loop does; skipping past it to a reaction behind it would reorder the queue. So the checkpoint stops,
-    /// and everything from that job on runs in the turn's own drain exactly as it always did — which is the
-    /// behaviour every dispatch had before this method existed, so the incompleteness costs nothing that was
-    /// ever promised. <see cref="WakeJob"/> is the one <see cref="Action"/> it looks past, because a wake is
-    /// not work; classifying the rest is what would make the checkpoint complete.
+    /// <b>It runs the microtasks at the head of the queue and stops at the first task.</b> Jint has a single
+    /// queue where HTML has a microtask queue and a set of task queues, so which of the two an entry belongs
+    /// to is carried by the entry: every enqueue site states an <see cref="EventLoopJobKind"/>, and
+    /// <see cref="EventLoopJob.MayRunInMicrotaskCheckpoint"/> is that answer. Running a task from here would
+    /// run one inside a checkpoint, which no event loop does; <b>skipping past it</b> to a microtask behind
+    /// it would reorder the one queue, which is the approximation that remains — a
+    /// <c>queueMicrotask</c> callback queued behind an <c>XMLHttpRequest</c> delivery waits for the turn's
+    /// own drain, where a browser would run it first. That is the behaviour every dispatch had before this
+    /// method existed, so what still waits costs nothing that was ever promised.
+    /// <see cref="WakeJob"/> is looked past rather than stopped at, because a wake is not work.
     /// </para>
     /// <para>
     /// <b>Nothing is promoted.</b> A due timer and an idle callback are tasks that

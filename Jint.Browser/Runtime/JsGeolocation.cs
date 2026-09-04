@@ -152,7 +152,7 @@ internal sealed class JsGeolocation : ObjectInstance
                     JsValue.Undefined,
                     [Error(engine, PositionUnavailable, "No geolocation override is set for this page.")]);
             }
-        });
+        }, EventLoopJobKind.Task);
     }
 
     private static JsObject Position(Engine engine, in GeolocationOverride fix, double timestamp) => JsObject.Create(

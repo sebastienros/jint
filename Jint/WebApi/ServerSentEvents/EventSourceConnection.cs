@@ -303,7 +303,7 @@ internal sealed class EventSourceConnection
             return;
         }
 
-        _engine.AddToEventLoop(() => Run(job), _generation);
+        _engine.AddToEventLoop(() => Run(job), _generation, EventLoopJobKind.Task);
     }
 
     /// <summary>
@@ -316,7 +316,7 @@ internal sealed class EventSourceConnection
             return;
         }
 
-        _engine.AddToEventLoop(() => Complete(outcome), _generation);
+        _engine.AddToEventLoop(() => Complete(outcome), _generation, EventLoopJobKind.Task);
     }
 
     /// <summary>

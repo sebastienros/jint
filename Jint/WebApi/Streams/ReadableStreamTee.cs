@@ -208,7 +208,7 @@ internal sealed class ReadableStreamTee
                 {
                     _tee.PullAlgorithm();
                 }
-            });
+            }, EventLoopJobKind.Task);
         }
 
         internal override void CloseSteps()

@@ -1,4 +1,6 @@
 #if NET8_0_OR_GREATER
+using Jint.Runtime;
+
 namespace Jint.WebApi.Files;
 
 /// <summary>
@@ -66,7 +68,7 @@ internal sealed class FileReadQueue(Engine engine)
         }
 
         _pumpScheduled = true;
-        _engine.AddToEventLoop(_pumpJob ??= RunNextStep, _engine.EventLoopGeneration);
+        _engine.AddToEventLoop(_pumpJob ??= RunNextStep, _engine.EventLoopGeneration, EventLoopJobKind.Task);
     }
 
     private void RunNextStep()

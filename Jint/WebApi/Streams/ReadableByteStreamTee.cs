@@ -292,7 +292,7 @@ internal sealed class ReadableByteStreamTee
                 }
 
                 _tee.ReadAgainIfRequested();
-            });
+            }, EventLoopJobKind.Task);
         }
 
         internal override void CloseSteps()
@@ -386,7 +386,7 @@ internal sealed class ReadableByteStreamTee
                 }
 
                 _tee.ReadAgainIfRequested();
-            });
+            }, EventLoopJobKind.Task);
         }
 
         internal override void CloseSteps(JsValue chunk)

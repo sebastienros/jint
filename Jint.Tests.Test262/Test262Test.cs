@@ -108,7 +108,7 @@ public abstract partial class Test262Test
             {
                 if (delay <= 0)
                 {
-                    engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty));
+                    engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty), EventLoopJobKind.Task);
                 }
                 else
                 {
@@ -349,7 +349,7 @@ public abstract partial class Test262Test
                             if (due <= now)
                             {
                                 duePending.RemoveAt(i);
-                                engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty));
+                                engine.AddToEventLoop(() => callable.Call(JsValue.Undefined, Arguments.Empty), EventLoopJobKind.Task);
                             }
                         }
                     }

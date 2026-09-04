@@ -218,8 +218,10 @@ internal static class NodeProcess
         var extraArguments = Arguments.Slice(arguments, 1);
 
         // The current generation, since registering and enqueuing happen in one act here: there is no window
-        // in which the cycle could have ended in between.
-        engine.AddToEventLoop(() => callback.Call(JsValue.Undefined, extraArguments));
+        // in which the cycle could have ended in between. A microtask, because Node drains the next-tick
+        // queue *before* the microtask queue and both before returning to the loop: whatever else it is, it
+        // is emphatically not a task.
+        engine.AddToEventLoop(() => callback.Call(JsValue.Undefined, extraArguments), EventLoopJobKind.Microtask);
         return JsValue.Undefined;
     }
 

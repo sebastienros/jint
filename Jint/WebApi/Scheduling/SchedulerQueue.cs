@@ -208,7 +208,8 @@ internal sealed class SchedulerQueue
         // captured state around Run() instead.
         _engine.AddToEventLoop(
             _pumpJob ??= RunNextTask,
-            _engine.EventLoopGeneration);
+            _engine.EventLoopGeneration,
+            EventLoopJobKind.Task);
     }
 
     /// <summary>

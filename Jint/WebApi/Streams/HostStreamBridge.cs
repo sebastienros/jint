@@ -220,7 +220,7 @@ internal abstract class HostStreamBridge
     /// began — see <see cref="TryBeginOperation"/>.
     /// </summary>
     protected void Enqueue(Action job, EventLoopRegistration registration)
-        => Engine.AddToEventLoop(job, registration);
+        => Engine.AddToEventLoop(job, registration, EventLoopJobKind.Task);
 
     /// <summary>
     /// The chunk a host stream's bytes are delivered to script as: a fresh <c>Uint8Array</c> over a copy,

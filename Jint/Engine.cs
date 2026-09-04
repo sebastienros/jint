@@ -2704,7 +2704,7 @@ public sealed partial class Engine : IDisposable
             AddToEventLoop(() =>
             {
                 settle.Call(JsValue.Undefined, [JsValue.FromObject(this, value)]);
-            }, registration);
+            }, registration, EventLoopJobKind.Task);
 
             // Signal the CompletedEvent so that UnwrapIfPromise knows there's work to process.
             promise.CompletedEvent.Set();
@@ -2728,9 +2728,14 @@ public sealed partial class Engine : IDisposable
     /// caller running on the engine thread wants. Work registered in one cycle and enqueued in a later one
     /// must use the overload below instead.
     /// </summary>
-    internal void AddToEventLoop(Action continuation)
+    /// <param name="continuation">The work.</param>
+    /// <param name="kind">
+    /// Which of HTML's two queues this work would have been on — see <see cref="EventLoopJobKind"/>, which
+    /// says how the question is answered and why it has no default.
+    /// </param>
+    internal void AddToEventLoop(Action continuation, EventLoopJobKind kind)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, _eventLoop.Generation, CaptureMemoryLimitState()));
+        _eventLoop.Enqueue(new EventLoopJob(continuation, _eventLoop.Generation, CaptureMemoryLimitState(), kind));
     }
 
     /// <summary>
@@ -2739,12 +2744,16 @@ public sealed partial class Engine : IDisposable
     /// to. Used by the promise settle closures, the timers and the web continuations, all of which can fire
     /// on a background thread long after the call that registered them returned.
     /// </summary>
-    internal void AddToEventLoop(Action continuation, EventLoopRegistration registration)
+    /// <param name="continuation">The work.</param>
+    /// <param name="registration">What the registration captured.</param>
+    /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
+    internal void AddToEventLoop(Action continuation, EventLoopRegistration registration, EventLoopJobKind kind)
     {
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
-            registration.MemoryState));
+            registration.MemoryState,
+            kind));
     }
 
     /// <summary>
@@ -2760,12 +2769,15 @@ public sealed partial class Engine : IDisposable
     /// belongs to, and a source that delivers for as long as the script leaves it open must not accumulate
     /// against one either — each delivery begins a budget of its own. The finite continuations — a
     /// <c>setTimeout</c>, a <c>fetch</c>, one host-stream read or write — use
-    /// <see cref="AddToEventLoop(Action, EventLoopRegistration)"/> instead, and so does a <c>setInterval</c>,
+    /// <see cref="AddToEventLoop(Action, EventLoopRegistration, EventLoopJobKind)"/> instead, and so does a <c>setInterval</c>,
     /// whose registration carries the cycle but deliberately no budget (see <c>TimerEntry</c>).
     /// </remarks>
-    internal void AddToEventLoop(Action continuation, int generation)
+    /// <param name="continuation">The work.</param>
+    /// <param name="generation">The evaluation cycle it belongs to.</param>
+    /// <param name="kind">Which of HTML's two queues it belongs to — see <see cref="EventLoopJobKind"/>.</param>
+    internal void AddToEventLoop(Action continuation, int generation, EventLoopJobKind kind)
     {
-        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null));
+        _eventLoop.Enqueue(new EventLoopJob(continuation, generation, memoryState: null, kind));
     }
 
     /// <summary>
@@ -2789,7 +2801,7 @@ public sealed partial class Engine : IDisposable
 
     /// <summary>
     /// Queues the engine-thread half of an asynchronous module load. Separate from
-    /// <see cref="AddToEventLoop(Action, EventLoopRegistration)"/> only in name, to keep the module loader's
+    /// <see cref="AddToEventLoop(Action, EventLoopRegistration, EventLoopJobKind)"/> only in name, to keep the module loader's
     /// one cross-thread entry point findable.
     /// </summary>
     internal void EnqueueModuleLoadCompletion(Action continuation, EventLoopRegistration registration)
@@ -2797,7 +2809,12 @@ public sealed partial class Engine : IDisposable
         _eventLoop.Enqueue(new EventLoopJob(
             continuation,
             registration.Generation,
-            registration.MemoryState));
+            registration.MemoryState,
+
+            // A task: HTML fetches a module script with the networking task source and finishes the load from
+            // a task it queues, and the ECMAScript jobs that linking and evaluation then enqueue are the
+            // microtasks. This is the arrival of a fetch, not one of those.
+            EventLoopJobKind.Task));
     }
 
     internal MemoryLimitConstraint.OperationState? CaptureMemoryLimitState()

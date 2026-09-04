@@ -330,7 +330,7 @@ internal sealed class JsEventSource : JsEventTarget
     /// too many streams already open, a client the host would not supply — happen inside the constructor,
     /// where the standard's failures are all in a task rather than in the caller's stack.
     /// </summary>
-    private void FailConnectionLater() => _engine.AddToEventLoop(FailConnection);
+    private void FailConnectionLater() => _engine.AddToEventLoop(FailConnection, EventLoopJobKind.Task);
 
     /// <summary>
     /// https://html.spec.whatwg.org/multipage/server-sent-events.html#reestablish-the-connection: set

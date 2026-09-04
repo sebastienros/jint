@@ -2,6 +2,7 @@ using AngleSharp.Dom;
 using Jint.Browser.Accessibility;
 using Jint.Browser.Events;
 using Jint.Browser.Runtime;
+using Jint.Runtime;
 
 namespace Jint.Browser.Layout;
 
@@ -159,7 +160,7 @@ internal sealed class PageLayout
         }
 
         _scrollScheduled = true;
-        _runtime.Engine.AddToEventLoop(_scrollJob);
+        _runtime.Engine.AddToEventLoop(_scrollJob, EventLoopJobKind.Task);
     }
 
     private void FireScroll()

@@ -151,7 +151,7 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
         // cycle could have ended in between. No memory state, because a delivery turn runs whichever
         // callbacks are registered and those belong to whatever operation registered them — the same choice
         // the scheduler's pump job makes.
-        _engine.AddToEventLoop(_deliverJob ??= Deliver, _engine.EventLoopGeneration);
+        _engine.AddToEventLoop(_deliverJob ??= Deliver, _engine.EventLoopGeneration, EventLoopJobKind.Task);
     }
 
     /// <summary>
@@ -233,7 +233,21 @@ internal sealed class PerformanceObserverRegistry(Engine engine)
 
         try
         {
-            observer.Callback.Call(observer, [entryList, observer, callbackOptions]);
+            try
+            {
+                observer.Callback.Call(observer, [entryList, observer, callbackOptions]);
+            }
+            finally
+            {
+                // WebIDL's invoke a callback function ends in HTML's clean up after running script, which
+                // performs a microtask checkpoint when the callback returned to an empty JavaScript execution
+                // context stack — and the delivery is a job, so it always has. One delivery invokes every
+                // observer whose buffer is non-empty, so without this a reaction the first callback queued
+                // would wait behind every observer after it rather than running between the two, which is
+                // the same defect #3733 fixed for two listeners of one dispatch. The inner finally is that
+                // step's position: it runs whether the callback returned or threw, before the report below.
+                _engine.CleanUpAfterRunningScript();
+            }
         }
         catch (JavaScriptException exception) when (_engine._webApi?.Diagnostics is { } diagnostics)
         {

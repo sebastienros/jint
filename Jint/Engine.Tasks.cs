@@ -120,7 +120,7 @@ public partial class Engine
             // overload carrying no memory state is the one for work that is not part of any single engine
             // operation: a host thread's post has no originating operation whose budget its turn belongs to,
             // and capturing one would mean writing to the running operation's state from this thread.
-            _engine.AddToEventLoop(action, _engine.EventLoopGeneration);
+            _engine.AddToEventLoop(action, _engine.EventLoopGeneration, EventLoopJobKind.Task);
         }
 
         /// <summary>

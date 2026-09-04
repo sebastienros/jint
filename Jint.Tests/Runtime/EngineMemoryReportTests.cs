@@ -226,8 +226,8 @@ public class EngineMemoryReportTests
         var engine = new Engine();
         engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(0);
 
-        engine.AddToEventLoop(static () => { });
-        engine.AddToEventLoop(static () => { });
+        engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
+        engine.AddToEventLoop(static () => { }, EventLoopJobKind.Task);
 
         engine.Diagnostics.GetMemoryReport().EventLoopQueueDepth.Should().Be(2);
 

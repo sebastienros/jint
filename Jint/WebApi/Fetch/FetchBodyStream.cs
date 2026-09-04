@@ -301,7 +301,7 @@ internal sealed class FetchBodyStream : IDisposable
 
     private void Post(byte[]? chunk, FetchFailureException? failure)
     {
-        _engine.AddToEventLoop(() => Deliver(chunk, failure), _registration);
+        _engine.AddToEventLoop(() => Deliver(chunk, failure), _registration, EventLoopJobKind.Task);
     }
 
     /// <summary>

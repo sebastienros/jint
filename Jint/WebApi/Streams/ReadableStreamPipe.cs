@@ -542,7 +542,7 @@ internal sealed class ReadableStreamPipe
                     onRejected: static _ => JsValue.Undefined);
 
                 _readCapability.Resolve(JsBoolean.False);
-            });
+            }, EventLoopJobKind.Task);
         }
 
         internal override void CloseSteps() => _readCapability.Resolve(JsBoolean.True);

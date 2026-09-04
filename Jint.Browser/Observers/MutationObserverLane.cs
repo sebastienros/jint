@@ -1,4 +1,5 @@
 using Jint.Browser.Runtime;
+using Jint.Runtime;
 
 namespace Jint.Browser.Observers;
 
@@ -49,7 +50,7 @@ internal sealed class MutationObserverLane
         }
 
         _scheduled = true;
-        _runtime.Engine.AddToEventLoop(_notifyJob);
+        _runtime.Engine.AddToEventLoop(_notifyJob, EventLoopJobKind.Microtask);
     }
 
     /// <summary>Takes <paramref name="observer"/> out of the notify set; its queue is empty.</summary>

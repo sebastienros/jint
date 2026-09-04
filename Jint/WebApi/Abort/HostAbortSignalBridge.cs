@@ -1,6 +1,7 @@
 #if NET8_0_OR_GREATER
 using System.Threading;
 using Jint.Native;
+using Jint.Runtime;
 
 namespace Jint.WebApi.Abort;
 
@@ -61,7 +62,7 @@ internal sealed class HostAbortSignalBridge
     /// engine member it may touch is the event loop's queue, which is the one part of an <see cref="Engine"/>
     /// that is thread-safe by design.
     /// </summary>
-    private void OnCancellationRequested() => _engine.AddToEventLoop(_job, _generation);
+    private void OnCancellationRequested() => _engine.AddToEventLoop(_job, _generation, EventLoopJobKind.Task);
 
     /// <summary>
     /// The engine-thread half: build the reason in this realm and abort. Reached only through the event loop,
