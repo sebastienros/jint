@@ -1,58 +1,119 @@
 ﻿using System.Text;
 using Acornima.Ast;
+using Jint.Native;
 using Jint.Runtime.Interop;
 using Jint.Runtime.Interpreter;
 
 namespace Jint.Tests.Runtime;
 
-// This needs to run without any parallelization because it uses
-// garbage collector metrics which cannot be isolated. NUnit runs the non-parallel fixtures in a shift of
-// their own, on one worker, so this runs with nothing else in flight — including the three other fixtures
-// below that measure the same thing.
+// This needs to run without any parallelization because it uses garbage collector state, which cannot be
+// isolated: a collection sees the whole process. NUnit runs the non-parallel fixtures in a shift of their
+// own, on one worker, so this runs with nothing else in flight — including the other fixtures that also
+// read GC state (FinalizationRegistryTests, SharedObjectShapeTests and the two Atomics ones), which are
+// non-parallel for the same reason.
 [NonParallelizable]
 public class GarbageCollectionTests
 {
+    /// <summary>
+    /// Memory a script allocates inside a function, and nothing outside it names, must be collectable once
+    /// the call returns — no interpreter cache may go on holding it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Reachability, not residency.</b> This differenced two <c>GC.GetTotalMemory(forceFullCollection:
+    /// true)</c> readings taken either side of the call and required the delta to stay under a 10 MB
+    /// epsilon. That is a residency reading of a whole process, so anything else the runner allocates
+    /// between the two lands in the number — and the allocation here is a hundred one-megabyte strings,
+    /// which are large-object allocations whose segments a forced collection frees without returning. It
+    /// failed the macOS leg of a pull request that changed one row of a markdown file and could not touch
+    /// the GC at all, and a re-run cleared it; each occurrence costs a twenty-minute CI leg.
+    /// </para>
+    /// <para>
+    /// So the question is asked directly. The script hands the array it built to a host callback that keeps
+    /// only a <see cref="WeakReference"/> to it, never a strong one, and after a full collection that
+    /// reference says outright whether anything still reaches it. There is no epsilon to tune and no
+    /// residue term to be confused by, and the statement is the stronger one: it names the array rather than
+    /// an amount of bytes that resembles it. This is the shape
+    /// <see cref="PreparedScriptsDoNotRetainSourceTextByDefault"/> was converted to for the same reason, and
+    /// the one <see cref="AFiveArgumentCallSiteRetainsNoCallee"/> already used.
+    /// </para>
+    /// <para>
+    /// The magnitude is no longer load-bearing — a reference is alive or it is not, whatever it weighs — but
+    /// it is kept because the large-object path is the scenario the regression class is about.
+    /// <see cref="AnAllocationTheScriptStillHoldsIsNotCollected"/> is the control that stops this passing
+    /// for the wrong reason.
+    /// </para>
+    /// </remarks>
     [Test]
     public void InternalCachingDoesNotPreventGarbageCollection()
     {
-        // This test ensures that memory allocated within functions
-        // can be garbage collected by the .NET runtime. To test that,
-        // the "allocate" functions allocates a big chunk of memory,
-        // which is not used anywhere. So the GC should have no problem
-        // releasing that memory after the "allocate" function leaves.
-
-        // Arrange
         var engine = new Engine();
-        const string script =
-            """
-            function allocate(runAllocation) {
-                if (runAllocation) {
-                    // Allocate ~200 MB of data (not 100 because .NET uses UTF-16 for strings)
-                    var test = Array.from({ length: 100 })
-                        .map(() => ' '.repeat(1 * 1024 * 1024));
-                }
-                return 2;
+
+        var allocation = AllocateInsideAFunction(engine, keepInAGlobal: false);
+
+        Collect();
+
+        allocation.IsAlive.Should().BeFalse(
+            "nothing outside the call names the array, so only an interpreter cache could still reach it");
+
+        // The engine owns the caches under test, so it has to outlive the collection — otherwise this could
+        // pass because the engine died rather than because it let go.
+        GC.KeepAlive(engine);
+    }
+
+    /// <summary>
+    /// The control, and the reason the test above can be trusted: the same allocation, still named by a
+    /// global, must survive. Without it a harness that failed to allocate at all — or that observed the
+    /// wrong value — would satisfy the assertion above for the wrong reason.
+    /// </summary>
+    [Test]
+    public void AnAllocationTheScriptStillHoldsIsNotCollected()
+    {
+        var engine = new Engine();
+
+        var allocation = AllocateInsideAFunction(engine, keepInAGlobal: true);
+
+        Collect();
+
+        allocation.IsAlive.Should().BeTrue("a global still names the array, so it must not be collected");
+
+        GC.KeepAlive(engine);
+    }
+
+    /// <summary>
+    /// Runs the allocation and hands back a weak reference to the array the script built, having kept no
+    /// strong one. <c>NoInlining</c> so the value cannot stay rooted in the caller's frame across the
+    /// collection.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static WeakReference AllocateInsideAFunction(Engine engine, bool keepInAGlobal)
+    {
+        WeakReference observed = null;
+
+        // Only the first call is recorded, so the second one below can churn the argument buffer without
+        // overwriting what this is holding.
+        engine.SetValue("observe", new Action<JsValue>(value => observed ??= new WeakReference(value)));
+
+        engine.Execute($$"""
+            var kept = null;
+            function allocate() {
+                // ~200 MB, because .NET strings are UTF-16; every element is a large-object allocation.
+                var block = Array.from({ length: 100 })
+                    .map(() => ' '.repeat(1 * 1024 * 1024));
+                observe(block);
+                {{(keepInAGlobal ? "kept = block;" : "")}}
             }
-            """;
-        engine.Evaluate(script);
+            allocate();
+            """);
 
-        // Create a baseline for memory usage.
-        engine.Evaluate("allocate(false);");
-        var usedMemoryBytesBaseline = CurrentlyUsedMemory();
+        return observed;
+    }
 
-        // Act
-        engine.Evaluate("allocate(true);");
-
-        // Assert
-        var usedMemoryBytesAfterJsScript = CurrentlyUsedMemory();
-        var epsilon = 10 * 1024 * 1024; // allowing up to 10 MB of other allocations should be enough to prevent false positives
-        (usedMemoryBytesAfterJsScript - usedMemoryBytesBaseline).Should().BeLessThan(epsilon, $"""
-                          The garbage collector did not free the allocated but unreachable 200 MB from the script.;
-                          Before Call : {BytesToString(usedMemoryBytesBaseline)}
-                          After Call  : {BytesToString(usedMemoryBytesAfterJsScript)}
-                          ---
-                          Acceptable  : {BytesToString(usedMemoryBytesBaseline + epsilon)}
-                          """);
+    private static void Collect()
+    {
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
     }
 
     [Test]
