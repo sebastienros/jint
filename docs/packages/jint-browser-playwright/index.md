@@ -6,16 +6,17 @@ It starts no browser, Node process, driver, or CDP connection. Operations run in
 
 [View Jint.Browser.Playwright on NuGet.org](https://www.nuget.org/packages/Jint.Browser.Playwright)
 
-```csharp
-using Jint.Browser.Playwright;
-using Microsoft.Playwright;
+With `using Jint.Browser.Playwright;` in scope:
 
+<!-- snippet: package-playwright-first-page -->
+```csharp
 await using var browser = await JintPlaywright.BrowserType.LaunchAsync();
 var page = await browser.NewPageAsync();
 
 await page.SetContentAsync("<button id='save'>Save</button>");
 await page.Locator("#save").ClickAsync();
 ```
+<!-- endSnippet -->
 
 The adapter is built against Microsoft.Playwright 1.62. It references Playwright for public API contracts while excluding its build assets, so Playwright's bundled Node runtime and browser driver are not copied into the consuming application.
 

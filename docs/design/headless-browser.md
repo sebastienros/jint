@@ -347,7 +347,8 @@ and `.sub.html` substitution; a `testharnessreport.js` overlay posts results thr
 `.any.js` files run again inside a real `Window` realm through synthesized `.any.html` wrappers.
 
 **What was built** is `Jint.Tests.Browser/Wpt/`, and four things about it differ from the paragraph above, each
-for a reason its own [`AGENTS.md`](../../Jint.Tests.Browser/Wpt/AGENTS.md) argues. The corpus is **not** vendored
+for a reason its own [`AGENTS.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Wpt/AGENTS.md)
+argues. The corpus is **not** vendored
 twice: `Jint.Tests.Browser` references `Jint.Tests` and runs the same tree at the same pin, so there is one
 corpus and one pin. The overlay posts **strings** through a host function the driver installs on every page
 engine, not values through a binding, because a page's engine belongs to a thread the driver is not on. Only the
@@ -377,7 +378,8 @@ census does not have is a suite nobody has vendored yet, never a disagreement.
 `chromedriver`, and speaks WebDriver classic — its CDP is tunnelled through `chromedriver`'s
 `goog/cdp/execute` extension command, and no `debuggerAddress` capability exists anywhere in the wpt tree.
 Lightpanda ships a WebDriver front end beside its CDP for exactly this reason. What is here instead is a
-**wptrunner product plugin**, [`tools/wpt-scoreboard/`](../../tools/wpt-scoreboard/README.md), registered
+**wptrunner product plugin**,
+[`tools/wpt-scoreboard/`](https://github.com/sebastienros/jint/tree/main/tools/wpt-scoreboard), registered
 through upstream's `wptrunner.products` entry-point group so that no fork of wpt is needed: its executor
 navigates a page over CDP and reads the results upstream's own `testharnessreport.js` posts, through a
 `Runtime.addBinding` binding, and every judgement about whether a subtest passed stays upstream's.
@@ -415,7 +417,8 @@ about them differ from the paragraph above. The course runs on all four legs, as
 **Playwright** suite does not: its driver is a Node process the package carries, so the suite reads
 `JINT_BROWSER_CLIENTS` and a `browser-clients` CI leg sets it, while PuppeteerSharp's stays on every leg
 because it costs nothing. A fixture that does not pass is a **`needs triage` row** in
-[`Fixtures/README.md`](../../Jint.Tests.Browser/Fixtures/README.md) with the failing assertion and a
+[`Fixtures/README.md`](https://github.com/sebastienros/jint/blob/main/Jint.Tests.Browser/Fixtures/README.md)
+with the failing assertion and a
 one-line diagnosis, and `FixtureInventoryTests` fails unless that set is exactly the set of cases marked
 `[Explicit]` — the discipline the web-platform-tests exclusion table is under, for the same reason. Both
 rows that were ever written have since been retired by the pull request that paid them: `htmx` was owed

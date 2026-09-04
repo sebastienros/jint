@@ -51,14 +51,16 @@ dotnet add package Jint
 
 [View Jint on NuGet.org](https://www.nuget.org/packages/Jint)
 
-```csharp
-using Jint;
+With `using Jint;` in scope:
 
+<!-- snippet: home-first-script -->
+```csharp
 var result = new Engine()
     .SetValue("name", "World")
     .Evaluate("`Hello, ${name}!`")
     .AsString();
 ```
+<!-- endSnippet -->
 
 The `Jint` package is the main entry point. Add another package only when you need debugging or browser
 functionality. Jint is open source under the

@@ -10,6 +10,9 @@ dotnet add package Jint.Browser
 
 [View Jint.Browser on NuGet.org](https://www.nuget.org/packages/Jint.Browser)
 
+With `using Jint.Browser;` in scope:
+
+<!-- snippet: package-browser-first-page -->
 ```csharp
 await using var browser = new Browser();
 var page = await browser.NewPageAsync();
@@ -17,6 +20,7 @@ var page = await browser.NewPageAsync();
 await page.NavigateAsync("https://example.org/");
 Console.WriteLine(await page.MarkdownAsync());
 ```
+<!-- endSnippet -->
 
 The package targets .NET 8 and later. It is not currently trim- or AOT-compatible because AngleSharp is not trim-annotated.
 

@@ -5,10 +5,17 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "test:tools": "node --test scripts/*.test.mjs",
+    "samples:sync": "node scripts/sync-snippets.mjs",
+    "samples:check": "node scripts/sync-snippets.mjs --check",
+    "check-links": "node scripts/check-links.mjs .vitepress/dist",
+    "lint": "markdownlint-cli2 \"**/*.md\" \"../README.md\" \"../Jint.DevTools/README.md\" \"../Jint.Browser/README.md\" \"../Jint.Browser.Playwright/README.md\" \"../Jint.Browser.Tool/README.md\" \"../Jint.Browser.Mcp/README.md\"",
+    "lint:fix": "npm run lint -- --fix"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "markdownlint-cli2": "^0.23.2",
     "vitepress": "^2.0.0-alpha.17"
   }
 }

@@ -8,7 +8,6 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
-  ignoreDeadLinks: true,
   srcExclude: [
     "README.md",
     "agent-instruction-files.md",

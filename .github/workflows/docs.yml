@@ -6,11 +6,23 @@ on:
     branches: [ main ]
     paths:
       - 'docs/**'
+      - 'README.md'
+      - 'Jint.DevTools/README.md'
+      - 'Jint.Browser/README.md'
+      - 'Jint.Browser.Playwright/README.md'
+      - 'Jint.Browser.Tool/README.md'
+      - 'Jint.Browser.Mcp/README.md'
       - '.github/workflows/docs.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'docs/**'
+      - 'README.md'
+      - 'Jint.DevTools/README.md'
+      - 'Jint.Browser/README.md'
+      - 'Jint.Browser.Playwright/README.md'
+      - 'Jint.Browser.Tool/README.md'
+      - 'Jint.Browser.Mcp/README.md'
       - '.github/workflows/docs.yml'
 
 concurrency:
@@ -20,6 +32,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      DOCS_BASE: /jint/
     permissions:
       contents: read
 
@@ -34,15 +48,38 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
       - name: Install dependencies
         run: npm ci
+        working-directory: docs
+
+      - name: Test documentation tools
+        run: npm run test:tools
+        working-directory: docs
+
+      - name: Verify compiled snippets
+        run: npm run samples:check
+        working-directory: docs
+
+      - name: Build documentation samples
+        run: dotnet build snippets/Jint.Documentation.Samples/Jint.Documentation.Samples.csproj -c Release
         working-directory: docs
 
       - name: Build documentation
         run: npm run build
         working-directory: docs
-        env:
-          DOCS_BASE: /jint/
+
+      - name: Check links and anchors
+        run: npm run check-links
+        working-directory: docs
+
+      - name: Lint Markdown
+        run: npm run lint
+        working-directory: docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

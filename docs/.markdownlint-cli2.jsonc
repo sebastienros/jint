@@ -1,0 +1,13 @@
+{
+  // Design records and the migration ledger predate the public site and retain
+  // their reviewed formatting. New package, guide, reference, and site pages
+  // are linted.
+  "ignores": [
+    ".vitepress/**",
+    "design/**",
+    "node_modules/**",
+    "releases/**",
+    "snippets/**",
+    "v5-migration.md"
+  ]
+}

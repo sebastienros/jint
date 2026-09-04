@@ -13,15 +13,17 @@ dotnet add package Jint
 
 ## First script
 
-```csharp
-using Jint;
+With `using Jint;` in scope:
 
+<!-- snippet: package-jint-first-script -->
+```csharp
 var engine = new Engine()
     .SetValue("name", "Ada");
 
 var greeting = engine.Evaluate("`Hello, ${name}!`").AsString();
 Console.WriteLine(greeting);
 ```
+<!-- endSnippet -->
 
 Jint implements modern ECMAScript, including modules, promises, async functions, `Intl`, and `Temporal`.
 Browser APIs and Node compatibility are separate, explicit opt-ins.

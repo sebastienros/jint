@@ -68,4 +68,4 @@ engine.Execute(
 ```
 
 Next, [connect a client](connecting.md). For applications without an existing engine loop, see
-[LibraryOwned hosting](hosting.md#library-owned).
+[LibraryOwned hosting](hosting.md#libraryowned).

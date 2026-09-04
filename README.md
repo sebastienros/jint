@@ -18,17 +18,20 @@ dotnet add package Jint
 
 ## Quick start
 
+The examples below assume `using Jint;`.
+
 ### Evaluate JavaScript
 
+<!-- snippet: readme-evaluate -->
 ```csharp
-using Jint;
-
 var engine = new Engine();
 var result = engine.Evaluate("40 + 2").AsNumber();
 ```
+<!-- endSnippet -->
 
 ### Expose .NET and call JavaScript
 
+<!-- snippet: readme-expose-and-invoke -->
 ```csharp
 var engine = new Engine()
     .SetValue("log", new Action<string>(Console.WriteLine))
@@ -42,9 +45,11 @@ var engine = new Engine()
 
 var greeting = engine.Invoke("greet", "Ada").AsString();
 ```
+<!-- endSnippet -->
 
 ### Prepare code that runs repeatedly
 
+<!-- snippet: readme-prepare -->
 ```csharp
 var script = Engine.PrepareScript(
     "items.reduce((sum, value) => sum + value, 0)",
@@ -56,6 +61,7 @@ engine.SetValue("items", new[] { 1, 2, 3 });
 
 var total = engine.Evaluate(in script).AsNumber();
 ```
+<!-- endSnippet -->
 
 `Prepared<Script>` and `Prepared<Module>` are thread-safe and may be shared
 across engines. JavaScript objects are not: a `JsValue` that contains an object
@@ -161,6 +167,7 @@ Jint is an in-process interpreter, not an operating-system security boundary.
 Start with the hardened profile, keep the host surface small, and add a
 process-level boundary for hostile input.
 
+<!-- snippet: readme-untrusted-code -->
 ```csharp
 var limits = UntrustedCodeLimits.Default with
 {
@@ -178,6 +185,7 @@ using (limits.BeginOperation(engine, cancellationToken))
     return engine.ConvertResult(value, limits.ResultLimits);
 }
 ```
+<!-- endSnippet -->
 
 The profile disables broad CLR and reflection access, module loading, string
 compilation, projected CLR writes, live CLR-array views, registered extension
