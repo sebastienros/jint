@@ -5396,6 +5396,31 @@ var engine = new Engine(options =>
 `null` and `""` both mean the default. `Options.WebApi.Fetch.UserAgent` ([§4.125](#4125-every-request-the-engine-makes-carries-a-user-agent-3720))
 is the other half — what a request carries — and a host that names one usually wants to name both.
 
+### 4.128 A `FetchObserver` can answer a response, not only watch one ([#3701](https://github.com/sebastienros/jint/issues/3701))
+
+`FetchObserver.OnResponse` was a notification. It still is, and it still fires exactly where it did — what is
+new beside it is `OnResponseAsync`, which is *asked* about the response that ends the chain and may
+substitute it, rewrite its status line and headers, or fail the request:
+
+```csharp
+public override ValueTask<FetchResponseInterception?> OnResponseAsync(
+    ObservedFetchResponse response,
+    CancellationToken cancellationToken)
+{
+    // null - deliver it as it came off the wire, which is what the default does.
+    return new(response.Status == 500
+        ? FetchResponseInterception.Fulfill(200, body: new ReadOnlyMemory<byte>("ok"u8.ToArray()))
+        : null);
+}
+```
+
+Nothing has to be done to migrate: the default answers `null`, so an observer that only overrode
+`OnResponse` behaves exactly as before. **One ordering detail is new** for an observer that asserts on the
+callback sequence: the ask arrives before the notification of the same response, so a recorder that logs
+both now sees two entries for the final response where it saw one.
+
+`FetchObserver` remains a preview surface (`JINT0002`).
+
 ## 5. New in v5
 
 Everything in the table below is opt-in: nothing in it is installed unless the host asks for it, so

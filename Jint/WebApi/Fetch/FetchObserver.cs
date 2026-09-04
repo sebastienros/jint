@@ -315,6 +315,98 @@ internal enum FetchInterceptionKind
 }
 
 /// <summary>
+/// What an observer answers a <i>response</i> with when it does not want the response delivered as it came
+/// off the wire.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Build one with <see cref="Fulfill"/>, <see cref="Fail"/> or <see cref="Continue"/>; answering
+/// <see langword="null"/> instead delivers the response as it is.
+/// </para>
+/// <para>
+/// <b>It is asked once, for the response that ends the chain.</b> A redirect the loop is about to follow is
+/// reported to <see cref="FetchObserver.OnResponse"/> and is not answerable: what it produces is the next
+/// hop, and the hop is answerable through <see cref="FetchObserver.OnRequestAsync"/> already.
+/// </para>
+/// </remarks>
+[Experimental(JintDiagnosticIds.PreviewDiagnostic)]
+public sealed class FetchResponseInterception
+{
+    private FetchResponseInterception()
+    {
+    }
+
+    internal FetchInterceptionKind Kind { get; private init; }
+
+    internal int Status { get; private init; }
+
+    internal string? StatusText { get; private init; }
+
+    internal IReadOnlyList<FetchHeader>? Headers { get; private init; }
+
+    internal ReadOnlyMemory<byte> Body { get; private init; }
+
+    internal string? Reason { get; private init; }
+
+    /// <summary>
+    /// Replaces the response with one of the observer's own; the bytes the server sent are discarded unread.
+    /// </summary>
+    /// <param name="status">The HTTP status code the caller will see.</param>
+    /// <param name="headers">The response headers, or <see langword="null"/> for none.</param>
+    /// <param name="body">The response body.</param>
+    /// <param name="statusText">The reason phrase, or <see langword="null"/> for the empty string.</param>
+    /// <remarks>
+    /// The substitute is not a redirect however it is numbered: the chain has already ended, and the loop
+    /// only follows what the network answered.
+    /// </remarks>
+    public static FetchResponseInterception Fulfill(
+        int status,
+        IReadOnlyList<FetchHeader>? headers = null,
+        ReadOnlyMemory<byte> body = default,
+        string? statusText = null)
+        => new()
+        {
+            Kind = FetchInterceptionKind.Fulfill,
+            Status = status,
+            StatusText = statusText,
+            Headers = headers,
+            Body = body,
+        };
+
+    /// <summary>
+    /// Fails the request, which the caller sees as the same failure a network error produces.
+    /// </summary>
+    /// <param name="reason">Why it failed, for the host's own logs; script never sees it.</param>
+    public static FetchResponseInterception Fail(string reason)
+        => new() { Kind = FetchInterceptionKind.Fail, Reason = reason ?? string.Empty };
+
+    /// <summary>
+    /// Delivers the response the server sent, with its status line or headers rewritten; every argument left
+    /// <see langword="null"/> keeps what the response already had.
+    /// </summary>
+    /// <param name="status">A status code to report instead.</param>
+    /// <param name="statusText">A reason phrase to report instead.</param>
+    /// <param name="headers">The complete header list to report instead of the response's own.</param>
+    /// <remarks>
+    /// <b>The body is the one thing this cannot rewrite</b>, and that is the difference from
+    /// <see cref="Fulfill"/>: the bytes have not been read yet and are still coming off the socket, so a
+    /// rewritten header list describes a body the observer has not seen. Rewriting
+    /// <c>Content-Length</c> here therefore describes the transfer rather than changing it.
+    /// </remarks>
+    public static FetchResponseInterception Continue(
+        int? status = null,
+        string? statusText = null,
+        IReadOnlyList<FetchHeader>? headers = null)
+        => new()
+        {
+            Kind = FetchInterceptionKind.Continue,
+            Status = status ?? 0,
+            StatusText = statusText,
+            Headers = headers,
+        };
+}
+
+/// <summary>
 /// Watches every hop, response and body chunk of the requests one engine makes, and may answer a request
 /// itself.
 /// </summary>
@@ -326,14 +418,16 @@ internal enum FetchInterceptionKind
 /// </para>
 /// <para>
 /// <b>The order is fixed</b>: <c>OnRequest</c> for the first hop, then for a redirect chain
-/// <c>OnResponse</c>(the redirect) and <c>OnRequest</c>(the next hop) in turn, then <c>OnResponse</c> for
-/// the final response, then <c>OnData</c> per body chunk, then exactly one of <c>OnCompleted</c> and
-/// <c>OnFailed</c>.
+/// <c>OnResponse</c>(the redirect) and <c>OnRequest</c>(the next hop) in turn, then <c>OnResponseAsync</c>
+/// for the final response, then <c>OnData</c> per body chunk, then exactly one of <c>OnCompleted</c> and
+/// <c>OnFailed</c>. Two of those may answer rather than merely watch — <c>OnRequestAsync</c> decides a hop
+/// and <c>OnResponseAsync</c> decides the response that ends the chain.
 /// </para>
 /// <para>
 /// <b>A notification that throws is ignored</b> — there is no engine thread to report it to and a transfer
-/// must not depend on an observer. Only <see cref="OnRequestAsync"/> is different: a throw there fails the
-/// fetch, because it is the callback that was asked to decide.
+/// must not depend on an observer. The two that <i>decide</i> are different: a throw from
+/// <see cref="OnRequestAsync"/> or <see cref="OnResponseAsync"/> fails the fetch, because a decision that
+/// failed must not silently become "continue".
 /// </para>
 /// <para>
 /// The shape of this class is a preview and is declared to the compiler as <c>JINT0002</c>; see
@@ -376,9 +470,45 @@ public abstract class FetchObserver
     /// Called once per hop, as soon as that hop's response headers are in and before its body is read.
     /// </summary>
     /// <param name="response">The response headers.</param>
+    /// <remarks>
+    /// A notification: it cannot change what the caller receives, and for the final response it arrives
+    /// <i>after</i> <see cref="OnResponseAsync"/> has been asked — so what it carries is what the answer
+    /// produced. <see cref="OnResponseAsync"/> is the one that can change it.
+    /// </remarks>
     public virtual void OnResponse(ObservedFetchResponse response)
     {
     }
+
+    /// <summary>
+    /// Called once, for the response that ends the chain, before its body is read; answer
+    /// <see langword="null"/> to deliver it unchanged.
+    /// </summary>
+    /// <param name="response">The response headers.</param>
+    /// <param name="cancellationToken">Cancelled when the fetch is aborted or times out.</param>
+    /// <returns>What to do with the response, or <see langword="null"/> to leave it alone.</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>This asks; <see cref="OnResponse"/> reports.</b> They are separate calls and both happen: the ask
+    /// comes first, with the headers as the socket gave them, and the notification follows with whatever the
+    /// answer produced. So an observer that only watches overrides <see cref="OnResponse"/> and is unaffected
+    /// by this existing, and one that rewrote a status sees its own value in the notification afterwards.
+    /// </para>
+    /// <para>
+    /// <b>It is asked for the final response only.</b> A redirect the loop is about to follow reaches
+    /// <see cref="OnResponse"/> and is not answerable: what it produces is the next hop, and that hop is
+    /// offered to <see cref="OnRequestAsync"/> already.
+    /// </para>
+    /// <para>
+    /// <b>The whole fetch is still bounded</b> by <c>Options.WebApi.Fetch.Timeout</c>, so time spent here
+    /// comes out of the request's own deadline — and the socket is open and the body unread while it is
+    /// spent. Like <see cref="OnRequestAsync"/>, a throw here fails the fetch rather than becoming
+    /// "continue": this is the call that was asked to decide.
+    /// </para>
+    /// </remarks>
+    public virtual ValueTask<FetchResponseInterception?> OnResponseAsync(
+        ObservedFetchResponse response,
+        CancellationToken cancellationToken)
+        => new((FetchResponseInterception?) null);
 
     /// <summary>
     /// Called for each chunk of the final response's body as it is read off the wire.

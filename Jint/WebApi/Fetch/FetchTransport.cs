@@ -391,6 +391,184 @@ internal static class FetchTransport
         CancellationToken cancellationToken,
         FetchObservation? observation = null)
     {
+        var exchange = await SendForStreamCoreAsync(client, request, policy, cancellationToken, observation).ConfigureAwait(false);
+
+        if (observation is null)
+        {
+            return exchange;
+        }
+
+        try
+        {
+            return await AnswerResponseAsync(exchange, observation, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            exchange.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// The response stage: the one place every lane passes through with the headers in hand and the body
+    /// still on the socket, so the observer's answer reaches a document fetch, a subresource, an
+    /// <c>XMLHttpRequest</c> and an <c>EventSource</c> and not only <c>fetch()</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It asks, it does not report.</b> Who tells the observer about the final response is unchanged and
+    /// deliberately per lane: <see cref="BeginResponseAsync"/> does it for <see cref="SendAsync"/>, because
+    /// the list it reports is the merged one the <c>Response</c> object will carry, and every caller of this
+    /// method owes <c>FetchObservation.FinalResponse</c> for the same reason. Both therefore report what the
+    /// answer here produced rather than what the socket said, which is what a client that rewrote a status
+    /// expects to see afterwards.
+    /// </para>
+    /// <para>
+    /// <b>A substitution disposes the exchange it replaces</b>, which closes the connection with the body
+    /// unread — the same thing a caller that drops a <c>Response</c> does.
+    /// </para>
+    /// </remarks>
+    private static async Task<FetchExchange> AnswerResponseAsync(
+        FetchExchange exchange,
+        FetchObservation observation,
+        CancellationToken cancellationToken)
+    {
+        var response = exchange.Response;
+
+        var snapshot = new ObservedFetchResponse
+        {
+            Id = observation.Id,
+            Url = exchange.RequestUri,
+            Status = (int) response.StatusCode,
+            StatusText = response.ReasonPhrase ?? string.Empty,
+            Headers = ObservedHeaders(response),
+            FromInterception = exchange.FromInterception,
+            IsRedirect = false,
+            Timing = exchange.Timing,
+        };
+
+        var interception = await observation.ResponseAsync(snapshot, cancellationToken).ConfigureAwait(false);
+        if (interception is null)
+        {
+            return exchange;
+        }
+
+        if (interception.Kind == FetchInterceptionKind.Fail)
+        {
+            throw new FetchFailureException(FetchFailureKind.PolicyDenied, interception.Reason ?? "A fetch observer failed the response.");
+        }
+
+        if (interception.Kind == FetchInterceptionKind.Fulfill)
+        {
+            var substitute = new FetchExchange
+            {
+                Response = BuildResponse(interception.Status, interception.StatusText, interception.Headers, interception.Body),
+                Method = exchange.Method,
+                Url = exchange.Url,
+                RequestUri = exchange.RequestUri,
+                Redirected = exchange.Redirected,
+                FromInterception = true,
+
+                // The hop that produced the response being replaced really was sent, so its timing is kept:
+                // what the observer substituted is the answer, not the round trip.
+                Timing = exchange.Timing,
+            };
+
+            exchange.Dispose();
+            return substitute;
+        }
+
+        // Continue: the status line and the header list may be rewritten, the body may not — it has not been
+        // read yet. Rewriting in place keeps the content, and with it the connection the body is coming on.
+        if (interception.Status != 0)
+        {
+            response.StatusCode = (System.Net.HttpStatusCode) interception.Status;
+        }
+
+        if (interception.StatusText is { } statusText)
+        {
+            response.ReasonPhrase = statusText;
+        }
+
+        if (interception.Headers is { } headers)
+        {
+            response.Headers.Clear();
+            response.Content.Headers.Clear();
+
+            foreach (var header in headers)
+            {
+                if (!response.Headers.TryAddWithoutValidation(header.Name, header.Value))
+                {
+                    response.Content.Headers.TryAddWithoutValidation(header.Name, header.Value);
+                }
+            }
+        }
+
+        return exchange;
+    }
+
+    /// <summary>Every value of every header of one response, as the observer surface spells them.</summary>
+    private static List<FetchHeader> ObservedHeaders(HttpResponseMessage response)
+    {
+        var headers = new List<FetchHeader>();
+        Collect(response.Headers);
+        Collect(response.Content.Headers);
+        return headers;
+
+        void Collect(System.Net.Http.Headers.HttpHeaders source)
+        {
+            foreach (var header in source.NonValidated)
+            {
+                foreach (var value in header.Value)
+                {
+                    headers.Add(new FetchHeader(HeaderList.Lowercase(header.Key), value));
+                }
+            }
+        }
+    }
+
+    /// <summary>The <see cref="HttpResponseMessage"/> an interception's status, headers and body make.</summary>
+    private static HttpResponseMessage BuildResponse(
+        int status,
+        string? statusText,
+        IReadOnlyList<FetchHeader>? headers,
+        ReadOnlyMemory<byte> body)
+    {
+        var response = new HttpResponseMessage((System.Net.HttpStatusCode) status)
+        {
+            Content = new ReadOnlyMemoryContent(body),
+        };
+
+        if (statusText is not null)
+        {
+            response.ReasonPhrase = statusText;
+        }
+
+        // ReadOnlyMemoryContent supplies one of its own, and an interception that named none must not be
+        // given a type it did not choose.
+        response.Content.Headers.ContentType = null;
+
+        if (headers is not null)
+        {
+            foreach (var header in headers)
+            {
+                if (!response.Headers.TryAddWithoutValidation(header.Name, header.Value))
+                {
+                    response.Content.Headers.TryAddWithoutValidation(header.Name, header.Value);
+                }
+            }
+        }
+
+        return response;
+    }
+
+    private static async Task<FetchExchange> SendForStreamCoreAsync(
+        HttpClient client,
+        FetchRequestSnapshot request,
+        FetchPolicy policy,
+        CancellationToken cancellationToken,
+        FetchObservation? observation = null)
+    {
         var url = request.Url;
         var method = request.Method;
         var body = request.Body;
@@ -791,32 +969,9 @@ internal static class FetchTransport
     /// </remarks>
     private static FetchExchange Fulfil(FetchInterception interception, string method, UrlRecord url, Uri uri, int redirectCount)
     {
-        var response = new HttpResponseMessage((System.Net.HttpStatusCode) interception.Status)
-        {
-            Content = new ReadOnlyMemoryContent(interception.Body),
-        };
-
-        if (interception.StatusText is { } statusText)
-        {
-            response.ReasonPhrase = statusText;
-        }
-
-        response.Content.Headers.ContentType = null;
-
-        if (interception.Headers is { } headers)
-        {
-            foreach (var header in headers)
-            {
-                if (!response.Headers.TryAddWithoutValidation(header.Name, header.Value))
-                {
-                    response.Content.Headers.TryAddWithoutValidation(header.Name, header.Value);
-                }
-            }
-        }
-
         return new FetchExchange
         {
-            Response = response,
+            Response = BuildResponse(interception.Status, interception.StatusText, interception.Headers, interception.Body),
             Method = method,
             Url = url,
             RequestUri = uri,
