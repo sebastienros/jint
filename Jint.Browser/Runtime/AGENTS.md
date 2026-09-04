@@ -36,7 +36,14 @@ Four rules follow, and each of them is a way to break the package silently:
   empty action, purely for its documented side effect of ending a `WaitForScheduledWork`. Without it a request
   waits out `PumpIdle`; the channel write happens first, so the wake can never be lost.
 - **A request that arrives after the loop stopped fails with `ObjectDisposedException`.** It is never left to
-  hang, and the pending queue is failed the same way on the way down.
+  hang, and the pending queue is failed the same way on the way down. **A navigation translates that one
+  exception into `OperationCanceledException`**, and it is the only caller that does: it comes back to the
+  loop several times — `beforeunload`, the client, the commit — so a close wins whichever of those races it
+  reaches first, and which one it won is nothing the caller can act on. `Page.NavigateAsync` documents the
+  cancellation, so a loaded machine may not hand out the loop's internal disposal instead
+  ([#3802](https://github.com/sebastienros/jint/issues/3802)). That is also why `PageLoop.Closing` hands out a
+  token taken once at construction: the caller who most needs to read it is running after the source is
+  disposed.
 - **Teardown is not a request.** `PageLoop.CloseAsync` takes the action that releases the document and the
   browsing context and runs it in the loop's own shutdown, because a request would queue behind whatever is
   running — and what is running may be the very wait the close is ending. Posting it instead deadlocks.

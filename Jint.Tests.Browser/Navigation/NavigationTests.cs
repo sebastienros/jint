@@ -495,6 +495,48 @@ public sealed class NavigationTests
     }
 
     [Test]
+    public async Task ANavigationThatOutlivesTheCloseStillEndsInCancellation()
+    {
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new SemaphoreSlim(0, 1);
+        Func<Uri, bool>? owns = null;
+
+        await using var fixture = await LoopbackPage.CreateAsync(
+            server => server.MapHtml("/slow.html", "<title>too late</title>"),
+            options =>
+            {
+                owns = options.UrlFilter;
+                options.UrlFilter = uri =>
+                {
+                    // A host filter that takes a moment - a policy lookup, a name resolved by hand - is the
+                    // ordinary shape, and it is what holds the navigation off the page's own thread while the
+                    // page closes under it.
+                    if (uri.AbsolutePath == "/slow.html")
+                    {
+                        reached.TrySetResult();
+                        release.Wait(TimeSpan.FromSeconds(10));
+                    }
+
+                    return owns!(uri);
+                };
+            });
+
+        var navigation = fixture.Page.NavigateAsync(fixture.Url("/slow.html"));
+
+        await reached.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // The whole page - its loop, its engine and the cancellation source behind them - is gone before the
+        // filter returns, so every step the navigation has left meets a page that no longer exists.
+        await fixture.Page.CloseAsync();
+        release.Release();
+
+        var act = async () => await navigation;
+
+        await act.Should().ThrowAsync<OperationCanceledException>(
+            "a caller who closed the page asked for the cancellation, whichever step of the navigation the close won");
+    }
+
+    [Test]
     public async Task ADataUrlAndAboutBlankStillLoadWithoutTheNetwork()
     {
         await using var fixture = await LoopbackPage.CreateAsync();
