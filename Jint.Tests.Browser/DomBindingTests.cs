@@ -26,19 +26,33 @@ public sealed class DomBindingTests
     }
 
     [Test]
-    public void QuerySelectorAllIsAnIndexableIterableCollection()
+    public void QuerySelectorAllReturnsAnIndexableIterableNodeList()
     {
         using var fixture = DomTestFixture.Create(Page);
 
         fixture.Number("document.querySelectorAll('li').length").Should().Be(3);
         fixture.Text("document.querySelectorAll('li')[1].textContent").Should().Be("two");
+        fixture.Text("document.querySelectorAll('li').item(1).textContent").Should().Be("two");
         fixture.Text("[...document.querySelectorAll('li')].map(e => e.textContent).join(',')").Should().Be("one,two,three");
+        fixture.Bool("document.querySelectorAll('li') instanceof NodeList").Should().BeTrue();
+        fixture.Bool("document.querySelectorAll('li').forEach === Array.prototype.forEach").Should().BeTrue();
+        fixture.Bool("document.querySelectorAll('*')['a'] === undefined").Should().BeTrue();
 
         fixture.Text("""
             var out = [];
             for (const li of document.querySelectorAll('li')) { out.push(li.textContent); }
             out.join('|');
             """).Should().Be("one|two|three");
+
+        fixture.Text("""
+            var nodes = document.querySelectorAll('li');
+            var receiver = {};
+            var calls = [];
+            nodes.forEach(function (node, index, list) {
+              calls.push(index + ':' + node.textContent + ':' + (list === nodes) + ':' + (this === receiver));
+            }, receiver);
+            calls.join('|');
+            """).Should().Be("0:one:true:true|1:two:true:true|2:three:true:true");
     }
 
     [Test]

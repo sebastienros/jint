@@ -57,7 +57,7 @@ internal static class DomSelectorMembers
 
         try
         {
-            return realm.WrapCollection<IElement>(target.QuerySelectorAll(selectors));
+            return realm.WrapStaticNodeList(target.QuerySelectorAll(selectors));
         }
         catch (Exception exception) when (IsParseFailure(exception))
         {

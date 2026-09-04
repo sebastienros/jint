@@ -248,6 +248,21 @@ internal sealed class DomRealm
         return Cache(collection, new DomHtmlCollectionObject<T>(this, definition, collection));
     }
 
+    /// <summary>
+    /// Projects the <c>IHtmlCollection&lt;IElement&gt;</c> AngleSharp returns from <c>querySelectorAll</c> as
+    /// the static <c>NodeList</c> DOM specifies.
+    /// </summary>
+    internal JsValue WrapStaticNodeList(IHtmlCollection<IElement> nodes)
+    {
+        if (_wrappers.TryGetValue(nodes, out var cached))
+        {
+            return cached;
+        }
+
+        var target = new DomStaticNodeList(nodes);
+        return Cache(nodes, new DomCollectionObject(this, DomInterfaces.NodeList, target, DomAccessorNodeList.Instance));
+    }
+
     private ObjectInstance Create(DomInterfaceDefinition definition, object value)
     {
         if (definition.WrapperKind == DomWrapperKind.Node)

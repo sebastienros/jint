@@ -26,7 +26,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | Suite | Documents | Synthesized | Tests | Not passing |
 | --- | --- | --- | --- | --- |
 | `dom/events/` | 56 | 9 | 544 | 20 |
-| `dom/nodes/` | 159 | 0 | 4,796 | 1,416 |
+| `dom/nodes/` | 159 | 0 | 4,796 | 1,413 |
 | `dom/collections/` | 8 | 0 | 43 | 18 |
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
@@ -38,7 +38,7 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **341** | **9** | **11,541** | **1,853** |
+| **total** | **341** | **9** | **11,541** | **1,850** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes

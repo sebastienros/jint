@@ -13,7 +13,7 @@ here:
 | --- | --- | --- |
 | `node.isConnected` | DOM §4.4: whether the node's shadow-including root is a document | `INode` has no member for it at all, so nothing is projected — and every client library asks a node handle this before it clicks it, so an absent member makes every element read as detached. Re-declared in `additions` |
 | `delete el.dataset.foo` | DOM §3.5's deleter removes the content attribute | `IStringMap.Remove` sets its value to `null` and leaves `data-foo` in place |
-| `el.querySelectorAll(…)` | DOM §4.2.6 returns a static `NodeList` | returns an `IHtmlCollection<IElement>`, so `Object.prototype.toString` reports `[object HTMLCollection]` |
+| `el.querySelectorAll(…)` | DOM §4.2.6 returns a static `NodeList` | returns an `IHtmlCollection<IElement>`; `DomStaticNodeList` adapts it to the generated NodeList binding and omits HTMLCollection's named properties |
 | `el.style.color` | CSSOM serializes an opaque colour as `rgb(r, g, b)` | serializes every colour as `rgba(r, g, b, 1)` |
 | `el.children === el.children` | one `HTMLCollection` per element | a fresh collection per call, so the wrapper cache has nothing to key identity on |
 | `el.id` when the attribute is absent | `""` | `null`, which is why the conversion table's default is the empty string |
