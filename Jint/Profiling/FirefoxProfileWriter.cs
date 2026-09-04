@@ -108,6 +108,18 @@ internal static class FirefoxProfileWriter
     /// intervals it covers — at least one — so a gap is charged to the stack observed before it, which is
     /// the call site the engine went into.
     /// </summary>
+    /// <remarks>
+    /// <b>What that costs a test that asserts a share of weight.</b> The sample <i>count</i> is deterministic
+    /// — the sampler fires at check points, so it is a function of the work and not of the machine — but the
+    /// weights are not: one descheduled moment is billed whole to whichever stack was observed before it, so
+    /// on a small profile a single stall can own a large fraction of the total. Measured: a profile of 318
+    /// samples has about four units of weight outside its hot loop, and roughly seventy-five landing anywhere
+    /// else — a stall of about a millisecond and a half — moves the loop's share below 0.8. The lever is the
+    /// denominator, not the floor: <c>Jint.Tests/Runtime/SamplingProfilerTests.DominantHotLoop</c> and
+    /// <c>Jint.Tests.DevTools/Session/ProfilerSessionTests.DominantWorkload</c> exist for that reason and
+    /// carry the numbers, and any new assertion over a share belongs on one of them rather than on a profile
+    /// sized for a different question.
+    /// </remarks>
     private static void WriteSamples(TextWriter writer, SampledProfile profile)
     {
         var stacks = profile._sampleStacks;
