@@ -5,10 +5,10 @@
 It runs in-process and has no browser binary to install. It also **does not render**: there are no pixels, screenshots, PDFs, or browser windows.
 
 ```bash
-dotnet add package Jint.Browser
+dotnet add package Jint.Browser --prerelease
 ```
 
-[View Jint.Browser on NuGet.org](https://www.nuget.org/packages/Jint.Browser)
+[View Jint.Browser preview builds on Feedz](https://feedz.io/org/sebastienros/repository/jint/packages/Jint.Browser)
 
 With `using Jint.Browser;` in scope:
 

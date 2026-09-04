@@ -3,10 +3,10 @@
 `Jint.Browser.Tool` installs the `jint-browser` command. It loads scripted pages, extracts text-first representations, evaluates JavaScript, or serves the browser over CDP or MCP.
 
 ```bash
-dotnet tool install -g Jint.Browser.Tool
+dotnet tool install -g Jint.Browser.Tool --prerelease
 ```
 
-[View Jint.Browser.Tool on NuGet.org](https://www.nuget.org/packages/Jint.Browser.Tool)
+[View Jint.Browser.Tool preview builds on Feedz](https://feedz.io/org/sebastienros/repository/jint/packages/Jint.Browser.Tool)
 
 ```bash
 jint-browser fetch https://example.org/ --dump markdown

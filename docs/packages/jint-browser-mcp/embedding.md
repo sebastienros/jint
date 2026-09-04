@@ -3,7 +3,7 @@
 Install the package:
 
 ```bash
-dotnet add package Jint.Browser.Mcp
+dotnet add package Jint.Browser.Mcp --prerelease
 ```
 
 Compose it with the MCP SDK:
