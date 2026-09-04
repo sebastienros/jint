@@ -348,8 +348,32 @@ internal sealed class AccessibleName
         return string.Empty;
     }
 
+    /// <summary>
+    /// The elements an <c>aria-labelledby</c>/<c>aria-describedby</c> relationship points at: the ones a page
+    /// set through the IDL attribute if it did, and the content attribute's idrefs otherwise.
+    /// </summary>
+    /// <remarks>
+    /// <b>The IDL half has to be asked first, and cannot be inferred from the attribute.</b> Setting
+    /// <c>el.ariaLabelledByElements</c> writes the <b>empty string</b> to the content attribute and holds the
+    /// elements by reference, precisely so that a page may name an element no id could name — so reading the
+    /// attribute alone answers "no references" for exactly the case a page went out of its way to express.
+    /// <c>Dom/AriaElementReferences</c> is engine-free for this: it takes an <c>IElement</c> and nothing else,
+    /// the same standing <c>Dom/Views/CssCascade</c> has, so this file's "neither touches an engine" holds.
+    /// The idref path below is untouched, and a relationship written as ids still resolves through it.
+    /// </remarks>
     private static List<INode> References(IElement element, string attribute)
     {
+        if (Dom.AriaElementReferences.Explicit(element, attribute) is { } associated)
+        {
+            var explicitly = new List<INode>(associated.Length);
+            foreach (var target in associated)
+            {
+                explicitly.Add(target);
+            }
+
+            return explicitly;
+        }
+
         var value = element.GetAttribute(attribute);
         if (string.IsNullOrWhiteSpace(value))
         {

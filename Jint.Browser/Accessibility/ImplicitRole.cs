@@ -106,10 +106,14 @@ internal static class ImplicitRole
     /// <c>aside</c> and <c>section</c> take their role from whether they are named, and the name computation
     /// takes its starting point from the role. This breaks that circle the way browsers do, by asking whether
     /// a naming attribute is present rather than what it computes to.
+    /// <c>aria-labelledby</c> is present in two spellings: as idrefs, and as an <c>ariaLabelledByElements</c>
+    /// relationship whose content attribute is the empty string by construction — which is why the second is
+    /// asked for separately rather than read off the attribute.
     /// </remarks>
     internal static bool HasNamingAttribute(IElement element) =>
         !string.IsNullOrWhiteSpace(element.GetAttribute("aria-label"))
         || !string.IsNullOrWhiteSpace(element.GetAttribute("aria-labelledby"))
+        || Dom.AriaElementReferences.Explicit(element, "aria-labelledby") is { Length: > 0 }
         || !string.IsNullOrWhiteSpace(element.GetAttribute("title"));
 
     private static string Complementary(IElement element) =>

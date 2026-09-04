@@ -45,6 +45,7 @@ internal sealed class DomRealm
     private readonly ObjectInstance?[] _prototypes;
     private readonly DomInterfaceObject?[] _interfaceObjects;
     private readonly ConditionalWeakTable<object, ObjectInstance> _wrappers = new();
+    private readonly ConditionalWeakTable<IElement, AriaElementReflection.Cache> _ariaCaches = new();
     private int _nodes;
 
     private DomRealm(Engine engine)
@@ -120,6 +121,21 @@ internal sealed class DomRealm
     /// the root of every path, which is exactly what a document with no browsing context is.
     /// </remarks>
     internal JsEventTarget? WindowTarget { get; set; }
+
+    /// <summary>
+    /// The frozen arrays this engine last answered for one element's ARIA element-reflecting members,
+    /// created on first use.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only the cache is here.</b> The relationships themselves are engine-free and live in
+    /// <see cref="AriaElementReferences"/>, which says why; what belongs to a realm is the array object a
+    /// getter handed to script, because WebIDL's <c>FrozenArray</c> identity is per engine. A table of its own
+    /// rather than a field on the wrapper: the members that need it are eight of the two thousand a document's
+    /// elements carry, so an element that never has an ARIA relationship must not pay a reference for one.
+    /// Keyed on the AngleSharp element and never on the wrapper, so it dies with the element rather than with
+    /// whichever wrapper happened to reach it first.
+    /// </remarks>
+    internal AriaElementReflection.Cache AriaCacheFor(IElement element) => _ariaCaches.GetOrCreateValue(element);
 
     /// <summary>The binding state of <paramref name="engine"/>, created on first use.</summary>
     internal static DomRealm Of(Engine engine) => _realms.GetValue(engine, static e => new DomRealm(e));

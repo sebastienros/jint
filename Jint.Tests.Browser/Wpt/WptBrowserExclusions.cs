@@ -283,18 +283,19 @@ internal static class WptBrowserExclusions
         ("html/dom/usvstring-reflection.https.html", "needs webrtc/RTCPeerConnection-helper.js and a real RTCPeerConnection to reflect a USVString off"),
 
         // ------------------------------------------------------------ HTML's reflection suite
-        // Ten generated documents, 56,660 assertions. reflection-misc.html is a case now: HTML §2.6.1's
-        // reflection algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs), driven by
-        // overrides.json's `reflected` list, and all 4,877 of its tests pass with nothing excluded.
+        // Ten generated documents, 56,660 assertions. Three of them are cases now — reflection-misc.html,
+        // reflection-text.html and reflection-grouping.html, 20,437 assertions between them — because HTML
+        // §2.6.1's reflection algorithms are implemented (Jint.Browser/Dom/ReflectedAttribute.cs) and driven
+        // by overrides.json's `reflected` list. The first two pass whole; grouping's only failures are
+        // <dl>'s, which is AngleSharp having no HTMLDListElement rather than reflection.
         //
-        // The other nine are still out, and the reason is no longer "reflection is not implemented" — it is
-        // the per-element attribute table each of them needs, one `reflected` row per content attribute, which
-        // is #3770's remaining work. The fifteen rows that made misc a case were mostly the GLOBAL attributes
-        // every element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they
-        // moved the others a long way already: measured against the four next-cheapest documents, text,
-        // metadata, grouping and sections fell from 8,773 failing assertions to 2,437, and what is left in
-        // them is `align`, `as`, `referrerPolicy`, `compact`, `charset` and their kind — element-specific
-        // attributes, each one row.
+        // The other seven are out for one reason and it is no longer "reflection is not implemented": each
+        // needs the per-element attribute table it tests, one `reflected` row per content attribute, which is
+        // #3770's remaining work. The forty rows written so far were mostly the GLOBAL attributes every
+        // element carries (`dir`, `lang`, `tabIndex`, `autofocus`, `inputMode`, `enterKeyHint`), so they have
+        // already moved the seven a long way: metadata and sections fell from 1,218 and 2,189 failing
+        // assertions to 624 and 489. What is left in them is `align`, `as`, `referrerPolicy`, `compact`,
+        // `charset` and their kind — element-specific attributes, each one row.
         //
         // **None of them is slow**: the whole set runs in 22.5 s and the largest (reflection-embedded.html,
         // 8,922 tests) in 7.3 s, well inside the driver's 30 s deadline. What has always kept them out is the
@@ -303,12 +304,10 @@ internal static class WptBrowserExclusions
         ("html/dom/*-embedded.*", "#3770: the embedded-content elements and their attribute table; 3,774 of 8,922 assertions failed at the measurement in the issue"),
         ("html/dom/*-forms.*", "#3770: the form controls and their attribute table; 2,160 of 8,271"),
         ("html/dom/*-forms-weekmonth.*", "#3770: the week and month input types and their attribute table; 420 of 1,579"),
-        ("html/dom/*-grouping.*", "#3770: the grouping-content elements and their attribute table; 2,006 of 5,358 at the measurement, 620 with this change's rows in"),
-        ("html/dom/*-metadata.*", "#3770: the document-metadata elements and their attribute table; 1,218 of 3,110 at the measurement, 624 with this change's rows in"),
+        ("html/dom/*-metadata.*", "#3770: the document-metadata elements and their attribute table; 1,218 of 3,110 at the measurement, 624 with the rows written so far — and its `nonce` members need HTML's [[CryptographicNonce]] slot rather than a reflected attribute, while `style.media` cannot be set at all because AngleSharp.Css refuses an unparseable media query from setAttribute"),
         ("html/dom/*-obsolete.*", "#3770: the obsolete elements and their attribute table; 1,483 of 2,621"),
-        ("html/dom/*-sections.*", "#3770: the sectioning elements and their attribute table; 2,189 of 5,604 at the measurement, 489 with this change's rows in"),
+        ("html/dom/*-sections.*", "#3770: the sectioning elements and their attribute table; 2,189 of 5,604 at the measurement, 489 with the rows written so far — and its Document-level members (document.dir, bgColor, fgColor, linkColor, vlinkColor, alinkColor) reflect an attribute of ANOTHER element, which the `reflected` list cannot say yet"),
         ("html/dom/*-tabular.*", "#3770: the tabular-data elements and their attribute table; 3,552 of 6,116"),
-        ("html/dom/*-text.*", "#3770: the text-level semantics elements and their attribute table; 3,360 of 10,202 at the measurement, 704 with this change's rows in"),
         ("html/dom/reflection-original.html", "the same suite in the aggregating spelling, which reports only failures rather than one test per assertion — a second answer to what reflection-*.html already say"),
         ("html/dom/elements-aria-enumerated.js", "the attribute table of aria-attribute-reflection-enumerated.tentative.html, which tests a proposal the specification has not adopted"),
 
@@ -734,7 +733,11 @@ internal static class WptBrowserExclusions
         ["html/dom/aria-element-reflection-disconnected.html"] = 2,
         ["html/dom/aria-element-reflection.html"] = 27,
         ["html/dom/historical.html"] = 13,
+        ["html/dom/reflection-grouping.html"] = 1,
+        ["html/dom/reflection-grouping.html"] = 5358,
         ["html/dom/reflection-misc.html"] = 4877,
+        ["html/dom/reflection-text.html"] = 10202,
+        ["html/dom/reflection-text.html"] = 1,
         ["html/webappapis/scripting/events/body-onload.html"] = 1,
         ["html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html"] = 4,
         ["html/webappapis/scripting/events/compile-event-handler-symbol-unscopables.html"] = 3,
@@ -837,7 +840,33 @@ internal static class WptBrowserExclusions
         new("html/webappapis/scripting/processing-model-2/compile-error-same-origin-with-hash.html", "window.onerror - compile error in <script src=...> with hash", WptDivergence.NeedsTriage),
         new("html/webappapis/scripting/processing-model-2/runtime-error-same-origin-with-hash.html", "window.onerror - runtime error in <script src=...> with hash", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 4. a DOM prototype has no @@unscopables
+        // ---------------------------------------------------------------- 4. AngleSharp has no HTMLDListElement
+        // HTML gives <dl> its own interface, whose one member is the obsolete `compact`. The pinned
+        // assemblies have no IHtmlDListElement and no [DomName("HTMLDListElement")], so a <dl> is an
+        // HTMLElement here and there is no interface for a `reflected` row to put `compact` on — putting it
+        // on HTMLElement instead would give the member to every element, which is worse than not having it.
+        // Declaring the interface by local name is what DomManualInterfaces does for <frameset>; doing it
+        // for <dl> is a change of its own, and Dom/AGENTS.md records the gap.
+        //
+        // Thirteen rows rather than one `dl.compact: *`, because one of the member's tests passes by
+        // accident and the two-sided rule will not have it covered: `IDL set to true` asserts
+        // `hasAttribute('compact')` is true, and the attribute is still there from the `setAttribute()` half
+        // that ran before it. The expando the assignment really made is invisible to that assertion.
+        new("html/dom/reflection-grouping.html", "dl.compact: typeof IDL attribute", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL get with DOM attribute unset", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: setAttribute() to *", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to \"*", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to object \"*", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to undefined", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to 7", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to 1.5", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to false", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to NaN", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to Infinity", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to -Infinity", WptDivergence.NeedsTriage),
+        new("html/dom/reflection-grouping.html", "dl.compact: IDL set to null", WptDivergence.NeedsTriage),
+
+        // ---------------------------------------------------------------- 5. a DOM prototype has no @@unscopables
         // WebIDL puts an `@@unscopables` object on the interface prototype object of every interface with an
         // `[Unscopable]` member — `Element`'s and `Document`'s `append`, `prepend` and `replaceChildren`
         // among them — and this binding emits none, because AngleSharp's metadata does not say which members
@@ -851,13 +880,13 @@ internal static class WptBrowserExclusions
         // `EventTarget-add-listener-platform-object.html` is not vendored.
         new("html/webappapis/scripting/events/compile-event-handler-lexical-scopes-form-owner.html", "form-associated <x-foo> has a form owner", WptDivergence.NeedsTriage),
 
-        // ---------------------------------------------------------------- 5. a frame that runs script
+        // ---------------------------------------------------------------- 6. a frame that runs script
         // `eventhandler-cancellation.html` fires its events at `frames[0]`, which is an iframe's window; a
         // page here parses child frames and gives none of them an engine. It is the NeedsIframeScripting
         // group below by cause, and is here only because the file is in another suite.
         new("html/webappapis/scripting/events/eventhandler-cancellation.html", "*", WptDivergence.NeedsIframeScripting),
 
-        // ---------------------------------------------------------------- 6. a bubbling `submit` the file counts as an activation
+        // ---------------------------------------------------------------- 7. a bubbling `submit` the file counts as an activation
         // `Event-dispatch-single-activation-behavior.html` builds 132 nesting shapes and asserts that exactly
         // one activation behaviour runs. Its instrumentation is the *handler* — `<form onsubmit="activated(this)">`
         // — and for eight of the shapes that cannot tell an activation behaviour from an ordinary bubble:
@@ -955,7 +984,6 @@ internal static class WptBrowserExclusions
 
         // ---------------------------------------------------------------- one [CEReactions] member per file
         new("custom-elements/reactions/Animation.html", "*", WptDivergence.NeedsTriage),
-        new("custom-elements/reactions/AriaMixin-element-attributes.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/CSSStyleDeclaration.html", "*", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "after on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
         new("custom-elements/reactions/ChildNode.html", "before on ChildNode must enqueue a disconnected reaction, an adopted reaction, and a connected reaction when the custom element was in another document", WptDivergence.NeedsTriage),
@@ -1100,21 +1128,6 @@ internal static class WptBrowserExclusions
         new("dom/nodes/getElementsByClassName-21.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-22.htm", "*", WptDivergence.NeedsTriage),
         new("dom/nodes/getElementsByClassName-25.htm", "*", WptDivergence.NeedsTriage),
-
-        // ---------------------------------------------------------------- the ARIA mixin's element-reflection half
-        // the ARIA mixin's element-reflection half
-        new("html/dom/aria-element-reflection-disconnected.html", "*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*DOM.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*empty.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*reference.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "*scope.", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Cross*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "If*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Moving*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Passing*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "Setting*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "aria-*", WptDivergence.NeedsTriage),
-        new("html/dom/aria-element-reflection.html", "shadow*", WptDivergence.NeedsTriage),
 
         // ---------------------------------------------------------------- a (Node or DOMString) union parameter takes only a Node
         // a (Node or DOMString) union parameter takes only a Node
