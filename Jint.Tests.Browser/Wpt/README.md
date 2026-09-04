@@ -31,14 +31,14 @@ vendored here yet. Its plugin is [`tools/wpt-scoreboard/`](../../tools/wpt-score
 | `dom/lists/` | 5 | 0 | 189 | 5 |
 | `dom/traversal/` | 13 | 0 | 52 | 7 |
 | `dom/ranges/` | 17 | 0 | 82 | 10 |
-| `html/dom/` | 5 | 0 | 85 | 31 |
+| `html/dom/` | 6 | 0 | 4,962 | 31 |
 | `html/webappapis/scripting/events/` | 12 | 0 | 37 | 5 |
-| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 14 |
+| `html/webappapis/scripting/processing-model-2/` | 25 | 0 | 44 | 12 |
 | `custom-elements/` | 16 | 0 | 510 | 247 |
 | `custom-elements/parser/` | 8 | 0 | 20 | 11 |
 | `custom-elements/reactions/` | 14 | 0 | 255 | 68 |
 | `custom-elements/upgrading/` | 2 | 0 | 7 | 3 |
-| **total** | **340** | **9** | **6,664** | **1,855** |
+| **total** | **341** | **9** | **11,541** | **1,853** |
 
 *Measured on Windows.* **Documents** are `.html` files in this repository; **Synthesized** are the
 `<name>.any.html` wrappers `WptServerWrappers` manufactures for a suite's `.any.js` files, which are bytes

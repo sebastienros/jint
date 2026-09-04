@@ -63,6 +63,35 @@ exist. That register's `getComputedStyle` row points back at this table.
 | a longhand nothing declared, through `getComputedStyle` | CSSOM's *resolved value*: every supported longhand answers, and a property nothing declared answers its initial value | the empty string, which read every element of every page as hidden to an automation client (`style.visibility !== "visible"` is where Playwright's actionability check ends). `Dom/Views/ResolvedStyle` is the exception this bought — **ten** properties, and it argues which ten. Everything else is still the declared cascade, a declaration always wins, and `length`/`item(i)` stay the declared set |
 | a relative length through `getComputedStyle` | the used value in `px` for `width`/`height`, resolved against the containing block; the percentage *kept* in the computed value of `min-width`, a margin and a padding | `px` against the **viewport** for every one of them, and against its *width* whichever axis the property is on — so `height: 50%` is half the window's width. `Runtime/PageRenderDevice` is the device that makes any of it computable: with none registered AngleSharp.Css raises `ArgumentException` rather than skipping the declaration, and one `width: 100%` rule took `getComputedStyle` **and every box query** down with it ([#3730](https://github.com/sebastienros/jint/issues/3730)). `ch` and `ex` have no conversion at all and still raise, which is why `Dom/Views/CssCascade` is the one guarded door all four callers come through |
 
+### DOM §7's XPath, and CSSOM's `CSS`
+
+Two surfaces neither pinned assembly declares, so neither could be generated: there is no
+`[DomName("evaluate")]` and no `[DomName("escape")]` anywhere in AngleSharp or AngleSharp.Css. Both are
+hand-written in `Dom/Views/` beside `DOMParser`, and the three `Document` members XPath adds are
+`overrides.json` `additions`. `Jint.Tests.Browser/Fixtures/htmx` is why: htmx 2 builds an `XPathEvaluator`
+expression and calls `CSS.escape` at the top level of its bundle.
+
+- **The XPath engine is `System.Xml.XPath` over `AngleSharp.XPath`'s `HtmlDocumentNavigator`** — the
+  AngleSharp project's own package, referenced for this and nothing else, and exactly the seam the BCL's
+  XPath 1.0 evaluator takes. Writing an evaluator here instead is the one thing this package is not for.
+- **Namespaces are ignored, and that is what makes `//div` match.** An HTML element is in the XHTML
+  namespace, so an unprefixed XPath 1.0 name test — which is what every page writes — would match nothing
+  if the navigator reported it; `AngleSharp.XPath`'s own default is the same choice. The consequence is
+  stated rather than hidden: a *prefixed* test (`svg:circle`) compiles, because a resolver the page
+  supplied is consulted while the expression is compiled, and then matches nothing.
+- **A node set is materialized at evaluation**, so `invalidIteratorState` is always `false` and an
+  iterator survives a mutation instead of raising `InvalidStateError`. DOM's iterator is live and needs a
+  mutation signal this has none of; the direction is the safe one, because what it removes is a page
+  throwing.
+- **`CSS` is a namespace object, not an interface** — no constructor, no prototype, `[object CSS]` — and
+  it carries both members rather than the one htmx needs, because `window.CSS && CSS.supports(…)` is how
+  the feature is detected and half of it is a trap. `escape` is CSSOM's serialize-an-identifier;
+  `supports` parses the condition as an `@supports` rule and asks AngleSharp.Css's own
+  `IConditionFunction.Check`, so what this claims to support is exactly what the cascade can act on.
+- **`DomConstructors` grew a second entry**: `new DocumentFragment()`, which DOM gives a constructor and
+  htmx builds for every swap whose response starts with `<html>` or `<body>`. The shortness of that table
+  is still the point.
+
 ### The bindings have a file of their own
 
 How AngleSharp's attributes are read as WebIDL, the override table, the conversion table and its divergences in
